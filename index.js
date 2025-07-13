@@ -1,22 +1,15 @@
-// index.js - VERSIÓN FINAL Y COMPLETA PARA RENDER
+// index.js - VERSIÓN CORREGIDA Y OPTIMIZADA PARA RENDER
 require('dotenv').config();
 
-// ===== PASO 1: INICIAR EL SERVIDOR WEB (LO MÁS IMPORTANTE) =====
-// Esto es lo PRIMERO que hacemos para que Render detecte el puerto y no cancele el proceso.
-const keepAlive = require('./keep_alive.js');
-keepAlive();
-// ============================================
-
-
-// ===== PASO 2: CARGAR TODAS LAS DEPENDENCIAS Y CONFIGURACIÓN DEL BOT =====
-console.log("[BOT] Cargando dependencias de Discord...");
+// ===== PASO 1: CARGAR TODAS LAS DEPENDENCIAS Y CONFIGURACIÓN =====
+const keepAlive = require('./keep_alive.js'); // Cargamos el módulo del servidor web
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMenuBuilder } = require('discord.js');
 const { translate } = require('@vitalets/google-translate-api');
 
 // --- "BASE DE DATOS" EN MEMORIA ---
 let torneoActivo = null;
 let mensajeInscripcionId = null;
-let listaEquiposMessageId = null; 
+let listaEquiposMessageId = null;
 
 // --- CONFIGURACIÓN ---
 const ADMIN_CHANNEL_ID = '1393187598796587028';
@@ -42,8 +35,11 @@ const client = new Client({
     ]
 });
 
-// --- TODO TU CÓDIGO ORIGINAL (FUNCIONES, EVENTOS, ETC.) ---
-// --- NO SE HA CAMBIADO NADA AQUÍ DENTRO ---
+
+// ===== PASO 2: DEFINIR TODAS LAS FUNCIONES Y EVENTOS DEL BOT =====
+// --- TODO TU CÓDIGO ORIGINAL (FUNCIONES, EVENTOS, ETC.) VA AQUÍ ---
+// --- PEGA AQUÍ TODO TU CÓDIGO DESDE "async function limpiarCanal..." HASTA EL FINAL DE "async function handleSetupCommand..." ---
+// (He omitido el código gigante por brevedad, pero debes pegarlo aquí sin cambios)
 
 async function limpiarCanal(channelId) {
     try {
@@ -559,7 +555,7 @@ async function handleModalSubmit(interaction) {
 
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
         if (adminChannel) {
-            const adminEmbed = new EmbedBuilder().setColor('#e67e22').setTitle('🔔 Notificación de Pago').addFields({ name: 'Equipo', value: pendingTeamData.nombre, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'PayPal Indicado', value: paypalInfo, inline: false });
+            const adminEmbed = new Builder().setColor('#e67e22').setTitle('🔔 Notificación de Pago').addFields({ name: 'Equipo', value: pendingTeamData.nombre, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'PayPal Indicado', value: paypalInfo, inline: false });
             const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_aprobar_${interaction.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success).setEmoji('✅'), new ButtonBuilder().setCustomId(`admin_rechazar_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger).setEmoji('❌'));
             await adminChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         }
@@ -778,7 +774,7 @@ async function iniciarFaseEliminatoria(guild) {
             const grupoOrdenado = [...torneoActivo.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b,groupName));
             clasificados.push(grupoOrdenado[0]);
         }
-        for (let i = clasificados.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [clasificados[i], clasificados[j]] = [clasificados[j], equipos[i]]; }
+        for (let i = clasificados.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [clasificados[i], clasificados[j]] = [clasificados[j], clasificados[i]]; }
     } else { // Torneo de 8 equipos
         const grupoA = [...torneoActivo.grupos['Grupo A'].equipos].sort((a,b) => sortTeams(a,b,'Grupo A'));
         const grupoB = [...torneoActivo.grupos['Grupo B'].equipos].sort((a,b) => sortTeams(a,b,'Grupo B'));
@@ -980,14 +976,15 @@ async function handleSetupCommand(message) {
 }
 
 
-// ===== PASO 3: INICIAR SESIÓN DEL BOT EN DISCORD (LO ÚLTIMO) =====
-// Esto es lo ÚLTIMO que se ejecuta, después de que el servidor web ya está activo.
-console.log("[BOT] Todas las funciones y eventos cargados.");
-console.log("[BOT] Intentando iniciar sesión en Discord...");
+// ===== PASO 3: INICIAR SERVIDOR WEB Y CLIENTE DE DISCORD =====
 
+// Inicia el servidor web para mantener el bot activo en Render.
+keepAlive();
+
+// Inicia sesión en Discord. ESTO DEBE SER LO ÚLTIMO.
 client.login(process.env.DISCORD_TOKEN)
   .then(() => {
-      console.log(`✅ [BOT] ¡Conexión con Discord exitosa!`);
+      console.log("✅ [BOT] ¡Conexión con Discord exitosa y servidor web activo!");
   })
   .catch(error => {
       console.error("❌ [ERROR FATAL] No se pudo iniciar sesión en Discord.", error);
