@@ -1,7 +1,3 @@
-### **Archivo 3: `index.js` (Tu código completo y reordenado para Render)**
-*Edita tu `index.js` en GitHub. Borra todo lo que tiene y reemplázalo con este código completo. Verás que es todo tu código original, pero con las líneas de `keepAlive` y `client.login` movidas estratégicamente.*
-
-```javascript
 // index.js - VERSIÓN FINAL Y COMPLETA PARA RENDER
 require('dotenv').config();
 
@@ -782,7 +778,7 @@ async function iniciarFaseEliminatoria(guild) {
             const grupoOrdenado = [...torneoActivo.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b,groupName));
             clasificados.push(grupoOrdenado[0]);
         }
-        for (let i = clasificados.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [clasificados[i], clasificados[j]] = [clasificados[j], clasificados[i]]; }
+        for (let i = clasificados.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [clasificados[i], clasificados[j]] = [clasificados[j], equipos[i]]; }
     } else { // Torneo de 8 equipos
         const grupoA = [...torneoActivo.grupos['Grupo A'].equipos].sort((a,b) => sortTeams(a,b,'Grupo A'));
         const grupoB = [...torneoActivo.grupos['Grupo B'].equipos].sort((a,b) => sortTeams(a,b,'Grupo B'));
@@ -982,6 +978,7 @@ async function handleSetupCommand(message) {
         await message.delete();
     } catch (error) { console.error('Error al enviar setup:', error); }
 }
+
 
 // ===== PASO 3: INICIAR SESIÓN DEL BOT EN DISCORD (LO ÚLTIMO) =====
 // Esto es lo ÚLTIMO que se ejecuta, después de que el servidor web ya está activo.
