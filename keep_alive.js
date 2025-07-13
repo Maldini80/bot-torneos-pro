@@ -10,7 +10,7 @@ server.all('/', (req, res) => {
 function keepAlive() {
   const port = process.env.PORT || 3000;
   server.listen(port, () => {
-    console.log(`✅ [SERVIDOR WEB] Escuchando en el puerto ${port}. Listo para recibir pings.`);
+    console.log(`✅ [SERVIDOR WEB] Escuchando en el puerto ${port}. Render ya puede verme.`);
   });
 }
 
