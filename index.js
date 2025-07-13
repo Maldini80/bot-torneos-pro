@@ -1,15 +1,19 @@
-// index.js - VERSIÓN FINAL CORREGIDA (Lógica de Replit + Arranque de Render)
+// index.js - VERSIÓN FINAL COMPLETA (LÓGICA DE REPLIT + ARRANQUE PARA RENDER)
 require('dotenv').config();
 
-// ===== PASO 1: CARGAR TODAS LAS DEPENDENCIAS Y CONFIGURACIÓN =====
-const keepAlive = require('./keep_alive.js');
+// ==========================================================
+// CAMBIO 1 (Parte 1): AÑADIDO PARA RENDER
+// ==========================================================
+const keepAlive = require('./keep_alive.js'); 
+// ==========================================================
+
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMenuBuilder } = require('discord.js');
 const { translate } = require('@vitalets/google-translate-api');
 
 // --- "BASE DE DATOS" EN MEMORIA ---
 let torneoActivo = null;
 let mensajeInscripcionId = null;
-let listaEquiposMessageId = null;
+let listaEquiposMessageId = null; 
 
 // --- CONFIGURACIÓN ---
 const ADMIN_CHANNEL_ID = '1393187598796587028';
@@ -35,12 +39,7 @@ const client = new Client({
     ]
 });
 
-
-// ===== PASO 2: DEFINIR TODAS LAS FUNCIONES Y EVENTOS DEL BOT =====
-// (El código de tu archivo de Replit, que ya funcionaba, va aquí)
-
-// --- Copia y pega aquí todo el código funcional de Replit, desde `async function limpiarCanal...` hasta `async function handleSetupCommand...` ---
-// VOY A PEGARLO YO MISMO PARA ASEGURARME DE QUE ESTÁ BIEN
+// --- FUNCIONES AUXILIARES ---
 
 async function limpiarCanal(channelId) {
     try {
@@ -163,15 +162,21 @@ client.on('interactionCreate', async interaction => {
             await handleModalSubmit(interaction);
         }
     } catch (error) {
+        if (error.code === 10062) {
+            console.warn(`[WARN] Interacción expirada (token inválido). El bot tardó demasiado en responder. Esto es normal en cold starts y se ignora.`);
+            return;
+        }
         console.error('Ha ocurrido un error en el manejador de interacciones:', error);
         try {
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ content: '🇪🇸 Hubo un error al procesar tu solicitud.\n🇬🇧 *An error occurred while processing your request.*', ephemeral: true });
             } else {
-                await interaction.reply({ content: '🇪🇸 Hubo un error al procesar tu solicitud.\n🇬🇧 *An error occurred while processing your request.*', ephemeral: true });
+                 console.error('[FATAL] La interacción no fue respondida ni diferida, y falló antes de poder enviar un error.');
             }
         } catch (e) {
-            console.error('Error al enviar mensaje de error de interacción:', e);
+            if (e.code !== 10062) {
+                console.error('Error al enviar mensaje de error de interacción:', e);
+            }
         }
     }
 });
@@ -188,16 +193,24 @@ async function handleSlashCommand(interaction) {
         await interaction.channel.send({ embeds: [embed], components: [row1, row2] });
         return interaction.reply({ content: 'Panel de control creado.', ephemeral: true });
     }
+    
+    // ==========================================================
+    // CAMBIO 2: AÑADIDO PARA RENDER
+    // Se usa deferReply para evitar timeouts en comandos lentos
+    // ==========================================================
     if (commandName === 'sortear-grupos') {
+        await interaction.deferReply({ ephemeral: true }); // RESPUESTA INMEDIATA
         const torneo = torneoActivo;
-        if (!torneo) return interaction.reply({ content: 'No hay ningún torneo activo para sortear.', ephemeral: true });
-        if (torneo.status === 'fase_de_grupos') return interaction.reply({ content: 'El torneo ya ha sido sorteado.', ephemeral: true });
+        if (!torneo) return interaction.editReply({ content: 'No hay ningún torneo activo para sortear.' });
+        if (torneo.status === 'fase_de_grupos') return interaction.editReply({ content: 'El torneo ya ha sido sorteado.' });
         const equiposAprobadosCount = Object.keys(torneo.equipos_aprobados || {}).length;
-        if (equiposAprobadosCount < torneo.size) return interaction.reply({ content: `No hay suficientes equipos. Se necesitan ${torneo.size} y hay ${equiposAprobadosCount}.`, ephemeral: true });
-        await interaction.reply({ content: 'Iniciando sorteo manualmente...', ephemeral: true });
+        if (equiposAprobadosCount < torneo.size) return interaction.editReply({ content: `No hay suficientes equipos. Se necesitan ${torneo.size} y hay ${equiposAprobadosCount}.` });
+        await interaction.editReply({ content: 'Iniciando sorteo manualmente...' }); // EDICIÓN DE LA RESPUESTA
         await realizarSorteoDeGrupos(interaction.guild);
         return;
     }
+    // ==========================================================
+    
     if (commandName === 'iniciar-eliminatorias') {
         await interaction.deferReply({ephemeral: true});
         await iniciarFaseEliminatoria(interaction.guild);
@@ -762,17 +775,11 @@ async function realizarSorteoDeGrupos(guild) {
     await adminChannel.send(errorCount === 0 ? `✅ Sorteo completado y todos los ${createdCount} canales de partido creados.` : `⚠️ Se crearon ${createdCount} canales, pero fallaron ${errorCount}.`);
 }
 
-// ==========================================================
-// ESTA ES LA FUNCIÓN QUE SE HA CORREGIDO
-// ==========================================================
 async function iniciarFaseEliminatoria(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
 
     let todosPartidosFinalizados = Object.values(torneoActivo.calendario).flat().every(p => p.status === 'finalizado');
     if (!todosPartidosFinalizados) return;
-    
-    // Añadimos una comprobación para no volver a ejecutar si ya está en semifinales
-    if (torneoActivo.status === 'semifinales') return;
 
     torneoActivo.status = 'semifinales';
     const clasificados = [];
@@ -782,12 +789,7 @@ async function iniciarFaseEliminatoria(guild) {
             const grupoOrdenado = [...torneoActivo.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b,groupName));
             clasificados.push(grupoOrdenado[0]);
         }
-        // --- ESTA ES LA LÍNEA QUE SE CORRIGIÓ ---
-        // Ahora usa 'clasificados[i]' en lugar del erróneo 'equipos[i]'
-        for (let i = clasificados.length - 1; i > 0; i--) { 
-            const j = Math.floor(Math.random() * (i + 1)); 
-            [clasificados[i], clasificados[j]] = [clasificados[j], clasificados[i]]; 
-        }
+        for (let i = clasificados.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [clasificados[i], clasificados[j]] = [clasificados[j], clasificados[i]]; }
     } else { // Torneo de 8 equipos
         const grupoA = [...torneoActivo.grupos['Grupo A'].equipos].sort((a,b) => sortTeams(a,b,'Grupo A'));
         const grupoB = [...torneoActivo.grupos['Grupo B'].equipos].sort((a,b) => sortTeams(a,b,'Grupo B'));
@@ -805,7 +807,6 @@ async function iniciarFaseEliminatoria(guild) {
     const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId);
     await clasifChannel.send({ embeds: [embedAnuncio] });
 }
-// ==========================================================
 
 async function handleSemifinalResult(guild) {
     const semifinales = torneoActivo.eliminatorias.semifinales;
@@ -989,17 +990,10 @@ async function handleSetupCommand(message) {
     } catch (error) { console.error('Error al enviar setup:', error); }
 }
 
-
-// ===== PASO 3: INICIAR SERVIDOR WEB Y CLIENTE DE DISCORD =====
-
-// Inicia el servidor web para mantener el bot activo en Render.
+// ==========================================================
+// CAMBIO 1 (Parte 2): AÑADIDO PARA RENDER
+// ==========================================================
 keepAlive();
+// ==========================================================
 
-// Inicia sesión en Discord. ESTO DEBE SER LO ÚLTIMO.
-client.login(process.env.DISCORD_TOKEN)
-  .then(() => {
-      console.log("✅ [BOT] ¡Conexión con Discord exitosa y servidor web activo!");
-  })
-  .catch(error => {
-      console.error("❌ [ERROR FATAL] No se pudo iniciar sesión en Discord.", error);
-  });
+client.login(process.env.DISCORD_TOKEN);
