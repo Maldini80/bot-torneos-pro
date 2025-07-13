@@ -1,19 +1,25 @@
 {
-  "name": "nodejs",
+  "name": "bot-torneos-pro-render",
   "version": "1.0.0",
-  "description": "",
+  "description": "Bot de torneos para Discord hosteado en Render",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "keywords": [],
-  "author": "",
+  "engines": {
+    "node": "22.x"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "render"
+  ],
+  "author": "Maldini80",
   "license": "ISC",
   "dependencies": {
-    "@replit/database": "^3.0.1",
-    "@types/node": "^22.13.11",
-    "@vitalets/google-translate-api": "^9.2.1",
-    "discord.js": "^14.21.0",
-    "dotenv": "^17.2.0"
+    "@vitalets/google-translate-api": "^9.2.0",
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
   }
 }
