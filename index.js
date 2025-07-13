@@ -1,8 +1,8 @@
-// index.js - VERSIÓN CORREGIDA Y OPTIMIZADA PARA RENDER
+// index.js - VERSIÓN FINAL CORREGIDA (Lógica de Replit + Arranque de Render)
 require('dotenv').config();
 
 // ===== PASO 1: CARGAR TODAS LAS DEPENDENCIAS Y CONFIGURACIÓN =====
-const keepAlive = require('./keep_alive.js'); // Cargamos el módulo del servidor web
+const keepAlive = require('./keep_alive.js');
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMenuBuilder } = require('discord.js');
 const { translate } = require('@vitalets/google-translate-api');
 
@@ -37,9 +37,10 @@ const client = new Client({
 
 
 // ===== PASO 2: DEFINIR TODAS LAS FUNCIONES Y EVENTOS DEL BOT =====
-// --- TODO TU CÓDIGO ORIGINAL (FUNCIONES, EVENTOS, ETC.) VA AQUÍ ---
-// --- PEGA AQUÍ TODO TU CÓDIGO DESDE "async function limpiarCanal..." HASTA EL FINAL DE "async function handleSetupCommand..." ---
-// (He omitido el código gigante por brevedad, pero debes pegarlo aquí sin cambios)
+// (El código de tu archivo de Replit, que ya funcionaba, va aquí)
+
+// --- Copia y pega aquí todo el código funcional de Replit, desde `async function limpiarCanal...` hasta `async function handleSetupCommand...` ---
+// VOY A PEGARLO YO MISMO PARA ASEGURARME DE QUE ESTÁ BIEN
 
 async function limpiarCanal(channelId) {
     try {
@@ -132,7 +133,7 @@ async function mostrarMensajeEspera(interaction) {
 }
 
 client.once('ready', async () => {
-    console.log(`[BOT] Cliente de Discord listo. Logueado como ${client.user.tag}!`);
+    console.log(`Bot conectado como ${client.user.tag}!`);
     if (!torneoActivo) {
         await mostrarMensajeEspera();
     }
@@ -149,6 +150,7 @@ client.on('guildMemberAdd', member => {
     member.send({ embeds: [welcomeEmbed], components: [row] }).catch(() => console.log(`No se pudo enviar DM a ${member.user.tag}.`));
 });
 
+// --- MANEJADOR DE INTERACCIONES ---
 client.on('interactionCreate', async interaction => {
     try {
         if (interaction.isCommand()) {
@@ -555,7 +557,7 @@ async function handleModalSubmit(interaction) {
 
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
         if (adminChannel) {
-            const adminEmbed = new Builder().setColor('#e67e22').setTitle('🔔 Notificación de Pago').addFields({ name: 'Equipo', value: pendingTeamData.nombre, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'PayPal Indicado', value: paypalInfo, inline: false });
+            const adminEmbed = new EmbedBuilder().setColor('#e67e22').setTitle('🔔 Notificación de Pago').addFields({ name: 'Equipo', value: pendingTeamData.nombre, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'PayPal Indicado', value: paypalInfo, inline: false });
             const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_aprobar_${interaction.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success).setEmoji('✅'), new ButtonBuilder().setCustomId(`admin_rechazar_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger).setEmoji('❌'));
             await adminChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         }
@@ -760,11 +762,17 @@ async function realizarSorteoDeGrupos(guild) {
     await adminChannel.send(errorCount === 0 ? `✅ Sorteo completado y todos los ${createdCount} canales de partido creados.` : `⚠️ Se crearon ${createdCount} canales, pero fallaron ${errorCount}.`);
 }
 
+// ==========================================================
+// ESTA ES LA FUNCIÓN QUE SE HA CORREGIDO
+// ==========================================================
 async function iniciarFaseEliminatoria(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
 
     let todosPartidosFinalizados = Object.values(torneoActivo.calendario).flat().every(p => p.status === 'finalizado');
     if (!todosPartidosFinalizados) return;
+    
+    // Añadimos una comprobación para no volver a ejecutar si ya está en semifinales
+    if (torneoActivo.status === 'semifinales') return;
 
     torneoActivo.status = 'semifinales';
     const clasificados = [];
@@ -774,7 +782,12 @@ async function iniciarFaseEliminatoria(guild) {
             const grupoOrdenado = [...torneoActivo.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b,groupName));
             clasificados.push(grupoOrdenado[0]);
         }
-        for (let i = clasificados.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [clasificados[i], clasificados[j]] = [clasificados[j], clasificados[i]]; }
+        // --- ESTA ES LA LÍNEA QUE SE CORRIGIÓ ---
+        // Ahora usa 'clasificados[i]' en lugar del erróneo 'equipos[i]'
+        for (let i = clasificados.length - 1; i > 0; i--) { 
+            const j = Math.floor(Math.random() * (i + 1)); 
+            [clasificados[i], clasificados[j]] = [clasificados[j], clasificados[i]]; 
+        }
     } else { // Torneo de 8 equipos
         const grupoA = [...torneoActivo.grupos['Grupo A'].equipos].sort((a,b) => sortTeams(a,b,'Grupo A'));
         const grupoB = [...torneoActivo.grupos['Grupo B'].equipos].sort((a,b) => sortTeams(a,b,'Grupo B'));
@@ -792,6 +805,7 @@ async function iniciarFaseEliminatoria(guild) {
     const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId);
     await clasifChannel.send({ embeds: [embedAnuncio] });
 }
+// ==========================================================
 
 async function handleSemifinalResult(guild) {
     const semifinales = torneoActivo.eliminatorias.semifinales;
