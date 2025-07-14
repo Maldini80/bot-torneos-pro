@@ -1,59 +1,81 @@
-// database.js
-const fs = require('fs');
-const path = require('path');
+// database.js - VERSIÓN FINAL CON MONGODB ATLAS
+const { MongoClient } = require('mongodb');
 
-// La ruta a nuestro archivo de base de datos JSON.
-const dbPath = path.join(__dirname, 'db.json');
+// Obtenemos la "llave" de la base de datos desde las variables de entorno de Render.
+const dbUrl = process.env.DATABASE_URL;
 
-// Un estado inicial por defecto si el archivo no existe.
+if (!dbUrl) {
+    throw new Error('DATABASE_URL no está definida en las variables de entorno.');
+}
+
+const client = new MongoClient(dbUrl);
+
+// Un estado inicial por defecto si no hay nada en la base de datos.
 const defaultData = {
+    _id: 'botState', // Un identificador fijo para nuestro documento de estado.
     torneoActivo: null,
     mensajeInscripcionId: null,
     listaEquiposMessageId: null,
 };
 
 /**
- * Guarda el estado actual en el archivo db.json.
- * @param {object} data El objeto completo con los datos del bot a guardar.
+ * Guarda el estado actual en la base de datos de MongoDB.
+ * @param {object} data El objeto de estado del bot a guardar.
  */
-function saveData(data) {
+async function saveData(data) {
     try {
-        // Convertimos el objeto de JavaScript a una cadena de texto JSON formateada
-        const jsonString = JSON.stringify(data, null, 2);
-        // Escribimos la cadena en el archivo de forma síncrona
-        fs.writeFileSync(dbPath, jsonString, 'utf8');
-        console.log('[DATABASE] Datos guardados correctamente en db.json');
+        await client.connect();
+        const db = client.db('tournamentBotDb');
+        const collection = db.collection('state');
+        
+        // Preparamos los datos para que no incluyan el _id en la actualización
+        const dataToUpdate = { ...data };
+        delete dataToUpdate._id;
+
+        // Usamos updateOne con upsert:true. Esto actualizará el documento si existe, o lo creará si no.
+        await collection.updateOne(
+            { _id: 'botState' },
+            { $set: dataToUpdate },
+            { upsert: true }
+        );
+        console.log('[DATABASE] Datos guardados correctamente en MongoDB Atlas.');
     } catch (err) {
-        console.error('[DATABASE] ERROR AL GUARDAR LOS DATOS:', err);
+        console.error('[DATABASE] ERROR AL GUARDAR EN MONGODB:', err);
+    } finally {
+        await client.close();
     }
 }
 
 /**
- * Carga el estado desde el archivo db.json.
- * Si el archivo no existe, devuelve el estado por defecto.
+ * Carga el estado desde la base de datos de MongoDB.
  * @returns {object} El objeto completo con los datos del bot.
  */
-function loadData() {
+async function loadData() {
     try {
-        // Comprobamos si el archivo existe
-        if (fs.existsSync(dbPath)) {
-            // Leemos el contenido del archivo
-            const jsonString = fs.readFileSync(dbPath, 'utf8');
-            // Convertimos la cadena de texto JSON de vuelta a un objeto de JavaScript
-            const data = JSON.parse(jsonString);
-            console.log('[DATABASE] Datos cargados correctamente desde db.json');
-            return data;
-        } else {
-            // Si el archivo no existe, creamos uno nuevo con los datos por defecto
-            console.log('[DATABASE] No se encontró db.json. Creando uno nuevo con datos por defecto.');
-            saveData(defaultData);
-            return defaultData;
+        await client.connect();
+        const db = client.db('tournamentBotDb');
+        const collection = db.collection('state');
+        let data = await collection.findOne({ _id: 'botState' });
+
+        if (!data) {
+            console.log('[DATABASE] No se encontró estado en MongoDB. Creando uno nuevo.');
+            await collection.insertOne(defaultData);
+            data = defaultData;
         }
+        console.log('[DATABASE] Datos cargados correctamente desde MongoDB Atlas.');
+        return data;
     } catch (err) {
-        console.error('[DATABASE] ERROR AL CARGAR LOS DATOS. USANDO DATOS POR DEFECTO:', err);
-        // En caso de un error de lectura o parseo, devolvemos los datos por defecto para evitar un crash
+        console.error('[DATABASE] ERROR AL CARGAR DESDE MONGODB. USANDO DATOS POR DEFECTO:', err);
         return defaultData;
+    } finally {
+        await client.close();
     }
 }
 
-module.exports = { saveData, loadData };
+// CAMBIO IMPORTANTE: Ahora loadData es asíncrona.
+// Necesitamos una función para inicializar el bot.
+async function initializeData() {
+    return await loadData();
+}
+
+module.exports = { saveData, initializeData };
