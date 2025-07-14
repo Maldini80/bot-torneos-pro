@@ -7,6 +7,7 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder
 const { translate } = require('@vitalets/google-translate-api');
 
 // --- "BASE DE DATOS" EN MEMORIA ---
+// ADVERTENCIA: Esta variable se resetea a null cada vez que el bot se reinicia en Render, perdiendo todos los datos.
 let torneoActivo = null;
 let mensajeInscripcionId = null;
 let listaEquiposMessageId = null;
@@ -161,7 +162,8 @@ client.on('interactionCreate', async interaction => {
             await handleModalSubmit(interaction);
         }
     } catch (error) {
-        if (error.code === 10062) {
+        // CORREGIDO: Este bloque se asegura de que el bot no se caiga por errores de interacción expirada
+        if (error.code === 10062) { // 10062 = Unknown interaction
             console.warn(`[WARN] Interacción expirada (token inválido). El bot tardó demasiado en responder. Esto es normal en cold starts y se ignora.`);
             return;
         }
@@ -170,10 +172,11 @@ client.on('interactionCreate', async interaction => {
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ content: '🇪🇸 Hubo un error al procesar tu solicitud.\n🇬🇧 *An error occurred while processing your request.*', flags: [MessageFlags.Ephemeral] });
             } else {
-                 console.error('[FATAL] La interacción no fue respondida ni diferida, y falló antes de poder enviar un error.');
+                 // Si la interacción no fue ni respondida ni diferida, intentar una respuesta nueva
+                 await interaction.reply({ content: '🇪🇸 Hubo un error al procesar tu solicitud.\n🇬🇧 *An error occurred while processing your request.*', flags: [MessageFlags.Ephemeral] });
             }
         } catch (e) {
-            if (e.code !== 10062) {
+            if (e.code !== 10062) { // Evitar un bucle de errores si el mensaje de error también falla
                 console.error('Error al enviar mensaje de error de interacción:', e);
             }
         }
@@ -214,9 +217,15 @@ async function handleSlashCommand(interaction) {
 
 async function handleButton(interaction) {
     const { customId } = interaction;
+
+    // Lógica del panel de admin
     if (customId.startsWith('panel_')) {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             return interaction.reply({ content: 'No tienes permisos para usar los botones del panel.', flags: [MessageFlags.Ephemeral] });
+        }
+        // CORREGIDO: Deferir interacciones complejas del panel de admin
+        if (customId !== 'panel_crear' && customId !== 'panel_add_test') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         }
         const [panel, type, subtype] = customId.split('_');
         if (type === 'crear') {
@@ -235,7 +244,6 @@ async function handleButton(interaction) {
             modal.addComponents(new ActionRowBuilder().addComponents(cantidadInput));
             await interaction.showModal(modal);
         } else if (type === 'simular' && subtype === 'partidos') {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
             if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') {
                  return interaction.editReply({ content: 'Solo se pueden simular partidos durante la fase de grupos.' });
             }
@@ -274,7 +282,6 @@ async function handleButton(interaction) {
             await interaction.editReply({ content: `✅ Se han simulado ${partidosSimulados} partidos. La clasificación ha sido actualizada.` });
             await iniciarFaseEliminatoria(interaction.guild);
         } else if (type === 'borrar' && subtype === 'canales') {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
             const allChannels = await interaction.guild.channels.fetch();
             const matchChannels = allChannels.filter(c => c.parentId === CATEGORY_ID);
             await interaction.editReply({ content: `Borrando ${matchChannels.size} canales de partido...` });
@@ -285,7 +292,6 @@ async function handleButton(interaction) {
             }
             await interaction.followUp({ content: `✅ ${deletedCount} canales de partido borrados.`, flags: [MessageFlags.Ephemeral] });
         } else if (type === 'finalizar') {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
             if (!torneoActivo) return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
             await interaction.editReply({ content: 'Finalizando torneo...' });
             await limpiarCanal(INSCRIPCION_CHANNEL_ID);
@@ -303,28 +309,22 @@ async function handleButton(interaction) {
 
     else if (customId.startsWith('rules_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
         const [prefix, langCode, guildId] = customId.split('_');
-        
         if (!langCode || !guildId) {
              return interaction.editReply({ content: 'Error: El botón que has pulsado es inválido o antiguo.' });
         }
-
         const roleInfo = Object.values(languageRoles).find(r => r.code === langCode);
         if (!roleInfo) {
             return interaction.editReply({ content: 'Error: Código de idioma inválido.' });
         }
-
         const guild = await client.guilds.fetch(guildId).catch(() => null);
         if (!guild) {
             return interaction.editReply({ content: 'Error: No he podido encontrar el servidor. Es posible que haya sido desconectado.' });
         }
-        
         const member = await guild.members.fetch(interaction.user.id).catch(() => null);
         if (!member) {
             return interaction.editReply({ content: 'Error: No pude encontrarte como miembro del servidor.' });
         }
-
         try {
             const rolesToRemove = [];
             for (const flag in languageRoles) {
@@ -334,11 +334,9 @@ async function handleButton(interaction) {
                     rolesToRemove.push(role);
                 }
             }
-
             if (rolesToRemove.length > 0) {
                 await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma');
             }
-
             const roleToAdd = guild.roles.cache.find(r => r.name === roleInfo.name);
             if (roleToAdd) {
                 await member.roles.add(roleToAdd, 'Asignando rol de idioma por botón');
@@ -356,7 +354,11 @@ async function handleButton(interaction) {
 
     if (customId === 'inscribir_equipo_btn') {
         const torneo = torneoActivo;
-        if (!torneo || torneo.status !== 'inscripcion_abierta') return interaction.reply({ content: '🇪🇸 Las inscripciones no están abiertas.\n🇬🇧 *Registrations are not open.*', flags: [MessageFlags.Ephemeral] });
+        // La causa del error está aquí: 'torneo' es 'null' después de un reinicio del bot.
+        if (!torneo || torneo.status !== 'inscripcion_abierta') {
+            // El bot intenta responder esto, pero la interacción ya ha expirado por el "cold start".
+            return interaction.reply({ content: '🇪🇸 Las inscripciones no están abiertas o no hay un torneo activo en este momento.\n🇬🇧 *Registrations are not open or there is no active tournament right now.*', flags: [MessageFlags.Ephemeral] });
+        }
         const modal = new ModalBuilder().setCustomId('inscripcion_modal').setTitle('Inscripción de Equipo');
         const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre del equipo (3-8 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(8).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput));
@@ -565,6 +567,7 @@ async function handleModalSubmit(interaction) {
         listaEquiposMessageId = listaMsg.id;
         await interaction.editReply({ content: `✅ Torneo "${nombre}" (${size} equipos, ${isPaid ? 'de Pago' : 'Gratis'}) creado. Canal de equipos: ${equiposChannel}.` });
     } else if (customId === 'inscripcion_modal') {
+        // CORREGIDO: Deferir la respuesta para dar tiempo al bot a procesar la inscripción.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const teamName = fields.getTextInputValue('nombre_equipo_input');
 
@@ -608,6 +611,7 @@ async function handleModalSubmit(interaction) {
         }
 
     } else if (customId === 'pago_realizado_modal') {
+        // CORREGIDO: Deferir la respuesta para notificar al admin.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const paypalInfo = fields.getTextInputValue('paypal_info_input');
         const pendingTeamData = (torneoActivo.equipos_pendientes || {})[interaction.user.id];
@@ -647,6 +651,7 @@ async function handleModalSubmit(interaction) {
              }
         }
     } else if (customId.startsWith('reportar_resultado_modal_')) {
+        // CORREGIDO: Deferir la respuesta para procesar el resultado.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const matchId = customId.replace('reportar_resultado_modal_', '');
         const golesA = parseInt(fields.getTextInputValue('goles_a'));
@@ -689,6 +694,7 @@ async function handleModalSubmit(interaction) {
             await interaction.editReply(`✅ 🇪🇸 Tu resultado (${golesA}-${golesB}) ha sido guardado. Esperando la confirmación del otro capitán.\n🇬🇧 *Your result (${golesA}-${golesB}) has been saved. Waiting for the other captain's confirmation.*`);
         }
     } else if (customId.startsWith('admin_modificar_modal_')) {
+        // CORREGIDO: Deferir la respuesta para procesar la modificación del admin.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const matchId = customId.replace('admin_modificar_modal_', '');
         const golesA = parseInt(fields.getTextInputValue('goles_a'));
@@ -710,6 +716,8 @@ async function handleModalSubmit(interaction) {
         await procesarResultadoFinal(partido, interaction);
     }
 }
+
+// RESTO DEL CÓDIGO (SIN CAMBIOS)
 
 async function procesarResultadoFinal(partido, interaction) {
     await updateMatchChannelName(partido);
@@ -1009,11 +1017,8 @@ client.on('messageCreate', async message => {
     } catch (error) { console.error('Error en traducción:', error); }
 });
 
-// ===== INICIO DE LA MODIFICACIÓN 3 (LÓGICA DE REACCIONES CORREGIDA) =====
 client.on('messageReactionAdd', async (reaction, user) => {
     if (user.bot) return;
-
-    // Asegurarse de que la reacción y el mensaje están completos (no parciales)
     if (reaction.partial) {
         try {
             await reaction.fetch();
@@ -1030,38 +1035,26 @@ client.on('messageReactionAdd', async (reaction, user) => {
             return;
         }
     }
-
-    // 1. VERIFICAR QUE ES EL MENSAJE CORRECTO
-    // Solo actuar si la reacción es en un mensaje con el embed de selección de idioma.
     if (!reaction.message.embeds[0] || reaction.message.embeds[0].title !== LANGUAGE_SETUP_TITLE) {
         return;
     }
-
     const emoji = reaction.emoji.name;
     const roleInfo = languageRoles[emoji];
-    if (!roleInfo) return; // Si la reacción no es una bandera de idioma, ignorar.
-
+    if (!roleInfo) return;
     const guild = reaction.message.guild;
     if (!guild) return;
-
     const member = await guild.members.fetch(user.id).catch(() => null);
     if (!member) return;
-
     try {
         const newRoleName = roleInfo.name;
         const roleToAdd = guild.roles.cache.find(r => r.name === newRoleName);
-
         if (!roleToAdd) {
             console.warn(`[ADVERTENCIA] El rol de idioma "${newRoleName}" no fue encontrado en el servidor.`);
             return;
         }
-        
-        // Si el miembro ya tiene el rol que está seleccionando, no hacemos nada.
         if (member.roles.cache.has(roleToAdd.id)) {
             return;
         }
-
-        // 2. LÓGICA DE ROLES MEJORADA
         const rolesToRemove = [];
         for (const flag in languageRoles) {
             const roleNameToRemove = languageRoles[flag].name;
@@ -1070,28 +1063,19 @@ client.on('messageReactionAdd', async (reaction, user) => {
                 rolesToRemove.push(role);
             }
         }
-        
-        // Quitar los roles antiguos (si los hay)
         if (rolesToRemove.length > 0) {
             await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma por reacción.');
         }
-
-        // Añadir el nuevo rol
         await member.roles.add(roleToAdd, 'Asignando rol de idioma por reacción.');
-
-        // Opcional: Enviar una confirmación efímera al usuario (solo funciona con slash commands/botones, no con reacciones)
-        // Por lo tanto, no se envía respuesta aquí, solo se cambian los roles silenciosamente.
-
     } catch (error) {
         console.error('Error al asignar rol por reacción:', error);
     }
 });
-// ===== FIN DE LA MODIFICACIÓN 3 =====
 
 async function handleSetupCommand(message) {
     const embed = new EmbedBuilder()
         .setColor('#8b5cf6')
-        .setTitle(LANGUAGE_SETUP_TITLE) // Usar la constante para consistencia
+        .setTitle(LANGUAGE_SETUP_TITLE)
         .setDescription('Reacciona a tu bandera para traducir tus mensajes.\n*React with your flag to have your messages translated.*')
         .addFields(Object.values(languageRoles).map(role => ({ name: `${Object.keys(languageRoles).find(key => languageRoles[key] === role)} ${role.name}`, value: ``, inline: true })))
         .setFooter({ text: 'Solo puedes tener un rol de idioma.' });
