@@ -1,4 +1,4 @@
-// index.js - VERSIÓN FINAL COMPLETA (CON PERSISTENCIA EFICIENTE + CORRECCIONES DE INTERACCIÓN)
+// index.js - VERSIÓN FINAL Y COMPLETA (CON LÓGICA DE BOTONES RESTAURADA)
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -13,7 +13,7 @@ let mensajeInscripcionId;
 let listaEquiposMessageId;
 
 function saveBotState() {
-    if (!botData) return; // No guardar si los datos no se han cargado
+    if (!botData) return;
     const currentTournamentState = JSON.parse(JSON.stringify(torneoActivo));
     botData.torneoActivo = currentTournamentState;
     saveData(botData);
@@ -441,9 +441,11 @@ async function handleButton(interaction) {
         return interaction.showModal(modal);
     }
     
+    // --- LÓGICA RESTAURADA ---
     // Botones que ejecutan una acción directa y necesitan defer
     else {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        
         if (customId.startsWith('solicitar_arbitraje_')) {
             const matchId = customId.replace('solicitar_arbitraje_', '');
             const { partido } = findMatch(matchId);
@@ -461,15 +463,112 @@ async function handleButton(interaction) {
         }
     
         if (customId.startsWith('admin_aprobar_') || customId.startsWith('admin_rechazar_') || customId.startsWith('admin_expulsar_')) {
-            // Lógica de aprobación/rechazo/expulsión...
+            const [action, type, captainId] = customId.split('_');
+            if (type === 'expulsar') {
+                if (!torneoActivo || torneoActivo.status !== 'inscripcion_abierta') {
+                    return interaction.editReply({ content: 'Solo se pueden expulsar equipos durante la fase de inscripción.' });
+                }
+                const teamToKick = torneoActivo.equipos_aprobados[captainId];
+                if (!teamToKick) return interaction.editReply({ content: 'Error: No se pudo encontrar a este equipo. Quizás ya fue expulsado.' });
+    
+                delete torneoActivo.equipos_aprobados[captainId];
+                saveBotState();
+    
+                const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
+                if (equiposChannel && listaEquiposMessageId) {
+                    const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(() => null);
+                    if(listaMsg) {
+                        const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, index) => `${index + 1}. ${e.bandera||''} ${e.nombre} (Capitán: ${e.capitanTag})`).join('\n');
+                        const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos || 'Aún no hay equipos inscritos.').setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
+                        await listaMsg.edit({ embeds: [embedLista] });
+                    }
+                }
+                const captainUser = await client.users.fetch(captainId).catch(() => null);
+                if(captainUser) {
+                    await captainUser.send(`🇪🇸 Tu equipo **${teamToKick.nombre}** ha sido eliminado del torneo por un administrador.\n🇬🇧 Your team **${teamToKick.nombre}** has been removed from the tournament by an administrator.`).catch(() => {});
+                }
+                const originalMessage = interaction.message;
+                const newEmbed = EmbedBuilder.from(originalMessage.embeds[0]).setTitle('❌ EQUIPO EXPULSADO').setColor('#E74C3C').setFooter({ text: `Expulsado por ${interaction.user.tag}`});
+                const disabledButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('kicked_done').setLabel('Expulsado').setStyle(ButtonStyle.Danger).setDisabled(true));
+                await originalMessage.edit({ embeds: [newEmbed], components: [disabledButtons] });
+                await interaction.editReply({ content: `✅ El equipo **${teamToKick.nombre}** ha sido expulsado del torneo. Hay una nueva plaza libre.` });
+            } else {
+                const equipoPendiente = torneoActivo.equipos_pendientes[captainId];
+                if (!equipoPendiente) return interaction.editReply({ content: 'Este equipo ya no está pendiente o el bot se reinició.' });
+                const originalMessage = interaction.message;
+                const newEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+                const newButtons = new ActionRowBuilder();
+                if (type === 'aprobar') {
+                    if (!torneoActivo.equipos_aprobados) torneoActivo.equipos_aprobados = {};
+                    equipoPendiente.id = captainId;
+                    const captainMember = await interaction.guild.members.fetch(captainId).catch(()=>null);
+                    let captainFlag = '🏳️';
+                    if (captainMember) { for (const flag in languageRoles) { const role = interaction.guild.roles.cache.find(r => r.name === languageRoles[flag].name); if (role && captainMember.roles.cache.has(role.id)) { captainFlag = flag; break; } } }
+                    equipoPendiente.bandera = captainFlag;
+                    torneoActivo.equipos_aprobados[captainId] = equipoPendiente;
+                    delete torneoActivo.equipos_pendientes[captainId];
+                    saveBotState(); 
+                    
+                    newEmbed.setColor('#2ECC71').setTitle('✅ EQUIPO APROBADO').addFields({ name: 'Aprobado por', value: interaction.user.tag });
+                    newButtons.addComponents(new ButtonBuilder().setCustomId(`admin_expulsar_${captainId}`).setLabel('Expulsar Equipo').setStyle(ButtonStyle.Danger).setEmoji('✖️'));
+                    const captainUser = await client.users.fetch(captainId).catch(()=>null);
+                    if(captainUser) {
+                        const approvalMessage = `✅ 🇪🇸 ¡Tu inscripción para el equipo **${equipoPendiente.nombre}** ha sido aprobada!\n\n🇬🇧 Your registration for the team **${equipoPendiente.nombre}** has been approved!`;
+                        await captainUser.send(approvalMessage).catch(()=>{ console.log(`No se pudo enviar DM de aprobación a ${captainUser.tag}.`); });
+                    }
+                    await originalMessage.edit({ embeds: [newEmbed], components: [newButtons] });
+                    await interaction.editReply({ content: `Acción 'aprobar' completada.` });
+                    const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(()=>null);
+                    if (equiposChannel && listaEquiposMessageId) {
+                        const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
+                        if(listaMsg) {
+                            const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, index) => `${index + 1}. ${e.bandera||''} ${e.nombre} (Capitán: ${e.capitanTag})`).join('\n');
+                            const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos || 'Aún no hay equipos inscritos.').setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
+                            await listaMsg.edit({ embeds: [embedLista] });
+                        }
+                    }
+                    if (Object.keys(torneoActivo.equipos_aprobados).length === torneoActivo.size) {
+                        await interaction.followUp({ content: `¡Cupo de ${torneoActivo.size} equipos lleno! Iniciando sorteo...`, flags: [MessageFlags.Ephemeral] });
+                        await realizarSorteoDeGrupos(interaction.guild);
+                    }
+                } else { // Rechazar
+                    delete torneoActivo.equipos_pendientes[captainId];
+                    saveBotState();
+    
+                    newEmbed.setColor('#e74c3c').setTitle('❌ INSCRIPCIÓN RECHAZADA').addFields({ name: 'Rechazado por', value: interaction.user.tag });
+                    newButtons.addComponents(new ButtonBuilder().setCustomId('done_reject').setLabel('Rechazado').setStyle(ButtonStyle.Danger).setDisabled(true));
+                    await originalMessage.edit({ embeds: [newEmbed], components: [newButtons] });
+                    await interaction.editReply({ content: `Acción 'rechazar' completada.` });
+                }
+            }
         }
         
         if (customId.startsWith('admin_confirm_payment_')) {
-            // Lógica de confirmación de pago...
+            const winnerId = customId.split('_').pop();
+            const winner = await client.users.fetch(winnerId).catch(() => null);
+            if (!winner) {
+                return interaction.editReply({ content: 'No se pudo encontrar al usuario ganador.' });
+            }
+            const dmEmbed = new EmbedBuilder().setColor('#2ECC71').setTitle('💸 ¡Premio Recibido! / Prize Received!').setDescription(`🇪🇸 ¡Felicidades! El premio del torneo **${torneoActivo.nombre}** ha sido abonado en tu cuenta.\n\n🇬🇧 Congratulations! The prize for the **${torneoActivo.nombre}** tournament has been sent to your account.`);
+            try {
+                await winner.send({ embeds: [dmEmbed] });
+            } catch (e) {
+                console.error(`No se pudo enviar el DM de confirmación de pago a ${winner.tag}`);
+                return interaction.editReply({ content: `No se pudo enviar el DM al ganador, pero la acción se ha registrado. Puede que tenga los DMs cerrados.` });
+            }
+            const originalMessage = interaction.message;
+            const newEmbed = EmbedBuilder.from(originalMessage.embeds[0]).setFooter({ text: `Pago confirmado por ${interaction.user.tag}`}).setColor('#1ABC9C');
+            const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+            disabledRow.components.forEach(component => {
+                if (component.data.custom_id === customId) {
+                    component.setDisabled(true).setLabel('Pago Confirmado');
+                }
+            });
+            await originalMessage.edit({ embeds: [newEmbed], components: [disabledRow] });
+            await interaction.editReply({ content: `✅ Notificación de pago enviado correctamente al ganador.` });
         }
     }
 }
-
 
 async function handleSelectMenu(interaction) {
     if (interaction.customId === 'crear_torneo_size_select') {
@@ -907,42 +1006,16 @@ async function handleFinalResult() {
     if (torneoActivo.isPaid) {
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
         if(adminChannel) {
-            // Embed para el CAMPEÓN
-            const paymentEmbedCampeon = new EmbedBuilder()
-                .setColor('#FFD700')
-                .setTitle('🏆 Tarea de Admin: Pagar Premio al CAMPEÓN')
-                .addFields(
-                    { name: 'Equipo Ganador', value: campeon.nombre },
-                    { name: 'Capitán', value: campeon.capitanTag },
-                    { name: 'PayPal del Capitán', value: `\`${campeon.paypal || 'No proporcionado'}\`` },
-                    { name: 'Monto a Pagar', value: `${torneoActivo.prizeCampeon}€` }
-                )
-                .setTimestamp();
-
-            const rowCampeon = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`admin_confirm_payment_campeon_${campeon.id}`).setLabel('Confirmar Pago a Campeón').setStyle(ButtonStyle.Success).setEmoji('✅')
-            );
+            const paymentEmbedCampeon = new EmbedBuilder().setColor('#FFD700').setTitle('🏆 Tarea de Admin: Pagar Premio al CAMPEÓN').addFields({ name: 'Equipo Ganador', value: campeon.nombre },{ name: 'Capitán', value: campeon.capitanTag },{ name: 'PayPal del Capitán', value: `\`${campeon.paypal || 'No proporcionado'}\`` },{ name: 'Monto a Pagar', value: `${torneoActivo.prizeCampeon}€` }).setTimestamp();
+            const rowCampeon = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_confirm_payment_campeon_${campeon.id}`).setLabel('Confirmar Pago a Campeón').setStyle(ButtonStyle.Success).setEmoji('✅'));
             if (campeon.paypal) {
                 const paymentLink = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(campeon.paypal)}&amount=${torneoActivo.prizeCampeon}¤cy_code=EUR`;
                 rowCampeon.addComponents(new ButtonBuilder().setLabel('Pagar con PayPal').setStyle(ButtonStyle.Link).setURL(paymentLink).setEmoji('💸'));
             }
             await adminChannel.send({ content: `<@&${ARBITRO_ROLE_ID}>`, embeds: [paymentEmbedCampeon], components: [rowCampeon] });
             
-            // Embed para el FINALISTA
-            const paymentEmbedFinalista = new EmbedBuilder()
-                .setColor('#C0C0C0') 
-                .setTitle('🥈 Tarea de Admin: Pagar Premio al FINALISTA')
-                .addFields(
-                    { name: 'Equipo Finalista', value: finalista.nombre },
-                    { name: 'Capitán', value: finalista.capitanTag },
-                    { name: 'PayPal del Capitán', value: `\`${finalista.paypal || 'No proporcionado'}\`` },
-                    { name: 'Monto a Pagar', value: `${torneoActivo.prizeFinalista}€` }
-                )
-                .setTimestamp();
-
-            const rowFinalista = new ActionRowBuilder().addComponents(
-                 new ButtonBuilder().setCustomId(`admin_confirm_payment_finalista_${finalista.id}`).setLabel('Confirmar Pago a Finalista').setStyle(ButtonStyle.Success).setEmoji('✅')
-            );
+            const paymentEmbedFinalista = new EmbedBuilder().setColor('#C0C0C0').setTitle('🥈 Tarea de Admin: Pagar Premio al FINALISTA').addFields({ name: 'Equipo Finalista', value: finalista.nombre },{ name: 'Capitán', value: finalista.capitanTag },{ name: 'PayPal del Capitán', value: `\`${finalista.paypal || 'No proporcionado'}\`` },{ name: 'Monto a Pagar', value: `${torneoActivo.prizeFinalista}€` }).setTimestamp();
+            const rowFinalista = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_confirm_payment_finalista_${finalista.id}`).setLabel('Confirmar Pago a Finalista').setStyle(ButtonStyle.Success).setEmoji('✅'));
              if (finalista.paypal) {
                 const paymentLink = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(finalista.paypal)}&amount=${torneoActivo.prizeFinalista}¤cy_code=EUR`;
                 rowFinalista.addComponents(new ButtonBuilder().setLabel('Pagar con PayPal').setStyle(ButtonStyle.Link).setURL(paymentLink).setEmoji('💸'));
