@@ -1,10 +1,10 @@
-// index.js - VERSIÓN FINAL COMPLETA (LÓGICA DE REPLIT + ARRANQUE PARA RENDER)
+// index.js - VERSIÓN FINAL COMPLETA (LÓGICA DE REPLIT + ARRANQUE PARA RENDER + CORRECCIÓN DE IDIOMAS)
 require('dotenv').config();
 
 // ==========================================================
 // CAMBIO 1 (Parte 1): AÑADIDO PARA RENDER
 // ==========================================================
-const keepAlive = require('./keep_alive.js'); 
+const keepAlive = require('./keep_alive.js');
 // ==========================================================
 
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMenuBuilder } = require('discord.js');
@@ -13,7 +13,7 @@ const { translate } = require('@vitalets/google-translate-api');
 // --- "BASE DE DATOS" EN MEMORIA ---
 let torneoActivo = null;
 let mensajeInscripcionId = null;
-let listaEquiposMessageId = null; 
+let listaEquiposMessageId = null;
 
 // --- CONFIGURACIÓN ---
 const ADMIN_CHANNEL_ID = '1393187598796587028';
@@ -126,7 +126,7 @@ async function mostrarMensajeEspera(interaction) {
         if(interaction) await interaction.followUp({ content: 'Error: Canal de inscripción no encontrado.', ephemeral: true });
         return;
     }
-    await limpiarCanal(INSCRIPCION_CHANNEL_ID); 
+    await limpiarCanal(INSCRIPCION_CHANNEL_ID);
     const waitEmbed = new EmbedBuilder().setColor('#34495e').setTitle('⏳ 🇪🇸 Torneo en Espera / 🇬🇧 Tournament on Standby').setDescription('🇪🇸 Actualmente no hay ningún torneo activo.\n\n🇬🇧 *There are currently no active tournaments.*');
     await channel.send({ embeds: [waitEmbed] });
 }
@@ -276,7 +276,7 @@ async function handleButton(interaction) {
                     }
                 }
             }
-            await actualizarMensajeClasificacion(); 
+            await actualizarMensajeClasificacion();
             await interaction.editReply({ content: `✅ Se han simulado ${partidosSimulados} partidos. La clasificación ha sido actualizada.` });
             await iniciarFaseEliminatoria(interaction.guild);
         } else if (type === 'borrar' && subtype === 'canales') {
@@ -305,7 +305,61 @@ async function handleButton(interaction) {
             await interaction.followUp({ content: '✅ Torneo finalizado y todos los canales reseteados.', ephemeral: true });
         }
         return;
-    } 
+    }
+
+    // =================================================================================
+    // INICIO DEL CAMBIO: AÑADIDO PARA SOLUCIONAR EL ERROR DE "INTERACCIÓN FALLIDA"
+    // =================================================================================
+    else if (customId.startsWith('rules_')) {
+        await interaction.deferReply({ ephemeral: true });
+
+        const langCode = customId.split('_')[1];
+        const roleInfo = Object.values(languageRoles).find(r => r.code === langCode);
+
+        if (!roleInfo) {
+            return interaction.editReply({ content: 'Error: Código de idioma inválido.' });
+        }
+
+        const guild = interaction.guild;
+        if (!guild) {
+            return interaction.editReply({ content: 'Error: No se pudo encontrar el servidor desde este MD.' });
+        }
+        const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+        if (!member) {
+            return interaction.editReply({ content: 'Error: No pude encontrarte como miembro del servidor.' });
+        }
+
+        try {
+            const rolesToRemove = [];
+            for (const flag in languageRoles) {
+                const roleNameToRemove = languageRoles[flag].name;
+                const role = guild.roles.cache.find(r => r.name === roleNameToRemove);
+                if (role && member.roles.cache.has(role.id)) {
+                    rolesToRemove.push(role);
+                }
+            }
+
+            if (rolesToRemove.length > 0) {
+                await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma');
+            }
+
+            const roleToAdd = guild.roles.cache.find(r => r.name === roleInfo.name);
+            if (roleToAdd) {
+                await member.roles.add(roleToAdd, 'Asignando rol de idioma por botón');
+                await interaction.editReply({ content: `✅ ¡Idioma establecido a **${roleInfo.name}**! Ya puedes participar en el servidor.\n\n✅ *Language set to **${roleInfo.name}**! You can now participate in the server.*` });
+            } else {
+                console.warn(`[ADVERTENCIA] El rol de idioma "${roleInfo.name}" no fue encontrado en el servidor.`);
+                await interaction.editReply({ content: `Error: El rol para ${roleInfo.name} no existe. Por favor, contacta a un administrador.` });
+            }
+        } catch (error) {
+            console.error('Error al asignar rol de idioma desde botón:', error);
+            await interaction.editReply({ content: 'Hubo un error al intentar asignarte el rol. Revisa que el bot tenga permisos para gestionar roles.' });
+        }
+        return;
+    }
+    // =================================================================================
+    // FIN DEL CAMBIO
+    // =================================================================================
 
     if (customId === 'inscribir_equipo_btn') {
         const torneo = torneoActivo;
@@ -409,7 +463,7 @@ async function handleButton(interaction) {
                     await interaction.followUp({ content: `¡Cupo de ${torneoActivo.size} equipos lleno! Iniciando sorteo...`, ephemeral: true });
                     await realizarSorteoDeGrupos(interaction.guild);
                 }
-            } else { 
+            } else {
                 delete torneoActivo.equipos_pendientes[captainId];
                 newEmbed.setColor('#e74c3c').setTitle('❌ INSCRIPCIÓN RECHAZADA').addFields({ name: 'Rechazado por', value: interaction.user.tag });
                 newButtons.addComponents(new ButtonBuilder().setCustomId('done_reject').setLabel('Rechazado').setStyle(ButtonStyle.Danger).setDisabled(true));
@@ -710,17 +764,17 @@ async function realizarSorteoDeGrupos(guild) {
         return adminChannel.send(`❌ Error Crítico: La categoría para partidos no se encuentra.`);
     }
     const inscripcionChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID);
-    if(mensajeInscripcionId) { 
-        try { 
-            const msg = await inscripcionChannel.messages.fetch(mensajeInscripcionId); 
-            const disabledRow = new ActionRowBuilder().addComponents(ButtonBuilder.from(msg.components[0].components[0]).setDisabled(true)); 
-            await msg.edit({ content: 'Las inscripciones para este torneo han finalizado.', components: [disabledRow] }); 
-        } catch (e) { console.error("No se pudo editar el mensaje de inscripción."); } 
+    if(mensajeInscripcionId) {
+        try {
+            const msg = await inscripcionChannel.messages.fetch(mensajeInscripcionId);
+            const disabledRow = new ActionRowBuilder().addComponents(ButtonBuilder.from(msg.components[0].components[0]).setDisabled(true));
+            await msg.edit({ content: 'Las inscripciones para este torneo han finalizado.', components: [disabledRow] });
+        } catch (e) { console.error("No se pudo editar el mensaje de inscripción."); }
     }
     torneo.status = 'fase_de_grupos';
     let equipos = Object.values(torneo.equipos_aprobados);
     for (let i = equipos.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [equipos[i], equipos[j]] = [equipos[j], equipos[i]]; }
-    const grupos = {}; 
+    const grupos = {};
     const calendario = {};
     const numGrupos = torneo.size / 4;
     for (let i = 0; i < equipos.length; i++) {
@@ -736,22 +790,22 @@ async function realizarSorteoDeGrupos(guild) {
         for (let i = 0; i < equiposGrupo.length; i++) {
             for (let j = i + 1; j < equiposGrupo.length; j++) {
                 if (!calendario[nombreGrupo]) calendario[nombreGrupo] = [];
-                calendario[nombreGrupo].push({ 
-                    matchId: `match_${Date.now()}_${i}${j}`, 
-                    nombreGrupo, 
-                    jornada: jornadaCounter++, 
-                    equipoA: equiposGrupo[i], 
-                    equipoB: equiposGrupo[j], 
-                    resultado: null, 
-                    reportedScores: {}, 
-                    status: 'en_curso', 
-                    channelId: null 
+                calendario[nombreGrupo].push({
+                    matchId: `match_${Date.now()}_${i}${j}`,
+                    nombreGrupo,
+                    jornada: jornadaCounter++,
+                    equipoA: equiposGrupo[i],
+                    equipoB: equiposGrupo[j],
+                    resultado: null,
+                    reportedScores: {},
+                    status: 'en_curso',
+                    channelId: null
                 });
             }
         }
     }
-    torneo.grupos = grupos; 
-    torneo.calendario = calendario; 
+    torneo.grupos = grupos;
+    torneo.calendario = calendario;
     torneo.eliminatorias = { semifinales: [], final: null };
     const channelName = `🏆-clasificacion-${torneo.nombre.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase()}`;
     const gruposChannel = await guild.channels.create({ name: channelName, type: ChannelType.GuildText, topic: `Clasificación del torneo ${torneo.nombre}.` });
@@ -760,15 +814,15 @@ async function realizarSorteoDeGrupos(guild) {
     const classificationMessage = await gruposChannel.send({ embeds: [embedClasificacion] });
     torneo.publicGroupsMessageId = classificationMessage.id;
     torneoActivo = torneo;
-    await actualizarMensajeClasificacion(); 
+    await actualizarMensajeClasificacion();
     let createdCount = 0, errorCount = 0;
     for (const nombreGrupo in calendario) {
         for (const partido of calendario[nombreGrupo]) {
-            try { 
-                await crearCanalDePartido(guild, partido, `Grupo ${nombreGrupo.slice(-1)}`); 
-                createdCount++; 
-            } catch (error) { 
-                errorCount++; 
+            try {
+                await crearCanalDePartido(guild, partido, `Grupo ${nombreGrupo.slice(-1)}`);
+                createdCount++;
+            } catch (error) {
+                errorCount++;
             }
         }
     }
@@ -904,7 +958,7 @@ function sortTeams(a, b, groupName) {
     const enfrentamiento = torneoActivo.calendario[groupName].find(p => (p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id));
     if (enfrentamiento && enfrentamiento.resultado) {
         const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
-        if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; } 
+        if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
         else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
     }
     return 0;
