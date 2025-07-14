@@ -1,34 +1,42 @@
-// database.js - VERSIÓN FINAL CON MONGODB ATLAS (CORREGIDA)
+// database.js - VERSIÓN FINAL EFICIENTE (CONEXIÓN ÚNICA)
 const { MongoClient } = require('mongodb');
 
-// Obtenemos la "llave" de la base de datos desde las variables de entorno de Render.
 const dbUrl = process.env.DATABASE_URL;
-
 if (!dbUrl) {
     throw new Error('DATABASE_URL no está definida en las variables de entorno.');
 }
 
-// Conectamos sin opciones adicionales. Dejamos que el driver negocie.
+// CAMBIO CRÍTICO: Creamos una única instancia del cliente que se reutilizará.
 const client = new MongoClient(dbUrl);
+let db; // Variable para mantener la referencia a la base de datos.
+
+// CAMBIO CRÍTICO: Función para conectar una sola vez al inicio.
+async function connectDb() {
+    try {
+        await client.connect();
+        db = client.db('tournamentBotDb'); // Nombre de tu base de datos
+        console.log('[DATABASE] Conectado exitosamente a MongoDB Atlas.');
+    } catch (err) {
+        console.error('[DATABASE] ERROR FATAL AL CONECTAR CON MONGODB:', err);
+        process.exit(1); // Si no podemos conectar a la DB, el bot no debe continuar.
+    }
+}
 
 // Un estado inicial por defecto si no hay nada en la base de datos.
 const defaultData = {
-    _id: 'botState', // Un identificador fijo para nuestro documento de estado.
+    _id: 'botState',
     torneoActivo: null,
     mensajeInscripcionId: null,
     listaEquiposMessageId: null,
 };
 
 /**
- * Guarda el estado actual en la base de datos de MongoDB.
+ * Guarda el estado actual en MongoDB. AHORA REUTILIZA LA CONEXIÓN.
  * @param {object} data El objeto de estado del bot a guardar.
  */
 async function saveData(data) {
     try {
-        await client.connect();
-        const db = client.db('tournamentBotDb');
         const collection = db.collection('state');
-        
         const dataToUpdate = { ...data };
         delete dataToUpdate._id;
 
@@ -37,22 +45,18 @@ async function saveData(data) {
             { $set: dataToUpdate },
             { upsert: true }
         );
-        console.log('[DATABASE] Datos guardados correctamente en MongoDB Atlas.');
+        // Quitamos el log de aquí para no llenar la consola.
     } catch (err) {
         console.error('[DATABASE] ERROR AL GUARDAR EN MONGODB:', err);
-    } finally {
-        await client.close();
     }
 }
 
 /**
- * Carga el estado desde la base de datos de MongoDB.
+ * Carga el estado inicial desde MongoDB. AHORA REUTILIZA LA CONEXIÓN.
  * @returns {object} El objeto completo con los datos del bot.
  */
-async function loadData() {
+async function loadInitialData() {
     try {
-        await client.connect();
-        const db = client.db('tournamentBotDb');
         const collection = db.collection('state');
         let data = await collection.findOne({ _id: 'botState' });
 
@@ -61,18 +65,11 @@ async function loadData() {
             await collection.insertOne(defaultData);
             data = defaultData;
         }
-        console.log('[DATABASE] Datos cargados correctamente desde MongoDB Atlas.');
         return data;
     } catch (err) {
         console.error('[DATABASE] ERROR AL CARGAR DESDE MONGODB. USANDO DATOS POR DEFECTO:', err);
         return defaultData;
-    } finally {
-        await client.close();
     }
 }
 
-async function initializeData() {
-    return await loadData();
-}
-
-module.exports = { saveData, initializeData };
+module.exports = { connectDb, saveData, loadInitialData };
