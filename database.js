@@ -1,4 +1,4 @@
-// database.js - VERSIÓN FINAL CON MONGODB ATLAS Y FIX DE TLS
+// database.js - VERSIÓN FINAL CON MONGODB ATLAS (CORREGIDA)
 const { MongoClient } = require('mongodb');
 
 // Obtenemos la "llave" de la base de datos desde las variables de entorno de Render.
@@ -8,13 +8,8 @@ if (!dbUrl) {
     throw new Error('DATABASE_URL no está definida en las variables de entorno.');
 }
 
-// AÑADIDO: Opciones de conexión para forzar el uso de TLS 1.2
-const options = {
-    tlsVersion: 'TLSv1.2',
-};
-
-// CORREGIDO: Pasamos las nuevas opciones al crear el cliente.
-const client = new MongoClient(dbUrl, options);
+// Conectamos sin opciones adicionales. Dejamos que el driver negocie.
+const client = new MongoClient(dbUrl);
 
 // Un estado inicial por defecto si no hay nada en la base de datos.
 const defaultData = {
