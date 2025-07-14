@@ -1,4 +1,4 @@
-// database.js - VERSIÓN FINAL CON MONGODB ATLAS
+// database.js - VERSIÓN FINAL CON MONGODB ATLAS Y FIX DE TLS
 const { MongoClient } = require('mongodb');
 
 // Obtenemos la "llave" de la base de datos desde las variables de entorno de Render.
@@ -8,7 +8,13 @@ if (!dbUrl) {
     throw new Error('DATABASE_URL no está definida en las variables de entorno.');
 }
 
-const client = new MongoClient(dbUrl);
+// AÑADIDO: Opciones de conexión para forzar el uso de TLS 1.2
+const options = {
+    tlsVersion: 'TLSv1.2',
+};
+
+// CORREGIDO: Pasamos las nuevas opciones al crear el cliente.
+const client = new MongoClient(dbUrl, options);
 
 // Un estado inicial por defecto si no hay nada en la base de datos.
 const defaultData = {
@@ -28,11 +34,9 @@ async function saveData(data) {
         const db = client.db('tournamentBotDb');
         const collection = db.collection('state');
         
-        // Preparamos los datos para que no incluyan el _id en la actualización
         const dataToUpdate = { ...data };
         delete dataToUpdate._id;
 
-        // Usamos updateOne con upsert:true. Esto actualizará el documento si existe, o lo creará si no.
         await collection.updateOne(
             { _id: 'botState' },
             { $set: dataToUpdate },
@@ -72,8 +76,6 @@ async function loadData() {
     }
 }
 
-// CAMBIO IMPORTANTE: Ahora loadData es asíncrona.
-// Necesitamos una función para inicializar el bot.
 async function initializeData() {
     return await loadData();
 }
