@@ -2,16 +2,17 @@
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
-const { saveData, loadData } = require('./database.js'); // PERSISTENCIA
+// CAMBIO: Ahora usamos initializeData de nuestro nuevo database.js
+const { saveData, initializeData } = require('./database.js'); 
 
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
 const { translate } = require('@vitalets/google-translate-api');
 
-// PERSISTENCIA: En lugar de variables en memoria, cargamos todo desde el archivo db.json
-let botData = loadData();
-let torneoActivo = botData.torneoActivo;
-let mensajeInscripcionId = botData.mensajeInscripcionId;
-let listaEquiposMessageId = botData.listaEquiposMessageId;
+// CAMBIO: Declaramos las variables vacías. Se llenarán después de conectarnos a la base de datos.
+let botData;
+let torneoActivo;
+let mensajeInscripcionId;
+let listaEquiposMessageId;
 
 // PERSISTENCIA: Función central para guardar todo el estado del bot en el archivo.
 function saveBotState() {
@@ -1238,6 +1239,20 @@ async function handleSetupCommand(message) {
     } catch (error) { console.error('Error al enviar setup:', error); }
 }
 
-keepAlive();
+// FUNCIÓN DE ARRANQUE ASÍNCRONA
+async function startBot() {
+    console.log('[INIT] Cargando datos desde la base de datos...');
+    // Primero nos conectamos a la base de datos y cargamos todo.
+    botData = await initializeData(); 
+    torneoActivo = botData.torneoActivo;
+    mensajeInscripcionId = botData.mensajeInscripcionId;
+    listaEquiposMessageId = botData.listaEquiposMessageId;
+    console.log('[INIT] Datos cargados. Iniciando bot...');
 
-client.login(process.env.DISCORD_TOKEN);
+    // Una vez cargados los datos, iniciamos el servidor web y nos conectamos a Discord.
+    keepAlive();
+    client.login(process.env.DISCORD_TOKEN);
+}
+
+// Ejecutamos la función de arranque.
+startBot();
