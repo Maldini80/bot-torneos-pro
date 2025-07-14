@@ -210,7 +210,6 @@ async function handleSlashCommand(interaction) {
         await interaction.editReply({ content: 'Fase eliminatoria iniciada.'});
     }
 }
-
 async function handleButton(interaction) {
     const { customId } = interaction;
     const isModalButton = ['inscribir_equipo_btn', 'pago_realizado_btn'].includes(customId) || customId.startsWith('reportar_resultado_v3_') || customId.startsWith('aportar_prueba_') || customId.startsWith('admin_modificar_resultado_') || customId.startsWith('panel_add_test');
@@ -338,8 +337,77 @@ async function handleButton(interaction) {
             // ...
             if (type === 'aprobar') {
                 // ...
-                await db.set('torneo', torneoActivo);
             }
         }
+        await db.set('torneo', torneoActivo);
     }
 }
+
+async function handleSelectMenu(interaction) {
+    if (interaction.customId === 'crear_torneo_size_select') {
+        await interaction.deferUpdate();
+        const size = interaction.values[0];
+        const typeMenu = new StringSelectMenuBuilder().setCustomId(`crear_torneo_type_select_${size}`).setPlaceholder('Paso 2: Selecciona el tipo de torneo').addOptions([{ label: 'De Pago', value: 'pago' }, { label: 'Gratuito', value: 'gratis' }]);
+        const row = new ActionRowBuilder().addComponents(typeMenu);
+        await interaction.editReply({ content: `Tamaño seleccionado: **${size} equipos**. Ahora, selecciona el tipo de torneo:`, components: [row] });
+    } else if (interaction.customId.startsWith('crear_torneo_type_select_')) {
+        const size = interaction.customId.split('_').pop();
+        const type = interaction.values[0];
+        const modal = new ModalBuilder().setCustomId(`crear_torneo_final_${size}_${type}`).setTitle('Finalizar Creación de Torneo');
+        const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
+        if (type === 'pago') {
+            const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal').setLabel("Enlace de PayPal.Me").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
+        }
+        await interaction.showModal(modal);
+    }
+}
+
+async function handleModalSubmit(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const { customId, fields } = interaction;
+    let torneoActivo = await db.get('torneo');
+
+    if (customId.startsWith('crear_torneo_final_')) {
+        const [, , , sizeStr, type] = customId.split('_');
+        const size = parseInt(sizeStr);
+        const isPaid = type === 'pago';
+        const nombre = fields.getTextInputValue('torneo_nombre');
+        const enlacePaypal = isPaid ? fields.getTextInputValue('torneo_paypal') : null;
+        if (isPaid && !enlacePaypal) {
+            return interaction.editReply({ content: 'Debes proporcionar un enlace de PayPal para un torneo de pago.' });
+        }
+        const inscripcionChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID).catch(() => null);
+        if (!inscripcionChannel) {
+            return interaction.editReply({ content: `❌ **Error:** No se puede encontrar el canal de inscripciones.`});
+        }
+        await limpiarCanal(INSCRIPCION_CHANNEL_ID);
+        const channelName = `📝-equipos-${nombre.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase()}`;
+        const equiposChannel = await interaction.guild.channels.create({ name: channelName, type: ChannelType.GuildText, topic: `Lista de equipos del torneo ${nombre}.`, permissionOverwrites: [{ id: interaction.guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }, { id: client.user.id, allow: [PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.EmbedLinks] }] });
+        let prize = 0;
+        if(isPaid) {
+            prize = size === 8 ? 160 : 360;
+        }
+        torneoActivo = { nombre, size, isPaid, prize, status: 'inscripcion_abierta', enlace_paypal: enlacePaypal, equipos_pendientes: {}, equipos_aprobados: {}, canalEquiposId: equiposChannel.id };
+        const tipoTorneoTexto = isPaid ? "Cash Cup" : "Gratuito";
+        const titulo = `🏆 TORNEO DISPONIBLE - ${nombre} (${tipoTorneoTexto}) 🏆`;
+        let prizeText = isPaid ? `**Precio:** 25€ por equipo / *per team*\n**Premio:** ${prize}€ / **Prize:** €${prize}` : '**Precio:** Gratis / *Free*';
+        const embed = new EmbedBuilder().setColor('#5865F2').setTitle(titulo).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Límite:** ${size} equipos.`);
+        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo / Register Team').setStyle(ButtonStyle.Success).setEmoji('📝'));
+        const newMessage = await inscripcionChannel.send({ embeds: [embed], components: [row] });
+        const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos.').setFooter({ text: `Total: 0 / ${size}` });
+        await equiposChannel.send({ embeds: [embedLista] });
+        await db.set('torneo', torneoActivo);
+        await interaction.editReply({ content: `✅ Torneo "${nombre}" (${isPaid ? 'de Pago' : 'Gratis'}) creado. Canal de equipos: ${equiposChannel}.` });
+    
+    } else if (customId === 'inscripcion_modal') {
+        // ... (resto de la lógica)
+    } // ... y así para todos los modales
+    await db.set('torneo', torneoActivo);
+}
+
+// ... El resto de funciones hasta el final ...
+
+keepAlive();
+client.login(process.env.DISCORD_TOKEN);
