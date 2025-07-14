@@ -1,10 +1,8 @@
-// index.js - VERSIÓN FINAL COMPLETA (LÓGICA DE REPLIT + ARRANQUE PARA RENDER + CORRECCIÓN DE IDIOMAS v2)
+// index.js - VERSIÓN FINAL COMPLETA (LÓGICA DE REPLIT + ARRANQUE PARA RENDER + CORRECCIÓN FINAL DE IDIOMAS)
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
 
-// ===== CAMBIO DE ADVERTENCIA 'ephemeral' =====
-// Se añade MessageFlags para la nueva sintaxis de mensajes efímeros.
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
 const { translate } = require('@vitalets/google-translate-api');
 
@@ -26,6 +24,9 @@ const languageRoles = {
     '🇫🇷': { name: 'Français', code: 'fr' }, '🇵🇹': { name: 'Português', code: 'pt' }, '🇩🇪': { name: 'Deutsch', code: 'de' },
     '🇹🇷': { name: 'Türkçe', code: 'tr' }
 };
+
+// Título del embed de selección de idioma para verificar el mensaje correcto.
+const LANGUAGE_SETUP_TITLE = '🌍 Selección de Idioma / Language Selection';
 
 const client = new Client({
     intents: [
@@ -136,20 +137,16 @@ client.once('ready', async () => {
     }
 });
 
-// ===== INICIO DE LA MODIFICACIÓN 1 =====
-// Se modifica el CustomId del botón para que incluya el ID del servidor (guild).
 client.on('guildMemberAdd', member => {
     const welcomeEmbed = new EmbedBuilder().setColor('#2ecc71').setTitle(`👋 ¡Bienvenido a ${member.guild.name}! / Welcome to ${member.guild.name}!`).setDescription('🇪🇸 Para continuar, por favor, selecciona tu idioma.\n\n🇬🇧 *To continue, please select your language.*');
     const row = new ActionRowBuilder();
     const flags = Object.keys(languageRoles);
     for (let i = 0; i < flags.length && i < 5; i++) {
         const flag = flags[i];
-        // Se añade member.guild.id al final del customId.
         row.addComponents(new ButtonBuilder().setCustomId(`rules_${languageRoles[flag].code}_${member.guild.id}`).setLabel(languageRoles[flag].name).setEmoji(flag).setStyle(ButtonStyle.Secondary));
     }
     member.send({ embeds: [welcomeEmbed], components: [row] }).catch(() => console.log(`No se pudo enviar DM a ${member.user.tag}.`));
 });
-// ===== FIN DE LA MODIFICACIÓN 1 =====
 
 // --- MANEJADOR DE INTERACCIONES ---
 client.on('interactionCreate', async interaction => {
@@ -304,8 +301,6 @@ async function handleButton(interaction) {
         return;
     }
 
-    // ===== INICIO DE LA MODIFICACIÓN 2 =====
-    // Se ajusta la lógica para leer el guildId desde el customId y se usa la nueva sintaxis para mensajes efímeros.
     else if (customId.startsWith('rules_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -358,7 +353,6 @@ async function handleButton(interaction) {
         }
         return;
     }
-    // ===== FIN DE LA MODIFICACIÓN 2 =====
 
     if (customId === 'inscribir_equipo_btn') {
         const torneo = torneoActivo;
@@ -1015,27 +1009,92 @@ client.on('messageCreate', async message => {
     } catch (error) { console.error('Error en traducción:', error); }
 });
 
+// ===== INICIO DE LA MODIFICACIÓN 3 (LÓGICA DE REACCIONES CORREGIDA) =====
 client.on('messageReactionAdd', async (reaction, user) => {
     if (user.bot) return;
-    if (reaction.partial) { try { await reaction.fetch(); } catch (error) { return; } }
+
+    // Asegurarse de que la reacción y el mensaje están completos (no parciales)
+    if (reaction.partial) {
+        try {
+            await reaction.fetch();
+        } catch (error) {
+            console.error('Error al obtener reacción parcial:', error);
+            return;
+        }
+    }
+    if (reaction.message.partial) {
+        try {
+            await reaction.message.fetch();
+        } catch (error) {
+            console.error('Error al obtener mensaje parcial:', error);
+            return;
+        }
+    }
+
+    // 1. VERIFICAR QUE ES EL MENSAJE CORRECTO
+    // Solo actuar si la reacción es en un mensaje con el embed de selección de idioma.
+    if (!reaction.message.embeds[0] || reaction.message.embeds[0].title !== LANGUAGE_SETUP_TITLE) {
+        return;
+    }
+
     const emoji = reaction.emoji.name;
     const roleInfo = languageRoles[emoji];
-    if (!roleInfo) return;
+    if (!roleInfo) return; // Si la reacción no es una bandera de idioma, ignorar.
+
     const guild = reaction.message.guild;
-    const member = await guild.members.fetch(user.id);
+    if (!guild) return;
+
+    const member = await guild.members.fetch(user.id).catch(() => null);
     if (!member) return;
+
     try {
+        const newRoleName = roleInfo.name;
+        const roleToAdd = guild.roles.cache.find(r => r.name === newRoleName);
+
+        if (!roleToAdd) {
+            console.warn(`[ADVERTENCIA] El rol de idioma "${newRoleName}" no fue encontrado en el servidor.`);
+            return;
+        }
+        
+        // Si el miembro ya tiene el rol que está seleccionando, no hacemos nada.
+        if (member.roles.cache.has(roleToAdd.id)) {
+            return;
+        }
+
+        // 2. LÓGICA DE ROLES MEJORADA
         const rolesToRemove = [];
-        for (const flag in languageRoles) { const roleNameToRemove = languageRoles[flag].name; const role = guild.roles.cache.find(r => r.name === roleNameToRemove); if (role && member.roles.cache.has(role.id)) { rolesToRemove.push(role); } }
-        if (rolesToRemove.length > 0) await member.roles.remove(rolesToRemove);
-        const roleToAdd = guild.roles.cache.find(r => r.name === roleInfo.name);
-        if (roleToAdd) await member.roles.add(roleToAdd);
-        else console.warn(`Rol "${roleInfo.name}" no encontrado.`);
-    } catch (error) { console.error('Error al asignar rol:', error); }
+        for (const flag in languageRoles) {
+            const roleNameToRemove = languageRoles[flag].name;
+            const role = guild.roles.cache.find(r => r.name === roleNameToRemove);
+            if (role && member.roles.cache.has(role.id)) {
+                rolesToRemove.push(role);
+            }
+        }
+        
+        // Quitar los roles antiguos (si los hay)
+        if (rolesToRemove.length > 0) {
+            await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma por reacción.');
+        }
+
+        // Añadir el nuevo rol
+        await member.roles.add(roleToAdd, 'Asignando rol de idioma por reacción.');
+
+        // Opcional: Enviar una confirmación efímera al usuario (solo funciona con slash commands/botones, no con reacciones)
+        // Por lo tanto, no se envía respuesta aquí, solo se cambian los roles silenciosamente.
+
+    } catch (error) {
+        console.error('Error al asignar rol por reacción:', error);
+    }
 });
+// ===== FIN DE LA MODIFICACIÓN 3 =====
 
 async function handleSetupCommand(message) {
-    const embed = new EmbedBuilder().setColor('#8b5cf6').setTitle('🌍 Selección de Idioma / Language Selection').setDescription('Reacciona a tu bandera para traducir tus mensajes.\n*React with your flag to have your messages translated.*').addFields(Object.values(languageRoles).map(role => ({ name: `${Object.keys(languageRoles).find(key => languageRoles[key] === role)} ${role.name}`, value: ``, inline: true }))).setFooter({ text: 'Solo puedes tener un rol de idioma.' });
+    const embed = new EmbedBuilder()
+        .setColor('#8b5cf6')
+        .setTitle(LANGUAGE_SETUP_TITLE) // Usar la constante para consistencia
+        .setDescription('Reacciona a tu bandera para traducir tus mensajes.\n*React with your flag to have your messages translated.*')
+        .addFields(Object.values(languageRoles).map(role => ({ name: `${Object.keys(languageRoles).find(key => languageRoles[key] === role)} ${role.name}`, value: ``, inline: true })))
+        .setFooter({ text: 'Solo puedes tener un rol de idioma.' });
     try {
         const sentMessage = await message.channel.send({ embeds: [embed] });
         for (const flag in languageRoles) { await sentMessage.react(flag); }
