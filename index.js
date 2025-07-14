@@ -1,4 +1,4 @@
-// index.js - VERSIÓN FINAL COMPLETA (CON PERSISTENCIA DE DATOS)
+// index.js - VERSIÓN FINAL COMPLETA (CON PERSISTENCIA + MEJORAS DE ADMIN Y PREMIOS)
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -100,7 +100,7 @@ async function crearCanalDePartido(guild, partido, tipoPartido = 'Grupo') {
         );
         await channel.send({ content: `<@${partido.equipoA.capitanId}> y <@${partido.equipoB.capitanId}>`, embeds: [embed], components: [actionButtons] });
         console.log(`[INFO] Canal de partido creado: ${channel.name}`);
-        saveBotState(); // PERSISTENCIA: Guardamos porque se ha añadido un channelId a un partido.
+        saveBotState(); 
     } catch (error) {
         console.error(`[ERROR FATAL] No se pudo crear el canal del partido.`, error);
         throw error;
@@ -197,9 +197,21 @@ async function handleSlashCommand(interaction) {
     const { commandName } = interaction;
     if (commandName === 'panel-admin') {
         const embed = new EmbedBuilder().setColor('#2c3e50').setTitle('Panel de Control del Torneo').setDescription('🇪🇸 Usa los botones de abajo para gestionar el torneo.\n🇬🇧 Use the buttons below to manage the tournament.');
-        const row1 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('panel_crear').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆'), new ButtonBuilder().setCustomId('panel_add_test').setLabel('Añadir Equipos Prueba').setStyle(ButtonStyle.Secondary).setEmoji('🧪'));
-        const row2 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('🎲'), new ButtonBuilder().setCustomId('panel_borrar_canales').setLabel('Borrar Canales Partido').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), new ButtonBuilder().setCustomId('panel_finalizar').setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑'));
-        await interaction.channel.send({ embeds: [embed], components: [row1, row2] });
+        const row1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('panel_crear').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆'), 
+            new ButtonBuilder().setCustomId('panel_add_test').setLabel('Añadir Equipos Prueba').setStyle(ButtonStyle.Secondary).setEmoji('🧪')
+        );
+        // AÑADIDO: Nuevos botones de información para el admin.
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('panel_ver_inscritos').setLabel('Ver Inscritos').setStyle(ButtonStyle.Primary).setEmoji('📋'),
+            new ButtonBuilder().setCustomId('panel_ver_pendientes').setLabel('Ver Pendientes').setStyle(ButtonStyle.Primary).setEmoji('⏳')
+        );
+        const row3 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos').setStyle(ButtonStyle.Secondary).setEmoji('🎲'), 
+            new ButtonBuilder().setCustomId('panel_borrar_canales').setLabel('Borrar Canales Partido').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), 
+            new ButtonBuilder().setCustomId('panel_finalizar').setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑')
+        );
+        await interaction.channel.send({ embeds: [embed], components: [row1, row2, row3] });
         return interaction.reply({ content: 'Panel de control creado.', flags: [MessageFlags.Ephemeral] });
     }
     
@@ -227,10 +239,46 @@ async function handleButton(interaction) {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             return interaction.reply({ content: 'No tienes permisos para usar los botones del panel.', flags: [MessageFlags.Ephemeral] });
         }
+        
+        const [panel, type, subtype] = customId.split('_');
+
+        // AÑADIDO: Lógica para el botón de ver inscritos
+        if (type === 'ver' && subtype === 'inscritos') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            if (!torneoActivo || Object.keys(torneoActivo.equipos_aprobados || {}).length === 0) {
+                return interaction.editReply({ content: 'No hay equipos inscritos (aprobados) en este momento.' });
+            }
+            const listaEquipos = Object.values(torneoActivo.equipos_aprobados)
+                .map((equipo, index) => `${index + 1}. **${equipo.nombre}** (Capitán: ${equipo.capitanTag})`)
+                .join('\n');
+            const embed = new EmbedBuilder()
+                .setTitle('📋 Lista de Equipos Inscritos')
+                .setDescription(listaEquipos)
+                .setColor('#3498DB')
+                .setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
+            return interaction.editReply({ embeds: [embed] });
+        }
+
+        // AÑADIDO: Lógica para el botón de ver pendientes
+        if (type === 'ver' && subtype === 'pendientes') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            if (!torneoActivo || Object.keys(torneoActivo.equipos_pendientes || {}).length === 0) {
+                return interaction.editReply({ content: 'No hay equipos pendientes de aprobación en este momento.' });
+            }
+            const listaPendientes = Object.values(torneoActivo.equipos_pendientes)
+                .map((equipo, index) => `${index + 1}. **${equipo.nombre}** (Capitán: ${equipo.capitanTag}) - PayPal: \`${equipo.paypal || 'No especificado'}\``)
+                .join('\n');
+            const embed = new EmbedBuilder()
+                .setTitle('⏳ Lista de Equipos Pendientes de Aprobación')
+                .setDescription(listaPendientes)
+                .setColor('#E67E22');
+            return interaction.editReply({ embeds: [embed] });
+        }
+
         if (customId !== 'panel_crear' && customId !== 'panel_add_test') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         }
-        const [panel, type, subtype] = customId.split('_');
+
         if (type === 'crear') {
             const sizeMenu = new StringSelectMenuBuilder()
                 .setCustomId('crear_torneo_size_select')
@@ -281,7 +329,7 @@ async function handleButton(interaction) {
                     }
                 }
             }
-            saveBotState(); // PERSISTENCIA: Guardamos después de simular los partidos.
+            saveBotState();
             await actualizarMensajeClasificacion();
             await interaction.editReply({ content: `✅ Se han simulado ${partidosSimulados} partidos. La clasificación ha sido actualizada.` });
             await iniciarFaseEliminatoria(interaction.guild);
@@ -297,7 +345,19 @@ async function handleButton(interaction) {
             await interaction.followUp({ content: `✅ ${deletedCount} canales de partido borrados.`, flags: [MessageFlags.Ephemeral] });
         } else if (type === 'finalizar') {
             if (!torneoActivo) return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
-            await interaction.editReply({ content: 'Finalizando torneo...' });
+            
+            // AÑADIDO: Mensaje público de finalización.
+            const announcementChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID).catch(() => null);
+            if (announcementChannel) {
+                const finalEmbed = new EmbedBuilder()
+                    .setColor('#E74C3C')
+                    .setTitle(`🏁 Torneo Finalizado: ${torneoActivo.nombre}`)
+                    .setDescription('El torneo ha concluido. ¡Gracias a todos por participar! Los canales serán eliminados en breve.')
+                    .setTimestamp();
+                await announcementChannel.send({ embeds: [finalEmbed] });
+            }
+
+            await interaction.editReply({ content: 'Finalizando torneo y borrando canales...' });
             await limpiarCanal(INSCRIPCION_CHANNEL_ID);
             if (torneoActivo.canalEquiposId) { const c = await client.channels.fetch(torneoActivo.canalEquiposId).catch(()=>null); if(c) await c.delete(); }
             if (torneoActivo.canalGruposId) { const c = await client.channels.fetch(torneoActivo.canalGruposId).catch(()=>null); if(c) await c.delete(); }
@@ -307,7 +367,7 @@ async function handleButton(interaction) {
             torneoActivo = null;
             mensajeInscripcionId = null;
             listaEquiposMessageId = null;
-            saveBotState(); // PERSISTENCIA: Guardamos el estado reseteado.
+            saveBotState();
             await mostrarMensajeEspera(interaction);
             await interaction.followUp({ content: '✅ Torneo finalizado y todos los canales reseteados.', flags: [MessageFlags.Ephemeral] });
         }
@@ -387,7 +447,7 @@ async function handleButton(interaction) {
         if(!partido) return interaction.reply({content: "🇪🇸 Error: No se pudo encontrar el partido.\n🇬🇧 *Error: Match not found.*", flags: [MessageFlags.Ephemeral] });
         if(partido.status !== 'finalizado') {
             partido.status = 'arbitraje';
-            saveBotState(); // PERSISTENCIA: Guardamos el cambio de estado del partido.
+            saveBotState();
             await updateMatchChannelName(partido);
             const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_modificar_resultado_${matchId}`).setLabel("Modificar Resultado (Admin)").setStyle(ButtonStyle.Secondary).setEmoji("✍️"));
             const arbitroRole = await interaction.guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
@@ -412,7 +472,7 @@ async function handleButton(interaction) {
             if (!teamToKick) return interaction.editReply({ content: 'Error: No se pudo encontrar a este equipo. Quizás ya fue expulsado.' });
 
             delete torneoActivo.equipos_aprobados[captainId];
-            saveBotState(); // PERSISTENCIA: Guardamos después de expulsar.
+            saveBotState();
 
             const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
             if (equiposChannel && listaEquiposMessageId) {
@@ -447,7 +507,7 @@ async function handleButton(interaction) {
                 equipoPendiente.bandera = captainFlag;
                 torneoActivo.equipos_aprobados[captainId] = equipoPendiente;
                 delete torneoActivo.equipos_pendientes[captainId];
-                saveBotState(); // PERSISTENCIA: Guardamos después de aprobar.
+                saveBotState(); 
                 
                 newEmbed.setColor('#2ECC71').setTitle('✅ EQUIPO APROBADO').addFields({ name: 'Aprobado por', value: interaction.user.tag });
                 newButtons.addComponents(new ButtonBuilder().setCustomId(`admin_expulsar_${captainId}`).setLabel('Expulsar Equipo').setStyle(ButtonStyle.Danger).setEmoji('✖️'));
@@ -473,7 +533,7 @@ async function handleButton(interaction) {
                 }
             } else { // Rechazar
                 delete torneoActivo.equipos_pendientes[captainId];
-                saveBotState(); // PERSISTENCIA: Guardamos después de rechazar.
+                saveBotState();
 
                 newEmbed.setColor('#e74c3c').setTitle('❌ INSCRIPCIÓN RECHAZADA').addFields({ name: 'Rechazado por', value: interaction.user.tag });
                 newButtons.addComponents(new ButtonBuilder().setCustomId('done_reject').setLabel('Rechazado').setStyle(ButtonStyle.Danger).setDisabled(true));
@@ -496,7 +556,7 @@ async function handleButton(interaction) {
             return interaction.reply({ content: '🇪🇸 No tienes permisos para esta acción.\n🇬🇧 *You do not have permission for this action.*', flags: [MessageFlags.Ephemeral] });
         }
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const winnerId = customId.replace('admin_confirm_payment_', '');
+        const winnerId = customId.split('_').pop(); // Acepta el nuevo formato de customId
         const winner = await client.users.fetch(winnerId).catch(() => null);
         if (!winner) {
             return interaction.editReply({ content: 'No se pudo encontrar al usuario ganador.' });
@@ -541,7 +601,13 @@ async function handleSelectMenu(interaction) {
         modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
         if (type === 'pago') {
             const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal').setLabel("Enlace de PayPal.Me").setStyle(TextInputStyle.Short).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
+            const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(paypalInput),
+                new ActionRowBuilder().addComponents(prizeInputCampeon),
+                new ActionRowBuilder().addComponents(prizeInputFinalista)
+            );
         }
         await interaction.showModal(modal);
     }
@@ -556,10 +622,20 @@ async function handleModalSubmit(interaction) {
         const size = parseInt(sizeStr);
         const isPaid = type === 'pago';
         const nombre = fields.getTextInputValue('torneo_nombre');
-        const enlacePaypal = isPaid ? fields.getTextInputValue('torneo_paypal') : null;
-        if (isPaid && !enlacePaypal) {
-            return interaction.editReply({ content: 'Debes proporcionar un enlace de PayPal para un torneo de pago.' });
+        
+        let enlacePaypal = null;
+        let prizeCampeon = 0;
+        let prizeFinalista = 0;
+
+        if (isPaid) {
+            enlacePaypal = fields.getTextInputValue('torneo_paypal');
+            prizeCampeon = parseFloat(fields.getTextInputValue('torneo_prize_campeon'));
+            prizeFinalista = parseFloat(fields.getTextInputValue('torneo_prize_finalista'));
+            if (!enlacePaypal || isNaN(prizeCampeon) || isNaN(prizeFinalista)) {
+                return interaction.editReply({ content: 'Debes proporcionar un enlace de PayPal y premios numéricos válidos.' });
+            }
         }
+
         const inscripcionChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID).catch(() => null);
         if (!inscripcionChannel) {
             return interaction.editReply({ content: `❌ **Error:** No se puede encontrar el canal de inscripciones.`});
@@ -567,12 +643,10 @@ async function handleModalSubmit(interaction) {
         await limpiarCanal(INSCRIPCION_CHANNEL_ID);
         const channelName = `📝-equipos-${nombre.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase()}`;
         const equiposChannel = await interaction.guild.channels.create({ name: channelName, type: ChannelType.GuildText, topic: `Lista de equipos del torneo ${nombre}.` });
-        let prize = 0;
-        if(isPaid) {
-            prize = size === 8 ? 160 : 360;
-        }
-        torneoActivo = { nombre, size, isPaid, prize, status: 'inscripcion_abierta', enlace_paypal: enlacePaypal, equipos_pendientes: {}, equipos_aprobados: {}, canalEquiposId: equiposChannel.id, canalGruposId: null, publicGroupsMessageId: null, calendario: {}, grupos: {}, eliminatorias: {} };
-        let prizeText = isPaid ? `**Precio:** 25€ por equipo / *per team*\n**Premio:** ${prize}€ / **Prize:** €${prize}` : '**Precio:** Gratis / *Free*';
+        
+        torneoActivo = { nombre, size, isPaid, prizeCampeon, prizeFinalista, status: 'inscripcion_abierta', enlace_paypal: enlacePaypal, equipos_pendientes: {}, equipos_aprobados: {}, canalEquiposId: equiposChannel.id, canalGruposId: null, publicGroupsMessageId: null, calendario: {}, grupos: {}, eliminatorias: {} };
+        
+        let prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis / *Free*';
         const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Límite:** ${size} equipos.`);
         const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo / Register Team').setStyle(ButtonStyle.Success).setEmoji('📝'));
         const newMessage = await inscripcionChannel.send({ embeds: [embed], components: [row] });
@@ -581,7 +655,7 @@ async function handleModalSubmit(interaction) {
         const listaMsg = await equiposChannel.send({ embeds: [embedLista] });
         listaEquiposMessageId = listaMsg.id;
         
-        saveBotState(); // PERSISTENCIA: Guardamos el nuevo torneo.
+        saveBotState();
         
         await interaction.editReply({ content: `✅ Torneo "${nombre}" (${size} equipos, ${isPaid ? 'de Pago' : 'Gratis'}) creado. Canal de equipos: ${equiposChannel}.` });
 
@@ -611,7 +685,7 @@ async function handleModalSubmit(interaction) {
         if (!torneoActivo.equipos_pendientes) torneoActivo.equipos_pendientes = {};
 
         torneoActivo.equipos_pendientes[interaction.user.id] = { nombre: teamName, capitanTag: interaction.user.tag, capitanId: interaction.user.id };
-        saveBotState(); // PERSISTENCIA: Guardamos el nuevo equipo pendiente.
+        saveBotState();
 
         if (torneoActivo.isPaid) {
             const embed = new EmbedBuilder().setColor('#f1c40f').setTitle('🇪🇸 Inscripción Recibida - Pendiente de Pago / 🇬🇧 Registration Received - Pending Payment').addFields({ name: 'Enlace de Pago / Payment Link', value: torneoActivo.enlace_paypal }, { name: 'Siguiente Paso / Next Step', value: "🇪🇸 Cuando hayas pagado, haz clic abajo para notificar.\n🇬🇧 Once you have paid, click the button below to notify." });
@@ -642,7 +716,7 @@ async function handleModalSubmit(interaction) {
         if (!pendingTeamData) return interaction.editReply({ content: '🇪🇸 No encontré tu inscripción pendiente.\n🇬🇧 *Could not find your pending registration.*' });
 
         pendingTeamData.paypal = paypalInfo;
-        saveBotState(); // PERSISTENCIA: Guardamos la información de PayPal.
+        saveBotState();
 
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
         if (adminChannel) {
@@ -657,15 +731,27 @@ async function handleModalSubmit(interaction) {
         if (isNaN(cantidad) || cantidad <= 0) return interaction.editReply('Número inválido.');
         if (!torneoActivo) return interaction.editReply('Primero crea un torneo.');
         if (!torneoActivo.equipos_aprobados) torneoActivo.equipos_aprobados = {};
+        
+        // CORREGIDO: Los equipos de prueba ahora usan la bandera de idioma del admin.
+        const adminMember = interaction.member;
+        let adminFlag = '🧪'; // Default
+        for (const flag in languageRoles) {
+            const role = interaction.guild.roles.cache.find(r => r.name === languageRoles[flag].name);
+            if (role && adminMember.roles.cache.has(role.id)) {
+                adminFlag = flag;
+                break;
+            }
+        }
+
         const capitanDePruebaId = interaction.user.id;
         const capitanDePruebaTag = interaction.user.tag;
         const initialCount = Object.keys(torneoActivo.equipos_aprobados).length;
         for (let i = 0; i < cantidad; i++) {
             const teamId = `prueba_${Date.now()}_${i}`;
             const nombreEquipo = `E-Prueba-${initialCount + i + 1}`;
-            torneoActivo.equipos_aprobados[teamId] = { id: teamId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: '🧪', paypal: 'admin@test.com' };
+            torneoActivo.equipos_aprobados[teamId] = { id: teamId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: adminFlag, paypal: 'admin@test.com' };
         }
-        saveBotState(); // PERSISTENCIA: Guardamos los equipos de prueba.
+        saveBotState();
         await interaction.editReply(`✅ ${cantidad} equipos de prueba añadidos.`);
         const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
         if (equiposChannel && listaEquiposMessageId) {
@@ -719,7 +805,7 @@ async function handleModalSubmit(interaction) {
         } else {
             await interaction.editReply(`✅ 🇪🇸 Tu resultado (${golesA}-${golesB}) ha sido guardado. Esperando la confirmación del otro capitán.\n🇬🇧 *Your result (${golesA}-${golesB}) has been saved. Waiting for the other captain's confirmation.*`);
         }
-        saveBotState(); // PERSISTENCIA: Guardamos los resultados reportados.
+        saveBotState();
 
     } else if (customId.startsWith('admin_modificar_modal_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -839,8 +925,8 @@ async function realizarSorteoDeGrupos(guild) {
     const embedClasificacion = new EmbedBuilder().setColor('#1abc9c').setTitle(`Clasificación: ${torneo.nombre}`).setDescription('¡Mucha suerte a todos los equipos!').setTimestamp();
     const classificationMessage = await gruposChannel.send({ embeds: [embedClasificacion] });
     torneo.publicGroupsMessageId = classificationMessage.id;
-    torneoActivo = torneo; // La variable global se actualiza con el objeto local.
-    saveBotState(); // PERSISTENCIA: Guardamos el estado después de todo el sorteo.
+    torneoActivo = torneo;
+    saveBotState();
     
     await actualizarMensajeClasificacion();
     let createdCount = 0, errorCount = 0;
@@ -885,7 +971,7 @@ async function iniciarFaseEliminatoria(guild) {
     await crearCanalDePartido(guild, semifinal1, 'Semifinal-1');
     await crearCanalDePartido(guild, semifinal2, 'Semifinal-2');
     
-    saveBotState(); // PERSISTENCIA: Guardamos la nueva fase de semifinales.
+    saveBotState();
 
     const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle('🔥 ¡Fase de Grupos Finalizada! Comienzan las Semifinales 🔥').addFields({ name: 'Semifinal 1', value: `> ${semifinal1.equipoA.nombre} vs ${semifinal1.equipoB.nombre}` }, { name: 'Semifinal 2', value: `> ${semifinal2.equipoA.nombre} vs ${semifinal2.equipoB.nombre}` }).setFooter({text: '¡Mucha suerte a los clasificados!'});
     const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId);
@@ -903,7 +989,7 @@ async function handleSemifinalResult(guild) {
         torneoActivo.status = 'final';
 
         await crearCanalDePartido(guild, final, 'Final');
-        saveBotState(); // PERSISTENCIA: Guardamos la nueva fase de final.
+        saveBotState();
 
         const embedAnuncio = new EmbedBuilder().setColor('#f1c40f').setTitle('🏆 ¡Llegó la Gran Final! 🏆').setDescription(`**${final.equipoA.nombre} vs ${final.equipoB.nombre}**`).setFooter({text: '¡Solo uno puede ser el campeón!'});
         const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId);
@@ -911,12 +997,14 @@ async function handleSemifinalResult(guild) {
     }
 }
 
+// CORREGIDO: Lógica de la final ahora gestiona premio para campeón Y finalista.
 async function handleFinalResult() {
     const final = torneoActivo.eliminatorias.final;
     const [golesA, golesB] = final.resultado.split('-').map(Number);
     const campeon = golesA > golesB ? final.equipoA : final.equipoB;
+    const finalista = golesA > golesB ? final.equipoB : final.equipoA; // Identificamos al finalista
     torneoActivo.status = 'terminado';
-    saveBotState(); // PERSISTENCIA: Guardamos el estado final del torneo.
+    saveBotState();
 
     const embedCampeon = new EmbedBuilder()
         .setColor('#ffd700')
@@ -931,28 +1019,47 @@ async function handleFinalResult() {
     if (torneoActivo.isPaid) {
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
         if(adminChannel) {
-            const paymentEmbed = new EmbedBuilder()
-                .setColor('#E67E22')
-                .setTitle('🏆 Tarea de Administrador: Pagar Premio')
+            // Embed para el CAMPEÓN
+            const paymentEmbedCampeon = new EmbedBuilder()
+                .setColor('#FFD700')
+                .setTitle('🏆 Tarea de Admin: Pagar Premio al CAMPEÓN')
                 .addFields(
                     { name: 'Equipo Ganador', value: campeon.nombre },
                     { name: 'Capitán', value: campeon.capitanTag },
-                    { name: 'PayPal del Capitán', value: `\`${campeon.paypal || 'No proporcionado'}\`` }
+                    { name: 'PayPal del Capitán', value: `\`${campeon.paypal || 'No proporcionado'}\`` },
+                    { name: 'Monto a Pagar', value: `${torneoActivo.prizeCampeon}€` }
                 )
                 .setTimestamp();
 
-            const row = new ActionRowBuilder();
-            if (campeon.paypal) {
-                const paymentLink = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(campeon.paypal)}&amount=${torneoActivo.prize}¤cy_code=EUR`;
-                row.addComponents(
-                    new ButtonBuilder().setLabel('Pagar Premio al Ganador').setStyle(ButtonStyle.Link).setURL(paymentLink).setEmoji('💸')
-                );
-            }
-            row.addComponents(
-                new ButtonBuilder().setCustomId(`admin_confirm_payment_${campeon.id}`).setLabel('Confirmar Pago Realizado').setStyle(ButtonStyle.Success).setEmoji('✅')
+            const rowCampeon = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`admin_confirm_payment_campeon_${campeon.id}`).setLabel('Confirmar Pago a Campeón').setStyle(ButtonStyle.Success).setEmoji('✅')
             );
+            if (campeon.paypal) {
+                const paymentLink = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(campeon.paypal)}&amount=${torneoActivo.prizeCampeon}¤cy_code=EUR`;
+                rowCampeon.addComponents(new ButtonBuilder().setLabel('Pagar con PayPal').setStyle(ButtonStyle.Link).setURL(paymentLink).setEmoji('💸'));
+            }
+            await adminChannel.send({ content: `<@&${ARBITRO_ROLE_ID}>`, embeds: [paymentEmbedCampeon], components: [rowCampeon] });
+            
+            // Embed para el FINALISTA
+            const paymentEmbedFinalista = new EmbedBuilder()
+                .setColor('#C0C0C0') // Color plata
+                .setTitle('🥈 Tarea de Admin: Pagar Premio al FINALISTA')
+                .addFields(
+                    { name: 'Equipo Finalista', value: finalista.nombre },
+                    { name: 'Capitán', value: finalista.capitanTag },
+                    { name: 'PayPal del Capitán', value: `\`${finalista.paypal || 'No proporcionado'}\`` },
+                    { name: 'Monto a Pagar', value: `${torneoActivo.prizeFinalista}€` }
+                )
+                .setTimestamp();
 
-            await adminChannel.send({ content: `<@&${ARBITRO_ROLE_ID}>`, embeds: [paymentEmbed], components: [row] });
+            const rowFinalista = new ActionRowBuilder().addComponents(
+                 new ButtonBuilder().setCustomId(`admin_confirm_payment_finalista_${finalista.id}`).setLabel('Confirmar Pago a Finalista').setStyle(ButtonStyle.Success).setEmoji('✅')
+            );
+             if (finalista.paypal) {
+                const paymentLink = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(finalista.paypal)}&amount=${torneoActivo.prizeFinalista}¤cy_code=EUR`;
+                rowFinalista.addComponents(new ButtonBuilder().setLabel('Pagar con PayPal').setStyle(ButtonStyle.Link).setURL(paymentLink).setEmoji('💸'));
+            }
+            await adminChannel.send({ embeds: [paymentEmbedFinalista], components: [rowFinalista] });
         }
     }
 }
@@ -980,7 +1087,7 @@ async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild)
         equipoB.stats.pts += 1;
     }
     
-    saveBotState(); // PERSISTENCIA: Guardamos las estadísticas actualizadas.
+    saveBotState();
 
     await actualizarMensajeClasificacion();
     await iniciarFaseEliminatoria(guild);
