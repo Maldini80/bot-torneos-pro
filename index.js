@@ -1,4 +1,4 @@
-// index.js - VERSIÓN FINAL COMPLETA (LÓGICA DE REPLIT + ARRANQUE PARA RENDER + CORRECCIÓN FINAL DE IDIOMAS)
+// index.js - VERSIÓN FINAL Y COMPLETA (LÓGICA DE TORNEO COMPLETA + SISTEMA DE IDIOMAS CON BOTONES)
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -24,9 +24,6 @@ const languageRoles = {
     '🇫🇷': { name: 'Français', code: 'fr' }, '🇵🇹': { name: 'Português', code: 'pt' }, '🇩🇪': { name: 'Deutsch', code: 'de' },
     '🇹🇷': { name: 'Türkçe', code: 'tr' }
 };
-
-// Título del embed de selección de idioma para verificar el mensaje correcto.
-const LANGUAGE_SETUP_TITLE = '🌍 Selección de Idioma / Language Selection';
 
 const client = new Client({
     intents: [
@@ -301,55 +298,75 @@ async function handleButton(interaction) {
         return;
     }
 
+    // Lógica para los botones de idioma del MD de bienvenida
     else if (customId.startsWith('rules_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
         const [prefix, langCode, guildId] = customId.split('_');
-        
         if (!langCode || !guildId) {
              return interaction.editReply({ content: 'Error: El botón que has pulsado es inválido o antiguo.' });
         }
-
         const roleInfo = Object.values(languageRoles).find(r => r.code === langCode);
-        if (!roleInfo) {
-            return interaction.editReply({ content: 'Error: Código de idioma inválido.' });
-        }
-
+        if (!roleInfo) return interaction.editReply({ content: 'Error: Código de idioma inválido.' });
         const guild = await client.guilds.fetch(guildId).catch(() => null);
-        if (!guild) {
-            return interaction.editReply({ content: 'Error: No he podido encontrar el servidor. Es posible que haya sido desconectado.' });
-        }
-        
+        if (!guild) return interaction.editReply({ content: 'Error: No he podido encontrar el servidor.' });
         const member = await guild.members.fetch(interaction.user.id).catch(() => null);
-        if (!member) {
-            return interaction.editReply({ content: 'Error: No pude encontrarte como miembro del servidor.' });
+        if (!member) return interaction.editReply({ content: 'Error: No pude encontrarte como miembro del servidor.' });
+        try {
+            const rolesToRemove = [];
+            for (const flag in languageRoles) {
+                const roleNameToRemove = languageRoles[flag].name;
+                const role = guild.roles.cache.find(r => r.name === roleNameToRemove);
+                if (role && member.roles.cache.has(role.id)) { rolesToRemove.push(role); }
+            }
+            if (rolesToRemove.length > 0) {
+                await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma');
+            }
+            const roleToAdd = guild.roles.cache.find(r => r.name === roleInfo.name);
+            if (roleToAdd) {
+                await member.roles.add(roleToAdd, 'Asignando rol de idioma por botón');
+                await interaction.editReply({ content: `✅ ¡Idioma establecido a **${roleInfo.name}**! Ya puedes participar en el servidor.` });
+            } else {
+                console.warn(`[ADVERTENCIA] Rol "${roleInfo.name}" no encontrado.`);
+                await interaction.editReply({ content: `Error: El rol para ${roleInfo.name} no existe.` });
+            }
+        } catch (error) {
+            console.error('Error al asignar rol desde botón:', error);
+            await interaction.editReply({ content: 'Hubo un error al asignarte el rol.' });
         }
+        return;
+    }
+
+    // Lógica para los botones del panel público de !setup-idiomas
+    else if (customId.startsWith('lang_select_')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const langCode = customId.split('_')[2];
+        const roleInfo = Object.values(languageRoles).find(r => r.code === langCode);
+        if (!roleInfo) return interaction.editReply({ content: 'Error: Código de idioma inválido.' });
+
+        const member = interaction.member; // En un canal de servidor, interaction.member está disponible
+        const guild = interaction.guild;
 
         try {
             const rolesToRemove = [];
             for (const flag in languageRoles) {
                 const roleNameToRemove = languageRoles[flag].name;
                 const role = guild.roles.cache.find(r => r.name === roleNameToRemove);
-                if (role && member.roles.cache.has(role.id)) {
-                    rolesToRemove.push(role);
-                }
+                if (role && member.roles.cache.has(role.id)) { rolesToRemove.push(role); }
             }
-
             if (rolesToRemove.length > 0) {
-                await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma');
+                await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma desde panel público');
             }
-
             const roleToAdd = guild.roles.cache.find(r => r.name === roleInfo.name);
             if (roleToAdd) {
-                await member.roles.add(roleToAdd, 'Asignando rol de idioma por botón');
-                await interaction.editReply({ content: `✅ ¡Idioma establecido a **${roleInfo.name}**! Ya puedes participar en el servidor.\n\n✅ *Language set to **${roleInfo.name}**! You can now participate in the server.*` });
+                await member.roles.add(roleToAdd, 'Asignando rol de idioma desde panel público');
+                await interaction.editReply({ content: `✅ Tu idioma ha sido actualizado a **${roleInfo.name}**.` });
             } else {
-                console.warn(`[ADVERTENCIA] El rol de idioma "${roleInfo.name}" no fue encontrado en el servidor.`);
-                await interaction.editReply({ content: `Error: El rol para ${roleInfo.name} no existe. Por favor, contacta a un administrador.` });
+                console.warn(`[ADVERTENCIA] Rol "${roleInfo.name}" no encontrado.`);
+                await interaction.editReply({ content: `Error: El rol para ${roleInfo.name} no existe.` });
             }
         } catch (error) {
-            console.error('Error al asignar rol de idioma desde botón:', error);
-            await interaction.editReply({ content: 'Hubo un error al intentar asignarte el rol. Revisa que el bot tenga permisos para gestionar roles.' });
+            console.error('Error al asignar rol desde panel público:', error);
+            await interaction.editReply({ content: 'Hubo un error al actualizar tu rol.' });
         }
         return;
     }
@@ -1009,97 +1026,35 @@ client.on('messageCreate', async message => {
     } catch (error) { console.error('Error en traducción:', error); }
 });
 
-// ===== INICIO DE LA MODIFICACIÓN 3 (LÓGICA DE REACCIONES CORREGIDA) =====
-client.on('messageReactionAdd', async (reaction, user) => {
-    if (user.bot) return;
-
-    // Asegurarse de que la reacción y el mensaje están completos (no parciales)
-    if (reaction.partial) {
-        try {
-            await reaction.fetch();
-        } catch (error) {
-            console.error('Error al obtener reacción parcial:', error);
-            return;
-        }
-    }
-    if (reaction.message.partial) {
-        try {
-            await reaction.message.fetch();
-        } catch (error) {
-            console.error('Error al obtener mensaje parcial:', error);
-            return;
-        }
-    }
-
-    // 1. VERIFICAR QUE ES EL MENSAJE CORRECTO
-    // Solo actuar si la reacción es en un mensaje con el embed de selección de idioma.
-    if (!reaction.message.embeds[0] || reaction.message.embeds[0].title !== LANGUAGE_SETUP_TITLE) {
-        return;
-    }
-
-    const emoji = reaction.emoji.name;
-    const roleInfo = languageRoles[emoji];
-    if (!roleInfo) return; // Si la reacción no es una bandera de idioma, ignorar.
-
-    const guild = reaction.message.guild;
-    if (!guild) return;
-
-    const member = await guild.members.fetch(user.id).catch(() => null);
-    if (!member) return;
-
-    try {
-        const newRoleName = roleInfo.name;
-        const roleToAdd = guild.roles.cache.find(r => r.name === newRoleName);
-
-        if (!roleToAdd) {
-            console.warn(`[ADVERTENCIA] El rol de idioma "${newRoleName}" no fue encontrado en el servidor.`);
-            return;
-        }
-        
-        // Si el miembro ya tiene el rol que está seleccionando, no hacemos nada.
-        if (member.roles.cache.has(roleToAdd.id)) {
-            return;
-        }
-
-        // 2. LÓGICA DE ROLES MEJORADA
-        const rolesToRemove = [];
-        for (const flag in languageRoles) {
-            const roleNameToRemove = languageRoles[flag].name;
-            const role = guild.roles.cache.find(r => r.name === roleNameToRemove);
-            if (role && member.roles.cache.has(role.id)) {
-                rolesToRemove.push(role);
-            }
-        }
-        
-        // Quitar los roles antiguos (si los hay)
-        if (rolesToRemove.length > 0) {
-            await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma por reacción.');
-        }
-
-        // Añadir el nuevo rol
-        await member.roles.add(roleToAdd, 'Asignando rol de idioma por reacción.');
-
-        // Opcional: Enviar una confirmación efímera al usuario (solo funciona con slash commands/botones, no con reacciones)
-        // Por lo tanto, no se envía respuesta aquí, solo se cambian los roles silenciosamente.
-
-    } catch (error) {
-        console.error('Error al asignar rol por reacción:', error);
-    }
-});
-// ===== FIN DE LA MODIFICACIÓN 3 =====
-
 async function handleSetupCommand(message) {
     const embed = new EmbedBuilder()
         .setColor('#8b5cf6')
-        .setTitle(LANGUAGE_SETUP_TITLE) // Usar la constante para consistencia
-        .setDescription('Reacciona a tu bandera para traducir tus mensajes.\n*React with your flag to have your messages translated.*')
-        .addFields(Object.values(languageRoles).map(role => ({ name: `${Object.keys(languageRoles).find(key => languageRoles[key] === role)} ${role.name}`, value: ``, inline: true })))
-        .setFooter({ text: 'Solo puedes tener un rol de idioma.' });
+        .setTitle('🌍 Selección de Idioma / Language Selection')
+        .setDescription('Haz clic en el botón de tu idioma para que tus mensajes se traduzcan automáticamente.\n*Click the button for your language to have your messages automatically translated.*')
+        .setFooter({ text: 'Solo puedes tener un rol de idioma. Al seleccionar uno nuevo, el anterior se eliminará.' });
+
+    const row = new ActionRowBuilder();
+    const flags = Object.keys(languageRoles);
+    
+    for (let i = 0; i < flags.length && i < 5; i++) {
+        const flag = flags[i];
+        const roleInfo = languageRoles[flag];
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`lang_select_${roleInfo.code}`)
+                .setLabel(roleInfo.name)
+                .setEmoji(flag)
+                .setStyle(ButtonStyle.Secondary)
+        );
+    }
+    
     try {
-        const sentMessage = await message.channel.send({ embeds: [embed] });
-        for (const flag in languageRoles) { await sentMessage.react(flag); }
+        await message.channel.send({ embeds: [embed], components: [row] });
         await message.delete();
-    } catch (error) { console.error('Error al enviar setup:', error); }
+    } catch (error) {
+        console.error('Error al enviar el panel de setup de idiomas:', error);
+        message.reply('Hubo un error al crear el panel. Revisa los permisos del bot.');
+    }
 }
 
 keepAlive();
