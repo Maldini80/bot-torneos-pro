@@ -128,9 +128,11 @@ async function limpiarCanal(channelId) {
     }
 }
 
+// **NUEVA FUNCIÓN** para ejecutar la limpieza lenta en segundo plano.
 async function limpiarRecursosDelTorneo() {
     console.log("[TAREA DE FONDO] Iniciando limpieza de recursos del torneo...");
     try {
+        // Borrar hilos de partidos
         const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
         if (parentChannel) {
             const threads = await parentChannel.threads.fetch();
@@ -141,7 +143,8 @@ async function limpiarRecursosDelTorneo() {
             }
         }
         console.log("[TAREA DE FONDO] Hilos de partidos borrados.");
-        
+
+        // Limpiar canales principales y poner mensaje de espera
         await mostrarMensajeEspera();
         console.log("[TAREA DE FONDO] Canales principales limpiados y reseteados.");
 
@@ -160,7 +163,7 @@ async function mostrarMensajeEspera() {
     const channelsToUpdate = [
         INSCRIPCION_CHANNEL_ID,
         EQUIPOS_INSCRITOS_CHANNEL_ID,
-        CLASIFICacion_CHANNEL_ID,
+        CLASIFICACION_CHANNEL_ID,
         CALENDARIO_JORNADAS_CHANNEL_ID
     ];
 
@@ -180,6 +183,7 @@ async function mostrarMensajeEspera() {
         }
     }
 }
+
 
 async function crearHiloDePartido(guild, partido, tipoPartido = 'Grupo') {
     const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
@@ -454,26 +458,35 @@ async function handleButton(interaction) {
                 return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
             }
 
+            // Respondemos inmediatamente para que el usuario no vea "pensando..."
             await interaction.editReply({ content: 'Procesando finalización de torneo...' });
 
             const nombreTorneoFinalizado = torneoActivo.nombre;
             
+            // **PASO 1: RESETEAR EL ESTADO DEL BOT**
+            // Esto es lo más importante para "desbloquear" el bot al instante.
             torneoActivo = null;
             mensajeInscripcionId = null;
             listaEquiposMessageId = null;
             
+            // **PASO 2: GUARDAR EL ESTADO LIMPIO EN LA BASE DE DATOS**
             saveFullBotData(); 
 
+            // **PASO 3: ACTUALIZAR LA INTERFAZ RÁPIDA**
+            // Cambiamos los iconos de los canales a rojo para dar feedback visual inmediato.
             await actualizarNombresCanalesConIcono();
             
+            // **PASO 4: CONFIRMAR AL USUARIO QUE TODO HA IDO BIEN**
             await interaction.followUp({ 
                 content: `✅ Torneo "${nombreTorneoFinalizado}" finalizado correctamente. La limpieza de canales y hilos ha comenzado en segundo plano y puede tardar varios minutos.`, 
                 flags: [MessageFlags.Ephemeral] 
             });
 
+            // **PASO 5: INICIAR LA TAREA LENTA EN SEGUNDO PLANO**
+            // No usamos 'await' para que el bot no se quede esperando aquí. La función se ejecuta por su cuenta.
             limpiarRecursosDelTorneo();
 
-            return;
+            return; // La interacción termina aquí para el usuario.
         }
     }
 
