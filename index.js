@@ -1,10 +1,10 @@
-// index.js - VERSIÓN CORREGIDA Y UNIFICADA (2.0)
+// index.js - VERSIÓN 2.1 - CORRECCIÓN DE FORMATO DEL CALENDARIO
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
 const { connectDb, saveData, loadInitialData } = require('./database.js'); 
 
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMEnuBuilder, MessageFlags } = require('discord.js');
 const { translate } = require('@vitalets/google-translate-api');
 
 let botData;
@@ -42,7 +42,6 @@ const CHANNELS_CONFIG = {
     calendario: { id: CALENDARIO_JORNADAS_CHANNEL_ID, baseName: '🗓-calendario-de-jornadas' }
 };
 
-// --- CORRECCIÓN: Formatos de torneo unificados (antiguos + nuevos) ---
 const TOURNAMENT_FORMATS = {
     '8_teams_semis_classic': {
         label: '8 Equipos (Clásico - Semifinales)',
@@ -112,8 +111,7 @@ const client = new Client({
     ]
 });
 
-// --- EL RESTO DEL CÓDIGO PERMANECE IGUAL HASTA LLEGAR A LAS FUNCIONES MODIFICADAS ---
-// ... (código sin cambios) ...
+// --- FUNCIONES (LA MAYORÍA SIN CAMBIOS) ---
 
 async function actualizarNombresCanalesConIcono() {
     let statuses = {};
@@ -802,7 +800,6 @@ async function handleModalSubmit(interaction) {
     if (customId.startsWith('crear_torneo_final_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-        // --- CORRECCIÓN CRÍTICA: Se usa regex para parsear el customId correctamente ---
         const match = customId.match(/crear_torneo_final_(.+)_(pago|gratis)/);
         if (!match) {
              return interaction.editReply({ content: 'Error: Ocurrió un problema al leer los datos del torneo. El `customId` era inválido.' });
@@ -1072,11 +1069,6 @@ async function handleModalSubmit(interaction) {
     }
 }
 
-
-// --- EL RESTO DEL CÓDIGO (DESDE procesarResultadoFinal HASTA EL FINAL) SE MANTIENE PRÁCTICAMENTE IGUAL
-// --- PERO CON LÓGICA ADAPTADA A LAS NUEVAS FASES DE ELIMINATORIA (OCTAVOS, CUARTOS, ETC).
-// --- HE REVISADO Y ADAPTADO CADA FUNCIÓN RELEVANTE.
-
 async function procesarResultadoFinal(partido, interaction, fromSimulation = false) {
     await updateMatchThreadName(partido);
 
@@ -1218,23 +1210,22 @@ async function verificarYCrearSiguientesHilos(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
 
     for (const groupName in torneoActivo.calendario) {
-        for (const partido of torneoActivo.calendario[groupName]) {
-            if (partido.threadId || partido.status === 'finalizado') continue;
+        // Obtenemos todos los partidos de la jornada 2 y 3 que aún no tienen hilo
+        const partidosPendientes = torneoActivo.calendario[groupName].filter(p => p.jornada > 1 && !p.threadId);
+        if(partidosPendientes.length === 0) continue;
 
-            const equipoA = partido.equipoA;
-            const equipoB = partido.equipoB;
-            const jornadaActual = partido.jornada;
-            if (jornadaActual === 1) continue;
-
-            const partidosAnterioresJornada = torneoActivo.calendario[groupName].filter(p => p.jornada === jornadaActual - 1);
-            if (partidosAnterioresJornada.every(p => p.status === 'finalizado')) {
-                // Si todos los partidos de la jornada anterior han terminado, creamos este.
-                // Esta lógica es más simple y robusta.
-                if (!partido.threadId) { // Doble chequeo
-                    console.log(`[INFO] Creando hilo para Jornada ${jornadaActual}: ${equipoA.nombre} vs ${equipoB.nombre}`);
+        // Comprobamos si la jornada anterior a la del primer partido pendiente ya ha finalizado
+        const primeraJornadaPendiente = Math.min(...partidosPendientes.map(p => p.jornada));
+        const partidosJornadaAnterior = torneoActivo.calendario[groupName].filter(p => p.jornada === primeraJornadaPendiente - 1);
+        
+        if (partidosJornadaAnterior.length > 0 && partidosJornadaAnterior.every(p => p.status === 'finalizado')) {
+             const partidosACrear = torneoActivo.calendario[groupName].filter(p => p.jornada === primeraJornadaPendiente);
+             for(const partido of partidosACrear) {
+                if(!partido.threadId) { // Doble chequeo por seguridad
+                    console.log(`[INFO] Creando hilo para Jornada ${partido.jornada}: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`);
                     await crearHiloDePartido(guild, partido, `Grupo ${groupName.slice(-1)}`);
                 }
-            }
+             }
         }
     }
     saveBotState();
@@ -1250,7 +1241,7 @@ function crearPartidosEliminatoria(equipos, ronda) {
     for(let i = 0; i < equipos.length; i += 2) {
         const equipoA = equipos[i];
         const equipoB = equipos[i+1];
-        if (!equipoA || !equipoB) continue; // Seguridad
+        if (!equipoA || !equipoB) continue;
         const partido = {
             matchId: `match_${ronda}_${i/2}_${Date.now()}`,
             equipoA,
@@ -1475,7 +1466,7 @@ async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild)
 function sortTeams(a, b, groupName) {
     if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
     if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
-    if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf; // Criterio extra: goles a favor
+    if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
 
     const enfrentamiento = torneoActivo.calendario[groupName].find(p => (p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id));
     if (enfrentamiento && enfrentamiento.resultado) {
@@ -1503,7 +1494,7 @@ async function actualizarMensajeClasificacion() {
         const header = "EQUIPO".padEnd(nameWidth) + "PJ  PTS  GF  GC   DG";
 
         const table = equiposOrdenados.map(e => {
-            const teamName = e.nombre.slice(0, nameWidth - 1).padEnd(nameWidth); // Corta y rellena
+            const teamName = e.nombre.slice(0, nameWidth - 1).padEnd(nameWidth);
             const pj = e.stats.pj.toString().padStart(2);
             const pts = e.stats.pts.toString().padStart(3);
             const gf = e.stats.gf.toString().padStart(3);
@@ -1512,7 +1503,7 @@ async function actualizarMensajeClasificacion() {
             const dg = (dgVal >= 0 ? '+' : '') + dgVal.toString();
             const paddedDg = dg.padStart(4);
 
-            return `${teamName}${pj}  ${pts}  ${gf}  ${gc} ${paddedDg}`;
+            return `${teamName}${pj}  ${pts}  ${gc} ${paddedDg}`;
         }).join('\n');
 
         newEmbed.addFields({ name: `**${groupName}**`, value: "```\n" + header + "\n" + table + "\n```" });
@@ -1520,6 +1511,7 @@ async function actualizarMensajeClasificacion() {
     await message.edit({ embeds: [newEmbed] });
 }
 
+// --- FUNCIÓN CORREGIDA ---
 async function actualizarMensajeCalendario() {
     if (!torneoActivo || !torneoActivo.calendarioMessageId || !CALENDARIO_JORNADAS_CHANNEL_ID) return;
     
@@ -1531,12 +1523,12 @@ async function actualizarMensajeCalendario() {
 
     const newEmbed = EmbedBuilder.from(message.embeds[0])
         .setDescription('Calendario completo del torneo. Los resultados se actualizarán aquí.')
-        .setFields([]);
+        .setFields([]); // Limpiamos los campos para reconstruirlos
 
     const calendarioOrdenado = Object.keys(torneoActivo.calendario).sort();
 
     for (const groupName of calendarioOrdenado) {
-        const partidosDelGrupo = torneoActivo.calendario[groupName].sort((a,b) => a.jornada - b.jornada || a.matchId.localeCompare(b.matchId));
+        const partidosDelGrupo = torneoActivo.calendario[groupName];
         
         const partidosPorJornada = {};
         for (const partido of partidosDelGrupo) {
@@ -1547,19 +1539,30 @@ async function actualizarMensajeCalendario() {
         }
 
         let groupScheduleText = '';
-        const nameWidth = 16;
+        const nameWidth = 15; // Ancho para nombres de equipo
+        const centerWidth = 6; // Ancho para 'vs' o '10-5'
+
         for (const jornadaNum in partidosPorJornada) {
             groupScheduleText += `**Jornada ${jornadaNum}**\n`;
             for (const partido of partidosPorJornada[jornadaNum]) {
-                const resultado = partido.resultado ? `**\`${partido.resultado.padStart(5)}\`**` : '`  vs   `';
-                const equipoA = `\`${partido.equipoA.nombre.slice(0, nameWidth-1).padEnd(nameWidth)}\``;
-                const equipoB = `\`${partido.equipoB.nombre.slice(0, nameWidth-1).padEnd(nameWidth)}\``;
+                
+                // Lógica de centrado para la columna del medio
+                const centerText = partido.resultado ? partido.resultado : 'vs';
+                const paddingTotal = centerWidth - centerText.length;
+                const paddingInicio = Math.ceil(paddingTotal / 2);
+                const paddingFin = Math.floor(paddingTotal / 2);
+                const paddedCenter = ' '.repeat(paddingInicio) + centerText + ' '.repeat(paddingFin);
+
+                const resultado = `\`${paddedCenter}\``;
+                const equipoA = `\`${partido.equipoA.nombre.slice(0, nameWidth).padEnd(nameWidth)}\``;
+                const equipoB = `\`${partido.equipoB.nombre.slice(0, nameWidth).padEnd(nameWidth)}\``;
+                
                 groupScheduleText += `${equipoA}${resultado}${equipoB}\n`;
             }
-            groupScheduleText += '\n';
+            // Eliminamos el salto de línea extra al final de cada grupo
         }
 
-        newEmbed.addFields({ name: `**${groupName}**`, value: groupScheduleText, inline: true });
+        newEmbed.addFields({ name: `**${groupName}**`, value: groupScheduleText.trim(), inline: true });
     }
 
     await message.edit({ embeds: [newEmbed] });
