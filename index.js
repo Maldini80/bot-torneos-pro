@@ -1,4 +1,4 @@
-// index.js - VERSIÓN FINAL Y COMPLETA (CON LÓGICA DE BOTONES RESTAURADA)
+// index.js - VERSIÓN CON HILOS PRIVADOS PARA PARTIDOS Y NUEVAS FUNCIONALIDADES
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -21,12 +21,13 @@ function saveBotState() {
 
 // --- CONFIGURACIÓN ---
 const ADMIN_CHANNEL_ID = '1393187598796587028';
-const CATEGORY_ID = '1393225162584883280';
 const ARBITRO_ROLE_ID = '1393505777443930183';
 const INSCRIPCION_CHANNEL_ID = '1393942335645286412';
-const PARTICIPANTE_ROLE_ID = '1394321301748977684'; // Rol para capitanes de equipos aprobados
-const EQUIPOS_INSCRITOS_CHANNEL_ID = '1394444703822381076'; // Canal fijo para la lista de equipos
-const CLASIFICACION_CHANNEL_ID = '1394445078948220928'; // Canal fijo para clasificaciones
+const PARTICIPANTE_ROLE_ID = '1394321301748977684'; 
+const EQUIPOS_INSCRITOS_CHANNEL_ID = '1394444703822381076';
+const CLASIFICACION_CHANNEL_ID = '1394445078948220928';
+// Novedad: ID del canal donde se crearán los hilos de los partidos.
+const MATCH_THREADS_PARENT_ID = '1394452077282988063'; 
 const SETUP_COMMAND = '!setup-idiomas';
 
 
@@ -61,7 +62,7 @@ function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
         resultado: null,
         reportedScores: {},
         status: 'en_curso',
-        channelId: null
+        threadId: null // Cambio: channelId ahora es threadId
     };
 }
 
@@ -82,11 +83,19 @@ async function limpiarCanal(channelId) {
     }
 }
 
-async function crearCanalDePartido(guild, partido, tipoPartido = 'Grupo') {
+// Novedad: Función refactorizada para crear hilos privados en lugar de canales.
+async function crearHiloDePartido(guild, partido, tipoPartido = 'Grupo') {
+    const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
+    if (!parentChannel || parentChannel.type !== ChannelType.GuildText) {
+        console.error(`[ERROR FATAL] El canal padre para hilos (ID: ${MATCH_THREADS_PARENT_ID}) no existe o no es un canal de texto.`);
+        return;
+    }
+
     const safeTeamA = partido.equipoA.nombre.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 10);
     const safeTeamB = partido.equipoB.nombre.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 10);
     let baseChannelName;
     let description;
+
     if (tipoPartido.startsWith('Grupo')) {
         const groupLetter = partido.nombreGrupo.replace('Grupo ', '');
         baseChannelName = `g${groupLetter}-j${partido.jornada}-${safeTeamA}-vs-${safeTeamB}`.toLowerCase();
@@ -95,39 +104,59 @@ async function crearCanalDePartido(guild, partido, tipoPartido = 'Grupo') {
         baseChannelName = `knockout-${tipoPartido}-${safeTeamA}-vs-${safeTeamB}`.toLowerCase();
         description = `**Fase Eliminatoria - ${tipoPartido}** / **Knockout Stage - ${tipoPartido}**`;
     }
-    const channelName = `⚔️-${baseChannelName}`;
+    const threadName = `⚔️-${baseChannelName}`;
+
     try {
-        const channel = await guild.channels.create({
-            name: channelName,
-            type: ChannelType.GuildText,
-            parent: CATEGORY_ID,
-            permissionOverwrites: [
-                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: partido.equipoA.capitanId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                { id: partido.equipoB.capitanId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                { id: ARBITRO_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-            ],
+        const thread = await parentChannel.threads.create({
+            name: threadName,
+            autoArchiveDuration: 1440, // 24 horas de inactividad para archivar
+            type: ChannelType.PrivateThread,
+            reason: `Partido de torneo: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`
         });
-        partido.channelId = channel.id;
-        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`).setDescription(`${description}\n\n🇪🇸 Usad este canal para coordinar y jugar vuestro partido. Cuando terminéis, usad los botones de abajo.\n\n🇬🇧 *Use this channel to coordinate and play your match. When you finish, use the buttons below.*`);
-        const actionButtons = new ActionRowBuilder().addComponents(
+
+        partido.threadId = thread.id;
+
+        // Añadir a los capitanes
+        await thread.members.add(partido.equipoA.capitanId).catch(err => console.error(`No se pudo añadir al capitán ${partido.equipoA.capitanTag} al hilo.`));
+        await thread.members.add(partido.equipoB.capitanId).catch(err => console.error(`No se pudo añadir al capitán ${partido.equipoB.capitanTag} al hilo.`));
+
+        // Novedad: Añadir a todos los miembros con el rol de Árbitro
+        const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
+        if (arbitroRole) {
+            arbitroRole.members.forEach(member => {
+                thread.members.add(member.id).catch(()=>{});
+            });
+        }
+        
+        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`).setDescription(`${description}\n\n🇪🇸 Usad este hilo para coordinar y jugar. Cuando terminéis, usad los botones.\n\n🇬🇧 *Use this thread to coordinate and play. When you finish, use the buttons.*`);
+        
+        // Novedad: Se añaden todos los botones solicitados desde el inicio.
+        const captainButtons = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`reportar_resultado_v3_${partido.matchId}`).setLabel("Reportar Resultado / Report Result").setStyle(ButtonStyle.Primary).setEmoji("📊"),
+            new ButtonBuilder().setCustomId(`upload_highlights_${partido.matchId}`).setLabel("Subir Alturas / Upload Highlights").setStyle(ButtonStyle.Success).setEmoji("🎬"),
             new ButtonBuilder().setCustomId(`solicitar_arbitraje_${partido.matchId}`).setLabel("Solicitar Arbitraje / Request Referee").setStyle(ButtonStyle.Danger).setEmoji("⚠️")
         );
-        await channel.send({ content: `<@${partido.equipoA.capitanId}> y <@${partido.equipoB.capitanId}>`, embeds: [embed], components: [actionButtons] });
-        console.log(`[INFO] Canal de partido creado: ${channel.name}`);
+
+        const adminButtons = new ActionRowBuilder().addComponents(
+             new ButtonBuilder().setCustomId(`admin_modificar_resultado_${partido.matchId}`).setLabel("Modificar Resultado (Admin)").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
+        );
+
+        await thread.send({ content: `<@${partido.equipoA.capitanId}> y <@${partido.equipoB.capitanId}>`, embeds: [embed], components: [captainButtons, adminButtons] });
+        console.log(`[INFO] Hilo de partido creado: ${thread.name}`);
+
     } catch (error) {
-        console.error(`[ERROR FATAL] No se pudo crear el canal del partido.`, error);
+        console.error(`[ERROR FATAL] No se pudo crear el hilo del partido.`, error);
         throw error;
     }
 }
 
-async function updateMatchChannelName(partido) {
-    if (!partido.channelId) return;
+// Cambio: La función ahora actualiza nombres de hilos.
+async function updateMatchThreadName(partido) {
+    if (!partido.threadId) return;
     try {
-        const channel = await client.channels.fetch(partido.channelId);
-        if (!channel) return;
-        const cleanBaseName = channel.name.replace(/^[⚔️✅⚠️]-/g, '').replace(/-\d+a\d+$/, '');
+        const thread = await client.channels.fetch(partido.threadId);
+        if (!thread) return;
+        const cleanBaseName = thread.name.replace(/^[⚔️✅⚠️]-/g, '').replace(/-\d+a\d+$/, '');
         let icon;
         if (partido.status === 'finalizado') icon = '✅';
         else if (partido.status === 'arbitraje') icon = '⚠️';
@@ -137,9 +166,9 @@ async function updateMatchChannelName(partido) {
              const resultString = partido.resultado.replace('-', 'a');
              newName = `${newName}-${resultString}`;
         }
-        await channel.setName(newName.slice(0, 100));
+        await thread.setName(newName.slice(0, 100));
     } catch(err) {
-        if (err.code !== 10003) { console.error(`Error al renombrar canal ${partido.channelId}:`, err); }
+        if (err.code !== 10003) { console.error(`Error al renombrar hilo ${partido.threadId}:`, err); }
     }
 }
 
@@ -243,8 +272,10 @@ async function handleSlashCommand(interaction) {
             new ButtonBuilder().setCustomId('panel_ver_pendientes').setLabel('Ver Pendientes').setStyle(ButtonStyle.Primary).setEmoji('⏳')
         );
         const row3 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos').setStyle(ButtonStyle.Secondary).setEmoji('🎲'), 
-            new ButtonBuilder().setCustomId('panel_borrar_canales').setLabel('Borrar Canales Partido').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), 
+            // Cambio: Se actualiza el botón para reflejar que simula hilos activos.
+            new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos Activos').setStyle(ButtonStyle.Secondary).setEmoji('🎲'), 
+            // Cambio: El botón ahora borra hilos.
+            new ButtonBuilder().setCustomId('panel_borrar_hilos').setLabel('Borrar Hilos Partido').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), 
             new ButtonBuilder().setCustomId('panel_finalizar').setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑')
         );
         await interaction.channel.send({ embeds: [embed], components: [row1, row2, row3] });
@@ -312,58 +343,57 @@ async function handleButton(interaction) {
             return interaction.editReply({ embeds: [embed] });
         }
         
+        // Cambio: La lógica de simulación ahora busca partidos con hilos creados y no finalizados.
         if (type === 'simular' && subtype === 'partidos') {
-            if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') {
-                 return interaction.editReply({ content: 'Solo se pueden simular partidos durante la fase de grupos.' });
+            if (!torneoActivo || (torneoActivo.status !== 'fase_de_grupos' && torneoActivo.status !== 'semifinales' && torneoActivo.status !== 'final')) {
+                 return interaction.editReply({ content: 'Solo se pueden simular partidos durante una fase activa del torneo.' });
             }
-            let partidosSimulados = 0;
-            for (const groupName in torneoActivo.calendario) {
-                for (const partido of torneoActivo.calendario[groupName]) {
-                    if (partido.status !== 'finalizado') {
-                        const golesA = Math.floor(Math.random() * 5);
-                        const golesB = Math.floor(Math.random() * 5);
-                        partido.resultado = `${golesA}-${golesB}`;
-                        partido.status = 'finalizado';
-                        const equipoA = torneoActivo.grupos[groupName].equipos.find(e => e.id === partido.equipoA.id);
-                        const equipoB = torneoActivo.grupos[groupName].equipos.find(e => e.id === partido.equipoB.id);
-                        if (equipoA && equipoB) {
-                            equipoA.stats.pj += 1;
-                            equipoB.stats.pj += 1;
-                            equipoA.stats.gf += golesA;
-                            equipoB.stats.gf += golesB;
-                            equipoA.stats.gc += golesB;
-                            equipoB.stats.gc += golesA;
-                            if (golesA > golesB) equipoA.stats.pts += 3;
-                            else if (golesB > golesA) equipoB.stats.pts += 3;
-                            else {
-                                equipoA.stats.pts += 1;
-                                equipoB.stats.pts += 1;
-                            }
-                            equipoA.stats.dg = equipoA.stats.gf - equipoA.stats.gc;
-                            equipoB.stats.dg = equipoB.stats.gf - equipoB.stats.gc;
-                        }
-                        partidosSimulados++;
-                        await updateMatchChannelName(partido);
-                    }
-                }
+            
+            let partidosActivos = findMatch(null, true); // Encuentra todos los partidos
+            let partidosASimular = partidosActivos.filter(p => p.threadId && p.status !== 'finalizado');
+
+            if (partidosASimular.length === 0) {
+                return interaction.editReply({ content: 'No hay partidos activos (con hilo creado) para simular en este momento.' });
             }
+            
+            await interaction.editReply({ content: `Simulando ${partidosASimular.length} partidos activos...` });
+
+            for (const partido of partidosASimular) {
+                const golesA = Math.floor(Math.random() * 5);
+                const golesB = Math.floor(Math.random() * 5);
+                partido.resultado = `${golesA}-${golesB}`;
+                partido.status = 'finalizado';
+                // La llamada a procesarResultadoFinal se encargará de actualizar stats y crear nuevos hilos.
+                await procesarResultadoFinal(partido, interaction, true); 
+            }
+            
             saveBotState();
-            await actualizarMensajeClasificacion();
-            await interaction.editReply({ content: `✅ Se han simulado ${partidosSimulados} partidos. La clasificación ha sido actualizada.` });
-            await iniciarFaseEliminatoria(interaction.guild);
+            await interaction.followUp({ content: `✅ Se han simulado ${partidosASimular.length} partidos. La clasificación ha sido actualizada y se han creado los hilos para la siguiente ronda si procede.` });
             return;
         } 
         
-        if (type === 'borrar' && subtype === 'canales') {
-            const allChannels = await interaction.guild.channels.fetch();
-            const matchChannels = allChannels.filter(c => c.parentId === CATEGORY_ID);
-            await interaction.editReply({ content: `Borrando ${matchChannels.size} canales de partido...` });
+        // Cambio: Botón para borrar hilos en el canal padre.
+        if (type === 'borrar' && subtype === 'hilos') {
+            const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(()=>null);
+            if (!parentChannel) return interaction.editReply({ content: `Error: No se encontró el canal padre de hilos (ID: ${MATCH_THREADS_PARENT_ID})`});
+            
+            const threads = await parentChannel.threads.fetch();
+            const matchThreads = threads.threads;
+            
+            await interaction.editReply({ content: `Borrando ${matchThreads.size} hilos de partido...` });
             let deletedCount = 0;
-            for (const channel of matchChannels.values()) {
-                await channel.delete('Limpieza de canales de torneo.').catch(err => console.error(`No se pudo borrar el canal ${channel.name}: ${err}`));
+            for (const thread of matchThreads.values()) {
+                await thread.delete('Limpieza de hilos de torneo.').catch(err => console.error(`No se pudo borrar el hilo ${thread.name}: ${err}`));
                 deletedCount++;
             }
-            await interaction.followUp({ content: `✅ ${deletedCount} canales de partido borrados.`, flags: [MessageFlags.Ephemeral] });
+             if (torneoActivo) {
+                 // Resetea los threadId de todos los partidos para evitar errores
+                Object.values(torneoActivo.calendario).flat().forEach(p => p.threadId = null);
+                (torneoActivo.eliminatorias?.semifinales || []).forEach(p => p.threadId = null);
+                if(torneoActivo.eliminatorias?.final) torneoActivo.eliminatorias.final.threadId = null;
+                saveBotState();
+            }
+            await interaction.followUp({ content: `✅ ${deletedCount} hilos de partido borrados.`, flags: [MessageFlags.Ephemeral] });
             return;
         } 
         
@@ -378,10 +408,13 @@ async function handleButton(interaction) {
                 await announcementChannel.send({ embeds: [finalEmbed] });
             }
 
-            const allChannels = await interaction.guild.channels.fetch();
-            const matchChannels = allChannels.filter(c => c.parentId === CATEGORY_ID);
-            for (const channel of matchChannels.values()) { 
-                await channel.delete('Finalización de torneo.').catch(err => {}); 
+            // Cambio: Se borran los hilos en lugar de canales.
+            const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(()=>null);
+            if(parentChannel) {
+                const threads = await parentChannel.threads.fetch();
+                for (const thread of threads.threads.values()) { 
+                    await thread.delete('Finalización de torneo.').catch(err => {}); 
+                }
             }
             
             torneoActivo = null;
@@ -470,12 +503,25 @@ async function handleButton(interaction) {
         return interaction.showModal(modal);
     }
     
+    // Novedad: Botón para subir "alturas" (highlights).
+    else if (customId.startsWith('upload_highlights_')) {
+        const matchId = customId.replace('upload_highlights_', '');
+        const modal = new ModalBuilder().setCustomId(`highlights_modal_${matchId}`).setTitle('Subir Alturas / Upload Highlights');
+        const linkInput = new TextInputBuilder().setCustomId('highlight_link').setLabel("🇪🇸 Enlace del vídeo o clip / 🇬🇧 Link to the video or clip").setStyle(TextInputStyle.Short).setRequired(true);
+        const descriptionInput = new TextInputBuilder().setCustomId('highlight_desc').setLabel("🇪🇸 Descripción breve / 🇬🇧 Brief description").setStyle(TextInputStyle.Paragraph).setRequired(false);
+        modal.addComponents(new ActionRowBuilder().addComponents(linkInput), new ActionRowBuilder().addComponents(descriptionInput));
+        return interaction.showModal(modal);
+    }
+
     else if (customId.startsWith('admin_modificar_resultado_')) {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) return interaction.reply({ content: 'No tienes permisos.', flags: [MessageFlags.Ephemeral] });
+        // Novedad: Comprobación de permisos para usar el botón de modificar
+        const hasPermission = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!hasPermission) return interaction.reply({ content: 'No tienes permisos para usar este botón.', flags: [MessageFlags.Ephemeral] });
+
         const matchId = customId.replace('admin_modificar_resultado_', '');
         const { partido } = findMatch(matchId);
         if (!partido) return interaction.reply({ content: "Error: No se pudo encontrar el partido.", flags: [MessageFlags.Ephemeral] });
-        const modal = new ModalBuilder().setCustomId(`admin_modificar_modal_${matchId}`).setTitle('Modificar Resultado (Admin)');
+        const modal = new ModalBuilder().setCustomId(`admin_modificar_modal_${matchId}`).setTitle('Modificar Resultado (Admin/Árbitro)');
         const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder(partido.resultado ? partido.resultado.split('-')[0] : '0');
         const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder(partido.resultado ? partido.resultado.split('-')[1] : '0');
         modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
@@ -494,10 +540,11 @@ async function handleButton(interaction) {
             if(partido.status !== 'finalizado') {
                 partido.status = 'arbitraje';
                 saveBotState();
-                await updateMatchChannelName(partido);
-                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_modificar_resultado_${matchId}`).setLabel("Modificar Resultado (Admin)").setStyle(ButtonStyle.Secondary).setEmoji("✍️"));
+                await updateMatchThreadName(partido); // Cambio: Actualiza nombre de hilo
                 const arbitroRole = await interaction.guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
-                return interaction.editReply({ content: `${arbitroRole ? arbitroRole.toString() : '@Árbitros'} 🇪🇸 Se ha solicitado arbitraje en este partido.\n🇬🇧 *A referee has been requested for this match.*`, components: [row] });
+                // Novedad: El mensaje se envía al canal/hilo público.
+                await interaction.channel.send({ content: `${arbitroRole ? arbitroRole.toString() : '@Árbitros'} 🇪🇸 Se ha solicitado arbitraje en este partido.\n🇬🇧 *A referee has been requested for this match.*`});
+                return interaction.editReply({ content: '✅ Solicitud de arbitraje enviada.' });
             } else {
                 return interaction.editReply({ content: `🇪🇸 No se puede solicitar arbitraje para este partido.\n🇬🇧 *You cannot request a referee for this match.*`});
             }
@@ -840,7 +887,7 @@ async function handleModalSubmit(interaction) {
             return interaction.editReply("🇪🇸 Error: Partido no encontrado.\n🇬🇧 *Error: Match not found.*");
         }
         if (partido.resultado) {
-            return interaction.editReply("🇪🇸 Este partido ya tiene un resultado. Un admin puede modificarlo.\n🇬🇧 *This match already has a result. An admin can modify it.*");
+            return interaction.editReply("🇪🇸 Este partido ya tiene un resultado. Un admin o árbitro puede modificarlo.\n🇬🇧 *This match already has a result. An admin or referee can modify it.*");
         }
 
         if (partido.equipoA.capitanId === partido.equipoB.capitanId) {
@@ -864,7 +911,9 @@ async function handleModalSubmit(interaction) {
                 await procesarResultadoFinal(partido, interaction);
             } else {
                 partido.reportedScores = {};
-                await interaction.editReply(`❌ 🇪🇸 Los resultados no coinciden. Se han reseteado.\n🇬🇧 *The reported results do not match. They have been reset.*`);
+                // Novedad: Mensaje público en el hilo sobre el conflicto de resultados.
+                await interaction.channel.send({ content: `**⚠️ 🇪🇸 ¡Conflicto de resultados!**\nLos marcadores enviados por ambos capitanes no coinciden. Se han reseteado. Por favor, volved a reportar el resultado correcto. Si no hay acuerdo, usad el botón de "Solicitar Arbitraje".\n\n**⚠️ 🇬🇧 Result conflict!**\nThe scores submitted by both captains do not match. They have been reset. Please report the correct result again. If there is no agreement, use the "Request Referee" button.`});
+                await interaction.editReply({ content: `❌ 🇪🇸 Los resultados no coinciden. Se ha enviado un aviso en el hilo.\n🇬🇧 *The reported results do not match. A notice has been sent in the thread.*` });
             }
         } else {
             await interaction.editReply(`✅ 🇪🇸 Tu resultado (${golesA}-${golesB}) ha sido guardado. Esperando la confirmación del otro capitán.\n🇬🇧 *Your result (${golesA}-${golesB}) has been saved. Waiting for the other captain's confirmation.*`);
@@ -884,6 +933,12 @@ async function handleModalSubmit(interaction) {
         if (!partido) {
             return interaction.editReply("🇪🇸 Error: Partido no encontrado.\n🇬🇧 *Error: Match not found.*");
         }
+        
+        // Novedad: Se limpia el resultado previo si existe para recalcular estadísticas correctamente
+        const oldResult = partido.resultado;
+        if (oldResult) {
+           await revertirEstadisticas(partido, oldResult);
+        }
 
         partido.resultado = `${golesA}-${golesB}`;
         if (partido.status !== 'finalizado') {
@@ -891,15 +946,31 @@ async function handleModalSubmit(interaction) {
         }
         await interaction.editReply(`✅ 🇪🇸 Resultado modificado por el administrador a ${partido.resultado}.\n🇬🇧 *Result changed by the administrator to ${partido.resultado}.*`);
         await procesarResultadoFinal(partido, interaction);
+    
+    // Novedad: Se maneja el formulario de subir "alturas"
+    } else if (customId.startsWith('highlights_modal_')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const link = fields.getTextInputValue('highlight_link');
+        const description = fields.getTextInputValue('highlight_desc');
+
+        const embed = new EmbedBuilder()
+            .setColor('#7289DA')
+            .setAuthor({ name: `Alturas compartidas por ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() })
+            .setTitle('🎬 ¡Nuevas Alturas! / New Highlights!')
+            .setDescription(`**[Ver Clip / Watch Clip](${link})**\n\n${description || 'Sin descripción / No description'}`)
+            .setTimestamp();
+        
+        await interaction.channel.send({ embeds: [embed] });
+        await interaction.editReply({ content: '✅ ¡Tus alturas han sido compartidas en el hilo del partido!' });
     }
 }
 
-async function procesarResultadoFinal(partido, interaction) {
-    await updateMatchChannelName(partido);
+async function procesarResultadoFinal(partido, interaction, fromSimulation = false) {
+    await updateMatchThreadName(partido);
 
-    if (partido.nombreGrupo) {
+    if (partido.nombreGrupo) { // Si es un partido de grupo
         await actualizarEstadisticasYClasificacion(partido, partido.nombreGrupo, interaction.guild);
-    } else {
+    } else { // Si es un partido de eliminatoria
         const esSemifinal = torneoActivo.eliminatorias.semifinales.some(p => p.matchId === partido.matchId);
         const esFinal = torneoActivo.eliminatorias.final?.matchId === partido.matchId;
 
@@ -909,22 +980,26 @@ async function procesarResultadoFinal(partido, interaction) {
             await handleFinalResult();
         }
     }
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_modificar_resultado_${partido.matchId}`).setLabel("Modificar Resultado (Admin)").setStyle(ButtonStyle.Secondary).setEmoji("✍️"));
-    const channel = await client.channels.fetch(partido.channelId).catch(() => null);
-    if (channel) {
-        await channel.send({ content: `✅ Resultado final establecido: **${partido.equipoA.nombre} ${partido.resultado} ${partido.equipoB.nombre}**.`, components: [row]});
+    
+    if (!fromSimulation) {
+        const thread = await client.channels.fetch(partido.threadId).catch(() => null);
+        if (thread) {
+            await thread.send({ content: `✅ Resultado final establecido: **${partido.equipoA.nombre} ${partido.resultado} ${partido.equipoB.nombre}**.`});
+        }
     }
 }
 
-function findMatch(matchId) {
+function findMatch(matchId, all = false) {
     if (!torneoActivo) return { partido: null };
 
     const allMatches = [
         ...(Object.values(torneoActivo.calendario || {}).flat()),
         ...(torneoActivo.eliminatorias?.semifinales || []),
         ...(torneoActivo.eliminatorias?.final ? [torneoActivo.eliminatorias.final] : [])
-    ];
+    ].filter(Boolean);
 
+    if (all) return allMatches;
+    
     const partido = allMatches.find(p => p && p.matchId === matchId);
     return { partido: partido || null };
 }
@@ -934,11 +1009,8 @@ async function realizarSorteoDeGrupos(guild) {
     const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
     if (!adminChannel) { console.error("CANAL ADMIN NO ENCONTRADO"); return; }
 
-    await adminChannel.send('Iniciando sorteo y creación de canales...');
-    const category = await client.channels.fetch(CATEGORY_ID).catch(() => null);
-    if (!category || category.type !== ChannelType.GuildCategory) {
-        return adminChannel.send(`❌ Error Crítico: La categoría para partidos no se encuentra.`);
-    }
+    await adminChannel.send('Iniciando sorteo y creación de calendario...');
+    
     const inscripcionChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID);
     if(mensajeInscripcionId) {
         try {
@@ -967,21 +1039,14 @@ async function realizarSorteoDeGrupos(guild) {
 
         if (equiposGrupo.length === 4) {
             const [team1, team2, team3, team4] = equiposGrupo;
-
-            // Jornada 1
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, team1, team2));
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, team3, team4));
-
-            // Jornada 2
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, team1, team3));
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, team2, team4));
-
-            // Jornada 3
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, team1, team4));
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, team2, team3));
-
         } else {
-            console.warn(`[ADVERTENCIA] El grupo ${nombreGrupo} no tiene 4 equipos. Se usará la lógica de emparejamiento antigua.`);
+             console.warn(`[ADVERTENCIA] El grupo ${nombreGrupo} no tiene 4 equipos. Se usará la lógica de emparejamiento antigua.`);
             let jornadaCounter = 1;
             for (let i = 0; i < equiposGrupo.length; i++) {
                 for (let j = i + 1; j < equiposGrupo.length; j++) {
@@ -1010,20 +1075,48 @@ async function realizarSorteoDeGrupos(guild) {
     torneoActivo = torneo;
     
     await actualizarMensajeClasificacion();
-    let createdCount = 0, errorCount = 0;
+    
+    // Novedad: Se crean solo los hilos de la primera jornada.
+    let createdCount = 0;
     for (const nombreGrupo in calendario) {
-        for (const partido of calendario[nombreGrupo]) {
-            try {
-                await crearCanalDePartido(guild, partido, `Grupo ${nombreGrupo.slice(-1)}`);
-                createdCount++;
-            } catch (error) {
-                errorCount++;
+        const partidosJornada1 = calendario[nombreGrupo].filter(p => p.jornada === 1);
+        for (const partido of partidosJornada1) {
+            await crearHiloDePartido(guild, partido, `Grupo ${nombreGrupo.slice(-1)}`);
+            createdCount++;
+        }
+    }
+    saveBotState();
+    await adminChannel.send(`✅ Sorteo completado y ${createdCount} hilos de partido para la Jornada 1 creados.`);
+}
+
+// Novedad: Nueva función para crear los hilos de las siguientes jornadas cuando sea el momento.
+async function verificarYCrearSiguientesHilos(guild) {
+    if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
+
+    for (const groupName in torneoActivo.calendario) {
+        for (const partido of torneoActivo.calendario[groupName]) {
+            // Si el partido ya tiene hilo o ya terminó, lo ignoramos.
+            if (partido.threadId || partido.status === 'finalizado') continue;
+
+            const equipoA = partido.equipoA;
+            const equipoB = partido.equipoB;
+            const jornadaActual = partido.jornada;
+            if (jornadaActual === 1) continue; // La jornada 1 se crea al inicio.
+
+            // Buscar los partidos de la jornada anterior para ambos equipos.
+            const partidoAnteriorA = torneoActivo.calendario[groupName].find(p => p.jornada === jornadaActual - 1 && (p.equipoA.id === equipoA.id || p.equipoB.id === equipoA.id));
+            const partidoAnteriorB = torneoActivo.calendario[groupName].find(p => p.jornada === jornadaActual - 1 && (p.equipoA.id === equipoB.id || p.equipoB.id === equipoB.id));
+            
+            // Si ambos partidos anteriores han finalizado, creamos el hilo para el nuevo partido.
+            if (partidoAnteriorA && partidoAnteriorA.status === 'finalizado' && partidoAnteriorB && partidoAnteriorB.status === 'finalizado') {
+                console.log(`[INFO] Creando hilo para Jornada ${jornadaActual}: ${equipoA.nombre} vs ${equipoB.nombre}`);
+                await crearHiloDePartido(guild, partido, `Grupo ${groupName.slice(-1)}`);
             }
         }
     }
     saveBotState();
-    await adminChannel.send(errorCount === 0 ? `✅ Sorteo completado y todos los ${createdCount} canales de partido creados.` : `⚠️ Se crearon ${createdCount} canales, pero fallaron ${errorCount}.`);
 }
+
 
 async function iniciarFaseEliminatoria(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
@@ -1050,8 +1143,9 @@ async function iniciarFaseEliminatoria(guild) {
     const semifinal2 = { matchId: `match_semi_2_${Date.now()}`, equipoA: clasificados[2], equipoB: clasificados[3], resultado: null, reportedScores: {}, status: 'en_curso' };
     torneoActivo.eliminatorias.semifinales = [semifinal1, semifinal2];
 
-    await crearCanalDePartido(guild, semifinal1, 'Semifinal-1');
-    await crearCanalDePartido(guild, semifinal2, 'Semifinal-2');
+    // Cambio: Se crean hilos para las semifinales
+    await crearHiloDePartido(guild, semifinal1, 'Semifinal-1');
+    await crearHiloDePartido(guild, semifinal2, 'Semifinal-2');
     
     saveBotState();
 
@@ -1070,7 +1164,8 @@ async function handleSemifinalResult(guild) {
         torneoActivo.eliminatorias.final = final;
         torneoActivo.status = 'final';
 
-        await crearCanalDePartido(guild, final, 'Final');
+        // Cambio: Se crea el hilo para la final.
+        await crearHiloDePartido(guild, final, 'Final');
         saveBotState();
 
         const embedAnuncio = new EmbedBuilder().setColor('#f1c40f').setTitle('🏆 ¡Llegó la Gran Final! 🏆').setDescription(`**${final.equipoA.nombre} vs ${final.equipoB.nombre}**`).setFooter({text: '¡Solo uno puede ser el campeón!'});
@@ -1119,6 +1214,31 @@ async function handleFinalResult() {
     }
 }
 
+// Novedad: Función para revertir estadísticas si un admin modifica un resultado.
+async function revertirEstadisticas(partido, oldResult) {
+    if (!partido.nombreGrupo) return; // Solo aplica a fase de grupos
+
+    const [oldGolesA, oldGolesB] = oldResult.split('-').map(Number);
+    const equipoA = torneoActivo.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
+    const equipoB = torneoActivo.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
+
+    if (!equipoA || !equipoB) return;
+
+    equipoA.stats.pj -= 1;
+    equipoB.stats.pj -= 1;
+    equipoA.stats.gf -= oldGolesA;
+    equipoB.stats.gf -= oldGolesB;
+    equipoA.stats.gc -= oldGolesB;
+    equipoB.stats.gc -= oldGolesA;
+
+    if (oldGolesA > oldGolesB) equipoA.stats.pts -= 3;
+    else if (oldGolesB > oldGolesA) equipoB.stats.pts -= 3;
+    else {
+        equipoA.stats.pts -= 1;
+        equipoB.stats.pts -= 1;
+    }
+}
+
 async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild) {
     const [golesA, golesB] = partido.resultado.split('-').map(Number);
     const equipoA = torneoActivo.grupos[nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
@@ -1145,6 +1265,8 @@ async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild)
     saveBotState();
 
     await actualizarMensajeClasificacion();
+    // Novedad: Se llama a la función para verificar si se deben crear nuevos hilos.
+    await verificarYCrearSiguientesHilos(guild);
     await iniciarFaseEliminatoria(guild);
 }
 
