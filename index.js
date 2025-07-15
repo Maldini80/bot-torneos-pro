@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.5 - BLINDAJE TOTAL CONTRA ESTADOS NULOS (CÓDIGO COMPLETO)
+// index.js - VERSIÓN 2.6 - BOTÓN DE RESET FORZADO EN PANEL DE ADMIN
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -356,10 +356,12 @@ async function handleSlashCommand(interaction) {
             new ButtonBuilder().setCustomId('panel_ver_inscritos').setLabel('Ver Inscritos').setStyle(ButtonStyle.Primary).setEmoji('📋'),
             new ButtonBuilder().setCustomId('panel_ver_pendientes').setLabel('Ver Pendientes').setStyle(ButtonStyle.Primary).setEmoji('⏳')
         );
+        // --- CAMBIO: Añadido botón de Reset Forzado al panel ---
         const row3 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos Activos').setStyle(ButtonStyle.Secondary).setEmoji('🎲'), 
-            new ButtonBuilder().setCustomId('panel_borrar_hilos').setLabel('Borrar Hilos Partido').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), 
-            new ButtonBuilder().setCustomId('panel_finalizar').setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑')
+            new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos').setStyle(ButtonStyle.Secondary).setEmoji('🎲'), 
+            new ButtonBuilder().setCustomId('panel_borrar_hilos').setLabel('Borrar Hilos').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), 
+            new ButtonBuilder().setCustomId('panel_finalizar').setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑'),
+            new ButtonBuilder().setCustomId('panel_reset_force').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
         );
         await interaction.channel.send({ embeds: [embed], components: [row1, row2, row3] });
         return interaction.reply({ content: 'Panel de control creado.', flags: [MessageFlags.Ephemeral] });
@@ -380,10 +382,6 @@ async function handleSlashCommand(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         await iniciarFaseEliminatoria(interaction.guild);
         await interaction.editReply({ content: 'Fase eliminatoria iniciada.'});
-    }
-
-    if (commandName === 'reset-torneo-forzado') {
-        await forceResetTournamentState(interaction);
     }
 }
 
@@ -437,6 +435,11 @@ async function handleButton(interaction) {
             const cantidadInput = new TextInputBuilder().setCustomId('cantidad_input').setLabel("¿Cuántos equipos de prueba quieres añadir?").setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(cantidadInput));
             return interaction.showModal(modal);
+        }
+        
+        // --- NOVEDAD: Lógica del botón de reset forzado ---
+        if (type === 'reset' && subtype === 'force') {
+            return await forceResetTournamentState(interaction);
         }
 
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -898,7 +901,7 @@ async function handleModalSubmit(interaction) {
             const listaMsg = await client.channels.cache.get(EQUIPOS_INSCRITOS_CHANNEL_ID).send({ embeds: [embedLista] });
             listaEquiposMessageId = listaMsg.id;
             
-            const calendarioChannel = client.channels.cache.get(CALENDARIO_JORNADAS_CHANNEL_ID);
+            const calendarioChannel = await client.channels.fetch(CALENDARIO_JORNADAS_CHANNEL_ID).catch(()=>null);
             if (calendarioChannel) {
                 const embedCalendario = new EmbedBuilder().setColor('#9b59b6').setTitle(`🗓️ Calendario de Jornadas - ${nombre}`).setDescription('El calendario se mostrará aquí una vez que se realice el sorteo de grupos.');
                 const calendarioMsg = await calendarioChannel.send({ embeds: [embedCalendario] });
@@ -1497,7 +1500,7 @@ async function revertirEstadisticas(partido, oldResult) {
 async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild) {
     const [golesA, golesB] = partido.resultado.split('-').map(Number);
     const equipoA = torneoActivo.grupos[nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
-    const equipoB = torneoActivo.grupos[nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
+    const equipoB = torneoActivo.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
 
     if (!equipoA || !equipoB) return;
 
