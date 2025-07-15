@@ -1,10 +1,9 @@
-// index.js - VERSIÓN 2.2 - CORRECCIÓN FINAL DE 'require'
+// index.js - VERSIÓN 2.3 - ROBUSTEZ Y MANEJO DE ESTADO
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
 const { connectDb, saveData, loadInitialData } = require('./database.js'); 
 
-// --- CORRECCIÓN CRÍTICA: Se ha corregido el nombre de StringSelectMenuBuilder ---
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
 const { translate } = require('@vitalets/google-translate-api');
 
@@ -112,8 +111,7 @@ const client = new Client({
     ]
 });
 
-// --- EL RESTO DEL CÓDIGO ES IDÉNTICO AL ANTERIOR, YA QUE LAS OTRAS CORRECCIONES ERAN CORRECTAS ---
-
+// ... (El código hasta handleButton es idéntico al anterior) ...
 async function actualizarNombresCanalesConIcono() {
     let statuses = {};
 
@@ -492,33 +490,48 @@ async function handleButton(interaction) {
             return;
         } 
         
+        // --- FUNCIÓN REESCRITA PARA MÁXIMA ROBUSTEZ ---
         if (type === 'finalizar') {
-            if (!torneoActivo) return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
-
-            await interaction.editReply({ content: 'Finalizando torneo...' });
-            
-            const announcementChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID).catch(() => null);
-            if (announcementChannel) {
-                const finalEmbed = new EmbedBuilder().setColor('#E74C3C').setTitle(`🏁 Torneo Finalizado: ${torneoActivo.nombre}`).setDescription('El torneo ha concluido. ¡Gracias a todos por participar!').setTimestamp();
-                await announcementChannel.send({ embeds: [finalEmbed] });
+            if (!torneoActivo) {
+                return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
             }
 
-            const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(()=>null);
-            if(parentChannel) {
-                const threads = await parentChannel.threads.fetch();
-                for (const thread of threads.threads.values()) { 
-                    await thread.delete('Finalización de torneo.').catch(err => {}); 
+            try {
+                await interaction.editReply({ content: 'Finalizando torneo... Priorizando reseteo de estado interno.' });
+
+                // 1. Limpiar el estado interno PRIMERO
+                const nombreTorneoFinalizado = torneoActivo.nombre;
+                torneoActivo = null;
+                mensajeInscripcionId = null;
+                listaEquiposMessageId = null;
+                saveBotState();
+                console.log(`[INFO] Estado del torneo ${nombreTorneoFinalizado} reseteado en memoria y base de datos.`);
+
+                // 2. Actualizar la interfaz de Discord (canales, mensajes)
+                const announcementChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID).catch(() => null);
+                if (announcementChannel) {
+                    const finalEmbed = new EmbedBuilder().setColor('#E74C3C').setTitle(`🏁 Torneo Finalizado: ${nombreTorneoFinalizado}`).setDescription('El torneo ha concluido. ¡Gracias a todos por participar!').setTimestamp();
+                    await announcementChannel.send({ embeds: [finalEmbed] });
                 }
-            }
-            
-            torneoActivo = null;
-            mensajeInscripcionId = null;
-            listaEquiposMessageId = null;
-            saveBotState();
 
-            await mostrarMensajeEspera();
-            
-            await interaction.followUp({ content: '✅ Torneo finalizado. Los canales de equipos y clasificación han sido reseteados.', flags: [MessageFlags.Ephemeral] });
+                const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
+                if (parentChannel) {
+                    const threads = await parentChannel.threads.fetch();
+                    for (const thread of threads.threads.values()) {
+                        await thread.delete('Finalización de torneo.').catch(err => {});
+                    }
+                }
+                
+                // 3. Poner canales en modo espera y actualizar iconos
+                await mostrarMensajeEspera();
+                
+                await interaction.followUp({ content: '✅ Torneo finalizado y estado del bot reseteado correctamente.', flags: [MessageFlags.Ephemeral] });
+
+            } catch (error) {
+                console.error("Ocurrió un error durante la finalización del torneo:", error);
+                // Si algo falla, el estado interno ya está limpio. Solo informamos del error.
+                await interaction.followUp({ content: '❌ Ocurrió un error al intentar limpiar los canales, pero el estado del bot ha sido reseteado. Puedes crear un nuevo torneo.', flags: [MessageFlags.Ephemeral] });
+            }
             return;
         }
     }
@@ -795,85 +808,101 @@ async function handleSelectMenu(interaction) {
     }
 }
 
+// --- FUNCIÓN REESCRITA PARA MÁXIMA ROBUSTEZ ---
 async function handleModalSubmit(interaction) {
     const { customId, fields } = interaction;
 
     if (customId.startsWith('crear_torneo_final_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-        const match = customId.match(/crear_torneo_final_(.+)_(pago|gratis)/);
-        if (!match) {
-             return interaction.editReply({ content: 'Error: Ocurrió un problema al leer los datos del torneo. El `customId` era inválido.' });
-        }
-        const [, formatId, type] = match;
-        
-        const format = TOURNAMENT_FORMATS[formatId];
-        if (!format) {
-            return interaction.editReply({ content: 'Error: Formato de torneo inválido. Por favor, reinicia el proceso de creación.' });
-        }
-
-        const isPaid = type === 'pago';
-        const nombre = fields.getTextInputValue('torneo_nombre');
-        
-        let enlacePaypal = null;
-        let prizeCampeon = 0;
-        let prizeFinalista = 0;
-
-        if (isPaid) {
-            enlacePaypal = fields.getTextInputValue('torneo_paypal');
-            prizeCampeon = parseFloat(fields.getTextInputValue('torneo_prize_campeon'));
-            prizeFinalista = parseFloat(fields.getTextInputValue('torneo_prize_finalista'));
-            if (!enlacePaypal || isNaN(prizeCampeon) || isNaN(prizeFinalista)) {
-                return interaction.editReply({ content: 'Debes proporcionar un enlace de PayPal y premios numéricos válidos.' });
+        try {
+            // Medida de seguridad: no crear un torneo si ya hay uno activo
+            if (torneoActivo) {
+                return interaction.editReply({ content: '❌ Ya hay un torneo activo. Por favor, finalízalo usando el panel de administración antes de crear uno nuevo.' });
             }
+
+            const match = customId.match(/crear_torneo_final_(.+)_(pago|gratis)/);
+            if (!match) {
+                 return interaction.editReply({ content: 'Error: Ocurrió un problema al leer los datos del torneo. El `customId` era inválido.' });
+            }
+            const [, formatId, type] = match;
+            
+            const format = TOURNAMENT_FORMATS[formatId];
+            if (!format) {
+                return interaction.editReply({ content: 'Error: Formato de torneo inválido. Por favor, reinicia el proceso de creación.' });
+            }
+
+            const isPaid = type === 'pago';
+            const nombre = fields.getTextInputValue('torneo_nombre');
+            
+            let enlacePaypal = null;
+            let prizeCampeon = 0;
+            let prizeFinalista = 0;
+
+            if (isPaid) {
+                enlacePaypal = fields.getTextInputValue('torneo_paypal');
+                prizeCampeon = parseFloat(fields.getTextInputValue('torneo_prize_campeon'));
+                prizeFinalista = parseFloat(fields.getTextInputValue('torneo_prize_finalista'));
+                if (!enlacePaypal || isNaN(prizeCampeon) || isNaN(prizeFinalista)) {
+                    return interaction.editReply({ content: 'Debes proporcionar un enlace de PayPal y premios numéricos válidos.' });
+                }
+            }
+
+            await limpiarCanal(INSCRIPCION_CHANNEL_ID);
+            await limpiarCanal(EQUIPOS_INSCRITOS_CHANNEL_ID);
+            await limpiarCanal(CLASIFICACION_CHANNEL_ID);
+            await limpiarCanal(CALENDARIO_JORNADAS_CHANNEL_ID);
+            
+            torneoActivo = { 
+                nombre, 
+                formatId: formatId,
+                size: format.size,
+                isPaid, prizeCampeon, prizeFinalista, 
+                status: 'inscripcion_abierta', 
+                enlace_paypal: enlacePaypal, 
+                equipos_pendientes: {}, 
+                equipos_aprobados: {}, 
+                canalEquiposId: EQUIPOS_INSCRITOS_CHANNEL_ID,
+                canalGruposId: CLASIFICACION_CHANNEL_ID,
+                publicGroupsMessageId: null, 
+                calendarioMessageId: null,
+                calendario: {}, 
+                grupos: {}, 
+                eliminatorias: {}
+            };
+            
+            let prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis / *Free*';
+            const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Formato:** ${format.label}\n**Límite:** ${torneoActivo.size} equipos.`);
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo / Register Team').setStyle(ButtonStyle.Success).setEmoji('📝'));
+            const newMessage = await client.channels.cache.get(INSCRIPCION_CHANNEL_ID).send({ embeds: [embed], components: [row] });
+            mensajeInscripcionId = newMessage.id;
+
+            const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos inscritos.').setFooter({ text: `Total: 0 / ${torneoActivo.size}` });
+            const listaMsg = await client.channels.cache.get(EQUIPOS_INSCRITOS_CHANNEL_ID).send({ embeds: [embedLista] });
+            listaEquiposMessageId = listaMsg.id;
+            
+            const calendarioChannel = client.channels.cache.get(CALENDARIO_JORNADAS_CHANNEL_ID);
+            if (calendarioChannel) {
+                const embedCalendario = new EmbedBuilder().setColor('#9b59b6').setTitle(`🗓️ Calendario de Jornadas - ${nombre}`).setDescription('El calendario se mostrará aquí una vez que se realice el sorteo de grupos.');
+                const calendarioMsg = await calendarioChannel.send({ embeds: [embedCalendario] });
+                torneoActivo.calendarioMessageId = calendarioMsg.id;
+            }
+
+            saveBotState();
+            await actualizarNombresCanalesConIcono();
+            
+            await interaction.editReply({ content: `✅ Torneo "${nombre}" creado con el formato "${format.label}".` });
+
+        } catch (error) {
+            console.error("Error crítico al crear el torneo:", error);
+            // Si algo falla, reseteamos el estado para evitar corrupción
+            torneoActivo = null; 
+            saveBotState();
+            await interaction.editReply({ content: '❌ Ocurrió un error inesperado al crear el torneo. El estado del bot ha sido reseteado por seguridad. Por favor, intenta de nuevo.' });
         }
-
-        await limpiarCanal(INSCRIPCION_CHANNEL_ID);
-        await limpiarCanal(EQUIPOS_INSCRITOS_CHANNEL_ID);
-        await limpiarCanal(CLASIFICACION_CHANNEL_ID);
-        await limpiarCanal(CALENDARIO_JORNADAS_CHANNEL_ID);
-        
-        torneoActivo = { 
-            nombre, 
-            formatId: formatId,
-            size: format.size,
-            isPaid, prizeCampeon, prizeFinalista, 
-            status: 'inscripcion_abierta', 
-            enlace_paypal: enlacePaypal, 
-            equipos_pendientes: {}, 
-            equipos_aprobados: {}, 
-            canalEquiposId: EQUIPOS_INSCRITOS_CHANNEL_ID,
-            canalGruposId: CLASIFICACION_CHANNEL_ID,
-            publicGroupsMessageId: null, 
-            calendarioMessageId: null,
-            calendario: {}, 
-            grupos: {}, 
-            eliminatorias: {}
-        };
-        
-        let prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis / *Free*';
-        const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Formato:** ${format.label}\n**Límite:** ${torneoActivo.size} equipos.`);
-        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo / Register Team').setStyle(ButtonStyle.Success).setEmoji('📝'));
-        const newMessage = await client.channels.cache.get(INSCRIPCION_CHANNEL_ID).send({ embeds: [embed], components: [row] });
-        mensajeInscripcionId = newMessage.id;
-
-        const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos inscritos.').setFooter({ text: `Total: 0 / ${torneoActivo.size}` });
-        const listaMsg = await client.channels.cache.get(EQUIPOS_INSCRITOS_CHANNEL_ID).send({ embeds: [embedLista] });
-        listaEquiposMessageId = listaMsg.id;
-        
-        const calendarioChannel = client.channels.cache.get(CALENDARIO_JORNADAS_CHANNEL_ID);
-        if (calendarioChannel) {
-            const embedCalendario = new EmbedBuilder().setColor('#9b59b6').setTitle(`🗓️ Calendario de Jornadas - ${nombre}`).setDescription('El calendario se mostrará aquí una vez que se realice el sorteo de grupos.');
-            const calendarioMsg = await calendarioChannel.send({ embeds: [embedCalendario] });
-            torneoActivo.calendarioMessageId = calendarioMsg.id;
-        }
-
-        saveBotState();
-        await actualizarNombresCanalesConIcono();
-        
-        await interaction.editReply({ content: `✅ Torneo "${nombre}" creado con el formato "${format.label}".` });
-
-    } else if (customId === 'inscripcion_modal') {
+    } 
+    // ... (El resto de la función handleModalSubmit es idéntica)
+    else if (customId === 'inscripcion_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         if (!torneoActivo) {
             return interaction.editReply({ content: '❌ Error: El torneo al que intentas inscribirte ya no existe. Probablemente el bot se reinició. Por favor, contacta a un administrador.' });
@@ -1070,6 +1099,7 @@ async function handleModalSubmit(interaction) {
     }
 }
 
+// ... (El resto del código hasta el final es idéntico al de la versión 2.2, ya que era correcto) ...
 async function procesarResultadoFinal(partido, interaction, fromSimulation = false) {
     await updateMatchThreadName(partido);
 
