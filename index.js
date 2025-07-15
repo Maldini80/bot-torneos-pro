@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.3 - ROBUSTEZ Y MANEJO DE ESTADO
+// index.js - VERSIÓN 2.5 - BLINDAJE TOTAL CONTRA ESTADOS NULOS (CÓDIGO COMPLETO)
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -111,7 +111,6 @@ const client = new Client({
     ]
 });
 
-// ... (El código hasta handleButton es idéntico al anterior) ...
 async function actualizarNombresCanalesConIcono() {
     let statuses = {};
 
@@ -382,7 +381,32 @@ async function handleSlashCommand(interaction) {
         await iniciarFaseEliminatoria(interaction.guild);
         await interaction.editReply({ content: 'Fase eliminatoria iniciada.'});
     }
+
+    if (commandName === 'reset-torneo-forzado') {
+        await forceResetTournamentState(interaction);
+    }
 }
+
+async function forceResetTournamentState(interaction) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    try {
+        console.log(`[FORCE RESET] Comando de reseteo forzado invocado por ${interaction.user.tag}.`);
+        
+        torneoActivo = null;
+        mensajeInscripcionId = null;
+        listaEquiposMessageId = null;
+        saveBotState();
+        console.log('[FORCE RESET] Estado del bot reseteado en memoria y base de datos.');
+
+        await mostrarMensajeEspera();
+        
+        await interaction.editReply({ content: '✅ ¡Estado del bot reseteado a la fuerza! Todos los datos del torneo activo han sido eliminados. El bot está listo para un nuevo torneo.' });
+    } catch (error) {
+        console.error("Ocurrió un error durante el reseteo forzado:", error);
+        await interaction.editReply({ content: '❌ Ocurrió un error al intentar limpiar la interfaz, pero el estado del bot ha sido reseteado. Revisa la consola.' });
+    }
+}
+
 
 async function handleButton(interaction) {
     const { customId } = interaction;
@@ -490,7 +514,6 @@ async function handleButton(interaction) {
             return;
         } 
         
-        // --- FUNCIÓN REESCRITA PARA MÁXIMA ROBUSTEZ ---
         if (type === 'finalizar') {
             if (!torneoActivo) {
                 return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
@@ -499,7 +522,6 @@ async function handleButton(interaction) {
             try {
                 await interaction.editReply({ content: 'Finalizando torneo... Priorizando reseteo de estado interno.' });
 
-                // 1. Limpiar el estado interno PRIMERO
                 const nombreTorneoFinalizado = torneoActivo.nombre;
                 torneoActivo = null;
                 mensajeInscripcionId = null;
@@ -507,7 +529,6 @@ async function handleButton(interaction) {
                 saveBotState();
                 console.log(`[INFO] Estado del torneo ${nombreTorneoFinalizado} reseteado en memoria y base de datos.`);
 
-                // 2. Actualizar la interfaz de Discord (canales, mensajes)
                 const announcementChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID).catch(() => null);
                 if (announcementChannel) {
                     const finalEmbed = new EmbedBuilder().setColor('#E74C3C').setTitle(`🏁 Torneo Finalizado: ${nombreTorneoFinalizado}`).setDescription('El torneo ha concluido. ¡Gracias a todos por participar!').setTimestamp();
@@ -522,14 +543,12 @@ async function handleButton(interaction) {
                     }
                 }
                 
-                // 3. Poner canales en modo espera y actualizar iconos
                 await mostrarMensajeEspera();
                 
                 await interaction.followUp({ content: '✅ Torneo finalizado y estado del bot reseteado correctamente.', flags: [MessageFlags.Ephemeral] });
 
             } catch (error) {
                 console.error("Ocurrió un error durante la finalización del torneo:", error);
-                // Si algo falla, el estado interno ya está limpio. Solo informamos del error.
                 await interaction.followUp({ content: '❌ Ocurrió un error al intentar limpiar los canales, pero el estado del bot ha sido reseteado. Puedes crear un nuevo torneo.', flags: [MessageFlags.Ephemeral] });
             }
             return;
@@ -808,7 +827,6 @@ async function handleSelectMenu(interaction) {
     }
 }
 
-// --- FUNCIÓN REESCRITA PARA MÁXIMA ROBUSTEZ ---
 async function handleModalSubmit(interaction) {
     const { customId, fields } = interaction;
 
@@ -816,7 +834,6 @@ async function handleModalSubmit(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         try {
-            // Medida de seguridad: no crear un torneo si ya hay uno activo
             if (torneoActivo) {
                 return interaction.editReply({ content: '❌ Ya hay un torneo activo. Por favor, finalízalo usando el panel de administración antes de crear uno nuevo.' });
             }
@@ -895,17 +912,16 @@ async function handleModalSubmit(interaction) {
 
         } catch (error) {
             console.error("Error crítico al crear el torneo:", error);
-            // Si algo falla, reseteamos el estado para evitar corrupción
             torneoActivo = null; 
             saveBotState();
             await interaction.editReply({ content: '❌ Ocurrió un error inesperado al crear el torneo. El estado del bot ha sido reseteado por seguridad. Por favor, intenta de nuevo.' });
         }
     } 
-    // ... (El resto de la función handleModalSubmit es idéntica)
+    
     else if (customId === 'inscripcion_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         if (!torneoActivo) {
-            return interaction.editReply({ content: '❌ Error: El torneo al que intentas inscribirte ya no existe. Probablemente el bot se reinició. Por favor, contacta a un administrador.' });
+            return interaction.editReply({ content: '❌ No hay un torneo activo o las inscripciones están cerradas.' });
         }
         const teamName = fields.getTextInputValue('nombre_equipo_input');
 
@@ -968,11 +984,15 @@ async function handleModalSubmit(interaction) {
             await adminChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         }
         await interaction.editReply({ content: '✅ 🇪🇸 ¡Gracias! Un administrador ha sido notificado.\n🇬🇧 *Thank you! An administrator has been notified.*' });
-    } else if (customId === 'add_test_modal') {
+    } 
+    
+    else if (customId === 'add_test_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        if (!torneoActivo) {
+            return interaction.editReply('Error: Primero crea un torneo.');
+        }
         const cantidad = parseInt(fields.getTextInputValue('cantidad_input'));
         if (isNaN(cantidad) || cantidad <= 0) return interaction.editReply('Número inválido.');
-        if (!torneoActivo) return interaction.editReply('Primero crea un torneo.');
         if (!torneoActivo.equipos_aprobados) torneoActivo.equipos_aprobados = {};
         
         const adminMember = interaction.member;
@@ -1005,8 +1025,13 @@ async function handleModalSubmit(interaction) {
                 await listaMsg.edit({ embeds: [embedLista] });
              }
         }
-    } else if (customId.startsWith('reportar_resultado_modal_')) {
+    } 
+    
+    else if (customId.startsWith('reportar_resultado_modal_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        if (!torneoActivo) {
+            return interaction.editReply({ content: '❌ El torneo para esta interacción ya no existe.' });
+        }
         const matchId = customId.replace('reportar_resultado_modal_', '');
         const golesA = parseInt(fields.getTextInputValue('goles_a'));
         const golesB = parseInt(fields.getTextInputValue('goles_b'));
@@ -1051,8 +1076,13 @@ async function handleModalSubmit(interaction) {
         }
         saveBotState();
 
-    } else if (customId.startsWith('admin_modificar_modal_')) {
+    } 
+    
+    else if (customId.startsWith('admin_modificar_modal_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        if (!torneoActivo) {
+            return interaction.editReply({ content: '❌ El torneo para esta interacción ya no existe.' });
+        }
         const matchId = customId.replace('admin_modificar_modal_', '');
         const golesA = parseInt(fields.getTextInputValue('goles_a'));
         const golesB = parseInt(fields.getTextInputValue('goles_b'));
@@ -1077,8 +1107,13 @@ async function handleModalSubmit(interaction) {
         await interaction.editReply(`✅ 🇪🇸 Resultado modificado por el administrador a ${partido.resultado}.\n🇬🇧 *Result changed by the administrator to ${partido.resultado}.*`);
         await procesarResultadoFinal(partido, interaction);
     
-    } else if (customId.startsWith('highlights_modal_')) {
+    } 
+    
+    else if (customId.startsWith('highlights_modal_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        if (!torneoActivo) {
+            return interaction.editReply({ content: '❌ El torneo para esta interacción ya no existe.' });
+        }
         const link = fields.getTextInputValue('highlight_link');
         const description = fields.getTextInputValue('highlight_desc');
 
@@ -1099,7 +1134,6 @@ async function handleModalSubmit(interaction) {
     }
 }
 
-// ... (El resto del código hasta el final es idéntico al de la versión 2.2, ya que era correcto) ...
 async function procesarResultadoFinal(partido, interaction, fromSimulation = false) {
     await updateMatchThreadName(partido);
 
@@ -1532,7 +1566,7 @@ async function actualizarMensajeClasificacion() {
             const dg = (dgVal >= 0 ? '+' : '') + dgVal.toString();
             const paddedDg = dg.padStart(4);
 
-            return `${teamName}${pj}  ${pts}  ${gc} ${paddedDg}`;
+            return `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}`;
         }).join('\n');
 
         newEmbed.addFields({ name: `**${groupName}**`, value: "```\n" + header + "\n" + table + "\n```" });
