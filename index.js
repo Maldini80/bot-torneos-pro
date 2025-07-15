@@ -1,10 +1,11 @@
-// index.js - VERSIÓN 2.1 - CORRECCIÓN DE FORMATO DEL CALENDARIO
+// index.js - VERSIÓN 2.2 - CORRECCIÓN FINAL DE 'require'
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
 const { connectDb, saveData, loadInitialData } = require('./database.js'); 
 
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMEnuBuilder, MessageFlags } = require('discord.js');
+// --- CORRECCIÓN CRÍTICA: Se ha corregido el nombre de StringSelectMenuBuilder ---
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
 const { translate } = require('@vitalets/google-translate-api');
 
 let botData;
@@ -111,7 +112,7 @@ const client = new Client({
     ]
 });
 
-// --- FUNCIONES (LA MAYORÍA SIN CAMBIOS) ---
+// --- EL RESTO DEL CÓDIGO ES IDÉNTICO AL ANTERIOR, YA QUE LAS OTRAS CORRECCIONES ERAN CORRECTAS ---
 
 async function actualizarNombresCanalesConIcono() {
     let statuses = {};
@@ -1210,18 +1211,16 @@ async function verificarYCrearSiguientesHilos(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
 
     for (const groupName in torneoActivo.calendario) {
-        // Obtenemos todos los partidos de la jornada 2 y 3 que aún no tienen hilo
         const partidosPendientes = torneoActivo.calendario[groupName].filter(p => p.jornada > 1 && !p.threadId);
         if(partidosPendientes.length === 0) continue;
 
-        // Comprobamos si la jornada anterior a la del primer partido pendiente ya ha finalizado
         const primeraJornadaPendiente = Math.min(...partidosPendientes.map(p => p.jornada));
         const partidosJornadaAnterior = torneoActivo.calendario[groupName].filter(p => p.jornada === primeraJornadaPendiente - 1);
         
         if (partidosJornadaAnterior.length > 0 && partidosJornadaAnterior.every(p => p.status === 'finalizado')) {
              const partidosACrear = torneoActivo.calendario[groupName].filter(p => p.jornada === primeraJornadaPendiente);
              for(const partido of partidosACrear) {
-                if(!partido.threadId) { // Doble chequeo por seguridad
+                if(!partido.threadId) {
                     console.log(`[INFO] Creando hilo para Jornada ${partido.jornada}: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`);
                     await crearHiloDePartido(guild, partido, `Grupo ${groupName.slice(-1)}`);
                 }
@@ -1511,7 +1510,6 @@ async function actualizarMensajeClasificacion() {
     await message.edit({ embeds: [newEmbed] });
 }
 
-// --- FUNCIÓN CORREGIDA ---
 async function actualizarMensajeCalendario() {
     if (!torneoActivo || !torneoActivo.calendarioMessageId || !CALENDARIO_JORNADAS_CHANNEL_ID) return;
     
@@ -1523,7 +1521,7 @@ async function actualizarMensajeCalendario() {
 
     const newEmbed = EmbedBuilder.from(message.embeds[0])
         .setDescription('Calendario completo del torneo. Los resultados se actualizarán aquí.')
-        .setFields([]); // Limpiamos los campos para reconstruirlos
+        .setFields([]);
 
     const calendarioOrdenado = Object.keys(torneoActivo.calendario).sort();
 
@@ -1539,14 +1537,13 @@ async function actualizarMensajeCalendario() {
         }
 
         let groupScheduleText = '';
-        const nameWidth = 15; // Ancho para nombres de equipo
-        const centerWidth = 6; // Ancho para 'vs' o '10-5'
+        const nameWidth = 15;
+        const centerWidth = 6;
 
         for (const jornadaNum in partidosPorJornada) {
             groupScheduleText += `**Jornada ${jornadaNum}**\n`;
             for (const partido of partidosPorJornada[jornadaNum]) {
                 
-                // Lógica de centrado para la columna del medio
                 const centerText = partido.resultado ? partido.resultado : 'vs';
                 const paddingTotal = centerWidth - centerText.length;
                 const paddingInicio = Math.ceil(paddingTotal / 2);
@@ -1559,7 +1556,6 @@ async function actualizarMensajeCalendario() {
                 
                 groupScheduleText += `${equipoA}${resultado}${equipoB}\n`;
             }
-            // Eliminamos el salto de línea extra al final de cada grupo
         }
 
         newEmbed.addFields({ name: `**${groupName}**`, value: groupScheduleText.trim(), inline: true });
