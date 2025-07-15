@@ -1,4 +1,4 @@
-// index.js - VERSIÓN FINAL CON CALENDARIO, ICONOS DE ESTADO DINÁMICOS (VERDE/ROJO) Y CÓDIGO COMPLETO
+// index.js - VERSIÓN FINAL CON CALENDARIO MEJORADO, ICONOS DE ESTADO AVANZADOS (ROJO/AMARILLO/NARANJA/VERDE) Y CÓDIGO COMPLETO
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -33,13 +33,15 @@ const SETUP_COMMAND = '!setup-idiomas';
 // Novedad: Iconos de estado para los canales.
 const ACTIVE_STATUS_ICON = '🟢';
 const INACTIVE_STATUS_ICON = '🔴';
+const PENDING_STATUS_ICON = '🟡';
+const FULL_STATUS_ICON = '🟠';
 
 // Novedad: Configuración centralizada de canales para gestionar sus nombres e iconos.
 const CHANNELS_CONFIG = {
-    inscripciones: { id: INSCRIPCION_CHANNEL_ID, baseName: '🤝-inscripciones-inscriptions', activeIn: ['inscripcion', 'grupos'] },
-    capitanes: { id: EQUIPOS_INSCRITOS_CHANNEL_ID, baseName: '📋-capitanes-inscritos', activeIn: ['inscripcion', 'grupos'] },
-    clasificacion: { id: CLASIFICACION_CHANNEL_ID, baseName: '📊-clasificacion-ranking', activeIn: ['grupos'] },
-    calendario: { id: CALENDARIO_JORNADAS_CHANNEL_ID, baseName: '🗓-calendario-de-jornadas', activeIn: ['grupos'] }
+    inscripciones: { id: INSCRIPCION_CHANNEL_ID, baseName: '🤝-inscripciones-inscriptions' },
+    capitanes: { id: EQUIPOS_INSCRITOS_CHANNEL_ID, baseName: '📋-capitanes-inscritos' },
+    clasificacion: { id: CLASIFICACION_CHANNEL_ID, baseName: '📊-clasificacion-ranking' },
+    calendario: { id: CALENDARIO_JORNADAS_CHANNEL_ID, baseName: '🗓-calendario-de-jornadas' }
 };
 
 
@@ -64,20 +66,35 @@ const client = new Client({
 
 // --- FUNCIONES AUXILIARES ---
 
-// Novedad: Función refactorizada para gestionar los iconos de estado (🟢/🔴).
-async function actualizarNombresCanalesConIcono(status) {
+// Novedad: Función refactorizada para gestionar los iconos de estado (🔴/🟡/🟠/🟢).
+async function actualizarNombresCanalesConIcono() {
+    let statuses = {};
+
+    if (!torneoActivo) {
+        // No hay torneo: todos los canales en rojo.
+        statuses = { inscripciones: INACTIVE_STATUS_ICON, capitanes: INACTIVE_STATUS_ICON, clasificacion: INACTIVE_STATUS_ICON, calendario: INACTIVE_STATUS_ICON };
+    } else if (torneoActivo.status === 'inscripcion_abierta') {
+        // Fase de inscripción.
+        const cupoLLeno = Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size;
+        const iconInsc = cupoLLeno ? FULL_STATUS_ICON : ACTIVE_STATUS_ICON; // Naranja si está lleno, verde si no.
+        statuses = { inscripciones: iconInsc, capitanes: iconInsc, clasificacion: PENDING_STATUS_ICON, calendario: PENDING_STATUS_ICON };
+    } else if (['fase_de_grupos', 'semifinales', 'final'].includes(torneoActivo.status)) {
+        // MATIZ CORREGIDO: Torneo en marcha. Inscripciones en naranja, el resto en verde.
+        statuses = { inscripciones: FULL_STATUS_ICON, capitanes: FULL_STATUS_ICON, clasificacion: ACTIVE_STATUS_ICON, calendario: ACTIVE_STATUS_ICON };
+    } else { 
+        // Torneo terminado o estado desconocido: todos en rojo.
+        statuses = { inscripciones: INACTIVE_STATUS_ICON, capitanes: INACTIVE_STATUS_ICON, clasificacion: INACTIVE_STATUS_ICON, calendario: INACTIVE_STATUS_ICON };
+    }
+
     for (const key in CHANNELS_CONFIG) {
         const config = CHANNELS_CONFIG[key];
         try {
             const channel = await client.channels.fetch(config.id);
             if (!channel) continue;
-
-            // Determinar si el canal debe estar activo y qué icono usar.
-            const isActive = config.activeIn.includes(status);
-            const targetIcon = isActive ? ACTIVE_STATUS_ICON : INACTIVE_STATUS_ICON;
+            
+            const targetIcon = statuses[key] || INACTIVE_STATUS_ICON;
             const newName = `${targetIcon} ${config.baseName}`;
 
-            // Solo actualizar si el nombre es diferente para evitar llamadas innecesarias a la API.
             if (channel.name !== newName) {
                 await channel.setName(newName);
             }
@@ -232,19 +249,12 @@ async function mostrarMensajeEspera() {
             }
         }
     }
-    // Novedad: Se asegura de que todos los canales muestren el icono de inactivo (🔴).
-    await actualizarNombresCanalesConIcono('finalizado');
+    await actualizarNombresCanalesConIcono();
 }
 
 client.once('ready', async () => {
     console.log(`Bot conectado como ${client.user.tag}!`);
-    if (!torneoActivo) {
-        await mostrarMensajeEspera();
-    } else if (torneoActivo.status === 'inscripcion_abierta') {
-        await actualizarNombresCanalesConIcono('inscripcion');
-    } else if (torneoActivo.status === 'fase_de_grupos' || torneoActivo.status === 'semifinales' || torneoActivo.status === 'final') {
-        await actualizarNombresCanalesConIcono('grupos');
-    }
+    await actualizarNombresCanalesConIcono();
 });
 
 client.on('guildMemberAdd', member => {
@@ -579,6 +589,7 @@ async function handleButton(interaction) {
     
                 delete torneoActivo.equipos_aprobados[captainId];
                 saveBotState();
+                await actualizarNombresCanalesConIcono();
     
                 const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
                 if (equiposChannel && listaEquiposMessageId) {
@@ -613,7 +624,8 @@ async function handleButton(interaction) {
                     equipoPendiente.bandera = captainFlag;
                     torneoActivo.equipos_aprobados[captainId] = equipoPendiente;
                     delete torneoActivo.equipos_pendientes[captainId];
-                    saveBotState(); 
+                    saveBotState();
+                    await actualizarNombresCanalesConIcono();
                     
                     if (captainMember) {
                         try {
@@ -783,7 +795,7 @@ async function handleModalSubmit(interaction) {
         }
 
         saveBotState();
-        await actualizarNombresCanalesConIcono('inscripcion');
+        await actualizarNombresCanalesConIcono();
         
         await interaction.editReply({ content: `✅ Torneo "${nombre}" creado.` });
 
@@ -879,6 +891,7 @@ async function handleModalSubmit(interaction) {
             torneoActivo.equipos_aprobados[teamId] = { id: teamId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: adminFlag, paypal: 'admin@test.com' };
         }
         saveBotState();
+        await actualizarNombresCanalesConIcono();
         await interaction.editReply(`✅ ${cantidad} equipos de prueba añadidos.`);
         const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
         if (equiposChannel && listaEquiposMessageId) {
@@ -1091,7 +1104,7 @@ async function realizarSorteoDeGrupos(guild) {
     
     await actualizarMensajeClasificacion();
     await actualizarMensajeCalendario();
-    await actualizarNombresCanalesConIcono('grupos');
+    await actualizarNombresCanalesConIcono();
     
     let createdCount = 0;
     for (const nombreGrupo in calendario) {
@@ -1137,6 +1150,7 @@ async function iniciarFaseEliminatoria(guild) {
     if (!todosPartidosFinalizados) return;
 
     torneoActivo.status = 'semifinales';
+    await actualizarNombresCanalesConIcono();
     const clasificados = [];
 
     if (torneoActivo.size === 16) {
@@ -1174,6 +1188,7 @@ async function handleSemifinalResult(guild) {
         const final = { matchId: `match_final_${Date.now()}`, equipoA: ganador1, equipoB: ganador2, resultado: null, reportedScores: {}, status: 'en_curso' };
         torneoActivo.eliminatorias.final = final;
         torneoActivo.status = 'final';
+        await actualizarNombresCanalesConIcono();
 
         await crearHiloDePartido(guild, final, 'Final');
         saveBotState();
@@ -1201,7 +1216,7 @@ async function handleFinalResult() {
 
     const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId);
     await clasifChannel.send({ content: `|| @everyone ||`, embeds: [embedCampeon] });
-    await actualizarNombresCanalesConIcono('finalizado');
+    await actualizarNombresCanalesConIcono();
 
     if (torneoActivo.isPaid) {
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
@@ -1325,6 +1340,7 @@ async function actualizarMensajeClasificacion() {
     await message.edit({ embeds: [newEmbed] });
 }
 
+// Novedad: Formato del calendario mejorado para mayor legibilidad.
 async function actualizarMensajeCalendario() {
     if (!torneoActivo || !torneoActivo.calendarioMessageId || !CALENDARIO_JORNADAS_CHANNEL_ID) return;
     
@@ -1341,17 +1357,29 @@ async function actualizarMensajeCalendario() {
     const calendarioOrdenado = Object.keys(torneoActivo.calendario).sort();
 
     for (const groupName of calendarioOrdenado) {
-        let groupScheduleText = '';
         const partidosDelGrupo = torneoActivo.calendario[groupName].sort((a,b) => a.jornada - b.jornada || a.matchId.localeCompare(b.matchId));
-
+        
+        const partidosPorJornada = {};
         for (const partido of partidosDelGrupo) {
-            const resultado = partido.resultado ? `**\`${partido.resultado}\`**` : 'vs';
-            const equipoA = `\`${partido.equipoA.nombre.padEnd(8)}\``;
-            const equipoB = `\`${partido.equipoB.nombre.padStart(8)}\``;
-            groupScheduleText += `J${partido.jornada}: ${equipoA} ${resultado} ${equipoB}\n`;
+            if (!partidosPorJornada[partido.jornada]) {
+                partidosPorJornada[partido.jornada] = [];
+            }
+            partidosPorJornada[partido.jornada].push(partido);
         }
 
-        newEmbed.addFields({ name: `**${groupName}**`, value: groupScheduleText, inline: true });
+        let groupScheduleText = '';
+        for (const jornadaNum in partidosPorJornada) {
+            groupScheduleText += `**Jornada ${jornadaNum}**\n`;
+            for (const partido of partidosPorJornada[jornadaNum]) {
+                const resultado = partido.resultado ? `**\`${partido.resultado}\`**` : 'vs';
+                const equipoA = `\`${partido.equipoA.nombre.padEnd(12)}\``;
+                const equipoB = `\`${partido.equipoB.nombre.padEnd(12)}\``;
+                groupScheduleText += `${equipoA} ${resultado} ${equipoB}\n`;
+            }
+            groupScheduleText += '\n'; // Añade un espacio entre jornadas
+        }
+
+        newEmbed.addFields({ name: `**${groupName}**`, value: groupScheduleText, inline: false });
     }
 
     await message.edit({ embeds: [newEmbed] });
