@@ -1,4 +1,4 @@
-// index.js - VERSIÓN FINAL CON COMANDO DE RESETEO FORZOSO Y ESTADO COHERENTE
+// index.js - VERSIÓN FINAL REFORZADA CON ESTADO COHERENTE, FINALIZACIÓN NO BLOQUEANTE Y BOTÓN DE RESETEO FORZOSO
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -26,7 +26,6 @@ const CLASIFICACION_CHANNEL_ID = '1394445078948220928';
 const MATCH_THREADS_PARENT_ID = '1394452077282988063'; 
 const CALENDARIO_JORNADAS_CHANNEL_ID = '1394577975412002816'; 
 const SETUP_COMMAND = '!setup-idiomas';
-const HARD_RESET_COMMAND = '!hard-reset-torneo'; // Nuestro nuevo comando de emergencia
 
 const ACTIVE_STATUS_ICON = '🟢';
 const INACTIVE_STATUS_ICON = '🔴';
@@ -237,7 +236,11 @@ async function handleSlashCommand(interaction) {
         const row1 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId('panel_crear').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆'), new ButtonBuilder().setCustomId('panel_add_test').setLabel('Añadir Equipos Prueba').setStyle(ButtonStyle.Secondary).setEmoji('🧪') );
         const row2 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId('panel_ver_inscritos').setLabel('Ver Inscritos').setStyle(ButtonStyle.Primary).setEmoji('📋'), new ButtonBuilder().setCustomId('panel_ver_pendientes').setLabel('Ver Pendientes').setStyle(ButtonStyle.Primary).setEmoji('⏳') );
         const row3 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos Activos').setStyle(ButtonStyle.Secondary).setEmoji('🎲'), new ButtonBuilder().setCustomId('panel_borrar_hilos').setLabel('Borrar Hilos Partido').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), new ButtonBuilder().setCustomId('panel_finalizar').setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑') );
-        await interaction.channel.send({ embeds: [embed], components: [row1, row2, row3] });
+        
+        // **NUEVO:** Fila separada para el botón de reseteo de emergencia
+        const row4 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId('panel_hard_reset').setLabel('Reseteo Forzoso').setStyle(ButtonStyle.Danger).setEmoji('🚨') );
+
+        await interaction.channel.send({ embeds: [embed], components: [row1, row2, row3, row4] });
         return interaction.reply({ content: 'Panel de control creado.', flags: [MessageFlags.Ephemeral] });
     }
     if (commandName === 'sortear-grupos') {
@@ -274,6 +277,19 @@ async function handleButton(interaction) {
             modal.addComponents(new ActionRowBuilder().addComponents(cantidadInput));
             return interaction.showModal(modal);
         }
+        // **NUEVO:** Lógica para el botón de reseteo forzoso
+        if (type === 'hard' && subtype === 'reset') {
+            const modal = new ModalBuilder().setCustomId('hard_reset_confirm_modal').setTitle('🚨 CONFIRMAR RESETEO FORZOSO 🚨');
+            const confirmInput = new TextInputBuilder()
+                .setCustomId('reset_confirm_input')
+                .setLabel('Escribe "RESET" para confirmar')
+                .setPlaceholder('Esta acción es irreversible y borrará el estado actual del torneo.')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(confirmInput));
+            return interaction.showModal(modal);
+        }
+
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         if (type === 'ver' && subtype === 'inscritos') {
             if (!torneoActivo || Object.keys(torneoActivo.equipos_aprobados || {}).length === 0) { return interaction.editReply({ content: 'No hay equipos inscritos (aprobados) en este momento.' }); }
@@ -536,6 +552,27 @@ async function handleSelectMenu(interaction) {
 }
 async function handleModalSubmit(interaction) {
     const { customId, fields } = interaction;
+
+    // **NUEVO:** Lógica para el modal de confirmación del reseteo forzoso
+    if (customId === 'hard_reset_confirm_modal') {
+        const confirmText = fields.getTextInputValue('reset_confirm_input');
+        if (confirmText === 'RESET') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            
+            torneoActivo = null;
+            saveFullBotData();
+            await actualizarNombresCanalesConIcono();
+            
+            await interaction.editReply({ content: '✅ ¡Reseteo forzoso completado! El estado del torneo ha sido limpiado. La limpieza de canales ha comenzado en segundo plano.' });
+            console.log(`[ADMIN] Reseteo forzoso del torneo ejecutado por ${interaction.user.tag} a través del panel.`);
+            
+            limpiarRecursosDelTorneo();
+        } else {
+            await interaction.reply({ content: '❌ El texto de confirmación no coincide. Reseteo cancelado.', flags: [MessageFlags.Ephemeral] });
+        }
+        return;
+    }
+
     if (customId.startsWith('crear_torneo_final_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [,,, sizeStr, type] = customId.split('_');
@@ -967,15 +1004,7 @@ client.on('messageCreate', async message => {
         const hasAdminPerms = message.member && message.member.permissions.has(PermissionsBitField.Flags.Administrator);
         if (!hasAdminPerms) return;
         if (message.content === SETUP_COMMAND) { await handleSetupCommand(message); } 
-        else if (message.content === HARD_RESET_COMMAND) {
-            await message.reply("⚠️ Recibido comando de reseteo forzoso. Limpiando el estado del torneo...");
-            torneoActivo = null;
-            saveFullBotData();
-            await actualizarNombresCanalesConIcono();
-            await message.channel.send("✅ El estado del torneo ha sido reseteado forzosamente. Ahora puedes crear un nuevo torneo.");
-            console.log(`[ADMIN] Reseteo forzoso del torneo ejecutado por ${message.author.tag}`);
-        }
-        return;
+        return; // Ya no hay más comandos de texto
     }
     try {
         const authorMember = message.member; if (!authorMember) return;
