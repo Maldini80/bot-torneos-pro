@@ -1,4 +1,4 @@
-// index.js - VERSIÓN FINAL CON CALENDARIO MEJORADO, ICONOS DE ESTADO AVANZADOS (ROJO/AMARILLO/NARANJA/VERDE) Y CÓDIGO COMPLETO
+// index.js - VERSIÓN FINAL CON FORMATOS DE TORNEO AMPLIADOS, LÍMITE DE NOMBRE A 15 CARACTERES Y CORRECCIONES
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -30,13 +30,11 @@ const MATCH_THREADS_PARENT_ID = '1394452077282988063';
 const CALENDARIO_JORNADAS_CHANNEL_ID = '1394577975412002816'; 
 const SETUP_COMMAND = '!setup-idiomas';
 
-// Novedad: Iconos de estado para los canales.
 const ACTIVE_STATUS_ICON = '🟢';
 const INACTIVE_STATUS_ICON = '🔴';
 const PENDING_STATUS_ICON = '🟡';
 const FULL_STATUS_ICON = '🟠';
 
-// Novedad: Configuración centralizada de canales para gestionar sus nombres e iconos.
 const CHANNELS_CONFIG = {
     inscripciones: { id: INSCRIPCION_CHANNEL_ID, baseName: '🤝-inscripciones-inscriptions' },
     capitanes: { id: EQUIPOS_INSCRITOS_CHANNEL_ID, baseName: '📋-capitanes-inscritos' },
@@ -44,6 +42,41 @@ const CHANNELS_CONFIG = {
     calendario: { id: CALENDARIO_JORNADAS_CHANNEL_ID, baseName: '🗓-calendario-de-jornadas' }
 };
 
+// --- NOVEDAD: Configuración centralizada de formatos de torneo ---
+const TOURNAMENT_FORMATS = {
+    '8_teams_final': {
+        label: '8 Equipos - Final Directa',
+        description: '2 grupos de 4. El 1º de cada grupo va a la final.',
+        size: 8,
+        groups: 2,
+        qualifiersPerGroup: 1,
+        knockoutStages: ['final']
+    },
+    '16_teams_quarters': {
+        label: '16 Equipos - Cuartos de Final',
+        description: '4 grupos de 4. Los 2 primeros clasifican a cuartos.',
+        size: 16,
+        groups: 4,
+        qualifiersPerGroup: 2,
+        knockoutStages: ['cuartos', 'semifinales', 'final']
+    },
+    '32_teams_quarters': {
+        label: '32 Equipos - Cuartos de Final',
+        description: '8 grupos de 4. El 1º de cada grupo clasifica a cuartos.',
+        size: 32,
+        groups: 8,
+        qualifiersPerGroup: 1,
+        knockoutStages: ['cuartos', 'semifinales', 'final']
+    },
+    '32_teams_ro16': {
+        label: '32 Equipos - Octavos de Final',
+        description: '8 grupos de 4. Los 2 primeros clasifican a octavos.',
+        size: 32,
+        groups: 8,
+        qualifiersPerGroup: 2,
+        knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final']
+    }
+};
 
 // --- DATOS DE IDIOMAS Y NORMAS ---
 const languageRoles = {
@@ -66,23 +99,18 @@ const client = new Client({
 
 // --- FUNCIONES AUXILIARES ---
 
-// Novedad: Función refactorizada para gestionar los iconos de estado (🔴/🟡/🟠/🟢).
 async function actualizarNombresCanalesConIcono() {
     let statuses = {};
 
     if (!torneoActivo) {
-        // No hay torneo: todos los canales en rojo.
         statuses = { inscripciones: INACTIVE_STATUS_ICON, capitanes: INACTIVE_STATUS_ICON, clasificacion: INACTIVE_STATUS_ICON, calendario: INACTIVE_STATUS_ICON };
     } else if (torneoActivo.status === 'inscripcion_abierta') {
-        // Fase de inscripción.
         const cupoLLeno = Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size;
-        const iconInsc = cupoLLeno ? FULL_STATUS_ICON : ACTIVE_STATUS_ICON; // Naranja si está lleno, verde si no.
+        const iconInsc = cupoLLeno ? FULL_STATUS_ICON : ACTIVE_STATUS_ICON;
         statuses = { inscripciones: iconInsc, capitanes: iconInsc, clasificacion: PENDING_STATUS_ICON, calendario: PENDING_STATUS_ICON };
-    } else if (['fase_de_grupos', 'semifinales', 'final'].includes(torneoActivo.status)) {
-        // MATIZ CORREGIDO: Torneo en marcha. Inscripciones en naranja, el resto en verde.
+    } else if (['fase_de_grupos', 'octavos', 'cuartos', 'semifinales', 'final'].includes(torneoActivo.status)) { // --- MODIFICADO ---
         statuses = { inscripciones: FULL_STATUS_ICON, capitanes: FULL_STATUS_ICON, clasificacion: ACTIVE_STATUS_ICON, calendario: ACTIVE_STATUS_ICON };
     } else { 
-        // Torneo terminado o estado desconocido: todos en rojo.
         statuses = { inscripciones: INACTIVE_STATUS_ICON, capitanes: INACTIVE_STATUS_ICON, clasificacion: INACTIVE_STATUS_ICON, calendario: INACTIVE_STATUS_ICON };
     }
 
@@ -173,8 +201,11 @@ async function crearHiloDePartido(guild, partido, tipoPartido = 'Grupo') {
 
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         if (arbitroRole) {
+            // --- MODIFICADO: Añadido log de errores para depuración ---
             arbitroRole.members.forEach(member => {
-                thread.members.add(member.id).catch(()=>{});
+                thread.members.add(member.id).catch(err => {
+                    console.error(`[DEBUG] No se pudo añadir al árbitro ${member.user.tag} al hilo ${thread.name}. ¿Faltan permisos de 'Gestionar Hilos' para el bot?`, err);
+                });
             });
         }
         
@@ -352,8 +383,18 @@ async function handleButton(interaction) {
         const [panel, type, subtype] = customId.split('_');
         
         if (type === 'crear') {
-            const sizeMenu = new StringSelectMenuBuilder().setCustomId('crear_torneo_size_select').setPlaceholder('Paso 1: Selecciona el tamaño del torneo').addOptions([{ label: '8 Equipos', description: '2 grupos, clasifican los 2 primeros.', value: '8' },{ label: '16 Equipos', description: '4 grupos, clasifica el primero.', value: '16' },]);
-            const row = new ActionRowBuilder().addComponents(sizeMenu);
+            // --- MODIFICADO: Menú para seleccionar formato en lugar de tamaño ---
+            const formatMenu = new StringSelectMenuBuilder()
+                .setCustomId('crear_torneo_format_select')
+                .setPlaceholder('Paso 1: Selecciona el formato del torneo')
+                .addOptions(
+                    Object.keys(TOURNAMENT_FORMATS).map(key => ({
+                        label: TOURNAMENT_FORMATS[key].label,
+                        description: TOURNAMENT_FORMATS[key].description,
+                        value: key
+                    }))
+                );
+            const row = new ActionRowBuilder().addComponents(formatMenu);
             return interaction.reply({ content: 'Iniciando creación de torneo...', components: [row], flags: [MessageFlags.Ephemeral] });
         }
         if (type === 'add' && subtype === 'test') {
@@ -384,7 +425,8 @@ async function handleButton(interaction) {
         }
         
         if (type === 'simular' && subtype === 'partidos') {
-            if (!torneoActivo || (torneoActivo.status !== 'fase_de_grupos' && torneoActivo.status !== 'semifinales' && torneoActivo.status !== 'final')) {
+             // --- MODIFICADO: Comprobación de estado del torneo ampliada ---
+            if (!torneoActivo || !['fase_de_grupos', 'octavos', 'cuartos', 'semifinales', 'final'].includes(torneoActivo.status)) {
                  return interaction.editReply({ content: 'Solo se pueden simular partidos durante una fase activa del torneo.' });
             }
             
@@ -425,8 +467,12 @@ async function handleButton(interaction) {
             }
              if (torneoActivo) {
                 Object.values(torneoActivo.calendario).flat().forEach(p => p.threadId = null);
-                (torneoActivo.eliminatorias?.semifinales || []).forEach(p => p.threadId = null);
-                if(torneoActivo.eliminatorias?.final) torneoActivo.eliminatorias.final.threadId = null;
+                // --- MODIFICADO: Limpieza de todas las fases eliminatorias ---
+                Object.keys(torneoActivo.eliminatorias).forEach(fase => {
+                    if(Array.isArray(torneoActivo.eliminatorias[fase])) {
+                       torneoActivo.eliminatorias[fase].forEach(p => p.threadId = null);
+                    }
+                });
                 saveBotState();
             }
             await interaction.followUp({ content: `✅ ${deletedCount} hilos de partido borrados.`, flags: [MessageFlags.Ephemeral] });
@@ -513,7 +559,8 @@ async function handleButton(interaction) {
             return interaction.reply({ content: '🇪🇸 Las inscripciones no están abiertas o el torneo ha sido borrado por un reinicio.\n🇬🇧 *Registrations are not open or the tournament was deleted by a restart.*', flags: [MessageFlags.Ephemeral] });
         }
         const modal = new ModalBuilder().setCustomId('inscripcion_modal').setTitle('Inscripción de Equipo');
-        const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre del equipo (3-8 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(8).setRequired(true);
+        // --- MODIFICADO: Límite de caracteres del nombre ampliado a 15 ---
+        const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre del equipo (3-15 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(15).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput));
         return interaction.showModal(modal);
     } 
@@ -703,21 +750,24 @@ async function handleButton(interaction) {
 }
 
 async function handleSelectMenu(interaction) {
-    if (interaction.customId === 'crear_torneo_size_select') {
-        const size = interaction.values[0];
+    // --- MODIFICADO: Lógica adaptada para los nuevos formatos de torneo ---
+    if (interaction.customId === 'crear_torneo_format_select') {
+        const formatId = interaction.values[0];
+        const format = TOURNAMENT_FORMATS[formatId];
         const typeMenu = new StringSelectMenuBuilder()
-            .setCustomId(`crear_torneo_type_select_${size}`)
+            .setCustomId(`crear_torneo_type_select_${formatId}`)
             .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
             .addOptions([
                 { label: 'De Pago', description: 'Se solicitará un pago para inscribirse.', value: 'pago' },
                 { label: 'Gratuito', description: 'Inscripción gratuita.', value: 'gratis' },
             ]);
         const row = new ActionRowBuilder().addComponents(typeMenu);
-        await interaction.update({ content: `Tamaño seleccionado: **${size} equipos**. Ahora, selecciona el tipo de torneo:`, components: [row] });
+        await interaction.update({ content: `Formato seleccionado: **${format.label}**. Ahora, selecciona el tipo de torneo:`, components: [row] });
+
     } else if (interaction.customId.startsWith('crear_torneo_type_select_')) {
-        const size = interaction.customId.split('_').pop();
+        const formatId = interaction.customId.replace('crear_torneo_type_select_', '');
         const type = interaction.values[0];
-        const modal = new ModalBuilder().setCustomId(`crear_torneo_final_${size}_${type}`).setTitle('Finalizar Creación de Torneo');
+        const modal = new ModalBuilder().setCustomId(`crear_torneo_final_${formatId}_${type}`).setTitle('Finalizar Creación de Torneo');
         const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
         if (type === 'pago') {
@@ -739,8 +789,12 @@ async function handleModalSubmit(interaction) {
 
     if (customId.startsWith('crear_torneo_final_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [, , , sizeStr, type] = customId.split('_');
-        const size = parseInt(sizeStr);
+        // --- MODIFICADO: Lógica adaptada para los nuevos formatos de torneo ---
+        const [, , , formatId, type] = customId.split('_');
+        const format = TOURNAMENT_FORMATS[formatId];
+        if (!format) {
+            return interaction.editReply({ content: 'Error: Formato de torneo inválido.' });
+        }
         const isPaid = type === 'pago';
         const nombre = fields.getTextInputValue('torneo_nombre');
         
@@ -763,7 +817,10 @@ async function handleModalSubmit(interaction) {
         await limpiarCanal(CALENDARIO_JORNADAS_CHANNEL_ID);
         
         torneoActivo = { 
-            nombre, size, isPaid, prizeCampeon, prizeFinalista, 
+            nombre, 
+            formatId: formatId, // Guardamos el ID del formato
+            size: format.size,   // Obtenemos el tamaño del formato
+            isPaid, prizeCampeon, prizeFinalista, 
             status: 'inscripcion_abierta', 
             enlace_paypal: enlacePaypal, 
             equipos_pendientes: {}, 
@@ -774,16 +831,16 @@ async function handleModalSubmit(interaction) {
             calendarioMessageId: null,
             calendario: {}, 
             grupos: {}, 
-            eliminatorias: {} 
+            eliminatorias: {} // Reiniciamos el objeto de eliminatorias
         };
         
         let prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis / *Free*';
-        const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Límite:** ${size} equipos.`);
+        const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Límite:** ${torneoActivo.size} equipos.`);
         const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo / Register Team').setStyle(ButtonStyle.Success).setEmoji('📝'));
         const newMessage = await client.channels.cache.get(INSCRIPCION_CHANNEL_ID).send({ embeds: [embed], components: [row] });
         mensajeInscripcionId = newMessage.id;
 
-        const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos inscritos.').setFooter({ text: `Total: 0 / ${size}` });
+        const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos inscritos.').setFooter({ text: `Total: 0 / ${torneoActivo.size}` });
         const listaMsg = await client.channels.cache.get(EQUIPOS_INSCRITOS_CHANNEL_ID).send({ embeds: [embedLista] });
         listaEquiposMessageId = listaMsg.id;
         
@@ -797,7 +854,7 @@ async function handleModalSubmit(interaction) {
         saveBotState();
         await actualizarNombresCanalesConIcono();
         
-        await interaction.editReply({ content: `✅ Torneo "${nombre}" creado.` });
+        await interaction.editReply({ content: `✅ Torneo "${nombre}" creado con el formato "${format.label}".` });
 
     } else if (customId === 'inscripcion_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -806,8 +863,9 @@ async function handleModalSubmit(interaction) {
         }
         const teamName = fields.getTextInputValue('nombre_equipo_input');
 
-        if (teamName.length < 3 || teamName.length > 8) {
-            return interaction.editReply({ content: '🇪🇸 El nombre del equipo debe tener entre 3 y 8 caracteres.\n🇬🇧 *Team name must be between 3 and 8 characters long.*' });
+        // --- MODIFICADO: Límite de caracteres del nombre ampliado a 15 ---
+        if (teamName.length < 3 || teamName.length > 15) {
+            return interaction.editReply({ content: '🇪🇸 El nombre del equipo debe tener entre 3 y 15 caracteres.\n🇬🇧 *Team name must be between 3 and 15 characters long.*' });
         }
 
         const allTeamNames = [
@@ -986,8 +1044,13 @@ async function handleModalSubmit(interaction) {
             .setDescription(`**[Ver Clip / Watch Clip](${link})**\n\n${description || 'Sin descripción / No description'}`)
             .setTimestamp();
         
-        await interaction.channel.send({ embeds: [embed] });
-        await interaction.editReply({ content: '✅ ¡Tus alturas han sido compartidas en el hilo del partido!' });
+        try {
+            await interaction.channel.send({ embeds: [embed] });
+            await interaction.editReply({ content: '✅ ¡Tus alturas han sido compartidas en el hilo del partido!' });
+        } catch (e) {
+            console.error("Error al enviar el embed de highlights:", e);
+            await interaction.editReply({ content: "❌ Hubo un error al enviar el mensaje. Revisa si el bot tiene permiso para 'Insertar Enlaces' en este canal."});
+        }
     }
 }
 
@@ -995,16 +1058,11 @@ async function procesarResultadoFinal(partido, interaction, fromSimulation = fal
     await updateMatchThreadName(partido);
 
     if (partido.nombreGrupo) {
+        // Es un partido de fase de grupos
         await actualizarEstadisticasYClasificacion(partido, partido.nombreGrupo, interaction.guild);
     } else { 
-        const esSemifinal = torneoActivo.eliminatorias.semifinales.some(p => p.matchId === partido.matchId);
-        const esFinal = torneoActivo.eliminatorias.final?.matchId === partido.matchId;
-
-        if (esSemifinal) {
-            await handleSemifinalResult(interaction.guild);
-        } else if (esFinal) {
-            await handleFinalResult();
-        }
+        // Es un partido de fase eliminatoria
+        await procesarResultadoEliminatoria(interaction.guild);
     }
     
     await actualizarMensajeCalendario();
@@ -1020,8 +1078,11 @@ async function procesarResultadoFinal(partido, interaction, fromSimulation = fal
 function findMatch(matchId, all = false) {
     if (!torneoActivo) return { partido: null };
 
+    // --- MODIFICADO: Búsqueda de partidos en todas las fases eliminatorias ---
     const allMatches = [
         ...(Object.values(torneoActivo.calendario || {}).flat()),
+        ...(torneoActivo.eliminatorias?.octavos || []),
+        ...(torneoActivo.eliminatorias?.cuartos || []),
         ...(torneoActivo.eliminatorias?.semifinales || []),
         ...(torneoActivo.eliminatorias?.final ? [torneoActivo.eliminatorias.final] : [])
     ].filter(Boolean);
@@ -1034,6 +1095,12 @@ function findMatch(matchId, all = false) {
 
 async function realizarSorteoDeGrupos(guild) {
     const torneo = torneoActivo;
+    const format = TOURNAMENT_FORMATS[torneo.formatId];
+    if (!format) {
+        console.error("Error crítico: Formato de torneo no encontrado durante el sorteo.");
+        return;
+    }
+
     const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
     if (!adminChannel) { console.error("CANAL ADMIN NO ENCONTRADO"); return; }
 
@@ -1052,9 +1119,13 @@ async function realizarSorteoDeGrupos(guild) {
     for (let i = equipos.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [equipos[i], equipos[j]] = [equipos[j], equipos[i]]; }
     const grupos = {};
     const calendario = {};
-    const numGrupos = torneo.size / 4;
+
+    // --- MODIFICADO: Sorteo basado en el formato del torneo ---
+    const numGrupos = format.groups;
+    const tamanoGrupo = format.size / numGrupos;
+
     for (let i = 0; i < equipos.length; i++) {
-        const grupoIndex = Math.floor(i / (torneo.size / numGrupos));
+        const grupoIndex = Math.floor(i / tamanoGrupo);
         const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
         if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
         equipos[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
@@ -1065,7 +1136,7 @@ async function realizarSorteoDeGrupos(guild) {
         const equiposGrupo = grupos[nombreGrupo].equipos;
         calendario[nombreGrupo] = [];
 
-        if (equiposGrupo.length === 4) {
+        if (equiposGrupo.length === 4) { // Asumimos grupos de 4
             const [team1, team2, team3, team4] = equiposGrupo;
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, team1, team2));
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, team3, team4));
@@ -1086,7 +1157,14 @@ async function realizarSorteoDeGrupos(guild) {
     
     torneo.grupos = grupos;
     torneo.calendario = calendario;
-    torneo.eliminatorias = { semifinales: [], final: null };
+    // --- MODIFICADO: Objeto de eliminatorias flexible ---
+    torneo.eliminatorias = {
+        rondaActual: null,
+        octavos: [],
+        cuartos: [],
+        semifinales: [],
+        final: null
+    };
 
     const gruposChannel = await client.channels.fetch(CLASIFICACION_CHANNEL_ID).catch(() => null);
      if (!gruposChannel) {
@@ -1142,64 +1220,142 @@ async function verificarYCrearSiguientesHilos(guild) {
     saveBotState();
 }
 
+// --- NOVEDAD: Función refactorizada para crear partidos de cualquier fase eliminatoria ---
+function crearPartidosEliminatoria(equipos, ronda) {
+    let partidos = [];
+    // Barajamos los equipos para emparejamientos aleatorios
+    for (let i = equipos.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [equipos[i], equipos[j]] = [equipos[j], equipos[i]];
+    }
 
+    for(let i = 0; i < equipos.length; i += 2) {
+        const equipoA = equipos[i];
+        const equipoB = equipos[i+1];
+        const partido = {
+            matchId: `match_${ronda}_${i/2}_${Date.now()}`,
+            equipoA,
+            equipoB,
+            resultado: null,
+            reportedScores: {},
+            status: 'en_curso',
+            nombreGrupo: null, // No pertenece a un grupo
+            ronda: ronda // Guardamos la ronda
+        };
+        partidos.push(partido);
+    }
+    return partidos;
+}
+
+// --- NOVEDAD: Función refactorizada para iniciar y avanzar la fase eliminatoria ---
 async function iniciarFaseEliminatoria(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
 
     let todosPartidosFinalizados = Object.values(torneoActivo.calendario).flat().every(p => p.status === 'finalizado');
     if (!todosPartidosFinalizados) return;
 
-    torneoActivo.status = 'semifinales';
+    const format = TOURNAMENT_FORMATS[torneoActivo.formatId];
+    if (!format || format.knockoutStages.length === 0) return;
+
+    const primeraRonda = format.knockoutStages[0];
+    torneoActivo.status = primeraRonda;
+    torneoActivo.eliminatorias.rondaActual = primeraRonda;
     await actualizarNombresCanalesConIcono();
+
     const clasificados = [];
+    const gruposOrdenados = Object.keys(torneoActivo.grupos).sort(); // Ordenamos alfabéticamente (Grupo A, B, C...)
 
-    if (torneoActivo.size === 16) {
-        for (const groupName in torneoActivo.grupos) {
-            const grupoOrdenado = [...torneoActivo.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b,groupName));
-            clasificados.push(grupoOrdenado[0]);
-        }
-        for (let i = clasificados.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [clasificados[i], clasificados[j]] = [clasificados[j], clasificados[i]]; }
-    } else { 
-        const grupoA = [...torneoActivo.grupos['Grupo A'].equipos].sort((a,b) => sortTeams(a,b,'Grupo A'));
-        const grupoB = [...torneoActivo.grupos['Grupo B'].equipos].sort((a,b) => sortTeams(a,b,'Grupo B'));
-        clasificados.push(grupoA[0], grupoB[1], grupoB[0], grupoA[1]);
+    for (const groupName of gruposOrdenados) {
+        const grupoOrdenado = [...torneoActivo.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b,groupName));
+        const clasificadosDelGrupo = grupoOrdenado.slice(0, format.qualifiersPerGroup);
+        clasificados.push(...clasificadosDelGrupo);
     }
-
-    const semifinal1 = { matchId: `match_semi_1_${Date.now()}`, equipoA: clasificados[0], equipoB: clasificados[1], resultado: null, reportedScores: {}, status: 'en_curso' };
-    const semifinal2 = { matchId: `match_semi_2_${Date.now()}`, equipoA: clasificados[2], equipoB: clasificados[3], resultado: null, reportedScores: {}, status: 'en_curso' };
-    torneoActivo.eliminatorias.semifinales = [semifinal1, semifinal2];
-
-    await crearHiloDePartido(guild, semifinal1, 'Semifinal-1');
-    await crearHiloDePartido(guild, semifinal2, 'Semifinal-2');
     
-    saveBotState();
+    const partidos = crearPartidosEliminatoria(clasificados, primeraRonda);
+    torneoActivo.eliminatorias[primeraRonda] = partidos;
 
-    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle('🔥 ¡Fase de Grupos Finalizada! Comienzan las Semifinales 🔥').addFields({ name: 'Semifinal 1', value: `> ${semifinal1.equipoA.nombre} vs ${semifinal1.equipoB.nombre}` }, { name: 'Semifinal 2', value: `> ${semifinal2.equipoA.nombre} vs ${semifinal2.equipoB.nombre}` }).setFooter({text: '¡Mucha suerte a los clasificados!'});
-    const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId);
-    await clasifChannel.send({ embeds: [embedAnuncio] });
-}
+    const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId).catch(() => null);
+    const embedAnuncio = new EmbedBuilder()
+        .setColor('#e67e22')
+        .setTitle(`🔥 ¡Comienza la Fase Eliminatoria: ${primeraRonda.charAt(0).toUpperCase() + primeraRonda.slice(1)}! 🔥`)
+        .setFooter({text: '¡Mucha suerte a los clasificados!'});
 
-async function handleSemifinalResult(guild) {
-    const semifinales = torneoActivo.eliminatorias.semifinales;
-    if (semifinales.every(p => p.status === 'finalizado')) {
-        const ganador1 = semifinales[0].resultado.split('-').map(Number)[0] > semifinales[0].resultado.split('-').map(Number)[1] ? semifinales[0].equipoA : semifinales[0].equipoB;
-        const ganador2 = semifinales[1].resultado.split('-').map(Number)[0] > semifinales[1].resultado.split('-').map(Number)[1] ? semifinales[1].equipoA : semifinales[1].equipoB;
-
-        const final = { matchId: `match_final_${Date.now()}`, equipoA: ganador1, equipoB: ganador2, resultado: null, reportedScores: {}, status: 'en_curso' };
-        torneoActivo.eliminatorias.final = final;
-        torneoActivo.status = 'final';
-        await actualizarNombresCanalesConIcono();
-
-        await crearHiloDePartido(guild, final, 'Final');
-        saveBotState();
-
-        const embedAnuncio = new EmbedBuilder().setColor('#f1c40f').setTitle('🏆 ¡Llegó la Gran Final! 🏆').setDescription(`**${final.equipoA.nombre} vs ${final.equipoB.nombre}**`).setFooter({text: '¡Solo uno puede ser el campeón!'});
-        const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId);
+    for(let i = 0; i < partidos.length; i++) {
+        const p = partidos[i];
+        await crearHiloDePartido(guild, p, `${primeraRonda.charAt(0).toUpperCase() + primeraRonda.slice(1)}-${i+1}`);
+        embedAnuncio.addFields({ name: `Partido ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
+    }
+    
+    if (clasifChannel) {
         await clasifChannel.send({ embeds: [embedAnuncio] });
     }
+    
+    saveBotState();
+}
+
+// --- NOVEDAD: Función central para gestionar el avance de rondas eliminatorias ---
+async function procesarResultadoEliminatoria(guild) {
+    const rondaActual = torneoActivo.eliminatorias.rondaActual;
+    if (!rondaActual || rondaActual === 'final') {
+        if(rondaActual === 'final' && torneoActivo.eliminatorias.final.status === 'finalizado') {
+            await handleFinalResult();
+        }
+        return;
+    }
+    
+    const partidosRonda = torneoActivo.eliminatorias[rondaActual];
+    if (!partidosRonda.every(p => p.status === 'finalizado')) {
+        return; // La ronda aún no ha terminado
+    }
+
+    // La ronda ha terminado, preparamos la siguiente
+    const format = TOURNAMENT_FORMATS[torneoActivo.formatId];
+    const indiceRondaActual = format.knockoutStages.indexOf(rondaActual);
+    const siguienteRonda = format.knockoutStages[indiceRondaActual + 1];
+
+    if (!siguienteRonda) { // No hay más rondas (error lógico)
+        console.error("Error: Se completó una ronda pero no se encontró la siguiente.");
+        return;
+    }
+    
+    torneoActivo.status = siguienteRonda;
+    torneoActivo.eliminatorias.rondaActual = siguienteRonda;
+    await actualizarNombresCanalesConIcono();
+
+    const ganadores = partidosRonda.map(p => {
+        const [golesA, golesB] = p.resultado.split('-').map(Number);
+        return golesA > golesB ? p.equipoA : p.equipoB;
+    });
+
+    const partidos = crearPartidosEliminatoria(ganadores, siguienteRonda);
+    
+    if (siguienteRonda === 'final') {
+        torneoActivo.eliminatorias.final = partidos[0];
+    } else {
+        torneoActivo.eliminatorias[siguienteRonda] = partidos;
+    }
+    
+    const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId).catch(() => null);
+    const embedAnuncio = new EmbedBuilder()
+        .setColor('#f1c40f')
+        .setTitle(`🏆 ¡Avanzamos a la siguiente ronda: ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🏆`)
+        .setFooter({text: '¡La tensión aumenta!'});
+
+    for(let i = 0; i < partidos.length; i++) {
+        const p = partidos[i];
+        await crearHiloDePartido(guild, p, `${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}-${i+1}`);
+        embedAnuncio.addFields({ name: `Partido ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
+    }
+
+    if(clasifChannel) {
+        await clasifChannel.send({ embeds: [embedAnuncio] });
+    }
+    saveBotState();
 }
 
 async function handleFinalResult() {
+    if (!torneoActivo || !torneoActivo.eliminatorias.final || torneoActivo.status === 'terminado') return;
+
     const final = torneoActivo.eliminatorias.final;
     const [golesA, golesB] = final.resultado.split('-').map(Number);
     const campeon = golesA > golesB ? final.equipoA : final.equipoB;
@@ -1319,6 +1475,7 @@ async function actualizarMensajeClasificacion() {
         const grupo = torneoActivo.grupos[groupName];
         const equiposOrdenados = [...grupo.equipos].sort((a,b) => sortTeams(a,b,groupName));
 
+        // --- MODIFICADO: Ancho de nombre compatible con 15 caracteres ---
         const nameWidth = 16;
         const header = "EQUIPO".padEnd(nameWidth) + "PJ  PTS  GF  GC   DG";
 
@@ -1340,7 +1497,6 @@ async function actualizarMensajeClasificacion() {
     await message.edit({ embeds: [newEmbed] });
 }
 
-// Novedad: Formato del calendario mejorado para mayor legibilidad.
 async function actualizarMensajeCalendario() {
     if (!torneoActivo || !torneoActivo.calendarioMessageId || !CALENDARIO_JORNADAS_CHANNEL_ID) return;
     
@@ -1372,11 +1528,12 @@ async function actualizarMensajeCalendario() {
             groupScheduleText += `**Jornada ${jornadaNum}**\n`;
             for (const partido of partidosPorJornada[jornadaNum]) {
                 const resultado = partido.resultado ? `**\`${partido.resultado}\`**` : 'vs';
-                const equipoA = `\`${partido.equipoA.nombre.padEnd(12)}\``;
-                const equipoB = `\`${partido.equipoB.nombre.padEnd(12)}\``;
+                // --- MODIFICADO: Ancho de nombre compatible con 15 caracteres ---
+                const equipoA = `\`${partido.equipoA.nombre.padEnd(16)}\``;
+                const equipoB = `\`${partido.equipoB.nombre.padEnd(16)}\``;
                 groupScheduleText += `${equipoA} ${resultado} ${equipoB}\n`;
             }
-            groupScheduleText += '\n'; // Añade un espacio entre jornadas
+            groupScheduleText += '\n';
         }
 
         newEmbed.addFields({ name: `**${groupName}**`, value: groupScheduleText, inline: false });
