@@ -1,4 +1,4 @@
-// index.js - VERSIÓN CORREGIDA Y REFORZADA
+// index.js - VERSIÓN CORREGIDA Y REFORZADA CON FINALIZACIÓN NO BLOQUEANTE
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -12,7 +12,6 @@ let torneoActivo;
 let mensajeInscripcionId;
 let listaEquiposMessageId;
 
-// Función de guardado principal. Es más seguro llamar a esta directamente cuando se hacen cambios estructurales.
 function saveFullBotData() {
     if (!botData) return;
     botData.torneoActivo = torneoActivo ? JSON.parse(JSON.stringify(torneoActivo)) : null;
@@ -129,6 +128,59 @@ async function limpiarCanal(channelId) {
     }
 }
 
+async function limpiarRecursosDelTorneo() {
+    console.log("[TAREA DE FONDO] Iniciando limpieza de recursos del torneo...");
+    try {
+        const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
+        if (parentChannel) {
+            const threads = await parentChannel.threads.fetch();
+            for (const thread of threads.threads.values()) {
+                await thread.delete('Finalización de torneo.').catch(err => {
+                    console.error(`No se pudo borrar el hilo ${thread.id}:`, err.message);
+                });
+            }
+        }
+        console.log("[TAREA DE FONDO] Hilos de partidos borrados.");
+        
+        await mostrarMensajeEspera();
+        console.log("[TAREA DE FONDO] Canales principales limpiados y reseteados.");
+
+    } catch (error) {
+        console.error("ERROR CRÍTICO durante la limpieza en segundo plano:", error);
+    }
+}
+
+async function mostrarMensajeEspera() {
+    const waitEmbed = new EmbedBuilder()
+        .setColor('#34495e')
+        .setTitle('⏳ 🇪🇸 Torneo en Espera / 🇬🇧 Tournament on Standby')
+        .setDescription('**🇪🇸 Actualmente no hay ningún torneo activo.**\n\nPronto se anunciará el próximo. ¡Estad atentos!\n\n---\n\n***🇬🇧 There are currently no active tournaments.***\n\nThe next one will be announced soon. Stay tuned!')
+        .setThumbnail('https://i.imgur.com/gJAFbJq.png');
+
+    const channelsToUpdate = [
+        INSCRIPCION_CHANNEL_ID,
+        EQUIPOS_INSCRITOS_CHANNEL_ID,
+        CLASIFICacion_CHANNEL_ID,
+        CALENDARIO_JORNADAS_CHANNEL_ID
+    ];
+
+    for (const channelId of channelsToUpdate) {
+        try {
+            await limpiarCanal(channelId);
+            const channel = await client.channels.fetch(channelId);
+            if (channel) {
+                await channel.send({ embeds: [waitEmbed] });
+            }
+        } catch (err) {
+            if (err.code === 10003) { 
+                console.warn(`[WARN] El canal de espera con ID ${channelId} no fue encontrado. Se ignora.`);
+            } else {
+                console.error(`[ERROR] No se pudo actualizar el canal de espera ${channelId}:`, err);
+            }
+        }
+    }
+}
+
 async function crearHiloDePartido(guild, partido, tipoPartido = 'Grupo') {
     const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
     if (!parentChannel || parentChannel.type !== ChannelType.GuildText) {
@@ -211,38 +263,6 @@ async function updateMatchThreadName(partido) {
     } catch(err) {
         if (err.code !== 10003) { console.error(`Error al renombrar hilo ${partido.threadId}:`, err); }
     }
-}
-
-async function mostrarMensajeEspera() {
-    const waitEmbed = new EmbedBuilder()
-        .setColor('#34495e')
-        .setTitle('⏳ 🇪🇸 Torneo en Espera / 🇬🇧 Tournament on Standby')
-        .setDescription('**🇪🇸 Actualmente no hay ningún torneo activo.**\n\nPronto se anunciará el próximo. ¡Estad atentos!\n\n---\n\n***🇬🇧 There are currently no active tournaments.***\n\nThe next one will be announced soon. Stay tuned!')
-        .setThumbnail('https://i.imgur.com/gJAFbJq.png');
-
-    const channelsToUpdate = [
-        INSCRIPCION_CHANNEL_ID,
-        EQUIPOS_INSCRITOS_CHANNEL_ID,
-        CLASIFICACION_CHANNEL_ID,
-        CALENDARIO_JORNADAS_CHANNEL_ID
-    ];
-
-    for (const channelId of channelsToUpdate) {
-        try {
-            await limpiarCanal(channelId);
-            const channel = await client.channels.fetch(channelId);
-            if (channel) {
-                await channel.send({ embeds: [waitEmbed] });
-            }
-        } catch (err) {
-            if (err.code === 10003) { 
-                console.warn(`[WARN] El canal de espera con ID ${channelId} no fue encontrado. Se ignora.`);
-            } else {
-                console.error(`[ERROR] No se pudo actualizar el canal de espera ${channelId}:`, err);
-            }
-        }
-    }
-    await actualizarNombresCanalesConIcono();
 }
 
 client.once('ready', async () => {
@@ -345,7 +365,6 @@ async function handleButton(interaction) {
         const [panel, type, subtype] = customId.split('_');
         
         if (type === 'crear') {
-            // **CORRECCIÓN:** Verificar si ya hay un torneo activo antes de permitir crear uno nuevo.
             if (torneoActivo) {
                 return interaction.reply({ content: 'Ya hay un torneo activo. Debes finalizarlo antes de poder crear uno nuevo.', flags: [MessageFlags.Ephemeral] });
             }
@@ -431,47 +450,29 @@ async function handleButton(interaction) {
         } 
         
         if (type === 'finalizar') {
-            if (!torneoActivo) return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
-
-            await interaction.editReply({ content: 'Finalizando torneo... Este proceso puede tardar un momento.' });
-
-            try {
-                // 1. Enviar mensaje de finalización
-                const announcementChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID).catch(() => null);
-                if (announcementChannel) {
-                    const finalEmbed = new EmbedBuilder().setColor('#E74C3C').setTitle(`🏁 Torneo Finalizado: ${torneoActivo.nombre}`).setDescription('El torneo ha concluido. ¡Gracias a todos por participar!').setTimestamp();
-                    await announcementChannel.send({ embeds: [finalEmbed] });
-                }
-
-                // 2. Borrar hilos (con mejor manejo de errores)
-                const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
-                if (parentChannel) {
-                    const threads = await parentChannel.threads.fetch();
-                    for (const thread of threads.threads.values()) {
-                        await thread.delete('Finalización de torneo.').catch(err => {
-                            console.error(`No se pudo borrar el hilo ${thread.id} durante la finalización:`, err.message);
-                        });
-                    }
-                }
-
-                // 3. **CORRECCIÓN CRÍTICA**: Limpiar el estado de forma atómica y segura
-                const nombreTorneoFinalizado = torneoActivo.nombre;
-                torneoActivo = null;
-                mensajeInscripcionId = null;
-                listaEquiposMessageId = null;
-                
-                // Guardar el estado nulo en la base de datos
-                saveFullBotData(); 
-
-                // 4. Actualizar la UI (canales) DESPUÉS de limpiar el estado
-                await mostrarMensajeEspera();
-                
-                await interaction.followUp({ content: `✅ Torneo "${nombreTorneoFinalizado}" finalizado. Los canales y el estado del bot han sido reseteados.`, flags: [MessageFlags.Ephemeral] });
-
-            } catch (error) {
-                console.error("ERROR CRÍTICO DURANTE LA FINALIZACIÓN DEL TORNEO:", error);
-                await interaction.followUp({ content: '❌ Ocurrió un error crítico al finalizar el torneo. Revisa los logs. Puede que necesites reiniciar el bot.', flags: [MessageFlags.Ephemeral] });
+            if (!torneoActivo) {
+                return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
             }
+
+            await interaction.editReply({ content: 'Procesando finalización de torneo...' });
+
+            const nombreTorneoFinalizado = torneoActivo.nombre;
+            
+            torneoActivo = null;
+            mensajeInscripcionId = null;
+            listaEquiposMessageId = null;
+            
+            saveFullBotData(); 
+
+            await actualizarNombresCanalesConIcono();
+            
+            await interaction.followUp({ 
+                content: `✅ Torneo "${nombreTorneoFinalizado}" finalizado correctamente. La limpieza de canales y hilos ha comenzado en segundo plano y puede tardar varios minutos.`, 
+                flags: [MessageFlags.Ephemeral] 
+            });
+
+            limpiarRecursosDelTorneo();
+
             return;
         }
     }
@@ -987,7 +988,6 @@ async function handleModalSubmit(interaction) {
         await procesarResultadoFinal(partido, interaction);
     
     } else if (customId.startsWith('highlights_modal_')) {
-        // **CORRECCIÓN:** Utilizar el matchId para encontrar el hilo correcto en lugar de interaction.channel
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
         const matchId = customId.replace('highlights_modal_', '');
@@ -1309,7 +1309,7 @@ async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild)
 
     if (golesA > golesB) {
         equipoA.stats.pts += 3;
-    } else if (golesB > oldGolesA) {
+    } else if (golesB > golesA) {
         equipoB.stats.pts += 3;
     } else {
         equipoA.stats.pts += 1;
