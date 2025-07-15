@@ -1,4 +1,4 @@
-// index.js - VERSIÓN CORREGIDA Y REFORZADA CON FINALIZACIÓN NO BLOQUEANTE
+// index.js - VERSIÓN FINAL REFORZADA CON ESTADO COHERENTE Y FINALIZACIÓN NO BLOQUEANTE
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -9,14 +9,14 @@ const { translate } = require('@vitalets/google-translate-api');
 
 let botData;
 let torneoActivo;
-let mensajeInscripcionId;
-let listaEquiposMessageId;
+
+// Las variables globales para los IDs de mensajes ya no son necesarias,
+// ahora se almacenan dentro del objeto torneoActivo para mayor coherencia.
 
 function saveFullBotData() {
     if (!botData) return;
+    // Todo el estado relevante está dentro de torneoActivo o es nulo.
     botData.torneoActivo = torneoActivo ? JSON.parse(JSON.stringify(torneoActivo)) : null;
-    botData.mensajeInscripcionId = mensajeInscripcionId;
-    botData.listaEquiposMessageId = listaEquiposMessageId;
     saveData(botData);
 }
 
@@ -128,11 +128,9 @@ async function limpiarCanal(channelId) {
     }
 }
 
-// **NUEVA FUNCIÓN** para ejecutar la limpieza lenta en segundo plano.
 async function limpiarRecursosDelTorneo() {
     console.log("[TAREA DE FONDO] Iniciando limpieza de recursos del torneo...");
     try {
-        // Borrar hilos de partidos
         const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
         if (parentChannel) {
             const threads = await parentChannel.threads.fetch();
@@ -143,8 +141,7 @@ async function limpiarRecursosDelTorneo() {
             }
         }
         console.log("[TAREA DE FONDO] Hilos de partidos borrados.");
-
-        // Limpiar canales principales y poner mensaje de espera
+        
         await mostrarMensajeEspera();
         console.log("[TAREA DE FONDO] Canales principales limpiados y reseteados.");
 
@@ -377,6 +374,9 @@ async function handleButton(interaction) {
             return interaction.reply({ content: 'Iniciando creación de torneo...', components: [row], flags: [MessageFlags.Ephemeral] });
         }
         if (type === 'add' && subtype === 'test') {
+            if (!torneoActivo) {
+                 return interaction.reply({ content: 'Primero debes crear un torneo para poder añadir equipos de prueba.', flags: [MessageFlags.Ephemeral] });
+            }
             const modal = new ModalBuilder().setCustomId('add_test_modal').setTitle('Añadir Equipos de Prueba');
             const cantidadInput = new TextInputBuilder().setCustomId('cantidad_input').setLabel("¿Cuántos equipos de prueba quieres añadir?").setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(cantidadInput));
@@ -458,35 +458,20 @@ async function handleButton(interaction) {
                 return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
             }
 
-            // Respondemos inmediatamente para que el usuario no vea "pensando..."
             await interaction.editReply({ content: 'Procesando finalización de torneo...' });
-
             const nombreTorneoFinalizado = torneoActivo.nombre;
             
-            // **PASO 1: RESETEAR EL ESTADO DEL BOT**
-            // Esto es lo más importante para "desbloquear" el bot al instante.
             torneoActivo = null;
-            mensajeInscripcionId = null;
-            listaEquiposMessageId = null;
-            
-            // **PASO 2: GUARDAR EL ESTADO LIMPIO EN LA BASE DE DATOS**
             saveFullBotData(); 
-
-            // **PASO 3: ACTUALIZAR LA INTERFAZ RÁPIDA**
-            // Cambiamos los iconos de los canales a rojo para dar feedback visual inmediato.
             await actualizarNombresCanalesConIcono();
             
-            // **PASO 4: CONFIRMAR AL USUARIO QUE TODO HA IDO BIEN**
             await interaction.followUp({ 
-                content: `✅ Torneo "${nombreTorneoFinalizado}" finalizado correctamente. La limpieza de canales y hilos ha comenzado en segundo plano y puede tardar varios minutos.`, 
+                content: `✅ Torneo "${nombreTorneoFinalizado}" finalizado. La limpieza de canales ha comenzado en segundo plano.`, 
                 flags: [MessageFlags.Ephemeral] 
             });
 
-            // **PASO 5: INICIAR LA TAREA LENTA EN SEGUNDO PLANO**
-            // No usamos 'await' para que el bot no se quede esperando aquí. La función se ejecuta por su cuenta.
             limpiarRecursosDelTorneo();
-
-            return; // La interacción termina aquí para el usuario.
+            return;
         }
     }
 
@@ -618,8 +603,8 @@ async function handleButton(interaction) {
                 await actualizarNombresCanalesConIcono();
     
                 const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
-                if (equiposChannel && listaEquiposMessageId) {
-                    const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(() => null);
+                if (equiposChannel && torneoActivo.listaEquiposMessageId) {
+                    const listaMsg = await equiposChannel.messages.fetch(torneoActivo.listaEquiposMessageId).catch(() => null);
                     if(listaMsg) {
                         const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, index) => `${index + 1}. ${e.bandera||''} ${e.nombre} (Capitán: ${e.capitanTag})`).join('\n');
                         const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos || 'Aún no hay equipos inscritos.').setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
@@ -677,8 +662,8 @@ async function handleButton(interaction) {
                     await originalMessage.edit({ embeds: [newEmbed], components: [newButtons] });
                     await interaction.editReply({ content: `Acción 'aprobar' completada.` });
                     const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(()=>null);
-                    if (equiposChannel && listaEquiposMessageId) {
-                        const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
+                    if (equiposChannel && torneoActivo.listaEquiposMessageId) {
+                        const listaMsg = await equiposChannel.messages.fetch(torneoActivo.listaEquiposMessageId).catch(()=>null);
                         if(listaMsg) {
                             const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, index) => `${index + 1}. ${e.bandera||''} ${e.nombre} (Capitán: ${e.capitanTag})`).join('\n');
                             const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos || 'Aún no hay equipos inscritos.').setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
@@ -796,6 +781,8 @@ async function handleModalSubmit(interaction) {
             equipos_aprobados: {}, 
             canalEquiposId: EQUIPOS_INSCRITOS_CHANNEL_ID,
             canalGruposId: CLASIFICACION_CHANNEL_ID,
+            mensajeInscripcionId: null,
+            listaEquiposMessageId: null,
             publicGroupsMessageId: null, 
             calendarioMessageId: null,
             calendario: {}, 
@@ -807,11 +794,11 @@ async function handleModalSubmit(interaction) {
         const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Límite:** ${size} equipos.`);
         const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo / Register Team').setStyle(ButtonStyle.Success).setEmoji('📝'));
         const newMessage = await client.channels.cache.get(INSCRIPCION_CHANNEL_ID).send({ embeds: [embed], components: [row] });
-        mensajeInscripcionId = newMessage.id;
+        torneoActivo.mensajeInscripcionId = newMessage.id;
 
         const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos inscritos.').setFooter({ text: `Total: 0 / ${size}` });
         const listaMsg = await client.channels.cache.get(EQUIPOS_INSCRITOS_CHANNEL_ID).send({ embeds: [embedLista] });
-        listaEquiposMessageId = listaMsg.id;
+        torneoActivo.listaEquiposMessageId = listaMsg.id;
         
         const calendarioChannel = client.channels.cache.get(CALENDARIO_JORNADAS_CHANNEL_ID);
         if (calendarioChannel) {
@@ -894,6 +881,7 @@ async function handleModalSubmit(interaction) {
     } else if (customId === 'add_test_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const cantidad = parseInt(fields.getTextInputValue('cantidad_input'));
+
         if (isNaN(cantidad) || cantidad <= 0) return interaction.editReply('Número inválido.');
         if (!torneoActivo) return interaction.editReply('Primero crea un torneo.');
         if (!torneoActivo.equipos_aprobados) torneoActivo.equipos_aprobados = {};
@@ -916,12 +904,14 @@ async function handleModalSubmit(interaction) {
             const nombreEquipo = `E-Prueba-${initialCount + i + 1}`;
             torneoActivo.equipos_aprobados[teamId] = { id: teamId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: adminFlag, paypal: 'admin@test.com' };
         }
+        
         saveFullBotData();
         await actualizarNombresCanalesConIcono();
         await interaction.editReply(`✅ ${cantidad} equipos de prueba añadidos.`);
+
         const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
-        if (equiposChannel && listaEquiposMessageId) {
-             const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
+        if (equiposChannel && torneoActivo.listaEquiposMessageId) {
+             const listaMsg = await equiposChannel.messages.fetch(torneoActivo.listaEquiposMessageId).catch(()=>null);
              if(listaMsg) {
                 const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, i) => `${i + 1}. ${e.bandera||''} ${e.nombre} (Capi: ${e.capitanTag})`).join('\n');
                 const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos).setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
@@ -1082,9 +1072,9 @@ async function realizarSorteoDeGrupos(guild) {
     await adminChannel.send('Iniciando sorteo y creación de calendario...');
     
     const inscripcionChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID);
-    if(mensajeInscripcionId) {
+    if(torneo.mensajeInscripcionId) {
         try {
-            const msg = await inscripcionChannel.messages.fetch(mensajeInscripcionId);
+            const msg = await inscripcionChannel.messages.fetch(torneo.mensajeInscripcionId);
             const disabledRow = new ActionRowBuilder().addComponents(ButtonBuilder.from(msg.components[0].components[0]).setDisabled(true));
             await msg.edit({ content: 'Las inscripciones para este torneo han finalizado.', components: [disabledRow] });
         } catch (e) { console.error("No se pudo editar el mensaje de inscripción."); }
@@ -1142,7 +1132,6 @@ async function realizarSorteoDeGrupos(guild) {
     const embedClasificacion = new EmbedBuilder().setColor('#1abc9c').setTitle(`Clasificación: ${torneo.nombre}`).setDescription('¡Mucha suerte a todos los equipos!').setTimestamp();
     const classificationMessage = await gruposChannel.send({ embeds: [embedClasificacion] });
     torneo.publicGroupsMessageId = classificationMessage.id;
-    torneoActivo = torneo;
     
     await actualizarMensajeClasificacion();
     await actualizarMensajeCalendario();
@@ -1349,7 +1338,7 @@ function sortTeams(a, b, groupName) {
 }
 
 async function actualizarMensajeClasificacion() {
-    if (!torneoActivo || !torneoActivo.canalGruposId || !torneoActivo.publicGroupsMessageId) return;
+    if (!torneoActivo || !torneoActivo.publicGroupsMessageId) return;
     const channel = await client.channels.fetch(torneoActivo.canalGruposId).catch(() => null);
     if (!channel) return;
     const message = await channel.messages.fetch(torneoActivo.publicGroupsMessageId).catch(() => null);
@@ -1374,7 +1363,7 @@ async function actualizarMensajeClasificacion() {
             const dg = (dgVal >= 0 ? '+' : '') + dgVal.toString();
             const paddedDg = dg.padStart(4);
 
-            return `${teamName}${pj}  ${pts}  ${gf}  ${gc} ${paddedDg}`;
+            return `${teamName}${pj}  ${pts}  ${gc} ${paddedDg}`;
         }).join('\n');
 
         newEmbed.addFields({ name: `**${groupName}**`, value: "```\n" + header + "\n" + table + "\n```" });
@@ -1383,7 +1372,7 @@ async function actualizarMensajeClasificacion() {
 }
 
 async function actualizarMensajeCalendario() {
-    if (!torneoActivo || !torneoActivo.calendarioMessageId || !CALENDARIO_JORNADAS_CHANNEL_ID) return;
+    if (!torneoActivo || !torneoActivo.calendarioMessageId) return;
     
     const channel = await client.channels.fetch(CALENDARIO_JORNADAS_CHANNEL_ID).catch(() => null);
     if (!channel) return;
@@ -1523,8 +1512,6 @@ async function startBot() {
     console.log('[INIT] Cargando datos iniciales...');
     botData = await loadInitialData();
     torneoActivo = botData.torneoActivo;
-    mensajeInscripcionId = botData.mensajeInscripcionId;
-    listaEquiposMessageId = botData.listaEquiposMessageId;
     console.log('[INIT] Datos cargados. Iniciando bot...');
 
     keepAlive();
