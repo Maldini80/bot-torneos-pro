@@ -1,4 +1,4 @@
-// index.js - VERSIÓN CON CORRECCIÓN EN LÓGICA DE CREACIÓN DE HILOS POR JORNADA
+// index.js - VERSIÓN FINAL CON CALENDARIO, ICONOS DE ESTADO DINÁMICOS (VERDE/ROJO) Y CÓDIGO COMPLETO
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -27,7 +27,20 @@ const PARTICIPANTE_ROLE_ID = '1394321301748977684';
 const EQUIPOS_INSCRITOS_CHANNEL_ID = '1394444703822381076';
 const CLASIFICACION_CHANNEL_ID = '1394445078948220928';
 const MATCH_THREADS_PARENT_ID = '1394452077282988063'; 
+const CALENDARIO_JORNADAS_CHANNEL_ID = '1394577975412002816'; 
 const SETUP_COMMAND = '!setup-idiomas';
+
+// Novedad: Iconos de estado para los canales.
+const ACTIVE_STATUS_ICON = '🟢';
+const INACTIVE_STATUS_ICON = '🔴';
+
+// Novedad: Configuración centralizada de canales para gestionar sus nombres e iconos.
+const CHANNELS_CONFIG = {
+    inscripciones: { id: INSCRIPCION_CHANNEL_ID, baseName: '🤝-inscripciones-inscriptions', activeIn: ['inscripcion', 'grupos'] },
+    capitanes: { id: EQUIPOS_INSCRITOS_CHANNEL_ID, baseName: '📋-capitanes-inscritos', activeIn: ['inscripcion', 'grupos'] },
+    clasificacion: { id: CLASIFICACION_CHANNEL_ID, baseName: '📊-clasificacion-ranking', activeIn: ['grupos'] },
+    calendario: { id: CALENDARIO_JORNADAS_CHANNEL_ID, baseName: '🗓-calendario-de-jornadas', activeIn: ['grupos'] }
+};
 
 
 // --- DATOS DE IDIOMAS Y NORMAS ---
@@ -50,6 +63,30 @@ const client = new Client({
 });
 
 // --- FUNCIONES AUXILIARES ---
+
+// Novedad: Función refactorizada para gestionar los iconos de estado (🟢/🔴).
+async function actualizarNombresCanalesConIcono(status) {
+    for (const key in CHANNELS_CONFIG) {
+        const config = CHANNELS_CONFIG[key];
+        try {
+            const channel = await client.channels.fetch(config.id);
+            if (!channel) continue;
+
+            // Determinar si el canal debe estar activo y qué icono usar.
+            const isActive = config.activeIn.includes(status);
+            const targetIcon = isActive ? ACTIVE_STATUS_ICON : INACTIVE_STATUS_ICON;
+            const newName = `${targetIcon} ${config.baseName}`;
+
+            // Solo actualizar si el nombre es diferente para evitar llamadas innecesarias a la API.
+            if (channel.name !== newName) {
+                await channel.setName(newName);
+            }
+        } catch (error) {
+            console.error(`Error al actualizar el nombre del canal ${config.id}:`, error);
+        }
+    }
+}
+
 
 function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
     return {
@@ -128,7 +165,7 @@ async function crearHiloDePartido(guild, partido, tipoPartido = 'Grupo') {
         
         const captainButtons = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`reportar_resultado_v3_${partido.matchId}`).setLabel("Reportar Resultado / Report Result").setStyle(ButtonStyle.Primary).setEmoji("📊"),
-            new ButtonBuilder().setCustomId(`upload_highlights_${partido.matchId}`).setLabel("Subir Alturas / Upload Highlights").setStyle(ButtonStyle.Success).setEmoji("🎬"),
+            new ButtonBuilder().setCustomId(`upload_highlights_${partido.matchId}`).setLabel("Subir Alturas / Upload Highlights").setStyle(ButtonStyle.Secondary).setEmoji("🎬"),
             new ButtonBuilder().setCustomId(`solicitar_arbitraje_${partido.matchId}`).setLabel("Solicitar Arbitraje / Request Referee").setStyle(ButtonStyle.Danger).setEmoji("⚠️")
         );
 
@@ -176,7 +213,8 @@ async function mostrarMensajeEspera() {
     const channelsToUpdate = [
         INSCRIPCION_CHANNEL_ID,
         EQUIPOS_INSCRITOS_CHANNEL_ID,
-        CLASIFICACION_CHANNEL_ID
+        CLASIFICACION_CHANNEL_ID,
+        CALENDARIO_JORNADAS_CHANNEL_ID
     ];
 
     for (const channelId of channelsToUpdate) {
@@ -194,12 +232,18 @@ async function mostrarMensajeEspera() {
             }
         }
     }
+    // Novedad: Se asegura de que todos los canales muestren el icono de inactivo (🔴).
+    await actualizarNombresCanalesConIcono('finalizado');
 }
 
 client.once('ready', async () => {
     console.log(`Bot conectado como ${client.user.tag}!`);
     if (!torneoActivo) {
         await mostrarMensajeEspera();
+    } else if (torneoActivo.status === 'inscripcion_abierta') {
+        await actualizarNombresCanalesConIcono('inscripcion');
+    } else if (torneoActivo.status === 'fase_de_grupos' || torneoActivo.status === 'semifinales' || torneoActivo.status === 'final') {
+        await actualizarNombresCanalesConIcono('grupos');
     }
 });
 
@@ -214,7 +258,6 @@ client.on('guildMemberAdd', member => {
     member.send({ embeds: [welcomeEmbed], components: [row] }).catch(() => console.log(`No se pudo enviar DM a ${member.user.tag}.`));
 });
 
-// --- MANEJADOR DE INTERACCIONES ---
 client.on('interactionCreate', async interaction => {
     try {
         if (interaction.isCommand()) {
@@ -227,23 +270,19 @@ client.on('interactionCreate', async interaction => {
             await handleModalSubmit(interaction);
         }
     } catch (error) {
-        if (error.code === 40060) {
-            console.warn(`[WARN] Se intentó responder a una interacción ya respondida. Esto puede ser por un doble clic del usuario. Se ignora.`);
-            return;
-        }
-        if (error.code === 10062) {
-            console.warn(`[WARN] Interacción expirada (token inválido). El bot tardó demasiado en responder. Esto es normal en cold starts y se ignora.`);
-            return;
+        if (error.code === 40060 || error.code === 10062) {
+            return; 
         }
         console.error('Ha ocurrido un error en el manejador de interacciones:', error);
         try {
+            const replyOptions = { content: '🇪🇸 Hubo un error al procesar tu solicitud.\n🇬🇧 *An error occurred while processing your request.*', flags: [MessageFlags.Ephemeral] };
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: '🇪🇸 Hubo un error al procesar tu solicitud.\n🇬🇧 *An error occurred while processing your request.*', flags: [MessageFlags.Ephemeral] });
+                await interaction.followUp(replyOptions);
             } else {
-                 await interaction.reply({ content: '🇪🇸 Hubo un error al procesar tu solicitud.\n🇬🇧 *An error occurred while processing your request.*', flags: [MessageFlags.Ephemeral] });
+                 await interaction.reply(replyOptions);
             }
         } catch (e) {
-            if (e.code !== 10062 && e.code !== 40060) {
+            if (e.code !== 10062) {
                 console.error('Error al enviar mensaje de error de interacción:', e);
             }
         }
@@ -295,7 +334,6 @@ async function handleSlashCommand(interaction) {
 async function handleButton(interaction) {
     const { customId } = interaction;
     
-    // Botones del panel de admin
     if (customId.startsWith('panel_')) {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             return interaction.reply({ content: 'No tienes permisos para usar los botones del panel.', flags: [MessageFlags.Ephemeral] });
@@ -416,7 +454,6 @@ async function handleButton(interaction) {
         }
     }
 
-    // Botones de roles de idioma
     else if (customId.startsWith('rules_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [prefix, langCode, guildId] = customId.split('_');
@@ -461,7 +498,6 @@ async function handleButton(interaction) {
         }
     }
 
-    // Botones que abren un modal
     else if (customId === 'inscribir_equipo_btn') {
         if (!torneoActivo || torneoActivo.status !== 'inscripcion_abierta') {
             return interaction.reply({ content: '🇪🇸 Las inscripciones no están abiertas o el torneo ha sido borrado por un reinicio.\n🇬🇧 *Registrations are not open or the tournament was deleted by a restart.*', flags: [MessageFlags.Ephemeral] });
@@ -513,7 +549,6 @@ async function handleButton(interaction) {
         return interaction.showModal(modal);
     }
     
-    // --- LÓGICA RESTAURADA ---
     else {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
@@ -710,31 +745,21 @@ async function handleModalSubmit(interaction) {
             }
         }
 
-        const inscripcionChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID).catch(() => null);
-        if (!inscripcionChannel) {
-            return interaction.editReply({ content: `❌ **Error:** No se puede encontrar el canal de inscripciones.`});
-        }
         await limpiarCanal(INSCRIPCION_CHANNEL_ID);
-
-        const equiposChannel = await client.channels.fetch(EQUIPOS_INSCRITOS_CHANNEL_ID).catch(() => null);
-        if (!equiposChannel) {
-            return interaction.editReply({ content: `❌ **Error:** No se puede encontrar el canal de lista de equipos predefinido (ID: ${EQUIPOS_INSCRITOS_CHANNEL_ID}).`});
-        }
-        await limpiarCanal(EQUIPOS_INSCRITOS_CHANNEL_ID); 
+        await limpiarCanal(EQUIPOS_INSCRITOS_CHANNEL_ID);
+        await limpiarCanal(CLASIFICACION_CHANNEL_ID);
+        await limpiarCanal(CALENDARIO_JORNADAS_CHANNEL_ID);
         
         torneoActivo = { 
-            nombre, 
-            size, 
-            isPaid, 
-            prizeCampeon, 
-            prizeFinalista, 
+            nombre, size, isPaid, prizeCampeon, prizeFinalista, 
             status: 'inscripcion_abierta', 
             enlace_paypal: enlacePaypal, 
             equipos_pendientes: {}, 
             equipos_aprobados: {}, 
             canalEquiposId: EQUIPOS_INSCRITOS_CHANNEL_ID,
-            canalGruposId: null,
+            canalGruposId: CLASIFICACION_CHANNEL_ID,
             publicGroupsMessageId: null, 
+            calendarioMessageId: null,
             calendario: {}, 
             grupos: {}, 
             eliminatorias: {} 
@@ -743,16 +768,24 @@ async function handleModalSubmit(interaction) {
         let prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis / *Free*';
         const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Límite:** ${size} equipos.`);
         const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo / Register Team').setStyle(ButtonStyle.Success).setEmoji('📝'));
-        const newMessage = await inscripcionChannel.send({ embeds: [embed], components: [row] });
+        const newMessage = await client.channels.cache.get(INSCRIPCION_CHANNEL_ID).send({ embeds: [embed], components: [row] });
         mensajeInscripcionId = newMessage.id;
 
         const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos inscritos.').setFooter({ text: `Total: 0 / ${size}` });
-        const listaMsg = await equiposChannel.send({ embeds: [embedLista] });
+        const listaMsg = await client.channels.cache.get(EQUIPOS_INSCRITOS_CHANNEL_ID).send({ embeds: [embedLista] });
         listaEquiposMessageId = listaMsg.id;
         
+        const calendarioChannel = client.channels.cache.get(CALENDARIO_JORNADAS_CHANNEL_ID);
+        if (calendarioChannel) {
+            const embedCalendario = new EmbedBuilder().setColor('#9b59b6').setTitle(`🗓️ Calendario de Jornadas - ${nombre}`).setDescription('El calendario se mostrará aquí una vez que se realice el sorteo de grupos.');
+            const calendarioMsg = await calendarioChannel.send({ embeds: [embedCalendario] });
+            torneoActivo.calendarioMessageId = calendarioMsg.id;
+        }
+
         saveBotState();
+        await actualizarNombresCanalesConIcono('inscripcion');
         
-        await interaction.editReply({ content: `✅ Torneo "${nombre}" (${size} equipos, ${isPaid ? 'de Pago' : 'Gratis'}) creado. Los equipos se listarán en ${equiposChannel}.` });
+        await interaction.editReply({ content: `✅ Torneo "${nombre}" creado.` });
 
     } else if (customId === 'inscripcion_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -961,6 +994,8 @@ async function procesarResultadoFinal(partido, interaction, fromSimulation = fal
         }
     }
     
+    await actualizarMensajeCalendario();
+
     if (!fromSimulation) {
         const thread = await client.channels.fetch(partido.threadId).catch(() => null);
         if (thread) {
@@ -1055,6 +1090,8 @@ async function realizarSorteoDeGrupos(guild) {
     torneoActivo = torneo;
     
     await actualizarMensajeClasificacion();
+    await actualizarMensajeCalendario();
+    await actualizarNombresCanalesConIcono('grupos');
     
     let createdCount = 0;
     for (const nombreGrupo in calendario) {
@@ -1081,10 +1118,6 @@ async function verificarYCrearSiguientesHilos(guild) {
             if (jornadaActual === 1) continue;
 
             const partidoAnteriorA = torneoActivo.calendario[groupName].find(p => p.jornada === jornadaActual - 1 && (p.equipoA.id === equipoA.id || p.equipoB.id === equipoA.id));
-            
-            // ***** LÍNEA CORREGIDA *****
-            // El error estaba aquí. Comprobaba `p.equipoB.id === equipoB.id` lo que es incorrecto.
-            // Ahora busca correctamente el partido anterior del equipoB.
             const partidoAnteriorB = torneoActivo.calendario[groupName].find(p => p.jornada === jornadaActual - 1 && (p.equipoA.id === equipoB.id || p.equipoB.id === equipoB.id));
             
             if (partidoAnteriorA && partidoAnteriorA.status === 'finalizado' && partidoAnteriorB && partidoAnteriorB.status === 'finalizado') {
@@ -1168,6 +1201,7 @@ async function handleFinalResult() {
 
     const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId);
     await clasifChannel.send({ content: `|| @everyone ||`, embeds: [embedCampeon] });
+    await actualizarNombresCanalesConIcono('finalizado');
 
     if (torneoActivo.isPaid) {
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
@@ -1291,6 +1325,39 @@ async function actualizarMensajeClasificacion() {
     await message.edit({ embeds: [newEmbed] });
 }
 
+async function actualizarMensajeCalendario() {
+    if (!torneoActivo || !torneoActivo.calendarioMessageId || !CALENDARIO_JORNADAS_CHANNEL_ID) return;
+    
+    const channel = await client.channels.fetch(CALENDARIO_JORNADAS_CHANNEL_ID).catch(() => null);
+    if (!channel) return;
+
+    const message = await channel.messages.fetch(torneoActivo.calendarioMessageId).catch(() => null);
+    if (!message) return;
+
+    const newEmbed = EmbedBuilder.from(message.embeds[0])
+        .setDescription('Calendario completo del torneo. Los resultados se actualizarán aquí.')
+        .setFields([]);
+
+    const calendarioOrdenado = Object.keys(torneoActivo.calendario).sort();
+
+    for (const groupName of calendarioOrdenado) {
+        let groupScheduleText = '';
+        const partidosDelGrupo = torneoActivo.calendario[groupName].sort((a,b) => a.jornada - b.jornada || a.matchId.localeCompare(b.matchId));
+
+        for (const partido of partidosDelGrupo) {
+            const resultado = partido.resultado ? `**\`${partido.resultado}\`**` : 'vs';
+            const equipoA = `\`${partido.equipoA.nombre.padEnd(8)}\``;
+            const equipoB = `\`${partido.equipoB.nombre.padStart(8)}\``;
+            groupScheduleText += `J${partido.jornada}: ${equipoA} ${resultado} ${equipoB}\n`;
+        }
+
+        newEmbed.addFields({ name: `**${groupName}**`, value: groupScheduleText, inline: true });
+    }
+
+    await message.edit({ embeds: [newEmbed] });
+}
+
+
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (message.content.startsWith('!')) { if (message.content === SETUP_COMMAND && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) { await handleSetupCommand(message); } return; }
@@ -1313,20 +1380,10 @@ client.on('messageReactionAdd', async (reaction, user) => {
     if (user.bot) return;
 
     if (reaction.partial) {
-        try {
-            await reaction.fetch();
-        } catch (error) {
-            console.error('Error al obtener reacción parcial:', error);
-            return;
-        }
+        try { await reaction.fetch(); } catch (error) { console.error('Error al obtener reacción parcial:', error); return; }
     }
     if (reaction.message.partial) {
-        try {
-            await reaction.message.fetch();
-        } catch (error) {
-            console.error('Error al obtener mensaje parcial:', error);
-            return;
-        }
+        try { await reaction.message.fetch(); } catch (error) { console.error('Error al obtener mensaje parcial:', error); return; }
     }
 
     if (!reaction.message.embeds[0] || reaction.message.embeds[0].title !== LANGUAGE_SETUP_TITLE) {
@@ -1390,7 +1447,6 @@ async function handleSetupCommand(message) {
     } catch (error) { console.error('Error al enviar setup:', error); }
 }
 
-// --- FUNCIÓN DE ARRANQUE FINAL ---
 async function startBot() {
     console.log('[INIT] Conectando a la base de datos...');
     await connectDb();
