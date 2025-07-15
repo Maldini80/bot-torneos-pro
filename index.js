@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.6 - BOTÓN DE RESET FORZADO EN PANEL DE ADMIN
+// index.js - VERSIÓN 2.8 - CÓDIGO FINAL, COMPLETO Y CORREGIDO
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -172,7 +172,9 @@ async function limpiarCanal(channelId) {
             } while (fetched.size >= 2);
         }
     } catch (err) {
-        if (err.code !== 10003) { console.error(`Error al limpiar el canal ${channelId}:`, err); }
+        if (err.code !== 10003 && err.code !== 10008) { 
+             console.error(`Error al limpiar el canal ${channelId}:`, err); 
+        }
     }
 }
 
@@ -356,7 +358,6 @@ async function handleSlashCommand(interaction) {
             new ButtonBuilder().setCustomId('panel_ver_inscritos').setLabel('Ver Inscritos').setStyle(ButtonStyle.Primary).setEmoji('📋'),
             new ButtonBuilder().setCustomId('panel_ver_pendientes').setLabel('Ver Pendientes').setStyle(ButtonStyle.Primary).setEmoji('⏳')
         );
-        // --- CAMBIO: Añadido botón de Reset Forzado al panel ---
         const row3 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos').setStyle(ButtonStyle.Secondary).setEmoji('🎲'), 
             new ButtonBuilder().setCustomId('panel_borrar_hilos').setLabel('Borrar Hilos').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), 
@@ -437,7 +438,6 @@ async function handleButton(interaction) {
             return interaction.showModal(modal);
         }
         
-        // --- NOVEDAD: Lógica del botón de reset forzado ---
         if (type === 'reset' && subtype === 'force') {
             return await forceResetTournamentState(interaction);
         }
@@ -1373,6 +1373,7 @@ async function iniciarFaseEliminatoria(guild) {
 }
 
 async function procesarResultadoEliminatoria(guild) {
+    if (!torneoActivo) return;
     const rondaActual = torneoActivo.eliminatorias.rondaActual;
     if (!rondaActual) return;
 
@@ -1431,7 +1432,11 @@ async function procesarResultadoEliminatoria(guild) {
 }
 
 async function handleFinalResult() {
-    if (!torneoActivo || !torneoActivo.eliminatorias.final || torneoActivo.status === 'terminado') return;
+    if (!torneoActivo) {
+        console.warn("[WARN] Se intentó ejecutar handleFinalResult sin un torneo activo. Ignorando.");
+        return;
+    }
+    if (!torneoActivo.eliminatorias.final || torneoActivo.status === 'terminado') return;
 
     const final = torneoActivo.eliminatorias.final;
     const [golesA, golesB] = final.resultado.split('-').map(Number);
@@ -1591,6 +1596,7 @@ async function actualizarMensajeCalendario() {
         .setFields([]);
 
     const calendarioOrdenado = Object.keys(torneoActivo.calendario).sort();
+    let allFields = [];
 
     for (const groupName of calendarioOrdenado) {
         const partidosDelGrupo = torneoActivo.calendario[groupName];
@@ -1624,10 +1630,10 @@ async function actualizarMensajeCalendario() {
                 groupScheduleText += `${equipoA}${resultado}${equipoB}\n`;
             }
         }
-
-        newEmbed.addFields({ name: `**${groupName}**`, value: groupScheduleText.trim(), inline: true });
+        allFields.push({ name: `**${groupName}**`, value: groupScheduleText.trim(), inline: false });
     }
 
+    newEmbed.setFields(allFields);
     await message.edit({ embeds: [newEmbed] });
 }
 
