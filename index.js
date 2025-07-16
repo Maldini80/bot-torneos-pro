@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.3 - CORRECCIÓN CRÍTICA DE ESTADÍSTICAS
+// index.js - VERSIÓN 2.4 - AÑADIDO CERROJO GLOBAL ANTI-ERRORES
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -11,6 +11,8 @@ let botData;
 let torneoActivo;
 let mensajeInscripcionId;
 let listaEquiposMessageId;
+// --- MEJORA: Cerrojo global para operaciones críticas ---
+let isBotBusy = false;
 
 function saveBotState() {
     if (!botData) return;
@@ -315,6 +317,15 @@ client.on('guildMemberAdd', member => {
 });
 
 client.on('interactionCreate', async interaction => {
+    // --- MEJORA: Comprobación del cerrojo global ---
+    if (isBotBusy && (interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu() || interaction.isCommand())) {
+        const sensitiveCommands = ['panel-finalizar', 'panel_add_test', 'crear_torneo_final', 'add_test_modal', 'panel_reset_force'];
+        const isSensitive = sensitiveCommands.some(cmd => interaction.customId?.includes(cmd) || interaction.commandName?.includes(cmd));
+        if(isSensitive){
+            return interaction.reply({ content: '⏳ El bot está realizando una operación crítica. Por favor, espera un momento antes de usar este comando.', ephemeral: true });
+        }
+    }
+    
     if (interaction.isButton() || interaction.isStringSelectMenu()) {
         const sensitiveIds = ['panel_finalizar', 'panel_borrar_hilos', 'panel_reset_force', 'admin_aprobar', 'admin_expulsar', 'admin_rechazar'];
         if (sensitiveIds.some(id => interaction.customId.startsWith(id))) {
@@ -402,7 +413,7 @@ async function handleSlashCommand(interaction) {
 
 async function forceResetTournamentState(interaction) {
     const adminPanelMessage = interaction.message;
-
+    isBotBusy = true; // Activar cerrojo
     try {
         const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
         components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
@@ -425,6 +436,7 @@ async function forceResetTournamentState(interaction) {
         console.error("Ocurrió un error durante el reseteo forzado:", error);
         await interaction.editReply({ content: '❌ Ocurrió un error al intentar limpiar la interfaz, pero el estado del bot ha sido reseteado. Revisa la consola.' });
     } finally {
+        isBotBusy = false; // Liberar cerrojo
         const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
         components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
         const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: 'ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Reseteo forzado completado.' });
@@ -478,6 +490,7 @@ async function handleButton(interaction) {
             }
 
             const adminPanelMessage = interaction.message;
+            isBotBusy = true; // Activar cerrojo
             try {
                 const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
@@ -537,6 +550,7 @@ async function handleButton(interaction) {
                 console.error("Ocurrió un error durante la finalización del torneo:", error);
                 await interaction.followUp({ content: '❌ Ocurrió un error al limpiar la interfaz, pero el estado del bot ya ha sido reseteado. Puedes crear un nuevo torneo.', ephemeral: true });
             } finally {
+                isBotBusy = false; // Liberar cerrojo
                 const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
                 const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: `ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Torneo finalizado.` });
@@ -594,6 +608,7 @@ async function handleButton(interaction) {
         
         if (type === 'borrar' && subtype === 'hilos') {
             const adminPanelMessage = interaction.message;
+            isBotBusy = true; // Activar cerrojo
             try {
                 const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
@@ -632,6 +647,7 @@ async function handleButton(interaction) {
                  console.error("Error al borrar hilos:", error);
                  await interaction.followUp({ content: `❌ Ocurrió un error al borrar los hilos.`, ephemeral: true });
             } finally {
+                isBotBusy = false; // Liberar cerrojo
                 const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
                 const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: `ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Borrado de hilos completado.` });
@@ -927,6 +943,7 @@ async function handleModalSubmit(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     if (customId.startsWith('crear_torneo_final_')) {
+        isBotBusy = true; // Activar cerrojo
         try {
             if (torneoActivo) {
                 return interaction.editReply({ content: '❌ Ya hay un torneo activo. Por favor, finalízalo usando el panel de administración antes de crear uno nuevo.' });
@@ -1014,6 +1031,8 @@ async function handleModalSubmit(interaction) {
             torneoActivo = null; 
             saveBotState();
             await interaction.followUp({ content: '❌ Ocurrió un error inesperado al crear el torneo. El estado del bot ha sido reseteado por seguridad. Por favor, intenta de nuevo.', ephemeral: true });
+        } finally {
+            isBotBusy = false; // Liberar cerrojo
         }
     } 
     
@@ -1084,49 +1103,62 @@ async function handleModalSubmit(interaction) {
     } 
     
     else if (customId === 'add_test_modal') {
-        if (!torneoActivo) {
-            return interaction.editReply('Error: Primero crea un torneo.');
-        }
-        const cantidad = parseInt(fields.getTextInputValue('cantidad_input'));
-        if (isNaN(cantidad) || cantidad <= 0) return interaction.editReply('Número inválido.');
-        if (!torneoActivo.equipos_aprobados) torneoActivo.equipos_aprobados = {};
-        
-        await interaction.editReply(`✅ Recibido. Añadiendo ${cantidad} equipos de prueba...`);
-
-        const adminMember = interaction.member;
-        let adminFlag = '🧪'; 
-        for (const flag in languageRoles) {
-            const role = interaction.guild.roles.cache.find(r => r.name === languageRoles[flag].name);
-            if (role && adminMember.roles.cache.has(role.id)) {
-                adminFlag = flag;
-                break;
+        isBotBusy = true; // Activar cerrojo
+        try {
+            if (!torneoActivo) {
+                return interaction.editReply('Error: Primero crea un torneo.');
             }
-        }
+            const cantidad = parseInt(fields.getTextInputValue('cantidad_input'));
+            if (isNaN(cantidad) || cantidad <= 0) return interaction.editReply('Número inválido.');
+            if (!torneoActivo.equipos_aprobados) torneoActivo.equipos_aprobados = {};
+            
+            await interaction.editReply(`✅ Recibido. Añadiendo ${cantidad} equipos de prueba...`);
 
-        const capitanDePruebaId = interaction.user.id;
-        const capitanDePruebaTag = interaction.user.tag;
-        const initialCount = Object.keys(torneoActivo.equipos_aprobados).length;
-        for (let i = 0; i < cantidad; i++) {
-            if(Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size) break;
-            const teamId = `prueba_${Date.now()}_${i}`;
-            const nombreEquipo = `E-Prueba-${initialCount + i + 1}`;
-            torneoActivo.equipos_aprobados[teamId] = { id: capitanDePruebaId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: adminFlag, paypal: 'admin@test.com' };
-        }
-        saveBotState();
+            const adminMember = interaction.member;
+            let adminFlag = '🧪'; 
+            for (const flag in languageRoles) {
+                const role = interaction.guild.roles.cache.find(r => r.name === languageRoles[flag].name);
+                if (role && adminMember.roles.cache.has(role.id)) {
+                    adminFlag = flag;
+                    break;
+                }
+            }
 
-        await actualizarNombresCanalesConIcono();
-        
-        const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
-        if (equiposChannel && listaEquiposMessageId) {
-             const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
-             if(listaMsg) {
-                const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, i) => `${i + 1}. ${e.bandera||''} ${e.nombre} (Capi: ${e.capitanTag})`).join('\n');
-                const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos).setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
-                await listaMsg.edit({ embeds: [embedLista] });
-             }
-        }
-        await interaction.followUp({ content: '✅ Interfaz actualizada.', ephemeral: true });
+            const capitanDePruebaId = interaction.user.id;
+            const capitanDePruebaTag = interaction.user.tag;
+            const initialCount = Object.keys(torneoActivo.equipos_aprobados).length;
+            for (let i = 0; i < cantidad; i++) {
+                if(Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size) break;
+                const teamId = `prueba_${Date.now()}_${i}`;
+                const nombreEquipo = `E-Prueba-${initialCount + i + 1}`;
+                torneoActivo.equipos_aprobados[teamId] = { id: capitanDePruebaId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: adminFlag, paypal: 'admin@test.com' };
+            }
+            saveBotState();
 
+            // --- MEJORA: Añadida comprobación de estado antes de operaciones lentas ---
+            if (!torneoActivo) {
+                console.warn("[WARN] La adición de equipos de prueba fue interrumpida por un reseteo.");
+                return interaction.followUp({ content: 'La operación fue cancelada porque el torneo se finalizó mientras se procesaba.', ephemeral: true});
+            }
+
+            await actualizarNombresCanalesConIcono();
+            
+            const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
+            if (equiposChannel && listaEquiposMessageId) {
+                const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
+                if(listaMsg) {
+                    const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, i) => `${i + 1}. ${e.bandera||''} ${e.nombre} (Capi: ${e.capitanTag})`).join('\n');
+                    const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos).setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
+                    await listaMsg.edit({ embeds: [embedLista] });
+                }
+            }
+            await interaction.followUp({ content: '✅ Interfaz actualizada.', ephemeral: true });
+        } catch(error) {
+            console.error("Error añadiendo equipos de prueba:", error);
+            await interaction.followUp({ content: '❌ Hubo un error al añadir los equipos.', ephemeral: true });
+        } finally {
+            isBotBusy = false; // Liberar cerrojo
+        }
     } 
     
     else if (customId.startsWith('reportar_resultado_modal_')) {
@@ -1621,7 +1653,6 @@ async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild)
 
     if (golesA > golesB) {
         equipoA.stats.pts += 3;
-    // --- CORRECCIÓN CRÍTICA ---
     } else if (golesB > golesA) {
         equipoB.stats.pts += 3;
     } else {
@@ -1844,3 +1875,4 @@ async function startBot() {
 }
 
 startBot();
+
