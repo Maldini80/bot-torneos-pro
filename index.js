@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.9 - CORRECCIÓN FINAL DE TRADUCCIÓN
+// index.js - VERSIÓN 2.10 - BLINDAJE FINAL DE TRADUCCIÓN
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -1683,10 +1683,22 @@ client.on('messageCreate', async message => {
         if (!hasLangRole) return;
         const targetLangCodes = new Set();
         
-        // CORRECCIÓN: Se usa siempre .cache para acceder a los miembros, tanto en canales como en hilos.
-        const membersToTranslate = message.channel.members.cache;
+        // --- CORRECCIÓN DEFINITIVA ---
+        // Se añade una comprobación para asegurar que 'message.channel.members' existe antes de usarlo.
+        if (message.channel.members) {
+            message.channel.members.cache.forEach(member => { 
+                for (const flag in languageRoles) { 
+                    const roleInfo = languageRoles[flag]; 
+                    const role = serverRoles.find(r => r.name === roleInfo.name); 
+                    if (role && member.roles.cache.has(role.id) && roleInfo.code !== sourceLang) { 
+                        targetLangCodes.add(roleInfo.code); 
+                    } 
+                } 
+            });
+        } else {
+             console.warn(`[WARN] No se pudo acceder a la propiedad 'members' del canal ${message.channel.id}. La traducción en este canal no se ejecutará para este mensaje.`);
+        }
 
-        membersToTranslate.forEach(member => { for (const flag in languageRoles) { const roleInfo = languageRoles[flag]; const role = serverRoles.find(r => r.name === roleInfo.name); if (role && member.roles.cache.has(role.id) && roleInfo.code !== sourceLang) { targetLangCodes.add(roleInfo.code); } } });
         if (targetLangCodes.size === 0) return;
         const embeds = [];
         for (const targetCode of targetLangCodes) { const flag = Object.keys(languageRoles).find(f => languageRoles[f].code === targetCode); const { text } = await translate(message.content, { to: targetCode }); embeds.push({ description: `${flag} *${text}*`, color: 0x5865F2 }); }
