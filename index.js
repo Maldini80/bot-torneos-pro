@@ -14,8 +14,14 @@ let listaEquiposMessageId;
 
 function saveBotState() {
     if (!botData) return;
-    const currentTournamentState = JSON.parse(JSON.stringify(torneoActivo));
-    botData.torneoActivo = currentTournamentState;
+    
+    // Se actualizan TODAS las variables de estado importantes en el objeto botData
+    // antes de guardarlo.
+    botData.torneoActivo = JSON.parse(JSON.stringify(torneoActivo));
+    botData.mensajeInscripcionId = mensajeInscripcionId;
+    botData.listaEquiposMessageId = listaEquiposMessageId;
+
+    // Ahora se guarda el objeto botData completo y actualizado.
     saveData(botData);
 }
 
