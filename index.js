@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.8 - CORRECCIÓN DE TRADUCCIÓN EN HILOS Y MEJORA DE REPORTES
+// index.js - VERSIÓN 2.9 - CORRECCIÓN FINAL DE TRADUCCIÓN
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -1683,7 +1683,8 @@ client.on('messageCreate', async message => {
         if (!hasLangRole) return;
         const targetLangCodes = new Set();
         
-        const membersToTranslate = message.channel.isThread() ? message.channel.members.cache : message.channel.members;
+        // CORRECCIÓN: Se usa siempre .cache para acceder a los miembros, tanto en canales como en hilos.
+        const membersToTranslate = message.channel.members.cache;
 
         membersToTranslate.forEach(member => { for (const flag in languageRoles) { const roleInfo = languageRoles[flag]; const role = serverRoles.find(r => r.name === roleInfo.name); if (role && member.roles.cache.has(role.id) && roleInfo.code !== sourceLang) { targetLangCodes.add(roleInfo.code); } } });
         if (targetLangCodes.size === 0) return;
