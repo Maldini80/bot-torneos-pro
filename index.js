@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.1 - CORREGIDA Y BLINDADA
+// index.js - VERSIÓN 2.2 - CORREGIDA Y MEJORADA
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -152,7 +152,8 @@ function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
     const cleanEquipoB = JSON.parse(JSON.stringify(equipoB));
 
     return {
-        matchId: `match_${Date.now()}_${cleanEquipoA.nombre.slice(0,3)}_${cleanEquipoB.nombre.slice(0,3)}`,
+        // --- CORRECCIÓN --- Se añade un fragmento aleatorio para garantizar un ID 100% único
+        matchId: `match_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
         nombreGrupo,
         jornada,
         equipoA: cleanEquipoA,
@@ -481,6 +482,7 @@ async function handleButton(interaction) {
             return await forceResetTournamentState(interaction);
         }
 
+        // --- BLOQUE MODIFICADO PARA FINALIZAR TORNEO Y LIMPIAR CANAL ADMIN ---
         if (type === 'finalizar') {
             if (!torneoActivo) {
                 return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
@@ -488,7 +490,7 @@ async function handleButton(interaction) {
 
             const adminPanelMessage = interaction.message;
             try {
-                // --- MEJORA --- Inicio del "Panel de Estado Detallado"
+                // Bloqueo del panel
                 const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
                 let busyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#FF0000').setFooter({ text: 'ESTADO: 🔴 OCUPADO\nTarea: Reseteando estado interno...' });
@@ -501,6 +503,28 @@ async function handleButton(interaction) {
                 saveBotState();
                 console.log(`[FINISH] Estado del torneo ${nombreTorneoFinalizado} reseteado.`);
                 await interaction.editReply({ content: 'Finalizando torneo... Estado interno reseteado. Limpiando interfaz...' });
+                
+                // --- MEJORA --- Limpieza del canal de administración
+                busyEmbed.setFooter({ text: 'ESTADO: 🔴 OCUPADO\nTarea: Limpiando canal de administración...' });
+                await adminPanelMessage.edit({ embeds: [busyEmbed] });
+                const ADMIN_BOT_CHANNEL_ID = '1393507085286899744'; // ID del canal a limpiar
+                try {
+                    const adminBotChannel = await client.channels.fetch(ADMIN_BOT_CHANNEL_ID);
+                    if (adminBotChannel) {
+                        let fetched;
+                        do {
+                            fetched = await adminBotChannel.messages.fetch({ limit: 100 });
+                            const messagesToDelete = fetched.filter(msg => msg.author.id === client.user.id && !msg.pinned);
+                            if (messagesToDelete.size > 0) {
+                                await adminBotChannel.bulkDelete(messagesToDelete, true);
+                            }
+                        } while (fetched.size >= 2);
+                         console.log(`[FINISH] Mensajes del bot limpiados del canal ${ADMIN_BOT_CHANNEL_ID}.`);
+                    }
+                } catch(e) {
+                    console.error(`[ERROR] No se pudo limpiar el canal de admin ${ADMIN_BOT_CHANNEL_ID}:`, e);
+                }
+                // --- FIN DE LA MEJORA ---
 
                 busyEmbed.setFooter({ text: 'ESTADO: 🔴 OCUPADO\nTarea: Borrando hilos de partido...' });
                 await adminPanelMessage.edit({ embeds: [busyEmbed] });
@@ -508,7 +532,6 @@ async function handleButton(interaction) {
                 const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
                 if (parentChannel) {
                     const threads = await parentChannel.threads.fetch();
-                    // --- CORRECCIÓN --- Se usa Promise.all para borrar hilos en paralelo y ser mucho más rápido.
                     const deletePromises = [];
                     for (const thread of threads.threads.values()) {
                         deletePromises.push(thread.delete('Finalización de torneo.').catch(() => {}));
@@ -528,7 +551,7 @@ async function handleButton(interaction) {
                 console.error("Ocurrió un error durante la finalización del torneo:", error);
                 await interaction.followUp({ content: '❌ Ocurrió un error al limpiar la interfaz, pero el estado del bot ya ha sido reseteado. Puedes crear un nuevo torneo.', ephemeral: true });
             } finally {
-                 // --- MEJORA --- Desbloqueo del panel
+                 // Desbloqueo del panel
                 const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
                 const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: `ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Torneo finalizado.` });
@@ -853,7 +876,11 @@ async function handleButton(interaction) {
             }
         }
         
+        // --- CORRECCIÓN --- Se añade una comprobación de torneo activo
         if (customId.startsWith('admin_confirm_payment_')) {
+            if (!torneoActivo) {
+                return interaction.editReply({ content: 'Error: El torneo asociado a este pago ya ha finalizado y no se puede procesar la acción.' });
+            }
             const winnerId = customId.split('_').pop();
             const winner = await client.users.fetch(winnerId).catch(() => null);
             if (!winner) {
@@ -1077,6 +1104,7 @@ async function handleModalSubmit(interaction) {
         await interaction.editReply({ content: '✅ 🇪🇸 ¡Gracias! Un administrador ha sido notificado.\n🇬🇧 *Thank you! An administrator has been notified.*' });
     } 
     
+    // --- CORRECCIÓN --- Se ha arreglado la creación de equipos de prueba para usar el ID de capitán real
     else if (customId === 'add_test_modal') {
         if (!torneoActivo) {
             return interaction.editReply('Error: Primero crea un torneo.');
@@ -1105,7 +1133,8 @@ async function handleModalSubmit(interaction) {
             if(Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size) break;
             const teamId = `prueba_${Date.now()}_${i}`;
             const nombreEquipo = `E-Prueba-${initialCount + i + 1}`;
-            torneoActivo.equipos_aprobados[teamId] = { id: teamId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: adminFlag, paypal: 'admin@test.com' };
+            // El ID del equipo debe ser el ID del capitán para que funcione la búsqueda de usuario
+            torneoActivo.equipos_aprobados[teamId] = { id: capitanDePruebaId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: adminFlag, paypal: 'admin@test.com' };
         }
         saveBotState();
 
@@ -1619,7 +1648,7 @@ async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild)
 
     if (golesA > golesB) {
         equipoA.stats.pts += 3;
-    } else if (golesB > golesA) {
+    } else if (golesB > oldGolesA) {
         equipoB.stats.pts += 3;
     } else {
         equipoA.stats.pts += 1;
@@ -1746,6 +1775,7 @@ client.on('messageCreate', async message => {
         for (const flag in languageRoles) { const roleInfo = languageRoles[flag]; const role = serverRoles.find(r => r.name === roleInfo.name); if (role && authorMember.roles.cache.has(role.id)) { sourceLang = roleInfo.code; hasLangRole = true; break; } }
         if (!hasLangRole) return;
         const targetLangCodes = new Set();
+        // El bot ya tiene acceso a los miembros del hilo a través de message.channel.members
         message.channel.members.forEach(member => { for (const flag in languageRoles) { const roleInfo = languageRoles[flag]; const role = serverRoles.find(r => r.name === roleInfo.name); if (role && member.roles.cache.has(role.id) && roleInfo.code !== sourceLang) { targetLangCodes.add(roleInfo.code); } } });
         if (targetLangCodes.size === 0) return;
         const embeds = [];
