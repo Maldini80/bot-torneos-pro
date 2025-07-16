@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.1 - CORREGIDA Y BLINDADA
+// index.js - VERSIÓN 2.2 - ESTADO AUTOSUFICIENTE Y ROBUSTO
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -9,19 +9,16 @@ const { translate } = require('@vitalets/google-translate-api');
 
 let botData;
 let torneoActivo;
+// --- ARQUITECTURA --- Estas variables ahora son solo para acceso rápido en memoria.
+// La "fuente de la verdad" ahora reside dentro de torneoActivo.
 let mensajeInscripcionId;
 let listaEquiposMessageId;
 
+// --- CORRECCIÓN FINAL --- El guardado ahora es simple y atómico.
+// Solo necesita guardar el objeto torneoActivo, que contiene todo.
 function saveBotState() {
     if (!botData) return;
-    
-    // Se actualizan TODAS las variables de estado importantes en el objeto botData
-    // antes de guardarlo.
     botData.torneoActivo = JSON.parse(JSON.stringify(torneoActivo));
-    botData.mensajeInscripcionId = mensajeInscripcionId;
-    botData.listaEquiposMessageId = listaEquiposMessageId;
-
-    // Ahora se guarda el objeto botData completo y actualizado.
     saveData(botData);
 }
 
@@ -48,56 +45,13 @@ const CHANNELS_CONFIG = {
     calendario: { id: CALENDARIO_JORNADAS_CHANNEL_ID, baseName: '🗓-calendario-de-jornadas' }
 };
 
-// --- MEJORA --- Se introduce una estructura centralizada y flexible para los formatos de torneo.
 const TOURNAMENT_FORMATS = {
-    '8_teams_semis_classic': {
-        label: '8 Equipos (Clásico - Semifinales)',
-        description: '2 grupos de 4. Los 2 primeros de cada grupo a semifinales.',
-        size: 8,
-        groups: 2,
-        qualifiersPerGroup: 2,
-        knockoutStages: ['semifinales', 'final']
-    },
-    '8_teams_final': {
-        label: '8 Equipos (Nuevo - Final Directa)',
-        description: '2 grupos de 4. El 1º de cada grupo va a la final.',
-        size: 8,
-        groups: 2,
-        qualifiersPerGroup: 1,
-        knockoutStages: ['final']
-    },
-    '16_teams_quarters_classic': {
-        label: '16 Equipos (Clásico - Cuartos)',
-        description: '4 grupos de 4. El 1º de cada grupo a cuartos de final.',
-        size: 16,
-        groups: 4,
-        qualifiersPerGroup: 1,
-        knockoutStages: ['cuartos', 'semifinales', 'final']
-    },
-    '16_teams_quarters_new': {
-        label: '16 Equipos (Nuevo - Cuartos)',
-        description: '4 grupos de 4. Los 2 primeros de cada grupo a cuartos.',
-        size: 16,
-        groups: 4,
-        qualifiersPerGroup: 2,
-        knockoutStages: ['cuartos', 'semifinales', 'final']
-    },
-    '32_teams_quarters': {
-        label: '32 Equipos (Cuartos de Final)',
-        description: '8 grupos de 4. El 1º de cada grupo clasifica a cuartos.',
-        size: 32,
-        groups: 8,
-        qualifiersPerGroup: 1,
-        knockoutStages: ['cuartos', 'semifinales', 'final']
-    },
-    '32_teams_ro16': {
-        label: '32 Equipos (Octavos de Final)',
-        description: '8 grupos de 4. Los 2 primeros clasifican a octavos.',
-        size: 32,
-        groups: 8,
-        qualifiersPerGroup: 2,
-        knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final']
-    }
+    '8_teams_semis_classic': { label: '8 Equipos (Clásico - Semifinales)', description: '2 grupos de 4. Los 2 primeros de cada grupo a semifinales.', size: 8, groups: 2, qualifiersPerGroup: 2, knockoutStages: ['semifinales', 'final'] },
+    '8_teams_final': { label: '8 Equipos (Nuevo - Final Directa)', description: '2 grupos de 4. El 1º de cada grupo va a la final.', size: 8, groups: 2, qualifiersPerGroup: 1, knockoutStages: ['final'] },
+    '16_teams_quarters_classic': { label: '16 Equipos (Clásico - Cuartos)', description: '4 grupos de 4. El 1º de cada grupo a cuartos de final.', size: 16, groups: 4, qualifiersPerGroup: 1, knockoutStages: ['cuartos', 'semifinales', 'final'] },
+    '16_teams_quarters_new': { label: '16 Equipos (Nuevo - Cuartos)', description: '4 grupos de 4. Los 2 primeros de cada grupo a cuartos.', size: 16, groups: 4, qualifiersPerGroup: 2, knockoutStages: ['cuartos', 'semifinales', 'final'] },
+    '32_teams_quarters': { label: '32 Equipos (Cuartos de Final)', description: '8 grupos de 4. El 1º de cada grupo clasifica a cuartos.', size: 32, groups: 8, qualifiersPerGroup: 1, knockoutStages: ['cuartos', 'semifinales', 'final'] },
+    '32_teams_ro16': { label: '32 Equipos (Octavos de Final)', description: '8 grupos de 4. Los 2 primeros clasifican a octavos.', size: 32, groups: 8, qualifiersPerGroup: 2, knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final'] }
 };
 
 const languageRoles = {
@@ -118,6 +72,8 @@ const client = new Client({
     ]
 });
 
+// (El resto de las funciones auxiliares como 'actualizarNombresCanalesConIcono', 'createMatchObject', etc., no necesitan cambios)
+// ... (mismas funciones hasta handleSlashCommand)
 async function actualizarNombresCanalesConIcono() {
     let statuses = {};
 
@@ -127,13 +83,12 @@ async function actualizarNombresCanalesConIcono() {
         const cupoLLeno = Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size;
         const iconInsc = cupoLLeno ? FULL_STATUS_ICON : ACTIVE_STATUS_ICON;
         statuses = { inscripciones: iconInsc, capitanes: iconInsc, clasificacion: PENDING_STATUS_ICON, calendario: PENDING_STATUS_ICON };
-    } else if (['fase_de_grupos', 'octavos', 'cuartos', 'semifinales', 'final'].includes(torneoActivo.status)) { // --- CORRECCIÓN --- Se incluyen todas las fases eliminatorias posibles.
+    } else if (['fase_de_grupos', 'octavos', 'cuartos', 'semifinales', 'final'].includes(torneoActivo.status)) {
         statuses = { inscripciones: FULL_STATUS_ICON, capitanes: FULL_STATUS_ICON, clasificacion: ACTIVE_STATUS_ICON, calendario: ACTIVE_STATUS_ICON };
     } else { 
         statuses = { inscripciones: INACTIVE_STATUS_ICON, capitanes: INACTIVE_STATUS_ICON, clasificacion: INACTIVE_STATUS_ICON, calendario: INACTIVE_STATUS_ICON };
     }
 
-    // --- MEJORA --- Se usa Promise.all para actualizar los canales en paralelo, es más rápido.
     const promises = Object.keys(CHANNELS_CONFIG).map(async (key) => {
         const config = CHANNELS_CONFIG[key];
         try {
@@ -147,14 +102,12 @@ async function actualizarNombresCanalesConIcono() {
                 await channel.setName(newName);
             }
         } catch (error) {
-            console.error(`Error al actualizar el nombre del canal ${config.id}:`, error);
+            if (error.code !== 10003) { console.error(`Error al actualizar el nombre del canal ${config.id}:`, error); }
         }
     });
     await Promise.all(promises);
 }
 
-// --- CORRECCIÓN --- Se aplica la "fotocopia de verdad" en la creación del partido.
-// Esto garantiza que cada partido sea una "burbuja" de datos independiente, eliminando la contaminación de datos.
 function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
     const cleanEquipoA = JSON.parse(JSON.stringify(equipoA));
     const cleanEquipoB = JSON.parse(JSON.stringify(equipoB));
@@ -185,7 +138,6 @@ async function limpiarCanal(channelId) {
             } while (fetched.size >= 2);
         }
     } catch (err) {
-        // Ignora errores comunes como canal no encontrado (10003) o mensaje no encontrado (10008) durante el borrado masivo
         if (err.code !== 10003 && err.code !== 10008) { 
              console.error(`Error al limpiar el canal ${channelId}:`, err); 
         }
@@ -224,7 +176,6 @@ async function crearHiloDePartido(guild, partido, tipoPartido = 'Grupo') {
 
         partido.threadId = thread.id;
 
-        // --- MEJORA --- Añadir miembros en paralelo.
         const memberPromises = [];
         memberPromises.push(thread.members.add(partido.equipoA.capitanId).catch(err => console.error(`No se pudo añadir al capitán ${partido.equipoA.capitanTag} al hilo.`)));
         memberPromises.push(thread.members.add(partido.equipoB.capitanId).catch(err => console.error(`No se pudo añadir al capitán ${partido.equipoB.capitanTag} al hilo.`)));
@@ -310,6 +261,7 @@ async function mostrarMensajeEspera() {
     }
 }
 
+
 client.once('ready', async () => {
     console.log(`Bot conectado como ${client.user.tag}!`);
     await actualizarNombresCanalesConIcono();
@@ -327,11 +279,9 @@ client.on('guildMemberAdd', member => {
 });
 
 client.on('interactionCreate', async interaction => {
-    // --- MEJORA --- Se añade un defer preventivo a las interacciones lentas para evitar timeouts.
     if (interaction.isButton() || interaction.isStringSelectMenu()) {
         const sensitiveIds = ['panel_finalizar', 'panel_borrar_hilos', 'panel_reset_force', 'admin_aprobar', 'admin_expulsar', 'admin_rechazar'];
         if (sensitiveIds.some(id => interaction.customId.startsWith(id))) {
-            // No se puede deferir un modal, así que lo evitamos.
             if (!interaction.isModalSubmit()) {
                 await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
             }
@@ -349,7 +299,7 @@ client.on('interactionCreate', async interaction => {
             await handleModalSubmit(interaction);
         }
     } catch (error) {
-        if (error.code === 40060 || error.code === 10062) { // Errores comunes de interacción ya respondida
+        if (error.code === 40060 || error.code === 10062) {
             return; 
         }
         console.error('Ha ocurrido un error en el manejador de interacciones:', error);
@@ -368,6 +318,7 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
+
 async function handleSlashCommand(interaction) {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return interaction.reply({ content: '🇪🇸 No tienes permisos para usar este comando.\n🇬🇧 You do not have permission to use this command.', flags: [MessageFlags.Ephemeral] });
@@ -378,7 +329,7 @@ async function handleSlashCommand(interaction) {
             .setColor('#2c3e50')
             .setTitle('Panel de Control del Torneo')
             .setDescription('🇪🇸 Usa los botones de abajo para gestionar el torneo.\n🇬🇧 Use the buttons below to manage the tournament.')
-            .setFooter({ text: 'ESTADO: ✅ LISTO PARA OPERAR' }); // MEJORA: Se añade el pie de estado.
+            .setFooter({ text: 'ESTADO: ✅ LISTO PARA OPERAR' });
 
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('panel_crear').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆'), 
@@ -392,7 +343,7 @@ async function handleSlashCommand(interaction) {
             new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos').setStyle(ButtonStyle.Secondary).setEmoji('🎲'), 
             new ButtonBuilder().setCustomId('panel_borrar_hilos').setLabel('Borrar Hilos').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), 
             new ButtonBuilder().setCustomId('panel_finalizar').setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑'),
-            new ButtonBuilder().setCustomId('panel_reset_force').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨') // MEJORA: Botón de reseteo de emergencia
+            new ButtonBuilder().setCustomId('panel_reset_force').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
         );
         await interaction.channel.send({ embeds: [embed], components: [row1, row2, row3] });
         return interaction.reply({ content: 'Panel de control creado.', flags: [MessageFlags.Ephemeral] });
@@ -416,22 +367,18 @@ async function handleSlashCommand(interaction) {
     }
 }
 
-// --- MEJORA --- Nueva función para un reseteo de emergencia del estado del bot.
 async function forceResetTournamentState(interaction) {
-    // La interacción ya está diferida por el manejador principal.
     const adminPanelMessage = interaction.message;
-
     try {
-        // --- MEJORA --- Inicio del "Panel de Estado Detallado"
         const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
         components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
         const busyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#FF0000').setFooter({ text: 'ESTADO: 🔴 OCUPADO\nTarea: Reseteo forzado en curso...' });
         await adminPanelMessage.edit({ embeds: [busyEmbed], components });
-        // --- Fin del bloqueo ---
 
         console.log(`[FORCE RESET] Invocado por ${interaction.user.tag}.`);
         
         torneoActivo = null;
+        // --- CORRECCIÓN FINAL --- Asegurarse de limpiar las variables de acceso rápido.
         mensajeInscripcionId = null;
         listaEquiposMessageId = null;
         saveBotState();
@@ -440,12 +387,11 @@ async function forceResetTournamentState(interaction) {
         await mostrarMensajeEspera();
         await actualizarNombresCanalesConIcono();
         
-        await interaction.editReply({ content: '✅ ¡Estado del bot reseteado a la fuerza! Todos los datos del torneo activo han sido eliminados. El bot está listo para un nuevo torneo.' });
+        await interaction.editReply({ content: '✅ ¡Estado del bot reseteado a la fuerza! El bot está listo para un nuevo torneo.' });
     } catch (error) {
         console.error("Ocurrió un error durante el reseteo forzado:", error);
-        await interaction.editReply({ content: '❌ Ocurrió un error al intentar limpiar la interfaz, pero el estado del bot ha sido reseteado. Revisa la consola.' });
+        await interaction.editReply({ content: '❌ Ocurrió un error al intentar limpiar la interfaz, pero el estado del bot ha sido reseteado.' });
     } finally {
-        // --- MEJORA --- Desbloqueo del panel
         const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
         components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
         const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: 'ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Reseteo forzado completado.' });
@@ -456,8 +402,6 @@ async function forceResetTournamentState(interaction) {
 
 async function handleButton(interaction) {
     const { customId } = interaction;
-    
-    // Las interacciones sensibles ya se difieren en el manejador principal
     const isDeferred = interaction.deferred;
     
     if (customId.startsWith('panel_')) {
@@ -485,18 +429,19 @@ async function handleButton(interaction) {
             return interaction.reply({ content: 'Iniciando creación de torneo...', components: [row], flags: [MessageFlags.Ephemeral] });
         }
         if (type === 'add' && subtype === 'test') {
+            if (!torneoActivo) {
+                return interaction.reply({ content: '❌ Error: Primero debes terminar de crear un torneo.', flags: [MessageFlags.Ephemeral] });
+            }
             const modal = new ModalBuilder().setCustomId('add_test_modal').setTitle('Añadir Equipos de Prueba');
             const cantidadInput = new TextInputBuilder().setCustomId('cantidad_input').setLabel("¿Cuántos equipos de prueba quieres añadir?").setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(cantidadInput));
             return interaction.showModal(modal);
         }
         
-        // --- MEJORA --- El botón de reseteo llama a su propia función dedicada.
         if (type === 'reset' && subtype === 'force') {
             return await forceResetTournamentState(interaction);
         }
 
-        // --- MEJORA --- El proceso de finalizar el torneo ahora es más robusto y da mejor feedback.
         if (type === 'finalizar') {
             if (!torneoActivo) {
                 return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
@@ -504,7 +449,6 @@ async function handleButton(interaction) {
 
             const adminPanelMessage = interaction.message;
             try {
-                // --- MEJORA --- Bloqueo del panel con feedback visual
                 const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
                 let busyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#FF0000').setFooter({ text: 'ESTADO: 🔴 OCUPADO\nTarea: Reseteando estado interno...' });
@@ -512,6 +456,7 @@ async function handleButton(interaction) {
 
                 const nombreTorneoFinalizado = torneoActivo.nombre;
                 torneoActivo = null;
+                // --- CORRECCIÓN FINAL --- Limpiar las variables de acceso rápido
                 mensajeInscripcionId = null;
                 listaEquiposMessageId = null;
                 saveBotState();
@@ -524,7 +469,6 @@ async function handleButton(interaction) {
                 const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
                 if (parentChannel) {
                     const threads = await parentChannel.threads.fetch();
-                    // --- CORRECCIÓN y MEJORA --- Se usa Promise.all para borrar hilos en paralelo y ser mucho más rápido.
                     const deletePromises = [];
                     for (const thread of threads.threads.values()) {
                         deletePromises.push(thread.delete('Finalización de torneo.').catch(() => {}));
@@ -542,9 +486,8 @@ async function handleButton(interaction) {
 
             } catch (error) {
                 console.error("Ocurrió un error durante la finalización del torneo:", error);
-                await interaction.followUp({ content: '❌ Ocurrió un error al limpiar la interfaz, pero el estado del bot ya ha sido reseteado. Puedes crear un nuevo torneo.', flags: [MessageFlags.Ephemeral] });
+                await interaction.followUp({ content: '❌ Ocurrió un error al limpiar la interfaz, pero el estado del bot ya ha sido reseteado.', flags: [MessageFlags.Ephemeral] });
             } finally {
-                 // --- MEJORA --- Desbloqueo del panel
                 const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
                 const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: `ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Torneo finalizado.` });
@@ -603,7 +546,6 @@ async function handleButton(interaction) {
         if (type === 'borrar' && subtype === 'hilos') {
             const adminPanelMessage = interaction.message;
             try {
-                // --- MEJORA --- Bloqueo del panel con feedback visual
                 const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
                 let busyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#FF0000').setFooter({ text: 'ESTADO: 🔴 OCUPADO\nTarea: Borrando hilos...' });
@@ -617,7 +559,6 @@ async function handleButton(interaction) {
             
                 await interaction.editReply({ content: `Borrando ${matchThreads.size} hilos de partido...` });
 
-                // --- CORRECCIÓN y MEJORA --- Se usa Promise.all para eficiencia.
                 const deletePromises = [];
                 for (const thread of matchThreads.values()) {
                     deletePromises.push(thread.delete('Limpieza de hilos de torneo.').catch(() => {}));
@@ -642,7 +583,6 @@ async function handleButton(interaction) {
                  console.error("Error al borrar hilos:", error);
                  await interaction.followUp({ content: `❌ Ocurrió un error al borrar los hilos.`, flags: [MessageFlags.Ephemeral] });
             } finally {
-                // --- MEJORA --- Desbloqueo del panel
                 const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
                 const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: `ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Borrado de hilos completado.` });
@@ -664,44 +604,35 @@ async function handleButton(interaction) {
         }
         const guild = await client.guilds.fetch(guildId).catch(() => null);
         if (!guild) {
-            return interaction.editReply({ content: 'Error: No he podido encontrar el servidor. Es posible que haya sido desconectado.' });
+            return interaction.editReply({ content: 'Error: No he podido encontrar el servidor.' });
         }
         const member = await guild.members.fetch(interaction.user.id).catch(() => null);
         if (!member) {
             return interaction.editReply({ content: 'Error: No pude encontrarte como miembro del servidor.' });
         }
         try {
-            const rolesToRemove = [];
-            for (const flag in languageRoles) {
-                const roleNameToRemove = languageRoles[flag].name;
-                const role = guild.roles.cache.find(r => r.name === roleNameToRemove);
-                if (role && member.roles.cache.has(role.id)) {
-                    rolesToRemove.push(role);
-                }
-            }
-            if (rolesToRemove.length > 0) {
+            const rolesToRemove = member.roles.cache.filter(role => Object.values(languageRoles).some(lang => lang.name === role.name));
+            if (rolesToRemove.size > 0) {
                 await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma');
             }
             const roleToAdd = guild.roles.cache.find(r => r.name === roleInfo.name);
             if (roleToAdd) {
                 await member.roles.add(roleToAdd, 'Asignando rol de idioma por botón');
-                await interaction.editReply({ content: `✅ ¡Idioma establecido a **${roleInfo.name}**! Ya puedes participar en el servidor.\n\n✅ *Language set to **${roleInfo.name}**! You can now participate in the server.*` });
+                await interaction.editReply({ content: `✅ ¡Idioma establecido a **${roleInfo.name}**!` });
             } else {
-                console.warn(`[ADVERTENCIA] El rol de idioma "${roleInfo.name}" no fue encontrado en el servidor.`);
-                await interaction.editReply({ content: `Error: El rol para ${roleInfo.name} no existe. Por favor, contacta a un administrador.` });
+                await interaction.editReply({ content: `Error: El rol para ${roleInfo.name} no existe.` });
             }
         } catch (error) {
             console.error('Error al asignar rol de idioma desde botón:', error);
-            await interaction.editReply({ content: 'Hubo un error al intentar asignarte el rol. Revisa que el bot tenga permisos para gestionar roles.' });
+            await interaction.editReply({ content: 'Hubo un error al intentar asignarte el rol.' });
         }
     }
 
     else if (customId === 'inscribir_equipo_btn') {
         if (!torneoActivo || torneoActivo.status !== 'inscripcion_abierta') {
-            return interaction.reply({ content: '🇪🇸 Las inscripciones no están abiertas o el torneo ha sido borrado por un reinicio.\n🇬🇧 *Registrations are not open or the tournament was deleted by a restart.*', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: '🇪🇸 Las inscripciones no están abiertas.', flags: [MessageFlags.Ephemeral] });
         }
         const modal = new ModalBuilder().setCustomId('inscripcion_modal').setTitle('Inscripción de Equipo');
-        // --- MEJORA --- Aumentado el límite de caracteres para nombres de equipo.
         const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre del equipo (3-15 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(15).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput));
         return interaction.showModal(modal);
@@ -717,10 +648,10 @@ async function handleButton(interaction) {
     else if (customId.startsWith('reportar_resultado_v3_')) {
         const matchId = customId.replace('reportar_resultado_v3_', '');
         const { partido } = findMatch(matchId);
-        if(!partido) return interaction.reply({content: "Error: No se pudo encontrar el partido para este botón. El torneo puede haber finalizado.", flags: [MessageFlags.Ephemeral] });
+        if(!partido) return interaction.reply({content: "Error: No se pudo encontrar el partido.", flags: [MessageFlags.Ephemeral] });
         
         if (partido.status === 'finalizado') {
-            return interaction.reply({content: "Este partido ya tiene un resultado final. Un administrador puede modificarlo si es necesario.", flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({content: "Este partido ya tiene un resultado final.", flags: [MessageFlags.Ephemeral] });
         }
         
         const modal = new ModalBuilder().setCustomId(`reportar_resultado_modal_${matchId}`).setTitle('Reportar Resultado');
@@ -759,16 +690,16 @@ async function handleButton(interaction) {
         if (customId.startsWith('solicitar_arbitraje_')) {
             const matchId = customId.replace('solicitar_arbitraje_', '');
             const { partido } = findMatch(matchId);
-            if(!partido) return interaction.editReply({content: "🇪🇸 Error: No se pudo encontrar el partido.\n🇬🇧 *Error: Match not found.*" });
+            if(!partido) return interaction.editReply({content: "🇪🇸 Error: No se pudo encontrar el partido." });
             if(partido.status !== 'finalizado') {
                 partido.status = 'arbitraje';
                 saveBotState();
                 await updateMatchThreadName(partido);
                 const arbitroRole = await interaction.guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
-                await interaction.channel.send({ content: `${arbitroRole ? arbitroRole.toString() : '@Árbitros'} 🇪🇸 Se ha solicitado arbitraje en este partido.\n🇬🇧 *A referee has been requested for this match.*`});
+                await interaction.channel.send({ content: `${arbitroRole ? arbitroRole.toString() : '@Árbitros'} 🇪🇸 Se ha solicitado arbitraje.`});
                 return interaction.editReply({ content: '✅ Solicitud de arbitraje enviada.' });
             } else {
-                return interaction.editReply({ content: `🇪🇸 No se puede solicitar arbitraje para un partido ya finalizado.\n🇬🇧 *You cannot request a referee for a finished match.*`});
+                return interaction.editReply({ content: `🇪🇸 No se puede solicitar arbitraje para un partido ya finalizado.`});
             }
         }
     
@@ -781,15 +712,16 @@ async function handleButton(interaction) {
                     return interaction.editReply({ content: 'Solo se pueden expulsar equipos durante la fase de inscripción.' });
                 }
                 const teamToKick = torneoActivo.equipos_aprobados[captainId];
-                if (!teamToKick) return interaction.editReply({ content: 'Error: No se pudo encontrar a este equipo. Quizás ya fue expulsado.' });
+                if (!teamToKick) return interaction.editReply({ content: 'Error: No se pudo encontrar a este equipo.' });
     
                 delete torneoActivo.equipos_aprobados[captainId];
                 saveBotState();
                 await actualizarNombresCanalesConIcono();
     
                 const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
-                if (equiposChannel && listaEquiposMessageId) {
-                    const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(() => null);
+                 // --- CORRECCIÓN FINAL --- Leer el ID desde el objeto de torneo.
+                if (equiposChannel && torneoActivo.listaEquiposMessageId) {
+                    const listaMsg = await equiposChannel.messages.fetch(torneoActivo.listaEquiposMessageId).catch(() => null);
                     if(listaMsg) {
                         const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, index) => `${index + 1}. ${e.bandera||''} ${e.nombre} (Capitán: ${e.capitanTag})`).join('\n');
                         const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos || 'Aún no hay equipos inscritos.').setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
@@ -798,22 +730,22 @@ async function handleButton(interaction) {
                 }
                 const captainUser = await client.users.fetch(captainId).catch(() => null);
                 if(captainUser) {
-                    await captainUser.send(`🇪🇸 Tu equipo **${teamToKick.nombre}** ha sido eliminado del torneo por un administrador.\n🇬🇧 Your team **${teamToKick.nombre}** has been removed from the tournament by an administrator.`).catch(() => {});
+                    await captainUser.send(`🇪🇸 Tu equipo **${teamToKick.nombre}** ha sido eliminado del torneo.`).catch(() => {});
                 }
                 const originalMessage = interaction.message;
                 const newEmbed = EmbedBuilder.from(originalMessage.embeds[0]).setTitle('❌ EQUIPO EXPULSADO').setColor('#E74C3C').setFooter({ text: `Expulsado por ${interaction.user.tag}`});
                 const disabledButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('kicked_done').setLabel('Expulsado').setStyle(ButtonStyle.Danger).setDisabled(true));
                 await originalMessage.edit({ embeds: [newEmbed], components: [disabledButtons] });
-                await interaction.editReply({ content: `✅ El equipo **${teamToKick.nombre}** ha sido expulsado del torneo. Hay una nueva plaza libre.` });
+                await interaction.editReply({ content: `✅ El equipo **${teamToKick.nombre}** ha sido expulsado.` });
             } else {
                 const equipoPendiente = torneoActivo.equipos_pendientes[captainId];
-                if (!equipoPendiente) return interaction.editReply({ content: 'Este equipo ya no está pendiente o el bot se reinició.' });
+                if (!equipoPendiente) return interaction.editReply({ content: 'Este equipo ya no está pendiente.' });
                 const originalMessage = interaction.message;
                 const newEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
                 const newButtons = new ActionRowBuilder();
                 if (type === 'aprobar') {
                     if (Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size) {
-                        return interaction.editReply({ content: 'El cupo de equipos ya está lleno. No se pueden aprobar más.' });
+                        return interaction.editReply({ content: 'El cupo de equipos ya está lleno.' });
                     }
                     if (!torneoActivo.equipos_aprobados) torneoActivo.equipos_aprobados = {};
                     equipoPendiente.id = captainId;
@@ -841,14 +773,15 @@ async function handleButton(interaction) {
                     newButtons.addComponents(new ButtonBuilder().setCustomId(`admin_expulsar_${captainId}`).setLabel('Expulsar Equipo').setStyle(ButtonStyle.Danger).setEmoji('✖️'));
                     const captainUser = await client.users.fetch(captainId).catch(()=>null);
                     if(captainUser) {
-                        await captainUser.send(`✅ 🇪🇸 ¡Tu inscripción para el equipo **${equipoPendiente.nombre}** ha sido aprobada!\n\n🇬🇧 Your registration for the team **${equipoPendiente.nombre}** has been approved!`).catch(()=>{});
+                        await captainUser.send(`✅ ¡Tu inscripción para **${equipoPendiente.nombre}** ha sido aprobada!`).catch(()=>{});
                     }
                     await originalMessage.edit({ embeds: [newEmbed], components: [newButtons] });
                     await interaction.editReply({ content: `Acción 'aprobar' completada.` });
 
                     const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(()=>null);
-                    if (equiposChannel && listaEquiposMessageId) {
-                        const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
+                    // --- CORRECCIÓN FINAL --- Leer el ID desde el objeto de torneo.
+                    if (equiposChannel && torneoActivo.listaEquiposMessageId) {
+                        const listaMsg = await equiposChannel.messages.fetch(torneoActivo.listaEquiposMessageId).catch(()=>null);
                         if(listaMsg) {
                             const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, index) => `${index + 1}. ${e.bandera||''} ${e.nombre} (Capitán: ${e.capitanTag})`).join('\n');
                             const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos || 'Aún no hay equipos inscritos.').setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
@@ -877,11 +810,11 @@ async function handleButton(interaction) {
             if (!winner) {
                 return interaction.editReply({ content: 'No se pudo encontrar al usuario ganador.' });
             }
-            const dmEmbed = new EmbedBuilder().setColor('#2ECC71').setTitle('💸 ¡Premio Recibido! / Prize Received!').setDescription(`🇪🇸 ¡Felicidades! El premio del torneo **${torneoActivo.nombre}** ha sido abonado en tu cuenta.\n\n🇬🇧 Congratulations! The prize for the **${torneoActivo.nombre}** tournament has been sent to your account.`);
+            const dmEmbed = new EmbedBuilder().setColor('#2ECC71').setTitle('💸 ¡Premio Recibido!').setDescription(`🇪🇸 ¡Felicidades! El premio del torneo **${torneoActivo.nombre}** ha sido abonado.`);
             try {
                 await winner.send({ embeds: [dmEmbed] });
             } catch (e) {
-                return interaction.editReply({ content: `No se pudo enviar el DM al ganador, pero la acción se ha registrado. Puede que tenga los DMs cerrados.` });
+                return interaction.editReply({ content: `No se pudo enviar el DM al ganador, pero la acción se ha registrado.` });
             }
             const originalMessage = interaction.message;
             const newEmbed = EmbedBuilder.from(originalMessage.embeds[0]).setFooter({ text: `Pago confirmado por ${interaction.user.tag}`}).setColor('#1ABC9C');
@@ -897,6 +830,7 @@ async function handleButton(interaction) {
     }
 }
 
+
 async function handleSelectMenu(interaction) {
     if (interaction.customId === 'crear_torneo_format_select') {
         const formatId = interaction.values[0];
@@ -909,7 +843,7 @@ async function handleSelectMenu(interaction) {
                 { label: 'Gratuito', description: 'Inscripción gratuita.', value: 'gratis' },
             ]);
         const row = new ActionRowBuilder().addComponents(typeMenu);
-        await interaction.update({ content: `Formato seleccionado: **${format.label}**. Ahora, selecciona el tipo de torneo:`, components: [row] });
+        await interaction.update({ content: `Formato seleccionado: **${format.label}**. Ahora, selecciona el tipo:`, components: [row] });
 
     } else if (interaction.customId.startsWith('crear_torneo_type_select_')) {
         const formatId = interaction.customId.replace('crear_torneo_type_select_', '');
@@ -933,24 +867,23 @@ async function handleSelectMenu(interaction) {
 
 async function handleModalSubmit(interaction) {
     const { customId, fields } = interaction;
-    // --- MEJORA --- Se difiere la respuesta para dar tiempo a la creación del torneo u otras operaciones.
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     if (customId.startsWith('crear_torneo_final_')) {
         try {
             if (torneoActivo) {
-                return interaction.editReply({ content: '❌ Ya hay un torneo activo. Por favor, finalízalo usando el panel de administración antes de crear uno nuevo.' });
+                return interaction.editReply({ content: '❌ Ya hay un torneo activo.' });
             }
 
             const match = customId.match(/crear_torneo_final_(.+)_(pago|gratis)/);
             if (!match) {
-                 return interaction.editReply({ content: 'Error: Ocurrió un problema al leer los datos del torneo. El `customId` era inválido.' });
+                 return interaction.editReply({ content: 'Error: `customId` inválido.' });
             }
             const [, formatId, type] = match;
             
             const format = TOURNAMENT_FORMATS[formatId];
             if (!format) {
-                return interaction.editReply({ content: 'Error: Formato de torneo inválido. Por favor, reinicia el proceso de creación.' });
+                return interaction.editReply({ content: 'Error: Formato de torneo inválido.' });
             }
 
             const isPaid = type === 'pago';
@@ -965,20 +898,18 @@ async function handleModalSubmit(interaction) {
                 prizeCampeon = parseFloat(fields.getTextInputValue('torneo_prize_campeon'));
                 prizeFinalista = parseFloat(fields.getTextInputValue('torneo_prize_finalista'));
                 if (!enlacePaypal || isNaN(prizeCampeon) || isNaN(prizeFinalista)) {
-                    return interaction.editReply({ content: 'Debes proporcionar un enlace de PayPal y premios numéricos válidos.' });
+                    return interaction.editReply({ content: 'Debes proporcionar un enlace de PayPal y premios válidos.' });
                 }
             }
             
-            // --- MEJORA --- Responder rápido al usuario y trabajar después.
-            await interaction.editReply({ content: `✅ Recibido. Creando torneo "${nombre}"... Esto puede tardar un momento.` });
+            await interaction.editReply({ content: `✅ Recibido. Creando torneo "${nombre}"...` });
 
-            const cleanupPromises = [
+            await Promise.all([
                 limpiarCanal(INSCRIPCION_CHANNEL_ID),
                 limpiarCanal(EQUIPOS_INSCRITOS_CHANNEL_ID),
                 limpiarCanal(CLASIFICACION_CHANNEL_ID),
                 limpiarCanal(CALENDARIO_JORNADAS_CHANNEL_ID)
-            ];
-            await Promise.all(cleanupPromises);
+            ]);
             
             torneoActivo = { 
                 nombre, 
@@ -991,26 +922,35 @@ async function handleModalSubmit(interaction) {
                 equipos_aprobados: {}, 
                 canalEquiposId: EQUIPOS_INSCRITOS_CHANNEL_ID,
                 canalGruposId: CLASIFICACION_CHANNEL_ID,
+                // --- ARQUITECTURA --- Los IDs ahora viven aquí
                 publicGroupsMessageId: null, 
                 calendarioMessageId: null,
+                mensajeInscripcionId: null, 
+                listaEquiposMessageId: null,
                 calendario: {}, 
                 grupos: {}, 
-                eliminatorias: {} // --- CORRECCIÓN --- Se inicializa la estructura completa.
+                eliminatorias: {} 
             };
             
-            let prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis / *Free*';
-            const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Formato:** ${format.label}\n**Límite:** ${torneoActivo.size} equipos.`);
-            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo / Register Team').setStyle(ButtonStyle.Success).setEmoji('📝'));
+            let prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis';
+            const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n\n${prizeText}\n\n**Formato:** ${format.label}\n**Límite:** ${torneoActivo.size} equipos.`);
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo').setStyle(ButtonStyle.Success).setEmoji('📝'));
             const newMessage = await client.channels.cache.get(INSCRIPCION_CHANNEL_ID).send({ embeds: [embed], components: [row] });
+            
+            // --- CORRECCIÓN FINAL --- Guardar el ID en el objeto torneo y en la variable de acceso rápido.
+            torneoActivo.mensajeInscripcionId = newMessage.id;
             mensajeInscripcionId = newMessage.id;
 
             const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos inscritos.').setFooter({ text: `Total: 0 / ${torneoActivo.size}` });
             const listaMsg = await client.channels.cache.get(EQUIPOS_INSCRITOS_CHANNEL_ID).send({ embeds: [embedLista] });
+
+            // --- CORRECCIÓN FINAL --- Guardar el ID en el objeto torneo y en la variable de acceso rápido.
+            torneoActivo.listaEquiposMessageId = listaMsg.id;
             listaEquiposMessageId = listaMsg.id;
             
             const calendarioChannel = await client.channels.fetch(CALENDARIO_JORNADAS_CHANNEL_ID).catch(()=>null);
             if (calendarioChannel) {
-                const embedCalendario = new EmbedBuilder().setColor('#9b59b6').setTitle(`🗓️ Calendario de Jornadas - ${nombre}`).setDescription('El calendario se mostrará aquí una vez que se realice el sorteo de grupos.');
+                const embedCalendario = new EmbedBuilder().setColor('#9b59b6').setTitle(`🗓️ Calendario de Jornadas - ${nombre}`).setDescription('El calendario se mostrará aquí una vez realizado el sorteo.');
                 const calendarioMsg = await calendarioChannel.send({ embeds: [embedCalendario] });
                 torneoActivo.calendarioMessageId = calendarioMsg.id;
             }
@@ -1018,24 +958,24 @@ async function handleModalSubmit(interaction) {
             saveBotState();
             await actualizarNombresCanalesConIcono();
             
-            await interaction.followUp({ content: `✅ Torneo "${nombre}" creado con éxito con el formato "${format.label}".`, flags: [MessageFlags.Ephemeral] });
+            await interaction.followUp({ content: `✅ Torneo "${nombre}" creado con éxito.`, flags: [MessageFlags.Ephemeral] });
 
         } catch (error) {
             console.error("Error crítico al crear el torneo:", error);
             torneoActivo = null; 
             saveBotState();
-            await interaction.followUp({ content: '❌ Ocurrió un error inesperado al crear el torneo. El estado del bot ha sido reseteado por seguridad. Por favor, intenta de nuevo.', flags: [MessageFlags.Ephemeral] });
+            await interaction.followUp({ content: '❌ Ocurrió un error inesperado al crear el torneo.', flags: [MessageFlags.Ephemeral] });
         }
     } 
     
     else if (customId === 'inscripcion_modal') {
         if (!torneoActivo) {
-            return interaction.editReply({ content: '❌ No hay un torneo activo o las inscripciones están cerradas.' });
+            return interaction.editReply({ content: '❌ No hay un torneo activo.' });
         }
         const teamName = fields.getTextInputValue('nombre_equipo_input');
 
         if (teamName.length < 3 || teamName.length > 15) {
-            return interaction.editReply({ content: '🇪🇸 El nombre del equipo debe tener entre 3 y 15 caracteres.\n🇬🇧 *Team name must be between 3 and 15 characters long.*' });
+            return interaction.editReply({ content: '🇪🇸 El nombre debe tener entre 3 y 15 caracteres.' });
         }
 
         const allTeamNames = [
@@ -1044,43 +984,42 @@ async function handleModalSubmit(interaction) {
         ];
 
         if (allTeamNames.includes(teamName.toLowerCase())) {
-            return interaction.editReply({ content: '🇪🇸 Ya existe un equipo con este nombre. Por favor, elige otro.\n🇬🇧 *A team with this name already exists. Please choose another one.*' });
+            return interaction.editReply({ content: '🇪🇸 Ya existe un equipo con este nombre.' });
         }
 
-        if (torneoActivo.status !== 'inscripcion_abierta') return interaction.editReply('🇪🇸 Las inscripciones no están abiertas.\n🇬🇧 *Registrations are not open.*');
-        if (Object.keys(torneoActivo.equipos_aprobados || {}).length >= torneoActivo.size) return interaction.editReply('🇪🇸 El cupo está lleno.\n🇬🇧 *The registration limit is full.*');
-        if ((torneoActivo.equipos_pendientes || {})[interaction.user.id] || (torneoActivo.equipos_aprobados || {})[interaction.user.id]) return interaction.editReply('🇪🇸 Ya estás inscrito.\n🇬🇧 *You are already registered.*');
-        if (!torneoActivo.equipos_pendientes) torneoActivo.equipos_pendientes = {};
-
+        if (torneoActivo.status !== 'inscripcion_abierta') return interaction.editReply('🇪🇸 Las inscripciones no están abiertas.');
+        if (Object.keys(torneoActivo.equipos_aprobados || {}).length >= torneoActivo.size) return interaction.editReply('🇪🇸 El cupo está lleno.');
+        if ((torneoActivo.equipos_pendientes || {})[interaction.user.id] || (torneoActivo.equipos_aprobados || {})[interaction.user.id]) return interaction.editReply('🇪🇸 Ya estás inscrito.');
+        
         torneoActivo.equipos_pendientes[interaction.user.id] = { nombre: teamName, capitanTag: interaction.user.tag, capitanId: interaction.user.id };
         saveBotState();
 
         if (torneoActivo.isPaid) {
-            const embed = new EmbedBuilder().setColor('#f1c40f').setTitle('🇪🇸 Inscripción Recibida - Pendiente de Pago / 🇬🇧 Registration Received - Pending Payment').addFields({ name: 'Enlace de Pago / Payment Link', value: torneoActivo.enlace_paypal }, { name: 'Siguiente Paso / Next Step', value: "🇪🇸 Cuando hayas pagado, haz clic abajo para notificar.\n🇬🇧 Once you have paid, click the button below to notify." });
-            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('pago_realizado_btn').setLabel('✅ He Realizado el Pago / I Have Paid').setStyle(ButtonStyle.Success));
+            const embed = new EmbedBuilder().setColor('#f1c40f').setTitle('🇪🇸 Inscripción Recibida - Pendiente de Pago').addFields({ name: 'Enlace de Pago', value: torneoActivo.enlace_paypal }, { name: 'Siguiente Paso', value: "Cuando hayas pagado, haz clic abajo." });
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('pago_realizado_btn').setLabel('✅ He Realizado el Pago').setStyle(ButtonStyle.Success));
             try {
                 await interaction.user.send({ embeds: [embed], components: [row] });
-                await interaction.editReply({ content: '✅ 🇪🇸 ¡Revisa tus DMs para las instrucciones de pago!\n🇬🇧 *Check your DMs for payment instructions!*' });
+                await interaction.editReply({ content: '✅ ¡Revisa tus DMs para las instrucciones de pago!' });
             } catch {
-                await interaction.editReply({ content: '❌ 🇪🇸 No pude enviarte un DM. Por favor, revisa tu configuración de privacidad.\n🇬🇧 *I could not send you a DM. Please check your privacy settings.*' });
+                await interaction.editReply({ content: '❌ No pude enviarte un DM.' });
             }
         } else {
             const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
             if (adminChannel) {
-                const adminEmbed = new EmbedBuilder().setColor('#3498DB').setTitle('🔔 Nueva Inscripción (Torneo Gratis)').addFields({ name: 'Equipo', value: teamName, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true });
-                const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_aprobar_${interaction.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success).setEmoji('✅'), new ButtonBuilder().setCustomId(`admin_rechazar_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger).setEmoji('❌'));
+                const adminEmbed = new EmbedBuilder().setColor('#3498DB').setTitle('🔔 Nueva Inscripción (Gratis)').addFields({ name: 'Equipo', value: teamName, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true });
+                const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_aprobar_${interaction.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_rechazar_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
                 await adminChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
             }
-            await interaction.editReply({ content: '✅ 🇪🇸 ¡Inscripción recibida! Un administrador aprobará tu equipo en breve.\n🇬🇧 *Registration received! An administrator will approve your team shortly.*' });
+            await interaction.editReply({ content: '✅ ¡Inscripción recibida! Un admin aprobará tu equipo.' });
         }
 
     } else if (customId === 'pago_realizado_modal') {
         if (!torneoActivo) {
-            return interaction.editReply({ content: '❌ Error: El torneo para el que intentas pagar ya no existe.' });
+            return interaction.editReply({ content: '❌ Error: El torneo ya no existe.' });
         }
         const paypalInfo = fields.getTextInputValue('paypal_info_input');
         const pendingTeamData = (torneoActivo.equipos_pendientes || {})[interaction.user.id];
-        if (!pendingTeamData) return interaction.editReply({ content: '🇪🇸 No encontré tu inscripción pendiente.\n🇬🇧 *Could not find your pending registration.*' });
+        if (!pendingTeamData) return interaction.editReply({ content: '🇪🇸 No encontré tu inscripción pendiente.' });
 
         pendingTeamData.paypal = paypalInfo;
         saveBotState();
@@ -1088,10 +1027,10 @@ async function handleModalSubmit(interaction) {
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
         if (adminChannel) {
             const adminEmbed = new EmbedBuilder().setColor('#e67e22').setTitle('🔔 Notificación de Pago').addFields({ name: 'Equipo', value: pendingTeamData.nombre, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'PayPal Indicado', value: `\`${paypalInfo}\``, inline: false });
-            const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_aprobar_${interaction.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success).setEmoji('✅'), new ButtonBuilder().setCustomId(`admin_rechazar_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger).setEmoji('❌'));
+            const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_aprobar_${interaction.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_rechazar_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
             await adminChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         }
-        await interaction.editReply({ content: '✅ 🇪🇸 ¡Gracias! Un administrador ha sido notificado.\n🇬🇧 *Thank you! An administrator has been notified.*' });
+        await interaction.editReply({ content: '✅ ¡Gracias! Un administrador ha sido notificado.' });
     } 
     
     else if (customId === 'add_test_modal') {
@@ -1100,9 +1039,7 @@ async function handleModalSubmit(interaction) {
         }
         const cantidad = parseInt(fields.getTextInputValue('cantidad_input'));
         if (isNaN(cantidad) || cantidad <= 0) return interaction.editReply('Número inválido.');
-        if (!torneoActivo.equipos_aprobados) torneoActivo.equipos_aprobados = {};
         
-        // --- MEJORA --- Responder rápido, trabajar después.
         await interaction.editReply(`✅ Recibido. Añadiendo ${cantidad} equipos de prueba...`);
 
         const adminMember = interaction.member;
@@ -1126,12 +1063,12 @@ async function handleModalSubmit(interaction) {
         }
         saveBotState();
 
-        // Ahora, las tareas lentas
         await actualizarNombresCanalesConIcono();
         
         const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
-        if (equiposChannel && listaEquiposMessageId) {
-             const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
+        // --- CORRECCIÓN FINAL --- Leer el ID desde el objeto de torneo, que ahora es fiable.
+        if (equiposChannel && torneoActivo.listaEquiposMessageId) {
+             const listaMsg = await equiposChannel.messages.fetch(torneoActivo.listaEquiposMessageId).catch(()=>null);
              if(listaMsg) {
                 const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, i) => `${i + 1}. ${e.bandera||''} ${e.nombre} (Capi: ${e.capitanTag})`).join('\n');
                 const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos).setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
@@ -1144,28 +1081,27 @@ async function handleModalSubmit(interaction) {
     
     else if (customId.startsWith('reportar_resultado_modal_')) {
         if (!torneoActivo) {
-            return interaction.editReply({ content: '❌ El torneo para esta interacción ya no existe.' });
+            return interaction.editReply({ content: '❌ El torneo ya no existe.' });
         }
         const matchId = customId.replace('reportar_resultado_modal_', '');
         const golesA = parseInt(fields.getTextInputValue('goles_a'));
         const golesB = parseInt(fields.getTextInputValue('goles_b'));
 
         if (isNaN(golesA) || isNaN(golesB)) {
-            return interaction.editReply("🇪🇸 Formato de resultado inválido. Introduce solo números.\n🇬🇧 *Invalid result format. Please enter numbers only.*");
+            return interaction.editReply("🇪🇸 Formato de resultado inválido.");
         }
         const { partido } = findMatch(matchId);
         if (!partido) {
-            return interaction.editReply("🇪🇸 Error: Partido no encontrado.\n🇬🇧 *Error: Match not found.*");
+            return interaction.editReply("🇪🇸 Error: Partido no encontrado.");
         }
         if (partido.resultado) {
-            return interaction.editReply("🇪🇸 Este partido ya tiene un resultado. Un admin o árbitro puede modificarlo.\n🇬🇧 *This match already has a result. An admin or referee can modify it.*");
+            return interaction.editReply("🇪🇸 Este partido ya tiene un resultado.");
         }
 
-        // Modo de prueba para un solo capitán
         if (partido.equipoA.capitanId === partido.equipoB.capitanId) {
             partido.resultado = `${golesA}-${golesB}`;
             partido.status = 'finalizado';
-            await interaction.editReply(`✅ 🇪🇸 Resultado ${partido.resultado} confirmado automáticamente (modo prueba).\n🇬🇧 *Result ${partido.resultado} confirmed automatically (test mode).*`);
+            await interaction.editReply(`✅ Resultado ${partido.resultado} confirmado (modo prueba).`);
             await procesarResultadoFinal(partido, interaction);
             return;
         }
@@ -1179,15 +1115,15 @@ async function handleModalSubmit(interaction) {
             if (otherCaptainResult.golesA === golesA && otherCaptainResult.golesB === golesB) {
                 partido.resultado = `${golesA}-${golesB}`;
                 partido.status = 'finalizado';
-                await interaction.editReply(`✅ 🇪🇸 Resultado ${partido.resultado} confirmado por ambos capitanes.\n🇬🇧 *Result ${partido.resultado} confirmed by both captains.*`);
+                await interaction.editReply(`✅ Resultado ${partido.resultado} confirmado por ambos capitanes.`);
                 await procesarResultadoFinal(partido, interaction);
             } else {
-                partido.reportedScores = {}; // Resetea los reportes
-                await interaction.channel.send({ content: `**⚠️ 🇪🇸 ¡Conflicto de resultados!**\nLos marcadores enviados no coinciden. Se han reseteado. Por favor, volved a reportar. Si no hay acuerdo, usad "Solicitar Arbitraje".\n\n**⚠️ 🇬🇧 Result conflict!**\nThe scores do not match. They have been reset. Please report again. If there is no agreement, use "Request Referee".`});
-                await interaction.editReply({ content: `❌ 🇪🇸 Los resultados no coinciden. Se ha enviado un aviso en el hilo.\n🇬🇧 *The reported results do not match. A notice has been sent in the thread.*` });
+                partido.reportedScores = {};
+                await interaction.channel.send({ content: `**⚠️ ¡Conflicto de resultados!** Los marcadores no coinciden. Por favor, volved a reportar.`});
+                await interaction.editReply({ content: `❌ Los resultados no coinciden.` });
             }
         } else {
-            await interaction.editReply(`✅ 🇪🇸 Tu resultado (${golesA}-${golesB}) ha sido guardado. Esperando la confirmación del otro capitán.\n🇬🇧 *Your result (${golesA}-${golesB}) has been saved. Waiting for the other captain's confirmation.*`);
+            await interaction.editReply(`✅ Tu resultado (${golesA}-${golesB}) ha sido guardado. Esperando al otro capitán.`);
         }
         saveBotState();
 
@@ -1195,18 +1131,18 @@ async function handleModalSubmit(interaction) {
     
     else if (customId.startsWith('admin_modificar_modal_')) {
         if (!torneoActivo) {
-            return interaction.editReply({ content: '❌ El torneo para esta interacción ya no existe.' });
+            return interaction.editReply({ content: '❌ El torneo ya no existe.' });
         }
         const matchId = customId.replace('admin_modificar_modal_', '');
         const golesA = parseInt(fields.getTextInputValue('goles_a'));
         const golesB = parseInt(fields.getTextInputValue('goles_b'));
 
         if (isNaN(golesA) || isNaN(golesB)) {
-            return interaction.editReply("🇪🇸 Formato de resultado inválido. Introduce solo números.\n🇬🇧 *Invalid result format. Please enter numbers only.*");
+            return interaction.editReply("🇪🇸 Formato de resultado inválido.");
         }
         const { partido } = findMatch(matchId);
         if (!partido) {
-            return interaction.editReply("🇪🇸 Error: Partido no encontrado.\n🇬🇧 *Error: Match not found.*");
+            return interaction.editReply("🇪🇸 Error: Partido no encontrado.");
         }
         
         const oldResult = partido.resultado;
@@ -1218,14 +1154,14 @@ async function handleModalSubmit(interaction) {
         if (partido.status !== 'finalizado') {
             partido.status = 'finalizado';
         }
-        await interaction.editReply(`✅ 🇪🇸 Resultado modificado por ${interaction.user.tag} a ${partido.resultado}.\n🇬🇧 *Result changed by ${interaction.user.tag} to ${partido.resultado}.*`);
+        await interaction.editReply(`✅ Resultado modificado por ${interaction.user.tag} a ${partido.resultado}.`);
         await procesarResultadoFinal(partido, interaction);
     
     } 
     
     else if (customId.startsWith('highlights_modal_')) {
         if (!torneoActivo) {
-            return interaction.editReply({ content: '❌ El torneo para esta interacción ya no existe.' });
+            return interaction.editReply({ content: '❌ El torneo ya no existe.' });
         }
         const link = fields.getTextInputValue('highlight_link');
         const description = fields.getTextInputValue('highlight_desc');
@@ -1233,27 +1169,24 @@ async function handleModalSubmit(interaction) {
         const embed = new EmbedBuilder()
             .setColor('#7289DA')
             .setAuthor({ name: `Alturas compartidas por ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() })
-            .setTitle('🎬 ¡Nuevas Alturas! / New Highlights!')
-            .setDescription(`**[Ver Clip / Watch Clip](${link})**\n\n${description || 'Sin descripción / No description'}`)
+            .setTitle('🎬 ¡Nuevas Alturas!')
+            .setDescription(`**[Ver Clip](${link})**\n\n${description || 'Sin descripción'}`)
             .setTimestamp();
         
         try {
             await interaction.channel.send({ embeds: [embed] });
-            await interaction.editReply({ content: '✅ ¡Tus alturas han sido compartidas en el hilo del partido!' });
+            await interaction.editReply({ content: '✅ ¡Tus alturas han sido compartidas!' });
         } catch (e) {
-            console.error("Error al enviar el embed de highlights:", e);
-            await interaction.editReply({ content: "❌ Hubo un error al enviar el mensaje. Revisa si el bot tiene permiso para 'Insertar Enlaces' en este canal."});
+            await interaction.editReply({ content: "❌ Hubo un error al enviar el mensaje."});
         }
     }
 }
-
+// ... (mismas funciones a partir de aquí)
 async function procesarResultadoFinal(partido, interaction, fromSimulation = false) {
     await updateMatchThreadName(partido);
-
-    // Si es un partido de fase de grupos
     if (partido.nombreGrupo) {
         await actualizarEstadisticasYClasificacion(partido, partido.nombreGrupo, interaction.guild);
-    } else { // Si es un partido de eliminatoria
+    } else {
         await procesarResultadoEliminatoria(interaction.guild);
     }
     
@@ -1262,15 +1195,13 @@ async function procesarResultadoFinal(partido, interaction, fromSimulation = fal
     if (!fromSimulation) {
         const thread = await client.channels.fetch(partido.threadId).catch(() => null);
         if (thread) {
-            await thread.send({ content: `✅ Resultado final establecido: **${partido.equipoA.nombre} ${partido.resultado} ${partido.equipoB.nombre}**.`});
+            await thread.send({ content: `✅ Resultado final: **${partido.equipoA.nombre} ${partido.resultado} ${partido.equipoB.nombre}**.`});
         }
     }
 }
 
 function findMatch(matchId, all = false) {
     if (!torneoActivo) return { partido: null };
-
-    // --- CORRECCIÓN --- Se busca en todas las fases eliminatorias posibles.
     const allMatches = [
         ...(Object.values(torneoActivo.calendario || {}).flat()),
         ...(torneoActivo.eliminatorias?.octavos || []),
@@ -1289,19 +1220,19 @@ async function realizarSorteoDeGrupos(guild) {
     const torneo = torneoActivo;
     const format = TOURNAMENT_FORMATS[torneo.formatId];
     if (!format) {
-        console.error("Error crítico: Formato de torneo no encontrado durante el sorteo.");
         return;
     }
 
     const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
-    if (!adminChannel) { console.error("CANAL ADMIN NO ENCONTRADO"); return; }
+    if (!adminChannel) { return; }
 
-    await adminChannel.send('Iniciando sorteo y creación de calendario...');
+    await adminChannel.send('Iniciando sorteo...');
     
     const inscripcionChannel = await client.channels.fetch(INSCRIPCION_CHANNEL_ID);
-    if(mensajeInscripcionId) {
+    // --- CORRECCIÓN FINAL --- Leer el ID desde el objeto de torneo.
+    if(torneo.mensajeInscripcionId) {
         try {
-            const msg = await inscripcionChannel.messages.fetch(mensajeInscripcionId);
+            const msg = await inscripcionChannel.messages.fetch(torneo.mensajeInscripcionId);
             const disabledRow = new ActionRowBuilder().addComponents(ButtonBuilder.from(msg.components[0].components[0]).setDisabled(true));
             await msg.edit({ content: 'Las inscripciones para este torneo han finalizado.', components: [disabledRow] });
         } catch (e) { console.error("No se pudo editar el mensaje de inscripción."); }
@@ -1326,48 +1257,29 @@ async function realizarSorteoDeGrupos(guild) {
     for (const nombreGrupo in grupos) {
         const equiposGrupo = grupos[nombreGrupo].equipos;
         calendario[nombreGrupo] = [];
-
-        // Generador de calendario "Round Robin" para 4 equipos
         if (equiposGrupo.length === 4) {
             const [team1, team2, team3, team4] = equiposGrupo;
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, team1, team2));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, team3, team4));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, team1, team3));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, team2, team4));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, team1, team4));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, team2, team3));
-        } else { // Fallback para otros tamaños (aunque los formatos son de 4)
-             console.warn(`[ADVERTENCIA] El grupo ${nombreGrupo} no tiene 4 equipos. Se usará un generador simple.`);
-            for (let i = 0; i < equiposGrupo.length; i++) {
-                for (let j = i + 1; j < equiposGrupo.length; j++) {
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, i + 1, equiposGrupo[i], equiposGrupo[j]));
-                }
-            }
+            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, team1, team2), createMatchObject(nombreGrupo, 1, team3, team4));
+            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, team1, team3), createMatchObject(nombreGrupo, 2, team2, team4));
+            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, team1, team4), createMatchObject(nombreGrupo, 3, team2, team3));
         }
     }
     
     torneo.grupos = grupos;
     torneo.calendario = calendario;
-    torneo.eliminatorias = { // --- CORRECCIÓN --- Se inicializa la estructura completa para evitar errores.
-        rondaActual: null,
-        octavos: [],
-        cuartos: [],
-        semifinales: [],
-        final: null
-    };
+    torneo.eliminatorias = { rondaActual: null, octavos: [], cuartos: [], semifinales: [], final: null };
 
     const gruposChannel = await client.channels.fetch(CLASIFICACION_CHANNEL_ID).catch(() => null);
      if (!gruposChannel) {
-        await adminChannel.send(`❌ Error Crítico: No se pudo encontrar el canal de clasificación predefinido.`);
+        await adminChannel.send(`❌ Error Crítico: No se pudo encontrar el canal de clasificación.`);
         return;
     }
     await limpiarCanal(CLASIFICACION_CHANNEL_ID);
 
     torneo.canalGruposId = CLASIFICACION_CHANNEL_ID;
-    const embedClasificacion = new EmbedBuilder().setColor('#1abc9c').setTitle(`Clasificación: ${torneo.nombre}`).setDescription('¡Mucha suerte a todos los equipos!').setTimestamp();
+    const embedClasificacion = new EmbedBuilder().setColor('#1abc9c').setTitle(`Clasificación: ${torneo.nombre}`).setDescription('¡Mucha suerte a todos!').setTimestamp();
     const classificationMessage = await gruposChannel.send({ embeds: [embedClasificacion] });
     torneo.publicGroupsMessageId = classificationMessage.id;
-    torneoActivo = torneo;
     
     await actualizarMensajeClasificacion();
     await actualizarMensajeCalendario();
@@ -1382,10 +1294,9 @@ async function realizarSorteoDeGrupos(guild) {
         }
     }
     saveBotState();
-    await adminChannel.send(`✅ Sorteo completado y ${createdCount} hilos de partido para la Jornada 1 creados.`);
+    await adminChannel.send(`✅ Sorteo completado y ${createdCount} hilos de Jornada 1 creados.`);
 }
 
-// --- MEJORA --- Lógica mejorada para crear hilos de la siguiente jornada solo cuando la anterior ha terminado.
 async function verificarYCrearSiguientesHilos(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
 
@@ -1396,12 +1307,10 @@ async function verificarYCrearSiguientesHilos(guild) {
         const primeraJornadaPendiente = Math.min(...partidosPendientes.map(p => p.jornada));
         const partidosJornadaAnterior = torneoActivo.calendario[groupName].filter(p => p.jornada === primeraJornadaPendiente - 1);
         
-        // Si hay partidos en la jornada anterior y TODOS están finalizados...
         if (partidosJornadaAnterior.length > 0 && partidosJornadaAnterior.every(p => p.status === 'finalizado')) {
              const partidosACrear = torneoActivo.calendario[groupName].filter(p => p.jornada === primeraJornadaPendiente);
              for(const partido of partidosACrear) {
                 if(!partido.threadId) {
-                    console.log(`[INFO] Creando hilo para Jornada ${partido.jornada}: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`);
                     await crearHiloDePartido(guild, partido, `Grupo ${groupName.slice(-1)}`);
                 }
              }
@@ -1410,10 +1319,8 @@ async function verificarYCrearSiguientesHilos(guild) {
     saveBotState();
 }
 
-// --- MEJORA --- Función reutilizable para crear partidos de cualquier ronda eliminatoria.
 function crearPartidosEliminatoria(equipos, ronda) {
     let partidos = [];
-    // Emparejamiento aleatorio simple
     for (let i = equipos.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [equipos[i], equipos[j]] = [equipos[j], equipos[i]];
@@ -1422,7 +1329,7 @@ function crearPartidosEliminatoria(equipos, ronda) {
     for(let i = 0; i < equipos.length; i += 2) {
         const equipoA = equipos[i];
         const equipoB = equipos[i+1];
-        if (!equipoA || !equipoB) continue; // Evita error si hay número impar de equipos
+        if (!equipoA || !equipoB) continue;
         const partido = {
             matchId: `match_${ronda}_${i/2}_${Date.now()}`,
             equipoA,
@@ -1430,7 +1337,7 @@ function crearPartidosEliminatoria(equipos, ronda) {
             resultado: null,
             reportedScores: {},
             status: 'en_curso',
-            nombreGrupo: null, // No pertenece a un grupo
+            nombreGrupo: null,
             ronda: ronda
         };
         partidos.push(partido);
@@ -1438,12 +1345,11 @@ function crearPartidosEliminatoria(equipos, ronda) {
     return partidos;
 }
 
-// --- CORRECCIÓN --- Lógica refactorizada para manejar el inicio de cualquier fase eliminatoria.
 async function iniciarFaseEliminatoria(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
 
     let todosPartidosFinalizados = Object.values(torneoActivo.calendario).flat().every(p => p.status === 'finalizado');
-    if (!todosPartidosFinalizados) return; // No hacer nada si la fase de grupos no ha terminado
+    if (!todosPartidosFinalizados) return;
 
     const format = TOURNAMENT_FORMATS[torneoActivo.formatId];
     if (!format || format.knockoutStages.length === 0) return;
@@ -1454,12 +1360,11 @@ async function iniciarFaseEliminatoria(guild) {
     await actualizarNombresCanalesConIcono();
 
     const clasificados = [];
-    const gruposOrdenados = Object.keys(torneoActivo.grupos).sort(); // Ordena los grupos A, B, C...
+    const gruposOrdenados = Object.keys(torneoActivo.grupos).sort();
 
     for (const groupName of gruposOrdenados) {
         const grupoOrdenado = [...torneoActivo.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b,groupName));
         const clasificadosDelGrupo = grupoOrdenado.slice(0, format.qualifiersPerGroup);
-        // --- CORRECCIÓN --- Se aplica "fotocopia de verdad" para evitar contaminación entre rondas.
         const clasificadosReales = clasificadosDelGrupo.map(c => JSON.parse(JSON.stringify(c)));
         clasificados.push(...clasificadosReales);
     }
@@ -1490,13 +1395,11 @@ async function iniciarFaseEliminatoria(guild) {
     saveBotState();
 }
 
-// --- CORRECCIÓN --- Lógica refactorizada para procesar el resultado de cualquier fase eliminatoria y avanzar.
 async function procesarResultadoEliminatoria(guild) {
     if (!torneoActivo) return;
     const rondaActual = torneoActivo.eliminatorias.rondaActual;
     if (!rondaActual) return;
 
-    // Si la ronda actual es la final y ha terminado, procesar el resultado final.
     if (rondaActual === 'final' && torneoActivo.eliminatorias.final?.status === 'finalizado') {
         await handleFinalResult();
         return;
@@ -1504,7 +1407,7 @@ async function procesarResultadoEliminatoria(guild) {
 
     const partidosRonda = torneoActivo.eliminatorias[rondaActual];
     if (!partidosRonda || !partidosRonda.every(p => p.status === 'finalizado')) {
-        return; // No hacer nada si la ronda actual no ha terminado
+        return;
     }
 
     const format = TOURNAMENT_FORMATS[torneoActivo.formatId];
@@ -1512,8 +1415,6 @@ async function procesarResultadoEliminatoria(guild) {
     const siguienteRonda = format.knockoutStages[indiceRondaActual + 1];
 
     if (!siguienteRonda) {
-        // Esto no debería ocurrir si la final se maneja bien, pero es una salvaguarda.
-        console.error("Error: Se completó una ronda pero no se encontró la siguiente.");
         return;
     }
     
@@ -1524,7 +1425,6 @@ async function procesarResultadoEliminatoria(guild) {
     const ganadores = partidosRonda.map(p => {
         const [golesA, golesB] = p.resultado.split('-').map(Number);
         const equipoGanador = golesA > golesB ? p.equipoA : p.equipoB;
-        // --- CORRECCIÓN --- "Fotocopia de verdad" del equipo ganador para la siguiente ronda.
         return JSON.parse(JSON.stringify(equipoGanador));
     });
 
@@ -1539,7 +1439,7 @@ async function procesarResultadoEliminatoria(guild) {
     const clasifChannel = await client.channels.fetch(torneoActivo.canalGruposId).catch(() => null);
     const embedAnuncio = new EmbedBuilder()
         .setColor('#f1c40f')
-        .setTitle(`🏆 ¡Avanzamos a la siguiente ronda: ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🏆`)
+        .setTitle(`🏆 ¡Avanzamos a: ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🏆`)
         .setFooter({text: '¡La tensión aumenta!'});
 
     for(let i = 0; i < partidos.length; i++) {
@@ -1555,12 +1455,7 @@ async function procesarResultadoEliminatoria(guild) {
 }
 
 async function handleFinalResult() {
-    if (!torneoActivo) {
-        console.warn("[WARN] Se intentó ejecutar handleFinalResult sin un torneo activo. Ignorando.");
-        return;
-    }
-    // Evitar que se ejecute múltiples veces
-    if (!torneoActivo.eliminatorias.final || torneoActivo.status === 'terminado') return;
+    if (!torneoActivo || !torneoActivo.eliminatorias.final || torneoActivo.status === 'terminado') return;
 
     const final = torneoActivo.eliminatorias.final;
     const [golesA, golesB] = final.resultado.split('-').map(Number);
@@ -1571,8 +1466,8 @@ async function handleFinalResult() {
 
     const embedCampeon = new EmbedBuilder()
         .setColor('#ffd700')
-        .setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`)
-        .setDescription(`**¡Felicidades a ${campeon.nombre} por ganar el torneo ${torneoActivo.nombre}!**\n\n**Congratulations to ${campeon.nombre} for winning the ${torneoActivo.nombre} tournament!**`)
+        .setTitle(`🎉 ¡Tenemos un Campeón! 🎉`)
+        .setDescription(`**¡Felicidades a ${campeon.nombre} por ganar el torneo ${torneoActivo.nombre}!**`)
         .setThumbnail('https://i.imgur.com/C5mJg1s.png')
         .setTimestamp();
 
@@ -1586,37 +1481,28 @@ async function handleFinalResult() {
     if (torneoActivo.isPaid) {
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
         if(adminChannel) {
-            const paymentEmbedCampeon = new EmbedBuilder().setColor('#FFD700').setTitle('🏆 Tarea de Admin: Pagar Premio al CAMPEÓN').addFields({ name: 'Equipo Ganador', value: campeon.nombre },{ name: 'Capitán', value: campeon.capitanTag },{ name: 'PayPal del Capitán', value: `\`${campeon.paypal || 'No proporcionado'}\`` },{ name: 'Monto a Pagar', value: `${torneoActivo.prizeCampeon}€` }).setTimestamp();
-            const rowCampeon = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_confirm_payment_campeon_${campeon.id}`).setLabel('Confirmar Pago a Campeón').setStyle(ButtonStyle.Success).setEmoji('✅'));
-            if (campeon.paypal) {
-                const paymentLink = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(campeon.paypal)}&amount=${torneoActivo.prizeCampeon}¤cy_code=EUR`;
-                rowCampeon.addComponents(new ButtonBuilder().setLabel('Pagar con PayPal').setStyle(ButtonStyle.Link).setURL(paymentLink).setEmoji('💸'));
-            }
+            const paymentEmbedCampeon = new EmbedBuilder().setColor('#FFD700').setTitle('🏆 Tarea: Pagar Premio CAMPEÓN').addFields({ name: 'Ganador', value: campeon.nombre },{ name: 'Capitán', value: campeon.capitanTag },{ name: 'PayPal', value: `\`${campeon.paypal || 'N/A'}\`` },{ name: 'Monto', value: `${torneoActivo.prizeCampeon}€` });
+            const rowCampeon = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_confirm_payment_campeon_${campeon.id}`).setLabel('Confirmar Pago Campeón').setStyle(ButtonStyle.Success));
+            if (campeon.paypal) { rowCampeon.addComponents(new ButtonBuilder().setLabel('Pagar').setStyle(ButtonStyle.Link).setURL(`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(campeon.paypal)}&amount=${torneoActivo.prizeCampeon}¤cy_code=EUR`)); }
             await adminChannel.send({ content: `<@&${ARBITRO_ROLE_ID}>`, embeds: [paymentEmbedCampeon], components: [rowCampeon] });
             
-            const paymentEmbedFinalista = new EmbedBuilder().setColor('#C0C0C0').setTitle('🥈 Tarea de Admin: Pagar Premio al FINALISTA').addFields({ name: 'Equipo Finalista', value: finalista.nombre },{ name: 'Capitán', value: finalista.capitanTag },{ name: 'PayPal del Capitán', value: `\`${finalista.paypal || 'No proporcionado'}\`` },{ name: 'Monto a Pagar', value: `${torneoActivo.prizeFinalista}€` }).setTimestamp();
-            const rowFinalista = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_confirm_payment_finalista_${finalista.id}`).setLabel('Confirmar Pago a Finalista').setStyle(ButtonStyle.Success).setEmoji('✅'));
-             if (finalista.paypal) {
-                const paymentLink = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(finalista.paypal)}&amount=${torneoActivo.prizeFinalista}¤cy_code=EUR`;
-                rowFinalista.addComponents(new ButtonBuilder().setLabel('Pagar con PayPal').setStyle(ButtonStyle.Link).setURL(paymentLink).setEmoji('💸'));
-            }
+            const paymentEmbedFinalista = new EmbedBuilder().setColor('#C0C0C0').setTitle('🥈 Tarea: Pagar Premio FINALISTA').addFields({ name: 'Finalista', value: finalista.nombre },{ name: 'Capitán', value: finalista.capitanTag },{ name: 'PayPal', value: `\`${finalista.paypal || 'N/A'}\`` },{ name: 'Monto', value: `${torneoActivo.prizeFinalista}€` });
+            const rowFinalista = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_confirm_payment_finalista_${finalista.id}`).setLabel('Confirmar Pago Finalista').setStyle(ButtonStyle.Success));
+             if (finalista.paypal) { rowFinalista.addComponents(new ButtonBuilder().setLabel('Pagar').setStyle(ButtonStyle.Link).setURL(`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(finalista.paypal)}&amount=${torneoActivo.prizeFinalista}¤cy_code=EUR`)); }
             await adminChannel.send({ embeds: [paymentEmbedFinalista], components: [rowFinalista] });
         }
     }
 }
 
-// Esta función modifica el "master object" del equipo en `torneoActivo.grupos`.
 async function revertirEstadisticas(partido, oldResult) {
-    if (!partido.nombreGrupo) return; // Solo revierte para partidos de grupo
+    if (!partido.nombreGrupo) return;
 
     const [oldGolesA, oldGolesB] = oldResult.split('-').map(Number);
-    // Encuentra la referencia al objeto original del equipo
     const equipoA = torneoActivo.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
     const equipoB = torneoActivo.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
 
     if (!equipoA || !equipoB) return;
 
-    // Revierte las estadísticas
     equipoA.stats.pj -= 1;
     equipoB.stats.pj -= 1;
     equipoA.stats.gf -= oldGolesA;
@@ -1626,16 +1512,11 @@ async function revertirEstadisticas(partido, oldResult) {
 
     if (oldGolesA > oldGolesB) equipoA.stats.pts -= 3;
     else if (oldGolesB > oldGolesA) equipoB.stats.pts -= 3;
-    else {
-        equipoA.stats.pts -= 1;
-        equipoB.stats.pts -= 1;
-    }
+    else { equipoA.stats.pts -= 1; equipoB.stats.pts -= 1; }
 }
 
-// Esta función también modifica el "master object" del equipo.
 async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild) {
     const [golesA, golesB] = partido.resultado.split('-').map(Number);
-    // Encuentra la referencia al objeto original del equipo
     const equipoA = torneoActivo.grupos[nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
     const equipoB = torneoActivo.grupos[nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
 
@@ -1650,44 +1531,28 @@ async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild)
     equipoA.stats.dg = equipoA.stats.gf - equipoA.stats.gc;
     equipoB.stats.dg = equipoB.stats.gf - equipoB.stats.gc;
 
-    if (golesA > golesB) {
-        equipoA.stats.pts += 3;
-    } else if (golesB > golesA) {
-        equipoB.stats.pts += 3;
-    } else {
-        equipoA.stats.pts += 1;
-        equipoB.stats.pts += 1;
-    }
+    if (golesA > golesB) equipoA.stats.pts += 3;
+    else if (golesB > golesA) equipoB.stats.pts += 3;
+    else { equipoA.stats.pts += 1; equipoB.stats.pts += 1; }
     
     saveBotState();
 
     await actualizarMensajeClasificacion();
-    await verificarYCrearSiguientesHilos(guild); // Verifica si se debe crear la siguiente jornada
-    await iniciarFaseEliminatoria(guild); // Verifica si la fase de grupos ha terminado para iniciar eliminatorias
+    await verificarYCrearSiguientesHilos(guild);
+    await iniciarFaseEliminatoria(guild);
 }
 
-// --- CORRECCIÓN --- Se añade el desempate por Goles a Favor (GF)
 function sortTeams(a, b, groupName) {
-    // 1. Puntos
     if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
-    // 2. Diferencia de Goles (DG)
     if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
-    // 3. Goles a Favor (GF)
     if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
-    // 4. Enfrentamiento directo
+
     const enfrentamiento = torneoActivo.calendario[groupName].find(p => (p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id));
     if (enfrentamiento && enfrentamiento.resultado) {
         const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
-        if (enfrentamiento.equipoA.id === a.id) { // a es equipoA en el partido
-            if (golesA > golesB) return -1; // a gana
-            if (golesB > golesA) return 1;  // b gana
-        }
-        else { // b es equipoA en el partido
-            if (golesB > golesA) return -1; // a gana
-            if (golesA > golesB) return 1;  // b gana
-        }
+        if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
+        else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
     }
-    // 5. Sorteo (implícito al no ordenar)
     return 0;
 }
 
@@ -1698,7 +1563,7 @@ async function actualizarMensajeClasificacion() {
     const message = await channel.messages.fetch(torneoActivo.publicGroupsMessageId).catch(() => null);
     if (!message) return;
     const newEmbed = EmbedBuilder.from(message.embeds[0]);
-    newEmbed.setFields([]); // Limpia los campos antiguos
+    newEmbed.setFields([]);
 
     for (const groupName in torneoActivo.grupos) {
         const grupo = torneoActivo.grupos[groupName];
@@ -1708,7 +1573,7 @@ async function actualizarMensajeClasificacion() {
         const header = "EQUIPO".padEnd(nameWidth) + "PJ  PTS  GF  GC   DG";
 
         const table = equiposOrdenados.map(e => {
-            const teamName = e.nombre.slice(0, nameWidth - 1).padEnd(nameWidth); // Evita desbordamiento
+            const teamName = e.nombre.slice(0, nameWidth - 1).padEnd(nameWidth);
             const pj = e.stats.pj.toString().padStart(2);
             const pts = e.stats.pts.toString().padStart(3);
             const gf = e.stats.gf.toString().padStart(3);
@@ -1716,8 +1581,7 @@ async function actualizarMensajeClasificacion() {
             const dgVal = e.stats.dg;
             const dg = (dgVal >= 0 ? '+' : '') + dgVal.toString();
             const paddedDg = dg.padStart(4);
-
-            return `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}`; // Espacio extra
+            return `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}`;
         }).join('\n');
 
         newEmbed.addFields({ name: `**${groupName}**`, value: "```\n" + header + "\n" + table + "\n```" });
@@ -1725,7 +1589,6 @@ async function actualizarMensajeClasificacion() {
     await message.edit({ embeds: [newEmbed] });
 }
 
-// --- MEJORA --- Formato del calendario mejorado para mayor legibilidad usando monospace y padding.
 async function actualizarMensajeCalendario() {
     if (!torneoActivo || !torneoActivo.calendarioMessageId || !CALENDARIO_JORNADAS_CHANNEL_ID) return;
     
@@ -1736,21 +1599,18 @@ async function actualizarMensajeCalendario() {
     if (!message) return;
 
     const newEmbed = EmbedBuilder.from(message.embeds[0])
-        .setDescription('Calendario completo del torneo. Los resultados se actualizarán aquí.')
+        .setDescription('Calendario completo del torneo.')
         .setFields([]);
 
     const calendarioOrdenado = Object.keys(torneoActivo.calendario).sort();
     let allFields = [];
 
-    // Fase de Grupos
     for (const groupName of calendarioOrdenado) {
         const partidosDelGrupo = torneoActivo.calendario[groupName];
         
         const partidosPorJornada = {};
         for (const partido of partidosDelGrupo) {
-            if (!partidosPorJornada[partido.jornada]) {
-                partidosPorJornada[partido.jornada] = [];
-            }
+            if (!partidosPorJornada[partido.jornada]) partidosPorJornada[partido.jornada] = [];
             partidosPorJornada[partido.jornada].push(partido);
         }
 
@@ -1761,16 +1621,13 @@ async function actualizarMensajeCalendario() {
         for (const jornadaNum of Object.keys(partidosPorJornada).sort((a,b) => a - b)) {
             groupScheduleText += `Jornada ${jornadaNum}\n`;
             for (const partido of partidosPorJornada[jornadaNum]) {
-                
                 const centerText = partido.resultado ? partido.resultado : 'vs';
                 const paddingTotal = centerWidth - centerText.length;
                 const paddingInicio = Math.ceil(paddingTotal / 2);
                 const paddingFin = Math.floor(paddingTotal / 2);
                 const paddedCenter = ' '.repeat(paddingInicio) + centerText + ' '.repeat(paddingFin);
-
                 const equipoA = partido.equipoA.nombre.slice(0, nameWidth).padEnd(nameWidth);
                 const equipoB = partido.equipoB.nombre.slice(0, nameWidth).padStart(nameWidth);
-                
                 groupScheduleText += `${equipoA}${paddedCenter}${equipoB}\n`;
             }
         }
@@ -1803,16 +1660,10 @@ client.on('messageCreate', async message => {
 client.on('messageReactionAdd', async (reaction, user) => {
     if (user.bot) return;
 
-    if (reaction.partial) {
-        try { await reaction.fetch(); } catch (error) { return; }
-    }
-    if (reaction.message.partial) {
-        try { await reaction.message.fetch(); } catch (error) { return; }
-    }
+    if (reaction.partial) { try { await reaction.fetch(); } catch (error) { return; } }
+    if (reaction.message.partial) { try { await reaction.message.fetch(); } catch (error) { return; } }
 
-    if (!reaction.message.embeds[0] || !reaction.message.embeds[0].title || !reaction.message.embeds[0].title.includes('Selección de Idioma')) {
-        return;
-    }
+    if (!reaction.message.embeds[0] || !reaction.message.embeds[0].title || !reaction.message.embeds[0].title.includes('Selección de Idioma')) return;
 
     const emoji = reaction.emoji.name;
     const roleInfo = languageRoles[emoji];
@@ -1827,31 +1678,14 @@ client.on('messageReactionAdd', async (reaction, user) => {
     try {
         const newRoleName = roleInfo.name;
         const roleToAdd = guild.roles.cache.find(r => r.name === newRoleName);
+        if (!roleToAdd) return;
+        if (member.roles.cache.has(roleToAdd.id)) return;
 
-        if (!roleToAdd) {
-            console.warn(`[ADVERTENCIA] El rol de idioma "${newRoleName}" no fue encontrado.`);
-            return;
+        const rolesToRemove = member.roles.cache.filter(role => Object.values(languageRoles).some(lang => lang.name === role.name));
+        if (rolesToRemove.size > 0) {
+            await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma.');
         }
-        
-        if (member.roles.cache.has(roleToAdd.id)) {
-            return; // Ya tiene el rol, no hacer nada
-        }
-
-        const rolesToRemove = [];
-        for (const flag in languageRoles) {
-            const roleNameToRemove = languageRoles[flag].name;
-            const role = guild.roles.cache.find(r => r.name === roleNameToRemove);
-            if (role && member.roles.cache.has(role.id)) {
-                rolesToRemove.push(role);
-            }
-        }
-        
-        if (rolesToRemove.length > 0) {
-            await member.roles.remove(rolesToRemove, 'Cambiando rol de idioma por reacción.');
-        }
-
-        await member.roles.add(roleToAdd, 'Asignando rol de idioma por reacción.');
-
+        await member.roles.add(roleToAdd, 'Asignando rol de idioma.');
     } catch (error) {
         console.error('Error al asignar rol por reacción:', error);
     }
@@ -1878,8 +1712,18 @@ async function startBot() {
     console.log('[INIT] Cargando datos iniciales...');
     botData = await loadInitialData();
     torneoActivo = botData.torneoActivo;
-    mensajeInscripcionId = botData.mensajeInscripcionId;
-    listaEquiposMessageId = botData.listaEquiposMessageId;
+
+    // --- CORRECCIÓN FINAL --- Rehidratar las variables de acceso rápido desde el estado principal.
+    if (torneoActivo) {
+        console.log('[INIT] Torneo activo encontrado, rehidratando estado...');
+        mensajeInscripcionId = torneoActivo.mensajeInscripcionId;
+        listaEquiposMessageId = torneoActivo.listaEquiposMessageId;
+    } else {
+        console.log('[INIT] No hay torneo activo.');
+        mensajeInscripcionId = null;
+        listaEquiposMessageId = null;
+    }
+    
     console.log('[INIT] Datos cargados. Iniciando bot...');
 
     keepAlive();
