@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.7 - CORRECCIÓN DE IDENTIDAD ÚNICA PARA EQUIPOS
+// index.js - VERSIÓN 2.8 - CORRECCIÓN DE TRADUCCIÓN EN HILOS Y MEJORA DE REPORTES
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -1139,15 +1139,16 @@ async function handleModalSubmit(interaction) {
             if (otherCaptainResult.golesA === golesA && otherCaptainResult.golesB === golesB) {
                 partido.resultado = `${golesA}-${golesB}`;
                 partido.status = 'finalizado';
-                await interaction.editReply(`✅ Resultado ${partido.resultado} confirmado.`);
+                await interaction.editReply(`✅ Resultado ${partido.resultado} confirmado por ambos capitanes.`);
                 await procesarResultadoFinal(partido, interaction);
             } else {
                 partido.reportedScores = {};
-                await interaction.channel.send({ content: `**⚠️ ¡Conflicto de resultados!** Volved a reportar.`});
-                await interaction.editReply({ content: `❌ Los resultados no coinciden.` });
+                await interaction.channel.send({ content: `**⚠️ ¡Conflicto de resultados!**\nLos marcadores no coinciden. Por favor, volved a reportar.\n\n**⚠️ Result conflict!**\nThe scores do not match. Please report again.`});
+                await interaction.editReply({ content: `❌ Los resultados no coinciden. Se ha enviado un aviso.` });
             }
         } else {
-            await interaction.editReply(`✅ Tu resultado (${golesA}-${golesB}) ha sido guardado.`);
+            await interaction.editReply(`✅ Tu resultado (${golesA}-${golesB}) ha sido guardado. Esperando al otro capitán.`);
+            await interaction.channel.send({ content: `<@${otherCaptainId}>\n🇪🇸 El capitán **${interaction.user.tag}** ha reportado un resultado de **${golesA}-${golesB}**. Por favor, reporta el mismo resultado para confirmar.\n\n🇬🇧 Captain **${interaction.user.tag}** has reported a score of **${golesA}-${golesB}**. Please report the same score to confirm.` });
         }
         saveBotState();
 
@@ -1681,7 +1682,10 @@ client.on('messageCreate', async message => {
         for (const flag in languageRoles) { const roleInfo = languageRoles[flag]; const role = serverRoles.find(r => r.name === roleInfo.name); if (role && authorMember.roles.cache.has(role.id)) { sourceLang = roleInfo.code; hasLangRole = true; break; } }
         if (!hasLangRole) return;
         const targetLangCodes = new Set();
-        message.channel.members.forEach(member => { for (const flag in languageRoles) { const roleInfo = languageRoles[flag]; const role = serverRoles.find(r => r.name === roleInfo.name); if (role && member.roles.cache.has(role.id) && roleInfo.code !== sourceLang) { targetLangCodes.add(roleInfo.code); } } });
+        
+        const membersToTranslate = message.channel.isThread() ? message.channel.members.cache : message.channel.members;
+
+        membersToTranslate.forEach(member => { for (const flag in languageRoles) { const roleInfo = languageRoles[flag]; const role = serverRoles.find(r => r.name === roleInfo.name); if (role && member.roles.cache.has(role.id) && roleInfo.code !== sourceLang) { targetLangCodes.add(roleInfo.code); } } });
         if (targetLangCodes.size === 0) return;
         const embeds = [];
         for (const targetCode of targetLangCodes) { const flag = Object.keys(languageRoles).find(f => languageRoles[f].code === targetCode); const { text } = await translate(message.content, { to: targetCode }); embeds.push({ description: `${flag} *${text}*`, color: 0x5865F2 }); }
