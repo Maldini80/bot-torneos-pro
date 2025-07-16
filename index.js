@@ -1,4 +1,4 @@
-// index.js - VERSIÓN 2.6 - ARQUITECTURA ASÍNCRONA PARA CREACIÓN DE TORNEOS
+// index.js - VERSIÓN 2.7 - CORRECCIÓN DE IDENTIDAD ÚNICA PARA EQUIPOS
 require('dotenv').config();
 
 const keepAlive = require('./keep_alive.js');
@@ -922,23 +922,17 @@ async function handleSelectMenu(interaction) {
 async function handleModalSubmit(interaction) {
     const { customId, fields } = interaction;
     
-    // --- ESTRUCTURA MODIFICADA PARA EVITAR TIMEOUTS ---
     if (customId.startsWith('crear_torneo_final_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-        if (isBotBusy) {
-            return interaction.editReply({ content: '⏳ El bot está ocupado. Por favor, espera.' });
-        }
-        if (torneoActivo) {
-            return interaction.editReply({ content: '❌ Ya hay un torneo activo.' });
-        }
+        if (isBotBusy) return interaction.editReply({ content: '⏳ El bot está ocupado. Por favor, espera.' });
+        if (torneoActivo) return interaction.editReply({ content: '❌ Ya hay un torneo activo.' });
 
         const nombre = fields.getTextInputValue('torneo_nombre');
-        await interaction.editReply({ content: `✅ Petición recibida. Creando el torneo "${nombre}" en segundo plano... Se te notificará aquí cuando esté listo.` });
+        await interaction.editReply({ content: `✅ Petición recibida. Creando el torneo "${nombre}"... Se te notificará cuando esté listo.` });
         
         isBotBusy = true;
 
-        // Ejecutar el resto en segundo plano
         (async () => {
             try {
                 const match = customId.match(/crear_torneo_final_(.+)_(pago|gratis)/);
@@ -955,17 +949,10 @@ async function handleModalSubmit(interaction) {
                     enlacePaypal = fields.getTextInputValue('torneo_paypal');
                     prizeCampeon = parseFloat(fields.getTextInputValue('torneo_prize_campeon'));
                     prizeFinalista = parseFloat(fields.getTextInputValue('torneo_prize_finalista'));
-                    if (!enlacePaypal || isNaN(prizeCampeon) || isNaN(prizeFinalista)) {
-                        throw new Error('Datos de pago inválidos.');
-                    }
+                    if (!enlacePaypal || isNaN(prizeCampeon) || isNaN(prizeFinalista)) throw new Error('Datos de pago inválidos.');
                 }
                 
-                await Promise.all([
-                    limpiarCanal(INSCRIPCION_CHANNEL_ID),
-                    limpiarCanal(EQUIPOS_INSCRITOS_CHANNEL_ID),
-                    limpiarCanal(CLASIFICACION_CHANNEL_ID),
-                    limpiarCanal(CALENDARIO_JORNADAS_CHANNEL_ID)
-                ]);
+                await Promise.all([limpiarCanal(INSCRIPCION_CHANNEL_ID), limpiarCanal(EQUIPOS_INSCRITOS_CHANNEL_ID), limpiarCanal(CLASIFICACION_CHANNEL_ID), limpiarCanal(CALENDARIO_JORNADAS_CHANNEL_ID)]);
                 
                 torneoActivo = { 
                     nombre, formatId, size: format.size, isPaid, prizeCampeon, prizeFinalista, 
@@ -975,13 +962,13 @@ async function handleModalSubmit(interaction) {
                     calendario: {}, grupos: {}, eliminatorias: {}
                 };
                 
-                const prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis / *Free*';
-                const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n*To participate, click below.*\n\n${prizeText}\n\n**Formato:** ${format.label}\n**Límite:** ${torneoActivo.size} equipos.`);
-                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo / Register Team').setStyle(ButtonStyle.Success).setEmoji('📝'));
+                const prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis';
+                const embed = new EmbedBuilder().setColor('#5865F2').setTitle(`🏆 Inscripciones Abiertas: ${nombre}`).setDescription(`Para participar, haz clic abajo.\n\n${prizeText}\n\n**Formato:** ${format.label}\n**Límite:** ${torneoActivo.size} equipos.`);
+                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('inscribir_equipo_btn').setLabel('Inscribir Equipo').setStyle(ButtonStyle.Success).setEmoji('📝'));
                 const newMessage = await client.channels.cache.get(INSCRIPCION_CHANNEL_ID).send({ embeds: [embed], components: [row] });
                 mensajeInscripcionId = newMessage.id;
 
-                const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos inscritos.').setFooter({ text: `Total: 0 / ${torneoActivo.size}` });
+                const embedLista = new EmbedBuilder().setColor('#3498db').setTitle(`Equipos Inscritos - ${nombre}`).setDescription('Aún no hay equipos.').setFooter({ text: `Total: 0 / ${torneoActivo.size}` });
                 const listaMsg = await client.channels.cache.get(EQUIPOS_INSCRITOS_CHANNEL_ID).send({ embeds: [embedLista] });
                 listaEquiposMessageId = listaMsg.id;
                 
@@ -996,14 +983,14 @@ async function handleModalSubmit(interaction) {
                 await actualizarNombresCanalesConIcono();
                 
                 const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(()=>null);
-                if (adminChannel) await adminChannel.send(`✅ Torneo "${nombre}" creado y configurado con éxito.`);
+                if (adminChannel) await adminChannel.send(`✅ Torneo "${nombre}" creado y configurado.`);
 
             } catch (error) {
-                console.error("Error crítico en segundo plano al crear el torneo:", error);
+                console.error("Error en segundo plano al crear el torneo:", error);
                 torneoActivo = null; 
                 saveBotState();
                 const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(()=>null);
-                if (adminChannel) await adminChannel.send(`❌ Ocurrió un error inesperado al crear el torneo. El estado ha sido reseteado.`);
+                if (adminChannel) await adminChannel.send(`❌ Ocurrió un error al crear el torneo.`);
             } finally {
                 isBotBusy = false;
             }
@@ -1013,7 +1000,58 @@ async function handleModalSubmit(interaction) {
     
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-    if (customId === 'inscripcion_modal') {
+    if (customId === 'add_test_modal') {
+        isBotBusy = true;
+        try {
+            if (!torneoActivo) return interaction.editReply('Error: Primero crea un torneo.');
+            const cantidad = parseInt(fields.getTextInputValue('cantidad_input'));
+            if (isNaN(cantidad) || cantidad <= 0) return interaction.editReply('Número inválido.');
+            
+            await interaction.editReply(`✅ Recibido. Añadiendo ${cantidad} equipos...`);
+
+            const adminMember = interaction.member;
+            let adminFlag = '🧪'; 
+            for (const flag in languageRoles) {
+                const role = interaction.guild.roles.cache.find(r => r.name === languageRoles[flag].name);
+                if (role && adminMember.roles.cache.has(role.id)) { adminFlag = flag; break; }
+            }
+
+            const capitanDePruebaId = interaction.user.id;
+            const capitanDePruebaTag = interaction.user.tag;
+            const initialCount = Object.keys(torneoActivo.equipos_aprobados || {}).length;
+            for (let i = 0; i < cantidad; i++) {
+                if(Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size) break;
+                const teamId = `prueba_${Date.now()}_${i}`;
+                const nombreEquipo = `E-Prueba-${initialCount + i + 1}`;
+                torneoActivo.equipos_aprobados[teamId] = { id: teamId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: adminFlag, paypal: 'admin@test.com' };
+            }
+            saveBotState();
+            
+            if (!torneoActivo) {
+                return interaction.followUp({ content: 'La operación fue cancelada por un reseteo.', flags: [MessageFlags.Ephemeral]});
+            }
+
+            await actualizarNombresCanalesConIcono();
+            
+            const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
+            if (equiposChannel && listaEquiposMessageId) {
+                const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
+                if(listaMsg) {
+                    const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, i) => `${i + 1}. ${e.bandera||''} ${e.nombre} (Capi: ${e.capitanTag})`).join('\n');
+                    const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos).setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
+                    await listaMsg.edit({ embeds: [embedLista] });
+                }
+            }
+            await interaction.followUp({ content: '✅ Interfaz actualizada.', flags: [MessageFlags.Ephemeral] });
+        } catch(error) {
+            console.error("Error añadiendo equipos de prueba:", error);
+            await interaction.followUp({ content: '❌ Hubo un error.', flags: [MessageFlags.Ephemeral] });
+        } finally {
+            isBotBusy = false;
+        }
+    } 
+
+    else if (customId === 'inscripcion_modal') {
         if (!torneoActivo) return interaction.editReply({ content: '❌ No hay un torneo activo.' });
         
         const teamName = fields.getTextInputValue('nombre_equipo_input');
@@ -1070,57 +1108,6 @@ async function handleModalSubmit(interaction) {
             await adminChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         }
         await interaction.editReply({ content: '✅ ¡Gracias! Un admin ha sido notificado.' });
-    } 
-    
-    else if (customId === 'add_test_modal') {
-        isBotBusy = true;
-        try {
-            if (!torneoActivo) return interaction.editReply('Error: Primero crea un torneo.');
-            const cantidad = parseInt(fields.getTextInputValue('cantidad_input'));
-            if (isNaN(cantidad) || cantidad <= 0) return interaction.editReply('Número inválido.');
-            
-            await interaction.editReply(`✅ Recibido. Añadiendo ${cantidad} equipos...`);
-
-            const adminMember = interaction.member;
-            let adminFlag = '🧪'; 
-            for (const flag in languageRoles) {
-                const role = interaction.guild.roles.cache.find(r => r.name === languageRoles[flag].name);
-                if (role && adminMember.roles.cache.has(role.id)) { adminFlag = flag; break; }
-            }
-
-            const capitanDePruebaId = interaction.user.id;
-            const capitanDePruebaTag = interaction.user.tag;
-            const initialCount = Object.keys(torneoActivo.equipos_aprobados || {}).length;
-            for (let i = 0; i < cantidad; i++) {
-                if(Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size) break;
-                const teamId = `prueba_${Date.now()}_${i}`;
-                const nombreEquipo = `E-Prueba-${initialCount + i + 1}`;
-                torneoActivo.equipos_aprobados[teamId] = { id: capitanDePruebaId, nombre: nombreEquipo, capitanId: capitanDePruebaId, capitanTag: capitanDePruebaTag, bandera: adminFlag, paypal: 'admin@test.com' };
-            }
-            saveBotState();
-            
-            if (!torneoActivo) {
-                return interaction.followUp({ content: 'La operación fue cancelada por un reseteo.', flags: [MessageFlags.Ephemeral]});
-            }
-
-            await actualizarNombresCanalesConIcono();
-            
-            const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(() => null);
-            if (equiposChannel && listaEquiposMessageId) {
-                const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
-                if(listaMsg) {
-                    const nombresEquipos = Object.values(torneoActivo.equipos_aprobados).map((e, i) => `${i + 1}. ${e.bandera||''} ${e.nombre} (Capi: ${e.capitanTag})`).join('\n');
-                    const embedLista = EmbedBuilder.from(listaMsg.embeds[0]).setDescription(nombresEquipos).setFooter({ text: `Total: ${Object.keys(torneoActivo.equipos_aprobados).length} / ${torneoActivo.size}` });
-                    await listaMsg.edit({ embeds: [embedLista] });
-                }
-            }
-            await interaction.followUp({ content: '✅ Interfaz actualizada.', flags: [MessageFlags.Ephemeral] });
-        } catch(error) {
-            console.error("Error añadiendo equipos de prueba:", error);
-            await interaction.followUp({ content: '❌ Hubo un error.', flags: [MessageFlags.Ephemeral] });
-        } finally {
-            isBotBusy = false;
-        }
     } 
     
     else if (customId.startsWith('reportar_resultado_modal_')) {
@@ -1208,7 +1195,6 @@ async function handleModalSubmit(interaction) {
     }
 }
 
-// Rest of the file remains the same...
 async function procesarResultadoFinal(partido, interaction, fromSimulation = false) {
     await updateMatchThreadName(partido);
 
