@@ -42,6 +42,7 @@ const CHANNELS_CONFIG = {
     calendario: { id: CALENDARIO_JORNADAS_CHANNEL_ID, baseName: '🗓-calendario-de-jornadas' }
 };
 
+// --- MEJORA --- Se introduce una estructura centralizada y flexible para los formatos de torneo.
 const TOURNAMENT_FORMATS = {
     '8_teams_semis_classic': {
         label: '8 Equipos (Clásico - Semifinales)',
@@ -120,12 +121,13 @@ async function actualizarNombresCanalesConIcono() {
         const cupoLLeno = Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size;
         const iconInsc = cupoLLeno ? FULL_STATUS_ICON : ACTIVE_STATUS_ICON;
         statuses = { inscripciones: iconInsc, capitanes: iconInsc, clasificacion: PENDING_STATUS_ICON, calendario: PENDING_STATUS_ICON };
-    } else if (['fase_de_grupos', 'octavos', 'cuartos', 'semifinales', 'final'].includes(torneoActivo.status)) {
+    } else if (['fase_de_grupos', 'octavos', 'cuartos', 'semifinales', 'final'].includes(torneoActivo.status)) { // --- CORRECCIÓN --- Se incluyen todas las fases eliminatorias posibles.
         statuses = { inscripciones: FULL_STATUS_ICON, capitanes: FULL_STATUS_ICON, clasificacion: ACTIVE_STATUS_ICON, calendario: ACTIVE_STATUS_ICON };
     } else { 
         statuses = { inscripciones: INACTIVE_STATUS_ICON, capitanes: INACTIVE_STATUS_ICON, clasificacion: INACTIVE_STATUS_ICON, calendario: INACTIVE_STATUS_ICON };
     }
 
+    // --- MEJORA --- Se usa Promise.all para actualizar los canales en paralelo, es más rápido.
     const promises = Object.keys(CHANNELS_CONFIG).map(async (key) => {
         const config = CHANNELS_CONFIG[key];
         try {
@@ -177,6 +179,7 @@ async function limpiarCanal(channelId) {
             } while (fetched.size >= 2);
         }
     } catch (err) {
+        // Ignora errores comunes como canal no encontrado (10003) o mensaje no encontrado (10008) durante el borrado masivo
         if (err.code !== 10003 && err.code !== 10008) { 
              console.error(`Error al limpiar el canal ${channelId}:`, err); 
         }
@@ -215,6 +218,7 @@ async function crearHiloDePartido(guild, partido, tipoPartido = 'Grupo') {
 
         partido.threadId = thread.id;
 
+        // --- MEJORA --- Añadir miembros en paralelo.
         const memberPromises = [];
         memberPromises.push(thread.members.add(partido.equipoA.capitanId).catch(err => console.error(`No se pudo añadir al capitán ${partido.equipoA.capitanTag} al hilo.`)));
         memberPromises.push(thread.members.add(partido.equipoB.capitanId).catch(err => console.error(`No se pudo añadir al capitán ${partido.equipoB.capitanTag} al hilo.`)));
@@ -317,11 +321,14 @@ client.on('guildMemberAdd', member => {
 });
 
 client.on('interactionCreate', async interaction => {
-    // --- MEJORA --- Se añade un defer a las interacciones lentas para evitar timeouts.
+    // --- MEJORA --- Se añade un defer preventivo a las interacciones lentas para evitar timeouts.
     if (interaction.isButton() || interaction.isStringSelectMenu()) {
         const sensitiveIds = ['panel_finalizar', 'panel_borrar_hilos', 'panel_reset_force', 'admin_aprobar', 'admin_expulsar', 'admin_rechazar'];
         if (sensitiveIds.some(id => interaction.customId.startsWith(id))) {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            // No se puede deferir un modal, así que lo evitamos.
+            if (!interaction.isModalSubmit()) {
+                await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            }
         }
     }
     
@@ -336,12 +343,12 @@ client.on('interactionCreate', async interaction => {
             await handleModalSubmit(interaction);
         }
     } catch (error) {
-        if (error.code === 40060 || error.code === 10062) {
+        if (error.code === 40060 || error.code === 10062) { // Errores comunes de interacción ya respondida
             return; 
         }
         console.error('Ha ocurrido un error en el manejador de interacciones:', error);
         try {
-            const replyOptions = { content: '🇪🇸 Hubo un error al procesar tu solicitud.\n🇬🇧 *An error occurred while processing your request.*', ephemeral: true };
+            const replyOptions = { content: '🇪🇸 Hubo un error al procesar tu solicitud.\n🇬🇧 *An error occurred while processing your request.*', flags: [MessageFlags.Ephemeral] };
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(replyOptions);
             } else {
@@ -357,7 +364,7 @@ client.on('interactionCreate', async interaction => {
 
 async function handleSlashCommand(interaction) {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: '🇪🇸 No tienes permisos para usar este comando.\n🇬🇧 You do not have permission to use this command.', ephemeral: true });
+        return interaction.reply({ content: '🇪🇸 No tienes permisos para usar este comando.\n🇬🇧 You do not have permission to use this command.', flags: [MessageFlags.Ephemeral] });
     }
     const { commandName } = interaction;
     if (commandName === 'panel-admin') {
@@ -379,14 +386,14 @@ async function handleSlashCommand(interaction) {
             new ButtonBuilder().setCustomId('panel_simular_partidos').setLabel('Simular Partidos').setStyle(ButtonStyle.Secondary).setEmoji('🎲'), 
             new ButtonBuilder().setCustomId('panel_borrar_hilos').setLabel('Borrar Hilos').setStyle(ButtonStyle.Danger).setEmoji('🗑️'), 
             new ButtonBuilder().setCustomId('panel_finalizar').setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑'),
-            new ButtonBuilder().setCustomId('panel_reset_force').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
+            new ButtonBuilder().setCustomId('panel_reset_force').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨') // MEJORA: Botón de reseteo de emergencia
         );
         await interaction.channel.send({ embeds: [embed], components: [row1, row2, row3] });
-        return interaction.reply({ content: 'Panel de control creado.', ephemeral: true });
+        return interaction.reply({ content: 'Panel de control creado.', flags: [MessageFlags.Ephemeral] });
     }
     
     if (commandName === 'sortear-grupos') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         if (!torneoActivo) return interaction.editReply({ content: 'No hay ningún torneo activo para sortear.' });
         if (torneoActivo.status === 'fase_de_grupos') return interaction.editReply({ content: 'El torneo ya ha sido sorteado.' });
         const equiposAprobadosCount = Object.keys(torneoActivo.equipos_aprobados || {}).length;
@@ -397,19 +404,20 @@ async function handleSlashCommand(interaction) {
     }
     
     if (commandName === 'iniciar-eliminatorias') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         await iniciarFaseEliminatoria(interaction.guild);
         await interaction.editReply({ content: 'Fase eliminatoria iniciada.'});
     }
 }
 
+// --- MEJORA --- Nueva función para un reseteo de emergencia del estado del bot.
 async function forceResetTournamentState(interaction) {
     // La interacción ya está diferida por el manejador principal.
     const adminPanelMessage = interaction.message;
 
     try {
         // --- MEJORA --- Inicio del "Panel de Estado Detallado"
-        const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
+        const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
         components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
         const busyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#FF0000').setFooter({ text: 'ESTADO: 🔴 OCUPADO\nTarea: Reseteo forzado en curso...' });
         await adminPanelMessage.edit({ embeds: [busyEmbed], components });
@@ -432,7 +440,7 @@ async function forceResetTournamentState(interaction) {
         await interaction.editReply({ content: '❌ Ocurrió un error al intentar limpiar la interfaz, pero el estado del bot ha sido reseteado. Revisa la consola.' });
     } finally {
         // --- MEJORA --- Desbloqueo del panel
-        const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
+        const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
         components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
         const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: 'ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Reseteo forzado completado.' });
         await adminPanelMessage.edit({ embeds: [readyEmbed], components });
@@ -448,14 +456,14 @@ async function handleButton(interaction) {
     
     if (customId.startsWith('panel_')) {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.reply({ content: 'No tienes permisos para usar los botones del panel.', ephemeral: true });
+            return interaction.reply({ content: 'No tienes permisos para usar los botones del panel.', flags: [MessageFlags.Ephemeral] });
         }
         
         const [panel, type, subtype] = customId.split('_');
         
         if (type === 'crear') {
              if (torneoActivo) {
-                return interaction.reply({ content: '❌ Ya hay un torneo activo. Finalízalo antes de crear uno nuevo.', ephemeral: true });
+                return interaction.reply({ content: '❌ Ya hay un torneo activo. Finalízalo o usa "Reset Forzado" antes de crear uno nuevo.', flags: [MessageFlags.Ephemeral] });
             }
             const formatMenu = new StringSelectMenuBuilder()
                 .setCustomId('crear_torneo_format_select')
@@ -468,7 +476,7 @@ async function handleButton(interaction) {
                     }))
                 );
             const row = new ActionRowBuilder().addComponents(formatMenu);
-            return interaction.reply({ content: 'Iniciando creación de torneo...', components: [row], ephemeral: true });
+            return interaction.reply({ content: 'Iniciando creación de torneo...', components: [row], flags: [MessageFlags.Ephemeral] });
         }
         if (type === 'add' && subtype === 'test') {
             const modal = new ModalBuilder().setCustomId('add_test_modal').setTitle('Añadir Equipos de Prueba');
@@ -477,10 +485,12 @@ async function handleButton(interaction) {
             return interaction.showModal(modal);
         }
         
+        // --- MEJORA --- El botón de reseteo llama a su propia función dedicada.
         if (type === 'reset' && subtype === 'force') {
             return await forceResetTournamentState(interaction);
         }
 
+        // --- MEJORA --- El proceso de finalizar el torneo ahora es más robusto y da mejor feedback.
         if (type === 'finalizar') {
             if (!torneoActivo) {
                 return interaction.editReply({ content: 'No hay ningún torneo activo para finalizar.' });
@@ -488,8 +498,8 @@ async function handleButton(interaction) {
 
             const adminPanelMessage = interaction.message;
             try {
-                // --- MEJORA --- Inicio del "Panel de Estado Detallado"
-                const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
+                // --- MEJORA --- Bloqueo del panel con feedback visual
+                const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
                 let busyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#FF0000').setFooter({ text: 'ESTADO: 🔴 OCUPADO\nTarea: Reseteando estado interno...' });
                 await adminPanelMessage.edit({ embeds: [busyEmbed], components });
@@ -508,7 +518,7 @@ async function handleButton(interaction) {
                 const parentChannel = await client.channels.fetch(MATCH_THREADS_PARENT_ID).catch(() => null);
                 if (parentChannel) {
                     const threads = await parentChannel.threads.fetch();
-                    // --- CORRECCIÓN --- Se usa Promise.all para borrar hilos en paralelo y ser mucho más rápido.
+                    // --- CORRECCIÓN y MEJORA --- Se usa Promise.all para borrar hilos en paralelo y ser mucho más rápido.
                     const deletePromises = [];
                     for (const thread of threads.threads.values()) {
                         deletePromises.push(thread.delete('Finalización de torneo.').catch(() => {}));
@@ -522,14 +532,14 @@ async function handleButton(interaction) {
                 await mostrarMensajeEspera();
                 await actualizarNombresCanalesConIcono();
                 
-                await interaction.followUp({ content: '✅ Torneo finalizado y estado del bot reseteado correctamente.', ephemeral: true });
+                await interaction.followUp({ content: '✅ Torneo finalizado y estado del bot reseteado correctamente.', flags: [MessageFlags.Ephemeral] });
 
             } catch (error) {
                 console.error("Ocurrió un error durante la finalización del torneo:", error);
-                await interaction.followUp({ content: '❌ Ocurrió un error al limpiar la interfaz, pero el estado del bot ya ha sido reseteado. Puedes crear un nuevo torneo.', ephemeral: true });
+                await interaction.followUp({ content: '❌ Ocurrió un error al limpiar la interfaz, pero el estado del bot ya ha sido reseteado. Puedes crear un nuevo torneo.', flags: [MessageFlags.Ephemeral] });
             } finally {
                  // --- MEJORA --- Desbloqueo del panel
-                const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
+                const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
                 const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: `ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Torneo finalizado.` });
                 await adminPanelMessage.edit({ embeds: [readyEmbed], components });
@@ -537,7 +547,7 @@ async function handleButton(interaction) {
             return;
         }
 
-        if(!isDeferred) await interaction.deferReply({ ephemeral: true });
+        if(!isDeferred) await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         if (type === 'ver' && subtype === 'inscritos') {
             if (!torneoActivo || Object.keys(torneoActivo.equipos_aprobados || {}).length === 0) {
@@ -587,8 +597,8 @@ async function handleButton(interaction) {
         if (type === 'borrar' && subtype === 'hilos') {
             const adminPanelMessage = interaction.message;
             try {
-                // --- MEJORA --- Bloqueo del panel
-                const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
+                // --- MEJORA --- Bloqueo del panel con feedback visual
+                const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
                 let busyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#FF0000').setFooter({ text: 'ESTADO: 🔴 OCUPADO\nTarea: Borrando hilos...' });
                 await adminPanelMessage.edit({ embeds: [busyEmbed], components });
@@ -601,7 +611,7 @@ async function handleButton(interaction) {
             
                 await interaction.editReply({ content: `Borrando ${matchThreads.size} hilos de partido...` });
 
-                // --- CORRECCIÓN --- Se usa Promise.all para eficiencia.
+                // --- CORRECCIÓN y MEJORA --- Se usa Promise.all para eficiencia.
                 const deletePromises = [];
                 for (const thread of matchThreads.values()) {
                     deletePromises.push(thread.delete('Limpieza de hilos de torneo.').catch(() => {}));
@@ -620,14 +630,14 @@ async function handleButton(interaction) {
                     });
                     saveBotState();
                 }
-                await interaction.followUp({ content: `✅ ${deletedCount} hilos de partido borrados.`, ephemeral: true });
+                await interaction.followUp({ content: `✅ ${deletedCount} hilos de partido borrados.`, flags: [MessageFlags.Ephemeral] });
 
             } catch(error) {
                  console.error("Error al borrar hilos:", error);
-                 await interaction.followUp({ content: `❌ Ocurrió un error al borrar los hilos.`, ephemeral: true });
+                 await interaction.followUp({ content: `❌ Ocurrió un error al borrar los hilos.`, flags: [MessageFlags.Ephemeral] });
             } finally {
                 // --- MEJORA --- Desbloqueo del panel
-                const components = adminPanelMessage.components.map(row => new ActionRowBuilder(row.toJSON()));
+                const components = adminPanelMessage.components.map(row => ActionRowBuilder.from(row));
                 components.forEach(row => row.components.forEach(button => button.setDisabled(false)));
                 const readyEmbed = EmbedBuilder.from(adminPanelMessage.embeds[0]).setColor('#2c3e50').setFooter({ text: `ESTADO: ✅ LISTO PARA OPERAR\nÚltima acción: Borrado de hilos completado.` });
                 await adminPanelMessage.edit({ embeds: [readyEmbed], components });
@@ -637,7 +647,7 @@ async function handleButton(interaction) {
     }
 
     else if (customId.startsWith('rules_')) {
-        if(!isDeferred) await interaction.deferReply({ ephemeral: true });
+        if(!isDeferred) await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [prefix, langCode, guildId] = customId.split('_');
         if (!langCode || !guildId) {
              return interaction.editReply({ content: 'Error: El botón que has pulsado es inválido o antiguo.' });
@@ -682,9 +692,10 @@ async function handleButton(interaction) {
 
     else if (customId === 'inscribir_equipo_btn') {
         if (!torneoActivo || torneoActivo.status !== 'inscripcion_abierta') {
-            return interaction.reply({ content: '🇪🇸 Las inscripciones no están abiertas o el torneo ha sido borrado por un reinicio.\n🇬🇧 *Registrations are not open or the tournament was deleted by a restart.*', ephemeral: true });
+            return interaction.reply({ content: '🇪🇸 Las inscripciones no están abiertas o el torneo ha sido borrado por un reinicio.\n🇬🇧 *Registrations are not open or the tournament was deleted by a restart.*', flags: [MessageFlags.Ephemeral] });
         }
         const modal = new ModalBuilder().setCustomId('inscripcion_modal').setTitle('Inscripción de Equipo');
+        // --- MEJORA --- Aumentado el límite de caracteres para nombres de equipo.
         const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre del equipo (3-15 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(15).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput));
         return interaction.showModal(modal);
@@ -700,10 +711,10 @@ async function handleButton(interaction) {
     else if (customId.startsWith('reportar_resultado_v3_')) {
         const matchId = customId.replace('reportar_resultado_v3_', '');
         const { partido } = findMatch(matchId);
-        if(!partido) return interaction.reply({content: "Error: No se pudo encontrar el partido para este botón. El torneo puede haber finalizado.", ephemeral: true });
+        if(!partido) return interaction.reply({content: "Error: No se pudo encontrar el partido para este botón. El torneo puede haber finalizado.", flags: [MessageFlags.Ephemeral] });
         
         if (partido.status === 'finalizado') {
-            return interaction.reply({content: "Este partido ya tiene un resultado final. Un administrador puede modificarlo si es necesario.", ephemeral: true });
+            return interaction.reply({content: "Este partido ya tiene un resultado final. Un administrador puede modificarlo si es necesario.", flags: [MessageFlags.Ephemeral] });
         }
         
         const modal = new ModalBuilder().setCustomId(`reportar_resultado_modal_${matchId}`).setTitle('Reportar Resultado');
@@ -724,11 +735,11 @@ async function handleButton(interaction) {
 
     else if (customId.startsWith('admin_modificar_resultado_')) {
         const hasPermission = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
-        if (!hasPermission) return interaction.reply({ content: 'No tienes permisos para usar este botón.', ephemeral: true });
+        if (!hasPermission) return interaction.reply({ content: 'No tienes permisos para usar este botón.', flags: [MessageFlags.Ephemeral] });
 
         const matchId = customId.replace('admin_modificar_resultado_', '');
         const { partido } = findMatch(matchId);
-        if (!partido) return interaction.reply({ content: "Error: No se pudo encontrar el partido.", ephemeral: true });
+        if (!partido) return interaction.reply({ content: "Error: No se pudo encontrar el partido.", flags: [MessageFlags.Ephemeral] });
         const modal = new ModalBuilder().setCustomId(`admin_modificar_modal_${matchId}`).setTitle('Modificar Resultado (Admin/Árbitro)');
         const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder(partido.resultado ? partido.resultado.split('-')[0] : '0');
         const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder(partido.resultado ? partido.resultado.split('-')[1] : '0');
@@ -737,7 +748,7 @@ async function handleButton(interaction) {
     }
     
     else {
-        if(!isDeferred) await interaction.deferReply({ ephemeral: true });
+        if(!isDeferred) await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
         if (customId.startsWith('solicitar_arbitraje_')) {
             const matchId = customId.replace('solicitar_arbitraje_', '');
@@ -751,13 +762,14 @@ async function handleButton(interaction) {
                 await interaction.channel.send({ content: `${arbitroRole ? arbitroRole.toString() : '@Árbitros'} 🇪🇸 Se ha solicitado arbitraje en este partido.\n🇬🇧 *A referee has been requested for this match.*`});
                 return interaction.editReply({ content: '✅ Solicitud de arbitraje enviada.' });
             } else {
-                return interaction.editReply({ content: `🇪🇸 No se puede solicitar arbitraje para este partido.\n🇬🇧 *You cannot request a referee for this match.*`});
+                return interaction.editReply({ content: `🇪🇸 No se puede solicitar arbitraje para un partido ya finalizado.\n🇬🇧 *You cannot request a referee for a finished match.*`});
             }
         }
     
         if (customId.startsWith('admin_aprobar_') || customId.startsWith('admin_rechazar_') || customId.startsWith('admin_expulsar_')) {
             if (!torneoActivo) return interaction.editReply({ content: "Error: El torneo para esta acción ya no existe." });
             const [action, type, captainId] = customId.split('_');
+            
             if (type === 'expulsar') {
                 if (torneoActivo.status !== 'inscripcion_abierta') {
                     return interaction.editReply({ content: 'Solo se pueden expulsar equipos durante la fase de inscripción.' });
@@ -794,6 +806,9 @@ async function handleButton(interaction) {
                 const newEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
                 const newButtons = new ActionRowBuilder();
                 if (type === 'aprobar') {
+                    if (Object.keys(torneoActivo.equipos_aprobados).length >= torneoActivo.size) {
+                        return interaction.editReply({ content: 'El cupo de equipos ya está lleno. No se pueden aprobar más.' });
+                    }
                     if (!torneoActivo.equipos_aprobados) torneoActivo.equipos_aprobados = {};
                     equipoPendiente.id = captainId;
                     const captainMember = await interaction.guild.members.fetch(captainId).catch(()=>null);
@@ -810,24 +825,21 @@ async function handleButton(interaction) {
                             const participanteRole = await interaction.guild.roles.fetch(PARTICIPANTE_ROLE_ID);
                             if (participanteRole) {
                                 await captainMember.roles.add(participanteRole);
-                                console.log(`[INFO] Rol 'Participante' asignado a ${captainMember.user.tag}`);
-                            } else {
-                                console.warn(`[ADVERTENCIA] No se encontró el rol de participante con ID ${PARTICIPANTE_ROLE_ID}`);
                             }
                         } catch (err) {
                             console.error(`[ERROR] No se pudo asignar el rol de participante a ${captainMember.user.tag}:`, err);
                         }
                     }
                     
-                    newEmbed.setColor('#2ECC71').setTitle('✅ EQUIPO APROBADO').addFields({ name: 'Aprobado por', value: interaction.user.tag });
+                    newEmbed.setColor('#2ECC71').setTitle('✅ EQUIPO APROBADO').setFields({ name: 'Aprobado por', value: interaction.user.tag });
                     newButtons.addComponents(new ButtonBuilder().setCustomId(`admin_expulsar_${captainId}`).setLabel('Expulsar Equipo').setStyle(ButtonStyle.Danger).setEmoji('✖️'));
                     const captainUser = await client.users.fetch(captainId).catch(()=>null);
                     if(captainUser) {
-                        const approvalMessage = `✅ 🇪🇸 ¡Tu inscripción para el equipo **${equipoPendiente.nombre}** ha sido aprobada!\n\n🇬🇧 Your registration for the team **${equipoPendiente.nombre}** has been approved!`;
-                        await captainUser.send(approvalMessage).catch(()=>{ console.log(`No se pudo enviar DM de aprobación a ${captainUser.tag}.`); });
+                        await captainUser.send(`✅ 🇪🇸 ¡Tu inscripción para el equipo **${equipoPendiente.nombre}** ha sido aprobada!\n\n🇬🇧 Your registration for the team **${equipoPendiente.nombre}** has been approved!`).catch(()=>{});
                     }
                     await originalMessage.edit({ embeds: [newEmbed], components: [newButtons] });
                     await interaction.editReply({ content: `Acción 'aprobar' completada.` });
+
                     const equiposChannel = await client.channels.fetch(torneoActivo.canalEquiposId).catch(()=>null);
                     if (equiposChannel && listaEquiposMessageId) {
                         const listaMsg = await equiposChannel.messages.fetch(listaEquiposMessageId).catch(()=>null);
@@ -838,14 +850,14 @@ async function handleButton(interaction) {
                         }
                     }
                     if (Object.keys(torneoActivo.equipos_aprobados).length === torneoActivo.size) {
-                        await interaction.followUp({ content: `¡Cupo de ${torneoActivo.size} equipos lleno! Iniciando sorteo...`, ephemeral: true });
+                        await interaction.followUp({ content: `¡Cupo de ${torneoActivo.size} equipos lleno! Iniciando sorteo...`, flags: [MessageFlags.Ephemeral] });
                         await realizarSorteoDeGrupos(interaction.guild);
                     }
                 } else { // Rechazar
                     delete torneoActivo.equipos_pendientes[captainId];
                     saveBotState();
     
-                    newEmbed.setColor('#e74c3c').setTitle('❌ INSCRIPCIÓN RECHAZADA').addFields({ name: 'Rechazado por', value: interaction.user.tag });
+                    newEmbed.setColor('#e74c3c').setTitle('❌ INSCRIPCIÓN RECHAZADA').setFields({ name: 'Rechazado por', value: interaction.user.tag });
                     newButtons.addComponents(new ButtonBuilder().setCustomId('done_reject').setLabel('Rechazado').setStyle(ButtonStyle.Danger).setDisabled(true));
                     await originalMessage.edit({ embeds: [newEmbed], components: [newButtons] });
                     await interaction.editReply({ content: `Acción 'rechazar' completada.` });
@@ -863,14 +875,13 @@ async function handleButton(interaction) {
             try {
                 await winner.send({ embeds: [dmEmbed] });
             } catch (e) {
-                console.error(`No se pudo enviar el DM de confirmación de pago a ${winner.tag}`);
                 return interaction.editReply({ content: `No se pudo enviar el DM al ganador, pero la acción se ha registrado. Puede que tenga los DMs cerrados.` });
             }
             const originalMessage = interaction.message;
             const newEmbed = EmbedBuilder.from(originalMessage.embeds[0]).setFooter({ text: `Pago confirmado por ${interaction.user.tag}`}).setColor('#1ABC9C');
             const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
             disabledRow.components.forEach(component => {
-                if (component.data.custom_id === customId) {
+                if (component.customId === customId) {
                     component.setDisabled(true).setLabel('Pago Confirmado');
                 }
             });
@@ -916,8 +927,8 @@ async function handleSelectMenu(interaction) {
 
 async function handleModalSubmit(interaction) {
     const { customId, fields } = interaction;
-    // --- MEJORA --- Se difiere la respuesta para dar tiempo a la creación del torneo.
-    await interaction.deferReply({ ephemeral: true });
+    // --- MEJORA --- Se difiere la respuesta para dar tiempo a la creación del torneo u otras operaciones.
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     if (customId.startsWith('crear_torneo_final_')) {
         try {
@@ -952,7 +963,7 @@ async function handleModalSubmit(interaction) {
                 }
             }
             
-            // --- MEJORA --- Responder rápido y trabajar después
+            // --- MEJORA --- Responder rápido al usuario y trabajar después.
             await interaction.editReply({ content: `✅ Recibido. Creando torneo "${nombre}"... Esto puede tardar un momento.` });
 
             const cleanupPromises = [
@@ -978,7 +989,7 @@ async function handleModalSubmit(interaction) {
                 calendarioMessageId: null,
                 calendario: {}, 
                 grupos: {}, 
-                eliminatorias: {}
+                eliminatorias: {} // --- CORRECCIÓN --- Se inicializa la estructura completa.
             };
             
             let prizeText = isPaid ? `**Premio Campeón:** ${prizeCampeon}€\n**Premio Finalista:** ${prizeFinalista}€` : '**Precio:** Gratis / *Free*';
@@ -1001,13 +1012,13 @@ async function handleModalSubmit(interaction) {
             saveBotState();
             await actualizarNombresCanalesConIcono();
             
-            await interaction.followUp({ content: `✅ Torneo "${nombre}" creado con éxito con el formato "${format.label}".`, ephemeral: true });
+            await interaction.followUp({ content: `✅ Torneo "${nombre}" creado con éxito con el formato "${format.label}".`, flags: [MessageFlags.Ephemeral] });
 
         } catch (error) {
             console.error("Error crítico al crear el torneo:", error);
             torneoActivo = null; 
             saveBotState();
-            await interaction.followUp({ content: '❌ Ocurrió un error inesperado al crear el torneo. El estado del bot ha sido reseteado por seguridad. Por favor, intenta de nuevo.', ephemeral: true });
+            await interaction.followUp({ content: '❌ Ocurrió un error inesperado al crear el torneo. El estado del bot ha sido reseteado por seguridad. Por favor, intenta de nuevo.', flags: [MessageFlags.Ephemeral] });
         }
     } 
     
@@ -1070,7 +1081,7 @@ async function handleModalSubmit(interaction) {
 
         const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID).catch(() => null);
         if (adminChannel) {
-            const adminEmbed = new EmbedBuilder().setColor('#e67e22').setTitle('🔔 Notificación de Pago').addFields({ name: 'Equipo', value: pendingTeamData.nombre, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'PayPal Indicado', value: paypalInfo, inline: false });
+            const adminEmbed = new EmbedBuilder().setColor('#e67e22').setTitle('🔔 Notificación de Pago').addFields({ name: 'Equipo', value: pendingTeamData.nombre, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'PayPal Indicado', value: `\`${paypalInfo}\``, inline: false });
             const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_aprobar_${interaction.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success).setEmoji('✅'), new ButtonBuilder().setCustomId(`admin_rechazar_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger).setEmoji('❌'));
             await adminChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         }
@@ -1121,7 +1132,7 @@ async function handleModalSubmit(interaction) {
                 await listaMsg.edit({ embeds: [embedLista] });
              }
         }
-        await interaction.followUp({ content: '✅ Interfaz actualizada.', ephemeral: true });
+        await interaction.followUp({ content: '✅ Interfaz actualizada.', flags: [MessageFlags.Ephemeral] });
 
     } 
     
@@ -1144,6 +1155,7 @@ async function handleModalSubmit(interaction) {
             return interaction.editReply("🇪🇸 Este partido ya tiene un resultado. Un admin o árbitro puede modificarlo.\n🇬🇧 *This match already has a result. An admin or referee can modify it.*");
         }
 
+        // Modo de prueba para un solo capitán
         if (partido.equipoA.capitanId === partido.equipoB.capitanId) {
             partido.resultado = `${golesA}-${golesB}`;
             partido.status = 'finalizado';
@@ -1164,8 +1176,8 @@ async function handleModalSubmit(interaction) {
                 await interaction.editReply(`✅ 🇪🇸 Resultado ${partido.resultado} confirmado por ambos capitanes.\n🇬🇧 *Result ${partido.resultado} confirmed by both captains.*`);
                 await procesarResultadoFinal(partido, interaction);
             } else {
-                partido.reportedScores = {};
-                await interaction.channel.send({ content: `**⚠️ 🇪🇸 ¡Conflicto de resultados!**\nLos marcadores enviados por ambos capitanes no coinciden. Se han reseteado. Por favor, volved a reportar el resultado correcto. Si no hay acuerdo, usad el botón de "Solicitar Arbitraje".\n\n**⚠️ 🇬🇧 Result conflict!**\nThe scores submitted by both captains do not match. They have been reset. Please report the correct result again. If there is no agreement, use the "Request Referee" button.`});
+                partido.reportedScores = {}; // Resetea los reportes
+                await interaction.channel.send({ content: `**⚠️ 🇪🇸 ¡Conflicto de resultados!**\nLos marcadores enviados no coinciden. Se han reseteado. Por favor, volved a reportar. Si no hay acuerdo, usad "Solicitar Arbitraje".\n\n**⚠️ 🇬🇧 Result conflict!**\nThe scores do not match. They have been reset. Please report again. If there is no agreement, use "Request Referee".`});
                 await interaction.editReply({ content: `❌ 🇪🇸 Los resultados no coinciden. Se ha enviado un aviso en el hilo.\n🇬🇧 *The reported results do not match. A notice has been sent in the thread.*` });
             }
         } else {
@@ -1200,7 +1212,7 @@ async function handleModalSubmit(interaction) {
         if (partido.status !== 'finalizado') {
             partido.status = 'finalizado';
         }
-        await interaction.editReply(`✅ 🇪🇸 Resultado modificado por el administrador a ${partido.resultado}.\n🇬🇧 *Result changed by the administrator to ${partido.resultado}.*`);
+        await interaction.editReply(`✅ 🇪🇸 Resultado modificado por ${interaction.user.tag} a ${partido.resultado}.\n🇬🇧 *Result changed by ${interaction.user.tag} to ${partido.resultado}.*`);
         await procesarResultadoFinal(partido, interaction);
     
     } 
@@ -1232,9 +1244,10 @@ async function handleModalSubmit(interaction) {
 async function procesarResultadoFinal(partido, interaction, fromSimulation = false) {
     await updateMatchThreadName(partido);
 
+    // Si es un partido de fase de grupos
     if (partido.nombreGrupo) {
         await actualizarEstadisticasYClasificacion(partido, partido.nombreGrupo, interaction.guild);
-    } else { 
+    } else { // Si es un partido de eliminatoria
         await procesarResultadoEliminatoria(interaction.guild);
     }
     
@@ -1251,6 +1264,7 @@ async function procesarResultadoFinal(partido, interaction, fromSimulation = fal
 function findMatch(matchId, all = false) {
     if (!torneoActivo) return { partido: null };
 
+    // --- CORRECCIÓN --- Se busca en todas las fases eliminatorias posibles.
     const allMatches = [
         ...(Object.values(torneoActivo.calendario || {}).flat()),
         ...(torneoActivo.eliminatorias?.octavos || []),
@@ -1307,6 +1321,7 @@ async function realizarSorteoDeGrupos(guild) {
         const equiposGrupo = grupos[nombreGrupo].equipos;
         calendario[nombreGrupo] = [];
 
+        // Generador de calendario "Round Robin" para 4 equipos
         if (equiposGrupo.length === 4) {
             const [team1, team2, team3, team4] = equiposGrupo;
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, team1, team2));
@@ -1315,12 +1330,11 @@ async function realizarSorteoDeGrupos(guild) {
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, team2, team4));
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, team1, team4));
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, team2, team3));
-        } else {
-             console.warn(`[ADVERTENCIA] El grupo ${nombreGrupo} no tiene 4 equipos. Se usará la lógica de emparejamiento antigua.`);
-            let jornadaCounter = 1;
+        } else { // Fallback para otros tamaños (aunque los formatos son de 4)
+             console.warn(`[ADVERTENCIA] El grupo ${nombreGrupo} no tiene 4 equipos. Se usará un generador simple.`);
             for (let i = 0; i < equiposGrupo.length; i++) {
                 for (let j = i + 1; j < equiposGrupo.length; j++) {
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, jornadaCounter++, equiposGrupo[i], equiposGrupo[j]));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, i + 1, equiposGrupo[i], equiposGrupo[j]));
                 }
             }
         }
@@ -1328,7 +1342,7 @@ async function realizarSorteoDeGrupos(guild) {
     
     torneo.grupos = grupos;
     torneo.calendario = calendario;
-    torneo.eliminatorias = {
+    torneo.eliminatorias = { // --- CORRECCIÓN --- Se inicializa la estructura completa para evitar errores.
         rondaActual: null,
         octavos: [],
         cuartos: [],
@@ -1338,7 +1352,6 @@ async function realizarSorteoDeGrupos(guild) {
 
     const gruposChannel = await client.channels.fetch(CLASIFICACION_CHANNEL_ID).catch(() => null);
      if (!gruposChannel) {
-        console.error(`[ERROR FATAL] No se encontró el canal de clasificación predefinido (ID: ${CLASIFICACION_CHANNEL_ID}).`);
         await adminChannel.send(`❌ Error Crítico: No se pudo encontrar el canal de clasificación predefinido.`);
         return;
     }
@@ -1366,6 +1379,7 @@ async function realizarSorteoDeGrupos(guild) {
     await adminChannel.send(`✅ Sorteo completado y ${createdCount} hilos de partido para la Jornada 1 creados.`);
 }
 
+// --- MEJORA --- Lógica mejorada para crear hilos de la siguiente jornada solo cuando la anterior ha terminado.
 async function verificarYCrearSiguientesHilos(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
 
@@ -1376,6 +1390,7 @@ async function verificarYCrearSiguientesHilos(guild) {
         const primeraJornadaPendiente = Math.min(...partidosPendientes.map(p => p.jornada));
         const partidosJornadaAnterior = torneoActivo.calendario[groupName].filter(p => p.jornada === primeraJornadaPendiente - 1);
         
+        // Si hay partidos en la jornada anterior y TODOS están finalizados...
         if (partidosJornadaAnterior.length > 0 && partidosJornadaAnterior.every(p => p.status === 'finalizado')) {
              const partidosACrear = torneoActivo.calendario[groupName].filter(p => p.jornada === primeraJornadaPendiente);
              for(const partido of partidosACrear) {
@@ -1389,8 +1404,10 @@ async function verificarYCrearSiguientesHilos(guild) {
     saveBotState();
 }
 
+// --- MEJORA --- Función reutilizable para crear partidos de cualquier ronda eliminatoria.
 function crearPartidosEliminatoria(equipos, ronda) {
     let partidos = [];
+    // Emparejamiento aleatorio simple
     for (let i = equipos.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [equipos[i], equipos[j]] = [equipos[j], equipos[i]];
@@ -1399,7 +1416,7 @@ function crearPartidosEliminatoria(equipos, ronda) {
     for(let i = 0; i < equipos.length; i += 2) {
         const equipoA = equipos[i];
         const equipoB = equipos[i+1];
-        if (!equipoA || !equipoB) continue;
+        if (!equipoA || !equipoB) continue; // Evita error si hay número impar de equipos
         const partido = {
             matchId: `match_${ronda}_${i/2}_${Date.now()}`,
             equipoA,
@@ -1407,7 +1424,7 @@ function crearPartidosEliminatoria(equipos, ronda) {
             resultado: null,
             reportedScores: {},
             status: 'en_curso',
-            nombreGrupo: null,
+            nombreGrupo: null, // No pertenece a un grupo
             ronda: ronda
         };
         partidos.push(partido);
@@ -1415,11 +1432,12 @@ function crearPartidosEliminatoria(equipos, ronda) {
     return partidos;
 }
 
+// --- CORRECCIÓN --- Lógica refactorizada para manejar el inicio de cualquier fase eliminatoria.
 async function iniciarFaseEliminatoria(guild) {
     if (!torneoActivo || torneoActivo.status !== 'fase_de_grupos') return;
 
     let todosPartidosFinalizados = Object.values(torneoActivo.calendario).flat().every(p => p.status === 'finalizado');
-    if (!todosPartidosFinalizados) return;
+    if (!todosPartidosFinalizados) return; // No hacer nada si la fase de grupos no ha terminado
 
     const format = TOURNAMENT_FORMATS[torneoActivo.formatId];
     if (!format || format.knockoutStages.length === 0) return;
@@ -1430,7 +1448,7 @@ async function iniciarFaseEliminatoria(guild) {
     await actualizarNombresCanalesConIcono();
 
     const clasificados = [];
-    const gruposOrdenados = Object.keys(torneoActivo.grupos).sort();
+    const gruposOrdenados = Object.keys(torneoActivo.grupos).sort(); // Ordena los grupos A, B, C...
 
     for (const groupName of gruposOrdenados) {
         const grupoOrdenado = [...torneoActivo.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b,groupName));
@@ -1466,11 +1484,13 @@ async function iniciarFaseEliminatoria(guild) {
     saveBotState();
 }
 
+// --- CORRECCIÓN --- Lógica refactorizada para procesar el resultado de cualquier fase eliminatoria y avanzar.
 async function procesarResultadoEliminatoria(guild) {
     if (!torneoActivo) return;
     const rondaActual = torneoActivo.eliminatorias.rondaActual;
     if (!rondaActual) return;
 
+    // Si la ronda actual es la final y ha terminado, procesar el resultado final.
     if (rondaActual === 'final' && torneoActivo.eliminatorias.final?.status === 'finalizado') {
         await handleFinalResult();
         return;
@@ -1478,7 +1498,7 @@ async function procesarResultadoEliminatoria(guild) {
 
     const partidosRonda = torneoActivo.eliminatorias[rondaActual];
     if (!partidosRonda || !partidosRonda.every(p => p.status === 'finalizado')) {
-        return;
+        return; // No hacer nada si la ronda actual no ha terminado
     }
 
     const format = TOURNAMENT_FORMATS[torneoActivo.formatId];
@@ -1486,6 +1506,7 @@ async function procesarResultadoEliminatoria(guild) {
     const siguienteRonda = format.knockoutStages[indiceRondaActual + 1];
 
     if (!siguienteRonda) {
+        // Esto no debería ocurrir si la final se maneja bien, pero es una salvaguarda.
         console.error("Error: Se completó una ronda pero no se encontró la siguiente.");
         return;
     }
@@ -1532,6 +1553,7 @@ async function handleFinalResult() {
         console.warn("[WARN] Se intentó ejecutar handleFinalResult sin un torneo activo. Ignorando.");
         return;
     }
+    // Evitar que se ejecute múltiples veces
     if (!torneoActivo.eliminatorias.final || torneoActivo.status === 'terminado') return;
 
     const final = torneoActivo.eliminatorias.final;
@@ -1577,15 +1599,18 @@ async function handleFinalResult() {
     }
 }
 
+// Esta función modifica el "master object" del equipo en `torneoActivo.grupos`.
 async function revertirEstadisticas(partido, oldResult) {
-    if (!partido.nombreGrupo) return;
+    if (!partido.nombreGrupo) return; // Solo revierte para partidos de grupo
 
     const [oldGolesA, oldGolesB] = oldResult.split('-').map(Number);
+    // Encuentra la referencia al objeto original del equipo
     const equipoA = torneoActivo.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
     const equipoB = torneoActivo.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
 
     if (!equipoA || !equipoB) return;
 
+    // Revierte las estadísticas
     equipoA.stats.pj -= 1;
     equipoB.stats.pj -= 1;
     equipoA.stats.gf -= oldGolesA;
@@ -1601,8 +1626,10 @@ async function revertirEstadisticas(partido, oldResult) {
     }
 }
 
+// Esta función también modifica el "master object" del equipo.
 async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild) {
     const [golesA, golesB] = partido.resultado.split('-').map(Number);
+    // Encuentra la referencia al objeto original del equipo
     const equipoA = torneoActivo.grupos[nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
     const equipoB = torneoActivo.grupos[nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
 
@@ -1629,21 +1656,32 @@ async function actualizarEstadisticasYClasificacion(partido, nombreGrupo, guild)
     saveBotState();
 
     await actualizarMensajeClasificacion();
-    await verificarYCrearSiguientesHilos(guild);
-    await iniciarFaseEliminatoria(guild);
+    await verificarYCrearSiguientesHilos(guild); // Verifica si se debe crear la siguiente jornada
+    await iniciarFaseEliminatoria(guild); // Verifica si la fase de grupos ha terminado para iniciar eliminatorias
 }
 
+// --- CORRECCIÓN --- Se añade el desempate por Goles a Favor (GF)
 function sortTeams(a, b, groupName) {
+    // 1. Puntos
     if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
+    // 2. Diferencia de Goles (DG)
     if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
+    // 3. Goles a Favor (GF)
     if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
-
+    // 4. Enfrentamiento directo
     const enfrentamiento = torneoActivo.calendario[groupName].find(p => (p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id));
     if (enfrentamiento && enfrentamiento.resultado) {
         const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
-        if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
-        else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
+        if (enfrentamiento.equipoA.id === a.id) { // a es equipoA en el partido
+            if (golesA > golesB) return -1; // a gana
+            if (golesB > golesA) return 1;  // b gana
+        }
+        else { // b es equipoA en el partido
+            if (golesB > golesA) return -1; // a gana
+            if (golesA > golesB) return 1;  // b gana
+        }
     }
+    // 5. Sorteo (implícito al no ordenar)
     return 0;
 }
 
@@ -1654,7 +1692,7 @@ async function actualizarMensajeClasificacion() {
     const message = await channel.messages.fetch(torneoActivo.publicGroupsMessageId).catch(() => null);
     if (!message) return;
     const newEmbed = EmbedBuilder.from(message.embeds[0]);
-    newEmbed.setFields([]);
+    newEmbed.setFields([]); // Limpia los campos antiguos
 
     for (const groupName in torneoActivo.grupos) {
         const grupo = torneoActivo.grupos[groupName];
@@ -1664,7 +1702,7 @@ async function actualizarMensajeClasificacion() {
         const header = "EQUIPO".padEnd(nameWidth) + "PJ  PTS  GF  GC   DG";
 
         const table = equiposOrdenados.map(e => {
-            const teamName = e.nombre.slice(0, nameWidth - 1).padEnd(nameWidth);
+            const teamName = e.nombre.slice(0, nameWidth - 1).padEnd(nameWidth); // Evita desbordamiento
             const pj = e.stats.pj.toString().padStart(2);
             const pts = e.stats.pts.toString().padStart(3);
             const gf = e.stats.gf.toString().padStart(3);
@@ -1673,7 +1711,7 @@ async function actualizarMensajeClasificacion() {
             const dg = (dgVal >= 0 ? '+' : '') + dgVal.toString();
             const paddedDg = dg.padStart(4);
 
-            return `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}`;
+            return `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}`; // Espacio extra
         }).join('\n');
 
         newEmbed.addFields({ name: `**${groupName}**`, value: "```\n" + header + "\n" + table + "\n```" });
@@ -1681,6 +1719,7 @@ async function actualizarMensajeClasificacion() {
     await message.edit({ embeds: [newEmbed] });
 }
 
+// --- MEJORA --- Formato del calendario mejorado para mayor legibilidad usando monospace y padding.
 async function actualizarMensajeCalendario() {
     if (!torneoActivo || !torneoActivo.calendarioMessageId || !CALENDARIO_JORNADAS_CHANNEL_ID) return;
     
@@ -1697,6 +1736,7 @@ async function actualizarMensajeCalendario() {
     const calendarioOrdenado = Object.keys(torneoActivo.calendario).sort();
     let allFields = [];
 
+    // Fase de Grupos
     for (const groupName of calendarioOrdenado) {
         const partidosDelGrupo = torneoActivo.calendario[groupName];
         
@@ -1758,13 +1798,13 @@ client.on('messageReactionAdd', async (reaction, user) => {
     if (user.bot) return;
 
     if (reaction.partial) {
-        try { await reaction.fetch(); } catch (error) { console.error('Error al obtener reacción parcial:', error); return; }
+        try { await reaction.fetch(); } catch (error) { return; }
     }
     if (reaction.message.partial) {
-        try { await reaction.message.fetch(); } catch (error) { console.error('Error al obtener mensaje parcial:', error); return; }
+        try { await reaction.message.fetch(); } catch (error) { return; }
     }
 
-    if (!reaction.message.embeds[0] || !reaction.message.embeds[0].title || reaction.message.embeds[0].title !== LANGUAGE_SETUP_TITLE) {
+    if (!reaction.message.embeds[0] || !reaction.message.embeds[0].title || !reaction.message.embeds[0].title.includes('Selección de Idioma')) {
         return;
     }
 
@@ -1783,12 +1823,12 @@ client.on('messageReactionAdd', async (reaction, user) => {
         const roleToAdd = guild.roles.cache.find(r => r.name === newRoleName);
 
         if (!roleToAdd) {
-            console.warn(`[ADVERTENCIA] El rol de idioma "${newRoleName}" no fue encontrado en el servidor.`);
+            console.warn(`[ADVERTENCIA] El rol de idioma "${newRoleName}" no fue encontrado.`);
             return;
         }
         
         if (member.roles.cache.has(roleToAdd.id)) {
-            return;
+            return; // Ya tiene el rol, no hacer nada
         }
 
         const rolesToRemove = [];
@@ -1816,7 +1856,7 @@ async function handleSetupCommand(message) {
         .setColor('#8b5cf6')
         .setTitle(LANGUAGE_SETUP_TITLE) 
         .setDescription('Reacciona a tu bandera para traducir tus mensajes.\n*React with your flag to have your messages translated.*')
-        .addFields(Object.values(languageRoles).map(role => ({ name: `${Object.keys(languageRoles).find(key => languageRoles[key] === role)} ${role.name}`, value: ``, inline: true })))
+        .addFields(Object.values(languageRoles).map(role => ({ name: `${Object.keys(languageRoles).find(key => languageRoles[key] === role)} ${role.name}`, value: `\u200b`, inline: true })))
         .setFooter({ text: 'Solo puedes tener un rol de idioma.' });
     try {
         const sentMessage = await message.channel.send({ embeds: [embed] });
