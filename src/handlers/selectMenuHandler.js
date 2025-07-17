@@ -8,57 +8,43 @@ export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
     const value = interaction.values[0];
 
-    // --- Flujo de creación de torneo ---
-    if (customId.startsWith('admin_create_')) {
-        const parts = customId.split('_');
-        
-        if (parts[2] === 'format') {
-            const formatId = value;
-            const typeMenu = new StringSelectMenuBuilder()
-                .setCustomId(`admin_create_type_${formatId}`)
-                .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
-                .addOptions([
-                    { label: 'Gratuito', description: 'Inscripción libre.', value: 'gratis' },
-                    { label: 'De Pago', description: 'Se solicitará un pago.', value: 'pago' },
-                ]);
-            const row = new ActionRowBuilder().addComponents(typeMenu);
-            return interaction.update({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, selecciona el tipo:`, components: [row] });
+    // Caso especial: abrir un modal no se puede hacer después de un deferUpdate.
+    if (customId.startsWith('admin_create_type')) {
+        const formatId = customId.split('_').pop();
+        const type = value;
+        const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}`).setTitle('Finalizar Creación');
+        const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
+
+        if (type === 'pago') {
+            const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal').setLabel("Enlace de PayPal.Me").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(false);
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(paypalInput),
+                new ActionRowBuilder().addComponents(prizeInputCampeon),
+                new ActionRowBuilder().addComponents(prizeInputFinalista)
+            );
         }
+        await interaction.showModal(modal);
+        return;
+    }
 
-        if (parts[2] === 'type') {
-            const formatId = parts.slice(3).join('_');
-            const type = value;
+    // Para el resto de menús, actualizamos el mensaje.
+    await interaction.deferUpdate();
 
-            // --- NUEVA LÓGICA DE CUSTOM ID ---
-            const modal = new ModalBuilder()
-                .setCustomId(`create_tournament:${formatId}:${type}`) // Usamos ':' como separador
-                .setTitle('Finalizar Creación de Torneo');
-            
-            const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
-
-            if (type === 'pago') {
-                const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal').setLabel("Enlace de PayPal.Me").setStyle(TextInputStyle.Short).setRequired(true);
-                const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true);
-                const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(false);
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(paypalInput),
-                    new ActionRowBuilder().addComponents(prizeInputCampeon),
-                    new ActionRowBuilder().addComponents(prizeInputFinalista)
-                );
-            }
-            return interaction.showModal(modal);
-        }
+    if (customId.startsWith('admin_create_format')) {
+        const formatId = value;
+        const typeMenu = new StringSelectMenuBuilder().setCustomId(`admin_create_type_${formatId}`).setPlaceholder('Paso 2: Selecciona el tipo de torneo').addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
+        await interaction.editReply({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, selecciona el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
     }
     
-    // --- Flujo de gestión de torneo ---
     if (customId.startsWith('admin_manage_select_tournament')) {
-        await interaction.deferUpdate();
         const tournamentShortId = value;
         const db = getDb();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.followUp({ content: 'Error: No se pudo encontrar ese torneo.', ephemeral: true });
+        if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.', components: [] });
         const managementPanel = createTournamentManagementPanel(tournament);
-        return interaction.message.edit(managementPanel);
+        await interaction.editReply(managementPanel);
     }
 }
