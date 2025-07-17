@@ -8,6 +8,8 @@ export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
     const value = interaction.values[0];
 
+    // --- Flujo de creación de torneo ---
+
     if (customId.startsWith('admin_create_format')) {
         await interaction.deferUpdate();
         const formatId = value;
@@ -15,7 +17,7 @@ export async function handleSelectMenu(interaction) {
             .setCustomId(`admin_create_type_${formatId}`)
             .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
             .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
-        await interaction.editReply({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, selecciona el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
+        await interaction.editReply({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
         return;
     }
     
@@ -27,10 +29,11 @@ export async function handleSelectMenu(interaction) {
         modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
 
         if (type === 'pago') {
-            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por equipo (€) / Entry fee per team (€)").setStyle(TextInputStyle.Short).setRequired(true);
-            const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€) / Champion's Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
-            const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€) (0 si no hay) / Runner-up Prize (€) (0 if none)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
-            const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal').setLabel("Tu PayPal (para recibir los pagos) / Your PayPal").setStyle(TextInputStyle.Short).setRequired(true);
+            // ¡¡¡CORRECCIÓN AQUÍ!!! Etiquetas acortadas.
+            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
+            const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal').setLabel("Tu PayPal para recibir pagos").setStyle(TextInputStyle.Short).setRequired(true);
             
             modal.setTitle('Finalizar Creación (De Pago)');
             modal.addComponents(
@@ -44,6 +47,7 @@ export async function handleSelectMenu(interaction) {
         return;
     }
     
+    // --- Flujo de gestión de torneo ---
     if (customId.startsWith('admin_manage_select_tournament')) {
         await interaction.deferUpdate();
         const tournamentShortId = value;
