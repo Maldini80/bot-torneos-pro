@@ -1,17 +1,13 @@
-const express = require('express');
+// keep_alive.js
+import express from 'express';
+
 const server = express();
-
-console.log('[SERVIDOR WEB] Módulo keep_alive.js cargado.');
-
 server.all('/', (req, res) => {
   res.send('El servidor del bot está activo y funcionando.');
 });
-
-function keepAlive() {
+export function keepAlive() {
   const port = process.env.PORT || 3000;
   server.listen(port, () => {
-    console.log(`✅ [SERVIDOR WEB] Escuchando en el puerto ${port}. Render ya puede verme.`);
+    console.log(`✅ [SERVIDOR WEB] Escuchando en el puerto ${port}.`);
   });
 }
-
-module.exports = keepAlive;
