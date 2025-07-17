@@ -12,12 +12,22 @@ export async function createNewTournament(client, guild, name, shortId, config) 
     const format = TOURNAMENT_FORMATS[config.formatId];
     if (!format) throw new Error('Formato de torneo inválido.');
     const newTournament = {
-        _id: new ObjectId(), shortId: shortId, guildId: guild.id, nombre: name,
+        _id: new ObjectId(),
+        shortId: shortId,
+        guildId: guild.id,
+        nombre: name,
         status: 'inscripcion_abierta',
-        config: { formatId: config.formatId, format: format, isPaid: config.isPaid, prizeCampeon: config.prizeCampeon || 0, prizeFinalista: config.prizeFinalista || 0, enlacePaypal: config.enlacePaypal || null, },
+        config: {
+            formatId: config.formatId, format: format, isPaid: config.isPaid,
+            prizeCampeon: config.prizeCampeon || 0, prizeFinalista: config.prizeFinalista || 0,
+            enlacePaypal: config.enlacePaypal || null,
+        },
         teams: { pendientes: {}, aprobados: {} },
         structure: { grupos: {}, calendario: {}, eliminatorias: {} },
-        discordMessageIds: { statusMessageId: null, matchThreadsParentId: null, teamListMessageId: null, classificationMessageId: null, calendarMessageId: null }
+        discordMessageIds: {
+            statusMessageId: null, matchThreadsParentId: null, teamListMessageId: null,
+            classificationMessageId: null, calendarMessageId: null
+        }
     };
     const matchThreadsParent = await guild.channels.create({ name: `⚔️-partidos-${shortId}`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, });
     newTournament.discordMessageIds.matchThreadsParentId = matchThreadsParent.id;
@@ -78,7 +88,6 @@ export async function startGroupStage(client, guild, tournament) {
     console.log(`[INFO] Sorteo realizado para el torneo: ${tournament.nombre}`);
 }
 
-// LÍNEA CORREGIDA:
 export async function approveTeam(client, tournament, teamData) {
     if (!tournament.teams.aprobados) tournament.teams.aprobados = {};
     tournament.teams.aprobados[teamData.capitanId] = teamData;
@@ -118,6 +127,7 @@ export async function updatePublicMessages(client, tournament) {
     const db = getDb();
     const latestTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
     if (!latestTournamentState) return;
+
     const updateTasks = [
         client.channels.fetch(CHANNELS.TORNEOS_STATUS).then(c => c.messages.fetch(latestTournamentState.discordMessageIds.statusMessageId).then(m => m.edit(createTournamentStatusEmbed(latestTournamentState)))),
         client.channels.fetch(CHANNELS.CAPITANES_INSCRITOS).then(c => c.messages.fetch(latestTournamentState.discordMessageIds.teamListMessageId).then(m => m.edit(createTeamListEmbed(latestTournamentState)))),
@@ -126,5 +136,6 @@ export async function updatePublicMessages(client, tournament) {
         updateTasks.push(client.channels.fetch(CHANNELS.CLASIFICACION).then(c => c.messages.fetch(latestTournamentState.discordMessageIds.classificationMessageId).then(m => m.edit(createClassificationEmbed(latestTournamentState)))));
         updateTasks.push(client.channels.fetch(CHANNELS.CALENDARIO).then(c => c.messages.fetch(latestTournamentState.discordMessageIds.calendarMessageId).then(m => m.edit(createCalendarEmbed(latestTournamentState)))));
     }
+    
     await Promise.all(updateTasks).catch(e => console.warn(`[WARN] Falla parcial al actualizar mensajes públicos para ${latestTournamentState.nombre}: ${e.message}`));
 }
