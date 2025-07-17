@@ -1,8 +1,9 @@
 {
-  "name": "discord-tournament-bot",
-  "version": "1.0.0",
-  "description": "Bot de Discord para gestionar torneos con sistema multilenguaje.",
+  "name": "discord-tournament-bot-v2",
+  "version": "2.0.0",
+  "description": "Bot de Discord avanzado para gestionar múltiples torneos simultáneamente.",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node deploy-commands.js && node index.js"
   },
@@ -15,7 +16,5 @@
   },
   "engines": {
     "node": "18.x"
-  },
-  "author": "",
-  "license": "ISC"
+  }
 }
