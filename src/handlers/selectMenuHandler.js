@@ -5,48 +5,43 @@ import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuild
 import { createTournamentManagementPanel } from '../utils/embeds.js';
 
 export async function handleSelectMenu(interaction) {
-    const customIdParts = interaction.customId.split('_');
-    const action = customIdParts[0];
+    const customId = interaction.customId;
     const value = interaction.values[0];
 
     // --- Flujo de creación de torneo ---
-    if (action === 'admin' && customIdParts[1] === 'create') {
-        if (customIdParts[2] === 'format') {
+    if (customId.startsWith('admin_create_')) {
+        const parts = customId.split('_');
+        
+        if (parts[2] === 'format') {
             const formatId = value;
             const typeMenu = new StringSelectMenuBuilder()
                 .setCustomId(`admin_create_type_${formatId}`)
                 .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
                 .addOptions([
-                    { label: 'Gratuito', description: 'Inscripción libre y sin coste.', value: 'gratis' },
-                    { label: 'De Pago', description: 'Se solicitará un pago para inscribirse.', value: 'pago' },
+                    { label: 'Gratuito', description: 'Inscripción libre.', value: 'gratis' },
+                    { label: 'De Pago', description: 'Se solicitará un pago.', value: 'pago' },
                 ]);
             const row = new ActionRowBuilder().addComponents(typeMenu);
             return interaction.update({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, selecciona el tipo:`, components: [row] });
         }
 
-        if (customIdParts[2] === 'type') {
-            const formatId = customIdParts.slice(3).join('_');
+        if (parts[2] === 'type') {
+            const formatId = parts.slice(3).join('_');
             const type = value;
 
+            // --- NUEVA LÓGICA DE CUSTOM ID ---
             const modal = new ModalBuilder()
-                .setCustomId(`create_tournament_final`)
+                .setCustomId(`create_tournament:${formatId}:${type}`) // Usamos ':' como separador
                 .setTitle('Finalizar Creación de Torneo');
             
             const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-            const formatIdInput = new TextInputBuilder().setCustomId('formatId').setLabel('ID de Formato (No editar)').setStyle(TextInputStyle.Short).setValue(formatId).setRequired(true);
-            const typeInput = new TextInputBuilder().setCustomId('type').setLabel('Tipo (No editar)').setStyle(TextInputStyle.Short).setValue(type).setRequired(true);
-
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(nombreInput),
-                new ActionRowBuilder().addComponents(formatIdInput),
-                new ActionRowBuilder().addComponents(typeInput)
-            );
+            modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
 
             if (type === 'pago') {
                 const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal').setLabel("Enlace de PayPal.Me").setStyle(TextInputStyle.Short).setRequired(true);
                 const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true);
-                const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(false).setPlaceholder('Opcional');
-                 modal.addComponents(
+                const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(false);
+                modal.addComponents(
                     new ActionRowBuilder().addComponents(paypalInput),
                     new ActionRowBuilder().addComponents(prizeInputCampeon),
                     new ActionRowBuilder().addComponents(prizeInputFinalista)
@@ -57,7 +52,7 @@ export async function handleSelectMenu(interaction) {
     }
     
     // --- Flujo de gestión de torneo ---
-    if (action === 'admin' && customIdParts[1] === 'manage' && customIdParts[2] === 'select' && customIdParts[3] === 'tournament') {
+    if (customId.startsWith('admin_manage_select_tournament')) {
         await interaction.deferUpdate();
         const tournamentShortId = value;
         const db = getDb();
