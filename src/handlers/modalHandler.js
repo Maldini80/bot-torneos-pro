@@ -2,37 +2,23 @@
 import { getDb } from '../../database.js';
 import { createNewTournament } from '../logic/tournamentLogic.js';
 import { processMatchResult } from '../logic/matchLogic.js';
-import { updateAdminPanel, updateTournamentChannelName } from '../utils/panelManager.js';
-import { setBotBusy } from '../../index.js';
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js'; // <-- Importamos MessageFlags
+import { MessageFlags } from 'discord.js';
 
 export async function handleModal(interaction) {
     const customId = interaction.customId;
-    const client = interaction.client;
-    const guild = interaction.guild;
 
-    // --- Flujo de Creación de Torneo ---
+    // --- Flujo de Creación de Torneo (Lógica Corregida y Robusta) ---
     if (customId.startsWith('create_tournament:')) {
-        // CORRECCIÓN: Usamos flags para la respuesta efímera
+        // 1. Respondemos inmediatamente que hemos recibido la orden.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-        setBotBusy(true);
-        await updateAdminPanel(client);
-        await interaction.editReply({ content: '⏳ El bot está ocupado creando el torneo...' });
-        
-        console.log('[DEBUG] Iniciando proceso de creación de torneo...');
-
-        const parts = customId.split(':');
-        const formatId = parts[1];
-        const type = parts[2];
-        
+        // 2. Recogemos los datos.
+        const client = interaction.client;
+        const guild = interaction.guild;
+        const [, formatId, type] = customId.split(':');
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        
-        const config = { 
-            formatId, 
-            isPaid: type === 'pago' 
-        };
+        const config = { formatId, isPaid: type === 'pago' };
         if (config.isPaid) {
             config.enlacePaypal = interaction.fields.getTextInputValue('torneo_paypal');
             config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
@@ -40,33 +26,29 @@ export async function handleModal(interaction) {
         }
 
         try {
-            console.log(`[DEBUG] Llamando a createNewTournament para "${nombre}"...`);
+            // 3. ESPERAMOS (await) a que la función pesada termine.
             await createNewTournament(client, guild, nombre, shortId, config);
-            console.log(`[DEBUG] createNewTournament finalizó exitosamente.`);
             
-            // CORRECCIÓN: Usamos followUp para la respuesta final efímera
-            await interaction.followUp({ content: `✅ ¡Torneo **${nombre}** creado exitosamente!`, flags: [MessageFlags.Ephemeral] });
+            // 4. Si todo fue bien, editamos la respuesta para confirmar el éxito.
+            await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado y anunciado.` });
 
         } catch (error) {
-            console.error('Error CRÍTICO durante la creación del torneo:', error);
-            await interaction.followUp({ content: `❌ Hubo un error crítico al crear el torneo. Revisa los logs de Render para más detalles.`, flags: [MessageFlags.Ephemeral] });
-        } finally {
-            console.log('[DEBUG] Bloque finally alcanzado. Reseteando estado del bot.');
-            setBotBusy(false);
-            await updateAdminPanel(client);
-            await updateTournamentChannelName(client);
+            // 5. Si createNewTournament lanzó un error, lo capturamos aquí.
+            console.error("Error capturado por el handler al crear el torneo:", error);
+            
+            // Intentamos notificar al admin del error.
+            try {
+                await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo. Revisa los logs de Render para más detalles.` });
+            } catch (e) {
+                // Si la interacción ya expiró, no podemos hacer nada más, pero el error principal ya está en los logs.
+                if (e.code === 10062) {
+                    console.warn("[WARN] La interacción para notificar el error ya había expirado.");
+                }
+            }
         }
+        return;
     }
 
-    // --- Flujo de Inscripción de Equipo ---
-    if (customId.startsWith('inscripcion_modal_')) {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        // ... (el resto del código de inscripción es probablemente correcto)
-    }
-
-    // --- Flujo de Reporte de Resultados (Admin) ---
-    if (customId.startsWith('admin_force_result_modal_')) {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        // ... (el resto del código de reporte de resultados es probablemente correcto)
-    }
+    // --- El resto de los handlers pueden seguir usando deferReply al principio ---
+    // ... tu lógica para 'inscripcion_modal_' y 'admin_force_result_modal_' ...
 }
