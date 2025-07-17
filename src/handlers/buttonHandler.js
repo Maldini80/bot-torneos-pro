@@ -1,8 +1,8 @@
 // src/handlers/buttonHandler.js
-import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
-import { approveTeam } from '../logic/tournamentLogic.js';
+import { approveTeam, endTournament } from '../logic/tournamentLogic.js';
 import { createTournamentStatusEmbed } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
@@ -16,31 +16,33 @@ export async function handleButton(interaction) {
     }
 
     // --- ACCIONES DE USUARIO ---
-    if (action === 'user' && params[0] === 'view' && params[1] === 'details') {
-        const tournamentShortId = params[2];
-        const db = getDb();
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply({ content: 'Este torneo ya no existe.', ephemeral: true });
+    if (action === 'user') {
+        if (params[0] === 'view' && params[1] === 'details') {
+            const tournamentShortId = params[2];
+            const db = getDb();
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) return interaction.editReply({ content: 'Este torneo ya no existe.', ephemeral: true });
 
-        const detailsRow = new ActionRowBuilder();
-        if (tournament.discordMessageIds.teamListMessageId) detailsRow.addComponents(new ButtonBuilder().setLabel('Lista de Equipos').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${tournament.guildId}/${CHANNELS.CAPITANES_INSCRITOS}/${tournament.discordMessageIds.teamListMessageId}`));
-        if (tournament.status !== 'inscripcion_abierta' && tournament.discordMessageIds.classificationMessageId) detailsRow.addComponents(new ButtonBuilder().setLabel('Clasificación').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${tournament.guildId}/${CHANNELS.CLASIFICACION}/${tournament.discordMessageIds.classificationMessageId}`));
-        if (tournament.status !== 'inscripcion_abierta' && tournament.discordMessageIds.calendarMessageId) detailsRow.addComponents(new ButtonBuilder().setLabel('Calendario').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${tournament.guildId}/${CHANNELS.CALENDARIO}/${tournament.discordMessageIds.calendarMessageId}`));
-        detailsRow.addComponents(new ButtonBuilder().setCustomId(`user_hide_details_${tournament.shortId}`).setLabel('Volver').setStyle(ButtonStyle.Secondary).setEmoji('⬅️'));
-        
-        await interaction.message.edit({ components: [detailsRow] });
-        return interaction.editReply({ content: 'Mostrando detalles del torneo.', ephemeral: true });
-    }
+            const detailsRow = new ActionRowBuilder();
+            if (tournament.discordMessageIds.teamListMessageId) detailsRow.addComponents(new ButtonBuilder().setLabel('Lista de Equipos').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${tournament.guildId}/${CHANNELS.CAPITANES_INSCRITOS}/${tournament.discordMessageIds.teamListMessageId}`));
+            if (tournament.status !== 'inscripcion_abierta' && tournament.discordMessageIds.classificationMessageId) detailsRow.addComponents(new ButtonBuilder().setLabel('Clasificación').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${tournament.guildId}/${CHANNELS.CLASIFICACION}/${tournament.discordMessageIds.classificationMessageId}`));
+            if (tournament.status !== 'inscripcion_abierta' && tournament.discordMessageIds.calendarMessageId) detailsRow.addComponents(new ButtonBuilder().setLabel('Calendario').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${tournament.guildId}/${CHANNELS.CALENDARIO}/${tournament.discordMessageIds.calendarMessageId}`));
+            detailsRow.addComponents(new ButtonBuilder().setCustomId(`user_hide_details_${tournament.shortId}`).setLabel('Volver').setStyle(ButtonStyle.Secondary).setEmoji('⬅️'));
+            
+            await interaction.message.edit({ components: [detailsRow] });
+            return interaction.editReply({ content: 'Mostrando detalles del torneo.', ephemeral: true });
+        }
 
-    if (action === 'user' && params[0] === 'hide' && params[1] === 'details') {
-        const tournamentShortId = params[2];
-        const db = getDb();
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply({ content: 'Este torneo ya no existe.', ephemeral: true });
-        
-        const originalContent = createTournamentStatusEmbed(tournament);
-        await interaction.message.edit(originalContent);
-        return interaction.editReply({ content: 'Detalles ocultos.', ephemeral: true });
+        if (params[0] === 'hide' && params[1] === 'details') {
+            const tournamentShortId = params[2];
+            const db = getDb();
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) return interaction.editReply({ content: 'Este torneo ya no existe.', ephemeral: true });
+            
+            const originalContent = createTournamentStatusEmbed(tournament);
+            await interaction.message.edit(originalContent);
+            return interaction.editReply({ content: 'Detalles ocultos.', ephemeral: true });
+        }
     }
     
     if (action === 'inscribir' && params[0] === 'equipo' && params[1] === 'start') {
@@ -87,6 +89,48 @@ export async function handleButton(interaction) {
             setBotBusy(false);
             await updateAdminPanel(client);
             await interaction.followUp({ content: '✅ El bot ha sido reseteado al estado "Listo". Los botones del panel están activos.', ephemeral: true });
+        }
+
+        if (params[0] === 'return' && params[1] === 'to' && params[2] === 'main' && params[3] === 'panel') {
+            await interaction.deferUpdate();
+            await updateAdminPanel(client);
+        }
+
+        if (params[0] === 'end' && params[1] === 'tournament') {
+            const tournamentShortId = params[2];
+            const db = getDb();
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.', ephemeral: true });
+
+            try {
+                setBotBusy(true);
+                await updateAdminPanel(client);
+                await interaction.editReply({ content: `⏳ Finalizando el torneo **${tournament.nombre}**...`, ephemeral: true });
+                await endTournament(client, tournament);
+                await interaction.followUp({ content: `✅ Torneo **${tournament.nombre}** finalizado y archivado.`, ephemeral: true });
+            } catch (e) {
+                await interaction.followUp({ content: `❌ Ocurrió un error al finalizar el torneo. Revisa los logs.`, ephemeral: true });
+                console.error("Error al finalizar torneo:", e);
+            } finally {
+                setBotBusy(false);
+                await updateAdminPanel(client);
+            }
+        }
+        
+        if (params[0] === 'view' && params[1] === 'pending') {
+            const tournamentShortId = params[2];
+            const db = getDb();
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+             if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.', ephemeral: true });
+            const pendingTeams = Object.values(tournament.teams.pendientes);
+            if (pendingTeams.length === 0) {
+                return interaction.editReply({ content: 'No hay equipos pendientes de aprobación para este torneo.', ephemeral: true });
+            }
+            const teamList = pendingTeams.map((team, index) => 
+                `${index + 1}. **${team.nombre}** (Capitán: ${team.capitanTag})`
+            ).join('\n');
+            const embed = new EmbedBuilder().setTitle(`⏳ Equipos Pendientes - ${tournament.nombre}`).setDescription(teamList).setColor('#e67e22');
+            await interaction.editReply({ embeds: [embed], ephemeral: true });
         }
     }
 }
