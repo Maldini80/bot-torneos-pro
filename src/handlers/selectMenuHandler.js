@@ -33,16 +33,13 @@ export async function handleSelectMenu(interaction) {
                 .setTitle('Finalizar Creación de Torneo');
             
             const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-            
             const formatIdInput = new TextInputBuilder().setCustomId('formatId').setLabel('ID de Formato (No editar)').setStyle(TextInputStyle.Short).setValue(formatId).setRequired(true);
             const typeInput = new TextInputBuilder().setCustomId('type').setLabel('Tipo (No editar)').setStyle(TextInputStyle.Short).setValue(type).setRequired(true);
 
             modal.addComponents(
                 new ActionRowBuilder().addComponents(nombreInput),
-                // --- INICIO DE LA CORRECCIÓN ---
-                new ActionRowBuilder().addComponents(formatIdInput), // Corregido de ActionRowRowBuilder
+                new ActionRowBuilder().addComponents(formatIdInput),
                 new ActionRowBuilder().addComponents(typeInput)
-                // --- FIN DE LA CORRECCIÓN ---
             );
 
             if (type === 'pago') {
