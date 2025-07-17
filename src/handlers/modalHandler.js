@@ -17,15 +17,14 @@ export async function handleModal(interaction) {
 
         setBotBusy(true);
         await updateAdminPanel(client);
-        await interaction.editReply({ content: '⏳ El bot está ocupado creando el torneo. El panel ha sido bloqueado...', ephemeral: true });
+        await interaction.editReply({ content: '⏳ El bot está ocupado creando el torneo...', ephemeral: true });
         
-        const type = customIdParts.pop(); 
-        const formatId = customIdParts.slice(3).join('_');
+        // --- NUEVA LÓGICA: Leemos los datos directamente de los campos del modal ---
+        const formatId = interaction.fields.getTextInputValue('formatId');
+        const type = interaction.fields.getTextInputValue('type');
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         
-        // --- INICIO DE LA CORRECCIÓN CLAVE ---
-        // Creamos el objeto config con toda la información necesaria
         const config = { 
             formatId, 
             isPaid: type === 'pago' 
@@ -35,10 +34,8 @@ export async function handleModal(interaction) {
             config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
             config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
         }
-        // --- FIN DE LA CORRECCIÓN CLAVE ---
 
         try {
-            // Se lo pasamos a la función
             await createNewTournament(client, guild, nombre, shortId, config);
             await interaction.followUp({ content: `✅ ¡Torneo **${nombre}** creado exitosamente!`, ephemeral: true });
         } catch (error) {
@@ -54,7 +51,6 @@ export async function handleModal(interaction) {
     // --- Flujo de Inscripción de Equipo ---
     if (action === 'inscripcion' && customIdParts[1] === 'modal') {
         await interaction.deferReply({ ephemeral: true });
-
         const tournamentShortId = customIdParts[2];
         const db = getDb();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
