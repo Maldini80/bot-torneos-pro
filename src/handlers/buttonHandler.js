@@ -9,15 +9,13 @@ import { setBotBusy } from '../../index.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 
 export async function handleButton(interaction) {
-    // REGLA DE ORO: Responder primero, actuar después.
-    // La naturaleza de la respuesta depende del tipo de botón.
-
     const [action, ...params] = interaction.customId.split('_');
     const client = interaction.client;
     const guild = interaction.guild;
     const db = getDb();
 
     // --- GRUPO 1: Acciones que abren un Modal ---
+    // Estas son su propia respuesta y no necesitan defer.
     if (interaction.customId.startsWith('inscribir_equipo_start') || interaction.customId.startsWith('admin_modify_result_start')) {
         let modal;
         if (interaction.customId.startsWith('inscribir_equipo_start')) {
@@ -37,28 +35,31 @@ export async function handleButton(interaction) {
             modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
         }
         await interaction.showModal(modal);
-        return; // Termina la ejecución aquí.
+        return;
     }
 
-    // --- GRUPO 2: Acciones que actualizan el mensaje actual ---
+    // --- GRUPO 2: Acciones que editan el mensaje actual ---
+    // Usamos deferUpdate para indicar que vamos a editar.
     if (['user_view_details', 'user_hide_details', 'admin_return_to_main_panel'].some(p => interaction.customId.startsWith(p))) {
         await interaction.deferUpdate();
-        
         if (interaction.customId.startsWith('admin_return_to_main_panel')) {
              await updateAdminPanel(interaction.message, client);
         }
-        // Añadir aquí la lógica para view/hide details, que ya tenías.
+        // Aquí iría la lógica de user_view/hide_details...
         return;
     }
-
-    // --- GRUPO 3: El resto de acciones que pueden tardar ---
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
+    
+    // --- GRUPO 3: El resto de acciones que responden con un mensaje nuevo (efímero) ---
+    
+    // Si la acción es rápida, usamos reply directamente.
     if (interaction.customId.startsWith('admin_create_tournament_start')) {
         const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, description: TOURNAMENT_FORMATS[key].description.slice(0, 100), value: key })));
-        await interaction.editReply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)] });
+        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
+
+    // Para todas las demás (approve, end, etc.), que son lentas, usamos deferReply.
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     if (interaction.customId.startsWith('admin_approve')) {
         const [, captainId, tournamentShortId] = interaction.customId.split('_');
@@ -67,20 +68,33 @@ export async function handleButton(interaction) {
 
         await approveTeam(client, tournament, tournament.teams.pendientes[captainId]);
         
-        await interaction.editReply(`✅ Equipo aprobado.`);
-
         const originalMessage = interaction.message;
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         await originalMessage.edit({ components: [disabledRow] });
         
-        try {
-            const captainUser = await client.users.fetch(captainId);
-            await captainUser.send(`¡Felicidades! Tu equipo **${tournament.teams.pendientes[captainId].nombre}** ha sido aprobado para el torneo **${tournament.nombre}**.`);
-        } catch (e) { console.warn(`No se pudo enviar DM al capitán ${captainId}`); }
+        await interaction.editReply(`✅ Equipo aprobado.`);
         return;
     }
     
-    // ... Aquí iría el resto de tu lógica para 'force_draw', 'end_tournament', etc.
-    // Todas ellas usando interaction.editReply() para dar la respuesta final.
+    if (interaction.customId.startsWith('admin_end_tournament')) {
+        const tournamentShortId = params[2];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
+
+        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Este proceso puede tardar. El panel se actualizará solo al terminar.` });
+        
+        try {
+            setBotBusy(true);
+            await updateAdminPanel(client);
+            await endTournament(client, tournament); // Esta es la función pesada con la nueva depuración
+        } catch (e) {
+            console.error("Error crítico al finalizar torneo:", e);
+            await interaction.followUp({ content: `❌ Ocurrió un error crítico. Revisa los logs.`, flags: [MessageFlags.Ephemeral] });
+        } finally {
+            setBotBusy(false);
+            // endTournament ya llama a updateAdminPanel, así que el panel se refrescará
+        }
+        return;
+    }
 }
