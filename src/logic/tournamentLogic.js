@@ -1,6 +1,9 @@
 // src/logic/tournamentLogic.js
 import { getDb } from '../../database.js';
+// --- INICIO DE LA CORRECCIÓN ---
+// Nos aseguramos de importar TOURNAMENT_CATEGORY_ID correctamente
 import { TOURNAMENT_FORMATS, CHANNELS, TOURNAMENT_CATEGORY_ID } from '../../config.js';
+// --- FIN DE LA CORRECCIÓN ---
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
 import { createTeamListEmbed, createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed } from '../utils/embeds.js';
 import { updateTournamentChannelName } from '../utils/panelManager.js';
@@ -29,7 +32,11 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             classificationMessageId: null, calendarMessageId: null
         }
     };
-    const matchThreadsParent = await guild.channels.create({ name: `⚔️-partidos-${shortId}`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, });
+    const matchThreadsParent = await guild.channels.create({
+        name: `⚔️-partidos-${shortId}`,
+        type: ChannelType.GuildText,
+        parent: TOURNAMENT_CATEGORY_ID, // Ahora esta variable tiene el valor correcto
+    });
     newTournament.discordMessageIds.matchThreadsParentId = matchThreadsParent.id;
     const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
     const statusMsg = await statusChannel.send(createTournamentStatusEmbed(newTournament));
@@ -47,7 +54,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
     console.log(`[INFO] Nuevo torneo "${name}" creado y anunciado.`);
     return newTournament;
 }
-
+// El resto del archivo (startGroupStage, approveTeam, etc.) se queda exactamente igual.
+// ...
 export async function startGroupStage(client, guild, tournament) {
     if (tournament.status !== 'inscripcion_abierta') return;
     tournament.status = 'fase_de_grupos';
@@ -127,7 +135,6 @@ export async function updatePublicMessages(client, tournament) {
     const db = getDb();
     const latestTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
     if (!latestTournamentState) return;
-
     const updateTasks = [
         client.channels.fetch(CHANNELS.TORNEOS_STATUS).then(c => c.messages.fetch(latestTournamentState.discordMessageIds.statusMessageId).then(m => m.edit(createTournamentStatusEmbed(latestTournamentState)))),
         client.channels.fetch(CHANNELS.CAPITANES_INSCRITOS).then(c => c.messages.fetch(latestTournamentState.discordMessageIds.teamListMessageId).then(m => m.edit(createTeamListEmbed(latestTournamentState)))),
