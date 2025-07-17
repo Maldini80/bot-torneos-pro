@@ -6,18 +6,25 @@ import { setBotBusy } from '../../index.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 export async function handleModal(interaction) {
-    const [action, ...params] = interaction.customId.split('_');
+    const customIdParts = interaction.customId.split('_');
+    const action = customIdParts[0];
     const client = interaction.client;
     const guild = interaction.guild;
 
     await interaction.deferReply({ ephemeral: true });
 
-    if (action === 'create' && params[0] === 'tournament' && params[1] === 'final') {
+    if (action === 'create' && customIdParts[1] === 'tournament' && customIdParts[2] === 'final') {
         setBotBusy(true);
         await updateAdminPanel(client);
         await interaction.editReply({ content: '⏳ El bot está ocupado creando el torneo. El panel ha sido bloqueado...', ephemeral: true });
         
-        const formatId = params[2], type = params[3];
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Extraemos el tipo de torneo, que siempre es la última parte
+        const type = customIdParts.pop(); 
+        // El formatId es todo lo que queda entre "final_" y el tipo que acabamos de quitar
+        const formatId = customIdParts.slice(3).join('_');
+        // --- FIN DE LA CORRECCIÓN ---
+
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const config = { formatId, isPaid: type === 'pago' };
@@ -40,8 +47,9 @@ export async function handleModal(interaction) {
         }
     }
 
-    if (action === 'inscripcion' && params[0] === 'modal') {
-        const tournamentShortId = params[1], db = getDb();
+    if (action === 'inscripcion' && customIdParts[1] === 'modal') {
+        const tournamentShortId = customIdParts[2];
+        const db = getDb();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || tournament.status !== 'inscripcion_abierta') return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
         
