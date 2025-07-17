@@ -35,7 +35,6 @@ export async function updateAdminPanel(client) {
     try {
         await msg.edit(panelContent);
     } catch (error) {
-        // Ignorar si el mensaje ya fue borrado, lo cual es normal.
         if (error.code !== 10008) {
             console.warn(`[WARN] No se pudo editar el panel de admin. ${error.message}`);
         }
