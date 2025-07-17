@@ -10,11 +10,25 @@ export async function handleSelectMenu(interaction) {
 
     // --- Flujo de creación de torneo ---
 
-    // Caso especial: El menú que abre un modal no puede usar deferUpdate.
+    if (customId.startsWith('admin_create_format')) {
+        // El usuario seleccionó un formato. Respondemos actualizando el mensaje para mostrar el siguiente paso.
+        await interaction.deferUpdate();
+        
+        const formatId = value;
+        const typeMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_create_type_${formatId}`)
+            .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
+            .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
+            
+        await interaction.editReply({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, selecciona el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
+        return;
+    }
+    
     if (customId.startsWith('admin_create_type')) {
-        // ¡¡¡CORRECCIÓN AQUÍ!!!
-        // En lugar de split y pop, simplemente reemplazamos el prefijo.
-        const formatId = customId.replace('admin_create_type_', ''); 
+        // El usuario seleccionó un tipo. Respondemos mostrando un modal (formulario).
+        // showModal() es su propia respuesta y no puede ser precedida por deferUpdate/deferReply.
+        
+        const formatId = customId.replace('admin_create_type_', '');
         const type = value;
 
         const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}`).setTitle('Finalizar Creación');
@@ -34,27 +48,19 @@ export async function handleSelectMenu(interaction) {
         await interaction.showModal(modal);
         return;
     }
-
-    // Para el resto de menús, actualizamos el mensaje.
-    await interaction.deferUpdate();
-
-    if (customId.startsWith('admin_create_format')) {
-        const formatId = value;
-        const typeMenu = new StringSelectMenuBuilder()
-            // El customId se construye correctamente aquí
-            .setCustomId(`admin_create_type_${formatId}`)
-            .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
-            .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
-        await interaction.editReply({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, selecciona el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
-        return;
-    }
     
     // --- Flujo de gestión de torneo ---
     if (customId.startsWith('admin_manage_select_tournament')) {
+        // El usuario seleccionó un torneo para gestionar. Respondemos actualizando el panel de control.
+        await interaction.deferUpdate();
+        
         const tournamentShortId = value;
         const db = getDb();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return;
+        
+        // Si el torneo fue borrado mientras el menú estaba abierto, no hacemos nada.
+        if (!tournament) return; 
+        
         const managementPanel = createTournamentManagementPanel(tournament);
         await interaction.editReply(managementPanel);
         return;
