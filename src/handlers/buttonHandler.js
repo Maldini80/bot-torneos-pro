@@ -5,6 +5,7 @@ import { TOURNAMENT_FORMATS } from '../../config.js';
 import { approveTeam, endTournament, startGroupStage } from '../logic/tournamentLogic.js';
 import { findMatch } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
+import { setBotBusy } from '../../index.js';
 
 export async function handleButton(interaction) {
     const [action, ...params] = interaction.customId.split('_');
@@ -23,7 +24,8 @@ export async function handleButton(interaction) {
         } else if (interaction.customId.startsWith('payment_confirm_start')) {
             const tournamentShortId = params[3];
             modal = new ModalBuilder().setCustomId(`payment_confirm_modal_${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
-            const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios) / Your PayPal").setPlaceholder('Escribe aquí tu email de PayPal.').setStyle(TextInputStyle.Short).setRequired(true);
+            // ¡¡¡CORRECCIÓN AQUÍ!!! Etiqueta acortada.
+            const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal para recibir premios").setStyle(TextInputStyle.Short).setPlaceholder('Escribe aquí tu email de PayPal.').setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
         } else if (interaction.customId.startsWith('admin_add_test_teams')) {
             const tournamentShortId = params[4];
@@ -51,12 +53,10 @@ export async function handleButton(interaction) {
         if (interaction.customId.startsWith('admin_return_to_main_panel')) {
              await updateAdminPanel(client, interaction.message);
         }
-        // La lógica para user_view/hide_details se podría añadir aquí si es necesaria.
         return;
     }
     
     // --- GRUPO 3: El resto de acciones ---
-    
     if (interaction.customId.startsWith('admin_create_tournament_start')) {
         const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, description: TOURNAMENT_FORMATS[key].description.slice(0, 100), value: key })));
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
@@ -86,7 +86,7 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
 
-        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Este proceso puede tardar. El panel se actualizará solo.` });
+        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. El panel se actualizará solo.` });
         
         setBotBusy(true);
         await updateAdminPanel(client);
