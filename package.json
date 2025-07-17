@@ -1,11 +1,13 @@
 {
   "name": "discord-tournament-bot-v2",
   "version": "2.0.0",
-  "description": "Bot de Discord V2 para gestionar múltiples torneos simultáneamente. (Forzando actualización).",
+  "description": "Bot de Discord V2 para gestionar múltiples torneos simultáneamente.",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node deploy-commands.js && node index.js"
+    "start": "node index.js",
+    "deploy:commands": "node deploy-commands.js",
+    "build": "npm run deploy:commands"
   },
   "dependencies": {
     "@vitalets/google-translate-api": "^9.2.0",
