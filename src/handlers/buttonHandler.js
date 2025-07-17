@@ -1,11 +1,9 @@
 // src/handlers/buttonHandler.js
-import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } from 'discord.js';
+import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { getDb } from '../../database.js';
-import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
+import { TOURNAMENT_FORMATS } from '../../config.js';
 import { approveTeam, endTournament, startGroupStage } from '../logic/tournamentLogic.js';
 import { findMatch } from '../logic/matchLogic.js';
-import { createTournamentStatusEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
-import { setBotBusy } from '../../index.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 
 export async function handleButton(interaction) {
@@ -24,13 +22,13 @@ export async function handleButton(interaction) {
             modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput));
         } else if (interaction.customId.startsWith('payment_confirm_start')) {
             const tournamentShortId = params[3];
-            modal = new ModalBuilder().setCustomId(`payment_confirm_modal_${tournamentShortId}`).setTitle('Confirmar Pago y Datos / Confirm Payment & Data');
+            modal = new ModalBuilder().setCustomId(`payment_confirm_modal_${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
             const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios) / Your PayPal").setPlaceholder('Escribe aquí tu email de PayPal.').setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
         } else if (interaction.customId.startsWith('admin_add_test_teams')) {
             const tournamentShortId = params[4];
             modal = new ModalBuilder().setCustomId(`add_test_teams_modal_${tournamentShortId}`).setTitle('Añadir Equipos de Prueba / Add Test Teams');
-            const amountInput = new TextInputBuilder().setCustomId('amount_input').setLabel("¿Cuántos equipos de prueba? / How many test teams?").setStyle(TextInputStyle.Short).setRequired(true);
+            const amountInput = new TextInputBuilder().setCustomId('amount_input').setLabel("¿Cuántos equipos de prueba? / How many?").setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
         } else { // admin_modify_result_start
             const [, , , , matchId, tournamentShortId] = interaction.customId.split('_');
@@ -53,7 +51,7 @@ export async function handleButton(interaction) {
         if (interaction.customId.startsWith('admin_return_to_main_panel')) {
              await updateAdminPanel(client, interaction.message);
         }
-        // ... (Aquí iría la lógica para user_view/hide_details si la necesitas)
+        // La lógica para user_view/hide_details se podría añadir aquí si es necesaria.
         return;
     }
     
