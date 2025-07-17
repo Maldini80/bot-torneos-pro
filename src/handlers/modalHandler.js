@@ -11,35 +11,39 @@ export async function handleModal(interaction) {
     const client = interaction.client;
     const guild = interaction.guild;
 
-    await interaction.deferReply({ ephemeral: true });
-
+    // --- Flujo de Creación de Torneo ---
     if (action === 'create' && customIdParts[1] === 'tournament' && customIdParts[2] === 'final') {
+        await interaction.deferReply({ ephemeral: true });
+
         setBotBusy(true);
         await updateAdminPanel(client);
         await interaction.editReply({ content: '⏳ El bot está ocupado creando el torneo. El panel ha sido bloqueado...', ephemeral: true });
         
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Extraemos el tipo de torneo, que siempre es la última parte
         const type = customIdParts.pop(); 
-        // El formatId es todo lo que queda entre "final_" y el tipo que acabamos de quitar
         const formatId = customIdParts.slice(3).join('_');
-        // --- FIN DE LA CORRECCIÓN ---
-
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const config = { formatId, isPaid: type === 'pago' };
+        
+        // --- INICIO DE LA CORRECCIÓN CLAVE ---
+        // Creamos el objeto config con toda la información necesaria
+        const config = { 
+            formatId, 
+            isPaid: type === 'pago' 
+        };
         if (config.isPaid) {
             config.enlacePaypal = interaction.fields.getTextInputValue('torneo_paypal');
             config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
             config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
         }
+        // --- FIN DE LA CORRECCIÓN CLAVE ---
 
         try {
+            // Se lo pasamos a la función
             await createNewTournament(client, guild, nombre, shortId, config);
             await interaction.followUp({ content: `✅ ¡Torneo **${nombre}** creado exitosamente!`, ephemeral: true });
         } catch (error) {
             console.error('Error al crear el torneo:', error);
-            await interaction.followUp({ content: '❌ Hubo un error crítico al crear el torneo.', ephemeral: true });
+            await interaction.followUp({ content: `❌ Hubo un error crítico al crear el torneo.`, ephemeral: true });
         } finally {
             setBotBusy(false);
             await updateAdminPanel(client);
@@ -47,7 +51,10 @@ export async function handleModal(interaction) {
         }
     }
 
+    // --- Flujo de Inscripción de Equipo ---
     if (action === 'inscripcion' && customIdParts[1] === 'modal') {
+        await interaction.deferReply({ ephemeral: true });
+
         const tournamentShortId = customIdParts[2];
         const db = getDb();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
