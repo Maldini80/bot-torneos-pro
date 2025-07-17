@@ -1,9 +1,6 @@
 // src/logic/tournamentLogic.js
 import { getDb } from '../../database.js';
-// --- INICIO DE LA CORRECCIÓN ---
-// Nos aseguramos de importar TOURNAMENT_CATEGORY_ID correctamente
-import { TOURNAMENT_FORMATS, CHANNELS, TOURNAMENT_CATEGORY_ID } from '../../config.js';
-// --- FIN DE LA CORRECCIÓN ---
+import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js'; // Eliminamos la importación que no funciona
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
 import { createTeamListEmbed, createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed } from '../utils/embeds.js';
 import { updateTournamentChannelName } from '../utils/panelManager.js';
@@ -35,7 +32,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
     const matchThreadsParent = await guild.channels.create({
         name: `⚔️-partidos-${shortId}`,
         type: ChannelType.GuildText,
-        parent: TOURNAMENT_CATEGORY_ID, // Ahora esta variable tiene el valor correcto
+        // --- LA CORRECCIÓN FINAL Y DEFINITIVA ---
+        parent: '1394444274623582358', // Usamos el ID directamente
     });
     newTournament.discordMessageIds.matchThreadsParentId = matchThreadsParent.id;
     const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
@@ -54,8 +52,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
     console.log(`[INFO] Nuevo torneo "${name}" creado y anunciado.`);
     return newTournament;
 }
-// El resto del archivo (startGroupStage, approveTeam, etc.) se queda exactamente igual.
-// ...
+// El resto del archivo no necesita cambios.
+// ... (startGroupStage, approveTeam, etc.)
 export async function startGroupStage(client, guild, tournament) {
     if (tournament.status !== 'inscripcion_abierta') return;
     tournament.status = 'fase_de_grupos';
