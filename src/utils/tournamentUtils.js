@@ -30,7 +30,7 @@ export async function createMatchThread(client, guild, partido, tournament) {
         threadName = `⚔️-g${groupLetter}-j${partido.jornada}-${safeTeamA}-vs-${safeTeamB}`.toLowerCase();
         description = `**${partido.nombreGrupo} - Jornada ${partido.jornada}**`;
     } else {
-        const stage = partido.jornada;
+        const stage = partido.jornada; // 'jornada' aquí contiene el nombre de la fase (ej: 'cuartos')
         threadName = `⚔️-${stage}-${safeTeamA}-vs-${safeTeamB}`.toLowerCase();
         description = `**Fase Eliminatoria - ${stage}** / **Knockout Stage - ${stage}**`;
     }
@@ -66,5 +66,34 @@ export async function createMatchThread(client, guild, partido, tournament) {
     } catch (error) {
         console.error(`[ERROR FATAL] No se pudo crear el hilo del partido para ${tournament.nombre}.`, error);
         return null;
+    }
+}
+
+export async function updateMatchThreadName(client, partido) {
+    if (!partido.threadId) return;
+    try {
+        const thread = await client.channels.fetch(partido.threadId);
+        if (!thread) return;
+
+        const cleanBaseName = thread.name.replace(/^[⚔️✅⚠️]-/g, '').replace(/-\d+a\d+$/, '');
+        
+        let icon;
+        if (partido.status === 'finalizado') icon = '✅';
+        else if (partido.status === 'arbitraje') icon = '⚠️';
+        else icon = '⚔️';
+        
+        let newName = `${icon}-${cleanBaseName}`;
+        if (partido.status === 'finalizado' && partido.resultado) {
+             const resultString = partido.resultado.replace(/-/g, 'a');
+             newName = `${newName}-${resultString}`;
+        }
+        
+        if (thread.name !== newName) {
+            await thread.setName(newName.slice(0, 100));
+        }
+    } catch(err) {
+        if (err.code !== 10003) {
+            console.error(`Error al renombrar hilo ${partido.threadId}:`, err); 
+        }
     }
 }
