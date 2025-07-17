@@ -1,31 +1,23 @@
 // src/utils/embeds.js
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
-import { TOURNAMENT_STATUS_ICONS, CHANNELS } from '../../config.js';
+import { TOURNAMENT_STATUS_ICONS, CHANNELS, TOURNAMENT_FORMATS } from '../../config.js';
 
-// CORRECCIÓN: Nos aseguramos de que cada función es exportada
 export function createGlobalAdminPanel(tournaments = [], isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Control Global de Torneos')
-        .setFooter({ text: 'Bot de Torneos v2.0' });
+        .setFooter({ text: 'Bot de Torneos v2.1' });
 
-    if (isBusy) {
-        embed.setDescription('🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. La mayoría de las acciones están deshabilitadas temporalmente.');
-    } else {
-        embed.setDescription('✅ **ESTADO: LISTO**\nUsa los botones de abajo para gestionar todos los torneos del servidor.');
-    }
+    embed.setDescription(isBusy ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica.' : '✅ **ESTADO: LISTO**\nUsa los botones de abajo para gestionar los torneos.');
 
     if (tournaments.length > 0) {
-        let tournamentList = tournaments.map(t =>
-            `**${t.nombre}** [${t.shortId}]\n*Estado: ${t.status.replace(/_/g, ' ')}*`
-        ).join('\n\n');
-        embed.addFields({ name: 'Torneos Activos', value: tournamentList });
+        embed.addFields({ name: 'Torneos Activos', value: tournaments.map(t => `**${t.nombre}** [${t.shortId}] | *Estado: ${t.status.replace(/_/g, ' ')}*`).join('\n') });
     } else {
         embed.addFields({ name: 'Torneos Activos', value: 'No hay torneos activos en este momento.' });
     }
 
     const globalActionsRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Nuevo Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
 
@@ -35,52 +27,57 @@ export function createGlobalAdminPanel(tournaments = [], isBusy = false) {
         const tournamentManagementMenu = new StringSelectMenuBuilder()
             .setCustomId('admin_manage_select_tournament')
             .setPlaceholder('Selecciona un torneo para gestionar...')
-            .addOptions(
-                tournaments.map(t => ({
-                    label: t.nombre.slice(0, 100),
-                    description: `ID: ${t.shortId} | Estado: ${t.status}`.slice(0, 100),
-                    value: t.shortId,
-                }))
-            );
-        const managementRow = new ActionRowBuilder().addComponents(tournamentManagementMenu);
-        components.push(managementRow);
+            .addOptions(tournaments.map(t => ({
+                label: t.nombre.slice(0, 100),
+                description: `ID: ${t.shortId} | Estado: ${t.status}`.slice(0, 100),
+                value: t.shortId,
+            })));
+        components.push(new ActionRowBuilder().addComponents(tournamentManagementMenu));
     }
 
-    return { embeds: [embed], components: components };
+    return { embeds: [embed], components };
 }
 
 export function createTournamentStatusEmbed(tournament) {
     const statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
     const format = tournament.config.format;
     const teamsCount = Object.keys(tournament.teams.aprobados).length;
+    
     const embed = new EmbedBuilder()
         .setColor(tournament.status === 'inscripcion_abierta' ? '#2ecc71' : '#3498db')
         .setTitle(`${statusIcon} ${tournament.nombre}`)
-        .setDescription(format.description)
+        .setDescription(`🇪🇸 ${format.description}\n🇬🇧 ${format.description}`)
         .addFields(
-            { name: 'Formato', value: format.label, inline: true },
-            { name: 'Equipos', value: `${teamsCount} / ${format.size}`, inline: true },
-            { name: 'Estado Actual', value: tournament.status.replace(/_/g, ' '), inline: true }
+            { name: 'Formato / Format', value: format.label, inline: true },
+            { name: 'Equipos / Teams', value: `${teamsCount} / ${format.size}`, inline: true }
         )
         .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
+
+    if (tournament.config.isPaid) {
+        embed.addFields({ name: 'Inscripción / Entry Fee', value: `${tournament.config.entryFee}€`, inline: true });
+    } else {
+        embed.addFields({ name: 'Inscripción / Entry Fee', value: 'Gratuito / Free', inline: true });
+    }
+    
     const row = new ActionRowBuilder();
     if (tournament.status === 'inscripcion_abierta' && teamsCount < format.size) {
-        row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start_${tournament.shortId}`).setLabel('Inscribirme').setStyle(ButtonStyle.Success).setEmoji('📝'));
+        row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start_${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
     }
-    if (tournament.status !== 'cancelado') {
-        row.addComponents(new ButtonBuilder().setCustomId(`user_view_details_${tournament.shortId}`).setLabel('Ver Detalles').setStyle(ButtonStyle.Secondary).setEmoji('ℹ️'));
-    }
+    
+    row.addComponents(new ButtonBuilder().setCustomId(`user_view_details_${tournament.shortId}`).setLabel('Ver Detalles / View Details').setStyle(ButtonStyle.Secondary).setEmoji('ℹ️'));
+    
     if (tournament.status === 'finalizado') embed.setColor('#95a5a6').setTitle(`${TOURNAMENT_STATUS_ICONS.finalizado} ${tournament.nombre} (Finalizado)`);
-    if (tournament.status === 'inscripcion_abierta' && teamsCount >= format.size) embed.setColor('#e67e22').setTitle(`${TOURNAMENT_STATUS_ICONS.cupo_lleno} ${tournament.nombre} (Cupo Lleno)`);
-    return { embeds: [embed], components: row.components.length > 0 ? [row] : [] };
+    if (tournament.status === 'inscripcion_abierta' && teamsCount >= format.size) embed.setColor('#e67e22').setTitle(`${TOURNAMENT_STATUS_ICONS.cupo_lleno} ${tournament.nombre} (Cupo Lleno / Full)`);
+
+    return { embeds: [embed], components: [row] };
 }
 
 export function createTeamListEmbed(tournament) {
     const approvedTeams = Object.values(tournament.teams.aprobados);
     const format = tournament.config.format;
-    let description = '🇪🇸 Aún no hay equipos inscritos. ¡Sé el primero!\n🇬🇧 No teams have registered yet. Be the first!';
+    let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
     if (approvedTeams.length > 0) {
-        description = approvedTeams.map((team, index) => `${index + 1}. ${team.bandera || '🏳️'} **${team.nombre}** (Capitán: ${team.capitanTag})`).join('\n');
+        description = approvedTeams.map((team, index) => `${index + 1}. ${team.bandera || '🏳️'} **${team.nombre}** (Cap: ${team.capitanTag})`).join('\n');
     }
     const embed = new EmbedBuilder()
         .setColor('#1abc9c')
@@ -162,26 +159,33 @@ export function createCalendarEmbed(tournament) {
     return { embeds: [embed] };
 }
 
-// Y la función que nos faltaba por exportar
 export function createTournamentManagementPanel(tournament) {
     const embed = new EmbedBuilder()
         .setColor('#e67e22')
-        .setTitle(`Gestionando Torneo: ${tournament.nombre}`)
-        .setDescription(`**ID:** \`${tournament.shortId}\`\n**Estado:** ${tournament.status.replace(/_/g, ' ')}\n\nSelecciona una acción para este torneo.`)
+        .setTitle(`Gestionando: ${tournament.nombre}`)
+        .setDescription(`**ID:** \`${tournament.shortId}\`\n**Estado:** ${tournament.status.replace(/_/g, ' ')}`)
         .setFooter({ text: 'Estás en el modo de gestión de un torneo específico.' });
-    const row1 = new ActionRowBuilder(), row2 = new ActionRowBuilder();
+
+    const row1 = new ActionRowBuilder();
+    const row2 = new ActionRowBuilder();
+    
+    row1.addComponents(
+        new ButtonBuilder().setCustomId(`admin_add_test_teams_${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪')
+    );
+    // Simular partidos sería otro botón aquí.
+    
     if (tournament.status === 'inscripcion_abierta') {
         row1.addComponents(new ButtonBuilder().setCustomId(`admin_force_draw_${tournament.shortId}`).setLabel('Forzar Sorteo').setStyle(ButtonStyle.Primary).setEmoji('🎲').setDisabled(Object.keys(tournament.teams.aprobados).length < 2));
-        if (Object.keys(tournament.teams.pendientes).length > 0) {
-            row1.addComponents(new ButtonBuilder().setCustomId(`admin_view_pending_${tournament.shortId}`).setLabel(`Ver Pendientes (${Object.keys(tournament.teams.pendientes).length})`).setStyle(ButtonStyle.Secondary).setEmoji('⏳'));
-        }
     }
+    
     row2.addComponents(
         new ButtonBuilder().setCustomId(`admin_end_tournament_${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑'),
-        new ButtonBuilder().setCustomId(`admin_return_to_main_panel`).setLabel('Volver al Panel Principal').setStyle(ButtonStyle.Secondary).setEmoji('⬅️')
+        new ButtonBuilder().setCustomId(`admin_return_to_main_panel`).setLabel('Volver').setStyle(ButtonStyle.Secondary).setEmoji('⬅️')
     );
+    
     const components = [];
     if (row1.components.length > 0) components.push(row1);
-    if (row2.components.length > 0) components.push(row2);
+    components.push(row2);
+    
     return { embeds: [embed], components };
 }
