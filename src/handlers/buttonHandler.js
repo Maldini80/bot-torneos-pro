@@ -15,7 +15,7 @@ export async function handleButton(interaction) {
     const db = getDb();
 
     // --- GRUPO 1: Acciones que abren un Modal ---
-    // Estas son su propia respuesta y no necesitan defer.
+    // Estas acciones son su propia respuesta y no necesitan defer.
     if (interaction.customId.startsWith('inscribir_equipo_start') || interaction.customId.startsWith('admin_modify_result_start')) {
         let modal;
         if (interaction.customId.startsWith('inscribir_equipo_start')) {
@@ -26,7 +26,7 @@ export async function handleButton(interaction) {
         } else { // admin_modify_result_start
             const [, , , , matchId, tournamentShortId] = interaction.customId.split('_');
             const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-            if (!tournament) return;
+            if (!tournament) return; // Si la interacción falla, el catch global lo manejará.
             const { partido } = findMatch(tournament, matchId);
             if (!partido) return;
             modal = new ModalBuilder().setCustomId(`admin_force_result_modal_${matchId}_${tournamentShortId}`).setTitle('Forzar Resultado (Admin)');
@@ -35,30 +35,34 @@ export async function handleButton(interaction) {
             modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
         }
         await interaction.showModal(modal);
-        return;
+        return; // Termina la ejecución aquí.
     }
 
-    // --- GRUPO 2: Acciones que editan el mensaje actual ---
+    // --- GRUPO 2: Acciones que actualizan el mensaje actual ---
     // Usamos deferUpdate para indicar que vamos a editar.
     if (['user_view_details', 'user_hide_details', 'admin_return_to_main_panel'].some(p => interaction.customId.startsWith(p))) {
         await interaction.deferUpdate();
         if (interaction.customId.startsWith('admin_return_to_main_panel')) {
-             await updateAdminPanel(interaction.message, client);
+             await updateAdminPanel(client, interaction.message); // Pasamos el mensaje para editarlo
         }
-        // Aquí iría la lógica de user_view/hide_details...
+        // Aquí iría la lógica para user_view/hide_details...
         return;
     }
     
     // --- GRUPO 3: El resto de acciones que responden con un mensaje nuevo (efímero) ---
-    
-    // Si la acción es rápida, usamos reply directamente.
+
+    // Si la acción es rápida (como mostrar un menú), usamos reply directamente.
     if (interaction.customId.startsWith('admin_create_tournament_start')) {
         const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, description: TOURNAMENT_FORMATS[key].description.slice(0, 100), value: key })));
-        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
+        await interaction.reply({
+            content: 'Iniciando creación de torneo...',
+            components: [new ActionRowBuilder().addComponents(formatMenu)],
+            flags: [MessageFlags.Ephemeral] // Usando flags en lugar de 'ephemeral: true'
+        });
         return;
     }
 
-    // Para todas las demás (approve, end, etc.), que son lentas, usamos deferReply.
+    // Para todas las demás acciones (approve, end, etc.), que son lentas, usamos deferReply.
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     if (interaction.customId.startsWith('admin_approve')) {
@@ -82,19 +86,20 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
 
-        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Este proceso puede tardar. El panel se actualizará solo al terminar.` });
+        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Este proceso puede tardar. El panel se actualizará solo.` });
         
+        setBotBusy(true);
+        await updateAdminPanel(client); // Actualiza el panel para mostrar el estado ocupado.
         try {
-            setBotBusy(true);
-            await updateAdminPanel(client);
-            await endTournament(client, tournament); // Esta es la función pesada con la nueva depuración
+            await endTournament(client, tournament); // Esta es la función pesada con la nueva depuración.
         } catch (e) {
             console.error("Error crítico al finalizar torneo:", e);
-            await interaction.followUp({ content: `❌ Ocurrió un error crítico. Revisa los logs.`, flags: [MessageFlags.Ephemeral] });
         } finally {
             setBotBusy(false);
-            // endTournament ya llama a updateAdminPanel, así que el panel se refrescará
+            await updateAdminPanel(client); // Vuelve a actualizar el panel para quitar el estado ocupado.
         }
         return;
     }
+
+    // Añade aquí cualquier otra lógica de botón que falte, siguiendo el mismo patrón.
 }
