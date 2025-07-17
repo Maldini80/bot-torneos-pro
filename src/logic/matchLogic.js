@@ -14,7 +14,7 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     partido.resultado = resultString;
     partido.status = 'finalizado';
 
-    await updateMatchThreadName(client, partido, tournament);
+    await updateMatchThreadName(client, partido);
 
     if (fase === 'grupos') {
         await updateGroupStageStats(tournament, partido);
