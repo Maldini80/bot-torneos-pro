@@ -6,21 +6,24 @@ import { setBotBusy } from '../../index.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 export async function handleModal(interaction) {
-    const customIdParts = interaction.customId.split('_');
-    const action = customIdParts[0];
+    const customId = interaction.customId;
     const client = interaction.client;
     const guild = interaction.guild;
 
     // --- Flujo de Creación de Torneo ---
-    if (action === 'create' && customIdParts[1] === 'tournament' && customIdParts[2] === 'final') {
+    if (customId.startsWith('create_tournament:')) {
         await interaction.deferReply({ ephemeral: true });
 
         setBotBusy(true);
         await updateAdminPanel(client);
         await interaction.editReply({ content: '⏳ El bot está ocupado creando el torneo...', ephemeral: true });
         
-        const formatId = interaction.fields.getTextInputValue('formatId');
-        const type = interaction.fields.getTextInputValue('type');
+        // --- NUEVA LÓGICA DE LECTURA DE CUSTOM ID ---
+        const parts = customId.split(':');
+        const formatId = parts[1];
+        const type = parts[2];
+        // --- FIN DE NUEVA LÓGICA ---
+        
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         
@@ -48,9 +51,9 @@ export async function handleModal(interaction) {
     }
 
     // --- Flujo de Inscripción de Equipo ---
-    if (action === 'inscripcion' && customIdParts[1] === 'modal') {
+    if (customId.startsWith('inscripcion_modal_')) {
         await interaction.deferReply({ ephemeral: true });
-        const tournamentShortId = customIdParts[2];
+        const tournamentShortId = customId.split('_')[2];
         const db = getDb();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || tournament.status !== 'inscripcion_abierta') return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
