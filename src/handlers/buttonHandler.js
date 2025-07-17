@@ -15,18 +15,27 @@ export async function handleButton(interaction) {
     const db = getDb();
 
     // --- GRUPO 1: Acciones que abren un Modal ---
-    // Estas acciones son su propia respuesta y no necesitan defer.
-    if (interaction.customId.startsWith('inscribir_equipo_start') || interaction.customId.startsWith('admin_modify_result_start')) {
+    if (interaction.customId.startsWith('inscribir_equipo_start') || interaction.customId.startsWith('admin_modify_result_start') || interaction.customId.startsWith('payment_confirm_start') || interaction.customId.startsWith('admin_add_test_teams')) {
         let modal;
         if (interaction.customId.startsWith('inscribir_equipo_start')) {
             const tournamentShortId = params[2];
-            modal = new ModalBuilder().setCustomId(`inscripcion_modal_${tournamentShortId}`).setTitle('Inscripción de Equipo');
+            modal = new ModalBuilder().setCustomId(`inscripcion_modal_${tournamentShortId}`).setTitle('Inscripción de Equipo / Team Registration');
             const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (3-15 chars)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(15).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput));
+        } else if (interaction.customId.startsWith('payment_confirm_start')) {
+            const tournamentShortId = params[3];
+            modal = new ModalBuilder().setCustomId(`payment_confirm_modal_${tournamentShortId}`).setTitle('Confirmar Pago y Datos / Confirm Payment & Data');
+            const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios) / Your PayPal").setPlaceholder('Escribe aquí tu email de PayPal.').setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
+        } else if (interaction.customId.startsWith('admin_add_test_teams')) {
+            const tournamentShortId = params[4];
+            modal = new ModalBuilder().setCustomId(`add_test_teams_modal_${tournamentShortId}`).setTitle('Añadir Equipos de Prueba / Add Test Teams');
+            const amountInput = new TextInputBuilder().setCustomId('amount_input').setLabel("¿Cuántos equipos de prueba? / How many test teams?").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
         } else { // admin_modify_result_start
             const [, , , , matchId, tournamentShortId] = interaction.customId.split('_');
             const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-            if (!tournament) return; // Si la interacción falla, el catch global lo manejará.
+            if (!tournament) return;
             const { partido } = findMatch(tournament, matchId);
             if (!partido) return;
             modal = new ModalBuilder().setCustomId(`admin_force_result_modal_${matchId}_${tournamentShortId}`).setTitle('Forzar Resultado (Admin)');
@@ -35,34 +44,27 @@ export async function handleButton(interaction) {
             modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
         }
         await interaction.showModal(modal);
-        return; // Termina la ejecución aquí.
+        return;
     }
 
     // --- GRUPO 2: Acciones que actualizan el mensaje actual ---
-    // Usamos deferUpdate para indicar que vamos a editar.
     if (['user_view_details', 'user_hide_details', 'admin_return_to_main_panel'].some(p => interaction.customId.startsWith(p))) {
         await interaction.deferUpdate();
         if (interaction.customId.startsWith('admin_return_to_main_panel')) {
-             await updateAdminPanel(client, interaction.message); // Pasamos el mensaje para editarlo
+             await updateAdminPanel(client, interaction.message);
         }
-        // Aquí iría la lógica para user_view/hide_details...
+        // ... (Aquí iría la lógica para user_view/hide_details si la necesitas)
         return;
     }
     
-    // --- GRUPO 3: El resto de acciones que responden con un mensaje nuevo (efímero) ---
-
-    // Si la acción es rápida (como mostrar un menú), usamos reply directamente.
+    // --- GRUPO 3: El resto de acciones ---
+    
     if (interaction.customId.startsWith('admin_create_tournament_start')) {
         const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, description: TOURNAMENT_FORMATS[key].description.slice(0, 100), value: key })));
-        await interaction.reply({
-            content: 'Iniciando creación de torneo...',
-            components: [new ActionRowBuilder().addComponents(formatMenu)],
-            flags: [MessageFlags.Ephemeral] // Usando flags en lugar de 'ephemeral: true'
-        });
+        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
 
-    // Para todas las demás acciones (approve, end, etc.), que son lentas, usamos deferReply.
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     if (interaction.customId.startsWith('admin_approve')) {
@@ -89,17 +91,15 @@ export async function handleButton(interaction) {
         await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Este proceso puede tardar. El panel se actualizará solo.` });
         
         setBotBusy(true);
-        await updateAdminPanel(client); // Actualiza el panel para mostrar el estado ocupado.
+        await updateAdminPanel(client);
         try {
-            await endTournament(client, tournament); // Esta es la función pesada con la nueva depuración.
+            await endTournament(client, tournament);
         } catch (e) {
             console.error("Error crítico al finalizar torneo:", e);
         } finally {
             setBotBusy(false);
-            await updateAdminPanel(client); // Vuelve a actualizar el panel para quitar el estado ocupado.
+            await updateAdminPanel(client);
         }
         return;
     }
-
-    // Añade aquí cualquier otra lógica de botón que falte, siguiendo el mismo patrón.
 }
