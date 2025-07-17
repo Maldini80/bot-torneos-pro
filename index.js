@@ -1,5 +1,5 @@
 // index.js
-import { Client, GatewayIntentBits, Events, MessageFlags } from 'discord.js';
+import { Client, GatewayIntentBits, Events, MessageFlags } from 'discord.js';.
 import 'dotenv/config';
 import { keepAlive } from './keep_alive.js';
 import { connectDb } from './database.js';
