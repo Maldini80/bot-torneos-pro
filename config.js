@@ -40,3 +40,14 @@ export const languageRoles = {
     '🇫🇷': { name: 'Français', code: 'fr' }, '🇵🇹': { name: 'Português', code: 'pt' }, '🇩🇪': { name: 'Deutsch', code: 'de' },
     '🇹🇷': { name: 'Türkçe', code: 'tr' }
 };
+
+// ¡¡¡CÓDIGO AÑADIDO!!! Esta es la variable que faltaba.
+// Iconos de estado para los embeds y nombres de canales
+export const TOURNAMENT_STATUS_ICONS = {
+    inscripcion_abierta: '🟢',
+    cupo_lleno: '🟠',
+    fase_de_grupos: '🔵',
+    eliminatorias: '🟣', // Un genérico para todas las fases eliminatorias
+    finalizado: '🏁',
+    cancelado: '🔴'
+};
