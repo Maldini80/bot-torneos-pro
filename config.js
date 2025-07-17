@@ -23,6 +23,7 @@ export const CHANNELS = {
     CLASIFICACION: '1394445078948220928',
     CALENDARIO: '1394577975412002816',
 };
+
 // Configuración de los formatos de torneo
 export const TOURNAMENT_FORMATS = {
     '8_teams_semis_classic': { label: '8 Equipos (Clásico - Semifinales)', description: '2 grupos de 4. Los 2 primeros de cada grupo a semifinales.', size: 8, groups: 2, qualifiersPerGroup: 2, knockoutStages: ['semifinales', 'final'] },
@@ -32,18 +33,14 @@ export const TOURNAMENT_FORMATS = {
     '32_teams_quarters': { label: '32 Equipos (Cuartos de Final)', description: '8 grupos de 4. El 1º de cada grupo clasifica a cuartos.', size: 32, groups: 8, qualifiersPerGroup: 1, knockoutStages: ['cuartos', 'semifinales', 'final'] },
     '32_teams_ro16': { label: '32 Equipos (Octavos de Final)', description: '8 grupos de 4. Los 2 primeros clasifican a octavos.', size: 32, groups: 8, qualifiersPerGroup: 2, knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final'] }
 };
+
 // Configuración de idiomas
 export const languageRoles = {
-    '🇪🇸': { name: 'Español', code: 'es' },
-    '🇮🇹': { name: 'Italiano', code: 'it' },
-    '🇬🇧': { name: 'English', code: 'en' },
-    '🇫🇷': { name: 'Français', code: 'fr' },
-    '🇵🇹': { name: 'Português', code: 'pt' },
-    '🇩🇪': { name: 'Deutsch', code: 'de' },
+    '🇪🇸': { name: 'Español', code: 'es' }, '🇮🇹': { name: 'Italiano', code: 'it' }, '🇬🇧': { name: 'English', code: 'en' },
+    '🇫🇷': { name: 'Français', code: 'fr' }, '🇵🇹': { name: 'Português', code: 'pt' }, '🇩🇪': { name: 'Deutsch', code: 'de' },
     '🇹🇷': { name: 'Türkçe', code: 'tr' }
 };
 
-// ¡¡¡VARIABLE IMPORTANTE QUE FALTABA!!!
 // Iconos de estado para los embeds y nombres de canales
 export const TOURNAMENT_STATUS_ICONS = {
     inscripcion_abierta: '🟢',
