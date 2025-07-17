@@ -1,7 +1,7 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
 import { createNewTournament, updatePublicMessages } from '../logic/tournamentLogic.js';
-import { processMatchResult } from '../logic/matchLogic.js';
+import { processMatchResult, findMatch } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { CHANNELS } from '../../config.js';
 
@@ -36,13 +36,18 @@ export async function handleModal(interaction) {
 
     if (customId.startsWith('inscripcion_modal_')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        
         const tournamentShortId = customId.split('_')[2];
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament || tournament.status !== 'inscripcion_abierta') return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
+        if (!tournament || tournament.status !== 'inscripcion_abierta') {
+            return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
+        }
         
         const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
         const allTeamNames = [...Object.values(tournament.teams.aprobados || {}).map(e => e.nombre.toLowerCase()), ...Object.values(tournament.teams.pendientes || {}).map(e => e.nombre.toLowerCase())];
-        if (allTeamNames.includes(teamName.toLowerCase())) return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
+        if (allTeamNames.includes(teamName.toLowerCase())) {
+            return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
+        }
 
         const teamData = { id: interaction.user.id, nombre: teamName, capitanId: interaction.user.id, capitanTag: interaction.user.tag, bandera: '🏳️', paypal: null, inscritoEn: new Date() };
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${interaction.user.id}`]: teamData } });
@@ -98,6 +103,30 @@ export async function handleModal(interaction) {
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         await updatePublicMessages(client, updatedTournament);
         await interaction.editReply(`✅ Se han añadido ${amount} equipos de prueba.`);
+        return;
+    }
+
+    if (customId.startsWith('admin_force_result_modal_')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [, , , , matchId, tournamentShortId] = customId.split('_');
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('❌ Error: El torneo asociado no existe.');
+        const golesA = parseInt(interaction.fields.getTextInputValue('goles_a'));
+        const golesB = parseInt(interaction.fields.getTextInputValue('goles_b'));
+        if (isNaN(golesA) || isNaN(golesB)) return interaction.editReply('❌ Formato de resultado inválido. Usa solo números.');
+        const resultString = `${golesA}-${golesB}`;
+        try {
+            await processMatchResult(client, guild, tournament, matchId, resultString);
+            await interaction.editReply('✅ Resultado procesado y estadísticas actualizadas.');
+            const { partido } = findMatch(tournament, matchId);
+            if (partido && partido.threadId) {
+                const thread = await client.channels.fetch(partido.threadId);
+                await thread.send(`✅ Resultado **${resultString}** registrado por un administrador.`);
+            }
+        } catch (error) {
+            console.error(`Error al procesar resultado para ${matchId}:`, error);
+            await interaction.editReply(`❌ Hubo un error al procesar el resultado: ${error.message}`);
+        }
         return;
     }
 }
