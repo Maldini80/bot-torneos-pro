@@ -19,7 +19,6 @@ export async function handleModal(interaction) {
         await updateAdminPanel(client);
         await interaction.editReply({ content: '⏳ El bot está ocupado creando el torneo...', ephemeral: true });
         
-        // --- NUEVA LÓGICA: Leemos los datos directamente de los campos del modal ---
         const formatId = interaction.fields.getTextInputValue('formatId');
         const type = interaction.fields.getTextInputValue('type');
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
