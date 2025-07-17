@@ -7,6 +7,8 @@ import { updateTournamentChannelName, updateAdminPanel } from '../utils/panelMan
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType } from 'discord.js';
 
+// ¡¡¡CORRECCIÓN!!! Aseguramos que todas las funciones están exportadas correctamente.
+
 export async function createNewTournament(client, guild, name, shortId, config) {
     const db = getDb();
     const format = TOURNAMENT_FORMATS[config.formatId];
@@ -94,12 +96,12 @@ export async function startGroupStage(client, guild, tournament) {
     for (const nombreGrupo in grupos) {
         const equiposGrupo = grupos[nombreGrupo].equipos;
         calendario[nombreGrupo] = [];
-        if (equiposGrupo.length === 4) { // Lógica para grupos de 4
+        if (equiposGrupo.length === 4) {
             const [t1, t2, t3, t4] = equiposGrupo;
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t2), createMatchObject(nombreGrupo, 1, t3, t4));
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t2, t4));
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t4), createMatchObject(nombreGrupo, 3, t2, t3));
-        } // Añadir más lógicas para otros tamaños de grupo si es necesario
+        }
     }
     tournament.structure.calendario = calendario;
 
@@ -125,18 +127,22 @@ export async function approveTeam(client, tournament, teamData) {
     if (tournament.teams.pendientes[teamData.capitanId]) delete tournament.teams.pendientes[teamData.capitanId];
     
     const db = getDb();
+    const latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
+    latestTournament.teams.aprobados = tournament.teams.aprobados;
+    latestTournament.teams.pendientes = tournament.teams.pendientes;
+
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: {
-        'teams.aprobados': tournament.teams.aprobados,
-        'teams.pendientes': tournament.teams.pendientes
+        'teams.aprobados': latestTournament.teams.aprobados,
+        'teams.pendientes': latestTournament.teams.pendientes
     }});
     
     const guild = await client.guilds.fetch(tournament.guildId);
-    await updatePublicMessages(client, await db.collection('tournaments').findOne({_id: tournament._id}));
+    await updatePublicMessages(client, latestTournament);
     
-    const teamCount = Object.keys(tournament.teams.aprobados).length;
-    if (teamCount === tournament.config.format.size) {
-        console.log(`[INFO] ¡Cupo lleno para ${tournament.nombre}! Iniciando sorteo.`);
-        await startGroupStage(client, guild, tournament);
+    const teamCount = Object.keys(latestTournament.teams.aprobados).length;
+    if (teamCount === latestTournament.config.format.size) {
+        console.log(`[INFO] ¡Cupo lleno para ${latestTournament.nombre}! Iniciando sorteo.`);
+        await startGroupStage(client, guild, latestTournament);
     }
 }
 
@@ -152,7 +158,7 @@ export async function endTournament(client, tournament) {
 
 async function cleanupTournament(client, tournament) {
     console.log(`[CLEANUP] Iniciando limpieza para el torneo ${tournament.shortId}`);
-    const { discordMessageIds, guildId } = tournament;
+    const { discordMessageIds } = tournament;
     const deletionPromises = [];
     
     const addDeletionTask = async (channelId, messageId) => {
@@ -188,9 +194,8 @@ async function cleanupTournament(client, tournament) {
 export async function updatePublicMessages(client, tournament) {
     const db = getDb();
     const latestTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
-    if (!latestTournamentState || latestTournamentState.status === 'finalizado') return;
+    if (!latestTournamentState) return;
 
-    console.log(`[UPDATE] Actualizando mensajes para ${latestTournamentState.shortId}`);
     const editMessage = async (channelId, messageId, content) => {
         try {
             const channel = await client.channels.fetch(channelId);
@@ -201,9 +206,10 @@ export async function updatePublicMessages(client, tournament) {
         }
     };
 
+    const statusEmbed = createTournamentStatusEmbed(latestTournamentState);
     const updateTasks = [
-        editMessage(CHANNELS.TORNEOS_STATUS, latestTournamentState.discordMessageIds.statusMessageId, createTournamentStatusEmbed(latestTournamentState)),
-        editMessage(CHANNELS.INSCRIPCIONES, latestTournamentState.discordMessageIds.inscriptionMessageId, createTournamentStatusEmbed(latestTournamentState)),
+        editMessage(CHANNELS.TORNEOS_STATUS, latestTournamentState.discordMessageIds.statusMessageId, statusEmbed),
+        editMessage(CHANNELS.INSCRIPCIONES, latestTournamentState.discordMessageIds.inscriptionMessageId, statusEmbed),
         editMessage(CHANNELS.CAPITANES_INSCRITOS, latestTournamentState.discordMessageIds.teamListMessageId, createTeamListEmbed(latestTournamentState)),
     ];
     
