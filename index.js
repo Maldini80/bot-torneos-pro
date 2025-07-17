@@ -26,14 +26,22 @@ client.on(Events.InteractionCreate, async interaction => {
     if (isBotBusy && interaction.isButton() && !interaction.customId.startsWith('admin_force_reset_bot')) {
         return interaction.reply({ content: '⏳ El bot está realizando una operación crítica. Por favor, espera un momento.', flags: MessageFlags.Ephemeral });
     }
+    
     try {
         if (interaction.isChatInputCommand()) await handleCommand(interaction);
         else if (interaction.isButton()) await handleButton(interaction);
         else if (interaction.isModalSubmit()) await handleModal(interaction);
         else if (interaction.isStringSelectMenu()) await handleSelectMenu(interaction);
     } catch (error) {
+        // CORRECCIÓN: Ignorar errores de interacción expirada, que son comunes.
+        if (error.code === 10062) {
+            console.warn(`[WARN] Se intentó responder a una interacción que ya había expirado. Esto es normal si el bot tarda más de 3 segundos o si el usuario es rápido.`);
+            return;
+        }
+        
         console.error('[ERROR DE INTERACCIÓN]', error);
         const errorMessage = { content: '❌ Hubo un error al procesar tu solicitud.', flags: MessageFlags.Ephemeral };
+        
         try {
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(errorMessage);
@@ -41,7 +49,9 @@ client.on(Events.InteractionCreate, async interaction => {
                 await interaction.reply(errorMessage);
             }
         } catch (e) {
-            console.error("Error al enviar mensaje de error de interacción:", e.message);
+            if (e.code !== 10062) {
+                 console.error("Error al enviar mensaje de error de interacción:", e.message);
+            }
         }
     }
 });
