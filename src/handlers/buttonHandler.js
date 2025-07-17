@@ -24,8 +24,8 @@ export async function handleButton(interaction) {
         } else if (interaction.customId.startsWith('payment_confirm_start')) {
             const tournamentShortId = params[3];
             modal = new ModalBuilder().setCustomId(`payment_confirm_modal_${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
-            // ¡¡¡CORRECCIÓN AQUÍ!!! Etiqueta acortada.
-            const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal para recibir premios").setStyle(TextInputStyle.Short).setPlaceholder('Escribe aquí tu email de PayPal.').setRequired(true);
+            // ¡¡¡CORRECCIÓN DEFINITIVA AQUÍ!!! Etiqueta acortada.
+            const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para premios)").setStyle(TextInputStyle.Short).setPlaceholder('Escribe aquí tu email de PayPal.').setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
         } else if (interaction.customId.startsWith('admin_add_test_teams')) {
             const tournamentShortId = params[4];
@@ -69,14 +69,11 @@ export async function handleButton(interaction) {
         const [, captainId, tournamentShortId] = interaction.customId.split('_');
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error o acción ya procesada.' });
-
         await approveTeam(client, tournament, tournament.teams.pendientes[captainId]);
-        
         const originalMessage = interaction.message;
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         await originalMessage.edit({ components: [disabledRow] });
-        
         await interaction.editReply(`✅ Equipo aprobado.`);
         return;
     }
@@ -85,9 +82,7 @@ export async function handleButton(interaction) {
         const tournamentShortId = params[2];
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
-
         await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. El panel se actualizará solo.` });
-        
         setBotBusy(true);
         await updateAdminPanel(client);
         try {
