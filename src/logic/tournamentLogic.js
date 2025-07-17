@@ -7,8 +7,6 @@ import { updateTournamentChannelName, updateAdminPanel } from '../utils/panelMan
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType } from 'discord.js';
 
-// ¡¡¡CORRECCIÓN!!! Aseguramos que todas las funciones están exportadas correctamente.
-
 export async function createNewTournament(client, guild, name, shortId, config) {
     const db = getDb();
     const format = TOURNAMENT_FORMATS[config.formatId];
@@ -122,14 +120,12 @@ export async function startGroupStage(client, guild, tournament) {
 }
 
 export async function approveTeam(client, tournament, teamData) {
-    if (!tournament.teams.aprobados) tournament.teams.aprobados = {};
-    tournament.teams.aprobados[teamData.capitanId] = teamData;
-    if (tournament.teams.pendientes[teamData.capitanId]) delete tournament.teams.pendientes[teamData.capitanId];
-    
     const db = getDb();
     const latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
-    latestTournament.teams.aprobados = tournament.teams.aprobados;
-    latestTournament.teams.pendientes = tournament.teams.pendientes;
+    
+    if (!latestTournament.teams.aprobados) latestTournament.teams.aprobados = {};
+    latestTournament.teams.aprobados[teamData.capitanId] = teamData;
+    if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: {
         'teams.aprobados': latestTournament.teams.aprobados,
@@ -147,48 +143,65 @@ export async function approveTeam(client, tournament, teamData) {
 }
 
 export async function endTournament(client, tournament) {
-    console.log(`[LOGIC] Iniciando finalización para el torneo: ${tournament.shortId}`);
+    console.log(`[LOGIC] Iniciando finalización para el torneo: ${tournament.shortId} (${tournament.nombre})`);
+    
+    await cleanupTournament(client, tournament);
+
+    console.log(`[LOGIC] Limpieza finalizada. Actualizando estado del torneo en la BD a 'finalizado'.`);
     const db = getDb();
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
-    await cleanupTournament(client, tournament);
+
+    console.log(`[LOGIC] Actualizando interfaz (panel de admin y nombre de canal).`);
     await updateTournamentChannelName(client);
     await updateAdminPanel(client);
-    console.log(`[LOGIC] Finalización completada para el torneo: ${tournament.shortId}`);
+
+    console.log(`[LOGIC] Finalización completada exitosamente para el torneo: ${tournament.shortId}`);
 }
 
 async function cleanupTournament(client, tournament) {
-    console.log(`[CLEANUP] Iniciando limpieza para el torneo ${tournament.shortId}`);
+    console.log(`[CLEANUP] Iniciando limpieza de recursos para el torneo ${tournament.shortId}`);
     const { discordMessageIds } = tournament;
-    const deletionPromises = [];
-    
-    const addDeletionTask = async (channelId, messageId) => {
-        if (!channelId || !messageId) return;
+
+    const deleteMessageSafe = async (channelId, messageId, resourceName) => {
+        if (!channelId || !messageId) {
+            console.log(`[CLEANUP] Saltando ${resourceName} porque el ID es nulo o inválido.`);
+            return;
+        }
         try {
+            console.log(`[CLEANUP] Intentando borrar ${resourceName} (Msg ID: ${messageId} en Canal ID: ${channelId})`);
             const channel = await client.channels.fetch(channelId);
             const message = await channel.messages.fetch(messageId);
-            deletionPromises.push(message.delete());
+            await message.delete();
+            console.log(`[CLEANUP] ÉXITO al borrar ${resourceName}.`);
         } catch (err) {
-            console.warn(`No se pudo borrar el mensaje ${messageId}: ${err.message}`);
+            console.error(`[CLEANUP] FALLO al borrar ${resourceName} (Msg ID: ${messageId}). Error: ${err.message}`);
         }
     };
 
-    await addDeletionTask(CHANNELS.TORNEOS_STATUS, discordMessageIds.statusMessageId);
-    await addDeletionTask(CHANNELS.INSCRIPCIONES, discordMessageIds.inscriptionMessageId);
-    await addDeletionTask(CHANNELS.CAPITANES_INSCRITOS, discordMessageIds.teamListMessageId);
-    await addDeletionTask(CHANNELS.CLASIFICACION, discordMessageIds.classificationMessageId);
-    await addDeletionTask(CHANNELS.CALENDARIO, discordMessageIds.calendarMessageId);
-    
-    if (discordMessageIds.matchThreadsParentId) {
-        try {
-            const channel = await client.channels.fetch(discordMessageIds.matchThreadsParentId);
-            deletionPromises.push(channel.delete('Torneo finalizado.'));
-        } catch (err) {
-            console.warn(`No se pudo borrar el canal ${discordMessageIds.matchThreadsParentId}: ${err.message}`);
+    const deleteChannelSafe = async (channelId, resourceName) => {
+        if (!channelId) {
+            console.log(`[CLEANUP] Saltando ${resourceName} porque el ID es nulo o inválido.`);
+            return;
         }
-    }
+        try {
+            console.log(`[CLEANUP] Intentando borrar ${resourceName} (Canal ID: ${channelId})`);
+            const channel = await client.channels.fetch(channelId);
+            await channel.delete('Torneo finalizado.');
+            console.log(`[CLEANUP] ÉXITO al borrar ${resourceName}.`);
+        } catch (err) {
+            console.error(`[CLEANUP] FALLO al borrar ${resourceName} (Canal ID: ${channelId}). Error: ${err.message}`);
+        }
+    };
 
-    await Promise.allSettled(deletionPromises);
-    console.log(`[CLEANUP] Tareas de limpieza para ${tournament.shortId} completadas.`);
+    await deleteMessageSafe(CHANNELS.TORNEOS_STATUS, discordMessageIds.statusMessageId, 'Mensaje de Estado');
+    await deleteMessageSafe(CHANNELS.INSCRIPCIONES, discordMessageIds.inscriptionMessageId, 'Mensaje de Inscripciones');
+    await deleteMessageSafe(CHANNELS.CAPITANES_INSCRITOS, discordMessageIds.teamListMessageId, 'Mensaje de Lista de Equipos');
+    await deleteMessageSafe(CHANNELS.CLASIFICACION, discordMessageIds.classificationMessageId, 'Mensaje de Clasificación');
+    await deleteMessageSafe(CHANNELS.CALENDARIO, discordMessageIds.calendarMessageId, 'Mensaje de Calendario');
+    
+    await deleteChannelSafe(discordMessageIds.matchThreadsParentId, 'Canal de Partidos');
+
+    console.log(`[CLEANUP] Todas las tareas de limpieza para ${tournament.shortId} han sido procesadas.`);
 }
 
 export async function updatePublicMessages(client, tournament) {
@@ -197,6 +210,7 @@ export async function updatePublicMessages(client, tournament) {
     if (!latestTournamentState) return;
 
     const editMessage = async (channelId, messageId, content) => {
+        if (!channelId || !messageId) return;
         try {
             const channel = await client.channels.fetch(channelId);
             const message = await channel.messages.fetch(messageId);
