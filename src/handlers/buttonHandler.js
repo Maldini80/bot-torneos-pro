@@ -109,7 +109,7 @@ export async function handleButton(interaction) {
     
     if (action === 'request_referee') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [matchId, tournamentShortId] = params;
+        const [matchId] = params;
         const thread = interaction.channel;
         if (!thread.isThread()) return interaction.editReply('Esta acción solo funciona en un hilo de partido.');
         await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅]-/g, '')}`.slice(0,100));
@@ -196,20 +196,23 @@ export async function handleButton(interaction) {
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
         
-        // CORRECCIÓN: Usar 'editReply' para la primera respuesta y 'followUp' solo al final.
-        await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Esto puede tardar varios minutos para torneos grandes.` });
+        // CORRECCIÓN DEFINITIVA: Responder y luego ejecutar sin bloquear.
+        await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado. Esto puede tardar varios minutos.` });
         
-        startGroupStage(client, guild, tournament).then(() => {
-            // Enviamos un nuevo mensaje al hilo de gestión para confirmar que ha terminado.
-            if (interaction.channel) {
-                interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`);
-            }
-        }).catch(error => {
-            console.error("Error durante el sorteo en segundo plano:", error);
-            if (interaction.channel) {
-                interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`);
-            }
-        });
+        // Ejecutamos la tarea pesada sin esperar (pero sí gestionando el estado de 'busy')
+        startGroupStage(client, guild, tournament)
+            .then(() => {
+                console.log(`Sorteo en segundo plano para ${tournament.shortId} finalizado con éxito.`);
+                if (interaction.channel) {
+                    interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`);
+                }
+            })
+            .catch(error => {
+                console.error("Error durante el sorteo en segundo plano:", error);
+                if (interaction.channel) {
+                    interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`);
+                }
+            });
         return;
     }
     if (action === 'admin_simulate_matches') {
