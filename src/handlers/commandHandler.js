@@ -1,5 +1,5 @@
 // src/handlers/commandHandler.js
-import { EmbedBuilder, PermissionsBitField } from 'discord.js';
+import { EmbedBuilder, PermissionsBitField, MessageFlags } from 'discord.js';
 import { getDb } from '../../database.js';
 import { createGlobalAdminPanel } from '../utils/embeds.js';
 import { languageRoles, CHANNELS } from '../../config.js';
@@ -10,17 +10,15 @@ export async function handleCommand(interaction) {
 
     if (commandName === 'panel-admin') {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.reply({ content: 'No tienes permisos para usar este comando.', ephemeral: true });
+            return interaction.reply({ content: 'No tienes permisos para usar este comando.', flags: [MessageFlags.Ephemeral] });
         }
         
-        // El canal objetivo ahora es el de gestión, donde vivirá el panel de creación.
         if (interaction.channel.id !== CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT) {
-            return interaction.reply({ content: `Este comando solo puede usarse en el canal <#${CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT}>.`, ephemeral: true });
+            return interaction.reply({ content: `Este comando solo puede usarse en el canal <#${CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT}>.`, flags: [MessageFlags.Ephemeral] });
         }
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
-        // Borrar paneles antiguos de creación
         const oldPanels = await interaction.channel.messages.fetch({ limit: 50 });
         const messagesToDelete = oldPanels.filter(m => m.author.id === interaction.client.user.id && m.embeds[0]?.title === 'Panel de Creación de Torneos');
         if (messagesToDelete.size > 0) {
@@ -38,7 +36,7 @@ export async function handleCommand(interaction) {
     
     if (commandName === 'setup-idiomas') {
          if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.reply({ content: 'No tienes permisos para usar este comando.', ephemeral: true });
+            return interaction.reply({ content: 'No tienes permisos para usar este comando.', flags: [MessageFlags.Ephemeral] });
         }
         
         const embed = new EmbedBuilder()
@@ -55,6 +53,6 @@ export async function handleCommand(interaction) {
         for (const flag in languageRoles) {
             await sentMessage.react(flag);
         }
-        await interaction.reply({ content: 'Panel de idiomas creado.', ephemeral: true });
+        await interaction.reply({ content: 'Panel de idiomas creado.', flags: [MessageFlags.Ephemeral] });
     }
 }
