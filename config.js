@@ -18,8 +18,9 @@ export const CHANNELS = {
 
     // Canales para anuncios públicos
     TORNEOS_STATUS: '1395276865597476908',
-    INSCRIPCIONES: '1393942335645286412', // Este canal ya no se usa activamente para mensajes pero lo mantenemos por si acaso
     CAPITANES_INSCRITOS: '1394444703822381076',
+    // CLASIFICACION y CALENDARIO ya no se usarán directamente, el contenido irá a un hilo.
+    // Los mantenemos por si se usan en alguna lógica residual.
     CLASIFICACION: '1394445078948220928',
     CALENDARIO: '1394577975412002816',
 };
@@ -41,12 +42,16 @@ export const languageRoles = {
     '🇹🇷': { name: 'Türkçe', code: 'tr' }
 };
 
-// Iconos de estado para los embeds y nombres de canales
+// Iconos de estado para los embeds y nombres de canales/hilos
 export const TOURNAMENT_STATUS_ICONS = {
     inscripcion_abierta: '🟢',
     cupo_lleno: '🟠',
     fase_de_grupos: '🔵',
-    eliminatorias: '🟣',
+    octavos: '🟣',
+    cuartos: '🟣',
+    semifinales: '🟣',
+    final: '🟣',
     finalizado: '🏁',
+    // CORRECCIÓN: Cambiado de negro a rojo
     cancelado: '🔴'
 };
