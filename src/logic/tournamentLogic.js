@@ -142,7 +142,7 @@ export async function approveTeam(client, tournament, teamData) {
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
         await matchesChannel.permissionOverwrites.edit(teamData.capitanId, {
             ViewChannel: true,
-            SendMessages: false,
+            SendMessages: false, // Solo puede ver el canal, escribirá en los hilos.
         });
 
     } catch(e) {
