@@ -6,7 +6,7 @@ export function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación de Torneos')
-        .setFooter({ text: 'Bot de Torneos v2.6' });
+        .setFooter({ text: 'Bot de Torneos v2.7' });
     embed.setDescription(isBusy 
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.' 
         : '✅ **ESTADO: LISTO**\nUsa el botón de abajo para crear un nuevo torneo.'
@@ -59,10 +59,8 @@ export function createTournamentStatusEmbed(tournament) {
         .setTitle(`${statusIcon} ${tournament.nombre}`)
         .addFields( { name: 'Formato / Format', value: format.label, inline: true }, { name: 'Equipos / Teams', value: `${teamsCount} / ${format.size}`, inline: true } )
         .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
-    
     const formatDescriptionES = TOURNAMENT_FORMATS[tournament.config.formatId].description;
     const formatDescriptionEN = TOURNAMENT_FORMATS[tournament.config.formatId].description_en || formatDescriptionES;
-
     let descriptionLines = [];
     if (tournament.config.isPaid) {
         descriptionLines.push('**Este es un torneo de pago. / This is a paid tournament.**');
@@ -71,11 +69,9 @@ export function createTournamentStatusEmbed(tournament) {
         descriptionLines.push('**Este es un torneo gratuito. / This is a free tournament.**');
         embed.addFields({ name: 'Entry', value: 'Gratuito / Free', inline: true });
     }
-
     descriptionLines.push(`\n🇪🇸 ${formatDescriptionES}`);
     descriptionLines.push(`🇬🇧 ${formatDescriptionEN}`);
     embed.setDescription(descriptionLines.join('\n'));
-    
     const row = new ActionRowBuilder();
     if (tournament.status === 'inscripcion_abierta' && teamsCount < format.size) {
         row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
@@ -155,7 +151,8 @@ export function createCalendarEmbed(tournament) {
                 groupScheduleText += `${equipoA}${paddedCenter}${equipoB}\n`;
             }
         }
-        embed.addFields({ name: `**${groupName}**`, value: `\`\`\`\n${groupScheduleText.trim()}\n\`\`\``, inline: true });
+        // CORRECCIÓN: Eliminado `inline: true` para asegurar alineación vertical.
+        embed.addFields({ name: `**${groupName}**`, value: `\`\`\`\n${groupScheduleText.trim()}\n\`\`\`` });
     }
     return { embeds: [embed] };
 }
