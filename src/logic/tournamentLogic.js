@@ -27,10 +27,9 @@ export async function createNewTournament(client, guild, name, shortId, config) 
              { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
         ];
 
-        const inscriptionsChannel = await guild.channels.create({ name: `${shortId}-info-inscripcion`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID });
-        const infoChannel = await guild.channels.create({ name: `${shortId}-clasificacion-calendario`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: publicReadOnlyPermissions });
-        const matchesChannel = await guild.channels.create({ name: `${shortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
-        const chatChannel = await guild.channels.create({ name: `${shortId}-chat-capitanes`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
+        const infoChannel = await guild.channels.create({ name: `🏆-${shortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: publicReadOnlyPermissions });
+        const matchesChannel = await guild.channels.create({ name: `⚽-${shortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
+        const chatChannel = await guild.channels.create({ name: `💬-${shortId}-chat`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
 
         const newTournament = {
             _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta',
@@ -38,8 +37,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             teams: { pendientes: {}, aprobados: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: {
-                inscriptionsChannelId: inscriptionsChannel.id, infoChannelId: infoChannel.id,
-                matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id,
+                infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id,
             },
             discordMessageIds: {
                 statusMessageId: null, classificationMessageId: null, calendarMessageId: null, 
@@ -47,7 +45,9 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             }
         };
         
-        const statusMsg = await inscriptionsChannel.send(createTournamentStatusEmbed(newTournament));
+        const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        const statusMsg = await globalStatusChannel.send(createTournamentStatusEmbed(newTournament));
+        
         const classificationMsg = await infoChannel.send(createClassificationEmbed(newTournament));
         const calendarMsg = await infoChannel.send(createCalendarEmbed(newTournament));
 
@@ -64,11 +64,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         newTournament.discordMessageIds.notificationsThreadId = notificationsThread.id;
 
         await db.collection('tournaments').insertOne(newTournament);
-        
-        const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
-        const announcementEmbed = new EmbedBuilder().setColor('#2ecc71').setTitle(`🟢 Nuevo Torneo Abierto: ${name}`).setDescription(`¡Las inscripciones ya están abiertas! Haz clic en el botón de abajo para ir al canal de inscripciones.`);
-        const announcementButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Ir a Inscripciones').setStyle(ButtonStyle.Link).setURL(inscriptionsChannel.url).setEmoji('✅'));
-        await globalStatusChannel.send({ embeds: [announcementEmbed], components: [announcementButton] });
         
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
@@ -134,11 +129,14 @@ async function cleanupTournament(client, tournament) {
     const { discordChannelIds, discordMessageIds } = tournament;
     const deleteResourceSafe = async (resourceId) => {
         if (!resourceId) return;
-        try { const resource = await client.channels.fetch(resourceId).catch(() => null); if(resource) await resource.delete(`Torneo ${tournament.shortId} finalizado.`);
-        } catch (err) { if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); }
+        try { const resource = await client.channels.fetch(resourceId).catch(() => null); if(resource) await resource.delete(); } 
+        catch (err) { if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); }
     };
+    
     for (const channelId of Object.values(discordChannelIds)) { await deleteResourceSafe(channelId); }
     for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId]) { await deleteResourceSafe(threadId); }
+    try { const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS); await globalChannel.messages.delete(discordMessageIds.statusMessageId);
+    } catch(e) { if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); }
 }
 
 export async function updatePublicMessages(client, tournament) {
@@ -150,8 +148,9 @@ export async function updatePublicMessages(client, tournament) {
         try { const channel = await client.channels.fetch(channelId); const message = await channel.messages.fetch(messageId); await message.edit(content);
         } catch (e) { if (e.code !== 10008 && e.code !== 10003) console.warn(`Falla al actualizar mensaje ${messageId}: ${e.message}`); }
     };
+    
     const { discordChannelIds, discordMessageIds } = latestTournamentState;
-    await editMessageSafe(discordChannelIds.inscriptionsChannelId, discordMessageIds.statusMessageId, createTournamentStatusEmbed(latestTournamentState));
+    await editMessageSafe(CHANNELS.TORNEOS_STATUS, discordMessageIds.statusMessageId, createTournamentStatusEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.classificationMessageId, createClassificationEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.calendarMessageId, createCalendarEmbed(latestTournamentState));
 }
