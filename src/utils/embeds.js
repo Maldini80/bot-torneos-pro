@@ -9,7 +9,7 @@ export function createGlobalAdminPanel(isBusy = false) {
         .setFooter({ text: 'Bot de Torneos v2.5' });
 
     embed.setDescription(isBusy 
-        ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica (creando/finalizando un torneo). Por favor, espera.' 
+        ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.' 
         : '✅ **ESTADO: LISTO**\nUsa el botón de abajo para crear un nuevo torneo.'
     );
 
@@ -100,13 +100,7 @@ export function createTournamentStatusEmbed(tournament) {
     
     const row = new ActionRowBuilder();
     if (tournament.status === 'inscripcion_abierta' && teamsCount < format.size) {
-        const buttonLabel = 'Inscribirme / Register';
-        row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel(buttonLabel).setStyle(ButtonStyle.Success).setEmoji('📝'));
-    }
-    
-    if (tournament.guildId && tournament.discordMessageIds.publicInfoThreadId) {
-        const threadURL = `https://discord.com/channels/${tournament.guildId}/${tournament.discordMessageIds.publicInfoThreadId}`;
-        row.addComponents(new ButtonBuilder().setLabel('Ver Detalles / View Details').setStyle(ButtonStyle.Link).setURL(threadURL).setEmoji('ℹ️'));
+        row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
     }
     
     if (tournament.status === 'finalizado') {
@@ -114,6 +108,17 @@ export function createTournamentStatusEmbed(tournament) {
     }
 
     return { embeds: [embed], components: [row] };
+}
+
+export function createTeamListEmbed(tournament) {
+    const approvedTeams = Object.values(tournament.teams.aprobados);
+    const format = tournament.config.format;
+    let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
+    if (approvedTeams.length > 0) {
+        description = approvedTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}, EAFC: \`${team.eafcTeamName}\`)`).join('\n');
+    }
+    const embed = new EmbedBuilder().setColor('#1abc9c').setTitle(`📋 Equipos Inscritos - ${tournament.nombre}`).setDescription(description).setFooter({ text: `Total: ${approvedTeams.length} / ${format.size}` });
+    return { embeds: [embed] };
 }
 
 export function createClassificationEmbed(tournament) {
