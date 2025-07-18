@@ -2,6 +2,7 @@
 import { getDb } from '../../database.js';
 import { createNewTournament, updatePublicMessages, updateTournamentConfig } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch } from '../logic/matchLogic.js';
+// CORRECCIÓN: Importamos MessageFlags
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { CHANNELS } from '../../config.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
@@ -13,17 +14,21 @@ export async function handleModal(interaction) {
     const db = getDb();
 
     if (customId.startsWith('create_tournament:')) {
-        await interaction.deferReply({ ephemeral: true });
+        // CORRECCIÓN: Usamos deferReply con flags y luego editReply
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        
         const [, formatId, type] = customId.split(':');
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const config = { formatId, isPaid: type === 'pago' };
+        
         if (config.isPaid) {
             config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
             config.enlacePaypal = interaction.fields.getTextInputValue('torneo_paypal');
             config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
             config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
         }
+        
         try {
             await createNewTournament(client, guild, nombre, shortId, config);
             await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado. Se han generado los hilos de gestión y notificaciones en los canales de administración.` });
@@ -35,7 +40,7 @@ export async function handleModal(interaction) {
     }
 
     if (customId.startsWith('edit_tournament_modal_')) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const tournamentShortId = customId.split('_').pop();
         
         const newConfig = {
@@ -43,7 +48,6 @@ export async function handleModal(interaction) {
             prizeFinalista: parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista')),
             entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')),
         };
-        // Determinar si es de pago basándose en la cuota
         newConfig.isPaid = newConfig.entryFee > 0;
 
         try {
@@ -57,7 +61,7 @@ export async function handleModal(interaction) {
     }
 
     if (customId.startsWith('inscripcion_modal_')) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const tournamentShortId = customId.split('_')[2];
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
@@ -96,7 +100,7 @@ export async function handleModal(interaction) {
     }
 
     if (customId.startsWith('payment_confirm_modal_')) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const tournamentShortId = customId.split('_')[3];
         
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -126,7 +130,7 @@ export async function handleModal(interaction) {
     }
     
     if (customId.startsWith('add_test_teams_modal_')) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const tournamentShortId = customId.split('_')[4];
         const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
         if (isNaN(amount) || amount <= 0) return interaction.editReply('Cantidad inválida.');
@@ -148,10 +152,10 @@ export async function handleModal(interaction) {
             const teamData = { 
                 id: teamId, 
                 nombre: `E-Prueba-${teamsCount + i + 1}`, 
-                capitanId: interaction.user.id, // El admin es el capitán
+                capitanId: interaction.user.id,
                 capitanTag: interaction.user.tag, 
                 bandera: '🧪', 
-                paypal: 'admin@test.com', // PayPal ficticio
+                paypal: 'admin@test.com',
                 inscritoEn: new Date() 
             };
             bulkOps.push({
