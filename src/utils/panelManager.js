@@ -20,11 +20,8 @@ async function fetchGlobalCreationPanel(client) {
 
 export async function updateAdminPanel(client) {
     const msg = await fetchGlobalCreationPanel(client);
-    
     if (!msg) return;
-    
     const panelContent = createGlobalAdminPanel(isBotBusy);
-    
     try {
         await msg.edit(panelContent);
     } catch (error) {
@@ -36,15 +33,12 @@ export async function updateAdminPanel(client) {
 
 export async function updateTournamentManagementThread(client, tournament, busyState = isBotBusy) {
     if (!tournament || !tournament.discordMessageIds.managementThreadId) return;
-
     try {
         const thread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId);
         const messages = await thread.messages.fetch({ limit: 20 });
         const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Gestión del Torneo:'));
-
         const latestTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
         if (!latestTournamentState) return;
-
         if (panelMessage) {
             const panelContent = createTournamentManagementPanel(latestTournamentState, busyState);
             await panelMessage.edit(panelContent);
@@ -59,20 +53,29 @@ export async function updateTournamentManagementThread(client, tournament, busyS
 export async function updateAllManagementPanels(client, busyState) {
     const db = getDb();
     const activeTournaments = await db.collection('tournaments').find({ status: { $nin: ['finalizado', 'archivado'] } }).toArray();
-    
     for (const tournament of activeTournaments) {
         await updateTournamentManagementThread(client, tournament, busyState);
     }
 }
 
+// CORRECCIÓN: Lógica de conteo y actualización de nombres de canales y paneles.
 export async function updateTournamentChannelName(client) {
     try {
         const db = getDb();
         const activeTournaments = await db.collection('tournaments').find({ status: { $nin: ['finalizado', 'archivado', 'cancelado'] } }).toArray();
         
-        const openForRegistration = activeTournaments.filter(t => t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length < t.config.format.size).length;
-        const fullTournaments = activeTournaments.filter(t => t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size).length;
-        const inProgress = activeTournaments.filter(t => !['inscripcion_abierta', 'finalizado', 'archivado', 'cancelado'].includes(t.status)).length;
+        // Lógica de conteo revisada
+        const openForRegistration = activeTournaments.filter(t => 
+            t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length < t.config.format.size
+        ).length;
+        
+        const fullTournaments = activeTournaments.filter(t => 
+            t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size
+        ).length;
+        
+        const inProgress = activeTournaments.filter(t => 
+            !['inscripcion_abierta', 'finalizado', 'archivado', 'cancelado'].includes(t.status)
+        ).length;
         
         const statusParts = [];
         if (openForRegistration > 0) statusParts.push(`🟢${openForRegistration}`);
@@ -84,26 +87,6 @@ export async function updateTournamentChannelName(client) {
         const channel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
         if (channel && channel.name !== newChannelName) {
             await channel.setName(newChannelName.slice(0, 100));
-        }
-
-        for (const tournament of activeTournaments) {
-            if (tournament.discordMessageIds.publicInfoThreadId) {
-                try {
-                    const thread = await client.channels.fetch(tournament.discordMessageIds.publicInfoThreadId);
-                    
-                    let statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
-                    if (tournament.status === 'inscripcion_abierta' && Object.keys(tournament.teams.aprobados).length >= tournament.config.format.size) {
-                        statusIcon = TOURNAMENT_STATUS_ICONS['cupo_lleno'];
-                    }
-
-                    const newThreadName = `${statusIcon} ${tournament.nombre} - Info`;
-                    if (thread.name !== newThreadName) {
-                        await thread.setName(newThreadName.slice(0, 100));
-                    }
-                } catch (e) {
-                    if (e.code !== 10003) console.warn(`No se pudo actualizar nombre de hilo público para ${tournament.shortId}`);
-                }
-            }
         }
 
     } catch (e) {
