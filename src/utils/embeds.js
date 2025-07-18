@@ -2,36 +2,64 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS } from '../../config.js';
 
-export function createGlobalAdminPanel(tournaments = [], isBusy = false) {
+// MODIFICADO: Este panel ahora solo sirve para iniciar la creación de torneos.
+export function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
-        .setTitle('Panel de Control Global de Torneos')
-        .setFooter({ text: 'Bot de Torneos v2.2' });
-    embed.setDescription(isBusy ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica.' : '✅ **ESTADO: LISTO**\nUsa los botones de abajo para gestionar los torneos.');
-    if (tournaments.length > 0) {
-        embed.addFields({ name: 'Torneos Activos', value: tournaments.map(t => `**${t.nombre}** [${t.shortId}] | *Estado: ${t.status.replace(/_/g, ' ')}*`).join('\n') });
-    } else {
-        embed.addFields({ name: 'Torneos Activos', value: 'No hay torneos activos en este momento.' });
-    }
+        .setTitle('Panel de Creación de Torneos')
+        .setFooter({ text: 'Bot de Torneos v2.3' });
+
+    embed.setDescription(isBusy 
+        ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.' 
+        : '✅ **ESTADO: LISTO**\nUsa el botón de abajo para crear un nuevo torneo.'
+    );
+
     const globalActionsRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Nuevo Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
-    const components = [globalActionsRow];
-    if (tournaments.length > 0 && !isBusy) {
-        const tournamentManagementMenu = new StringSelectMenuBuilder()
-            .setCustomId('admin_manage_select_tournament')
-            .setPlaceholder('Selecciona un torneo para gestionar...')
-            .addOptions(tournaments.map(t => ({
-                label: t.nombre.slice(0, 100),
-                description: `ID: ${t.shortId} | Estado: ${t.status}`.slice(0, 100),
-                value: t.shortId,
-            })));
-        components.push(new ActionRowBuilder().addComponents(tournamentManagementMenu));
+    
+    return { embeds: [embed], components: [globalActionsRow] };
+}
+
+// MODIFICADO: Este es el nuevo panel de gestión que irá dentro de cada hilo de torneo.
+export function createTournamentManagementPanel(tournament) {
+    const embed = new EmbedBuilder()
+        .setColor('#e67e22')
+        .setTitle(`Gestión del Torneo: ${tournament.nombre}`)
+        .setDescription(`**ID:** \`${tournament.shortId}\`\n**Estado:** ${tournament.status.replace(/_/g, ' ')}\n\nUtiliza los botones de abajo para administrar este torneo.`)
+        .setFooter({ text: 'Este es el panel de control exclusivo para este torneo.' });
+
+    const row1 = new ActionRowBuilder();
+    const row2 = new ActionRowBuilder();
+
+    const isBeforeDraw = tournament.status === 'inscripcion_abierta';
+    const hasEnoughTeamsForDraw = Object.keys(tournament.teams.aprobados).length >= 2;
+
+    if (isBeforeDraw) {
+        row1.addComponents(
+            new ButtonBuilder().setCustomId(`admin_edit_tournament_start_${tournament.shortId}`).setLabel('Editar Torneo').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
+            new ButtonBuilder().setCustomId(`admin_add_test_teams_${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪'),
+            new ButtonBuilder().setCustomId(`admin_force_draw_${tournament.shortId}`).setLabel('Forzar Sorteo').setStyle(ButtonStyle.Primary).setEmoji('🎲').setDisabled(!hasEnoughTeamsForDraw)
+        );
+    } else {
+         row1.addComponents(
+            new ButtonBuilder().setCustomId(`admin_simulate_matches_${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩')
+        );
     }
+    
+    row2.addComponents(
+        new ButtonBuilder().setCustomId(`admin_end_tournament_${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑')
+    );
+
+    const components = [];
+    if (row1.components.length > 0) components.push(row1);
+    components.push(row2);
+    
     return { embeds: [embed], components };
 }
 
+// MODIFICADO: Corregido el texto para ser completamente bilingüe.
 export function createTournamentStatusEmbed(tournament) {
     const statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
     const format = tournament.config.format;
@@ -46,28 +74,39 @@ export function createTournamentStatusEmbed(tournament) {
         )
         .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
 
-    // Lógica para la descripción y el precio
     const formatDescriptionES = TOURNAMENT_FORMATS[tournament.config.formatId].description;
-    const formatDescriptionEN = TOURNAMENT_FORMATS[tournament.config.formatId].description; // Idealmente, tendrías descripciones bilingües en tu config.js
+    // Asumimos que la descripción puede servir para ambos o podrías tener un campo 'description_en'
+    const formatDescriptionEN = TOURNAMENT_FORMATS[tournament.config.formatId].description; 
+
+    let descriptionLines = [];
 
     if (tournament.config.isPaid) {
-        embed.setDescription(`**Este es un torneo de pago. / This is a paid tournament.**\n🇪🇸 ${formatDescriptionES}\n🇬🇧 ${formatDescriptionEN}`);
+        descriptionLines.push('**Este es un torneo de pago. / This is a paid tournament.**');
         embed.addFields({ name: 'Inscripción / Entry Fee', value: `${tournament.config.entryFee}€`, inline: true });
     } else {
-        embed.setDescription(`**Este es un torneo gratuito. / This is a free tournament.**\n🇪🇸 ${formatDescriptionES}\n🇬🇧 ${formatDescriptionEN}`);
+        descriptionLines.push('**Este es un torneo gratuito. / This is a free tournament.**');
         embed.addFields({ name: 'Inscripción / Entry Fee', value: 'Gratuito / Free', inline: true });
     }
+
+    descriptionLines.push(`\n🇪🇸 ${formatDescriptionES}`);
+    descriptionLines.push(`🇬🇧 ${formatDescriptionEN}`);
+    embed.setDescription(descriptionLines.join('\n'));
     
     const row = new ActionRowBuilder();
     if (tournament.status === 'inscripcion_abierta' && teamsCount < format.size) {
-        const buttonLabel = tournament.config.isPaid ? 'Inscribirme (Pago Requerido)' : 'Inscribirme / Register';
-        row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start_${tournament.shortId}`).setLabel(buttonLabel).setStyle(ButtonStyle.Success).setEmoji('📝'));
+        const buttonLabelES = tournament.config.isPaid ? 'Inscribirme (Pago Requerido)' : 'Inscribirme';
+        const buttonLabelEN = tournament.config.isPaid ? 'Register (Payment Required)' : 'Register';
+        row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start_${tournament.shortId}`).setLabel(`${buttonLabelES} / ${buttonLabelEN}`).setStyle(ButtonStyle.Success).setEmoji('📝'));
     }
     
     row.addComponents(new ButtonBuilder().setCustomId(`user_view_details_${tournament.shortId}`).setLabel('Ver Detalles / View Details').setStyle(ButtonStyle.Secondary).setEmoji('ℹ️'));
     
-    if (tournament.status === 'finalizado') embed.setColor('#95a5a6').setTitle(`${TOURNAMENT_STATUS_ICONS.finalizado} ${tournament.nombre} (Finalizado / Finished)`);
-    if (tournament.status === 'inscripcion_abierta' && teamsCount >= format.size) embed.setColor('#e67e22').setTitle(`${TOURNAMENT_STATUS_ICONS.cupo_lleno} ${tournament.nombre} (Cupo Lleno / Full)`);
+    if (tournament.status === 'finalizado') {
+        embed.setColor('#95a5a6').setTitle(`${TOURNAMENT_STATUS_ICONS.finalizado} ${tournament.nombre} (Finalizado / Finished)`);
+    }
+    if (tournament.status === 'inscripcion_abierta' && teamsCount >= format.size) {
+        embed.setColor('#e67e22').setTitle(`${TOURNAMENT_STATUS_ICONS.cupo_lleno} ${tournament.nombre} (Cupo Lleno / Full)`);
+    }
 
     return { embeds: [embed], components: [row] };
 }
@@ -81,21 +120,6 @@ export function createTeamListEmbed(tournament) {
     }
     const embed = new EmbedBuilder().setColor('#1abc9c').setTitle(`📋 Equipos Inscritos - ${tournament.nombre}`).setDescription(description).setFooter({ text: `Total: ${approvedTeams.length} / ${format.size}` });
     return { embeds: [embed] };
-}
-
-export function createTournamentManagementPanel(tournament) {
-    const embed = new EmbedBuilder().setColor('#e67e22').setTitle(`Gestionando: ${tournament.nombre}`).setDescription(`**ID:** \`${tournament.shortId}\`\n**Estado:** ${tournament.status.replace(/_/g, ' ')}`).setFooter({ text: 'Estás en el modo de gestión de un torneo específico.' });
-    const row1 = new ActionRowBuilder();
-    const row2 = new ActionRowBuilder();
-    row1.addComponents(new ButtonBuilder().setCustomId(`admin_add_test_teams_${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪'));
-    if (tournament.status === 'inscripcion_abierta') {
-        row1.addComponents(new ButtonBuilder().setCustomId(`admin_force_draw_${tournament.shortId}`).setLabel('Forzar Sorteo').setStyle(ButtonStyle.Primary).setEmoji('🎲').setDisabled(Object.keys(tournament.teams.aprobados).length < 2));
-    }
-    row2.addComponents(new ButtonBuilder().setCustomId(`admin_end_tournament_${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑'), new ButtonBuilder().setCustomId(`admin_return_to_main_panel`).setLabel('Volver').setStyle(ButtonStyle.Secondary).setEmoji('⬅️'));
-    const components = [];
-    if (row1.components.length > 0) components.push(row1);
-    components.push(row2);
-    return { embeds: [embed], components };
 }
 
 export function createClassificationEmbed(tournament) {
