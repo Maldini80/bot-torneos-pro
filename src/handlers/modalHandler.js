@@ -3,7 +3,6 @@ import { getDb } from '../../database.js';
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-// CORRECCIÓN: Importamos PAYMENT_CONFIG para poder leer tu PayPal.
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG } from '../../config.js';
 import { updateTournamentManagementThread, updateTournamentChannelName } from '../utils/panelManager.js';
 
@@ -38,7 +37,6 @@ export async function handleModal(interaction) {
         config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
         if (config.isPaid) {
             config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
-            // CORRECCIÓN: El PayPal se lee desde config.js, no del modal.
             config.enlacePaypal = PAYMENT_CONFIG.PAYPAL_EMAIL; 
             config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
             config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
