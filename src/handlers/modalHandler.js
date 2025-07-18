@@ -3,7 +3,8 @@ import { getDb } from '../../database.js';
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { CHANNELS, ARBITRO_ROLE_ID } from '../../config.js';
+// CORRECCIÓN: Importamos PAYMENT_CONFIG para poder leer tu PayPal.
+import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG } from '../../config.js';
 import { updateTournamentManagementThread, updateTournamentChannelName } from '../utils/panelManager.js';
 
 export async function handleModal(interaction) {
@@ -18,10 +19,10 @@ export async function handleModal(interaction) {
         if (confirmation !== 'CONFIRMAR RESET') {
             return interaction.reply({ content: '❌ El texto de confirmación no coincide. El reseteo ha sido cancelado.', flags: [MessageFlags.Ephemeral] });
         }
-        await interaction.reply({ content: '⏳ **CONFIRMADO.** Iniciando reseteo forzoso de todos los torneos. El bot estará ocupado...', flags: [MessageFlags.Ephemeral] });
+        await interaction.reply({ content: '⏳ **CONFIRMADO.** Iniciando reseteo forzoso...', flags: [MessageFlags.Ephemeral] });
         try {
             await forceResetAllTournaments(client);
-            await interaction.followUp({ content: '✅ **RESETEO COMPLETO.** Todos los canales, hilos y datos de torneos han sido eliminados.', flags: [MessageFlags.Ephemeral] });
+            await interaction.followUp({ content: '✅ **RESETEO COMPLETO.**', flags: [MessageFlags.Ephemeral] });
         } catch (error) {
             console.error("Error crítico durante el reseteo forzoso:", error);
             await interaction.followUp({ content: '❌ Ocurrió un error crítico durante el reseteo. Revisa los logs.', flags: [MessageFlags.Ephemeral] });
@@ -34,17 +35,17 @@ export async function handleModal(interaction) {
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const config = { formatId, isPaid: type === 'pago' };
-        // Añadir hora de inicio
         config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
         if (config.isPaid) {
             config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
-            config.enlacePaypal = interaction.fields.getTextInputValue('torneo_paypal');
+            // CORRECCIÓN: El PayPal se lee desde config.js, no del modal.
+            config.enlacePaypal = PAYMENT_CONFIG.PAYPAL_EMAIL; 
             config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
             config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
         }
         try {
             await createNewTournament(client, guild, nombre, shortId, config);
-            await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado. Se han generado los canales correspondientes.` });
+            await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
         } catch (error) {
             console.error("Error capturado por el handler al crear el torneo:", error);
             await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo. Revisa los logs.` });
@@ -93,11 +94,11 @@ export async function handleModal(interaction) {
         const captainId = interaction.user.id;
         const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId];
         if (isAlreadyRegistered) {
-            return interaction.editReply({ content: '❌ 🇪🇸 Ya estás inscrito en este torneo. No puedes registrarte dos veces.\n🇬🇧 You are already registered in this tournament. You cannot register twice.'});
+            return interaction.editReply({ content: '❌ 🇪🇸 Ya estás inscrito en este torneo.\n🇬🇧 You are already registered in this tournament.'});
         }
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) {
-            return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones para este torneo. Contacta a un admin.');
+            return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
         }
         const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
         const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
@@ -108,19 +109,19 @@ export async function handleModal(interaction) {
         const teamData = { id: interaction.user.id, nombre: teamName, eafcTeamName: eafcTeamName, capitanId: interaction.user.id, capitanTag: interaction.user.tag, bandera: '🏳️', paypal: null, inscritoEn: new Date() };
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${interaction.user.id}`]: teamData } });
         if (tournament.config.isPaid) {
-            const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago / Registration Pending Payment: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, por favor, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${tournament.config.enlacePaypal}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
+            const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${tournament.config.enlacePaypal}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
             const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournament.shortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
             try {
                 await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
-                await interaction.editReply({ content: '✅ 🇪🇸 ¡Inscripción recibida! Revisa tus mensajes directos (MD) para completar el pago.\n🇬🇧 Registration received! Check your Direct Messages (DM) to complete the payment.' });
+                await interaction.editReply({ content: '✅ 🇪🇸 ¡Inscripción recibida! Revisa tus MD para completar el pago.\n🇬🇧 Registration received! Check your DMs to complete the payment.' });
             } catch (e) {
-                await interaction.editReply({ content: '❌ 🇪🇸 No he podido enviarte un MD. Por favor, asegúrate de que tus MD están abiertos y vuelve a intentarlo.\n🇬🇧 I could not send you a DM. Please make sure your DMs are open and try again.' });
+                await interaction.editReply({ content: '❌ 🇪🇸 No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.\n🇬🇧 I could not send you a DM. Please open your DMs and try again.' });
             }
         } else {
-            const adminEmbed = new EmbedBuilder().setColor('#3498DB').setTitle(`🔔 Nueva Inscripción Gratuita`).addFields( { name: 'Equipo Torneo / Tournament Team', value: teamName, inline: true }, { name: 'Capitán / Captain', value: interaction.user.tag, inline: true }, { name: 'Equipo EAFC / EAFC Team', value: eafcTeamName, inline: false } );
+            const adminEmbed = new EmbedBuilder().setColor('#3498DB').setTitle(`🔔 Nueva Inscripción Gratuita`).addFields( { name: 'Equipo Torneo', value: teamName, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'Equipo EAFC', value: eafcTeamName, inline: false } );
             const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
             await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
-            await interaction.editReply('✅ 🇪🇸 ¡Tu inscripción ha sido recibida! Un administrador la revisará pronto.\n🇬🇧 Your registration has been received! An admin will review it shortly.');
+            await interaction.editReply('✅ 🇪🇸 ¡Tu inscripción ha sido recibida! Un admin la revisará pronto.\n🇬🇧 Your registration has been received! An admin will review it shortly.');
         }
         return;
     }
@@ -128,15 +129,15 @@ export async function handleModal(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('❌ Este torneo ya no existe o ha finalizado.');
+        if (!tournament) return interaction.editReply('❌ Este torneo ya no existe.');
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
-        if (!notificationsThread) return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones. Contacta a un admin.');
+        if (!notificationsThread) return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
         const userPaypal = interaction.fields.getTextInputValue('user_paypal_input');
         await db.collection('tournaments').updateOne({ shortId: tournamentShortId }, { $set: { [`teams.pendientes.${interaction.user.id}.paypal`]: userPaypal } });
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const teamData = updatedTournament.teams.pendientes[interaction.user.id];
         if (!teamData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
-        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields( { name: 'Equipo / Team', value: teamData.nombre, inline: true }, { name: 'Capitán / Captain', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán / Captain's PayPal", value: `\`${userPaypal}\`` } );
+        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields( { name: 'Equipo', value: teamData.nombre, inline: true }, { name: 'Capitán', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán", value: `\`${userPaypal}\`` } );
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
         await interaction.editReply('✅ 🇪🇸 ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.\n🇬🇧 Thank you! Your payment has been notified. You will receive a notice upon approval.');
