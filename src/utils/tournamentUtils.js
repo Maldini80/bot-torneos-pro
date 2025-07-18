@@ -50,8 +50,9 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         
         await Promise.all(memberPromises);
         
+        // CORRECCIÓN: Mostrar nombre EAFC del visitante (B) para que el local (A) lo invite.
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
-            .setDescription(`${description}\n\n🇪🇸 **Equipo Local:** ${partido.equipoA.nombre}\n**Nombre EAFC:** \`${partido.equipoA.eafcTeamName}\`\n\n🇬🇧 **Home Team:** ${partido.equipoA.nombre}\n**EAFC Name:** \`${partido.equipoA.eafcTeamName}\`\n\n*El equipo visitante (${partido.equipoB.nombre}) debe buscar e invitar al equipo local.*`);
+            .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*`);
         
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
