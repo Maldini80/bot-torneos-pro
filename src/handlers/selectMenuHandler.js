@@ -2,13 +2,13 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { createTournamentManagementPanel } from '../utils/embeds.js';
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
     const value = interaction.values[0];
 
     // --- Flujo de creación de torneo ---
+    // Este flujo se mantiene intacto
 
     if (customId.startsWith('admin_create_format')) {
         await interaction.deferUpdate();
@@ -29,7 +29,6 @@ export async function handleSelectMenu(interaction) {
         modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
 
         if (type === 'pago') {
-            // ¡¡¡CORRECCIÓN AQUÍ!!! Etiquetas acortadas.
             const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
             const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
             const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
@@ -48,14 +47,5 @@ export async function handleSelectMenu(interaction) {
     }
     
     // --- Flujo de gestión de torneo ---
-    if (customId.startsWith('admin_manage_select_tournament')) {
-        await interaction.deferUpdate();
-        const tournamentShortId = value;
-        const db = getDb();
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return;
-        const managementPanel = createTournamentManagementPanel(tournament);
-        await interaction.editReply(managementPanel);
-        return;
-    }
+    // ELIMINADO: Ya no se gestiona mediante un select menu.
 }
