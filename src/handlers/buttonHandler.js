@@ -142,7 +142,9 @@ export async function handleButton(interaction) {
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
+    
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    
     if (action === 'admin_approve') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -182,8 +184,12 @@ export async function handleButton(interaction) {
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
         await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Puede tardar varios minutos. Se te notificará aquí cuando termine.` });
-        await startGroupStage(client, guild, tournament);
-        await interaction.followUp({ content: `🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`, flags: [MessageFlags.Ephemeral] });
+        startGroupStage(client, guild, tournament).then(() => {
+            interaction.followUp({ content: `🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`, flags: [MessageFlags.Ephemeral] });
+        }).catch(error => {
+            console.error("Error durante el sorteo en segundo plano:", error);
+            interaction.followUp({ content: `❌ Ocurrió un error durante el sorteo. Revisa los logs.`, flags: [MessageFlags.Ephemeral] });
+        });
         return;
     }
     if (action === 'admin_simulate_matches') {
@@ -198,6 +204,8 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
         await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Los canales se borrarán en breve.` });
+        
+        // CORRECCIÓN CRÍTICA: Añadido 'await' a la llamada.
         await endTournament(client, tournament);
         return;
     }
