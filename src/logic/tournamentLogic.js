@@ -69,12 +69,12 @@ export async function approveTeam(client, tournament, teamData) {
         await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
         await chatChannel.send(`👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre})`);
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
-        await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
+        await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
     } catch(e) { console.error(`No se pudo añadir al capitán ${teamData.capitanId} a los canales privados:`, e); }
-    const guild = await client.guilds.fetch(tournament.guildId);
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
+    await updateTournamentChannelName(client);
     const teamCount = Object.keys(updatedTournament.teams.aprobados).length;
     if (teamCount >= updatedTournament.config.format.size) {
         await updateTournamentChannelName(client);
@@ -208,11 +208,6 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { config: updatedConfig } });
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament); await updateTournamentManagementThread(client, updatedTournament);
-    const hasFormatChanged = newConfig.formatId && newConfig.formatId !== originalConfig.formatId;
-    const hasFeeChanged = newConfig.entryFee !== undefined && newConfig.entryFee !== originalConfig.entryFee;
-    if ((hasFormatChanged || hasFeeChanged) && Object.keys(tournament.teams.aprobados).length > 0) {
-        // ... (notificación manual, no cambia)
-    }
 }
 
 export async function notifyCaptainsOfChanges(client, tournament) {
