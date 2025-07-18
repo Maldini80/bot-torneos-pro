@@ -1,5 +1,6 @@
 // src/handlers/buttonHandler.js
-import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
+// CORRECCIÓN: Importamos MessageFlags
+import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder } from 'discord.js';
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS } from '../../config.js';
 import { approveTeam, endTournament, startGroupStage } from '../logic/tournamentLogic.js';
@@ -18,11 +19,10 @@ export async function handleButton(interaction) {
     if (modalActions.some(action => customId.startsWith(action))) {
         let modal;
         const parts = customId.split('_');
-        // El ID del torneo es siempre el último elemento
         const tournamentShortId = parts[parts.length - 1];
         
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo. Puede que haya sido eliminado.', ephemeral: true });
+        if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo. Puede que haya sido eliminado.', flags: [MessageFlags.Ephemeral] });
 
         if (customId.startsWith('inscribir_equipo_start')) {
             modal = new ModalBuilder().setCustomId(`inscripcion_modal_${tournamentShortId}`).setTitle('Inscripción de Equipo / Team Registration');
@@ -62,12 +62,12 @@ export async function handleButton(interaction) {
     // --- GRUPO 2: El resto de acciones ---
     if (customId.startsWith('admin_create_tournament_start')) {
         const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, description: TOURNAMENT_FORMATS[key].description.slice(0, 100), value: key })));
-        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], ephemeral: true });
+        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
 
-    // Para todas las demás acciones (approve, end, etc.), que pueden ser lentas, usamos deferReply.
-    await interaction.deferReply({ ephemeral: true });
+    // CORRECCIÓN: Para todas las demás acciones, usamos deferReply con flags
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     if (customId.startsWith('admin_approve')) {
         const [, , captainId, tournamentShortId] = customId.split('_');
@@ -76,7 +76,6 @@ export async function handleButton(interaction) {
         
         await approveTeam(client, tournament, tournament.teams.pendientes[captainId]);
         
-        // Deshabilitar botones en el mensaje original
         const originalMessage = interaction.message;
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
@@ -88,7 +87,7 @@ export async function handleButton(interaction) {
         await interaction.editReply(`✅ Equipo aprobado.`);
         return;
     }
-
+    
     if (customId.startsWith('admin_force_draw')) {
         const tournamentShortId = customId.split('_').pop();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -99,7 +98,7 @@ export async function handleButton(interaction) {
         await interaction.editReply({ content: `⏳ Forzando sorteo para **${tournament.nombre}**...` });
         await startGroupStage(client, guild, tournament);
         setBotBusy(false);
-        await interaction.followUp({ content: '✅ Sorteo forzado y primera jornada creada.', ephemeral: true });
+        await interaction.followUp({ content: '✅ Sorteo forzado y primera jornada creada.', flags: [MessageFlags.Ephemeral] });
         return;
     }
 
@@ -123,10 +122,10 @@ export async function handleButton(interaction) {
         
         try {
             await endTournament(client, tournament);
-            await interaction.followUp({ content: '✅ Torneo finalizado con éxito.', ephemeral: true });
+            await interaction.followUp({ content: '✅ Torneo finalizado con éxito.', flags: [MessageFlags.Ephemeral] });
         } catch (e) {
             console.error("Error crítico al finalizar torneo:", e);
-            await interaction.followUp({ content: '❌ Ocurrió un error crítico durante la finalización. Revisa los logs.', ephemeral: true });
+            await interaction.followUp({ content: '❌ Ocurrió un error crítico durante la finalización. Revisa los logs.', flags: [MessageFlags.Ephemeral] });
         } finally {
             setBotBusy(false);
             await updateAdminPanel(client);
