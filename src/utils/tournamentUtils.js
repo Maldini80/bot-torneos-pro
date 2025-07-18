@@ -2,6 +2,7 @@
 import { ChannelType } from 'discord.js';
 import { ARBITRO_ROLE_ID } from '../../config.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { getDb } from '../../database.js';
 
 export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
     const cleanEquipoA = JSON.parse(JSON.stringify(equipoA));
@@ -37,8 +38,10 @@ export async function createMatchThread(client, guild, partido, tournament) {
 
     try {
         const thread = await parentChannel.threads.create({
-            name: threadName.slice(0, 100), autoArchiveDuration: 1440,
-            type: ChannelType.PrivateThread, reason: `Partido de torneo: ${tournament.nombre}`
+            name: threadName.slice(0, 100),
+            autoArchiveDuration: 10080, // 1 semana
+            type: ChannelType.PrivateThread,
+            reason: `Partido de torneo: ${tournament.nombre}`
         });
 
         const memberPromises = [
@@ -47,7 +50,11 @@ export async function createMatchThread(client, guild, partido, tournament) {
         ].map(p => p.catch(e => console.warn(`No se pudo añadir un capitán al hilo: ${e.message}`)));
         
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
-        if (arbitroRole) arbitroRole.members.forEach(member => memberPromises.push(thread.members.add(member.id).catch(() => {})));
+        if (arbitroRole) {
+            arbitroRole.members.forEach(member => {
+                memberPromises.push(thread.members.add(member.id).catch(() => {}));
+            });
+        }
         
         await Promise.all(memberPromises);
         
@@ -92,8 +99,65 @@ export async function updateMatchThreadName(client, partido) {
             await thread.setName(newName.slice(0, 100));
         }
     } catch(err) {
-        if (err.code !== 10003) {
+        if (err.code !== 10003) { // Ignorar error "Unknown Channel"
             console.error(`Error al renombrar hilo ${partido.threadId}:`, err); 
+        }
+    }
+}
+
+// NUEVO: Función para crear hilos de las siguientes jornadas de forma escalonada
+export async function checkAndCreateNextRoundThreads(client, guild, tournament, completedMatch) {
+    // Solo aplica a la fase de grupos
+    if (!completedMatch.nombreGrupo) return;
+
+    const db = getDb();
+    const allMatchesInGroup = tournament.structure.calendario[completedMatch.nombreGrupo];
+    const nextJornadaNum = completedMatch.jornada + 1;
+
+    // No hay más jornadas en fase de grupos
+    if (!allMatchesInGroup.some(p => p.jornada === nextJornadaNum)) return;
+
+    const teamsInCompletedMatch = [completedMatch.equipoA.id, completedMatch.equipoB.id];
+
+    for (const teamId of teamsInCompletedMatch) {
+        // Encontrar el partido de este equipo en la siguiente jornada
+        const nextMatch = allMatchesInGroup.find(p => 
+            p.jornada === nextJornadaNum && 
+            (p.equipoA.id === teamId || p.equipoB.id === teamId)
+        );
+
+        if (!nextMatch || nextMatch.threadId) continue; // Si no hay siguiente partido o ya tiene hilo, saltar
+
+        // Determinar el ID del oponente en ese futuro partido
+        const opponentId = nextMatch.equipoA.id === teamId ? nextMatch.equipoB.id : nextMatch.equipoA.id;
+
+        // Encontrar el partido actual del oponente (en la misma jornada que el partido recién completado)
+        const opponentCurrentMatch = allMatchesInGroup.find(p => 
+            p.jornada === completedMatch.jornada &&
+            (p.equipoA.id === opponentId || p.equipoB.id === opponentId)
+        );
+
+        // Si el oponente también ha finalizado su partido, crear el hilo del nuevo enfrentamiento
+        if (opponentCurrentMatch && opponentCurrentMatch.status === 'finalizado') {
+            console.log(`[THREAD CREATION] Creando hilo para J${nextMatch.jornada}: ${nextMatch.equipoA.nombre} vs ${nextMatch.equipoB.nombre}`);
+            
+            const threadId = await createMatchThread(client, guild, nextMatch, tournament);
+            
+            // Actualizar la base de datos con el nuevo threadId y estado
+            // Esta es una forma compleja de actualizar un elemento en un array anidado.
+            // Primero encontramos el índice del partido que queremos actualizar.
+            const matchIndex = tournament.structure.calendario[nextMatch.nombreGrupo].findIndex(m => m.matchId === nextMatch.matchId);
+            if(matchIndex > -1) {
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { 
+                        $set: { 
+                            [`structure.calendario.${nextMatch.nombreGrupo}.${matchIndex}.threadId`]: threadId,
+                            [`structure.calendario.${nextMatch.nombreGrupo}.${matchIndex}.status`]: 'en_curso'
+                        } 
+                    }
+                );
+            }
         }
     }
 }
