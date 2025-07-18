@@ -58,8 +58,15 @@ export async function handleButton(interaction) {
         }
         return;
     }
-
-    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'upload_heights_start'];
+    if (action === 'payment_confirm_start') {
+        const [tournamentShortId] = params;
+        const modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
+        const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
+        await interaction.showModal(modal);
+        return;
+    }
+    const modalActions = ['admin_modify_result_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'upload_heights_start'];
     if (modalActions.includes(action)) {
         let modal;
         const [p1, p2] = params;
@@ -99,10 +106,6 @@ export async function handleButton(interaction) {
             const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
             const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.startTime || '');
             modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(startTimeInput));
-        } else if (action === 'payment_confirm_start') {
-            modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
-            const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
         }
         await interaction.showModal(modal);
         return;
@@ -132,9 +135,7 @@ export async function handleButton(interaction) {
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
-    
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-    
     if (action === 'admin_approve') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -185,12 +186,9 @@ export async function handleButton(interaction) {
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Expulsado por ${interaction.user.tag}`}).setColor('#95a5a6');
-        
-        // CORRECCIÓN: Crear un nuevo ButtonBuilder a partir del original para poder modificarlo.
         const originalButton = ButtonBuilder.from(originalMessage.components[0].components[0]);
         originalButton.setDisabled(true);
         const newActionRow = new ActionRowBuilder().addComponents(originalButton);
-
         await originalMessage.edit({ embeds: [originalEmbed], components: [newActionRow] });
         await interaction.editReply(`🚨 Equipo **${teamData.nombre}** expulsado y capitán notificado.`);
         return;
@@ -200,7 +198,7 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
-        await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado. Esto puede tardar varios minutos.` });
+        await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Esto puede tardar varios minutos.` });
         startGroupStage(client, guild, tournament)
             .then(() => { if (interaction.channel) { interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`); } })
             .catch(error => { console.error("Error durante el sorteo en segundo plano:", error); if (interaction.channel) { interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`); } });
