@@ -53,7 +53,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         console.error('[CREATE] OCURRIÓ UN ERROR EN MEDIO DEL PROCESO DE CREACIÓN:', error);
         await setBotBusy(false); throw error; 
     } finally {
-        await setBotBusy(false); await updateTournamentChannelName(client);
+        await setBotBusy(false); 
+        await updateTournamentChannelName(client);
     }
 }
 
@@ -71,14 +72,15 @@ export async function approveTeam(client, tournament, teamData) {
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
         await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
     } catch(e) { console.error(`No se pudo añadir al capitán ${teamData.capitanId} a los canales privados:`, e); }
-    const guild = await client.guilds.fetch(tournament.guildId);
+    
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
+    
+    // CORRECCIÓN: Llamar a la actualización solo al final.
     const teamCount = Object.keys(updatedTournament.teams.aprobados).length;
-    if (teamCount === updatedTournament.config.format.size) {
-        await updateTournamentChannelName(client);
-    } else {
+    if (teamCount >= updatedTournament.config.format.size) {
+        // Se acaba de llenar, actualizamos el nombre del canal.
         await updateTournamentChannelName(client);
     }
 }
@@ -107,7 +109,10 @@ export async function endTournament(client, tournament) {
         await updateTournamentManagementThread(client, finalTournamentState);
         await cleanupTournament(client, finalTournamentState);
     } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
-    } finally { await setBotBusy(false); await updateTournamentChannelName(client); }
+    } finally { 
+        await setBotBusy(false); 
+        await updateTournamentChannelName(client); 
+    }
 }
 
 async function cleanupTournament(client, tournament) {
@@ -199,35 +204,33 @@ export async function startGroupStage(client, guild, tournament) {
     } finally { await setBotBusy(false); }
 }
 
-// CORRECCIÓN: Se elimina la notificación automática.
 export async function updateTournamentConfig(client, tournamentShortId, newConfig) {
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     if (!tournament) throw new Error('Torneo no encontrado');
-    
+    const originalConfig = JSON.parse(JSON.stringify(tournament.config));
     const updatedConfig = { ...tournament.config, ...newConfig };
-    if (newConfig.formatId) { 
-        updatedConfig.format = TOURNAMENT_FORMATS[newConfig.formatId]; 
-    }
-    
+    if (newConfig.formatId && newConfig.formatId !== originalConfig.formatId) { updatedConfig.format = TOURNAMENT_FORMATS[newConfig.formatId]; }
+    if (newConfig.entryFee !== undefined) { updatedConfig.isPaid = newConfig.entryFee > 0; }
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { config: updatedConfig } });
-    
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-    await updatePublicMessages(client, updatedTournament); 
-    await updateTournamentManagementThread(client, updatedTournament);
+    await updatePublicMessages(client, updatedTournament); await updateTournamentManagementThread(client, updatedTournament);
+    const hasFormatChanged = newConfig.formatId && newConfig.formatId !== originalConfig.formatId;
+    const hasFeeChanged = newConfig.entryFee !== undefined && newConfig.entryFee !== originalConfig.entryFee;
+    if ((hasFormatChanged || hasFeeChanged) && Object.keys(tournament.teams.aprobados).length > 0) {
+        // ... (notificación manual, no cambia)
+    }
 }
 
-// NUEVO: Función para la notificación manual.
 export async function notifyCaptainsOfChanges(client, tournament) {
     const approvedCaptains = Object.values(tournament.teams.aprobados);
     if (approvedCaptains.length === 0) {
         return { success: true, message: "✅ No hay capitanes inscritos a los que notificar." };
     }
-
     const embed = new EmbedBuilder()
         .setColor('#f1c40f')
         .setTitle(`📢 Actualización del Torneo / Tournament Update: ${tournament.nombre}`)
-        .setDescription('🇪🇸 La configuración del torneo en el que te inscribiste ha cambiado. Revisa los nuevos detalles a continuación.\n🇬🇧 The configuration of the tournament you registered for has changed. Please review the new details below.')
+        .setDescription('🇪🇸 La configuración del torneo ha cambiado.\n🇬🇧 The tournament configuration has changed.')
         .addFields(
             { name: 'Formato / Format', value: tournament.config.format.label, inline: true },
             { name: 'Tipo / Type', value: tournament.config.isPaid ? 'De Pago / Paid' : 'Gratuito / Free', inline: true },
@@ -237,16 +240,10 @@ export async function notifyCaptainsOfChanges(client, tournament) {
             { name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime || 'No especificado / Not specified', inline: true }
         )
         .setFooter({ text: 'Si tienes dudas, contacta a un administrador.' });
-
     let notifiedCount = 0;
     for (const team of approvedCaptains) {
-        try {
-            const user = await client.users.fetch(team.capitanId);
-            await user.send({ embeds: [embed] });
-            notifiedCount++;
-        } catch (e) {
-            console.warn(`No se pudo notificar al capitán ${team.capitanTag} sobre la actualización del torneo.`);
-        }
+        try { const user = await client.users.fetch(team.capitanId); await user.send({ embeds: [embed] }); notifiedCount++;
+        } catch (e) { console.warn(`No se pudo notificar al capitán ${team.capitanTag}`); }
     }
     return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
-}
+}```
