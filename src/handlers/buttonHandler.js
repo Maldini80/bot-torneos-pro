@@ -16,36 +16,13 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    if (action === 'user_view_participants') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
-
-        const approvedTeams = Object.values(tournament.teams.aprobados);
-        let teamList = 'Aún no hay equipos inscritos. / No teams registered yet.';
-        if (approvedTeams.length > 0) {
-            teamList = approvedTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}, EAFC: \`${team.eafcTeamName}\`)`).join('\n');
-        }
-
-        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Participantes: ${tournament.nombre}`).setDescription(teamList);
-        
-        try {
-            await interaction.user.send({ embeds: [embed] });
-            await interaction.editReply('✅ Te he enviado la lista de participantes por Mensaje Directo.');
-        } catch (e) {
-            await interaction.editReply('❌ No he podido enviarte un MD. Asegúrate de que tus mensajes directos no estén bloqueados.');
-        }
-        return;
-    }
-
     const modalActions = ['inscribir_equipo_start', 'admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'upload_heights_start'];
     if (modalActions.includes(action)) {
         let modal;
         const [p1, p2] = params;
         const tournamentShortId = p2 || p1;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) { return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] }); }
+        if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
         if (action === 'inscribir_equipo_start') {
             modal = new ModalBuilder().setCustomId(`inscripcion_modal:${tournamentShortId}`).setTitle('Inscripción de Equipo / Team Registration');
             const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (en el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(15).setRequired(true);
@@ -91,7 +68,6 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
-    
     if (action === 'im_ready') {
         await interaction.deferUpdate();
         const [matchId, tournamentShortId] = params;
@@ -106,7 +82,6 @@ export async function handleButton(interaction) {
         await originalMessage.edit({ components: newComponents });
         return;
     }
-
     if (action === 'invitation_sent') {
         await interaction.deferUpdate();
         const [matchId, tournamentShortId] = params;
@@ -122,7 +97,6 @@ export async function handleButton(interaction) {
         await originalMessage.edit({ components: newComponents });
         return;
     }
-
     if (action === 'request_referee') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
@@ -133,7 +107,6 @@ export async function handleButton(interaction) {
         await interaction.editReply('✅ Se ha notificado a los árbitros y el hilo ha sido marcado para revisión.');
         return;
     }
-
     if (action === 'admin_change_format_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -144,7 +117,6 @@ export async function handleButton(interaction) {
         await interaction.editReply({ content: `**Editando:** ${tournament.nombre}\nSelecciona el nuevo formato o tipo.`, components: [new ActionRowBuilder().addComponents(formatMenu), new ActionRowBuilder().addComponents(typeMenu)], });
         return;
     }
-
     if (action === 'admin_create_tournament_start') {
         const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, value: key })));
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
@@ -167,15 +139,50 @@ export async function handleButton(interaction) {
         await interaction.editReply(`✅ Equipo aprobado.`);
         return;
     }
+
+    // CORRECCIÓN: Implementación del botón de rechazar.
+    if (action === 'admin_reject') {
+        const [captainId, tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
+
+        const teamData = tournament.teams.pendientes[captainId];
+        
+        // Eliminar del objeto de pendientes en la base de datos
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendientes.${captainId}`]: "" } });
+
+        // Notificar al usuario por MD (opcional pero recomendado)
+        try {
+            const user = await client.users.fetch(captainId);
+            await user.send(`❌ 🇪🇸 Tu inscripción para el equipo **${teamData.nombre}** en el torneo **${tournament.nombre}** ha sido rechazada.\n🇬🇧 Your registration for the team **${teamData.nombre}** in the **${tournament.nombre}** tournament has been rejected.`);
+        } catch (e) {
+            console.warn(`No se pudo enviar MD de rechazo al usuario ${captainId}`);
+        }
+
+        // Deshabilitar botones en el mensaje original
+        const originalMessage = interaction.message;
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        originalEmbed.setFooter({ text: `Rechazado por ${interaction.user.tag}`}).setColor('#e74c3c');
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+        
+        await interaction.editReply(`❌ Equipo rechazado.`);
+        return;
+    }
     
+    // CORRECCIÓN: Mejorar la respuesta de "Forzar Sorteo".
     if (action === 'admin_force_draw') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
-        await interaction.editReply({ content: `⏳ Forzando sorteo para **${tournament.nombre}**...` });
+        
+        // Responder inmediatamente para evitar el "pensando..."
+        await interaction.editReply({ content: `✅ Orden recibida. Forzando sorteo para **${tournament.nombre}**. Este proceso puede tardar unos segundos...` });
+        
+        // Ejecutar la tarea pesada después de haber respondido
         await startGroupStage(client, guild, tournament);
-        await interaction.followUp({ content: '✅ Sorteo forzado y primera jornada creada.', flags: [MessageFlags.Ephemeral] });
         return;
     }
 
