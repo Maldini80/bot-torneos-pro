@@ -17,8 +17,8 @@ export const CHANNELS = {
 
 // NUEVO: Configuración de Pagos
 export const PAYMENT_CONFIG = {
-    // Pon aquí tu email de PayPal. Este se usará para todos los torneos de pago.
-    PAYPAL_EMAIL: 'tu-email@paypal.com' 
+    // IMPORTANTE: Pon aquí tu email de PayPal. Este se usará para todos los torneos de pago.
+    PAYPAL_EMAIL: 'tu-email-de-paypal@ejemplo.com' 
 };
 
 // Configuración de los formatos de torneo CON TRADUCCIONES
