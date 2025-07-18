@@ -64,7 +64,6 @@ export async function updateTournamentChannelName(client) {
         const db = getDb();
         const activeTournaments = await db.collection('tournaments').find({ status: { $nin: ['finalizado', 'archivado', 'cancelado'] } }).toArray();
         
-        // Lógica de conteo revisada
         const openForRegistration = activeTournaments.filter(t => 
             t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length < t.config.format.size
         ).length;
