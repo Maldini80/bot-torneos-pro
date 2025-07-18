@@ -10,14 +10,15 @@ export const PARTICIPANTE_ROLE_ID = '1394321301748977684';
 
 // IDs de CANALES FIJOS que se reutilizan
 export const CHANNELS = {
-    // Canal donde vive el panel de admin global para crear torneos
     TOURNAMENTS_MANAGEMENT_PARENT: '1393507085286899744',
-
-    // Canal donde se crean los hilos de notificaciones de admin (aprobaciones, pagos)
     TOURNAMENTS_APPROVALS_PARENT: '1393187598796587028',
-
-    // Canal PÚBLICO donde se anuncian los torneos y se actualiza el estado general
     TORNEOS_STATUS: '1395276865597476908',
+};
+
+// NUEVO: Configuración de Pagos
+export const PAYMENT_CONFIG = {
+    // Pon aquí tu email de PayPal. Este se usará para todos los torneos de pago.
+    PAYPAL_EMAIL: 'tu-email@paypal.com' 
 };
 
 // Configuración de los formatos de torneo CON TRADUCCIONES
