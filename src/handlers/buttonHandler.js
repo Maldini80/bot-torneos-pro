@@ -3,7 +3,7 @@ import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuild
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS } from '../../config.js';
 import { approveTeam, endTournament, startGroupStage } from '../logic/tournamentLogic.js';
-import { findMatch } from '../logic/matchLogic.js';
+import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
 
@@ -14,30 +14,40 @@ export async function handleButton(interaction) {
     const db = getDb();
 
     // --- GRUPO 1: Acciones que abren un Modal ---
-    if (customId.startsWith('inscribir_equipo_start') || customId.startsWith('admin_modify_result_start') || customId.startsWith('payment_confirm_start') || customId.startsWith('admin_add_test_teams')) {
+    const modalActions = ['inscribir_equipo_start', 'admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start'];
+    if (modalActions.some(action => customId.startsWith(action))) {
         let modal;
+        const parts = customId.split('_');
+        // El ID del torneo es siempre el último elemento
+        const tournamentShortId = parts[parts.length - 1];
+        
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo. Puede que haya sido eliminado.', ephemeral: true });
+
         if (customId.startsWith('inscribir_equipo_start')) {
-            const tournamentShortId = customId.split('_').pop();
             modal = new ModalBuilder().setCustomId(`inscripcion_modal_${tournamentShortId}`).setTitle('Inscripción de Equipo / Team Registration');
             const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (3-15 chars)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(15).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput));
         } else if (customId.startsWith('payment_confirm_start')) {
-            const tournamentShortId = customId.split('_').pop();
             modal = new ModalBuilder().setCustomId(`payment_confirm_modal_${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
-            // ¡¡¡CORRECCIÓN DEFINITIVA AQUÍ!!! Etiqueta acortada.
             const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
         } else if (customId.startsWith('admin_add_test_teams')) {
-            const tournamentShortId = customId.split('_').pop();
-            modal = new ModalBuilder().setCustomId(`add_test_teams_modal_${tournamentShortId}`).setTitle('Añadir Equipos de Prueba / Add Test Teams');
-            const amountInput = new TextInputBuilder().setCustomId('amount_input').setLabel("¿Cuántos equipos de prueba? / How many?").setStyle(TextInputStyle.Short).setRequired(true);
+            modal = new ModalBuilder().setCustomId(`add_test_teams_modal_${tournamentShortId}`).setTitle('Añadir Equipos de Prueba');
+            const amountInput = new TextInputBuilder().setCustomId('amount_input').setLabel("¿Cuántos equipos de prueba quieres añadir?").setStyle(TextInputStyle.Short).setRequired(true).setValue('1');
             modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
+        } else if (customId.startsWith('admin_edit_tournament_start')) {
+            modal = new ModalBuilder().setCustomId(`edit_tournament_modal_${tournamentShortId}`).setTitle(`Editar Configuración de ${tournament.nombre}`);
+            const prizeCInput = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeCampeon.toString());
+            const prizeFInput = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeFinalista.toString());
+            const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(prizeCInput),
+                new ActionRowBuilder().addComponents(prizeFInput),
+                new ActionRowBuilder().addComponents(feeInput)
+            );
         } else { // admin_modify_result_start
-            const parts = customId.split('_');
-            const tournamentShortId = parts.pop();
-            const matchId = parts.pop();
-            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-            if (!tournament) return;
+            const matchId = parts[parts.length - 2];
             const { partido } = findMatch(tournament, matchId);
             if (!partido) return;
             modal = new ModalBuilder().setCustomId(`admin_force_result_modal_${matchId}_${tournamentShortId}`).setTitle('Forzar Resultado (Admin)');
@@ -48,38 +58,58 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
-
-    // --- GRUPO 2: Acciones que actualizan el mensaje actual ---
-    if (customId.startsWith('user_view_details') || customId.startsWith('user_hide_details') || customId.startsWith('admin_return_to_main_panel')) {
-        await interaction.deferUpdate();
-        if (customId.startsWith('admin_return_to_main_panel')) {
-             await updateAdminPanel(client, interaction.message);
-        }
-        // Aquí se podría añadir la lógica para user_view/hide_details
-        return;
-    }
     
-    // --- GRUPO 3: El resto de acciones ---
-    
+    // --- GRUPO 2: El resto de acciones ---
     if (customId.startsWith('admin_create_tournament_start')) {
         const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, description: TOURNAMENT_FORMATS[key].description.slice(0, 100), value: key })));
-        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
+        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], ephemeral: true });
         return;
     }
 
-    // Para todas las demás acciones (approve, end, etc.), que son lentas, usamos deferReply.
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    // Para todas las demás acciones (approve, end, etc.), que pueden ser lentas, usamos deferReply.
+    await interaction.deferReply({ ephemeral: true });
 
     if (customId.startsWith('admin_approve')) {
         const [, , captainId, tournamentShortId] = customId.split('_');
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error o acción ya procesada.' });
+        if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
+        
         await approveTeam(client, tournament, tournament.teams.pendientes[captainId]);
+        
+        // Deshabilitar botones en el mensaje original
         const originalMessage = interaction.message;
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
-        await originalMessage.edit({ components: [disabledRow] });
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        originalEmbed.setFooter({ text: `Aprobado por ${interaction.user.tag}`});
+
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+
         await interaction.editReply(`✅ Equipo aprobado.`);
+        return;
+    }
+
+    if (customId.startsWith('admin_force_draw')) {
+        const tournamentShortId = customId.split('_').pop();
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+        if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
+        
+        setBotBusy(true);
+        await interaction.editReply({ content: `⏳ Forzando sorteo para **${tournament.nombre}**...` });
+        await startGroupStage(client, guild, tournament);
+        setBotBusy(false);
+        await interaction.followUp({ content: '✅ Sorteo forzado y primera jornada creada.', ephemeral: true });
+        return;
+    }
+
+    if (customId.startsWith('admin_simulate_matches')) {
+        const tournamentShortId = customId.split('_').pop();
+        setBotBusy(true);
+        await interaction.editReply({ content: '⏳ Simulando todos los partidos pendientes... Esto puede tardar un momento.' });
+        const result = await simulateAllPendingMatches(client, tournamentShortId);
+        setBotBusy(false);
+        await interaction.editReply(`✅ Simulación completada. ${result.message}`);
         return;
     }
     
@@ -87,13 +117,16 @@ export async function handleButton(interaction) {
         const tournamentShortId = customId.split('_').pop();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
-        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. El panel se actualizará solo.` });
+
         setBotBusy(true);
-        await updateAdminPanel(client);
+        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Los paneles y canales se actualizarán/borrarán.` });
+        
         try {
             await endTournament(client, tournament);
+            await interaction.followUp({ content: '✅ Torneo finalizado con éxito.', ephemeral: true });
         } catch (e) {
             console.error("Error crítico al finalizar torneo:", e);
+            await interaction.followUp({ content: '❌ Ocurrió un error crítico durante la finalización. Revisa los logs.', ephemeral: true });
         } finally {
             setBotBusy(false);
             await updateAdminPanel(client);
