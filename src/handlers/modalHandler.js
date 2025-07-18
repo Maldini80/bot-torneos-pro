@@ -1,12 +1,10 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-// CORRECCIÓN: La importación de updatePublicMessages ahora apunta al archivo correcto (tournamentLogic.js)
 import { createNewTournament, updateTournamentConfig, updatePublicMessages } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID } from '../../config.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
-import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
 export async function handleModal(interaction) {
     const customId = interaction.customId;
@@ -14,9 +12,11 @@ export async function handleModal(interaction) {
     const guild = interaction.guild;
     const db = getDb();
 
-    if (customId.startsWith('create_tournament:')) {
+    const [action, ...params] = customId.split(':');
+
+    if (action === 'create_tournament') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [, formatId, type] = customId.split(':');
+        const [formatId, type] = params;
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const config = { formatId, isPaid: type === 'pago' };
@@ -36,9 +36,9 @@ export async function handleModal(interaction) {
         return;
     }
 
-    if (customId.startsWith('edit_tournament_modal_')) {
+    if (action === 'edit_tournament_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const tournamentShortId = customId.split('_').pop();
+        const [tournamentShortId] = params;
         
         const newConfig = {
             prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
@@ -57,9 +57,9 @@ export async function handleModal(interaction) {
         return;
     }
     
-    if (customId.startsWith('edit_payment_details_modal_')) {
+    if (action === 'edit_payment_details_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const tournamentShortId = customId.split('_').pop();
+        const [tournamentShortId] = params;
         const newConfig = {
             isPaid: true,
             entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')),
@@ -71,9 +71,9 @@ export async function handleModal(interaction) {
         return;
     }
 
-    if (customId.startsWith('inscripcion_modal_')) {
+    if (action === 'inscripcion_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const tournamentShortId = customId.split('_')[2];
+        const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
             return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
@@ -93,21 +93,16 @@ export async function handleModal(interaction) {
         }
         
         const teamData = { 
-            id: interaction.user.id, 
-            nombre: teamName, 
-            eafcTeamName: eafcTeamName,
-            capitanId: interaction.user.id, 
-            capitanTag: interaction.user.tag, 
-            bandera: '🏳️', 
-            paypal: null, 
-            inscritoEn: new Date() 
+            id: interaction.user.id, nombre: teamName, eafcTeamName: eafcTeamName,
+            capitanId: interaction.user.id, capitanTag: interaction.user.tag, 
+            bandera: '🏳️', paypal: null, inscritoEn: new Date() 
         };
 
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${interaction.user.id}`]: teamData } });
         
         if (tournament.config.isPaid) {
             const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago / Registration Pending Payment: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, por favor, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${tournament.config.enlacePaypal}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
-            const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start_${tournament.shortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
+            const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournament.shortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
             try {
                 await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
                 await interaction.editReply({ content: '✅ 🇪🇸 ¡Inscripción recibida! Revisa tus mensajes directos (MD) para completar el pago.\n🇬🇧 Registration received! Check your Direct Messages (DM) to complete the payment.' });
@@ -120,16 +115,16 @@ export async function handleModal(interaction) {
                 { name: 'Capitán / Captain', value: interaction.user.tag, inline: true },
                 { name: 'Equipo EAFC / EAFC Team', value: eafcTeamName, inline: false }
             );
-            const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve_${interaction.user.id}_${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject_${interaction.user.id}_${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
+            const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
             await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
             await interaction.editReply('✅ 🇪🇸 ¡Tu inscripción ha sido recibida! Un administrador la revisará pronto.\n🇬🇧 Your registration has been received! An admin will review it shortly.');
         }
         return;
     }
 
-    if (customId.startsWith('payment_confirm_modal_')) {
+    if (action === 'payment_confirm_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const tournamentShortId = customId.split('_')[3];
+        const [tournamentShortId] = params;
         
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('❌ Este torneo ya no existe o ha finalizado.');
@@ -149,15 +144,15 @@ export async function handleModal(interaction) {
             { name: 'Capitán / Captain', value: teamData.capitanTag, inline: true },
             { name: 'PayPal del Capitán / Captain\'s PayPal', value: `\`${userPaypal}\`` }
         );
-        const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve_${interaction.user.id}_${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject_${interaction.user.id}_${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
+        const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
         await interaction.editReply('✅ 🇪🇸 ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.\n🇬🇧 Thank you! Your payment has been notified. You will receive a notice upon approval.');
         return;
     }
     
-    if (customId.startsWith('add_test_teams_modal_')) {
+    if (action === 'add_test_teams_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const tournamentShortId = customId.split('_')[4];
+        const [tournamentShortId] = params;
         const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
         if (isNaN(amount) || amount <= 0) return interaction.editReply('Cantidad inválida.');
         
@@ -174,14 +169,9 @@ export async function handleModal(interaction) {
         for (let i = 0; i < amountToAdd; i++) {
             const teamId = `test_${Date.now()}_${i}`;
             const teamData = { 
-                id: teamId, 
-                nombre: `E-Prueba-${teamsCount + i + 1}`,
-                eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`,
-                capitanId: interaction.user.id,
-                capitanTag: interaction.user.tag, 
-                bandera: '🧪', 
-                paypal: 'admin@test.com',
-                inscritoEn: new Date() 
+                id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`,
+                capitanId: interaction.user.id, capitanTag: interaction.user.tag, 
+                bandera: '🧪', paypal: 'admin@test.com', inscritoEn: new Date() 
             };
             bulkOps.push({
                 updateOne: {
@@ -200,9 +190,9 @@ export async function handleModal(interaction) {
         return;
     }
 
-    if (customId.startsWith('report_result_modal_')) {
+    if (action === 'report_result_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [, , matchId, tournamentShortId] = customId.split('_');
+        const [matchId, tournamentShortId] = params;
 
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const { partido } = findMatch(tournament, matchId);
@@ -210,9 +200,7 @@ export async function handleModal(interaction) {
 
         const golesA = interaction.fields.getTextInputValue('goles_a');
         const golesB = interaction.fields.getTextInputValue('goles_b');
-        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) {
-            return interaction.editReply('Error: Los goles deben ser números.');
-        }
+        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
         const reportedResult = `${golesA}-${golesB}`;
 
         const reporterId = interaction.user.id;
@@ -233,9 +221,7 @@ export async function handleModal(interaction) {
             } else {
                 await interaction.editReply('❌ Los resultados reportados no coinciden. Se ha notificado a los árbitros.');
                 const thread = interaction.channel;
-                if(thread.isThread()) {
-                    await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅]-/g, '')}`.slice(0,100));
-                }
+                if(thread.isThread()) await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅🔵]-/g, '')}`.slice(0,100));
                 await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden!\n- <@${reporterId}> reportó: \`${reportedResult}\`\n- <@${opponentId}> reportó: \`${opponentReport}\`` });
             }
         } else {
@@ -245,18 +231,16 @@ export async function handleModal(interaction) {
         return;
     }
     
-    if (customId.startsWith('admin_force_result_modal_')) {
+    if (action === 'admin_force_result_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [, , , matchId, tournamentShortId] = customId.split('_');
+        const [matchId, tournamentShortId] = params;
         
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
 
         const golesA = interaction.fields.getTextInputValue('goles_a');
         const golesB = interaction.fields.getTextInputValue('goles_b');
-        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) {
-            return interaction.editReply('Error: Los goles deben ser números.');
-        }
+        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
         const resultString = `${golesA}-${golesB}`;
 
         await processMatchResult(client, guild, tournament, matchId, resultString);
@@ -264,20 +248,20 @@ export async function handleModal(interaction) {
         return;
     }
 
-    if (customId.startsWith('upload_highlight_modal_')) {
+    if (action === 'upload_heights_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const link = interaction.fields.getTextInputValue('highlight_link');
-        const description = interaction.fields.getTextInputValue('highlight_description');
+        const link = interaction.fields.getTextInputValue('height_link');
+        const description = interaction.fields.getTextInputValue('height_description');
 
         const embed = new EmbedBuilder()
-            .setColor('#ff00ff')
-            .setAuthor({ name: `Highlight de ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
-            .setTitle(description || '¡Una gran jugada!')
-            .setDescription(`[Ver clip](${link})`)
+            .setColor('#A9A9A9')
+            .setAuthor({ name: `Prueba de Alturas de ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+            .setTitle(description || 'Vídeo de Alturas')
+            .setDescription(`[Ver vídeo de prueba](${link})`)
             .setTimestamp();
         
         await interaction.channel.send({ embeds: [embed] });
-        await interaction.editReply({ content: '✅ Tu highlight ha sido publicado en el hilo.' });
+        await interaction.editReply({ content: '✅ Tu prueba de alturas ha sido publicada en el hilo.' });
         return;
     }
 }
