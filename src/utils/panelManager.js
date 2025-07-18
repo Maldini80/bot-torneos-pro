@@ -1,10 +1,9 @@
 // src/utils/panelManager.js
 import { getDb } from '../../database.js';
-import { CHANNELS } from '../../config.js';
+import { CHANNELS, TOURNAMENT_STATUS_ICONS } from '../../config.js';
 import { createGlobalAdminPanel, createTournamentManagementPanel } from './embeds.js';
 import { isBotBusy } from '../../index.js';
 
-// MODIFICADO: Esta función ahora busca el panel de CREACIÓN global.
 async function fetchGlobalCreationPanel(client) {
     try {
         const channel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
@@ -19,13 +18,10 @@ async function fetchGlobalCreationPanel(client) {
     }
 }
 
-// MODIFICADO: Actualiza el panel de CREACIÓN global.
 export async function updateAdminPanel(client) {
     const msg = await fetchGlobalCreationPanel(client);
     
     if (!msg) {
-        // No mostramos advertencia, ya que la gestión principal ahora está en los hilos.
-        // El comando /panel-admin se usará para crear este panel si no existe.
         return;
     }
     
@@ -34,37 +30,43 @@ export async function updateAdminPanel(client) {
     try {
         await msg.edit(panelContent);
     } catch (error) {
-        // Ignorar error si el mensaje fue borrado.
         if (error.code !== 10008) {
             console.warn(`[WARN] No se pudo editar el panel de creación global. ${error.message}`);
         }
     }
 }
 
-// NUEVO: Función para actualizar el panel de gestión específico de un torneo en su hilo.
-export async function updateTournamentManagementThread(client, tournament) {
+export async function updateTournamentManagementThread(client, tournament, busyState = isBotBusy) {
     if (!tournament || !tournament.discordMessageIds.managementThreadId) return;
 
     try {
         const thread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId);
         const messages = await thread.messages.fetch({ limit: 20 });
-        // Busca el mensaje del panel en el hilo
         const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Gestión del Torneo:'));
 
         const latestTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
         if (!latestTournamentState) return;
 
         if (panelMessage) {
-            const panelContent = createTournamentManagementPanel(latestTournamentState);
+            const panelContent = createTournamentManagementPanel(latestTournamentState, busyState);
             await panelMessage.edit(panelContent);
         }
     } catch (e) {
-        if (e.code !== 10003 && e.code !== 10008) { // 10003 = Unknown Channel, 10008 = Unknown Message
+        if (e.code !== 10003 && e.code !== 10008) {
             console.error(`Error al actualizar el hilo de gestión para ${tournament.shortId}:`, e);
         }
     }
 }
 
+// NUEVO: Actualiza TODOS los paneles de gestión activos.
+export async function updateAllManagementPanels(client, busyState) {
+    const db = getDb();
+    const activeTournaments = await db.collection('tournaments').find({ status: { $nin: ['finalizado', 'archivado'] } }).toArray();
+    
+    for (const tournament of activeTournaments) {
+        await updateTournamentManagementThread(client, tournament, busyState);
+    }
+}
 
 export async function updateTournamentChannelName(client) {
     try {
@@ -78,12 +80,29 @@ export async function updateTournamentChannelName(client) {
         if (openForRegistration > 0) statusParts.push(`🟢${openForRegistration}`);
         if (inProgress > 0) statusParts.push(`🔵${inProgress}`);
         
-        newName = statusParts.length > 0 ? `[${statusParts.join('|')}] 📢 Torneos-Tournaments` : '[⚫️] 📢 Torneos-Tournaments';
+        newName = statusParts.length > 0 ? `[${statusParts.join('|')}] 📢 Torneos-Tournaments` : '[🔴] 📢 Torneos-Tournaments';
         
         const channel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
         if (channel && channel.name !== newName) {
             await channel.setName(newName.slice(0, 100));
         }
+
+        // NUEVO: Actualizar nombres de hilos públicos
+        for (const tournament of activeTournaments) {
+            if (tournament.discordMessageIds.publicInfoThreadId) {
+                try {
+                    const thread = await client.channels.fetch(tournament.discordMessageIds.publicInfoThreadId);
+                    const statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
+                    const newThreadName = `${statusIcon} ${tournament.nombre} - Info`;
+                    if (thread.name !== newThreadName) {
+                        await thread.setName(newThreadName.slice(0, 100));
+                    }
+                } catch (e) {
+                    if (e.code !== 10003) console.warn(`No se pudo actualizar nombre de hilo público para ${tournament.shortId}`);
+                }
+            }
+        }
+
     } catch (e) {
         console.warn("[WARN] No se pudo actualizar el nombre del canal de estado de torneos.", e.message);
     }
