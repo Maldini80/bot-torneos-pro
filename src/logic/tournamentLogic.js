@@ -1,6 +1,7 @@
 // src/logic/tournamentLogic.js
 import { getDb } from '../../database.js';
-import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID } from '../../config.js';
+// CORRECCIÓN: Añadido TOURNAMENT_CATEGORY_ID a la lista de importación.
+import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
 import { createTeamListEmbed, createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
 import { updateTournamentChannelName, updateAdminPanel, updateTournamentManagementThread } from '../utils/panelManager.js';
@@ -44,7 +45,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
                 classificationMessageId: null,
                 calendarMessageId: null,
                 matchThreadsParentId: null,
-                // NUEVO: IDs para los hilos de gestión y notificaciones
                 managementThreadId: null,
                 notificationsThreadId: null,
             }
@@ -71,11 +71,10 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const calendarMsg = await calendarioChannel.send({ embeds: [new EmbedBuilder().setTitle(`🗓️ Calendario / Schedule - ${name}`).setDescription('El calendario se publicará aquí.')] });
         newTournament.discordMessageIds.calendarMessageId = calendarMsg.id;
 
-        // NUEVO: Crear hilos de gestión y notificaciones
         const managementParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
         const managementThread = await managementParentChannel.threads.create({
             name: `Gestión - ${name.slice(0, 50)}`,
-            autoArchiveDuration: 10080, // 1 semana
+            autoArchiveDuration: 10080,
             type: ChannelType.PrivateThread,
             reason: `Hilo de gestión para el torneo ${name}`
         });
@@ -92,7 +91,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         
         await db.collection('tournaments').insertOne(newTournament);
 
-        // NUEVO: Enviar panel al hilo de gestión y añadir árbitros
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
@@ -115,7 +113,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
     }
 }
 
-// NUEVO: Lógica para actualizar la configuración de un torneo
 export async function updateTournamentConfig(client, tournamentShortId, newConfig) {
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -124,7 +121,6 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     const originalConfig = JSON.parse(JSON.stringify(tournament.config));
     const updatedConfig = { ...tournament.config, ...newConfig };
     
-    // Si el formato cambia, actualizamos el objeto 'format' completo
     if (newConfig.formatId) {
         updatedConfig.format = TOURNAMENT_FORMATS[newConfig.formatId];
     }
@@ -132,11 +128,9 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { config: updatedConfig } });
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     
-    // Actualizar todos los mensajes públicos y el panel de gestión
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
 
-    // Notificar a los capitanes inscritos si hay cambios
     const hasChanges = JSON.stringify(originalConfig) !== JSON.stringify(updatedConfig);
     if (hasChanges && Object.keys(tournament.teams.aprobados).length > 0) {
         const embed = new EmbedBuilder()
@@ -178,7 +172,6 @@ export async function approveTeam(client, tournament, teamData) {
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
 
     await updatePublicMessages(client, updatedTournament);
-    // NUEVO: Actualizamos el panel en el hilo de gestión
     await updateTournamentManagementThread(client, updatedTournament);
     
     const teamCount = Object.keys(updatedTournament.teams.aprobados).length;
@@ -192,7 +185,6 @@ export async function endTournament(client, tournament) {
     console.log(`[LOGIC] Iniciando finalización para: ${tournament.shortId}`);
     const db = getDb();
 
-    console.log(`[LOGIC] Marcando torneo como 'finalizado' en la BD...`);
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
     
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
@@ -202,10 +194,9 @@ export async function endTournament(client, tournament) {
     await updateTournamentManagementThread(client, finalTournamentState);
     await updateTournamentChannelName(client);
     
-    // NUEVO: Mensaje de finalización en los hilos de admin
     try {
         const managementThread = await client.channels.fetch(finalTournamentState.discordMessageIds.managementThreadId);
-        await managementThread.send('✅ **Torneo finalizado por completo.**\nEste hilo de gestión ya puede ser archivado o borrado manualmente.');
+        await managementThread.send('✅ **Torneo finalizado por completo.**\nEste hilo de gestión ya puede ser archivado o borrado manually.');
     } catch (e) {
         if (e.code !== 10003) console.warn(`No se pudo enviar el mensaje final al hilo de gestión para ${tournament.shortId}`);
     }
@@ -324,7 +315,6 @@ export async function startGroupStage(client, guild, tournament) {
     }
     currentTournament.structure.calendario = calendario;
 
-    // MODIFICADO: Crear solo los hilos de la primera jornada
     for (const nombreGrupo in calendario) {
         for (const partido of calendario[nombreGrupo].filter(p => p.jornada === 1)) {
             const threadId = await createMatchThread(client, guild, partido, currentTournament);
