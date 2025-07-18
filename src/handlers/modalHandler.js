@@ -4,14 +4,13 @@ import { createNewTournament, updateTournamentConfig, updatePublicMessages } fro
 import { processMatchResult, findMatch } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID } from '../../config.js';
-import { updateTournamentManagementThread } from '../utils/panelManager.js';
+import { updateTournamentManagementThread, updateTournamentChannelName } from '../utils/panelManager.js';
 
 export async function handleModal(interaction) {
     const customId = interaction.customId;
     const client = interaction.client;
     const guild = interaction.guild;
     const db = getDb();
-
     const [action, ...params] = customId.split(':');
 
     if (action === 'create_tournament') {
@@ -35,7 +34,6 @@ export async function handleModal(interaction) {
         }
         return;
     }
-
     if (action === 'edit_tournament_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -54,7 +52,6 @@ export async function handleModal(interaction) {
         }
         return;
     }
-    
     if (action === 'edit_payment_details_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -68,7 +65,6 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: `✅ Torneo actualizado a: **De Pago**.`, components: [] });
         return;
     }
-
     if (action === 'inscripcion_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -105,7 +101,6 @@ export async function handleModal(interaction) {
         }
         return;
     }
-
     if (action === 'payment_confirm_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -124,7 +119,6 @@ export async function handleModal(interaction) {
         await interaction.editReply('✅ 🇪🇸 ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.\n🇬🇧 Thank you! Your payment has been notified. You will receive a notice upon approval.');
         return;
     }
-    
     if (action === 'add_test_teams_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -150,7 +144,6 @@ export async function handleModal(interaction) {
         await interaction.editReply(`✅ Se han añadido ${amountToAdd} equipos de prueba.`);
         return;
     }
-
     if (action === 'report_result_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
@@ -184,7 +177,6 @@ export async function handleModal(interaction) {
         }
         return;
     }
-    
     if (action === 'admin_force_result_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
@@ -198,7 +190,6 @@ export async function handleModal(interaction) {
         await interaction.editReply(`✅ Resultado forzado a **${resultString}** por un administrador.`);
         return;
     }
-
     if (action === 'upload_heights_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const link = interaction.fields.getTextInputValue('height_link');
