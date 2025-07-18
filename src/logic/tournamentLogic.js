@@ -25,6 +25,12 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const tournamentCategory = await guild.channels.create({
             name: `🏆 ${name}`,
             type: ChannelType.GuildCategory,
+            permissionOverwrites: [
+                {
+                    id: guild.id, // @everyone
+                    allow: [PermissionsBitField.Flags.ViewChannel],
+                },
+            ],
         });
 
         const publicReadOnlyPermissions = [
@@ -142,7 +148,7 @@ export async function approveTeam(client, tournament, teamData) {
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
         await matchesChannel.permissionOverwrites.edit(teamData.capitanId, {
             ViewChannel: true,
-            SendMessages: false, // Solo puede ver el canal, escribirá en los hilos.
+            SendMessages: false,
         });
 
     } catch(e) {
@@ -306,5 +312,52 @@ export async function startGroupStage(client, guild, tournament) {
         console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally {
         await setBotBusy(false);
+    }
+}
+
+export async function updateTournamentConfig(client, tournamentShortId, newConfig) {
+    const db = getDb();
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) throw new Error('Torneo no encontrado');
+
+    const originalConfig = JSON.parse(JSON.stringify(tournament.config));
+    const updatedConfig = { ...tournament.config, ...newConfig };
+    
+    if (newConfig.formatId && newConfig.formatId !== originalConfig.formatId) {
+        updatedConfig.format = TOURNAMENT_FORMATS[newConfig.formatId];
+    }
+    if (newConfig.entryFee !== undefined) {
+        updatedConfig.isPaid = newConfig.entryFee > 0;
+    }
+
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { config: updatedConfig } });
+    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    
+    await updatePublicMessages(client, updatedTournament);
+    await updateTournamentManagementThread(client, updatedTournament);
+
+    const hasFormatChanged = newConfig.formatId && newConfig.formatId !== originalConfig.formatId;
+    const hasFeeChanged = newConfig.entryFee !== undefined && newConfig.entryFee !== originalConfig.entryFee;
+
+    if ((hasFormatChanged || hasFeeChanged) && Object.keys(tournament.teams.aprobados).length > 0) {
+        const embed = new EmbedBuilder()
+            .setColor('#f1c40f')
+            .setTitle(`⚠️ Actualización del Torneo / Tournament Update: ${tournament.nombre}`)
+            .setDescription('🇪🇸 La configuración del torneo en el que te inscribiste ha cambiado. Revisa los nuevos detalles.\n🇬🇧 The configuration of the tournament you registered for has changed. Please review the new details.')
+            .addFields(
+                { name: 'Nuevo Formato / New Format', value: updatedTournament.config.format.label, inline: true },
+                { name: 'Nueva Cuota / New Fee', value: updatedTournament.config.isPaid ? `${updatedTournament.config.entryFee}€` : 'Gratis / Free', inline: true },
+                { name: 'Premio Campeón / Champion Prize', value: `${updatedTournament.config.prizeCampeon}€`, inline: true }
+            )
+            .setFooter({ text: 'Si tienes dudas, contacta a un administrador.' });
+
+        for (const team of Object.values(tournament.teams.aprobados)) {
+            try {
+                const user = await client.users.fetch(team.capitanId);
+                await user.send({ embeds: [embed] });
+            } catch (e) {
+                console.warn(`No se pudo notificar al capitán ${team.capitanTag} sobre la actualización del torneo.`);
+            }
+        }
     }
 }
