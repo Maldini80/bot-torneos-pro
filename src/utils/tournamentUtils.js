@@ -14,10 +14,10 @@ export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
     };
 }
 
-export async function createMatchThread(client, guild, partido, tournament) {
-    const parentChannel = await client.channels.fetch(tournament.discordMessageIds.matchThreadsParentId).catch(() => null);
+export async function createMatchThread(client, guild, partido, parentChannelId, tournamentShortId) {
+    const parentChannel = await client.channels.fetch(parentChannelId).catch(() => null);
     if (!parentChannel || parentChannel.type !== ChannelType.GuildText) {
-        console.error(`[ERROR] El canal padre para hilos del torneo ${tournament.nombre} no existe.`);
+        console.error(`[ERROR] El canal padre para hilos con ID ${parentChannelId} no existe.`);
         return null;
     }
 
@@ -40,20 +40,14 @@ export async function createMatchThread(client, guild, partido, tournament) {
             name: threadName.slice(0, 100),
             autoArchiveDuration: 10080,
             type: ChannelType.PrivateThread,
-            reason: `Partido de torneo: ${tournament.nombre}`
+            reason: `Partido de torneo: ${tournamentShortId}`
         });
 
+        // Solo es necesario añadir a los dos capitanes. Admins y Árbitros ya tienen acceso por los permisos del canal padre.
         const memberPromises = [
             thread.members.add(partido.equipoA.capitanId),
             thread.members.add(partido.equipoB.capitanId)
         ].map(p => p.catch(e => console.warn(`No se pudo añadir un capitán al hilo: ${e.message}`)));
-        
-        const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
-        if (arbitroRole) {
-            arbitroRole.members.forEach(member => {
-                memberPromises.push(thread.members.add(member.id).catch(() => {}));
-            });
-        }
         
         await Promise.all(memberPromises);
         
@@ -61,21 +55,21 @@ export async function createMatchThread(client, guild, partido, tournament) {
             .setDescription(`${description}\n\n**Nombres en EAFC / EAFC Names:**\n- ${partido.equipoA.nombre}: \`${partido.equipoA.eafcTeamName}\`\n- ${partido.equipoB.nombre}: \`${partido.equipoB.eafcTeamName}\`\n\n🇪🇸 Usad este hilo para coordinar y jugar. Cuando terminéis, usad los botones.\n🇬🇧 *Use this thread to coordinate and play. When you finish, use the buttons.*`);
         
         const matchManagementButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournament.shortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
-            new ButtonBuilder().setCustomId(`upload_heights_start:${partido.matchId}:${tournament.shortId}`).setLabel("Subir Alturas / Submit Heights").setStyle(ButtonStyle.Success).setEmoji("📏"),
-            new ButtonBuilder().setCustomId(`request_referee:${partido.matchId}:${tournament.shortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
-            new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournament.shortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
+            new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
+            new ButtonBuilder().setCustomId(`upload_heights_start:${partido.matchId}:${tournamentShortId}`).setLabel("Subir Alturas / Submit Heights").setStyle(ButtonStyle.Success).setEmoji("📏"),
+            new ButtonBuilder().setCustomId(`request_referee:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
+            new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
         );
 
         const coordinationButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`im_ready:${partido.matchId}:${tournament.shortId}`).setLabel("Estoy Listo / I'm Ready").setStyle(ButtonStyle.Primary).setEmoji("👋")
+            new ButtonBuilder().setCustomId(`im_ready:${partido.matchId}:${tournamentShortId}`).setLabel("Estoy Listo / I'm Ready").setStyle(ButtonStyle.Primary).setEmoji("👋")
         );
 
         await thread.send({ content: `<@${partido.equipoA.capitanId}> y <@${partido.equipoB.capitanId}>`, embeds: [embed], components: [coordinationButtons, matchManagementButtons] });
         
         return thread.id;
     } catch (error) {
-        console.error(`[ERROR FATAL] No se pudo crear el hilo del partido para ${tournament.nombre}.`, error);
+        console.error(`[ERROR FATAL] No se pudo crear el hilo del partido para el torneo ${tournamentShortId}.`, error);
         return null;
     }
 }
@@ -139,9 +133,9 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
         );
 
         if (opponentCurrentMatch && opponentCurrentMatch.status === 'finalizado') {
-            console.log(`[THREAD CREATION] Creando hilo para J${nextMatch.jornada}: ${nextMatch.equipoA.nombre} vs ${nextMatch.equipoB.nombre}`);
+            console.log(`[THREAD CREATION] Creando hilo para J${nextJornadaNum}: ${nextMatch.equipoA.nombre} vs ${nextMatch.equipoB.nombre}`);
             
-            const threadId = await createMatchThread(client, guild, nextMatch, currentTournamentState);
+            const threadId = await createMatchThread(client, guild, nextMatch, currentTournamentState.discordChannelIds.matchesChannelId, currentTournamentState.shortId);
             
             const matchIndex = allMatchesInGroup.findIndex(m => m.matchId === nextMatch.matchId);
             if(matchIndex > -1) {
