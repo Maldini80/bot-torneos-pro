@@ -2,12 +2,11 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS } from '../../config.js';
 
-// MODIFICADO: Acepta isBusy para deshabilitar botones
 export function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación de Torneos')
-        .setFooter({ text: 'Bot de Torneos v2.4' });
+        .setFooter({ text: 'Bot de Torneos v2.5' });
 
     embed.setDescription(isBusy 
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica (creando/finalizando un torneo). Por favor, espera.' 
@@ -22,7 +21,6 @@ export function createGlobalAdminPanel(isBusy = false) {
     return { embeds: [embed], components: [globalActionsRow] };
 }
 
-// MODIFICADO: Acepta isBusy para cambiar de color y deshabilitar botones
 export function createTournamentManagementPanel(tournament, isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#e67e22')
@@ -41,21 +39,21 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     if (isBeforeDraw) {
         row1.addComponents(
-            new ButtonBuilder().setCustomId(`admin_change_format_start_${tournament.shortId}`).setLabel('Cambiar Formato/Tipo').setStyle(ButtonStyle.Primary).setEmoji('🔄').setDisabled(isBusy),
-            new ButtonBuilder().setCustomId(`admin_edit_tournament_start_${tournament.shortId}`).setLabel('Editar Premios/Cuota').setStyle(ButtonStyle.Secondary).setEmoji('📝').setDisabled(isBusy),
-            new ButtonBuilder().setCustomId(`admin_force_draw_${tournament.shortId}`).setLabel('Forzar Sorteo').setStyle(ButtonStyle.Success).setEmoji('🎲').setDisabled(isBusy || !hasEnoughTeamsForDraw)
+            new ButtonBuilder().setCustomId(`admin_change_format_start:${tournament.shortId}`).setLabel('Cambiar Formato/Tipo').setStyle(ButtonStyle.Primary).setEmoji('🔄').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`admin_edit_tournament_start:${tournament.shortId}`).setLabel('Editar Premios/Cuota').setStyle(ButtonStyle.Secondary).setEmoji('📝').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`admin_force_draw:${tournament.shortId}`).setLabel('Forzar Sorteo').setStyle(ButtonStyle.Success).setEmoji('🎲').setDisabled(isBusy || !hasEnoughTeamsForDraw)
         );
         row2.addComponents(
-             new ButtonBuilder().setCustomId(`admin_add_test_teams_${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
+             new ButtonBuilder().setCustomId(`admin_add_test_teams:${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
     } else {
          row1.addComponents(
-            new ButtonBuilder().setCustomId(`admin_simulate_matches_${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy)
+            new ButtonBuilder().setCustomId(`admin_simulate_matches:${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy)
         );
     }
     
     row2.addComponents(
-        new ButtonBuilder().setCustomId(`admin_end_tournament_${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy)
+        new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy)
     );
 
     const components = [];
@@ -65,11 +63,14 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     return { embeds: [embed], components };
 }
 
-// MODIFICADO: Corregido el texto del botón y el campo "Entry".
 export function createTournamentStatusEmbed(tournament) {
-    const statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
     const format = tournament.config.format;
     const teamsCount = Object.keys(tournament.teams.aprobados).length;
+    
+    let statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
+    if (tournament.status === 'inscripcion_abierta' && teamsCount >= format.size) {
+        statusIcon = TOURNAMENT_STATUS_ICONS['cupo_lleno'];
+    }
     
     const embed = new EmbedBuilder()
         .setColor(tournament.status === 'inscripcion_abierta' ? '#2ecc71' : '#3498db')
@@ -87,7 +88,6 @@ export function createTournamentStatusEmbed(tournament) {
 
     if (tournament.config.isPaid) {
         descriptionLines.push('**Este es un torneo de pago. / This is a paid tournament.**');
-        // CORRECCIÓN: Cambiado a solo "Entry"
         embed.addFields({ name: 'Entry', value: `${tournament.config.entryFee}€`, inline: true });
     } else {
         descriptionLines.push('**Este es un torneo gratuito. / This is a free tournament.**');
@@ -100,32 +100,20 @@ export function createTournamentStatusEmbed(tournament) {
     
     const row = new ActionRowBuilder();
     if (tournament.status === 'inscripcion_abierta' && teamsCount < format.size) {
-        // CORRECCIÓN: Botón completamente bilingüe
         const buttonLabel = 'Inscribirme / Register';
-        row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start_${tournament.shortId}`).setLabel(buttonLabel).setStyle(ButtonStyle.Success).setEmoji('📝'));
+        row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel(buttonLabel).setStyle(ButtonStyle.Success).setEmoji('📝'));
     }
     
-    row.addComponents(new ButtonBuilder().setCustomId(`user_view_details_${tournament.shortId}`).setLabel('Ver Detalles / View Details').setStyle(ButtonStyle.Secondary).setEmoji('ℹ️'));
+    if (tournament.guildId && tournament.discordMessageIds.publicInfoThreadId) {
+        const threadURL = `https://discord.com/channels/${tournament.guildId}/${tournament.discordMessageIds.publicInfoThreadId}`;
+        row.addComponents(new ButtonBuilder().setLabel('Ver Detalles / View Details').setStyle(ButtonStyle.Link).setURL(threadURL).setEmoji('ℹ️'));
+    }
     
     if (tournament.status === 'finalizado') {
-        embed.setColor('#95a5a6').setTitle(`${TOURNAMENT_STATUS_ICONS.finalizado} ${tournament.nombre} (Finalizado / Finished)`);
-    }
-    if (tournament.status === 'inscripcion_abierta' && teamsCount >= format.size) {
-        embed.setColor('#e67e22').setTitle(`${TOURNAMENT_STATUS_ICONS.cupo_lleno} ${tournament.nombre} (Cupo Lleno / Full)`);
+        embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado / Finished)`);
     }
 
     return { embeds: [embed], components: [row] };
-}
-
-export function createTeamListEmbed(tournament) {
-    const approvedTeams = Object.values(tournament.teams.aprobados);
-    const format = tournament.config.format;
-    let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
-    if (approvedTeams.length > 0) {
-        description = approvedTeams.map((team, index) => `${index + 1}. ${team.bandera || '🏳️'} **${team.nombre}** (Cap: ${team.capitanTag})`).join('\n');
-    }
-    const embed = new EmbedBuilder().setColor('#1abc9c').setTitle(`📋 Equipos Inscritos - ${tournament.nombre}`).setDescription(description).setFooter({ text: `Total: ${approvedTeams.length} / ${format.size}` });
-    return { embeds: [embed] };
 }
 
 export function createClassificationEmbed(tournament) {
@@ -151,12 +139,10 @@ export function createClassificationEmbed(tournament) {
 
         if (enfrentamiento) {
             const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
-            if (enfrentamiento.equipoA.id === a.id) { // a vs b
-                if (golesA > golesB) return -1;
-                if (golesB > golesA) return 1;
-            } else { // b vs a
-                if (golesB > golesA) return -1;
-                if (golesA > golesB) return 1;
+            if (enfrentamiento.equipoA.id === a.id) {
+                if (golesA > golesB) return -1; if (golesB > golesA) return 1;
+            } else {
+                if (golesB > golesA) return -1; if (golesA > golesB) return 1;
             }
         }
         return 0;
