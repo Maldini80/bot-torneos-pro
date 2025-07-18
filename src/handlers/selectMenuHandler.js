@@ -27,13 +27,7 @@ export async function handleSelectMenu(interaction) {
         const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}`).setTitle('Finalizar Creación de Torneo');
         
         const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-        
-        // CORRECCIÓN: Acortada la etiqueta para cumplir el límite de 45 caracteres.
-        const startTimeInput = new TextInputBuilder()
-            .setCustomId('torneo_start_time')
-            .setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false);
+        const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
 
         modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
 
@@ -41,14 +35,13 @@ export async function handleSelectMenu(interaction) {
             const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
             const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
             const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
-            const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal').setLabel("Tu PayPal para recibir pagos").setStyle(TextInputStyle.Short).setRequired(true);
             
             modal.setTitle('Finalizar Creación (De Pago)');
+            // CORRECCIÓN: Eliminado el campo de PayPal. Ahora hay 5 componentes.
             modal.addComponents(
                 new ActionRowBuilder().addComponents(entryFeeInput),
                 new ActionRowBuilder().addComponents(prizeInputCampeon),
-                new ActionRowBuilder().addComponents(prizeInputFinalista),
-                new ActionRowBuilder().addComponents(paypalInput)
+                new ActionRowBuilder().addComponents(prizeInputFinalista)
             );
         }
         await interaction.showModal(modal);
