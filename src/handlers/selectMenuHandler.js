@@ -37,7 +37,6 @@ export async function handleSelectMenu(interaction) {
             const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
             
             modal.setTitle('Finalizar Creación (De Pago)');
-            // CORRECCIÓN: Eliminado el campo de PayPal. Ahora hay 5 componentes.
             modal.addComponents(
                 new ActionRowBuilder().addComponents(entryFeeInput),
                 new ActionRowBuilder().addComponents(prizeInputCampeon),
