@@ -10,57 +10,38 @@ import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, Butto
 
 export async function createNewTournament(client, guild, name, shortId, config) {
     await setBotBusy(true);
-    
     try {
         const db = getDb();
         const format = TOURNAMENT_FORMATS[config.formatId];
         if (!format) throw new Error(`Formato de torneo inválido: ${config.formatId}`);
-        
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         if (!arbitroRole) throw new Error("El rol de Árbitro no fue encontrado.");
-
-        const participantsAndStaffPermissions = [
-             { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-             { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-        ];
-
+        const participantsAndStaffPermissions = [ { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] }, { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] } ];
         const infoChannel = await guild.channels.create({ name: `🏆-${shortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: [{ id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }] });
         const matchesChannel = await guild.channels.create({ name: `⚽-${shortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
         const chatChannel = await guild.channels.create({ name: `💬-${shortId}-chat`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
-
         const newTournament = {
             _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta',
-            config: { formatId: config.formatId, format, isPaid: config.isPaid, entryFee: config.entryFee || 0, prizeCampeon: config.prizeCampeon || 0, prizeFinalista: config.prizeFinalista || 0, enlacePaypal: config.enlacePaypal || null },
+            config: { formatId: config.formatId, format, isPaid: config.isPaid, entryFee: config.entryFee || 0, prizeCampeon: config.prizeCampeon || 0, prizeFinalista: config.prizeFinalista || 0, enlacePaypal: config.enlacePaypal || null, startTime: config.startTime || null },
             teams: { pendientes: {}, aprobados: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
-            discordChannelIds: {
-                infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id,
-            },
-            discordMessageIds: {
-                statusMessageId: null, classificationMessageId: null, calendarMessageId: null, 
-                managementThreadId: null, notificationsThreadId: null,
-            }
+            discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
+            discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null }
         };
-        
         const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
         const statusMsg = await globalStatusChannel.send(createTournamentStatusEmbed(newTournament));
         const classificationMsg = await infoChannel.send(createClassificationEmbed(newTournament));
         const calendarMsg = await infoChannel.send(createCalendarEmbed(newTournament));
-
         newTournament.discordMessageIds.statusMessageId = statusMsg.id;
         newTournament.discordMessageIds.classificationMessageId = classificationMsg.id;
         newTournament.discordMessageIds.calendarMessageId = calendarMsg.id;
-
         const managementParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
         const managementThread = await managementParentChannel.threads.create({ name: `Gestión - ${name.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
         newTournament.discordMessageIds.managementThreadId = managementThread.id;
-        
         const notificationsParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT);
         const notificationsThread = await notificationsParentChannel.threads.create({ name: `Avisos - ${name.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
         newTournament.discordMessageIds.notificationsThreadId = notificationsThread.id;
-
         await db.collection('tournaments').insertOne(newTournament);
-        
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
                 await managementThread.members.add(member.id).catch(()=>{});
@@ -68,7 +49,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             }
         }
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
-
     } catch (error) {
         console.error('[CREATE] OCURRIÓ UN ERROR EN MEDIO DEL PROCESO DE CREACIÓN:', error);
         await setBotBusy(false); throw error; 
@@ -83,9 +63,7 @@ export async function approveTeam(client, tournament, teamData) {
     if (!latestTournament.teams.aprobados) latestTournament.teams.aprobados = {};
     latestTournament.teams.aprobados[teamData.capitanId] = teamData;
     if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
-
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes }});
-    
     try {
         const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
         await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
@@ -93,20 +71,10 @@ export async function approveTeam(client, tournament, teamData) {
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
         await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
     } catch(e) { console.error(`No se pudo añadir al capitán ${teamData.capitanId} a los canales privados:`, e); }
-
-    const guild = await client.guilds.fetch(tournament.guildId);
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
-
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    
-    const teamCount = Object.keys(updatedTournament.teams.aprobados).length;
-    if (teamCount === updatedTournament.config.format.size) {
-        await updateTournamentChannelName(client);
-        // No iniciamos el sorteo automáticamente aquí, solo actualizamos el estado.
-    } else {
-        await updateTournamentChannelName(client);
-    }
+    await updateTournamentChannelName(client);
 }
 
 export async function kickTeam(client, tournament, captainId) {
@@ -133,10 +101,7 @@ export async function endTournament(client, tournament) {
         await updateTournamentManagementThread(client, finalTournamentState);
         await cleanupTournament(client, finalTournamentState);
     } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
-    } finally { 
-        await setBotBusy(false); 
-        await updateTournamentChannelName(client); 
-    }
+    } finally { await setBotBusy(false); await updateTournamentChannelName(client); }
 }
 
 async function cleanupTournament(client, tournament) {
@@ -184,14 +149,12 @@ export async function updatePublicMessages(client, tournament) {
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.calendarMessageId, createCalendarEmbed(latestTournamentState));
 }
 
-// CORRECCIÓN: Estructura try...finally para garantizar el desbloqueo del bot.
 export async function startGroupStage(client, guild, tournament) {
     await setBotBusy(true);
     try {
         const db = getDb();
         const currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
         if (currentTournament.status !== 'inscripcion_abierta') { return; }
-        
         currentTournament.status = 'fase_de_grupos';
         const format = currentTournament.config.format;
         let teams = Object.values(currentTournament.teams.aprobados);
@@ -215,22 +178,18 @@ export async function startGroupStage(client, guild, tournament) {
             }
         }
         currentTournament.structure.calendario = calendario;
-        
         for (const nombreGrupo in calendario) {
             for (const partido of calendario[nombreGrupo].filter(p => p.jornada === 1)) {
                 const threadId = await createMatchThread(client, guild, partido, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
                 partido.threadId = threadId; partido.status = 'en_curso';
             }
         }
-        
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
-        
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
         await updateTournamentChannelName(client);
-    } catch (error) { 
-        console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
+    } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
     }
@@ -240,23 +199,35 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     if (!tournament) throw new Error('Torneo no encontrado');
-    const originalConfig = JSON.parse(JSON.stringify(tournament.config));
     const updatedConfig = { ...tournament.config, ...newConfig };
-    if (newConfig.formatId && newConfig.formatId !== originalConfig.formatId) { updatedConfig.format = TOURNAMENT_FORMATS[newConfig.formatId]; }
-    if (newConfig.entryFee !== undefined) { updatedConfig.isPaid = newConfig.entryFee > 0; }
+    if (newConfig.formatId) { updatedConfig.format = TOURNAMENT_FORMATS[newConfig.formatId]; }
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { config: updatedConfig } });
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament); await updateTournamentManagementThread(client, updatedTournament);
-    const hasFormatChanged = newConfig.formatId && newConfig.formatId !== originalConfig.formatId;
-    const hasFeeChanged = newConfig.entryFee !== undefined && newConfig.entryFee !== originalConfig.entryFee;
-    if ((hasFormatChanged || hasFeeChanged) && Object.keys(tournament.teams.aprobados).length > 0) {
-        const embed = new EmbedBuilder().setColor('#f1c40f').setTitle(`⚠️ Actualización del Torneo / Tournament Update: ${tournament.nombre}`)
-            .setDescription('🇪🇸 La configuración del torneo ha cambiado.\n🇬🇧 The tournament configuration has changed.')
-            .addFields( { name: 'Nuevo Formato / New Format', value: updatedTournament.config.format.label, inline: true }, { name: 'Nueva Cuota / New Fee', value: updatedTournament.config.isPaid ? `${updatedTournament.config.entryFee}€` : 'Gratis / Free', inline: true }, { name: 'Premio Campeón / Champion Prize', value: `${updatedTournament.config.prizeCampeon}€`, inline: true })
-            .setFooter({ text: 'Si tienes dudas, contacta a un administrador.' });
-        for (const team of Object.values(tournament.teams.aprobados)) {
-            try { const user = await client.users.fetch(team.capitanId); await user.send({ embeds: [embed] });
-            } catch (e) { console.warn(`No se pudo notificar al capitán ${team.capitanTag}`); }
-        }
+}
+
+export async function notifyCaptainsOfChanges(client, tournament) {
+    const approvedCaptains = Object.values(tournament.teams.aprobados);
+    if (approvedCaptains.length === 0) {
+        return { success: true, message: "✅ No hay capitanes inscritos a los que notificar." };
     }
+    const embed = new EmbedBuilder()
+        .setColor('#f1c40f')
+        .setTitle(`📢 Actualización del Torneo / Tournament Update: ${tournament.nombre}`)
+        .setDescription('🇪🇸 La configuración del torneo ha cambiado.\n🇬🇧 The tournament configuration has changed.')
+        .addFields(
+            { name: 'Formato / Format', value: tournament.config.format.label, inline: true },
+            { name: 'Tipo / Type', value: tournament.config.isPaid ? 'De Pago / Paid' : 'Gratuito / Free', inline: true },
+            { name: 'Entry', value: `${tournament.config.entryFee}€`, inline: true },
+            { name: 'Premio Campeón / Champion Prize', value: `${tournament.config.prizeCampeon}€`, inline: true },
+            { name: 'Premio Finalista / Runner-up Prize', value: `${tournament.config.prizeFinalista}€`, inline: true },
+            { name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime || 'No especificado / Not specified', inline: true }
+        )
+        .setFooter({ text: 'Si tienes dudas, contacta a un administrador.' });
+    let notifiedCount = 0;
+    for (const team of approvedCaptains) {
+        try { const user = await client.users.fetch(team.capitanId); await user.send({ embeds: [embed] }); notifiedCount++;
+        } catch (e) { console.warn(`No se pudo notificar al capitán ${team.capitanTag}`); }
+    }
+    return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
 }
