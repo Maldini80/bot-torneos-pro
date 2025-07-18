@@ -3,7 +3,7 @@ import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
 import { updatePublicMessages, endTournament } from './tournamentLogic.js';
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
-import { updateTournamentManagementThread } from '../utils/panelManager.js';
+import { updateTournamentManagementThread, updateTournamentChannelName } from '../utils/panelManager.js';
 import { EmbedBuilder } from 'discord.js';
 
 export async function processMatchResult(client, guild, tournament, matchId, resultString) {
@@ -24,13 +24,11 @@ export async function processMatchResult(client, guild, tournament, matchId, res
 
     if (fase === 'grupos') {
         await updateGroupStageStats(currentTournament, partido);
-        // Guardamos el estado parcial para que las siguientes funciones lean los datos actualizados
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
         
         let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
         await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
         
-        // Volvemos a leer por si la función anterior hizo cambios
         updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
         await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats);
 
@@ -206,7 +204,6 @@ async function startNextKnockoutRound(client, guild, tournament) {
     const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🔥`).setFooter({text: '¡Mucha suerte!'});
 
     for(const [i, p] of partidos.entries()) {
-        // CORRECCIÓN CRÍTICA: Pasamos los parámetros correctos (IDs en lugar de objetos).
         const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
         p.threadId = threadId;
         embedAnuncio.addFields({ name: `Enfrentamiento ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
@@ -244,8 +241,13 @@ async function handleFinalResult(client, guild, tournament) {
             }
         }
     }
-
-    await endTournament(client, tournament);
+    
+    const db = getDb();
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
+    await updateTournamentChannelName(client);
+    const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
+    await updateTournamentManagementThread(client, updatedTournament);
+    console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
 }
 
 function crearPartidosEliminatoria(equipos, ronda) {
