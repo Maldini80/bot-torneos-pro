@@ -24,7 +24,9 @@ export async function handleButton(interaction) {
         const tournamentShortId = p2 || p1;
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
+        if (!tournament) {
+            return interaction.reply({ content: 'Error: No se encontró este torneo. Puede que haya sido eliminado.', flags: [MessageFlags.Ephemeral] });
+        }
 
         if (action === 'inscribir_equipo_start') {
             modal = new ModalBuilder().setCustomId(`inscripcion_modal:${tournamentShortId}`).setTitle('Inscripción de Equipo / Team Registration');
@@ -223,14 +225,14 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
 
-        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Los paneles y canales se actualizarán/borrarán.` });
+        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Los canales se borrarán en breve.` });
         
         try {
             await endTournament(client, tournament);
-            await interaction.followUp({ content: '✅ Torneo finalizado con éxito.', flags: [MessageFlags.Ephemeral] });
+            // No enviamos followUp porque la interacción original (el hilo) puede ser borrada.
         } catch (e) {
             console.error("Error crítico al finalizar torneo:", e);
-            await interaction.followUp({ content: '❌ Ocurrió un error crítico durante la finalización. Revisa los logs.', flags: [MessageFlags.Ephemeral] });
+            await interaction.followUp({ content: '❌ Ocurrió un error crítico durante la finalización. Revisa los logs.', flags: [MessageFlags.Ephemeral] }).catch(()=>{});
         }
         return;
     }
