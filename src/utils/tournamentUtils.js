@@ -43,7 +43,6 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             reason: `Partido de torneo: ${tournamentShortId}`
         });
 
-        // Solo es necesario añadir a los dos capitanes. Admins y Árbitros ya tienen acceso por los permisos del canal padre.
         const memberPromises = [
             thread.members.add(partido.equipoA.capitanId),
             thread.members.add(partido.equipoB.capitanId)
@@ -52,20 +51,19 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         await Promise.all(memberPromises);
         
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
-            .setDescription(`${description}\n\n**Nombres en EAFC / EAFC Names:**\n- ${partido.equipoA.nombre}: \`${partido.equipoA.eafcTeamName}\`\n- ${partido.equipoB.nombre}: \`${partido.equipoB.eafcTeamName}\`\n\n🇪🇸 Usad este hilo para coordinar y jugar. Cuando terminéis, usad los botones.\n🇬🇧 *Use this thread to coordinate and play. When you finish, use the buttons.*`);
+            .setDescription(`${description}\n\n🇪🇸 **Equipo Local:** ${partido.equipoA.nombre}\n**Nombre EAFC:** \`${partido.equipoA.eafcTeamName}\`\n\n🇬🇧 **Home Team:** ${partido.equipoA.nombre}\n**EAFC Name:** \`${partido.equipoA.eafcTeamName}\`\n\n*El equipo visitante debe buscar e invitar al equipo local.*`);
         
-        const matchManagementButtons = new ActionRowBuilder().addComponents(
+        const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
-            new ButtonBuilder().setCustomId(`upload_heights_start:${partido.matchId}:${tournamentShortId}`).setLabel("Subir Alturas / Submit Heights").setStyle(ButtonStyle.Success).setEmoji("📏"),
+            new ButtonBuilder().setCustomId(`upload_heights_start:${partido.matchId}:${tournamentShortId}`).setLabel("Subir Alturas").setStyle(ButtonStyle.Secondary).setEmoji("📏")
+        );
+
+        const row2 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`request_referee:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
             new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
         );
 
-        const coordinationButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`im_ready:${partido.matchId}:${tournamentShortId}`).setLabel("Estoy Listo / I'm Ready").setStyle(ButtonStyle.Primary).setEmoji("👋")
-        );
-
-        await thread.send({ content: `<@${partido.equipoA.capitanId}> y <@${partido.equipoB.capitanId}>`, embeds: [embed], components: [coordinationButtons, matchManagementButtons] });
+        await thread.send({ content: `<@${partido.equipoA.capitanId}> y <@${partido.equipoB.capitanId}>`, embeds: [embed], components: [row1, row2] });
         
         return thread.id;
     } catch (error) {
@@ -82,12 +80,14 @@ export async function updateMatchThreadName(client, partido) {
 
         if (thread.name.startsWith('⚠️')) return;
 
-        const cleanBaseName = thread.name.replace(/^[⚔️✅⚠️🔵]-/g, '').replace(/-\d+a\d+$/, '');
+        const cleanBaseName = thread.name.replace(/^[⚔️✅⚠️]-/g, '').replace(/-\d+a\d+$/, '');
         
         let icon;
-        if (partido.status === 'finalizado') icon = '✅';
-        else if (partido.status === 'en_juego') icon = '🔵';
-        else icon = '⚔️';
+        if (partido.status === 'finalizado') {
+            icon = '✅';
+        } else {
+            icon = '⚔️';
+        }
         
         let newName = `${icon}-${cleanBaseName}`;
         if (partido.status === 'finalizado' && partido.resultado) {
@@ -107,47 +107,23 @@ export async function updateMatchThreadName(client, partido) {
 
 export async function checkAndCreateNextRoundThreads(client, guild, tournament, completedMatch) {
     if (!completedMatch.nombreGrupo) return;
-
     const db = getDb();
     let currentTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
     const allMatchesInGroup = currentTournamentState.structure.calendario[completedMatch.nombreGrupo];
     const nextJornadaNum = completedMatch.jornada + 1;
-
     if (!allMatchesInGroup.some(p => p.jornada === nextJornadaNum)) return;
-
     const teamsInCompletedMatch = [completedMatch.equipoA.id, completedMatch.equipoB.id];
-
     for (const teamId of teamsInCompletedMatch) {
-        const nextMatch = allMatchesInGroup.find(p => 
-            p.jornada === nextJornadaNum && 
-            (p.equipoA.id === teamId || p.equipoB.id === teamId)
-        );
-
+        const nextMatch = allMatchesInGroup.find(p => p.jornada === nextJornadaNum && (p.equipoA.id === teamId || p.equipoB.id === teamId));
         if (!nextMatch || nextMatch.threadId) continue;
-
         const opponentId = nextMatch.equipoA.id === teamId ? nextMatch.equipoB.id : nextMatch.equipoA.id;
-        
-        const opponentCurrentMatch = allMatchesInGroup.find(p => 
-            p.jornada === completedMatch.jornada &&
-            (p.equipoA.id === opponentId || p.equipoB.id === opponentId)
-        );
-
+        const opponentCurrentMatch = allMatchesInGroup.find(p => p.jornada === completedMatch.jornada && (p.equipoA.id === opponentId || p.equipoB.id === opponentId));
         if (opponentCurrentMatch && opponentCurrentMatch.status === 'finalizado') {
-            console.log(`[THREAD CREATION] Creando hilo para J${nextJornadaNum}: ${nextMatch.equipoA.nombre} vs ${nextMatch.equipoB.nombre}`);
-            
+            console.log(`[THREAD CREATION] Creando hilo para J${nextMatch.jornada}: ${nextMatch.equipoA.nombre} vs ${nextMatch.equipoB.nombre}`);
             const threadId = await createMatchThread(client, guild, nextMatch, currentTournamentState.discordChannelIds.matchesChannelId, currentTournamentState.shortId);
-            
             const matchIndex = allMatchesInGroup.findIndex(m => m.matchId === nextMatch.matchId);
             if(matchIndex > -1) {
-                await db.collection('tournaments').updateOne(
-                    { _id: tournament._id },
-                    { 
-                        $set: { 
-                            [`structure.calendario.${nextMatch.nombreGrupo}.${matchIndex}.threadId`]: threadId,
-                            [`structure.calendario.${nextMatch.nombreGrupo}.${matchIndex}.status`]: 'en_curso'
-                        } 
-                    }
-                );
+                await db.collection('tournaments').updateOne( { _id: tournament._id }, { $set: { [`structure.calendario.${nextMatch.nombreGrupo}.${matchIndex}.threadId`]: threadId, [`structure.calendario.${nextMatch.nombreGrupo}.${matchIndex}.status`]: 'en_curso' } } );
             }
         }
     }
