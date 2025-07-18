@@ -50,8 +50,9 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         
         await Promise.all(memberPromises);
         
+        // CORRECCIÓN: Mostrar solo el nombre EAFC del equipo local (A).
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
-            .setDescription(`${description}\n\n🇪🇸 **Equipo Local:** ${partido.equipoA.nombre}\n**Nombre EAFC:** \`${partido.equipoA.eafcTeamName}\`\n\n🇬🇧 **Home Team:** ${partido.equipoA.nombre}\n**EAFC Name:** \`${partido.equipoA.eafcTeamName}\`\n\n*El equipo visitante debe buscar e invitar al equipo local.*`);
+            .setDescription(`${description}\n\n🇪🇸 **Equipo Local:** ${partido.equipoA.nombre}\n**Nombre EAFC:** \`${partido.equipoA.eafcTeamName}\`\n\n🇬🇧 **Home Team:** ${partido.equipoA.nombre}\n**EAFC Name:** \`${partido.equipoA.eafcTeamName}\`\n\n*El equipo visitante (${partido.equipoB.nombre}) debe buscar e invitar al equipo local.*`);
         
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
@@ -119,7 +120,6 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
         const opponentId = nextMatch.equipoA.id === teamId ? nextMatch.equipoB.id : nextMatch.equipoA.id;
         const opponentCurrentMatch = allMatchesInGroup.find(p => p.jornada === completedMatch.jornada && (p.equipoA.id === opponentId || p.equipoB.id === opponentId));
         if (opponentCurrentMatch && opponentCurrentMatch.status === 'finalizado') {
-            console.log(`[THREAD CREATION] Creando hilo para J${nextMatch.jornada}: ${nextMatch.equipoA.nombre} vs ${nextMatch.equipoB.nombre}`);
             const threadId = await createMatchThread(client, guild, nextMatch, currentTournamentState.discordChannelIds.matchesChannelId, currentTournamentState.shortId);
             const matchIndex = allMatchesInGroup.findIndex(m => m.matchId === nextMatch.matchId);
             if(matchIndex > -1) {
