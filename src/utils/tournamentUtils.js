@@ -57,19 +57,21 @@ export async function createMatchThread(client, guild, partido, tournament) {
         
         await Promise.all(memberPromises);
         
-        // NUEVO: Añadido el nombre del equipo en EAFC al embed.
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
             .setDescription(`${description}\n\n**Nombres en EAFC / EAFC Names:**\n- ${partido.equipoA.nombre}: \`${partido.equipoA.eafcTeamName}\`\n- ${partido.equipoB.nombre}: \`${partido.equipoB.eafcTeamName}\`\n\n🇪🇸 Usad este hilo para coordinar y jugar. Cuando terminéis, usad los botones.\n🇬🇧 *Use this thread to coordinate and play. When you finish, use the buttons.*`);
         
-        // NUEVO: Añadido el botón de Highlights
-        const buttons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`report_result_start_${partido.matchId}_${tournament.shortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
-            new ButtonBuilder().setCustomId(`upload_highlight_start_${partido.matchId}_${tournament.shortId}`).setLabel("Subir Highlights").setStyle(ButtonStyle.Success).setEmoji("✨"),
-            new ButtonBuilder().setCustomId(`request_referee_${partido.matchId}_${tournament.shortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
-            new ButtonBuilder().setCustomId(`admin_modify_result_start_${partido.matchId}_${tournament.shortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
+        const matchManagementButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournament.shortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
+            new ButtonBuilder().setCustomId(`upload_heights_start:${partido.matchId}:${tournament.shortId}`).setLabel("Subir Alturas / Submit Heights").setStyle(ButtonStyle.Success).setEmoji("📏"),
+            new ButtonBuilder().setCustomId(`request_referee:${partido.matchId}:${tournament.shortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
+            new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournament.shortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
         );
 
-        await thread.send({ content: `<@${partido.equipoA.capitanId}> y <@${partido.equipoB.capitanId}>`, embeds: [embed], components: [buttons] });
+        const coordinationButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`im_ready:${partido.matchId}:${tournament.shortId}`).setLabel("Estoy Listo / I'm Ready").setStyle(ButtonStyle.Primary).setEmoji("👋")
+        );
+
+        await thread.send({ content: `<@${partido.equipoA.capitanId}> y <@${partido.equipoB.capitanId}>`, embeds: [embed], components: [coordinationButtons, matchManagementButtons] });
         
         return thread.id;
     } catch (error) {
@@ -84,13 +86,13 @@ export async function updateMatchThreadName(client, partido) {
         const thread = await client.channels.fetch(partido.threadId);
         if (!thread) return;
 
-        // No cambiar el icono si está en arbitraje
         if (thread.name.startsWith('⚠️')) return;
 
-        const cleanBaseName = thread.name.replace(/^[⚔️✅⚠️]-/g, '').replace(/-\d+a\d+$/, '');
+        const cleanBaseName = thread.name.replace(/^[⚔️✅⚠️🔵]-/g, '').replace(/-\d+a\d+$/, '');
         
         let icon;
         if (partido.status === 'finalizado') icon = '✅';
+        else if (partido.status === 'en_juego') icon = '🔵';
         else icon = '⚔️';
         
         let newName = `${icon}-${cleanBaseName}`;
@@ -113,7 +115,8 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
     if (!completedMatch.nombreGrupo) return;
 
     const db = getDb();
-    const allMatchesInGroup = tournament.structure.calendario[completedMatch.nombreGrupo];
+    let currentTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
+    const allMatchesInGroup = currentTournamentState.structure.calendario[completedMatch.nombreGrupo];
     const nextJornadaNum = completedMatch.jornada + 1;
 
     if (!allMatchesInGroup.some(p => p.jornada === nextJornadaNum)) return;
@@ -129,6 +132,7 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
         if (!nextMatch || nextMatch.threadId) continue;
 
         const opponentId = nextMatch.equipoA.id === teamId ? nextMatch.equipoB.id : nextMatch.equipoA.id;
+        
         const opponentCurrentMatch = allMatchesInGroup.find(p => 
             p.jornada === completedMatch.jornada &&
             (p.equipoA.id === opponentId || p.equipoB.id === opponentId)
@@ -137,9 +141,9 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
         if (opponentCurrentMatch && opponentCurrentMatch.status === 'finalizado') {
             console.log(`[THREAD CREATION] Creando hilo para J${nextMatch.jornada}: ${nextMatch.equipoA.nombre} vs ${nextMatch.equipoB.nombre}`);
             
-            const threadId = await createMatchThread(client, guild, nextMatch, tournament);
+            const threadId = await createMatchThread(client, guild, nextMatch, currentTournamentState);
             
-            const matchIndex = tournament.structure.calendario[nextMatch.nombreGrupo].findIndex(m => m.matchId === nextMatch.matchId);
+            const matchIndex = allMatchesInGroup.findIndex(m => m.matchId === nextMatch.matchId);
             if(matchIndex > -1) {
                 await db.collection('tournaments').updateOne(
                     { _id: tournament._id },
