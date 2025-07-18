@@ -10,14 +10,47 @@ export async function handleSelectMenu(interaction) {
 
     // --- Flujo de creación de torneo ---
     if (customId.startsWith('admin_create_format')) {
-        // ... (Sin cambios)
+        // CORRECCIÓN CRÍTICA: Acusamos recibo INMEDIATAMENTE para evitar el error "Interacción fallida".
+        await interaction.deferUpdate();
+        
+        const formatId = value;
+        const typeMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_create_type_${formatId}`)
+            .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
+            .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
+        
+        // Ahora que ya hemos acusado recibo, editamos el mensaje con el siguiente paso.
+        await interaction.editReply({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
+        return;
     }
     
     if (customId.startsWith('admin_create_type')) {
-        // ... (Sin cambios)
+        // Aquí no necesitamos deferUpdate porque mostrar un modal es una respuesta válida e inmediata.
+        const formatId = customId.replace('admin_create_type_', '');
+        const type = value;
+        const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}`).setTitle('Finalizar Creación de Torneo');
+        const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
+
+        if (type === 'pago') {
+            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
+            const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal').setLabel("Tu PayPal para recibir pagos").setStyle(TextInputStyle.Short).setRequired(true);
+            
+            modal.setTitle('Finalizar Creación (De Pago)');
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(entryFeeInput),
+                new ActionRowBuilder().addComponents(prizeInputCampeon),
+                new ActionRowBuilder().addComponents(prizeInputFinalista),
+                new ActionRowBuilder().addComponents(paypalInput)
+            );
+        }
+        await interaction.showModal(modal);
+        return;
     }
     
-    // NUEVO: Handlers para cambiar formato y tipo de un torneo existente
+    // --- Flujo de modificación de torneo ---
     if (customId.startsWith('admin_change_format_select_')) {
         await interaction.deferUpdate();
         const tournamentShortId = customId.split('_').pop();
@@ -30,11 +63,9 @@ export async function handleSelectMenu(interaction) {
     }
     
     if (customId.startsWith('admin_change_type_select_')) {
-        await interaction.deferUpdate();
         const tournamentShortId = customId.split('_').pop();
         const newType = value;
         
-        // Si se cambia a 'pago', necesitamos pedir más datos.
         if (newType === 'pago') {
             const modal = new ModalBuilder()
                 .setCustomId(`edit_payment_details_modal_${tournamentShortId}`)
@@ -51,7 +82,8 @@ export async function handleSelectMenu(interaction) {
             );
             await interaction.showModal(modal);
 
-        } else { // Si se cambia a gratuito, reseteamos valores.
+        } else {
+            await interaction.deferUpdate();
             await updateTournamentConfig(interaction.client, tournamentShortId, { isPaid: false, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 });
             await interaction.editReply({ content: `✅ Torneo actualizado a: **Gratuito**.`, components: [] });
         }
