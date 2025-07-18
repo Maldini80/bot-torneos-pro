@@ -73,7 +73,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         console.error('[CREATE] OCURRIÓ UN ERROR EN MEDIO DEL PROCESO DE CREACIÓN:', error);
         await setBotBusy(false); throw error; 
     } finally {
-        await setBotBusy(false); await updateTournamentChannelName(client);
+        await setBotBusy(false); 
+        await updateTournamentChannelName(client);
     }
 }
 
@@ -99,11 +100,14 @@ export async function approveTeam(client, tournament, teamData) {
 
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    await updateTournamentChannelName(client);
     
     const teamCount = Object.keys(updatedTournament.teams.aprobados).length;
     if (teamCount === updatedTournament.config.format.size) {
+        // REFUERZO: Llamamos a la actualización aquí para asegurar el cambio a NARANJA.
+        await updateTournamentChannelName(client);
         await startGroupStage(client, guild, updatedTournament);
+    } else {
+        await updateTournamentChannelName(client);
     }
 }
 
@@ -116,7 +120,11 @@ export async function endTournament(client, tournament) {
         await updateTournamentManagementThread(client, finalTournamentState);
         await cleanupTournament(client, finalTournamentState);
     } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
-    } finally { await setBotBusy(false); await updateTournamentChannelName(client); }
+    } finally { 
+        await setBotBusy(false); 
+        // REFUERZO: Llamamos a la actualización aquí para asegurar el cambio a ROJO si no quedan torneos.
+        await updateTournamentChannelName(client); 
+    }
 }
 
 async function cleanupTournament(client, tournament) {
@@ -126,6 +134,7 @@ async function cleanupTournament(client, tournament) {
         try { const resource = await client.channels.fetch(resourceId).catch(() => null); if(resource) await resource.delete(); } 
         catch (err) { if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); }
     };
+    
     for (const channelId of Object.values(discordChannelIds)) { await deleteResourceSafe(channelId); }
     for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId]) { await deleteResourceSafe(threadId); }
     try { const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS); await globalChannel.messages.delete(discordMessageIds.statusMessageId);
@@ -184,7 +193,9 @@ export async function startGroupStage(client, guild, tournament) {
         }
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
-        await updatePublicMessages(client, finalTournamentState); await updateTournamentChannelName(client);
+        await updatePublicMessages(client, finalTournamentState); 
+        // REFUERZO: Llamamos a la actualización aquí para asegurar el cambio a AZUL.
+        await updateTournamentChannelName(client);
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { await setBotBusy(false); }
 }
