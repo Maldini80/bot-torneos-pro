@@ -2,7 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
@@ -93,11 +93,12 @@ export async function handleButton(interaction) {
             const amountInput = new TextInputBuilder().setCustomId('amount_input').setLabel("¿Cuántos equipos de prueba quieres añadir?").setStyle(TextInputStyle.Short).setRequired(true).setValue('1');
             modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
         } else if (action === 'admin_edit_tournament_start') {
-            modal = new ModalBuilder().setCustomId(`edit_tournament_modal:${tournamentShortId}`).setTitle(`Editar Premios/Cuota de ${tournament.nombre}`);
+            modal = new ModalBuilder().setCustomId(`edit_tournament_modal:${tournamentShortId}`).setTitle(`Editar Torneo: ${tournament.nombre}`);
             const prizeCInput = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeCampeon.toString());
             const prizeFInput = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeFinalista.toString());
             const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
-            modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput));
+            const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.startTime || '');
+            modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(startTimeInput));
         } else if (action === 'payment_confirm_start') {
             modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
             const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
@@ -106,7 +107,6 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
-    
     if (action === 'request_referee') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId] = params;
@@ -185,8 +185,13 @@ export async function handleButton(interaction) {
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Expulsado por ${interaction.user.tag}`}).setColor('#95a5a6');
-        const disabledKickButton = ActionRowBuilder.from(originalMessage.components[0]).setComponents(originalMessage.components[0].components[0].setDisabled(true));
-        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledKickButton] });
+        
+        // CORRECCIÓN: Crear un nuevo ButtonBuilder a partir del original para poder modificarlo.
+        const originalButton = ButtonBuilder.from(originalMessage.components[0].components[0]);
+        originalButton.setDisabled(true);
+        const newActionRow = new ActionRowBuilder().addComponents(originalButton);
+
+        await originalMessage.edit({ embeds: [originalEmbed], components: [newActionRow] });
         await interaction.editReply(`🚨 Equipo **${teamData.nombre}** expulsado y capitán notificado.`);
         return;
     }
@@ -195,24 +200,10 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
-        
-        // CORRECCIÓN DEFINITIVA: Responder y luego ejecutar sin bloquear.
         await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado. Esto puede tardar varios minutos.` });
-        
-        // Ejecutamos la tarea pesada sin esperar (pero sí gestionando el estado de 'busy')
         startGroupStage(client, guild, tournament)
-            .then(() => {
-                console.log(`Sorteo en segundo plano para ${tournament.shortId} finalizado con éxito.`);
-                if (interaction.channel) {
-                    interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`);
-                }
-            })
-            .catch(error => {
-                console.error("Error durante el sorteo en segundo plano:", error);
-                if (interaction.channel) {
-                    interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`);
-                }
-            });
+            .then(() => { if (interaction.channel) { interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`); } })
+            .catch(error => { console.error("Error durante el sorteo en segundo plano:", error); if (interaction.channel) { interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`); } });
         return;
     }
     if (action === 'admin_simulate_matches') {
@@ -228,6 +219,14 @@ export async function handleButton(interaction) {
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
         await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Los canales se borrarán en breve.` });
         await endTournament(client, tournament);
+        return;
+    }
+    if (action === 'admin_notify_changes') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+        const result = await notifyCaptainsOfChanges(client, tournament);
+        await interaction.editReply(result.message);
         return;
     }
 }
