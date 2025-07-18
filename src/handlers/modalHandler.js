@@ -14,16 +14,12 @@ export async function handleModal(interaction) {
 
     const [action, ...params] = customId.split(':');
 
-    // NUEVO: Handler para el modal de Reset Forzoso
     if (action === 'admin_force_reset_modal') {
         const confirmation = interaction.fields.getTextInputValue('confirmation_text');
         if (confirmation !== 'CONFIRMAR RESET') {
             return interaction.reply({ content: '❌ El texto de confirmación no coincide. El reseteo ha sido cancelado.', flags: [MessageFlags.Ephemeral] });
         }
-
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        await interaction.editReply({ content: '⏳ **CONFIRMADO.** Iniciando reseteo forzoso de todos los torneos. El bot estará ocupado...' });
-
+        await interaction.reply({ content: '⏳ **CONFIRMADO.** Iniciando reseteo forzoso de todos los torneos. El bot estará ocupado...', flags: [MessageFlags.Ephemeral] });
         try {
             await forceResetAllTournaments(client);
             await interaction.followUp({ content: '✅ **RESETEO COMPLETO.** Todos los canales, hilos y datos de torneos han sido eliminados.', flags: [MessageFlags.Ephemeral] });
@@ -33,7 +29,6 @@ export async function handleModal(interaction) {
         }
         return;
     }
-    
     if (action === 'create_tournament') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [formatId, type] = params;
@@ -146,16 +141,17 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'add_test_teams_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // CORRECCIÓN: Responder inmediatamente y hacer el trabajo en segundo plano.
+        await interaction.reply({ content: '✅ Orden recibida. Añadiendo equipos de prueba en segundo plano...', flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
-        if (isNaN(amount) || amount <= 0) return interaction.editReply('Cantidad inválida.');
+        if (isNaN(amount) || amount <= 0) return;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
+        if (!tournament) return;
         const teamsCount = Object.keys(tournament.teams.aprobados).length;
         const availableSlots = tournament.config.format.size - teamsCount;
         const amountToAdd = Math.min(amount, availableSlots);
-        if (amountToAdd <= 0) return interaction.editReply('No hay plazas disponibles en el torneo para añadir equipos.');
+        if (amountToAdd <= 0) return;
         let bulkOps = [];
         for (let i = 0; i < amountToAdd; i++) {
             const teamId = `test_${Date.now()}_${i}`;
@@ -167,7 +163,6 @@ export async function handleModal(interaction) {
         await updatePublicMessages(client, updatedTournament);
         await updateTournamentManagementThread(client, updatedTournament);
         await updateTournamentChannelName(client);
-        await interaction.editReply(`✅ Se han añadido ${amountToAdd} equipos de prueba.`);
         return;
     }
     if (action === 'report_result_modal') {
