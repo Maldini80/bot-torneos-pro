@@ -1,45 +1,70 @@
 // src/utils/panelManager.js
 import { getDb } from '../../database.js';
 import { CHANNELS } from '../../config.js';
-import { createGlobalAdminPanel } from './embeds.js';
+import { createGlobalAdminPanel, createTournamentManagementPanel } from './embeds.js';
 import { isBotBusy } from '../../index.js';
 
-// Esta función ahora siempre buscará el mensaje en Discord, es más robusta.
-async function fetchPanelMessage(client) {
+// MODIFICADO: Esta función ahora busca el panel de CREACIÓN global.
+async function fetchGlobalCreationPanel(client) {
     try {
-        const channel = await client.channels.fetch(CHANNELS.GLOBAL_ADMIN_PANEL);
+        const channel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
         if (!channel) return null;
         
         const messages = await channel.messages.fetch({ limit: 50 });
-        const panel = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title === 'Panel de Control Global de Torneos');
+        const panel = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title === 'Panel de Creación de Torneos');
         return panel;
     } catch (e) {
-        console.error("Error al buscar el panel de admin:", e.message);
+        console.error("Error al buscar el panel de creación global:", e.message);
         return null;
     }
 }
 
-// La función principal para actualizar el panel.
+// MODIFICADO: Actualiza el panel de CREACIÓN global.
 export async function updateAdminPanel(client) {
-    const msg = await fetchPanelMessage(client);
+    const msg = await fetchGlobalCreationPanel(client);
     
     if (!msg) {
-        console.warn("Se intentó actualizar el panel de admin, pero no se encontró el mensaje. Usa /panel-admin para crearlo.");
+        // No mostramos advertencia, ya que la gestión principal ahora está en los hilos.
+        // El comando /panel-admin se usará para crear este panel si no existe.
         return;
     }
     
-    const db = getDb();
-    const activeTournaments = await db.collection('tournaments').find({ status: { $nin: ['finalizado', 'archivado'] } }).toArray();
-    const panelContent = createGlobalAdminPanel(activeTournaments, isBotBusy);
+    const panelContent = createGlobalAdminPanel(isBotBusy);
     
     try {
         await msg.edit(panelContent);
     } catch (error) {
+        // Ignorar error si el mensaje fue borrado.
         if (error.code !== 10008) {
-            console.warn(`[WARN] No se pudo editar el panel de admin. ${error.message}`);
+            console.warn(`[WARN] No se pudo editar el panel de creación global. ${error.message}`);
         }
     }
 }
+
+// NUEVO: Función para actualizar el panel de gestión específico de un torneo en su hilo.
+export async function updateTournamentManagementThread(client, tournament) {
+    if (!tournament || !tournament.discordMessageIds.managementThreadId) return;
+
+    try {
+        const thread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId);
+        const messages = await thread.messages.fetch({ limit: 20 });
+        // Busca el mensaje del panel en el hilo
+        const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Gestión del Torneo:'));
+
+        const latestTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
+        if (!latestTournamentState) return;
+
+        if (panelMessage) {
+            const panelContent = createTournamentManagementPanel(latestTournamentState);
+            await panelMessage.edit(panelContent);
+        }
+    } catch (e) {
+        if (e.code !== 10003 && e.code !== 10008) { // 10003 = Unknown Channel, 10008 = Unknown Message
+            console.error(`Error al actualizar el hilo de gestión para ${tournament.shortId}:`, e);
+        }
+    }
+}
+
 
 export async function updateTournamentChannelName(client) {
     try {
