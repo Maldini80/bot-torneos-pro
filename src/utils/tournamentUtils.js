@@ -50,7 +50,6 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         
         await Promise.all(memberPromises);
         
-        // CORRECCIÓN: Mostrar solo el nombre EAFC del equipo local (A).
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
             .setDescription(`${description}\n\n🇪🇸 **Equipo Local:** ${partido.equipoA.nombre}\n**Nombre EAFC:** \`${partido.equipoA.eafcTeamName}\`\n\n🇬🇧 **Home Team:** ${partido.equipoA.nombre}\n**EAFC Name:** \`${partido.equipoA.eafcTeamName}\`\n\n*El equipo visitante (${partido.equipoB.nombre}) debe buscar e invitar al equipo local.*`);
         
