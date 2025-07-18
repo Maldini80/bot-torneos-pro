@@ -1,10 +1,11 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-import { createNewTournament, updateTournamentConfig } from '../logic/tournamentLogic.js';
+// CORRECCIÓN: La importación de updatePublicMessages ahora apunta al archivo correcto (tournamentLogic.js)
+import { createNewTournament, updateTournamentConfig, updatePublicMessages } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID } from '../../config.js';
-import { updateTournamentManagementThread, updatePublicMessages } from '../utils/panelManager.js';
+import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
 export async function handleModal(interaction) {
@@ -203,8 +204,8 @@ export async function handleModal(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [, , matchId, tournamentShortId] = customId.split('_');
 
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const { partido, fase } = findMatch(tournament, matchId);
+        let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const { partido } = findMatch(tournament, matchId);
         if (!partido) return interaction.editReply('Error: Partido no encontrado.');
 
         const golesA = interaction.fields.getTextInputValue('goles_a');
@@ -227,6 +228,7 @@ export async function handleModal(interaction) {
             if (opponentReport === reportedResult) {
                 await interaction.editReply('✅ Resultados coinciden. El partido ha sido finalizado.');
                 await interaction.channel.send(`✅ **Resultado confirmado:** ${partido.equipoA.nombre} ${reportedResult} ${partido.equipoB.nombre}. ¡Buen partido!`);
+                tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 await processMatchResult(client, guild, tournament, matchId, reportedResult);
             } else {
                 await interaction.editReply('❌ Los resultados reportados no coinciden. Se ha notificado a los árbitros.');
@@ -247,7 +249,7 @@ export async function handleModal(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [, , , matchId, tournamentShortId] = customId.split('_');
         
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
 
         const golesA = interaction.fields.getTextInputValue('goles_a');
