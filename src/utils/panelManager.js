@@ -58,32 +58,29 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
-// CORRECCIÓN: Lógica de prioridad de iconos revisada y corregida.
 export async function updateTournamentChannelName(client) {
     try {
         const db = getDb();
         const activeTournaments = await db.collection('tournaments').find({ status: { $nin: ['finalizado', 'archivado', 'cancelado'] } }).toArray();
         
-        let icon;
-        
-        const hasOpenForRegistration = activeTournaments.some(t => 
+        const openForRegistration = activeTournaments.filter(t => 
             t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length < t.config.format.size
-        );
+        ).length;
         
-        const hasFullOrInProgress = activeTournaments.some(t => 
-            (t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size) ||
-            !['inscripcion_abierta'].includes(t.status)
-        );
-
-        if (hasOpenForRegistration) {
-            icon = '🟢'; // Prioridad 1: Hay al menos uno abierto.
-        } else if (hasFullOrInProgress) {
-            icon = '🔵'; // Prioridad 2: No hay abiertos, pero sí llenos o en juego.
-        } else {
-            icon = '🔴'; // Prioridad 3: No hay nada activo.
-        }
+        const fullTournaments = activeTournaments.filter(t => 
+            t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size
+        ).length;
         
-        const newChannelName = `${icon} 📢-torneos-tournaments`;
+        const inProgress = activeTournaments.filter(t => 
+            !['inscripcion_abierta', 'finalizado', 'archivado', 'cancelado'].includes(t.status)
+        ).length;
+        
+        const statusParts = [];
+        if (openForRegistration > 0) statusParts.push(`🟢${openForRegistration}`);
+        if (fullTournaments > 0) statusParts.push(`🟠${fullTournaments}`);
+        if (inProgress > 0) statusParts.push(`🔵${inProgress}`);
+        
+        const newChannelName = statusParts.length > 0 ? `[${statusParts.join('|')}] 📢 Torneos-Tournaments` : '[🔴] 📢 Torneos-Tournaments';
         
         const channel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
         if (channel && channel.name !== newChannelName) {
