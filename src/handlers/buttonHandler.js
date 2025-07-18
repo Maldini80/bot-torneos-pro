@@ -16,6 +16,24 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
+    // NUEVO: Handler para el botón de Reset Forzoso
+    if (action === 'admin_force_reset_bot') {
+        const modal = new ModalBuilder()
+            .setCustomId('admin_force_reset_modal')
+            .setTitle('⚠️ CONFIRMAR RESET FORZOSO ⚠️');
+        
+        const warningText = new TextInputBuilder()
+            .setCustomId('confirmation_text')
+            .setLabel("Escribe 'CONFIRMAR RESET' para proceder")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Esta acción es irreversible.')
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(warningText));
+        await interaction.showModal(modal);
+        return;
+    }
+
     if (action === 'user_view_participants') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -142,9 +160,7 @@ export async function handleButton(interaction) {
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
-    
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-    
     if (action === 'admin_approve') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -204,8 +220,6 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
         await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Los canales se borrarán en breve.` });
-        
-        // CORRECCIÓN CRÍTICA: Añadido 'await' a la llamada.
         await endTournament(client, tournament);
         return;
     }
