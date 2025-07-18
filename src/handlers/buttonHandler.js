@@ -58,15 +58,8 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    if (action === 'payment_confirm_start') {
-        const [tournamentShortId] = params;
-        const modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
-        const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
-        await interaction.showModal(modal);
-        return;
-    }
-    const modalActions = ['admin_modify_result_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'upload_heights_start'];
+
+    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'upload_heights_start'];
     if (modalActions.includes(action)) {
         let modal;
         const [p1, p2] = params;
@@ -106,6 +99,10 @@ export async function handleButton(interaction) {
             const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
             const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.startTime || '');
             modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(startTimeInput));
+        } else if (action === 'payment_confirm_start') {
+            modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
+            const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
         }
         await interaction.showModal(modal);
         return;
@@ -135,7 +132,9 @@ export async function handleButton(interaction) {
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
+    
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    
     if (action === 'admin_approve') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
