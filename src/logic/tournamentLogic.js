@@ -109,6 +109,22 @@ export async function approveTeam(client, tournament, teamData) {
     }
 }
 
+// CORRECCIÓN: Añadido 'export' que faltaba.
+export async function kickTeam(client, tournament, captainId) {
+    const db = getDb();
+    await db.collection('tournaments').updateOne( { _id: tournament._id }, { $unset: { [`teams.aprobados.${captainId}`]: "" } } );
+    try {
+        const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
+        await chatChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo');
+        const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
+        await matchesChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo');
+    } catch (e) { console.error(`No se pudieron revocar los permisos para el capitán ${captainId}:`, e); }
+    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    await updatePublicMessages(client, updatedTournament);
+    await updateTournamentManagementThread(client, updatedTournament);
+    await updateTournamentChannelName(client);
+}
+
 export async function endTournament(client, tournament) {
     await setBotBusy(true);
     try {
@@ -138,25 +154,16 @@ export async function forceResetAllTournaments(client) {
     await setBotBusy(true);
     try {
         const db = getDb();
-        console.log("[RESET] Obteniendo todos los torneos de la base de datos...");
         const allTournaments = await db.collection('tournaments').find({}).toArray();
-
-        console.log(`[RESET] Se encontraron ${allTournaments.length} torneos para eliminar.`);
         for (const tournament of allTournaments) {
-            console.log(`[RESET] Limpiando recursos para el torneo: ${tournament.shortId}`);
             await cleanupTournament(client, tournament);
         }
-
-        console.log("[RESET] Borrando todos los documentos de la colección 'tournaments'...");
         await db.collection('tournaments').deleteMany({});
-        console.log("[RESET] Base de datos de torneos limpiada.");
-
     } catch (error) {
         console.error("Error crítico durante el reseteo forzoso:", error);
     } finally {
         await setBotBusy(false);
         await updateTournamentChannelName(client);
-        console.log("[RESET] Proceso de reseteo finalizado.");
     }
 }
 
