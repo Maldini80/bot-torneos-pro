@@ -53,8 +53,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         console.error('[CREATE] OCURRIÓ UN ERROR EN MEDIO DEL PROCESO DE CREACIÓN:', error);
         await setBotBusy(false); throw error; 
     } finally {
-        await setBotBusy(false); 
-        await updateTournamentChannelName(client);
+        await setBotBusy(false); await updateTournamentChannelName(client);
     }
 }
 
@@ -70,17 +69,14 @@ export async function approveTeam(client, tournament, teamData) {
         await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
         await chatChannel.send(`👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre})`);
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
-        await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
+        await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
     } catch(e) { console.error(`No se pudo añadir al capitán ${teamData.capitanId} a los canales privados:`, e); }
-    
+    const guild = await client.guilds.fetch(tournament.guildId);
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    
-    // CORRECCIÓN: Llamar a la actualización solo al final.
     const teamCount = Object.keys(updatedTournament.teams.aprobados).length;
     if (teamCount >= updatedTournament.config.format.size) {
-        // Se acaba de llenar, actualizamos el nombre del canal.
         await updateTournamentChannelName(client);
     }
 }
@@ -109,10 +105,7 @@ export async function endTournament(client, tournament) {
         await updateTournamentManagementThread(client, finalTournamentState);
         await cleanupTournament(client, finalTournamentState);
     } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
-    } finally { 
-        await setBotBusy(false); 
-        await updateTournamentChannelName(client); 
-    }
+    } finally { await setBotBusy(false); await updateTournamentChannelName(client); }
 }
 
 async function cleanupTournament(client, tournament) {
@@ -246,4 +239,4 @@ export async function notifyCaptainsOfChanges(client, tournament) {
         } catch (e) { console.warn(`No se pudo notificar al capitán ${team.capitanTag}`); }
     }
     return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
-}```
+}
