@@ -58,7 +58,7 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
-// CORRECCIÓN: Nueva lógica de prioridad de iconos.
+// CORRECCIÓN: Lógica de prioridad de iconos revisada y corregida.
 export async function updateTournamentChannelName(client) {
     try {
         const db = getDb();
@@ -72,15 +72,15 @@ export async function updateTournamentChannelName(client) {
         
         const hasFullOrInProgress = activeTournaments.some(t => 
             (t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size) ||
-            !['inscripcion_abierta', 'finalizado', 'archivado', 'cancelado'].includes(t.status)
+            !['inscripcion_abierta'].includes(t.status)
         );
 
         if (hasOpenForRegistration) {
-            icon = '🟢';
+            icon = '🟢'; // Prioridad 1: Hay al menos uno abierto.
         } else if (hasFullOrInProgress) {
-            icon = '🔵'; // Azul si no hay abiertos pero sí llenos o en juego.
+            icon = '🔵'; // Prioridad 2: No hay abiertos, pero sí llenos o en juego.
         } else {
-            icon = '🔴'; // Rojo si no hay nada.
+            icon = '🔴'; // Prioridad 3: No hay nada activo.
         }
         
         const newChannelName = `${icon} 📢-torneos-tournaments`;
