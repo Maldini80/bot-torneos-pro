@@ -1,6 +1,6 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-import { createNewTournament, updateTournamentConfig, updatePublicMessages } from '../logic/tournamentLogic.js';
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID } from '../../config.js';
@@ -14,6 +14,26 @@ export async function handleModal(interaction) {
 
     const [action, ...params] = customId.split(':');
 
+    // NUEVO: Handler para el modal de Reset Forzoso
+    if (action === 'admin_force_reset_modal') {
+        const confirmation = interaction.fields.getTextInputValue('confirmation_text');
+        if (confirmation !== 'CONFIRMAR RESET') {
+            return interaction.reply({ content: '❌ El texto de confirmación no coincide. El reseteo ha sido cancelado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.editReply({ content: '⏳ **CONFIRMADO.** Iniciando reseteo forzoso de todos los torneos. El bot estará ocupado...' });
+
+        try {
+            await forceResetAllTournaments(client);
+            await interaction.followUp({ content: '✅ **RESETEO COMPLETO.** Todos los canales, hilos y datos de torneos han sido eliminados.', flags: [MessageFlags.Ephemeral] });
+        } catch (error) {
+            console.error("Error crítico durante el reseteo forzoso:", error);
+            await interaction.followUp({ content: '❌ Ocurrió un error crítico durante el reseteo. Revisa los logs.', flags: [MessageFlags.Ephemeral] });
+        }
+        return;
+    }
+    
     if (action === 'create_tournament') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [formatId, type] = params;
@@ -73,14 +93,11 @@ export async function handleModal(interaction) {
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
             return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
         }
-
-        // CORRECCIÓN: Comprobar si el ID del usuario ya está inscrito.
         const captainId = interaction.user.id;
         const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId];
         if (isAlreadyRegistered) {
             return interaction.editReply({ content: '❌ 🇪🇸 Ya estás inscrito en este torneo. No puedes registrarte dos veces.\n🇬🇧 You are already registered in this tournament. You cannot register twice.'});
         }
-
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) {
             return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones para este torneo. Contacta a un admin.');
