@@ -10,15 +10,15 @@ export const PARTICIPANTE_ROLE_ID = '1394321301748977684';
 
 // IDs de CANALES FIJOS que se reutilizan
 export const CHANNELS = {
-    // Canal donde vive el panel de admin
-    GLOBAL_ADMIN_PANEL: '1393507085286899744',
+    // Canal donde se creará un HILO por torneo para su GESTIÓN
+    TOURNAMENTS_MANAGEMENT_PARENT: '1393507085286899744',
 
-    // Canal donde llegan los avisos para aprobar/rechazar inscripciones
-    ADMIN_APPROVALS: '1393187598796587028',
+    // Canal donde se creará un HILO por torneo para las NOTIFICACIONES (aprobaciones, pagos, etc.)
+    TOURNAMENTS_APPROVALS_PARENT: '1393187598796587028',
 
     // Canales para anuncios públicos
     TORNEOS_STATUS: '1395276865597476908',
-    INSCRIPCIONES: '1393942335645286412',
+    INSCRIPCIONES: '1393942335645286412', // Este canal ya no se usa activamente para mensajes pero lo mantenemos por si acaso
     CAPITANES_INSCRITOS: '1394444703822381076',
     CLASIFICACION: '1394445078948220928',
     CALENDARIO: '1394577975412002816',
