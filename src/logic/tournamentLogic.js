@@ -19,15 +19,12 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         if (!arbitroRole) throw new Error("El rol de Árbitro no fue encontrado.");
 
-        const publicReadOnlyPermissions = [
-            { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }
-        ];
         const participantsAndStaffPermissions = [
              { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
              { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
         ];
 
-        const infoChannel = await guild.channels.create({ name: `🏆-${shortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: publicReadOnlyPermissions });
+        const infoChannel = await guild.channels.create({ name: `🏆-${shortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: [{ id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }] });
         const matchesChannel = await guild.channels.create({ name: `⚽-${shortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
         const chatChannel = await guild.channels.create({ name: `💬-${shortId}-chat`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
 
@@ -47,7 +44,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         
         const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
         const statusMsg = await globalStatusChannel.send(createTournamentStatusEmbed(newTournament));
-        
         const classificationMsg = await infoChannel.send(createClassificationEmbed(newTournament));
         const calendarMsg = await infoChannel.send(createCalendarEmbed(newTournament));
 
@@ -84,7 +80,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
 export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
-    
     if (!latestTournament.teams.aprobados) latestTournament.teams.aprobados = {};
     latestTournament.teams.aprobados[teamData.capitanId] = teamData;
     if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
@@ -95,7 +90,6 @@ export async function approveTeam(client, tournament, teamData) {
         const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
         await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
         await chatChannel.send(`👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre})`);
-
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
         await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
     } catch(e) { console.error(`No se pudo añadir al capitán ${teamData.capitanId} a los canales privados:`, e); }
@@ -132,7 +126,6 @@ async function cleanupTournament(client, tournament) {
         try { const resource = await client.channels.fetch(resourceId).catch(() => null); if(resource) await resource.delete(); } 
         catch (err) { if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); }
     };
-    
     for (const channelId of Object.values(discordChannelIds)) { await deleteResourceSafe(channelId); }
     for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId]) { await deleteResourceSafe(threadId); }
     try { const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS); await globalChannel.messages.delete(discordMessageIds.statusMessageId);
@@ -148,7 +141,6 @@ export async function updatePublicMessages(client, tournament) {
         try { const channel = await client.channels.fetch(channelId); const message = await channel.messages.fetch(messageId); await message.edit(content);
         } catch (e) { if (e.code !== 10008 && e.code !== 10003) console.warn(`Falla al actualizar mensaje ${messageId}: ${e.message}`); }
     };
-    
     const { discordChannelIds, discordMessageIds } = latestTournamentState;
     await editMessageSafe(CHANNELS.TORNEOS_STATUS, discordMessageIds.statusMessageId, createTournamentStatusEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.classificationMessageId, createClassificationEmbed(latestTournamentState));
