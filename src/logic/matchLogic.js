@@ -2,14 +2,22 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
 import { updatePublicMessages, endTournament } from './tournamentLogic.js';
-import { createMatchThread, updateMatchThreadName, createMatchObject } from '../utils/tournamentUtils.js';
+import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
+import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder } from 'discord.js';
 
 export async function processMatchResult(client, guild, tournament, matchId, resultString) {
-    const { partido, fase } = findMatch(tournament, matchId);
-    if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${tournament.shortId}`);
+    const db = getDb();
+    // Obtenemos el torneo más reciente para asegurar que trabajamos con datos frescos
+    let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
-    if (partido.resultado) await revertStats(tournament, partido);
+    const { partido, fase } = findMatch(currentTournament, matchId);
+    if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
+
+    // Si ya tenía resultado, revertimos las estadísticas antes de aplicar las nuevas
+    if (partido.resultado) {
+        await revertStats(currentTournament, partido);
+    }
     
     partido.resultado = resultString;
     partido.status = 'finalizado';
@@ -17,15 +25,68 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     await updateMatchThreadName(client, partido);
 
     if (fase === 'grupos') {
-        await updateGroupStageStats(tournament, partido);
-        await checkForGroupStageAdvancement(client, guild, tournament);
+        await updateGroupStageStats(currentTournament, partido);
+        // MODIFICADO: Llamamos a la nueva función para crear hilos de la siguiente jornada
+        await checkAndCreateNextRoundThreads(client, guild, currentTournament, partido);
+        await checkForGroupStageAdvancement(client, guild, currentTournament);
     } else {
-        await checkForKnockoutAdvancement(client, guild, tournament);
+        await checkForKnockoutAdvancement(client, guild, currentTournament);
     }
 
+    // Guardamos todos los cambios en la BD
+    await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
+
+    // Actualizamos los mensajes públicos y el panel de gestión
+    const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+    await updatePublicMessages(client, finalTournamentState);
+    await updateTournamentManagementThread(client, finalTournamentState);
+}
+
+// NUEVO: Función para simular todos los partidos pendientes
+export async function simulateAllPendingMatches(client, tournamentShortId) {
     const db = getDb();
-    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
-    await updatePublicMessages(client, tournament);
+    let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) throw new Error('Torneo no encontrado para simulación');
+
+    const guild = await client.guilds.fetch(tournament.guildId);
+    
+    // Recopilar todos los partidos de todas las fases
+    let allMatches = [];
+    if (tournament.structure.calendario) {
+        allMatches.push(...Object.values(tournament.structure.calendario).flat());
+    }
+    if (tournament.structure.eliminatorias) {
+        for (const stageKey in tournament.structure.eliminatorias) {
+            if (stageKey === 'rondaActual') continue;
+            const stageData = tournament.structure.eliminatorias[stageKey];
+            if (Array.isArray(stageData)) {
+                allMatches.push(...stageData);
+            } else if (stageData && typeof stageData === 'object' && stageData.matchId) {
+                allMatches.push(stageData);
+            }
+        }
+    }
+    
+    const pendingMatches = allMatches.filter(p => p && (p.status === 'pendiente' || p.status === 'en_curso'));
+
+    if (pendingMatches.length === 0) {
+        return { message: 'No hay partidos pendientes para simular.' };
+    }
+
+    for (const match of pendingMatches) {
+        const golesA = Math.floor(Math.random() * 5); // Goles aleatorios 0-4
+        const golesB = Math.floor(Math.random() * 5);
+        const resultString = `${golesA}-${golesB}`;
+        
+        console.log(`[SIM] Simulando partido ${match.matchId} (${match.equipoA.nombre} vs ${match.equipoB.nombre}): ${resultString}`);
+        
+        // Es crucial recargar el estado del torneo en cada iteración
+        // porque processMatchResult puede modificarlo y avanzar de fase.
+        let currentTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        await processMatchResult(client, guild, currentTournamentState, match.matchId, resultString);
+    }
+    
+    return { message: `Se han simulado con éxito ${pendingMatches.length} partidos.`};
 }
 
 export function findMatch(tournament, matchId) {
@@ -94,7 +155,7 @@ async function checkForKnockoutAdvancement(client, guild, tournament) {
     }
 
     const partidosRonda = tournament.structure.eliminatorias[rondaActual];
-    const allFinished = partidosRonda && partidosRonda.every(p => p.status === 'finalizado');
+    const allFinished = partidosRonda && partidosRonda.every(p => p && p.status === 'finalizado');
 
     if (allFinished) {
         await startNextKnockoutRound(client, guild, tournament);
@@ -102,26 +163,30 @@ async function checkForKnockoutAdvancement(client, guild, tournament) {
 }
 
 async function startNextKnockoutRound(client, guild, tournament) {
-    const format = tournament.config.format;
-    const rondaActual = tournament.structure.eliminatorias.rondaActual;
+    const db = getDb();
+    let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    
+    const format = currentTournament.config.format;
+    const rondaActual = currentTournament.structure.eliminatorias.rondaActual;
     const indiceRondaActual = rondaActual ? format.knockoutStages.indexOf(rondaActual) : -1;
     const siguienteRonda = format.knockoutStages[indiceRondaActual + 1];
 
     if (!siguienteRonda) return;
+    if (currentTournament.status === siguienteRonda) return; // Evitar que se ejecute dos veces
 
-    tournament.status = siguienteRonda;
-    tournament.structure.eliminatorias.rondaActual = siguienteRonda;
+    currentTournament.status = siguienteRonda;
+    currentTournament.structure.eliminatorias.rondaActual = siguienteRonda;
 
     let clasificados = [];
     if (indiceRondaActual === -1) {
-        const gruposOrdenados = Object.keys(tournament.structure.grupos).sort();
+        const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
         for (const groupName of gruposOrdenados) {
-            const grupoOrdenado = [...tournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, tournament, groupName));
+            const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
             const clasificadosDelGrupo = grupoOrdenado.slice(0, format.qualifiersPerGroup);
             clasificados.push(...JSON.parse(JSON.stringify(clasificadosDelGrupo)));
         }
     } else {
-        const partidosRondaAnterior = tournament.structure.eliminatorias[rondaActual];
+        const partidosRondaAnterior = currentTournament.structure.eliminatorias[rondaActual];
         clasificados = partidosRondaAnterior.map(p => {
             const [golesA, golesB] = p.resultado.split('-').map(Number);
             return golesA > golesB ? p.equipoA : p.equipoB;
@@ -130,20 +195,29 @@ async function startNextKnockoutRound(client, guild, tournament) {
 
     const partidos = crearPartidosEliminatoria(clasificados, siguienteRonda);
     if (siguienteRonda === 'final') {
-        tournament.structure.eliminatorias.final = partidos[0];
+        currentTournament.structure.eliminatorias.final = partidos[0];
     } else {
-        tournament.structure.eliminatorias[siguienteRonda] = partidos;
+        currentTournament.structure.eliminatorias[siguienteRonda] = partidos;
     }
 
-    const clasifChannel = await client.channels.fetch(tournament.discordMessageIds.classificationMessageId).catch(() => null);
+    const clasifChannel = await client.channels.fetch(currentTournament.discordMessageIds.classificationMessageId).catch(() => null);
     const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🔥`).setFooter({text: '¡Mucha suerte!'});
 
+    const threadCreationPromises = [];
     for(const [i, p] of partidos.entries()) {
-        const threadId = await createMatchThread(guild, p, tournament);
-        p.threadId = threadId;
-        embedAnuncio.addFields({ name: `Enfrentamiento ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
+        threadCreationPromises.push(createMatchThread(client, guild, p, currentTournament).then(threadId => {
+            p.threadId = threadId;
+            embedAnuncio.addFields({ name: `Enfrentamiento ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
+        }));
     }
+    await Promise.all(threadCreationPromises);
+
     if (clasifChannel) await clasifChannel.send({ embeds: [embedAnuncio] });
+    
+    await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
+    const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+    await updatePublicMessages(client, finalTournamentState);
+    await updateTournamentManagementThread(client, finalTournamentState);
 }
 
 async function handleFinalResult(client, guild, tournament) {
@@ -157,13 +231,16 @@ async function handleFinalResult(client, guild, tournament) {
     if(clasifChannel) await clasifChannel.send({ content: `|| @everyone ||`, embeds: [embedCampeon] });
     
     if (tournament.config.isPaid) {
-        const adminChannel = await client.channels.fetch(CHANNELS.ADMIN_APPROVALS);
-        const embedPagoCampeon = new EmbedBuilder().setColor('#ffd700').setTitle('🏆 PAGO PENDIENTE: CAMPEÓN / PENDING PAYMENT: CHAMPION').addFields({ name: 'Equipo / Team', value: campeon.nombre }, { name: 'Capitán / Captain', value: campeon.capitanTag }, { name: 'PayPal a Pagar / PayPal to Pay', value: `\`${campeon.paypal}\`` }, { name: 'Premio / Prize', value: `${tournament.config.prizeCampeon}€` });
-        await adminChannel.send({ embeds: [embedPagoCampeon] });
+        // MODIFICADO: Enviar notificación al hilo de notificaciones específico del torneo
+        const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
+        if (notificationsThread) {
+            const embedPagoCampeon = new EmbedBuilder().setColor('#ffd700').setTitle('🏆 PAGO PENDIENTE: CAMPEÓN / PENDING PAYMENT: CHAMPION').addFields({ name: 'Equipo / Team', value: campeon.nombre }, { name: 'Capitán / Captain', value: campeon.capitanTag }, { name: 'PayPal a Pagar / PayPal to Pay', value: `\`${campeon.paypal}\`` }, { name: 'Premio / Prize', value: `${tournament.config.prizeCampeon}€` });
+            await notificationsThread.send({ embeds: [embedPagoCampeon] });
         
-        if (tournament.config.prizeFinalista > 0) {
-            const embedPagoFinalista = new EmbedBuilder().setColor('#C0C0C0').setTitle('🥈 PAGO PENDIENTE: FINALISTA / PENDING PAYMENT: RUNNER-UP').addFields({ name: 'Equipo / Team', value: finalista.nombre }, { name: 'Capitán / Captain', value: finalista.capitanTag }, { name: 'PayPal a Pagar / PayPal to Pay', value: `\`${finalista.paypal}\`` }, { name: 'Premio / Prize', value: `${tournament.config.prizeFinalista}€` });
-            await adminChannel.send({ embeds: [embedPagoFinalista] });
+            if (tournament.config.prizeFinalista > 0) {
+                const embedPagoFinalista = new EmbedBuilder().setColor('#C0C0C0').setTitle('🥈 PAGO PENDIENTE: FINALISTA / PENDING PAYMENT: RUNNER-UP').addFields({ name: 'Equipo / Team', value: finalista.nombre }, { name: 'Capitán / Captain', value: finalista.capitanTag }, { name: 'PayPal a Pagar / PayPal to Pay', value: `\`${finalista.paypal}\`` }, { name: 'Premio / Prize', value: `${tournament.config.prizeFinalista}€` });
+                await notificationsThread.send({ embeds: [embedPagoFinalista] });
+            }
         }
     }
 
@@ -172,6 +249,7 @@ async function handleFinalResult(client, guild, tournament) {
 
 function crearPartidosEliminatoria(equipos, ronda) {
     let partidos = [];
+    // Barajar
     for (let i = equipos.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [equipos[i], equipos[j]] = [equipos[j], equipos[i]];
@@ -189,21 +267,34 @@ function sortTeams(a, b, tournament, groupName) {
     if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
     if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
     if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
-    const enfrentamiento = tournament.structure.calendario[groupName].find(p => (p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id));
-    if (enfrentamiento && enfrentamiento.resultado) {
+    
+    const enfrentamiento = tournament.structure.calendario[groupName].find(p => 
+        p.resultado && 
+        ((p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id))
+    );
+
+    if (enfrentamiento) {
         const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
-        if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
-        else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
+        if (enfrentamiento.equipoA.id === a.id) { // a vs b
+            if (golesA > golesB) return -1; // a gana
+            if (golesB > golesA) return 1;  // b gana
+        } else { // b vs a
+            if (golesB > golesA) return -1; // a gana
+            if (golesA > golesB) return 1;  // b gana
+        }
     }
-    return 0;
+    return 0; // Empate en todo
 }
 
 async function revertStats(tournament, partido) {
-    if (!partido.nombreGrupo) return;
+    if (!partido.nombreGrupo || !partido.resultado) return;
+    
     const [oldGolesA, oldGolesB] = partido.resultado.split('-').map(Number);
-    const equipoA = tournament.structure.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
-    const equipoB = tournament.structure.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
+    const equipoA = tournament.structure.grupos[partido.nombreGrupo]?.equipos.find(e => e.id === partido.equipoA.id);
+    const equipoB = tournament.structure.grupos[partido.nombreGrupo]?.equipos.find(e => e.id === partido.equipoB.id);
+    
     if (!equipoA || !equipoB) return;
+
     equipoA.stats.pj -= 1;
     equipoB.stats.pj -= 1;
     equipoA.stats.gf -= oldGolesA;
@@ -212,6 +303,7 @@ async function revertStats(tournament, partido) {
     equipoB.stats.gc -= oldGolesA;
     equipoA.stats.dg = equipoA.stats.gf - equipoA.stats.gc;
     equipoB.stats.dg = equipoB.stats.gf - equipoB.stats.gc;
+
     if (oldGolesA > oldGolesB) equipoA.stats.pts -= 3;
     else if (oldGolesB > oldGolesA) equipoB.stats.pts -= 3;
     else {
