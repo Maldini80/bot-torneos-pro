@@ -27,8 +27,13 @@ export async function handleSelectMenu(interaction) {
         const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}`).setTitle('Finalizar Creación de Torneo');
         
         const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-        // CORRECCIÓN: Añadimos el campo de texto para la hora de inicio.
-        const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sábado 20 a las 22h)").setStyle(TextInputStyle.Short).setRequired(false);
+        
+        // CORRECCIÓN: Acortada la etiqueta para cumplir el límite de 45 caracteres.
+        const startTimeInput = new TextInputBuilder()
+            .setCustomId('torneo_start_time')
+            .setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
 
         modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
 
