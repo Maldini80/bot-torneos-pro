@@ -11,6 +11,7 @@ export async function handleModal(interaction) {
     const client = interaction.client;
     const guild = interaction.guild;
     const db = getDb();
+
     const [action, ...params] = customId.split(':');
 
     if (action === 'create_tournament') {
@@ -72,6 +73,14 @@ export async function handleModal(interaction) {
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
             return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
         }
+
+        // CORRECCIÓN: Comprobar si el ID del usuario ya está inscrito.
+        const captainId = interaction.user.id;
+        const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId];
+        if (isAlreadyRegistered) {
+            return interaction.editReply({ content: '❌ 🇪🇸 Ya estás inscrito en este torneo. No puedes registrarte dos veces.\n🇬🇧 You are already registered in this tournament. You cannot register twice.'});
+        }
+
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) {
             return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones para este torneo. Contacta a un admin.');
