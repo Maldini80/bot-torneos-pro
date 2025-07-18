@@ -16,6 +16,26 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
+    if (action === 'user_view_participants') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+        let teamList = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
+        if (approvedTeams.length > 0) {
+            teamList = approvedTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}, EAFC: \`${team.eafcTeamName}\`)`).join('\n');
+        }
+        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Participantes: ${tournament.nombre}`).setDescription(teamList);
+        try {
+            await interaction.user.send({ embeds: [embed] });
+            await interaction.editReply('✅ Te he enviado la lista de participantes por Mensaje Directo.');
+        } catch (e) {
+            await interaction.editReply('❌ No he podido enviarte un MD. Asegúrate de que tus mensajes directos no estén bloqueados.');
+        }
+        return;
+    }
+
     const modalActions = ['inscribir_equipo_start', 'admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'upload_heights_start'];
     if (modalActions.includes(action)) {
         let modal;
@@ -122,9 +142,7 @@ export async function handleButton(interaction) {
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
-
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
     if (action === 'admin_approve') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -139,53 +157,35 @@ export async function handleButton(interaction) {
         await interaction.editReply(`✅ Equipo aprobado.`);
         return;
     }
-
-    // CORRECCIÓN: Implementación del botón de rechazar.
     if (action === 'admin_reject') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
-
         const teamData = tournament.teams.pendientes[captainId];
-        
-        // Eliminar del objeto de pendientes en la base de datos
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendientes.${captainId}`]: "" } });
-
-        // Notificar al usuario por MD (opcional pero recomendado)
         try {
             const user = await client.users.fetch(captainId);
             await user.send(`❌ 🇪🇸 Tu inscripción para el equipo **${teamData.nombre}** en el torneo **${tournament.nombre}** ha sido rechazada.\n🇬🇧 Your registration for the team **${teamData.nombre}** in the **${tournament.nombre}** tournament has been rejected.`);
-        } catch (e) {
-            console.warn(`No se pudo enviar MD de rechazo al usuario ${captainId}`);
-        }
-
-        // Deshabilitar botones en el mensaje original
+        } catch (e) { console.warn(`No se pudo enviar MD de rechazo al usuario ${captainId}`); }
         const originalMessage = interaction.message;
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Rechazado por ${interaction.user.tag}`}).setColor('#e74c3c');
         await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-        
         await interaction.editReply(`❌ Equipo rechazado.`);
         return;
     }
-    
-    // CORRECCIÓN: Mejorar la respuesta de "Forzar Sorteo".
     if (action === 'admin_force_draw') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
-        
-        // Responder inmediatamente para evitar el "pensando..."
-        await interaction.editReply({ content: `✅ Orden recibida. Forzando sorteo para **${tournament.nombre}**. Este proceso puede tardar unos segundos...` });
-        
-        // Ejecutar la tarea pesada después de haber respondido
+        await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Puede tardar varios minutos. Se te notificará aquí cuando termine.` });
         await startGroupStage(client, guild, tournament);
+        await interaction.followUp({ content: `🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`, flags: [MessageFlags.Ephemeral] });
         return;
     }
-
     if (action === 'admin_simulate_matches') {
         const [tournamentShortId] = params;
         await interaction.editReply({ content: '⏳ Simulando todos los partidos pendientes... Esto puede tardar un momento.' });
@@ -193,7 +193,6 @@ export async function handleButton(interaction) {
         await interaction.editReply(`✅ Simulación completada. ${result.message}`);
         return;
     }
-    
     if (action === 'admin_end_tournament') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
