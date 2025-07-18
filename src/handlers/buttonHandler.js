@@ -23,7 +23,6 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
-
     if (action === 'inscribir_equipo_start') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -40,7 +39,6 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
-
     if (action === 'user_view_participants') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -49,7 +47,6 @@ export async function handleButton(interaction) {
         const approvedTeams = Object.values(tournament.teams.aprobados);
         let teamList = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
         if (approvedTeams.length > 0) {
-            // CORRECCIÓN: Mostrar solo nombre de torneo y capitán.
             teamList = approvedTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Capitán: ${team.capitanTag})`).join('\n');
         }
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Participantes: ${tournament.nombre}`).setDescription(teamList);
@@ -110,8 +107,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // ELIMINADO: Lógica de 'im_ready' e 'invitation_sent' ya no es necesaria.
-
     if (action === 'request_referee') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
@@ -122,7 +117,6 @@ export async function handleButton(interaction) {
         await interaction.editReply('✅ Se ha notificado a los árbitros y el hilo ha sido marcado para revisión.');
         return;
     }
-
     if (action === 'admin_change_format_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -133,7 +127,6 @@ export async function handleButton(interaction) {
         await interaction.editReply({ content: `**Editando:** ${tournament.nombre}\nSelecciona el nuevo formato o tipo.`, components: [new ActionRowBuilder().addComponents(formatMenu), new ActionRowBuilder().addComponents(typeMenu)], });
         return;
     }
-
     if (action === 'admin_create_tournament_start') {
         const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, value: key })));
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
@@ -160,7 +153,6 @@ export async function handleButton(interaction) {
         await interaction.editReply(`✅ Equipo aprobado y capitán notificado.`);
         return;
     }
-
     if (action === 'admin_reject') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -179,7 +171,6 @@ export async function handleButton(interaction) {
         await interaction.editReply(`❌ Equipo rechazado y capitán notificado.`);
         return;
     }
-    
     if (action === 'admin_kick') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -199,22 +190,28 @@ export async function handleButton(interaction) {
         await interaction.editReply(`🚨 Equipo **${teamData.nombre}** expulsado y capitán notificado.`);
         return;
     }
-    
     if (action === 'admin_force_draw') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
-        await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Puede tardar varios minutos. Se te notificará aquí cuando termine.` });
+        
+        // CORRECCIÓN: Usar 'editReply' para la primera respuesta y 'followUp' solo al final.
+        await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Esto puede tardar varios minutos para torneos grandes.` });
+        
         startGroupStage(client, guild, tournament).then(() => {
-            interaction.followUp({ content: `🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`, flags: [MessageFlags.Ephemeral] });
+            // Enviamos un nuevo mensaje al hilo de gestión para confirmar que ha terminado.
+            if (interaction.channel) {
+                interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`);
+            }
         }).catch(error => {
             console.error("Error durante el sorteo en segundo plano:", error);
-            interaction.followUp({ content: `❌ Ocurrió un error durante el sorteo. Revisa los logs.`, flags: [MessageFlags.Ephemeral] });
+            if (interaction.channel) {
+                interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`);
+            }
         });
         return;
     }
-
     if (action === 'admin_simulate_matches') {
         const [tournamentShortId] = params;
         await interaction.editReply({ content: '⏳ Simulando todos los partidos pendientes... Esto puede tardar un momento.' });
@@ -222,7 +219,6 @@ export async function handleButton(interaction) {
         await interaction.editReply(`✅ Simulación completada. ${result.message}`);
         return;
     }
-    
     if (action === 'admin_end_tournament') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
