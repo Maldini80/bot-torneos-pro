@@ -59,7 +59,10 @@ export function createTournamentStatusEmbed(tournament) {
         .setTitle(`${statusIcon} ${tournament.nombre}`)
         .addFields( { name: 'Formato / Format', value: format.label, inline: true }, { name: 'Equipos / Teams', value: `${teamsCount} / ${format.size}`, inline: true } )
         .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
+    
     const formatDescriptionES = TOURNAMENT_FORMATS[tournament.config.formatId].description;
+    const formatDescriptionEN = TOURNAMENT_FORMATS[tournament.config.formatId].description_en || formatDescriptionES;
+
     let descriptionLines = [];
     if (tournament.config.isPaid) {
         descriptionLines.push('**Este es un torneo de pago. / This is a paid tournament.**');
@@ -68,8 +71,11 @@ export function createTournamentStatusEmbed(tournament) {
         descriptionLines.push('**Este es un torneo gratuito. / This is a free tournament.**');
         embed.addFields({ name: 'Entry', value: 'Gratuito / Free', inline: true });
     }
-    descriptionLines.push(`\n🇪🇸 ${formatDescriptionES}\n🇬🇧 ${formatDescriptionES}`);
+
+    descriptionLines.push(`\n🇪🇸 ${formatDescriptionES}`);
+    descriptionLines.push(`🇬🇧 ${formatDescriptionEN}`);
     embed.setDescription(descriptionLines.join('\n'));
+    
     const row = new ActionRowBuilder();
     if (tournament.status === 'inscripcion_abierta' && teamsCount < format.size) {
         row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
