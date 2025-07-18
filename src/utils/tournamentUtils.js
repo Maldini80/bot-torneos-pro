@@ -1,7 +1,6 @@
 // src/utils/tournamentUtils.js
-import { ChannelType } from 'discord.js';
+import { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { ARBITRO_ROLE_ID } from '../../config.js';
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { getDb } from '../../database.js';
 
 export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
@@ -31,7 +30,7 @@ export async function createMatchThread(client, guild, partido, tournament) {
         threadName = `⚔️-g${groupLetter}-j${partido.jornada}-${safeTeamA}-vs-${safeTeamB}`.toLowerCase();
         description = `**${partido.nombreGrupo} - Jornada ${partido.jornada}**`;
     } else {
-        const stage = partido.jornada; // 'jornada' aquí contiene el nombre de la fase (ej: 'cuartos')
+        const stage = partido.jornada;
         threadName = `⚔️-${stage}-${safeTeamA}-vs-${safeTeamB}`.toLowerCase();
         description = `**Fase Eliminatoria - ${stage}** / **Knockout Stage - ${stage}**`;
     }
@@ -39,7 +38,7 @@ export async function createMatchThread(client, guild, partido, tournament) {
     try {
         const thread = await parentChannel.threads.create({
             name: threadName.slice(0, 100),
-            autoArchiveDuration: 10080, // 1 semana
+            autoArchiveDuration: 10080,
             type: ChannelType.PrivateThread,
             reason: `Partido de torneo: ${tournament.nombre}`
         });
@@ -58,11 +57,14 @@ export async function createMatchThread(client, guild, partido, tournament) {
         
         await Promise.all(memberPromises);
         
+        // NUEVO: Añadido el nombre del equipo en EAFC al embed.
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
-            .setDescription(`${description}\n\n🇪🇸 Usad este hilo para coordinar y jugar. Cuando terminéis, usad los botones.\n\n🇬🇧 *Use this thread to coordinate and play. When you finish, use the buttons.*`);
+            .setDescription(`${description}\n\n**Nombres en EAFC / EAFC Names:**\n- ${partido.equipoA.nombre}: \`${partido.equipoA.eafcTeamName}\`\n- ${partido.equipoB.nombre}: \`${partido.equipoB.eafcTeamName}\`\n\n🇪🇸 Usad este hilo para coordinar y jugar. Cuando terminéis, usad los botones.\n🇬🇧 *Use this thread to coordinate and play. When you finish, use the buttons.*`);
         
+        // NUEVO: Añadido el botón de Highlights
         const buttons = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`report_result_start_${partido.matchId}_${tournament.shortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
+            new ButtonBuilder().setCustomId(`upload_highlight_start_${partido.matchId}_${tournament.shortId}`).setLabel("Subir Highlights").setStyle(ButtonStyle.Success).setEmoji("✨"),
             new ButtonBuilder().setCustomId(`request_referee_${partido.matchId}_${tournament.shortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
             new ButtonBuilder().setCustomId(`admin_modify_result_start_${partido.matchId}_${tournament.shortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
         );
@@ -82,11 +84,13 @@ export async function updateMatchThreadName(client, partido) {
         const thread = await client.channels.fetch(partido.threadId);
         if (!thread) return;
 
+        // No cambiar el icono si está en arbitraje
+        if (thread.name.startsWith('⚠️')) return;
+
         const cleanBaseName = thread.name.replace(/^[⚔️✅⚠️]-/g, '').replace(/-\d+a\d+$/, '');
         
         let icon;
         if (partido.status === 'finalizado') icon = '✅';
-        else if (partido.status === 'arbitraje') icon = '⚠️';
         else icon = '⚔️';
         
         let newName = `${icon}-${cleanBaseName}`;
@@ -99,53 +103,42 @@ export async function updateMatchThreadName(client, partido) {
             await thread.setName(newName.slice(0, 100));
         }
     } catch(err) {
-        if (err.code !== 10003) { // Ignorar error "Unknown Channel"
+        if (err.code !== 10003) {
             console.error(`Error al renombrar hilo ${partido.threadId}:`, err); 
         }
     }
 }
 
-// NUEVO: Función para crear hilos de las siguientes jornadas de forma escalonada
 export async function checkAndCreateNextRoundThreads(client, guild, tournament, completedMatch) {
-    // Solo aplica a la fase de grupos
     if (!completedMatch.nombreGrupo) return;
 
     const db = getDb();
     const allMatchesInGroup = tournament.structure.calendario[completedMatch.nombreGrupo];
     const nextJornadaNum = completedMatch.jornada + 1;
 
-    // No hay más jornadas en fase de grupos
     if (!allMatchesInGroup.some(p => p.jornada === nextJornadaNum)) return;
 
     const teamsInCompletedMatch = [completedMatch.equipoA.id, completedMatch.equipoB.id];
 
     for (const teamId of teamsInCompletedMatch) {
-        // Encontrar el partido de este equipo en la siguiente jornada
         const nextMatch = allMatchesInGroup.find(p => 
             p.jornada === nextJornadaNum && 
             (p.equipoA.id === teamId || p.equipoB.id === teamId)
         );
 
-        if (!nextMatch || nextMatch.threadId) continue; // Si no hay siguiente partido o ya tiene hilo, saltar
+        if (!nextMatch || nextMatch.threadId) continue;
 
-        // Determinar el ID del oponente en ese futuro partido
         const opponentId = nextMatch.equipoA.id === teamId ? nextMatch.equipoB.id : nextMatch.equipoA.id;
-
-        // Encontrar el partido actual del oponente (en la misma jornada que el partido recién completado)
         const opponentCurrentMatch = allMatchesInGroup.find(p => 
             p.jornada === completedMatch.jornada &&
             (p.equipoA.id === opponentId || p.equipoB.id === opponentId)
         );
 
-        // Si el oponente también ha finalizado su partido, crear el hilo del nuevo enfrentamiento
         if (opponentCurrentMatch && opponentCurrentMatch.status === 'finalizado') {
             console.log(`[THREAD CREATION] Creando hilo para J${nextMatch.jornada}: ${nextMatch.equipoA.nombre} vs ${nextMatch.equipoB.nombre}`);
             
             const threadId = await createMatchThread(client, guild, nextMatch, tournament);
             
-            // Actualizar la base de datos con el nuevo threadId y estado
-            // Esta es una forma compleja de actualizar un elemento en un array anidado.
-            // Primero encontramos el índice del partido que queremos actualizar.
             const matchIndex = tournament.structure.calendario[nextMatch.nombreGrupo].findIndex(m => m.matchId === nextMatch.matchId);
             if(matchIndex > -1) {
                 await db.collection('tournaments').updateOne(
