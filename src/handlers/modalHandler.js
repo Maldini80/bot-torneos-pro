@@ -11,7 +11,6 @@ export async function handleModal(interaction) {
     const client = interaction.client;
     const guild = interaction.guild;
     const db = getDb();
-
     const [action, ...params] = customId.split(':');
 
     if (action === 'admin_force_reset_modal') {
@@ -35,6 +34,8 @@ export async function handleModal(interaction) {
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const config = { formatId, isPaid: type === 'pago' };
+        // Añadir hora de inicio
+        config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
         if (config.isPaid) {
             config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
             config.enlacePaypal = interaction.fields.getTextInputValue('torneo_paypal');
@@ -57,11 +58,12 @@ export async function handleModal(interaction) {
             prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
             prizeFinalista: parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista')),
             entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')),
+            startTime: interaction.fields.getTextInputValue('torneo_start_time') || null,
         };
         newConfig.isPaid = newConfig.entryFee > 0;
         try {
             await updateTournamentConfig(client, tournamentShortId, newConfig);
-            await interaction.editReply({ content: '✅ ¡Éxito! La configuración de premios y cuota ha sido actualizada.' });
+            await interaction.editReply({ content: '✅ ¡Éxito! La configuración ha sido actualizada. Usa el botón "Notificar Cambios" para avisar a los capitanes.' });
         } catch (error) {
             console.error("Error al actualizar la configuración del torneo:", error);
             await interaction.editReply({ content: `❌ Ocurrió un error al actualizar el torneo. Revisa los logs.` });
@@ -141,7 +143,6 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'add_test_teams_modal') {
-        // CORRECCIÓN: Responder inmediatamente y hacer el trabajo en segundo plano.
         await interaction.reply({ content: '✅ Orden recibida. Añadiendo equipos de prueba en segundo plano...', flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
