@@ -8,8 +8,17 @@ import { handleButton } from './src/handlers/buttonHandler.js';
 import { handleModal } from './src/handlers/modalHandler.js';
 import { handleSelectMenu } from './src/handlers/selectMenuHandler.js';
 import { handleMessageTranslation } from './src/logic/translationLogic.js';
-// MODIFICADO: Importamos la nueva función
 import { updateTournamentChannelName, updateAdminPanel, updateAllManagementPanels } from './src/utils/panelManager.js';
+
+// ---- INICIO DE LA MODIFICACIÓN 1: CAPTURADOR DE ERRORES GLOBALES ----
+// Este bloque atrapará cualquier error inesperado que detenga la aplicación.
+process.on('uncaughtException', (error, origin) => {
+    console.error('💥 ERROR FATAL NO CAPTURADO:');
+    console.error(error);
+    console.error('💥 ORIGEN DEL ERROR:');
+    console.error(origin);
+});
+// ---- FIN DE LA MODIFICACIÓN 1 ----
 
 export let isBotBusy = false;
 export async function setBotBusy(status) { 
@@ -29,10 +38,20 @@ const client = new Client({
     ]
 });
 
+// ---- INICIO DE LA MODIFICACIÓN 2: TRY...CATCH EN EL EVENTO READY ----
+// Este bloque nos dirá si el error ocurre justo al iniciar el bot.
 client.once(Events.ClientReady, async readyClient => {
-    console.log(`✅ Bot conectado como ${readyClient.user.tag}`);
-    await updateTournamentChannelName(readyClient);
+    try {
+        console.log(`✅ Bot conectado como ${readyClient.user.tag}`);
+        console.log('[STARTUP] Intentando actualizar el nombre del canal de estado...');
+        await updateTournamentChannelName(readyClient);
+        console.log('[STARTUP] El nombre del canal de estado se ha procesado correctamente.');
+    } catch (error) {
+        // Si el error ocurre aquí, lo veremos en los logs.
+        console.error('[CRASH EN READY] Ocurrió un error crítico durante la inicialización:', error);
+    }
 });
+// ---- FIN DE LA MODIFICACIÓN 2 ----
 
 client.on(Events.InteractionCreate, async interaction => {
     if (isBotBusy && interaction.isButton() && !interaction.customId.startsWith('admin_force_reset_bot')) {
