@@ -71,13 +71,27 @@ export function createTournamentStatusEmbed(tournament) {
     const formatDescriptionEN = TOURNAMENT_FORMATS[tournament.config.formatId].description_en || formatDescriptionES;
     
     let descriptionLines = [];
+
+    // --- INICIO DEL CÓDIGO ACTUALIZADO ---
     if (tournament.config.isPaid) {
         descriptionLines.push('**Este es un torneo de pago. / This is a paid tournament.**');
-        embed.addFields({ name: 'Entry', value: `${tournament.config.entryFee}€`, inline: true });
+        
+        // Añade los campos que siempre estarán si es de pago
+        embed.addFields(
+            { name: 'Inscripción / Entry', value: `${tournament.config.entryFee}€`, inline: true },
+            { name: '🏆 Premio Campeón / Champion Prize', value: `${tournament.config.prizeCampeon}€`, inline: true }
+        );
+    
+        // Ahora, comprueba si hay premio para el finalista ANTES de añadirlo
+        if (tournament.config.prizeFinalista > 0) {
+            embed.addFields({ name: '🥈 Premio Finalista / Runner-up Prize', value: `${tournament.config.prizeFinalista}€`, inline: true });
+        }
+    
     } else {
         descriptionLines.push('**Este es un torneo gratuito. / This is a free tournament.**');
         embed.addFields({ name: 'Entry', value: 'Gratuito / Free', inline: true });
     }
+    // --- FIN DEL CÓDIGO ACTUALIZADO ---
     
     descriptionLines.push(`\n🇪🇸 ${formatDescriptionES}`);
     descriptionLines.push(`🇬🇧 ${formatDescriptionEN}`);
