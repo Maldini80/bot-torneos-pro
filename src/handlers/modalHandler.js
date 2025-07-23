@@ -211,13 +211,4 @@ export async function handleModal(interaction) {
         await interaction.editReply(`✅ Resultado forzado a **${resultString}** por un administrador.`);
         return;
     }
-    if (action === 'upload_heights_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const link = interaction.fields.getTextInputValue('height_link');
-        const description = interaction.fields.getTextInputValue('height_description');
-        const embed = new EmbedBuilder().setColor('#A9A9A9').setAuthor({ name: `Prueba de Alturas de ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() }).setTitle(description || 'Vídeo de Alturas').setDescription(`[Ver vídeo de prueba](${link})`).setTimestamp();
-        await interaction.channel.send({ embeds: [embed] });
-        await interaction.editReply({ content: '✅ Tu prueba de alturas ha sido publicada en el hilo.' });
-        return;
-    }
 }
