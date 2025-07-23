@@ -1,5 +1,5 @@
 // index.js (Versión Limpia para Background Worker)
-import { Client, GatewayIntentBits, Events, MessageFlags } from 'discord.js';
+import { Client, GatewayIntentBits, Events, MessageFlags, EmbedBuilder } from 'discord.js';
 import 'dotenv/config';
 // ELIMINADO: import { keepAlive } from './keep_alive.js';
 import { connectDb, getDb } from './database.js';
@@ -86,6 +86,45 @@ client.on(Events.InteractionCreate, async interaction => {
 client.on(Events.MessageCreate, async message => {
     if (message.author.bot || !message.guild) return;
     await handleMessageTranslation(message);
+
+    // --- INICIO DEL NUEVO CÓDIGO DE PRUEBA ---
+    try {
+        // Definimos qué es un hilo de prueba y si el mensaje es un enlace de Streamable
+        const isTestThread = message.channel.isThread() && message.channel.name.startsWith('🧪-'); // <-- ¡EL INTERRUPTOR DE SEGURIDAD!
+        const isStreamableLink = message.content.includes('streamable.com/');
+
+        // La lógica solo se ejecuta si AMBAS condiciones son verdaderas
+        if (isTestThread && isStreamableLink && !message.author.bot) {
+            
+            // 1. Extraemos el enlace del mensaje
+            const urlMatch = message.content.match(/https?:\/\/[^\s]+/);
+            if (!urlMatch) return; // Salimos si no se encuentra un enlace válido
+            const url = urlMatch[0];
+
+            // 2. Recopilamos la información
+            const uploader = message.author;
+            const threadName = message.channel.name;
+            const matchTitle = threadName.replace('🧪-', '').replace(/-/g, ' '); // Quitamos el emoji de prueba
+
+            // 3. Creamos el embed profesional
+            const embed = new EmbedBuilder()
+                .setTitle(`Prueba de Alturas: ${matchTitle}`)
+                .setURL(url)
+                .setAuthor({ name: `Vídeo subido por ${uploader.username}`, iconURL: uploader.displayAvatarURL() })
+                .setDescription(`[Click aquí para ver el vídeo](${url})`)
+                .setColor('#00aaff') // Un color azul Streamable
+                .setTimestamp();
+
+            // 4. Enviamos el embed
+            await message.channel.send({ embeds: [embed] });
+
+            // 5. Borramos el mensaje original del usuario para mantener el chat limpio
+            await message.delete();
+        }
+    } catch (error) {
+        console.error("Error en el detector de enlaces de Streamable (Modo Prueba):", error);
+    }
+    // --- FIN DEL NUEVO CÓDIGO DE PRUEBA ---
 });
 
 async function startBot() {
