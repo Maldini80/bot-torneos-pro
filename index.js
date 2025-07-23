@@ -87,44 +87,42 @@ client.on(Events.MessageCreate, async message => {
     if (message.author.bot || !message.guild) return;
     await handleMessageTranslation(message);
 
-    // --- INICIO DEL NUEVO CÓDIGO DE PRUEBA ---
+    // --- CÓDIGO DE SUBIDA DE PRUEBAS (VERSIÓN FINAL) ---
     try {
-        // Definimos qué es un hilo de prueba y si el mensaje es un enlace de Streamable
-        const isTestThread = message.channel.isThread() && message.channel.name.startsWith('🧪-'); // <-- ¡EL INTERRUPTOR DE SEGURIDAD!
-        const isStreamableLink = message.content.includes('streamable.com/');
+        const channel = message.channel;
+        if (!channel.isThread() || message.author.bot) return;
 
-        // La lógica solo se ejecuta si AMBAS condiciones son verdaderas
-        if (isTestThread && isStreamableLink && !message.author.bot) {
+        const threadName = channel.name;
+        const isMatchThread = threadName.startsWith('⚔️-') || threadName.startsWith('⚠️-') || threadName.startsWith('🧪-');
+
+        if (isMatchThread) {
+            const knownVideoDomains = ['streamable.com', 'youtube.com', 'youtu.be', 'twitch.tv'];
+            const linkInMessage = knownVideoDomains.some(domain => message.content.includes(domain));
             
-            // 1. Extraemos el enlace del mensaje
-            const urlMatch = message.content.match(/https?:\/\/[^\s]+/);
-            if (!urlMatch) return; // Salimos si no se encuentra un enlace válido
-            const url = urlMatch[0];
+            if (linkInMessage) {
+                const urlMatch = message.content.match(/https?:\/\/[^\s]+/);
+                if (!urlMatch) return;
+                const url = urlMatch[0];
 
-            // 2. Recopilamos la información
-            const uploader = message.author;
-            const threadName = message.channel.name;
-            const matchTitle = threadName.replace('🧪-', '').replace(/-/g, ' '); // Quitamos el emoji de prueba
+                const uploader = message.author;
+                const cleanTitle = threadName.replace(/^[⚔️⚠️🧪]-/g, '').replace(/-/g, ' ');
 
-            // 3. Creamos el embed profesional
-            const embed = new EmbedBuilder()
-                .setTitle(`Prueba de Alturas: ${matchTitle}`)
-                .setURL(url)
-                .setAuthor({ name: `Vídeo subido por ${uploader.username}`, iconURL: uploader.displayAvatarURL() })
-                .setDescription(`[Click aquí para ver el vídeo](${url})`)
-                .setColor('#00aaff') // Un color azul Streamable
-                .setTimestamp();
+                const embed = new EmbedBuilder()
+                    .setTitle(`Prueba del partido: ${cleanTitle}`)
+                    .setURL(url)
+                    .setAuthor({ name: `Prueba subida por ${uploader.username}`, iconURL: uploader.displayAvatarURL() })
+                    .setDescription(`[Click aquí para ver la prueba](${url})`)
+                    .setColor('#3498db')
+                    .setTimestamp();
 
-            // 4. Enviamos el embed
-            await message.channel.send({ embeds: [embed] });
-
-            // 5. Borramos el mensaje original del usuario para mantener el chat limpio
-            await message.delete();
+                await channel.send({ embeds: [embed] });
+                await message.delete();
+            }
         }
     } catch (error) {
-        console.error("Error en el detector de enlaces de Streamable (Modo Prueba):", error);
+        console.error("Error en el detector de enlaces de pruebas:", error);
     }
-    // --- FIN DEL NUEVO CÓDIGO DE PRUEBA ---
+    // --- FIN DEL CÓDIGO DE SUBIDA DE PRUEBAS ---
 });
 
 async function startBot() {
