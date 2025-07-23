@@ -50,13 +50,20 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         
         await Promise.all(memberPromises);
         
-        // CORRECCIÓN: Mostrar nombre EAFC del visitante (B) para que el local (A) lo invite.
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
             .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*`);
         
+        const footerText = '🇪🇸 Para subir una prueba, usa el botón o pega un enlace de YouTube/Twitch.\n' +
+                           '🇬🇧 To upload proof, use the button or paste a YouTube/Twitch link.';
+        embed.setFooter({ text: footerText });
+
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
-            new ButtonBuilder().setCustomId(`upload_heights_start:${partido.matchId}:${tournamentShortId}`).setLabel("Subir Alturas").setStyle(ButtonStyle.Secondary).setEmoji("📏")
+            new ButtonBuilder()
+                .setLabel('Prueba de altura perks')
+                .setURL('https://streamable.com')
+                .setStyle(ButtonStyle.Link)
+                .setEmoji('📹')
         );
 
         const row2 = new ActionRowBuilder().addComponents(
