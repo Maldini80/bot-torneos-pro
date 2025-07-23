@@ -17,13 +17,9 @@ const commands = [
     new SlashCommandBuilder()
         .setName('setup-idiomas')
         .setDescription('Crea el panel de selección de idiomas para la traducción automática.'),
-
-    // --- INICIO DEL NUEVO CÓDIGO DE PRUEBA ---
     new SlashCommandBuilder()
-        .setName('crear-boton-test')
-        .setDescription('Crea un botón de prueba para la subida de vídeos (SOLO ADMINS).'),
-    // --- FIN DEL NUEVO CÓDIGO DE PRUEBA ---
-
+        .setName('probar-subida-real')
+        .setDescription('Crea un hilo de prueba para el sistema de subida de vídeos.'),
 ].map(command => command.toJSON());
 const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
