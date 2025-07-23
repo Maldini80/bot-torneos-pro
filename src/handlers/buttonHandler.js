@@ -16,6 +16,25 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
+    // --- INICIO DEL NUEVO CÓDIGO DE PRUEBA ---
+    if (action === 'test_upload_heights_start') {
+        const openStreamableButton = new ButtonBuilder()
+            .setLabel('Abrir Streamable para Subir')
+            .setURL('https://streamable.com/upload')
+            .setStyle(ButtonStyle.Link)
+            .setEmoji('⬆️');
+
+        const row = new ActionRowBuilder().addComponents(openStreamableButton);
+
+        await interaction.reply({
+            content: "Haz clic para subir tu vídeo a Streamable. Cuando termines, vuelve y pega el enlace del vídeo directamente en este chat.",
+            components: [row],
+            flags: [MessageFlags.Ephemeral]
+        });
+        return; // Detenemos la ejecución aquí, esta es toda la lógica para este botón.
+    }
+    // --- FIN DEL NUEVO CÓDIGO DE PRUEBA ---
+
     if (action === 'admin_force_reset_bot') {
         const modal = new ModalBuilder().setCustomId('admin_force_reset_modal').setTitle('⚠️ CONFIRMAR RESET FORZOSO ⚠️');
         const warningText = new TextInputBuilder().setCustomId('confirmation_text').setLabel("Escribe 'CONFIRMAR RESET' para proceder").setStyle(TextInputStyle.Short).setPlaceholder('Esta acción es irreversible.').setRequired(true);
