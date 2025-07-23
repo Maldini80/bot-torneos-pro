@@ -1,5 +1,5 @@
 // src/handlers/commandHandler.js
-import { EmbedBuilder, PermissionsBitField, MessageFlags } from 'discord.js';
+import { EmbedBuilder, PermissionsBitField, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import { getDb } from '../../database.js';
 import { createGlobalAdminPanel } from '../utils/embeds.js';
 import { languageRoles, CHANNELS } from '../../config.js';
@@ -55,4 +55,29 @@ export async function handleCommand(interaction) {
         }
         await interaction.reply({ content: 'Panel de idiomas creado.', flags: [MessageFlags.Ephemeral] });
     }
+
+    // --- INICIO DEL NUEVO CÓDIGO DE PRUEBA ---
+    if (commandName === 'crear-boton-test') {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ content: 'No tienes permisos para esto.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        // Creamos nuestro NUEVO botón de prueba
+        const testButton = new ButtonBuilder()
+            .setCustomId('test_upload_heights_start') // <-- ¡NOMBRE INTERNO NUEVO Y ÚNICO!
+            .setLabel('Subir Vídeo de Prueba')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🧪');
+
+        const row = new ActionRowBuilder().addComponents(testButton);
+
+        await interaction.channel.send({
+            content: "Aquí tienes el botón para probar el nuevo flujo de subida de vídeos:",
+            components: [row]
+        });
+
+        await interaction.reply({ content: 'Botón de prueba creado.', flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+    // --- FIN DEL NUEVO CÓDIGO DE PRUEBA ---
 }
