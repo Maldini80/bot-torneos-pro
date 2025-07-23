@@ -20,7 +20,7 @@ export async function handleButton(interaction) {
     if (action === 'test_upload_heights_start') {
         const openStreamableButton = new ButtonBuilder()
             .setLabel('Abrir Streamable para Subir')
-            .setURL('https://streamable.com/upload')
+            .setURL('https://streamable.com')
             .setStyle(ButtonStyle.Link)
             .setEmoji('⬆️');
 
