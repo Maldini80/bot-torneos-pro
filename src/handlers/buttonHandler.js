@@ -16,25 +16,6 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // --- INICIO DEL NUEVO CÓDIGO DE PRUEBA ---
-    if (action === 'test_upload_heights_start') {
-        const openStreamableButton = new ButtonBuilder()
-            .setLabel('Abrir Streamable para Subir')
-            .setURL('https://streamable.com')
-            .setStyle(ButtonStyle.Link)
-            .setEmoji('⬆️');
-
-        const row = new ActionRowBuilder().addComponents(openStreamableButton);
-
-        await interaction.reply({
-            content: "Haz clic para subir tu vídeo a Streamable. Cuando termines, vuelve y pega el enlace del vídeo directamente en este chat.",
-            components: [row],
-            flags: [MessageFlags.Ephemeral]
-        });
-        return; // Detenemos la ejecución aquí, esta es toda la lógica para este botón.
-    }
-    // --- FIN DEL NUEVO CÓDIGO DE PRUEBA ---
-
     if (action === 'admin_force_reset_bot') {
         const modal = new ModalBuilder().setCustomId('admin_force_reset_modal').setTitle('⚠️ CONFIRMAR RESET FORZOSO ⚠️');
         const warningText = new TextInputBuilder().setCustomId('confirmation_text').setLabel("Escribe 'CONFIRMAR RESET' para proceder").setStyle(TextInputStyle.Short).setPlaceholder('Esta acción es irreversible.').setRequired(true);
@@ -78,7 +59,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'upload_heights_start'];
+    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
     if (modalActions.includes(action)) {
         let modal;
         const [p1, p2] = params;
@@ -93,12 +74,6 @@ export async function handleButton(interaction) {
             const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
             const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
-        } else if (action === 'upload_heights_start') {
-             const matchId = p1;
-             modal = new ModalBuilder().setCustomId(`upload_heights_modal:${matchId}:${tournament.shortId}`).setTitle('Subir Vídeo de Alturas');
-             const linkInput = new TextInputBuilder().setCustomId('height_link').setLabel("Enlace al vídeo (YouTube, Twitch, etc.)").setStyle(TextInputStyle.Short).setRequired(true);
-             const descInput = new TextInputBuilder().setCustomId('height_description').setLabel("Descripción (opcional)").setStyle(TextInputStyle.Short).setRequired(false);
-             modal.addComponents(new ActionRowBuilder().addComponents(linkInput), new ActionRowBuilder().addComponents(descInput));
         } else if (action === 'admin_modify_result_start') {
             const matchId = p1;
             const { partido } = findMatch(tournament, matchId);
