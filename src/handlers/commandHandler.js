@@ -1,5 +1,5 @@
 // src/handlers/commandHandler.js
-import { EmbedBuilder, PermissionsBitField, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
+import { EmbedBuilder, PermissionsBitField, MessageFlags, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
 import { getDb } from '../../database.js';
 import { createGlobalAdminPanel } from '../utils/embeds.js';
 import { languageRoles, CHANNELS } from '../../config.js';
@@ -55,29 +55,47 @@ export async function handleCommand(interaction) {
         }
         await interaction.reply({ content: 'Panel de idiomas creado.', flags: [MessageFlags.Ephemeral] });
     }
-
-    // --- INICIO DEL NUEVO CÓDIGO DE PRUEBA ---
-    if (commandName === 'crear-boton-test') {
+    
+    if (commandName === 'probar-subida-real') {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.reply({ content: 'No tienes permisos para esto.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: 'Este comando es solo para administradores.', flags: [MessageFlags.Ephemeral] });
         }
 
-        // Creamos nuestro NUEVO botón de prueba
-        const testButton = new ButtonBuilder()
-            .setCustomId('test_upload_heights_start') // <-- ¡NOMBRE INTERNO NUEVO Y ÚNICO!
-            .setLabel('Subir Vídeo de Prueba')
-            .setStyle(ButtonStyle.Primary)
-            .setEmoji('🧪');
+        try {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-        const row = new ActionRowBuilder().addComponents(testButton);
+            const uploadButton = new ButtonBuilder()
+                .setLabel('Prueba de altura perks')
+                .setURL('https://streamable.com')
+                .setStyle(ButtonStyle.Link)
+                .setEmoji('📹');
+            
+            const row = new ActionRowBuilder().addComponents(uploadButton);
 
-        await interaction.channel.send({
-            content: "Aquí tienes el botón para probar el nuevo flujo de subida de vídeos:",
-            components: [row]
-        });
+            const thread = await interaction.channel.threads.create({
+                name: '🧪-test-subida',
+                autoArchiveDuration: 60,
+                reason: 'Hilo de prueba para la subida de vídeos.'
+            });
 
-        await interaction.reply({ content: 'Botón de prueba creado.', flags: [MessageFlags.Ephemeral] });
-        return;
+            const footerText = '🇪🇸 Para subir una prueba, usa el botón o pega un enlace de YouTube/Twitch.\n' +
+                               '🇬🇧 To upload proof, use the button or paste a YouTube/Twitch link.';
+            const embed = new EmbedBuilder()
+                .setColor('#3498db')
+                .setTitle('Laboratorio de Pruebas')
+                .setDescription("Aquí puedes probar el sistema de subida de vídeos:\n\n1.  **Prueba el Botón:** Haz clic en el botón de abajo.\n2.  **Prueba el Pegado:** Pega un enlace de `Streamable`, `YouTube` o `Twitch` directamente en este chat.")
+                .setFooter({ text: footerText });
+
+            await thread.send({
+                embeds: [embed],
+                components: [row]
+            });
+            
+            await interaction.editReply(`✅ Hilo de prueba creado: ${thread.toString()}. Ve allí para comenzar el test.`);
+
+        } catch (error) {
+            console.error("Error al crear el hilo de prueba:", error);
+            await interaction.editReply({ content: '❌ No se pudo crear el hilo de prueba.' });
+        }
     }
-    // --- FIN DEL NUEVO CÓDIGO DE PRUEBA ---
 }
