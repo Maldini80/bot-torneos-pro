@@ -80,7 +80,6 @@ export async function approveTeam(client, tournament, teamData, fromReserve = fa
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
         await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
 
-        // --- NUEVO: Enviar MD con botón de invitar co-capitán ---
         const user = await client.users.fetch(teamData.capitanId);
         const embedAprobacion = new EmbedBuilder()
             .setColor('#2ecc71')
@@ -107,52 +106,50 @@ export async function approveTeam(client, tournament, teamData, fromReserve = fa
     await updateTournamentChannelName(client);
 }
 
+// --- INICIO DE LA MODIFICACIÓN ---
 export async function kickTeam(client, tournament, captainId) {
     const db = getDb();
     const teamData = tournament.teams.aprobados[captainId];
-    
-    // Si no está en aprobados, puede que esté en pendientes o reserva
-    if (!teamData) {
-        await db.collection('tournaments').updateOne(
-            { _id: tournament._id },
-            { $unset: { 
-                [`teams.pendientes.${captainId}`]: "",
-                [`teams.reserva.${captainId}`]: "" 
-            } }
-        );
-         const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-         await updatePublicMessages(client, updatedTournament);
-         await updateTournamentChannelName(client);
-         return;
-    }
 
-    // --- NUEVO: Revocar permisos de capitán y co-capitán ---
-    try {
-        const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId).catch(() => null);
-        const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId).catch(() => null);
+    // Paso 1: Revocar permisos si el equipo estaba aprobado
+    if (teamData) {
+        try {
+            const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId).catch(() => null);
+            const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId).catch(() => null);
 
-        if (chatChannel) await chatChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo').catch(() => {});
-        if (matchesChannel) await matchesChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo').catch(() => {});
-        
-        if (teamData.coCaptainId) {
-             if (chatChannel) await chatChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo').catch(() => {});
-             if (matchesChannel) await matchesChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo').catch(() => {});
+            if (chatChannel) await chatChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo').catch(() => {});
+            if (matchesChannel) await matchesChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo').catch(() => {});
+            
+            // Revocar permisos del co-capitán si existe
+            if (teamData.coCaptainId) {
+                 if (chatChannel) await chatChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo').catch(() => {});
+                 if (matchesChannel) await matchesChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo').catch(() => {});
+            }
+        } catch (e) { 
+            console.error(`No se pudieron revocar los permisos para el equipo del capitán ${captainId}:`, e); 
         }
-    } catch (e) { 
-        console.error(`No se pudieron revocar los permisos para el equipo del capitán ${captainId}:`, e); 
     }
     
-    // Eliminar de aprobados
+    // Paso 2: Eliminar al equipo de TODAS las listas posibles (aprobados, pendientes, reserva)
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
-        { $unset: { [`teams.aprobados.${captainId}`]: "" } }
+        { 
+            $unset: { 
+                [`teams.aprobados.${captainId}`]: "",
+                [`teams.pendientes.${captainId}`]: "",
+                [`teams.reserva.${captainId}`]: "" 
+            } 
+        }
     );
 
+    // Paso 3: Actualizar todos los mensajes públicos y el estado del canal
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
     await updateTournamentChannelName(client);
 }
+// --- FIN DE LA MODIFICACIÓN ---
+
 
 export async function endTournament(client, tournament) {
     await setBotBusy(true);
@@ -271,7 +268,6 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { config: updatedConfig } });
     
-    // --- NUEVO: Lógica para promover desde la reserva si el tamaño aumenta ---
     if (newSize > oldSize) {
         let currentTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const currentApprovedCount = Object.keys(currentTournamentState.teams.aprobados).length;
@@ -284,9 +280,8 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
             if (teamsToPromote.length > 0) {
                 console.log(`[RESERVA] Promoviendo ${teamsToPromote.length} equipos desde la reserva.`);
                 for (const teamData of teamsToPromote) {
-                    // Usamos la función approveTeam para moverlos, notificarles y darles permisos.
                     await approveTeam(client, currentTournamentState, teamData, true);
-                    currentTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId }); // Recargar estado para la siguiente iteración
+                    currentTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId }); 
                 }
             }
         }
@@ -297,7 +292,6 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     await updateTournamentManagementThread(client, updatedTournament);
 }
 
-// --- NUEVA FUNCIÓN: Añadir co-capitán ---
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const db = getDb();
     await db.collection('tournaments').updateOne(
