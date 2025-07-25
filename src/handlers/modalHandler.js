@@ -181,7 +181,6 @@ export async function handleModal(interaction) {
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         await updatePublicMessages(client, updatedTournament);
         await updateTournamentManagementThread(client, updatedTournament);
-        // CORRECCIÓN DE RENDIMIENTO
         updateTournamentChannelName(client);
         return;
     }
@@ -245,7 +244,15 @@ export async function handleModal(interaction) {
         if (!team) return interaction.editReply({ content: 'Error: No eres el capitán de un equipo en este torneo.' });
         if (team.coCaptainId) return interaction.editReply({ content: 'Ya tienes un co-capitán.'});
         
-        const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input');
+        const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input').trim();
+        
+        // NUEVO: Validación para asegurar que la entrada es una ID numérica (snowflake).
+        if (!/^\d+$/.test(coCaptainId)) {
+            return interaction.editReply({ 
+                content: '❌ **Error:** El valor introducido no es una ID de Discord válida. Por favor, introduce únicamente la ID numérica del usuario (ej: 1398287366929776670).',
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
         
         const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
         if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
