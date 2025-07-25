@@ -74,7 +74,7 @@ export async function handleCommand(interaction) {
 
             const thread = await interaction.channel.threads.create({
                 name: '🧪-test-subida',
-                autoArchiveDuration: 60,
+                autoArchiveDuration: 10080, // Cambiado a 1 semana para que no desaparezca
                 reason: 'Hilo de prueba para la subida de vídeos.'
             });
 
