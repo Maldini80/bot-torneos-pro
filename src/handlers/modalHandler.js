@@ -1,8 +1,8 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments } from '../logic/tournamentLogic.js';
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch } from '../logic/matchLogic.js';
-import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG } from '../../config.js';
 import { updateTournamentManagementThread, updateTournamentChannelName } from '../utils/panelManager.js';
 
@@ -37,7 +37,7 @@ export async function handleModal(interaction) {
         config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
         if (config.isPaid) {
             config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
-            config.enlacePaypal = PAYMENT_CONFIG.PAYPAL_EMAIL; 
+            config.enlacePaypal = PAYMENT_CONFIG.PAYPAL_EMAIL;
             config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
             config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
         }
@@ -82,19 +82,19 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: `✅ Torneo actualizado a: **De Pago**.`, components: [] });
         return;
     }
-    if (action === 'inscripcion_modal') {
+    if (action === 'inscripcion_modal' || action === 'reserva_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId, type] = params;
-        const isReserve = type === 'reserva';
-        
+        const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
             return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
         }
+
         const captainId = interaction.user.id;
-        const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
-        if (isAlreadyRegistered) {
-            return interaction.editReply({ content: '❌ 🇪🇸 Ya estás inscrito en este torneo.\n🇬🇧 You are already registered in this tournament.'});
+        const isAlreadyInTournament = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
+        if (isAlreadyInTournament) {
+            return interaction.editReply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.'});
         }
         
         const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
@@ -104,25 +104,28 @@ export async function handleModal(interaction) {
             ...Object.values(tournament.teams.pendientes || {}).map(e => e.nombre.toLowerCase()),
             ...Object.values(tournament.teams.reserva || {}).map(e => e.nombre.toLowerCase())
         ];
+
         if (allTeamNames.includes(teamName.toLowerCase())) {
             return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
         }
-
-        const teamData = { id: interaction.user.id, nombre: teamName, eafcTeamName: eafcTeamName, capitanId: interaction.user.id, capitanTag: interaction.user.tag, bandera: '🏳️', paypal: null, coCaptainId: null, inscritoEn: new Date() };
         
-        if (isReserve) {
-            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.reserva.${interaction.user.id}`]: teamData } });
-            await interaction.editReply('✅ 🇪🇸 ¡Inscrito en la lista de reserva! Se te notificará si queda una plaza libre.\n🇬🇧 Registered on the reserve list! You will be notified if a spot becomes available.');
+        const teamData = { id: captainId, nombre: teamName, eafcTeamName, capitanId: captainId, capitanTag: interaction.user.tag, coCaptainId: null, coCaptainTag: null, bandera: '🏳️', paypal: null, inscritoEn: new Date() };
+
+        // Lógica para lista de reserva
+        if (action === 'reserva_modal') {
+            await addTeamToWaitlist(client, tournament, teamData);
+            await interaction.editReply('✅ 🇪🇸 ¡Inscripción recibida! Has sido añadido a la **lista de reserva**. Serás notificado si una plaza queda libre.\n🇬🇧 Registration received! You have been added to the **waitlist**. You will be notified if a spot becomes available.');
             return;
         }
 
+        // Lógica de inscripción normal
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${captainId}`]: teamData } });
+        
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) {
             return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
         }
 
-        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${interaction.user.id}`]: teamData } });
-        
         if (tournament.config.isPaid) {
             const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${tournament.config.enlacePaypal}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
             const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournament.shortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
@@ -137,66 +140,6 @@ export async function handleModal(interaction) {
             const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
             await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
             await interaction.editReply('✅ 🇪🇸 ¡Tu inscripción ha sido recibida! Un admin la revisará pronto.\n🇬🇧 Your registration has been received! An admin will review it shortly.');
-        }
-        return;
-    }
-     if (action === 'request_kick_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId, captainId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return;
-
-        const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
-        if (!notificationsThread) return interaction.editReply({ content: 'Error interno: Canal de avisos no encontrado.'});
-        
-        const reason = interaction.fields.getTextInputValue('kick_reason');
-        const teamData = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
-        
-        const embed = new EmbedBuilder()
-            .setTitle('👋 Solicitud de Expulsión')
-            .setColor('#e67e22')
-            .setDescription(`El capitán <@${captainId}> del equipo **${teamData.nombre}** ha solicitado ser expulsado del torneo.`)
-            .addFields(
-                { name: 'Motivo', value: reason || 'No especificado' }
-            );
-
-        const buttons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`admin_approve_kick:${tournamentShortId}:${captainId}`).setLabel('Aprobar Expulsión').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`admin_reject_kick:${tournamentShortId}:${captainId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-        );
-
-        await notificationsThread.send({ embeds: [embed], components: [buttons] });
-        await interaction.editReply({ content: '✅ Tu solicitud ha sido enviada a los administradores.' });
-        return;
-    }
-    if (action === 'invite_cocaptain_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId, captainId] = params;
-        const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input');
-        
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return;
-        
-        const coCaptainUser = await client.users.fetch(coCaptainId).catch(() => null);
-        if (!coCaptainUser || coCaptainUser.bot) {
-            return interaction.editReply({ content: '❌ No se pudo encontrar a ese usuario o es un bot.' });
-        }
-        
-        const embed = new EmbedBuilder()
-            .setTitle(`🤝 Invitación a Co-Capitán`)
-            .setDescription(`Has sido invitado por <@${captainId}> para ser su co-capitán en el torneo **${tournament.nombre}**.`)
-            .setColor('#3498db');
-        
-        const buttons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`cocaptain_accept:${tournamentShortId}:${captainId}`).setLabel('Aceptar').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`cocaptain_reject:${tournamentShortId}:${captainId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-        );
-
-        try {
-            await coCaptainUser.send({ embeds: [embed], components: [buttons] });
-            await interaction.editReply({ content: `✅ Invitación enviada a **${coCaptainUser.tag}**.` });
-        } catch (e) {
-            await interaction.editReply({ content: `❌ No se pudo enviar la invitación a **${coCaptainUser.tag}**. Asegúrate de que tenga los MDs abiertos.` });
         }
         return;
     }
@@ -260,15 +203,15 @@ export async function handleModal(interaction) {
         const opponentReport = partido.reportedScores[opponentId];
         if (opponentReport) {
             if (opponentReport === reportedResult) {
-                await interaction.editReply({content: '✅ 🇪🇸 Resultados coinciden. El partido ha sido finalizado.\n🇬🇧 Results match. The match has been finalized.'});
-                await interaction.channel.send(`✅ **Resultado confirmado:** ${partido.equipoA.nombre} ${reportedResult} ${partido.equipoB.nombre}.`);
+                await interaction.editReply({content: '✅ 🇪🇸 Resultados coinciden. El partido ha sido finalizado y el hilo se cerrará en breve.\n🇬🇧 Results match. The match has been finalized and the thread will close shortly.'});
+                // No enviamos mensaje aquí, ya que processMatchResult lo hará
                 tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 await processMatchResult(client, guild, tournament, matchId, reportedResult);
             } else {
                 await interaction.editReply({content: '❌ 🇪🇸 Los resultados reportados no coinciden. Se ha notificado a los árbitros.\n🇬🇧 The reported results do not match. Referees have been notified.'});
                 const thread = interaction.channel;
                 if(thread.isThread()) await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅🔵]-/g, '')}`.slice(0,100));
-                await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden!\n- <@${reporterId}> reportó: \`${reportedResult}\`\n- <@${opponentId}> reportó: \`${opponentReport}\`` });
+                await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> reportó: \`${reportedResult}\`\n- <@${opponentId}> reportó: \`${opponentReport}\`` });
             }
         } else {
             await interaction.editReply({content: '✅ 🇪🇸 Tu resultado ha sido enviado. Esperando el reporte de tu oponente.\n🇬🇧 Your result has been submitted. Awaiting your opponent\'s report.'});
@@ -277,25 +220,71 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'admin_force_result_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) {
-            return interaction.reply({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
-        }
+        if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
         const golesA = interaction.fields.getTextInputValue('goles_a');
         const golesB = interaction.fields.getTextInputValue('goles_b');
-        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) {
-            return interaction.reply({ content: 'Error: Los goles deben ser números.', flags: [MessageFlags.Ephemeral] });
-        }
+        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
         const resultString = `${golesA}-${golesB}`;
-        
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Responder públicamente en el canal ANTES de procesar y borrarlo
-        await interaction.reply(`✅ Resultado forzado a **${resultString}** por <@${interaction.user.id}>.`);
-        
-        // Ahora procesar el resultado (esto incluirá la eliminación del hilo)
         await processMatchResult(client, guild, tournament, matchId, resultString);
+        await interaction.editReply(`✅ Resultado forzado a **${resultString}** por un administrador.`);
         return;
-        // --- FIN DE LA CORRECCIÓN ---
+    }
+    
+    // NUEVO: Modal para invitar co-capitán
+    if (action === 'invite_cocaptain_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        const captainId = interaction.user.id;
+        const team = tournament.teams.aprobados[captainId];
+        if (!team) return interaction.editReply({ content: 'Error: No eres el capitán de un equipo en este torneo.' });
+        if (team.coCaptainId) return interaction.editReply({ content: 'Ya tienes un co-capitán.'});
+        
+        // El nuevo UserSelectMenu nos da el ID directamente
+        const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input');
+        
+        // Validar que el invitado no sea ya capitán o co-capitán
+        const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
+        if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
+            return interaction.editReply({ content: '❌ Esta persona ya participa en el torneo como capitán o co-capitán.' });
+        }
+
+        try {
+            const coCaptainUser = await client.users.fetch(coCaptainId);
+            if (coCaptainUser.bot) return interaction.editReply({ content: 'No puedes invitar a un bot.' });
+            
+            // Guardar invitación pendiente
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.coCapitanes.${captainId}`]: { inviterId: captainId, invitedId: coCaptainId, invitedAt: new Date() } } }
+            );
+
+            const embed = new EmbedBuilder()
+                .setColor('#3498db')
+                .setTitle(`🤝 Invitación de Co-Capitán / Co-Captain Invitation`)
+                .setDescription(`🇪🇸 Has sido invitado por **${interaction.user.tag}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n\n` +
+                              `🇬🇧 You have been invited by **${interaction.user.tag}** to be the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.`);
+            
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`cocaptain_accept:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Aceptar / Accept').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`cocaptain_reject:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Rechazar / Reject').setStyle(ButtonStyle.Danger)
+            );
+
+            await coCaptainUser.send({ embeds: [embed], components: [row] });
+            await interaction.editReply(`✅ Invitación enviada a **${coCaptainUser.tag}**. Recibirá un MD para aceptar o rechazar.`);
+
+        } catch (error) {
+            console.error(error);
+            if (error.code === 10013) { // Unknown User
+                await interaction.editReply('❌ No se pudo encontrar a ese usuario. Asegúrate de que la ID es correcta.');
+            } else {
+                await interaction.editReply('❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.');
+            }
+        }
     }
 }
