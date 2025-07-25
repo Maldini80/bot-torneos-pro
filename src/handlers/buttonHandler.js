@@ -2,9 +2,9 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, addCoCaptain } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, addCoCaptain, updatePublicMessages } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
-import { updateAdminPanel, updateTournamentChannelName, updateTournamentManagementThread, updatePublicMessages } from '../utils/panelManager.js';
+import { updateAdminPanel, updateTournamentChannelName, updateTournamentManagementThread } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
 
 export async function handleButton(interaction) {
@@ -270,17 +270,13 @@ export async function handleButton(interaction) {
             await user.send(`✅ Tu solicitud de baja del torneo **${tournament.nombre}** ha sido **aprobada** por un administrador.`);
         } catch(e) {}
         
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Actualizar todo DESPUÉS de responder al admin
         await interaction.message.edit({ content: `✅ Solicitud de baja de <@${captainId}> **aprobada** por <@${interaction.user.id}>.`, embeds:[], components: [] });
         await interaction.editReply({ content: 'Baja del equipo aprobada.'});
 
-        // Llamar a todas las funciones de actualización
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         await updatePublicMessages(client, updatedTournament);
         await updateTournamentManagementThread(client, updatedTournament);
         await updateTournamentChannelName(client);
-        // --- FIN DE LA CORRECCIÓN ---
         return;
     }
     if (action === 'admin_reject_kick') {
