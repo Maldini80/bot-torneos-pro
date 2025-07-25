@@ -1,7 +1,7 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist } from '../logic/tournamentLogic.js';
-import { processMatchResult, findMatch } from '../logic/matchLogic.js';
+import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG } from '../../config.js';
 import { updateTournamentManagementThread, updateTournamentChannelName } from '../utils/panelManager.js';
@@ -111,14 +111,12 @@ export async function handleModal(interaction) {
         
         const teamData = { id: captainId, nombre: teamName, eafcTeamName, capitanId: captainId, capitanTag: interaction.user.tag, coCaptainId: null, coCaptainTag: null, bandera: '🏳️', paypal: null, inscritoEn: new Date() };
 
-        // Lógica para lista de reserva
         if (action === 'reserva_modal') {
             await addTeamToWaitlist(client, tournament, teamData);
             await interaction.editReply('✅ 🇪🇸 ¡Inscripción recibida! Has sido añadido a la **lista de reserva**. Serás notificado si una plaza queda libre.\n🇬🇧 Registration received! You have been added to the **waitlist**. You will be notified if a spot becomes available.');
             return;
         }
 
-        // Lógica de inscripción normal
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${captainId}`]: teamData } });
         
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
@@ -203,10 +201,10 @@ export async function handleModal(interaction) {
         const opponentReport = partido.reportedScores[opponentId];
         if (opponentReport) {
             if (opponentReport === reportedResult) {
-                await interaction.editReply({content: '✅ 🇪🇸 Resultados coinciden. El partido ha sido finalizado y el hilo se cerrará en breve.\n🇬🇧 Results match. The match has been finalized and the thread will close shortly.'});
-                // No enviamos mensaje aquí, ya que processMatchResult lo hará
                 tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-                await processMatchResult(client, guild, tournament, matchId, reportedResult);
+                const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
+                await interaction.editReply({content: '✅ 🇪🇸 Resultados coinciden. El partido ha sido finalizado.\n🇬🇧 Results match. The match has been finalized.'});
+                await finalizeMatchThread(client, processedMatch, reportedResult);
             } else {
                 await interaction.editReply({content: '❌ 🇪🇸 Los resultados reportados no coinciden. Se ha notificado a los árbitros.\n🇬🇧 The reported results do not match. Referees have been notified.'});
                 const thread = interaction.channel;
@@ -228,12 +226,13 @@ export async function handleModal(interaction) {
         const golesB = interaction.fields.getTextInputValue('goles_b');
         if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
         const resultString = `${golesA}-${golesB}`;
-        await processMatchResult(client, guild, tournament, matchId, resultString);
+        
+        const processedMatch = await processMatchResult(client, guild, tournament, matchId, resultString);
         await interaction.editReply(`✅ Resultado forzado a **${resultString}** por un administrador.`);
+        await finalizeMatchThread(client, processedMatch, resultString);
+
         return;
     }
-    
-    // NUEVO: Modal para invitar co-capitán
     if (action === 'invite_cocaptain_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -245,10 +244,8 @@ export async function handleModal(interaction) {
         if (!team) return interaction.editReply({ content: 'Error: No eres el capitán de un equipo en este torneo.' });
         if (team.coCaptainId) return interaction.editReply({ content: 'Ya tienes un co-capitán.'});
         
-        // El nuevo UserSelectMenu nos da el ID directamente
         const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input');
         
-        // Validar que el invitado no sea ya capitán o co-capitán
         const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
         if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
             return interaction.editReply({ content: '❌ Esta persona ya participa en el torneo como capitán o co-capitán.' });
@@ -258,7 +255,6 @@ export async function handleModal(interaction) {
             const coCaptainUser = await client.users.fetch(coCaptainId);
             if (coCaptainUser.bot) return interaction.editReply({ content: 'No puedes invitar a un bot.' });
             
-            // Guardar invitación pendiente
             await db.collection('tournaments').updateOne(
                 { _id: tournament._id },
                 { $set: { [`teams.coCapitanes.${captainId}`]: { inviterId: captainId, invitedId: coCaptainId, invitedAt: new Date() } } }
@@ -280,7 +276,7 @@ export async function handleModal(interaction) {
 
         } catch (error) {
             console.error(error);
-            if (error.code === 10013) { // Unknown User
+            if (error.code === 10013) {
                 await interaction.editReply('❌ No se pudo encontrar a ese usuario. Asegúrate de que la ID es correcta.');
             } else {
                 await interaction.editReply('❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.');
