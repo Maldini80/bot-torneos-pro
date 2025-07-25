@@ -6,7 +6,7 @@ export function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación de Torneos')
-        .setFooter({ text: 'Bot de Torneos v2.9.1' }); // Versión actualizada
+        .setFooter({ text: 'Bot de Torneos v2.9.2' }); // Versión actualizada
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
         : '✅ **ESTADO: LISTO**\nUsa el botón de abajo para crear un nuevo torneo.'
@@ -114,8 +114,8 @@ export function createTournamentStatusEmbed(tournament) {
 
     row2.addComponents(
         new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes / View Participants').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
-        // CORRECCIÓN: Se usa un emoji Unicode válido '📜' en lugar de un texto.
-        new ButtonBuilder().setLabel('Normas / Rules').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📜')
+        // CORRECCIÓN FINAL: Se usa un emoji de libro abierto '📖', que es universalmente compatible.
+        new ButtonBuilder().setLabel('Normas / Rules').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
     );
 
     if (tournament.status === 'finalizado') {
