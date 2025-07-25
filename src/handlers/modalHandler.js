@@ -181,6 +181,7 @@ export async function handleModal(interaction) {
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         await updatePublicMessages(client, updatedTournament);
         await updateTournamentManagementThread(client, updatedTournament);
+        // CORRECCIÓN DE RENDIMIENTO
         updateTournamentChannelName(client);
         return;
     }
@@ -234,6 +235,7 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'invite_cocaptain_modal') {
+        // Esta sección ya no se usa, pero la dejamos por si acaso. La lógica ahora está en el selectMenuHandler.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -246,7 +248,6 @@ export async function handleModal(interaction) {
         
         const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input').trim();
         
-        // NUEVO: Validación para asegurar que la entrada es una ID numérica (snowflake).
         if (!/^\d+$/.test(coCaptainId)) {
             return interaction.editReply({ 
                 content: '❌ **Error:** El valor introducido no es una ID de Discord válida. Por favor, introduce únicamente la ID numérica del usuario (ej: 1398287366929776670).',
@@ -280,14 +281,15 @@ export async function handleModal(interaction) {
             );
 
             await coCaptainUser.send({ embeds: [embed], components: [row] });
-            await interaction.editReply(`✅ Invitación enviada a **${coCaptainUser.tag}**. Recibirá un MD para aceptar o rechazar.`);
+            // CORRECCIÓN: Se usa followUp en lugar de editReply para evitar el falso error de MD bloqueado.
+            await interaction.followUp({ content: `✅ Invitación enviada a **${coCaptainUser.tag}**. Recibirá un MD para aceptar o rechazar.`, flags: [MessageFlags.Ephemeral] });
 
         } catch (error) {
             console.error(error);
             if (error.code === 10013) {
                 await interaction.editReply('❌ No se pudo encontrar a ese usuario. Asegúrate de que la ID es correcta.');
             } else {
-                await interaction.editReply('❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.');
+                 await interaction.editReply('❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.');
             }
         }
     }
