@@ -58,41 +58,42 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
-// CORRECCIÓN: Lógica de prioridad de iconos mejorada.
-export async function updateTournamentChannelName(client) {
-    try {
-        const db = getDb();
-        const activeTournaments = await db.collection('tournaments').find({ status: { $nin: ['finalizado', 'archivado', 'cancelado'] } }).toArray();
-        
+// CORRECCIÓN DE RENDIMIENTO: Lógica reescrita para ser más eficiente.
+export function updateTournamentChannelName(client) {
+    // Se ejecuta sin async/await para no bloquear el hilo principal.
+    // El cambio de nombre es una tarea de fondo.
+    const db = getDb();
+    db.collection('tournaments').find(
+        { status: { $nin: ['finalizado', 'archivado', 'cancelado'] } },
+        // Proyección para obtener solo los campos necesarios, mucho más rápido.
+        { projection: { status: 1, 'teams.aprobados': 1, 'config.format.size': 1 } }
+    ).toArray().then(activeTournaments => {
         let icon;
         
-        // 1. ¿Hay algún torneo con inscripciones abiertas Y plazas libres?
         const hasOpenForRegistration = activeTournaments.some(t => 
             t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length < t.config.format.size
         );
         
-        // 2. ¿Hay algún torneo lleno o en juego?
         const hasFullOrInProgress = activeTournaments.some(t => 
-            (t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size) || // Lleno
-            (!['inscripcion_abierta', 'finalizado', 'archivado', 'cancelado'].includes(t.status)) // En juego
+            (t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size) ||
+            !['inscripcion_abierta', 'finalizado', 'archivado', 'cancelado'].includes(t.status)
         );
 
         if (hasOpenForRegistration) {
-            icon = '🟢'; // Prioridad 1: Verde si hay plazas.
+            icon = '🟢';
         } else if (hasFullOrInProgress) {
-            icon = '🔵'; // Prioridad 2: Azul si no hay plazas pero sí torneos activos.
+            icon = '🔵';
         } else {
-            icon = '🔴'; // Por defecto: Rojo si no hay nada activo.
+            icon = '🔴';
         }
         
         const newChannelName = `${icon} 📢-torneos-tournaments`;
         
-        const channel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
-        if (channel && channel.name !== newChannelName) {
-            await channel.setName(newChannelName.slice(0, 100));
-        }
+        client.channels.fetch(CHANNELS.TORNEOS_STATUS).then(channel => {
+            if (channel && channel.name !== newChannelName) {
+                channel.setName(newChannelName.slice(0, 100)).catch(e => console.warn("Fallo al renombrar canal de estado:", e.message));
+            }
+        }).catch(e => console.warn("[WARN] No se pudo encontrar el canal de estado de torneos.", e.message));
 
-    } catch (e) {
-        console.warn("[WARN] No se pudo actualizar el nombre del canal de estado de torneos.", e.message);
-    }
+    }).catch(e => console.error("Error al consultar torneos para actualizar nombre de canal:", e));
 }
