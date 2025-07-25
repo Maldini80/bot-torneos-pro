@@ -63,12 +63,33 @@ export async function handleButton(interaction) {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+        
+        // Equipos Aprobados (lógica existente)
         const approvedTeams = Object.values(tournament.teams.aprobados);
-        let teamList = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
+        let descriptionText = '';
+        
         if (approvedTeams.length > 0) {
-            teamList = approvedTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Capitán: ${team.capitanTag})`).join('\n');
+            descriptionText = approvedTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Capitán: ${team.capitanTag})`).join('\n');
+        } else {
+            descriptionText = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
         }
-        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Participantes: ${tournament.nombre}`).setDescription(teamList);
+
+        // Nueva lógica para Equipos en Reserva
+        const reserveTeams = Object.values(tournament.teams.reserva || {});
+        if (reserveTeams.length > 0) {
+            const reserveListString = reserveTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Capitán: ${team.capitanTag})`).join('\n');
+            descriptionText += `\n\n**🕒 Lista de Reserva / Reserve List**\n${reserveListString}`;
+        }
+
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle(`Participantes: ${tournament.nombre}`)
+            .setDescription(descriptionText);
+
+        // --- FIN DE LA MODIFICACIÓN ---
+
         try {
             await interaction.user.send({ embeds: [embed] });
             await interaction.editReply('✅ Te he enviado la lista de participantes por Mensaje Directo.');
