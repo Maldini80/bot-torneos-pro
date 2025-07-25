@@ -1,33 +1,30 @@
-// src/handlers/selectMenuHandler.js (VERSIÓN CORREGIDA Y ROBUSTA)
+// src/handlers/selectMenuHandler.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS } from '../../config.js';
-import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { updateTournamentConfig } from '../logic/tournamentLogic.js';
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
-    const value = interaction.values[0];
+    const client = interaction.client;
+    const db = getDb();
+    
     const [action, ...params] = customId.split(':');
 
-    // Usamos 'if...else if' para asegurarnos de que solo una ruta se ejecute.
-
     if (action === 'admin_create_format') {
-        // Esta acción necesita tiempo para crear un nuevo menú, así que primero acusamos recibo.
         await interaction.deferUpdate();
         
-        const formatId = value;
+        const formatId = interaction.values[0];
         const typeMenu = new StringSelectMenuBuilder()
             .setCustomId(`admin_create_type:${formatId}`)
             .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
             .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
         
-        // Ahora editamos la respuesta original.
         await interaction.editReply({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
 
     } else if (action === 'admin_create_type') {
-        // Mostrar un modal ES un acuse de recibo. No se necesita 'defer'.
         const [formatId] = params;
-        const type = value;
+        const type = interaction.values[0];
         const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}`).setTitle('Finalizar Creación de Torneo');
         
         const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
@@ -50,22 +47,19 @@ export async function handleSelectMenu(interaction) {
         await interaction.showModal(modal);
 
     } else if (action === 'admin_change_format_select') {
-        // Actualizar la config puede tardar, así que acusamos recibo primero.
         await interaction.deferUpdate();
         
         const [tournamentShortId] = params;
-        const newFormatId = value;
+        const newFormatId = interaction.values[0];
         await updateTournamentConfig(interaction.client, tournamentShortId, { formatId: newFormatId });
 
-        // Y ahora editamos la respuesta.
         await interaction.editReply({ content: `✅ Formato actualizado a: **${TOURNAMENT_FORMATS[newFormatId].label}**.`, components: [] });
 
     } else if (action === 'admin_change_type_select') {
         const [tournamentShortId] = params;
-        const newType = value;
+        const newType = interaction.values[0];
 
         if (newType === 'pago') {
-            // Mostrar un modal ES un acuse de recibo.
             const modal = new ModalBuilder().setCustomId(`edit_payment_details_modal:${tournamentShortId}`).setTitle('Detalles del Torneo de Pago');
             const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('5');
             const prizeCInput = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('40');
@@ -73,10 +67,55 @@ export async function handleSelectMenu(interaction) {
             modal.addComponents( new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput) );
             await interaction.showModal(modal);
         } else {
-            // Actualizar a gratuito puede tardar, así que acusamos recibo.
             await interaction.deferUpdate();
             await updateTournamentConfig(interaction.client, tournamentShortId, { isPaid: false, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 });
             await interaction.editReply({ content: `✅ Torneo actualizado a: **Gratuito**.`, components: [] });
+        }
+    } else if (action === 'invite_cocaptain_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        const captainId = interaction.user.id;
+        const team = tournament.teams.aprobados[captainId];
+        if (!team) return interaction.editReply({ content: 'Error: No eres el capitán de un equipo en este torneo.' });
+        if (team.coCaptainId) return interaction.editReply({ content: 'Ya tienes un co-capitán.'});
+        
+        const coCaptainId = interaction.values[0];
+        const coCaptainUser = await client.users.fetch(coCaptainId);
+        
+        const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
+        if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
+            return interaction.editReply({ content: '❌ Esta persona ya participa en el torneo como capitán o co-capitán.' });
+        }
+        if (coCaptainUser.bot) {
+            return interaction.editReply({ content: 'No puedes invitar a un bot.' });
+        }
+
+        try {
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.coCapitanes.${captainId}`]: { inviterId: captainId, invitedId: coCaptainId, invitedAt: new Date() } } }
+            );
+
+            const embed = new EmbedBuilder()
+                .setColor('#3498db')
+                .setTitle(`🤝 Invitación de Co-Capitán / Co-Captain Invitation`)
+                .setDescription(`🇪🇸 Has sido invitado por **${interaction.user.tag}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n\n` +
+                              `🇬🇧 You have been invited by **${interaction.user.tag}** to be the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.`);
+            
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`cocaptain_accept:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Aceptar / Accept').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`cocaptain_reject:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Rechazar / Reject').setStyle(ButtonStyle.Danger)
+            );
+
+            await coCaptainUser.send({ embeds: [embed], components: [row] });
+            await interaction.editReply({ content: `✅ Invitación enviada a **${coCaptainUser.tag}**. Recibirá un MD para aceptar o rechazar.`, components: [] });
+
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({ content: '❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.', components: [] });
         }
     }
 }
