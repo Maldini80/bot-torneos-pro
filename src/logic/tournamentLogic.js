@@ -21,11 +21,10 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const matchesChannel = await guild.channels.create({ name: `⚽-${shortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
         const chatChannel = await guild.channels.create({ name: `💬-${shortId}-chat`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
         
-        // NUEVO: Se añaden las listas de reserva y co-capitanes a la estructura del torneo
         const newTournament = {
             _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta',
             config: { formatId: config.formatId, format, isPaid: config.isPaid, entryFee: config.entryFee || 0, prizeCampeon: config.prizeCampeon || 0, prizeFinalista: config.prizeFinalista || 0, enlacePaypal: config.enlacePaypal || null, startTime: config.startTime || null },
-            teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {} }, // Añadido reserva y coCapitanes
+            teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
             discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null }
@@ -56,7 +55,9 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         console.error('[CREATE] OCURRIÓ UN ERROR EN MEDIO DEL PROCESO DE CREACIÓN:', error);
         await setBotBusy(false); throw error;
     } finally {
-        await setBotBusy(false); await updateTournamentChannelName(client);
+        await setBotBusy(false);
+        // CORRECCIÓN DE RENDIMIENTO: Se ejecuta sin 'await' para una respuesta inmediata.
+        updateTournamentChannelName(client);
     }
 }
 
@@ -67,7 +68,6 @@ export async function approveTeam(client, tournament, teamData) {
     latestTournament.teams.aprobados[teamData.capitanId] = teamData;
     if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
     
-    // También eliminamos de la lista de reserva por si acaso
     if (latestTournament.teams.reserva && latestTournament.teams.reserva[teamData.capitanId]) {
         delete latestTournament.teams.reserva[teamData.capitanId];
     }
@@ -81,7 +81,6 @@ export async function approveTeam(client, tournament, teamData) {
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
         await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
 
-        // NUEVO: Enviar MD con botón para invitar co-capitán
         const user = await client.users.fetch(teamData.capitanId);
         const embed = new EmbedBuilder()
             .setColor('#2ecc71')
@@ -106,10 +105,10 @@ export async function approveTeam(client, tournament, teamData) {
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    await updateTournamentChannelName(client);
+    // CORRECCIÓN DE RENDIMIENTO
+    updateTournamentChannelName(client);
 }
 
-// NUEVO: Lógica para añadir un co-capitán
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const db = getDb();
     const coCaptainUser = await client.users.fetch(coCaptainId);
@@ -122,12 +121,11 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                 [`teams.aprobados.${captainId}.coCaptainTag`]: coCaptainUser.tag
             },
             $unset: {
-                [`teams.coCapitanes.${captainId}`]: "" // Eliminar la invitación pendiente
+                [`teams.coCapitanes.${captainId}`]: ""
             }
         }
     );
 
-    // Dar permisos al co-capitán
     try {
         const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
         await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
@@ -138,7 +136,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     }
 
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-    await updatePublicMessages(client, updatedTournament); // Actualiza la lista de participantes
+    await updatePublicMessages(client, updatedTournament);
 }
 
 
@@ -147,7 +145,6 @@ export async function kickTeam(client, tournament, captainId) {
     const teamData = tournament.teams.aprobados[captainId];
     if (!teamData) return;
 
-    // Quitar permisos al capitán
     try {
         const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
         await chatChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo');
@@ -155,7 +152,6 @@ export async function kickTeam(client, tournament, captainId) {
         await matchesChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo');
     } catch (e) { console.error(`No se pudieron revocar los permisos para el capitán ${captainId}:`, e); }
 
-    // NUEVO: Quitar permisos al co-capitán si existe
     if (teamData.coCaptainId) {
         try {
             const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
@@ -165,16 +161,13 @@ export async function kickTeam(client, tournament, captainId) {
         } catch (e) { console.error(`No se pudieron revocar los permisos para el co-capitán ${teamData.coCaptainId}:`, e); }
     }
     
-    // Eliminar el equipo de la base de datos
     await db.collection('tournaments').updateOne( { _id: tournament._id }, { $unset: { [`teams.aprobados.${captainId}`]: "" } } );
     
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    await updateTournamentChannelName(client);
-
-    // NUEVO: Lógica para promover desde la lista de reserva si un admin lo decide
-    // Esta parte ahora será manejada manualmente por el admin a través de un botón.
+    // CORRECCIÓN DE RENDIMIENTO
+    updateTournamentChannelName(client);
 }
 
 
@@ -187,7 +180,11 @@ export async function endTournament(client, tournament) {
         await updateTournamentManagementThread(client, finalTournamentState);
         await cleanupTournament(client, finalTournamentState);
     } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
-    } finally { await setBotBusy(false); await updateTournamentChannelName(client); }
+    } finally { 
+        await setBotBusy(false);
+        // CORRECCIÓN DE RENDIMIENTO
+        updateTournamentChannelName(client);
+    }
 }
 
 async function cleanupTournament(client, tournament) {
@@ -216,7 +213,7 @@ export async function forceResetAllTournaments(client) {
         console.error("Error crítico durante el reseteo forzoso:", error);
     } finally {
         await setBotBusy(false);
-        await updateTournamentChannelName(client);
+        updateTournamentChannelName(client);
     }
 }
 
@@ -272,16 +269,15 @@ export async function startGroupStage(client, guild, tournament) {
         }
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
-        await updatePublicMessages(client, finalTournamentState);
+        await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
-        await updateTournamentChannelName(client);
+        updateTournamentChannelName(client);
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
-    } finally {
-        await setBotBusy(false);
+    } finally { 
+        await setBotBusy(false); 
     }
 }
 
-// NUEVO: Función para promover equipos de la lista de reserva
 async function promoteFromWaitlist(client, tournamentShortId, count) {
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -293,7 +289,7 @@ async function promoteFromWaitlist(client, tournamentShortId, count) {
     if (teamsToPromote.length === 0) return;
 
     for (const teamData of teamsToPromote) {
-        await approveTeam(client, tournament, teamData); // Reutilizamos la lógica de aprobación
+        await approveTeam(client, tournament, teamData);
     }
 }
 
@@ -313,7 +309,6 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     
     const newSize = updatedConfig.format.size;
 
-    // NUEVO: Lógica de promoción automática al aumentar las plazas
     if (newSize > oldSize && !tournament.config.isPaid) {
         const slotsToFill = newSize - oldSize;
         await promoteFromWaitlist(client, tournamentShortId, slotsToFill);
@@ -324,7 +319,6 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     await updateTournamentManagementThread(client, updatedTournament);
 }
 
-// NUEVO: Añadir un equipo a la lista de reserva
 export async function addTeamToWaitlist(client, tournament, teamData) {
     const db = getDb();
     
@@ -344,7 +338,6 @@ export async function addTeamToWaitlist(client, tournament, teamData) {
     }
 }
 
-// NUEVO: Solicitar darse de baja
 export async function requestUnregister(client, tournament, userId) {
     const db = getDb();
     const team = tournament.teams.aprobados[userId];
