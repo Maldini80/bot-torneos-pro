@@ -1,7 +1,6 @@
 // index.js (Versión Limpia para Background Worker)
 import { Client, GatewayIntentBits, Events, MessageFlags, EmbedBuilder } from 'discord.js';
 import 'dotenv/config';
-// ELIMINADO: import { keepAlive } from './keep_alive.js';
 import { connectDb, getDb } from './database.js';
 import { handleCommand } from './src/handlers/commandHandler.js';
 import { handleButton } from './src/handlers/buttonHandler.js';
@@ -10,7 +9,6 @@ import { handleSelectMenu } from './src/handlers/selectMenuHandler.js';
 import { handleMessageTranslation } from './src/logic/translationLogic.js';
 import { updateTournamentChannelName, updateAdminPanel, updateAllManagementPanels } from './src/utils/panelManager.js';
 
-// Este bloque de diagnóstico es útil, lo dejamos por seguridad.
 process.on('uncaughtException', (error, origin) => {
     console.error('💥 ERROR FATAL NO CAPTURADO:');
     console.error(error);
@@ -28,6 +26,8 @@ export async function setBotBusy(status) {
 const client = new Client({
     intents: [ 
         GatewayIntentBits.Guilds, 
+        // CORRECCIÓN: Se añade el intent necesario para poder ver y buscar
+        // la lista completa de miembros del servidor.
         GatewayIntentBits.GuildMembers, 
         GatewayIntentBits.GuildMessages, 
         GatewayIntentBits.MessageContent, 
@@ -35,7 +35,6 @@ const client = new Client({
     ]
 });
 
-// Este bloque de diagnóstico es útil, lo dejamos por seguridad.
 client.once(Events.ClientReady, async readyClient => {
     try {
         console.log(`✅ Bot conectado como ${readyClient.user.tag}`);
@@ -59,7 +58,7 @@ client.on(Events.InteractionCreate, async interaction => {
         if (interaction.isChatInputCommand()) await handleCommand(interaction);
         else if (interaction.isButton()) await handleButton(interaction);
         else if (interaction.isModalSubmit()) await handleModal(interaction);
-        else if (interaction.isStringSelectMenu()) await handleSelectMenu(interaction);
+        else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) await handleSelectMenu(interaction);
     } catch (error) {
         if (error.code === 10062) {
             console.warn('[WARN] Se intentó responder a una interacción que ya había expirado.');
@@ -87,7 +86,6 @@ client.on(Events.MessageCreate, async message => {
     if (message.author.bot || !message.guild) return;
     await handleMessageTranslation(message);
 
-    // --- CÓDIGO DE SUBIDA DE PRUEBAS (VERSIÓN FINAL) ---
     try {
         const channel = message.channel;
         if (!channel.isThread() || message.author.bot) return;
@@ -122,12 +120,10 @@ client.on(Events.MessageCreate, async message => {
     } catch (error) {
         console.error("Error en el detector de enlaces de pruebas:", error);
     }
-    // --- FIN DEL CÓDIGO DE SUBIDA DE PRUEBAS ---
 });
 
 async function startBot() {
     await connectDb();
-    // ELIMINADO: keepAlive();
     client.login(process.env.DISCORD_TOKEN);
 }
 
