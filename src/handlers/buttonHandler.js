@@ -20,9 +20,14 @@ export async function handleButton(interaction) {
     const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'inscribir_equipo_start', 'inscribir_reserva_start', 'invite_cocaptain_start'];
     if (modalActions.includes(action)) {
         const [p1, p2] = params;
-        const tournamentShortId = action.includes('report') ? p2 : p1;
+        
+        // CORRECCIÓN FINAL Y DEFINITIVA DE LA LÓGICA DE ID
+        const tournamentShortId = action.includes('report') || action.includes('admin_modify_result') ? p2 : p1;
+
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
+        if (!tournament) {
+            return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
+        }
 
         let modal;
         if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
