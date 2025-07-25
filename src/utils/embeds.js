@@ -111,7 +111,7 @@ export function createTournamentStatusEmbed(tournament) {
     
     const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel('Normas').setStyle(ButtonStyle.Link).setURL(RULES_PDF_URL).setEmoji('📜'),
-        new ButtonBuilder().setCustomId(`request_kick_start:${tournament.shortId}`).setLabel('Solicitar Expulsión').setStyle(ButtonStyle.Danger).setEmoji('👋')
+        new ButtonBuilder().setCustomId(`request_kick_start:${tournament.shortId}`).setLabel('darse de baja').setStyle(ButtonStyle.Danger).setEmoji('👋')
     );
 
     if (tournament.status === 'finalizado') { embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado / Finished)`); }
