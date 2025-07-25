@@ -84,28 +84,45 @@ export async function handleModal(interaction) {
     }
     if (action === 'inscripcion_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
+        const [tournamentShortId, type] = params;
+        const isReserve = type === 'reserva';
+        
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
             return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
         }
         const captainId = interaction.user.id;
-        const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId];
+        const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
         if (isAlreadyRegistered) {
             return interaction.editReply({ content: '❌ 🇪🇸 Ya estás inscrito en este torneo.\n🇬🇧 You are already registered in this tournament.'});
         }
+        
+        const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
+        const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
+        const allTeamNames = [
+            ...Object.values(tournament.teams.aprobados || {}).map(e => e.nombre.toLowerCase()),
+            ...Object.values(tournament.teams.pendientes || {}).map(e => e.nombre.toLowerCase()),
+            ...Object.values(tournament.teams.reserva || {}).map(e => e.nombre.toLowerCase())
+        ];
+        if (allTeamNames.includes(teamName.toLowerCase())) {
+            return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
+        }
+
+        const teamData = { id: interaction.user.id, nombre: teamName, eafcTeamName: eafcTeamName, capitanId: interaction.user.id, capitanTag: interaction.user.tag, bandera: '🏳️', paypal: null, coCaptainId: null, inscritoEn: new Date() };
+        
+        if (isReserve) {
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.reserva.${interaction.user.id}`]: teamData } });
+            await interaction.editReply('✅ 🇪🇸 ¡Inscrito en la lista de reserva! Se te notificará si queda una plaza libre.\n🇬🇧 Registered on the reserve list! You will be notified if a spot becomes available.');
+            return;
+        }
+
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) {
             return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
         }
-        const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
-        const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
-        const allTeamNames = [...Object.values(tournament.teams.aprobados || {}).map(e => e.nombre.toLowerCase()), ...Object.values(tournament.teams.pendientes || {}).map(e => e.nombre.toLowerCase())];
-        if (allTeamNames.includes(teamName.toLowerCase())) {
-            return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
-        }
-        const teamData = { id: interaction.user.id, nombre: teamName, eafcTeamName: eafcTeamName, capitanId: interaction.user.id, capitanTag: interaction.user.tag, bandera: '🏳️', paypal: null, inscritoEn: new Date() };
+
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${interaction.user.id}`]: teamData } });
+        
         if (tournament.config.isPaid) {
             const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${tournament.config.enlacePaypal}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
             const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournament.shortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
@@ -123,6 +140,67 @@ export async function handleModal(interaction) {
         }
         return;
     }
+     if (action === 'request_kick_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return;
+
+        const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
+        if (!notificationsThread) return interaction.editReply({ content: 'Error interno: Canal de avisos no encontrado.'});
+        
+        const reason = interaction.fields.getTextInputValue('kick_reason');
+        const teamData = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
+        
+        const embed = new EmbedBuilder()
+            .setTitle('👋 Solicitud de Expulsión')
+            .setColor('#e67e22')
+            .setDescription(`El capitán <@${captainId}> del equipo **${teamData.nombre}** ha solicitado ser expulsado del torneo.`)
+            .addFields(
+                { name: 'Motivo', value: reason || 'No especificado' }
+            );
+
+        const buttons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_approve_kick:${tournamentShortId}:${captainId}`).setLabel('Aprobar Expulsión').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`admin_reject_kick:${tournamentShortId}:${captainId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+        );
+
+        await notificationsThread.send({ embeds: [embed], components: [buttons] });
+        await interaction.editReply({ content: '✅ Tu solicitud ha sido enviada a los administradores.' });
+        return;
+    }
+    if (action === 'invite_cocaptain_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId, captainId] = params;
+        const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input');
+        
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return;
+        
+        const coCaptainUser = await client.users.fetch(coCaptainId).catch(() => null);
+        if (!coCaptainUser || coCaptainUser.bot) {
+            return interaction.editReply({ content: '❌ No se pudo encontrar a ese usuario o es un bot.' });
+        }
+        
+        const embed = new EmbedBuilder()
+            .setTitle(`🤝 Invitación a Co-Capitán`)
+            .setDescription(`Has sido invitado por <@${captainId}> para ser su co-capitán en el torneo **${tournament.nombre}**.`)
+            .setColor('#3498db');
+        
+        const buttons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`cocaptain_accept:${tournamentShortId}:${captainId}`).setLabel('Aceptar').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`cocaptain_reject:${tournamentShortId}:${captainId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+        );
+
+        try {
+            await coCaptainUser.send({ embeds: [embed], components: [buttons] });
+            await interaction.editReply({ content: `✅ Invitación enviada a **${coCaptainUser.tag}**.` });
+        } catch (e) {
+            await interaction.editReply({ content: `❌ No se pudo enviar la invitación a **${coCaptainUser.tag}**. Asegúrate de que tenga los MDs abiertos.` });
+        }
+        return;
+    }
+
     if (action === 'payment_confirm_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
