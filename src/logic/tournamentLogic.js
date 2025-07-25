@@ -23,7 +23,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const newTournament = {
             _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta',
             config: { formatId: config.formatId, format, isPaid: config.isPaid, entryFee: config.entryFee || 0, prizeCampeon: config.prizeCampeon || 0, prizeFinalista: config.prizeFinalista || 0, enlacePaypal: config.enlacePaypal || null, startTime: config.startTime || null },
-            teams: { pendientes: {}, aprobados: {}, reserva: {} }, // Añadido el campo reserva
+            teams: { pendientes: {}, aprobados: {}, reserva: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
             discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null }
@@ -100,37 +100,36 @@ export async function approveTeam(client, tournament, teamData, fromReserve = fa
         console.error(`No se pudo añadir al capitán ${teamData.capitanId} a los canales o enviarle MD:`, e); 
     }
     
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Las actualizaciones vuelven a estar aquí para asegurar que siempre se ejecuten
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
     await updateTournamentChannelName(client);
+    // --- FIN DE LA CORRECCIÓN ---
 }
 
-// --- INICIO DE LA MODIFICACIÓN ---
 export async function kickTeam(client, tournament, captainId) {
     const db = getDb();
     const teamData = tournament.teams.aprobados[captainId];
 
-    // Paso 1: Revocar permisos si el equipo estaba aprobado
     if (teamData) {
         try {
             const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId).catch(() => null);
             const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId).catch(() => null);
 
-            if (chatChannel) await chatChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo').catch(() => {});
-            if (matchesChannel) await matchesChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo').catch(() => {});
+            if (chatChannel) await chatChannel.permissionOverwrites.delete(captainId, 'Equipo dado de baja').catch(() => {});
+            if (matchesChannel) await matchesChannel.permissionOverwrites.delete(captainId, 'Equipo dado de baja').catch(() => {});
             
-            // Revocar permisos del co-capitán si existe
             if (teamData.coCaptainId) {
-                 if (chatChannel) await chatChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo').catch(() => {});
-                 if (matchesChannel) await matchesChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo').catch(() => {});
+                 if (chatChannel) await chatChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo dado de baja').catch(() => {});
+                 if (matchesChannel) await matchesChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo dado de baja').catch(() => {});
             }
         } catch (e) { 
             console.error(`No se pudieron revocar los permisos para el equipo del capitán ${captainId}:`, e); 
         }
     }
     
-    // Paso 2: Eliminar al equipo de TODAS las listas posibles (aprobados, pendientes, reserva)
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
         { 
@@ -141,10 +140,7 @@ export async function kickTeam(client, tournament, captainId) {
             } 
         }
     );
-    // Ya no se actualizan los mensajes desde aquí
 }
-// --- FIN DE LA MODIFICACIÓN ---
-
 
 export async function endTournament(client, tournament) {
     await setBotBusy(true);
