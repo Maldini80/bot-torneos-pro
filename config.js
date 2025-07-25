@@ -15,49 +15,48 @@ export const CHANNELS = {
     TORNEOS_STATUS: '1395276865597476908',
 };
 
-// NUEVO: Configuración de Pagos (Esta es la única adición necesaria)
+// Configuración de Pagos
 export const PAYMENT_CONFIG = {
-    // IMPORTANTE: Pon aquí tu email de PayPal. Este se usará para todos los torneos de pago.
-    PAYPAL_EMAIL: 'johancamirotti13@hotmail.com' 
+    PAYPAL_EMAIL: 'johancamirotti13@hotmail.com'
 };
 
 // Configuración de los formatos de torneo CON TRADUCCIONES
 export const TOURNAMENT_FORMATS = {
-    '8_teams_semis_classic': { 
-        label: '8 Equipos (Clásico - Semifinales)', 
-        description: '2 grupos de 4. Los 2 primeros de cada grupo a semifinales. (1A vs 2B, 1B vs 2A)',
-        description_en: '2 groups of 4. Top 2 advance to semifinals. (1A vs 2B, 1B vs 2A)',
-        size: 8, groups: 2, qualifiersPerGroup: 2, knockoutStages: ['semifinales', 'final'] 
+    '8_teams_semis_classic': {
+        label: '8 Equipos (Clásico - Semifinales)',
+        description: '2 grupos de 4. Los 2 primeros de cada grupo a semifinales.',
+        description_en: '2 groups of 4. The top 2 from each group advance to semifinals.',
+        size: 8, groups: 2, qualifiersPerGroup: 2, knockoutStages: ['semifinales', 'final']
     },
-    '8_teams_final': { 
-        label: '8 Equipos (Nuevo - Final Directa)', 
+    '8_teams_final': {
+        label: '8 Equipos (Nuevo - Final Directa)',
         description: '2 grupos de 4. El 1º de cada grupo va a la final.',
         description_en: '2 groups of 4. The 1st of each group goes to the final.',
-        size: 8, groups: 2, qualifiersPerGroup: 1, knockoutStages: ['final'] 
+        size: 8, groups: 2, qualifiersPerGroup: 1, knockoutStages: ['final']
     },
-    '16_teams_quarters_classic': { 
-        label: '16 Equipos (Clásico - Cuartos)', 
+    '16_teams_quarters_classic': {
+        label: '16 Equipos (Clásico - Cuartos)',
         description: '4 grupos de 4. El 1º de cada grupo a cuartos de final.',
         description_en: '4 groups of 4. The 1st of each group advances to quarterfinals.',
-        size: 16, groups: 4, qualifiersPerGroup: 1, knockoutStages: ['cuartos', 'semifinales', 'final'] 
+        size: 16, groups: 4, qualifiersPerGroup: 1, knockoutStages: ['cuartos', 'semifinales', 'final']
     },
-    '16_teams_quarters_new': { 
-        label: '16 Equipos (Nuevo - Cuartos)', 
-        description: '4 grupos de 4. Los 2 primeros a cuartos (1º vs 2º de otro grupo).',
-        description_en: '4 groups of 4. Top 2 advance to quarterfinals (1st vs 2nd from another group).',
-        size: 16, groups: 4, qualifiersPerGroup: 2, knockoutStages: ['cuartos', 'semifinales', 'final'] 
+    '16_teams_quarters_new': {
+        label: '16 Equipos (Nuevo - Cuartos)',
+        description: '4 grupos de 4. Los 2 primeros de cada grupo a cuartos.',
+        description_en: '4 groups of 4. The top 2 from each group advance to quarterfinals.',
+        size: 16, groups: 4, qualifiersPerGroup: 2, knockoutStages: ['cuartos', 'semifinales', 'final']
     },
-    '32_teams_quarters': { 
-        label: '32 Equipos (Cuartos de Final)', 
+    '32_teams_quarters': {
+        label: '32 Equipos (Cuartos de Final)',
         description: '8 grupos de 4. El 1º de cada grupo clasifica a cuartos.',
         description_en: '8 groups of 4. The 1st of each group qualifies for quarterfinals.',
-        size: 32, groups: 8, qualifiersPerGroup: 1, knockoutStages: ['cuartos', 'semifinales', 'final'] 
+        size: 32, groups: 8, qualifiersPerGroup: 1, knockoutStages: ['cuartos', 'semifinales', 'final']
     },
-    '32_teams_ro16': { 
-        label: '32 Equipos (Octavos de Final)', 
-        description: '8 grupos de 4. Los 2 primeros a octavos (1º vs 2º de otro grupo).',
-        description_en: '8 groups of 4. Top 2 qualify for round of 16 (1st vs 2nd from another group).',
-        size: 32, groups: 8, qualifiersPerGroup: 2, knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final'] 
+    '32_teams_ro16': {
+        label: '32 Equipos (Octavos de Final)',
+        description: '8 grupos de 4. Los 2 primeros clasifican a octavos.',
+        description_en: '8 groups of 4. The top 2 qualify for the round of 16.',
+        size: 32, groups: 8, qualifiersPerGroup: 2, knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final']
     }
 };
 
@@ -81,5 +80,5 @@ export const TOURNAMENT_STATUS_ICONS = {
     cancelado: '🔴'
 };
 
-// --- Enlace al PDF con las normas del torneo ---
-export const RULES_PDF_URL = 'https://cdn.discordapp.com/attachments/1396998137859543240/1398204787622936606/Normas_de_los_partidos_y_guia_de_como_reportar_.pdf?ex=6884832e&is=688331ae&hm=ba0c2c2c775d50c581904ce15d86b29c088877a9a14bae1ba83fde927d4755db&'; 
+// NUEVO: Enlace al PDF de las normas del torneo
+export const PDF_RULES_URL = 'https://cdn.discordapp.com/attachments/1396998137859543240/1398204787622936606/Normas_de_los_partidos_y_guia_de_como_reportar_.pdf?ex=6884832e&is=688331ae&hm=ba0c2c2c775d50c581904ce15d86b29c088877a9a14bae1ba83fde927d4755db&';
