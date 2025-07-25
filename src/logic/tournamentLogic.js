@@ -56,7 +56,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await setBotBusy(false); throw error;
     } finally {
         await setBotBusy(false);
-        // CORRECCIÓN DE RENDIMIENTO: Se ejecuta sin 'await' para una respuesta inmediata.
         updateTournamentChannelName(client);
     }
 }
@@ -76,27 +75,37 @@ export async function approveTeam(client, tournament, teamData) {
     
     try {
         const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
-        await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
-        await chatChannel.send(`👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre})`);
         const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
+
+        await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
         await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
 
-        const user = await client.users.fetch(teamData.capitanId);
-        const embed = new EmbedBuilder()
-            .setColor('#2ecc71')
-            .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
-            .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado**.\n\n*Puedes invitar a un co-capitán para que te ayude a gestionar el equipo.*` +
-                          `\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved**.\n\n*You can invite a co-captain to help you manage the team.*`);
-        
-        const row = new ActionRowBuilder().addComponents(
+        // CORRECCIÓN: Se crea el botón de invitación aquí.
+        const inviteButtonRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`invite_cocaptain_start:${latestTournament.shortId}`)
                 .setLabel('Invitar Co-Capitán / Invite Co-Captain')
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji('🤝')
         );
+
+        // CORRECCIÓN: El botón ahora se envía al canal de chat del torneo, que tiene contexto de servidor.
+        await chatChannel.send({
+            content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a un co-capitán.*`,
+            components: [inviteButtonRow]
+        });
+
+        // CORRECCIÓN: El MD ahora es solo un mensaje informativo, sin botones.
+        const user = await client.users.fetch(teamData.capitanId);
+        const embed = new EmbedBuilder()
+            .setColor('#2ecc71')
+            .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
+            .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado**.\n\n` +
+                          `Dirígete al canal <#${chatChannel.id}> para chatear con otros participantes e invitar a tu co-capitán.` +
+                          `\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved**.\n\n` +
+                          `Head over to the <#${chatChannel.id}> channel to chat with other participants and invite your co-captain.`);
         
-        await user.send({ embeds: [embed], components: [row] });
+        await user.send({ embeds: [embed] });
 
     } catch(e) { 
         console.error(`Error en la aprobación o al dar permisos al capitán ${teamData.capitanId}:`, e); 
@@ -105,7 +114,6 @@ export async function approveTeam(client, tournament, teamData) {
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    // CORRECCIÓN DE RENDIMIENTO
     updateTournamentChannelName(client);
 }
 
@@ -166,7 +174,6 @@ export async function kickTeam(client, tournament, captainId) {
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    // CORRECCIÓN DE RENDIMIENTO
     updateTournamentChannelName(client);
 }
 
@@ -182,7 +189,6 @@ export async function endTournament(client, tournament) {
     } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false);
-        // CORRECCIÓN DE RENDIMIENTO
         updateTournamentChannelName(client);
     }
 }
