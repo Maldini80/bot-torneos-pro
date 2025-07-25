@@ -6,7 +6,7 @@ export function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación de Torneos')
-        .setFooter({ text: 'Bot de Torneos v2.9' }); // Versión actualizada
+        .setFooter({ text: 'Bot de Torneos v2.9.1' }); // Versión actualizada
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
         : '✅ **ESTADO: LISTO**\nUsa el botón de abajo para crear un nuevo torneo.'
@@ -39,7 +39,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             new ButtonBuilder().setCustomId(`admin_force_draw:${tournament.shortId}`).setLabel('Forzar Sorteo').setStyle(ButtonStyle.Success).setEmoji('🎲').setDisabled(isBusy || !hasEnoughTeamsForDraw),
             new ButtonBuilder().setCustomId(`admin_notify_changes:${tournament.shortId}`).setLabel('Notificar Cambios').setStyle(ButtonStyle.Primary).setEmoji('📢').setDisabled(isBusy || !hasCaptains)
         );
-        // NUEVO: Botón para gestionar la lista de reserva si existe
         if (tournament.teams.reserva && Object.keys(tournament.teams.reserva).length > 0) {
             row1.addComponents(
                 new ButtonBuilder().setCustomId(`admin_manage_waitlist:${tournament.shortId}`).setLabel('Ver Reservas').setStyle(ButtonStyle.Secondary).setEmoji('📋').setDisabled(isBusy)
@@ -108,18 +107,15 @@ export function createTournamentStatusEmbed(tournament) {
         if (!isFull) {
             row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
         } else if (!tournament.config.isPaid) {
-            // NUEVO: Lógica para lista de reserva en torneos gratuitos llenos
             row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_reserva_start:${tournament.shortId}`).setLabel('Inscribirme en Reserva / Waitlist').setStyle(ButtonStyle.Primary).setEmoji('📋'));
         }
-        // NUEVO: Botón para darse de baja
         row1.addComponents(new ButtonBuilder().setCustomId(`darse_baja_start:${tournament.shortId}`).setLabel('Darse de Baja / Unregister').setStyle(ButtonStyle.Danger).setEmoji('👋'));
     }
 
-    // Botones que siempre aparecen
     row2.addComponents(
         new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes / View Participants').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
-        // NUEVO: Botón de normas
-        new ButtonBuilder().setLabel('Normas / Rules').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji(' reglamento')
+        // CORRECCIÓN: Se usa un emoji Unicode válido '📜' en lugar de un texto.
+        new ButtonBuilder().setLabel('Normas / Rules').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📜')
     );
 
     if (tournament.status === 'finalizado') {
@@ -140,7 +136,6 @@ export function createTeamListEmbed(tournament) {
 
     if (approvedTeams.length > 0) {
         description = approvedTeams.map((team, index) => {
-            // NUEVO: Añadir información del co-capitán si existe
             let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}`;
             if (team.coCaptainTag) {
                 teamString += `, Co-Cap: ${team.coCaptainTag}`;
@@ -202,7 +197,6 @@ export function createCalendarEmbed(tournament) {
         return { embeds: [embed] };
     }
 
-    // Fase de Grupos
     if(hasGroupStage) {
         const sortedGroups = Object.keys(tournament.structure.calendario).sort();
         for (const groupName of sortedGroups) {
@@ -225,7 +219,6 @@ export function createCalendarEmbed(tournament) {
         }
     }
 
-    // NUEVO: Fases Eliminatorias
     if(hasKnockoutStage) {
         for (const stageKey of tournament.config.format.knockoutStages) {
             const stageMatches = tournament.structure.eliminatorias[stageKey];
@@ -238,7 +231,7 @@ export function createCalendarEmbed(tournament) {
             const nameWidth = 15, centerWidth = 6;
 
             for (const partido of matches) {
-                if (!partido.equipoA || !partido.equipoB) continue; // Skip if teams are not defined yet
+                if (!partido.equipoA || !partido.equipoB) continue;
                 const centerText = partido.resultado ? partido.resultado : 'vs';
                 const paddingTotal = centerWidth - centerText.length;
                 const paddingInicio = Math.ceil(paddingTotal / 2);
