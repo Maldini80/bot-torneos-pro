@@ -277,16 +277,25 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'admin_force_result_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
+        if (!tournament) {
+            return interaction.reply({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+        }
         const golesA = interaction.fields.getTextInputValue('goles_a');
         const golesB = interaction.fields.getTextInputValue('goles_b');
-        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
+        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) {
+            return interaction.reply({ content: 'Error: Los goles deben ser números.', flags: [MessageFlags.Ephemeral] });
+        }
         const resultString = `${golesA}-${golesB}`;
+        
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Responder públicamente en el canal ANTES de procesar y borrarlo
+        await interaction.reply(`✅ Resultado forzado a **${resultString}** por <@${interaction.user.id}>.`);
+        
+        // Ahora procesar el resultado (esto incluirá la eliminación del hilo)
         await processMatchResult(client, guild, tournament, matchId, resultString);
-        await interaction.editReply(`✅ Resultado forzado a **${resultString}** por un administrador.`);
         return;
+        // --- FIN DE LA CORRECCIÓN ---
     }
 }
