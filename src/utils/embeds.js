@@ -1,6 +1,6 @@
 // src/utils/embeds.js
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS } from '../../config.js';
+import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, RULES_PDF_URL } from '../../config.js';
 
 export function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
@@ -72,26 +72,19 @@ export function createTournamentStatusEmbed(tournament) {
     
     let descriptionLines = [];
 
-    // --- INICIO DEL CÓDIGO ACTUALIZADO ---
     if (tournament.config.isPaid) {
         descriptionLines.push('**Este es un torneo de pago. / This is a paid tournament.**');
-        
-        // Añade los campos que siempre estarán si es de pago
         embed.addFields(
             { name: 'Inscripción / Entry', value: `${tournament.config.entryFee}€`, inline: true },
             { name: '🏆 Premio Campeón / Champion Prize', value: `${tournament.config.prizeCampeon}€`, inline: true }
         );
-    
-        // Ahora, comprueba si hay premio para el finalista ANTES de añadirlo
         if (tournament.config.prizeFinalista > 0) {
             embed.addFields({ name: '🥈 Premio Finalista / Runner-up Prize', value: `${tournament.config.prizeFinalista}€`, inline: true });
         }
-    
     } else {
         descriptionLines.push('**Este es un torneo gratuito. / This is a free tournament.**');
         embed.addFields({ name: 'Entry', value: 'Gratuito / Free', inline: true });
     }
-    // --- FIN DEL CÓDIGO ACTUALIZADO ---
     
     descriptionLines.push(`\n🇪🇸 ${formatDescriptionES}`);
     descriptionLines.push(`🇬🇧 ${formatDescriptionEN}`);
@@ -101,13 +94,33 @@ export function createTournamentStatusEmbed(tournament) {
         embed.addFields({ name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime, inline: false });
     }
     
-    const row = new ActionRowBuilder();
-    if (tournament.status === 'inscripcion_abierta' && teamsCount < format.size) {
-        row.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
+    const row1 = new ActionRowBuilder();
+    const isFull = teamsCount >= format.size;
+
+    if (tournament.status === 'inscripcion_abierta') {
+        if (!isFull) {
+            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
+        } else if (!tournament.config.isPaid) { // Solo torneos gratuitos tienen reserva
+            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}:reserva`).setLabel('Inscribirme en Reserva').setStyle(ButtonStyle.Primary).setEmoji('🕒'));
+        }
     }
-    row.addComponents(new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes / View Participants').setStyle(ButtonStyle.Secondary).setEmoji('👥'));
+
+    row1.addComponents(
+        new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥')
+    );
+    
+    const row2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel('Normas').setStyle(ButtonStyle.Link).setURL(RULES_PDF_URL).setEmoji('📜'),
+        new ButtonBuilder().setCustomId(`request_kick_start:${tournament.shortId}`).setLabel('Solicitar Expulsión').setStyle(ButtonStyle.Danger).setEmoji('👋')
+    );
+
     if (tournament.status === 'finalizado') { embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado / Finished)`); }
-    return { embeds: [embed], components: [row] };
+    
+    const components = [];
+    if (row1.components.length > 0) components.push(row1);
+    if (row2.components.length > 0) components.push(row2);
+
+    return { embeds: [embed], components };
 }
 
 export function createTeamListEmbed(tournament) {
@@ -159,28 +172,69 @@ export function createClassificationEmbed(tournament) {
 
 export function createCalendarEmbed(tournament) {
     const embed = new EmbedBuilder().setColor('#9b59b6').setTitle(`🗓️ Calendario / Schedule`).setTimestamp();
-    if (Object.keys(tournament.structure.calendario).length === 0) {
+    const hasGroupStage = Object.keys(tournament.structure.calendario).length > 0;
+    const hasKnockoutStage = tournament.structure.eliminatorias && tournament.config.format.knockoutStages.some(stage => tournament.structure.eliminatorias[stage]);
+
+    if (!hasGroupStage && !hasKnockoutStage) {
         embed.setDescription('🇪🇸 El calendario de partidos se mostrará aquí.\n🇬🇧 The match schedule will be displayed here.');
         return { embeds: [embed] };
     }
-    const sortedGroups = Object.keys(tournament.structure.calendario).sort();
-    for (const groupName of sortedGroups) {
-        const partidosDelGrupo = tournament.structure.calendario[groupName];
-        const partidosPorJornada = {};
-        for (const partido of partidosDelGrupo) { if (!partidosPorJornada[partido.jornada]) partidosPorJornada[partido.jornada] = []; partidosPorJornada[partido.jornada].push(partido); }
-        let groupScheduleText = ''; const nameWidth = 15, centerWidth = 6;
-        for (const jornadaNum of Object.keys(partidosPorJornada).sort((a, b) => a - b)) {
-            groupScheduleText += `Jornada / Round ${jornadaNum}\n`;
-            for (const partido of partidosPorJornada[jornadaNum]) {
+
+    if (hasGroupStage) {
+        const sortedGroups = Object.keys(tournament.structure.calendario).sort();
+        for (const groupName of sortedGroups) {
+            const partidosDelGrupo = tournament.structure.calendario[groupName];
+            const partidosPorJornada = {};
+            for (const partido of partidosDelGrupo) {
+                if (!partidosPorJornada[partido.jornada]) partidosPorJornada[partido.jornada] = [];
+                partidosPorJornada[partido.jornada].push(partido);
+            }
+            let groupScheduleText = '';
+            const nameWidth = 15, centerWidth = 6;
+            for (const jornadaNum of Object.keys(partidosPorJornada).sort((a, b) => a - b)) {
+                groupScheduleText += `Jornada / Round ${jornadaNum}\n`;
+                for (const partido of partidosPorJornada[jornadaNum]) {
+                    const centerText = partido.resultado ? partido.resultado : 'vs';
+                    const paddingTotal = centerWidth - centerText.length;
+                    const paddingInicio = Math.ceil(paddingTotal / 2), paddingFin = Math.floor(paddingTotal / 2);
+                    const paddedCenter = ' '.repeat(paddingInicio) + centerText + ' '.repeat(paddingFin);
+                    const equipoA = partido.equipoA.nombre.slice(0, nameWidth).padEnd(nameWidth);
+                    const equipoB = partido.equipoB.nombre.slice(0, nameWidth).padStart(nameWidth);
+                    groupScheduleText += `${equipoA}${paddedCenter}${equipoB}\n`;
+                }
+            }
+            embed.addFields({ name: `**${groupName}**`, value: `\`\`\`\n${groupScheduleText.trim()}\n\`\`\`` });
+        }
+    }
+    
+    // --- NUEVO: Mostrar cuadro de fases eliminatorias ---
+    if (hasKnockoutStage) {
+        let knockoutText = '';
+        for (const stage of tournament.config.format.knockoutStages) {
+            const stageMatches = tournament.structure.eliminatorias[stage];
+            if (!stageMatches || (Array.isArray(stageMatches) && stageMatches.length === 0)) continue;
+            
+            const matches = Array.isArray(stageMatches) ? stageMatches : [stageMatches];
+            const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
+            knockoutText += `--- ${stageName} ---\n`;
+            
+            const nameWidth = 15, centerWidth = 6;
+            for (const partido of matches) {
+                 if (!partido || !partido.equipoA || !partido.equipoB) continue; // Salta partidos no definidos
                 const centerText = partido.resultado ? partido.resultado : 'vs';
-                const paddingTotal = centerWidth - centerText.length; const paddingInicio = Math.ceil(paddingTotal / 2), paddingFin = Math.floor(paddingTotal / 2);
+                const paddingTotal = centerWidth - centerText.length;
+                const paddingInicio = Math.ceil(paddingTotal / 2), paddingFin = Math.floor(paddingTotal / 2);
                 const paddedCenter = ' '.repeat(paddingInicio) + centerText + ' '.repeat(paddingFin);
                 const equipoA = partido.equipoA.nombre.slice(0, nameWidth).padEnd(nameWidth);
                 const equipoB = partido.equipoB.nombre.slice(0, nameWidth).padStart(nameWidth);
-                groupScheduleText += `${equipoA}${paddedCenter}${equipoB}\n`;
+                knockoutText += `${equipoA}${paddedCenter}${equipoB}\n`;
             }
+             knockoutText += '\n';
         }
-        embed.addFields({ name: `**${groupName}**`, value: `\`\`\`\n${groupScheduleText.trim()}\n\`\`\`` });
+        if (knockoutText) {
+             embed.addFields({ name: '**Fases Eliminatorias / Knockout Stages**', value: `\`\`\`\n${knockoutText.trim()}\n\`\`\`` });
+        }
     }
+
     return { embeds: [embed] };
 }
