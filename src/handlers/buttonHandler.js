@@ -63,10 +63,7 @@ export async function handleButton(interaction) {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
-
-        // --- INICIO DE LA MODIFICACIÓN ---
         
-        // Equipos Aprobados (lógica existente)
         const approvedTeams = Object.values(tournament.teams.aprobados);
         let descriptionText = '';
         
@@ -76,7 +73,6 @@ export async function handleButton(interaction) {
             descriptionText = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
         }
 
-        // Nueva lógica para Equipos en Reserva
         const reserveTeams = Object.values(tournament.teams.reserva || {});
         if (reserveTeams.length > 0) {
             const reserveListString = reserveTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Capitán: ${team.capitanTag})`).join('\n');
@@ -87,8 +83,6 @@ export async function handleButton(interaction) {
             .setColor('#3498db')
             .setTitle(`Participantes: ${tournament.nombre}`)
             .setDescription(descriptionText);
-
-        // --- FIN DE LA MODIFICACIÓN ---
 
         try {
             await interaction.user.send({ embeds: [embed] });
@@ -226,12 +220,19 @@ export async function handleButton(interaction) {
         return;
     }
     
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    // --- INICIO DE LA CORRECCIÓN ---
+    // A partir de aquí, muchas interacciones pueden tardar, así que las diferimos.
+    // Las que no necesitan defer (como admin_approve) lo manejarán internamente.
+    if (['admin_approve_kick', 'admin_reject_kick', 'admin_kick', 'admin_force_draw', 'admin_simulate_matches', 'admin_end_tournament', 'admin_notify_changes'].includes(action)) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    }
+    // --- FIN DE LA CORRECCIÓN ---
     
     if (action === 'admin_approve') {
+        // Esta acción no se difiere aquí porque tiene su propia lógica de respuesta.
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
+        if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.reply({ content: 'Error: Solicitud no encontrada o ya procesada.', flags: [MessageFlags.Ephemeral] });
         const teamData = tournament.teams.pendientes[captainId];
         await approveTeam(client, tournament, teamData);
         
@@ -240,13 +241,13 @@ export async function handleButton(interaction) {
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Aprobado por ${interaction.user.tag}`}).setColor('#2ecc71');
         await originalMessage.edit({ embeds: [originalEmbed], components: [kickButton] });
-        await interaction.editReply(`✅ Equipo aprobado y capitán notificado.`);
+        await interaction.reply({ content: `✅ Equipo aprobado y capitán notificado.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
     if (action === 'admin_reject') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
+        if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.reply({ content: 'Error: Solicitud no encontrada o ya procesada.', flags: [MessageFlags.Ephemeral] });
         const teamData = tournament.teams.pendientes[captainId];
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendientes.${captainId}`]: "" } });
         try {
@@ -257,7 +258,7 @@ export async function handleButton(interaction) {
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Rechazado por ${interaction.user.tag}`}).setColor('#e74c3c');
         await originalMessage.edit({ embeds: [originalEmbed], components: [] });
-        await interaction.editReply(`❌ Equipo rechazado y capitán notificado.`);
+        await interaction.reply({ content: `❌ Equipo rechazado y capitán notificado.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
     if (action === 'admin_approve_kick') {
