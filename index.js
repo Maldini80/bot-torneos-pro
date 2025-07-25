@@ -26,8 +26,6 @@ export async function setBotBusy(status) {
 const client = new Client({
     intents: [ 
         GatewayIntentBits.Guilds, 
-        // CORRECCIÓN: Se añade el intent necesario para poder ver y buscar
-        // la lista completa de miembros del servidor.
         GatewayIntentBits.GuildMembers, 
         GatewayIntentBits.GuildMessages, 
         GatewayIntentBits.MessageContent, 
@@ -39,11 +37,17 @@ client.once(Events.ClientReady, async readyClient => {
     try {
         console.log(`✅ Bot conectado como ${readyClient.user.tag}`);
         
-        // CORRECCIÓN: Forzar la carga de todos los miembros del servidor en la caché.
-        // Esto es crucial para que los menús de selección de usuario funcionen correctamente.
-        console.log('[CACHE] Cargando la lista de miembros del servidor...');
-        await readyClient.guilds.cache.get(process.env.GUILD_ID)?.members.fetch();
-        console.log('[CACHE] Lista de miembros cargada con éxito.');
+        // CORRECCIÓN DEFINITIVA: Se implementa una carga más robusta y con verificación.
+        const guild = readyClient.guilds.cache.get(process.env.GUILD_ID);
+        if (guild) {
+            console.log('[CACHE] Forzando la carga de la lista de miembros del servidor...');
+            // Usamos fetch({}) para asegurar que traiga a todos los miembros.
+            const members = await guild.members.fetch({});
+            // AÑADIDO: Log de verificación para que puedas ver cuántos miembros se cargaron.
+            console.log(`[CACHE] Carga completa. ${members.size} miembros están ahora en la caché.`);
+        } else {
+            console.error(`[CRASH EN READY] No se pudo encontrar el servidor con ID: ${process.env.GUILD_ID}. Verifica las variables de entorno.`);
+        }
 
         await updateTournamentChannelName(readyClient);
     } catch (error) {
@@ -65,7 +69,6 @@ client.on(Events.InteractionCreate, async interaction => {
         if (interaction.isChatInputCommand()) await handleCommand(interaction);
         else if (interaction.isButton()) await handleButton(interaction);
         else if (interaction.isModalSubmit()) await handleModal(interaction);
-        // CORRECCIÓN: Se añade la comprobación para UserSelectMenu
         else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) await handleSelectMenu(interaction);
     } catch (error) {
         if (error.code === 10062) {
