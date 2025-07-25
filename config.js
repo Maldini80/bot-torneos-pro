@@ -25,8 +25,8 @@ export const PAYMENT_CONFIG = {
 export const TOURNAMENT_FORMATS = {
     '8_teams_semis_classic': { 
         label: '8 Equipos (Clásico - Semifinales)', 
-        description: '2 grupos de 4. Los 2 primeros de cada grupo a semifinales.',
-        description_en: '2 groups of 4. The top 2 from each group advance to semifinals.',
+        description: '2 grupos de 4. Los 2 primeros de cada grupo a semifinales. (1A vs 2B, 1B vs 2A)',
+        description_en: '2 groups of 4. Top 2 advance to semifinals. (1A vs 2B, 1B vs 2A)',
         size: 8, groups: 2, qualifiersPerGroup: 2, knockoutStages: ['semifinales', 'final'] 
     },
     '8_teams_final': { 
@@ -43,8 +43,8 @@ export const TOURNAMENT_FORMATS = {
     },
     '16_teams_quarters_new': { 
         label: '16 Equipos (Nuevo - Cuartos)', 
-        description: '4 grupos de 4. Los 2 primeros de cada grupo a cuartos.',
-        description_en: '4 groups of 4. The top 2 from each group advance to quarterfinals.',
+        description: '4 grupos de 4. Los 2 primeros a cuartos (1º vs 2º de otro grupo).',
+        description_en: '4 groups of 4. Top 2 advance to quarterfinals (1st vs 2nd from another group).',
         size: 16, groups: 4, qualifiersPerGroup: 2, knockoutStages: ['cuartos', 'semifinales', 'final'] 
     },
     '32_teams_quarters': { 
@@ -55,8 +55,8 @@ export const TOURNAMENT_FORMATS = {
     },
     '32_teams_ro16': { 
         label: '32 Equipos (Octavos de Final)', 
-        description: '8 grupos de 4. Los 2 primeros clasifican a octavos.',
-        description_en: '8 groups of 4. The top 2 qualify for the round of 16.',
+        description: '8 grupos de 4. Los 2 primeros a octavos (1º vs 2º de otro grupo).',
+        description_en: '8 groups of 4. Top 2 qualify for round of 16 (1st vs 2nd from another group).',
         size: 32, groups: 8, qualifiersPerGroup: 2, knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final'] 
     }
 };
@@ -80,3 +80,7 @@ export const TOURNAMENT_STATUS_ICONS = {
     finalizado: '🏁',
     cancelado: '🔴'
 };
+
+// --- NUEVA ADICIÓN ---
+// Enlace al PDF con las normas del torneo.
+export const RULES_PDF_URL = 'ENLACE_A_TU_PDF_DE_NORMAS_AQUI'; 
