@@ -1,11 +1,12 @@
 // src/handlers/buttonHandler.js
-import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
+import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, addCoCaptain, updatePublicMessages } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
-import { updateAdminPanel, updateTournamentChannelName, updateTournamentManagementThread } from '../utils/panelManager.js';
+import { updateAdminPanel } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
+import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
 export async function handleButton(interaction) {
     const customId = interaction.customId;
@@ -15,106 +16,31 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    if (action === 'admin_force_reset_bot') {
-        const modal = new ModalBuilder().setCustomId('admin_force_reset_modal').setTitle('⚠️ CONFIRMAR RESET FORZOSO ⚠️');
-        const warningText = new TextInputBuilder().setCustomId('confirmation_text').setLabel("Escribe 'CONFIRMAR RESET' para proceder").setStyle(TextInputStyle.Short).setPlaceholder('Esta acción es irreversible.').setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(warningText));
-        await interaction.showModal(modal);
-        return;
-    }
-    if (action === 'inscribir_equipo_start') {
-        const [tournamentShortId, type] = params; // type puede ser 'reserva'
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
-        
-        const captainId = interaction.user.id;
-        const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
-        if (isAlreadyRegistered) {
-            return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the reserve list for this tournament.', flags: [MessageFlags.Ephemeral] });
-        }
-        
-        const modal = new ModalBuilder().setCustomId(`inscripcion_modal:${tournamentShortId}:${type || 'normal'}`).setTitle('Inscripción de Equipo / Team Registration');
-        const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
-        const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput), new ActionRowBuilder().addComponents(eafcNameInput));
-        await interaction.showModal(modal);
-        return;
-    }
-     if (action === 'request_kick_start') {
-        const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
-
-        const captainId = interaction.user.id;
-        const isRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
-        
-        if (!isRegistered) {
-            return interaction.reply({ content: '❌ No estás inscrito en este torneo.', flags: [MessageFlags.Ephemeral] });
-        }
-        
-        const modal = new ModalBuilder().setCustomId(`request_kick_modal:${tournamentShortId}:${captainId}`).setTitle('Solicitar Darse de Baja');
-        const reasonInput = new TextInputBuilder().setCustomId('kick_reason').setLabel("Motivo de la solicitud (opcional)").setStyle(TextInputStyle.Paragraph).setRequired(false);
-        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
-        await interaction.showModal(modal);
-        return;
-    }
-    if (action === 'user_view_participants') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
-        
-        const approvedTeams = Object.values(tournament.teams.aprobados);
-        let descriptionText = '';
-        
-        if (approvedTeams.length > 0) {
-            descriptionText = approvedTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Capitán: ${team.capitanTag})`).join('\n');
-        } else {
-            descriptionText = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
-        }
-
-        const reserveTeams = Object.values(tournament.teams.reserva || {});
-        if (reserveTeams.length > 0) {
-            const reserveListString = reserveTeams.map((team, index) => `${index + 1}. **${team.nombre}** (Capitán: ${team.capitanTag})`).join('\n');
-            descriptionText += `\n\n**🕒 Lista de Reserva / Reserve List**\n${reserveListString}`;
-        }
-
-        const embed = new EmbedBuilder()
-            .setColor('#3498db')
-            .setTitle(`Participantes: ${tournament.nombre}`)
-            .setDescription(descriptionText);
-
-        try {
-            await interaction.user.send({ embeds: [embed] });
-            await interaction.editReply('✅ Te he enviado la lista de participantes por Mensaje Directo.');
-        } catch (e) {
-            await interaction.editReply('❌ No he podido enviarte un MD. Asegúrate de que tus mensajes directos no estén bloqueados.');
-        }
-        return;
-    }
-     if (action === 'invite_cocaptain_start') {
-        const [tournamentShortId, captainId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return;
-        const teamData = tournament.teams.aprobados[captainId];
-        if (teamData && teamData.coCaptainId) {
-            return interaction.reply({ content: '❌ Ya tienes un co-capitán en este torneo.', flags: [MessageFlags.Ephemeral] });
-        }
-        const modal = new ModalBuilder().setCustomId(`invite_cocaptain_modal:${tournamentShortId}:${captainId}`).setTitle('Invitar Co-Capitán');
-        const coCaptainIdInput = new TextInputBuilder().setCustomId('cocaptain_id_input').setLabel("ID de Usuario de Discord del Co-Capitán").setStyle(TextInputStyle.Short).setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(coCaptainIdInput));
-        await interaction.showModal(modal);
-        return;
-    }
-
-    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
+    // --- ACCIONES QUE MUESTRAN UN MODAL (FORMULARIO) ---
+    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'inscribir_equipo_start', 'inscribir_reserva_start', 'invite_cocaptain_start'];
     if (modalActions.includes(action)) {
-        let modal;
         const [p1, p2] = params;
-        const tournamentShortId = p2 || p1;
+        const tournamentShortId = action.includes('report') ? p2 : p1;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
-        if (action === 'report_result_start') {
+
+        let modal;
+        if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
+            const captainId = interaction.user.id;
+            const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
+            if (isAlreadyRegistered) {
+                return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.', flags: [MessageFlags.Ephemeral] });
+            }
+            const modalId = action === 'inscribir_reserva_start' ? `reserva_modal:${tournamentShortId}` : `inscripcion_modal:${tournamentShortId}`;
+            modal = new ModalBuilder().setCustomId(modalId).setTitle('Inscripción de Equipo / Team Registration');
+            const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
+            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput), new ActionRowBuilder().addComponents(eafcNameInput));
+        } else if (action === 'invite_cocaptain_start') {
+            modal = new ModalBuilder().setCustomId(`invite_cocaptain_modal:${tournamentShortId}`).setTitle('Invitar Co-Capitán');
+            const coCaptainIdInput = new TextInputBuilder().setCustomId('cocaptain_id_input').setLabel("ID de Discord de tu amigo").setStyle(TextInputStyle.Short).setPlaceholder("Pega aquí la ID de usuario de Discord").setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(coCaptainIdInput));
+        } else if (action === 'report_result_start') {
             const matchId = p1;
             const { partido } = findMatch(tournament, matchId);
             if (!partido) return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
@@ -149,6 +75,42 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
+
+    // --- ACCIONES QUE NO REQUIEREN MODAL ---
+    
+    if (action === 'admin_force_reset_bot') {
+        const modal = new ModalBuilder().setCustomId('admin_force_reset_modal').setTitle('⚠️ CONFIRMAR RESET FORZOSO ⚠️');
+        const warningText = new TextInputBuilder().setCustomId('confirmation_text').setLabel("Escribe 'CONFIRMAR RESET' para proceder").setStyle(TextInputStyle.Short).setPlaceholder('Esta acción es irreversible.').setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(warningText));
+        await interaction.showModal(modal);
+        return;
+    }
+    
+    if (action === 'user_view_participants') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+        let teamList = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
+        if (approvedTeams.length > 0) {
+            teamList = approvedTeams.map((team, index) => {
+                let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}`;
+                if (team.coCaptainTag) teamString += `, Co-Cap: ${team.coCaptainTag}`;
+                teamString += `)`;
+                return teamString;
+            }).join('\n');
+        }
+        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Participantes: ${tournament.nombre}`).setDescription(teamList);
+        try {
+            await interaction.user.send({ embeds: [embed] });
+            await interaction.editReply('✅ Te he enviado la lista de participantes por Mensaje Directo.');
+        } catch (e) {
+            await interaction.editReply('❌ No he podido enviarte un MD. Asegúrate de que tus mensajes directos no estén bloqueados.');
+        }
+        return;
+    }
+
     if (action === 'request_referee') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId] = params;
@@ -159,6 +121,7 @@ export async function handleButton(interaction) {
         await interaction.editReply('✅ Se ha notificado a los árbitros y el hilo ha sido marcado para revisión.');
         return;
     }
+
     if (action === 'admin_change_format_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -169,146 +132,80 @@ export async function handleButton(interaction) {
         await interaction.editReply({ content: `**Editando:** ${tournament.nombre}\nSelecciona el nuevo formato o tipo.`, components: [new ActionRowBuilder().addComponents(formatMenu), new ActionRowBuilder().addComponents(typeMenu)], });
         return;
     }
+
     if (action === 'admin_create_tournament_start') {
         const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, value: key })));
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
-    if (action === 'cocaptain_accept') {
-        await interaction.deferUpdate();
-        const [tournamentShortId, captainId] = params;
-        const coCaptainId = interaction.user.id;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return;
-        
-        await addCoCaptain(client, tournament, captainId, coCaptainId);
-        
-        const captainUser = await client.users.fetch(captainId).catch(() => null);
-        if (captainUser) await captainUser.send(`✅ ¡Tu invitación ha sido **aceptada**! <@${coCaptainId}> es ahora tu co-capitán para el torneo **${tournament.nombre}**.`);
-        await interaction.editReply({ content: `✅ Has aceptado la invitación. Ahora eres co-capitán en el torneo **${tournament.nombre}**.`, components: [] });
-        return;
-    }
-    if (action === 'cocaptain_reject') {
-        await interaction.deferUpdate();
-        const [tournamentShortId, captainId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return;
-
-        const captainUser = await client.users.fetch(captainId).catch(() => null);
-        if(captainUser) await captainUser.send(`❌ <@${interaction.user.id}> ha **rechazado** tu invitación a co-capitán para el torneo **${tournament.nombre}**.`);
-        await interaction.editReply({ content: 'Has rechazado la invitación.', components: [] });
-        return;
-    }
-     if (action === 'payment_paid_notification') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [userId, type] = params; // type es 'campeon' o 'finalista'
-        const user = await client.users.fetch(userId).catch(() => null);
-        if (user) {
-            try {
-                await user.send(`💰 ¡Tu premio de **${type}** ha sido abonado! Gracias por participar en el torneo.`);
-                // Desactivar botón
-                const originalMessage = interaction.message;
-                const newButton = ButtonBuilder.from(originalMessage.components[0].components[0]).setDisabled(true).setLabel(`Pago Notificado`).setStyle(ButtonStyle.Secondary);
-                await originalMessage.edit({ components: [new ActionRowBuilder().addComponents(newButton)] });
-                await interaction.editReply({ content: `✅ Notificación de pago enviada a ${user.tag}.`});
-            } catch (e) {
-                await interaction.editReply({ content: `❌ No se pudo enviar MD a ${user.tag}.`});
-            }
-        } else {
-            await interaction.editReply({ content: '❌ No se encontró al usuario.'});
-        }
-        return;
-    }
+    
+    // --- LÓGICA DE BOTONES QUE REQUIEREN DEFER ---
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
     if (action === 'admin_approve') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
-        const teamData = tournament.teams.pendientes[captainId];
+        if (!tournament || (!tournament.teams.pendientes[captainId] && !tournament.teams.reserva[captainId])) {
+            return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
+        }
+        const teamData = tournament.teams.pendientes[captainId] || tournament.teams.reserva[captainId];
         await approveTeam(client, tournament, teamData);
         
         const kickButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_kick:${captainId}:${tournamentShortId}`).setLabel("Expulsar del Torneo / Kick from Tournament").setStyle(ButtonStyle.Danger));
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Aprobado por ${interaction.user.tag}`}).setColor('#2ecc71');
+        
+        // Deshabilitar todos los botones de la fila
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+
         await originalMessage.edit({ embeds: [originalEmbed], components: [kickButton] });
         await interaction.editReply(`✅ Equipo aprobado y capitán notificado.`);
         return;
     }
-    if (action === 'admin_reject') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
+    if (action === 'admin_reject') {
         const [captainId, tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
-        const teamData = tournament.teams.pendientes[captainId];
-        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendientes.${captainId}`]: "" } });
+        let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const teamData = tournament.teams.pendientes[captainId] || tournament.teams.reserva[captainId];
+        if (!tournament || !teamData) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
+
+        if (tournament.teams.pendientes[captainId]) delete tournament.teams.pendientes[captainId];
+        if (tournament.teams.reserva && tournament.teams.reserva[captainId]) delete tournament.teams.reserva[captainId];
+        
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.pendientes': tournament.teams.pendientes, 'teams.reserva': tournament.teams.reserva }});
+        
         try {
             const user = await client.users.fetch(captainId);
             await user.send(`❌ 🇪🇸 Tu inscripción para el equipo **${teamData.nombre}** en el torneo **${tournament.nombre}** ha sido **rechazada**.\n🇬🇧 Your registration for the team **${teamData.nombre}** in the **${tournament.nombre}** tournament has been **rejected**.`);
         } catch (e) { console.warn(`No se pudo enviar MD de rechazo al usuario ${captainId}`); }
+        
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Rechazado por ${interaction.user.tag}`}).setColor('#e74c3c');
-        await originalMessage.edit({ embeds: [originalEmbed], components: [] });
+        
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
         await interaction.editReply(`❌ Equipo rechazado y capitán notificado.`);
         return;
     }
-    if (action === 'admin_approve_kick') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
-        const [tournamentShortId, captainId] = params;
-        let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
-        
-        await kickTeam(client, tournament, captainId);
-        
-        try {
-            const user = await client.users.fetch(captainId);
-            await user.send(`✅ Tu solicitud de baja del torneo **${tournament.nombre}** ha sido **aprobada** por un administrador.`);
-        } catch(e) {}
-        
-        await interaction.message.edit({ content: `✅ Solicitud de baja de <@${captainId}> **aprobada** por <@${interaction.user.id}>.`, embeds:[], components: [] });
-        await interaction.editReply({ content: 'Baja del equipo aprobada.'});
-
-        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        await updatePublicMessages(client, updatedTournament);
-        await updateTournamentManagementThread(client, updatedTournament);
-        await updateTournamentChannelName(client);
-        return;
-    }
-    if (action === 'admin_reject_kick') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
-        const [tournamentShortId, captainId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
-        
-         try {
-            const user = await client.users.fetch(captainId);
-            await user.send(`❌ Tu solicitud de baja del torneo **${tournament.nombre}** ha sido **rechazada** por un administrador.`);
-        } catch(e) {}
-        
-        await interaction.message.edit({ content: `❌ Solicitud de baja de <@${captainId}> **rechazada** por <@${interaction.user.id}>.`, embeds: [], components: [] });
-        await interaction.editReply({ content: 'Baja del equipo rechazada.'});
-        return;
-    }
-    
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
     if (action === 'admin_kick') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         const teamData = tournament.teams.aprobados[captainId];
         if (!teamData) return interaction.editReply({ content: 'Error: Este equipo no estaba aprobado o ya fue expulsado.' });
+        
         await kickTeam(client, tournament, captainId);
+        
         try {
             const user = await client.users.fetch(captainId);
             await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have been **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
         } catch (e) { console.warn(`No se pudo enviar MD de expulsión al usuario ${captainId}`); }
+        
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Expulsado por ${interaction.user.tag}`}).setColor('#95a5a6');
@@ -324,7 +221,9 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
+        
         await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Esto puede tardar varios minutos.` });
+        
         startGroupStage(client, guild, tournament)
             .then(() => { if (interaction.channel) { interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`); } })
             .catch(error => { console.error("Error durante el sorteo en segundo plano:", error); if (interaction.channel) { interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`); } });
@@ -352,5 +251,135 @@ export async function handleButton(interaction) {
         const result = await notifyCaptainsOfChanges(client, tournament);
         await interaction.editReply(result.message);
         return;
+    }
+    
+    // --- NUEVA LÓGICA DE BOTONES ---
+
+    if (action === 'cocaptain_accept') {
+        const [tournamentShortId, captainId, coCaptainId] = params;
+        if (interaction.user.id !== coCaptainId) return interaction.editReply({ content: "Esta invitación no es para ti." });
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament || !tournament.teams.coCapitanes[captainId] || tournament.teams.coCapitanes[captainId].invitedId !== coCaptainId) {
+            return interaction.editReply({ content: "Esta invitación ya no es válida." });
+        }
+        
+        await addCoCaptain(client, tournament, captainId, coCaptainId);
+        
+        const captainUser = await client.users.fetch(captainId);
+        await captainUser.send(`✅ **${interaction.user.tag}** ha aceptado tu invitación y ahora es tu co-capitán.`);
+        await interaction.editReply({ content: "✅ ¡Has aceptado la invitación! Ahora eres co-capitán." });
+
+        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        await interaction.message.edit({ components: [disabledRow] });
+    }
+
+    if (action === 'cocaptain_reject') {
+        const [tournamentShortId, captainId, coCaptainId] = params;
+        if (interaction.user.id !== coCaptainId) return interaction.editReply({ content: "Esta invitación no es para ti." });
+
+        await db.collection('tournaments').updateOne({ shortId: tournamentShortId }, { $unset: { [`teams.coCapitanes.${captainId}`]: "" } });
+        
+        const captainUser = await client.users.fetch(captainId);
+        await captainUser.send(`❌ **${interaction.user.tag}** ha rechazado tu invitación de co-capitán.`);
+        await interaction.editReply({ content: "Has rechazado la invitación." });
+
+        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        await interaction.message.edit({ components: [disabledRow] });
+    }
+
+    if (action === 'darse_baja_start') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
+
+        const result = await requestUnregister(client, tournament, interaction.user.id);
+        await interaction.editReply({ content: result.message });
+    }
+
+    if (action === 'admin_unregister_approve') {
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
+        
+        const team = tournament.teams.aprobados[captainId];
+        if (!team) return interaction.editReply({ content: "Este equipo ya no está inscrito." });
+
+        await kickTeam(client, tournament, captainId);
+        
+        try {
+            const user = await client.users.fetch(captainId);
+            await user.send(`✅ Tu solicitud de baja del torneo **${tournament.nombre}** ha sido **aprobada**.`);
+        } catch (e) { console.warn('No se pudo notificar al usuario de la baja aprobada'); }
+        
+        const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+        originalEmbed.setColor('#2ecc71').setFooter({ text: `Baja aprobada por ${interaction.user.tag}` });
+        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
+
+        await interaction.editReply(`✅ Baja del equipo **${team.nombre}** procesada.`);
+    }
+
+    if (action === 'admin_unregister_reject') {
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        try {
+            const user = await client.users.fetch(captainId);
+            await user.send(`❌ Tu solicitud de baja del torneo **${tournament.nombre}** ha sido **rechazada** por un administrador.`);
+        } catch(e) { console.warn('No se pudo notificar al usuario de la baja rechazada'); }
+
+        const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+        originalEmbed.setColor('#e74c3c').setFooter({ text: `Baja rechazada por ${interaction.user.tag}` });
+        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
+
+        await interaction.editReply(`❌ Solicitud de baja rechazada.`);
+    }
+
+    if (action === 'admin_prize_paid') {
+        const [tournamentShortId, userId, prizeType] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        try {
+            const user = await client.users.fetch(userId);
+            await user.send(`💰 ¡Buenas noticias! El premio de **${prizeType}** del torneo **${tournament.nombre}** ha sido pagado. ¡Gracias por participar!`);
+        } catch (e) {
+            console.warn(`No se pudo notificar al usuario ${userId} del pago del premio.`);
+        }
+        
+        const originalMessage = interaction.message;
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        originalEmbed.setTitle(`✅ PAGO REALIZADO: ${prizeType.toUpperCase()}`).setColor('#2ecc71').setFooter({text: `Marcado como pagado por ${interaction.user.tag}`});
+        
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+        await interaction.editReply(`✅ Pago marcado como realizado. Se ha notificado a <@${userId}>.`);
+    }
+
+    if(action === 'admin_manage_waitlist') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const waitlist = tournament.teams.reserva ? Object.values(tournament.teams.reserva) : [];
+        if(waitlist.length === 0) {
+            return interaction.editReply({content: 'La lista de reserva está vacía.'});
+        }
+        const options = waitlist.map(team => ({
+            label: team.nombre,
+            description: `Capitán: ${team.capitanTag}`,
+            value: team.capitanId
+        }));
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_promote_from_waitlist:${tournamentShortId}`)
+            .setPlaceholder('Selecciona un equipo para promoverlo')
+            .addOptions(options);
+        
+        await interaction.editReply({content: 'Selecciona un equipo de la lista de reserva para aprobarlo y añadirlo al torneo:', components: [new ActionRowBuilder().addComponents(selectMenu)]});
     }
 }
