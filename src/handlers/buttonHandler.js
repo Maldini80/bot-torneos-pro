@@ -16,12 +16,11 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // --- ACCIONES QUE MUESTRAN UN MODAL (FORMULARIO) ---
-    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'inscribir_equipo_start', 'inscribir_reserva_start', 'invite_cocaptain_start'];
+    // CORRECCIÓN: Se elimina 'invite_cocaptain_start' de la lista de modales.
+    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'inscribir_equipo_start', 'inscribir_reserva_start'];
     if (modalActions.includes(action)) {
         const [p1, p2] = params;
         
-        // CORRECCIÓN FINAL Y DEFINITIVA DE LA LÓGICA DE ID
         const tournamentShortId = action.includes('report') || action.includes('admin_modify_result') ? p2 : p1;
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -41,10 +40,6 @@ export async function handleButton(interaction) {
             const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
             const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput), new ActionRowBuilder().addComponents(eafcNameInput));
-        } else if (action === 'invite_cocaptain_start') {
-            modal = new ModalBuilder().setCustomId(`invite_cocaptain_modal:${tournamentShortId}`).setTitle('Invitar Co-Capitán');
-            const coCaptainIdInput = new TextInputBuilder().setCustomId('cocaptain_id_input').setLabel("ID de Discord de tu amigo").setStyle(TextInputStyle.Short).setPlaceholder("Pega aquí la ID de usuario de Discord").setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(coCaptainIdInput));
         } else if (action === 'report_result_start') {
             const matchId = p1;
             const { partido } = findMatch(tournament, matchId);
@@ -82,6 +77,25 @@ export async function handleButton(interaction) {
     }
 
     // --- ACCIONES QUE NO REQUIEREN MODAL ---
+
+    // NUEVO: Lógica para el botón de invitar co-capitán con menú de selección
+    if (action === 'invite_cocaptain_start') {
+        const [tournamentShortId] = params;
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId(`invite_cocaptain_select:${tournamentShortId}`)
+            .setPlaceholder('Busca y selecciona al usuario para invitar...')
+            .setMinValues(1)
+            .setMaxValues(1);
+        
+        const row = new ActionRowBuilder().addComponents(userSelectMenu);
+        
+        await interaction.reply({
+            content: 'Selecciona al miembro del servidor que quieres invitar como co-capitán.',
+            components: [row],
+            flags: [MessageFlags.Ephemeral]
+        });
+        return;
+    }
     
     if (action === 'admin_force_reset_bot') {
         const modal = new ModalBuilder().setCustomId('admin_force_reset_modal').setTitle('⚠️ CONFIRMAR RESET FORZOSO ⚠️');
@@ -161,7 +175,6 @@ export async function handleButton(interaction) {
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Aprobado por ${interaction.user.tag}`}).setColor('#2ecc71');
         
-        // Deshabilitar todos los botones de la fila
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
 
