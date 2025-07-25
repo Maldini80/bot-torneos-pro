@@ -58,7 +58,7 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
-// CORRECCIÓN: Nueva lógica de prioridad de iconos.
+// CORRECCIÓN: Lógica de prioridad de iconos mejorada.
 export async function updateTournamentChannelName(client) {
     try {
         const db = getDb();
@@ -66,21 +66,23 @@ export async function updateTournamentChannelName(client) {
         
         let icon;
         
+        // 1. ¿Hay algún torneo con inscripciones abiertas Y plazas libres?
         const hasOpenForRegistration = activeTournaments.some(t => 
             t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length < t.config.format.size
         );
         
+        // 2. ¿Hay algún torneo lleno o en juego?
         const hasFullOrInProgress = activeTournaments.some(t => 
-            (t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size) ||
-            !['inscripcion_abierta', 'finalizado', 'archivado', 'cancelado'].includes(t.status)
+            (t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size) || // Lleno
+            (!['inscripcion_abierta', 'finalizado', 'archivado', 'cancelado'].includes(t.status)) // En juego
         );
 
         if (hasOpenForRegistration) {
-            icon = '🟢';
+            icon = '🟢'; // Prioridad 1: Verde si hay plazas.
         } else if (hasFullOrInProgress) {
-            icon = '🔵'; // Azul si no hay abiertos pero sí llenos o en juego.
+            icon = '🔵'; // Prioridad 2: Azul si no hay plazas pero sí torneos activos.
         } else {
-            icon = '🔴'; // Rojo si no hay nada.
+            icon = '🔴'; // Por defecto: Rojo si no hay nada activo.
         }
         
         const newChannelName = `${icon} 📢-torneos-tournaments`;
