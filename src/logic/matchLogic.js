@@ -6,18 +6,18 @@ import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCr
 import { updateTournamentManagementThread, updateTournamentChannelName } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
-// NUEVO: Función para finalizar y eliminar el hilo de un partido de forma segura
-async function finalizeMatchThread(client, partido, resultString) {
-    if (!partido.threadId) return;
+// AHORA SE EXPORTA para poder usarla desde el modalHandler
+export async function finalizeMatchThread(client, partido, resultString) {
+    if (!partido || !partido.threadId) return;
 
     try {
-        const thread = await client.channels.fetch(partido.threadId);
+        const thread = await client.channels.fetch(partido.threadId).catch(() => null);
         if (thread) {
             const finalMessage = `✅ **Resultado final confirmado:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}.\n\nEste hilo se eliminará automáticamente en 10 segundos.`;
             await thread.send(finalMessage);
             // Espera para dar tiempo a leer el mensaje antes de borrar
             await new Promise(resolve => setTimeout(resolve, 10000));
-            await thread.delete('Partido finalizado.');
+            await thread.delete('Partido finalizado.').catch(() => {}); // Añadimos catch por si acaso
         }
     } catch (error) {
         // Si el hilo no se encuentra (código 10003) o ya fue borrado, no es un error fatal.
@@ -35,10 +35,7 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     const { partido, fase } = findMatch(currentTournament, matchId);
     if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
 
-    // Evitar doble procesamiento si ya tiene resultado
     if (partido.resultado) {
-        console.warn(`[WARN] Se intentó procesar un resultado para un partido ya finalizado: ${matchId}`);
-        // Puede que se necesite revertir estadísticas si es una corrección
         await revertStats(currentTournament, partido);
     }
     
@@ -47,9 +44,6 @@ export async function processMatchResult(client, guild, tournament, matchId, res
 
     await updateMatchThreadName(client, partido);
     
-    // La eliminación del hilo se hará después de toda la lógica
-    const shouldDeleteThread = true;
-
     if (fase === 'grupos') {
         await updateGroupStageStats(currentTournament, partido);
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
@@ -69,11 +63,9 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
-    
-    // NUEVO: Llamada a la eliminación del hilo al final del todo
-    if (shouldDeleteThread) {
-        await finalizeMatchThread(client, partido, resultString);
-    }
+
+    // Devolvemos el partido procesado para que el llamador pueda usarlo
+    return partido;
 }
 
 
@@ -215,18 +207,16 @@ async function startNextKnockoutRound(client, guild, tournament) {
     if (indiceRondaActual === -1) { // Lógica para la PRIMERA ronda eliminatoria (Grupos -> Eliminatoria)
         const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
         
-        // CASO ESPECIAL: 8 equipos con semifinales y cruce fijo
         if (currentTournament.config.formatId === '8_teams_semis_classic') {
             const grupoA = [...currentTournament.structure.grupos['Grupo A'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo A'));
             const grupoB = [...currentTournament.structure.grupos['Grupo B'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo B'));
             partidos = [
-                createMatchObject(null, siguienteRonda, grupoA[0], grupoB[1]), // 1ºA vs 2ºB
-                createMatchObject(null, siguienteRonda, grupoB[0], grupoA[1])  // 1ºB vs 2ºA
+                createMatchObject(null, siguienteRonda, grupoA[0], grupoB[1]),
+                createMatchObject(null, siguienteRonda, grupoB[0], grupoA[1])
             ];
         } else {
-            // LÓGICA DE BOMBOS para el resto de torneos
-            const bombo1 = []; // 1º de cada grupo
-            const bombo2 = []; // 2º de cada grupo
+            const bombo1 = [];
+            const bombo2 = [];
             for (const groupName of gruposOrdenados) {
                 const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
                 if (grupoOrdenado[0]) bombo1.push(JSON.parse(JSON.stringify(grupoOrdenado[0])));
@@ -236,13 +226,13 @@ async function startNextKnockoutRound(client, guild, tournament) {
             }
             partidos = crearPartidosEliminatoriaConBombos(bombo1, bombo2, siguienteRonda);
         }
-    } else { // Lógica para rondas eliminatorias POSTERIORES (sorteo puro de ganadores)
+    } else {
         const partidosRondaAnterior = currentTournament.structure.eliminatorias[rondaActual];
         const clasificados = partidosRondaAnterior.map(p => {
             const [golesA, golesB] = p.resultado.split('-').map(Number);
             return golesA > golesB ? p.equipoA : p.equipoB;
         });
-        partidos = crearPartidosEliminatoria(clasificados, siguienteRonda); // Sorteo aleatorio
+        partidos = crearPartidosEliminatoria(clasificados, siguienteRonda);
     }
 
     if (siguienteRonda === 'final') {
@@ -277,7 +267,6 @@ async function handleFinalResult(client, guild, tournament) {
     
     const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
     if(infoChannel) {
-        // NUEVO: Mención al capitán del equipo campeón
         const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();
         await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
     }
@@ -286,7 +275,6 @@ async function handleFinalResult(client, guild, tournament) {
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (notificationsThread) {
             const embedPagoCampeon = new EmbedBuilder().setColor('#ffd700').setTitle('🏆 PAGO PENDIENTE: CAMPEÓN').addFields({ name: 'Equipo', value: campeon.nombre }, { name: 'Capitán', value: campeon.capitanTag }, { name: 'PayPal a Pagar', value: `\`${campeon.paypal}\`` }, { name: 'Premio', value: `${tournament.config.prizeCampeon}€` });
-            // NUEVO: Botón para marcar como pagado
             const rowCampeon = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`admin_prize_paid:${tournament.shortId}:${campeon.capitanId}:campeon`).setLabel('Marcar Premio Campeón Pagado').setStyle(ButtonStyle.Success).setEmoji('💰')
             );
@@ -294,7 +282,6 @@ async function handleFinalResult(client, guild, tournament) {
         
             if (tournament.config.prizeFinalista > 0) {
                 const embedPagoFinalista = new EmbedBuilder().setColor('#C0C0C0').setTitle('🥈 PAGO PENDIENTE: FINALISTA').addFields({ name: 'Equipo', value: finalista.nombre }, { name: 'Capitán', value: finalista.capitanTag }, { name: 'PayPal a Pagar', value: `\`${finalista.paypal}\`` }, { name: 'Premio', value: `${tournament.config.prizeFinalista}€` });
-                // NUEVO: Botón para marcar como pagado
                 const rowFinalista = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`admin_prize_paid:${tournament.shortId}:${finalista.capitanId}:finalista`).setLabel('Marcar Premio Finalista Pagado').setStyle(ButtonStyle.Success).setEmoji('💰')
                 );
@@ -311,10 +298,8 @@ async function handleFinalResult(client, guild, tournament) {
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
 }
 
-// Sorteo aleatorio para rondas posteriores a la primera eliminatoria
 function crearPartidosEliminatoria(equipos, ronda) {
     let partidos = [];
-    // Algoritmo de Fisher-Yates para barajar los equipos
     for (let i = equipos.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [equipos[i], equipos[j]] = [equipos[j], equipos[i]];
@@ -328,10 +313,8 @@ function crearPartidosEliminatoria(equipos, ronda) {
     return partidos;
 }
 
-// NUEVO: Función para crear partidos con sistema de bombos (1º vs 2º)
 function crearPartidosEliminatoriaConBombos(bombo1, bombo2, ronda) {
     let partidos = [];
-    // Barajar ambos bombos de forma independiente
     for (let i = bombo1.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [bombo1[i], bombo1[j]] = [bombo1[j], bombo1[i]];
@@ -341,7 +324,6 @@ function crearPartidosEliminatoriaConBombos(bombo1, bombo2, ronda) {
         [bombo2[i], bombo2[j]] = [bombo2[j], bombo2[i]];
     }
 
-    // Emparejar un equipo de cada bombo
     const numPartidos = Math.min(bombo1.length, bombo2.length);
     for (let i = 0; i < numPartidos; i++) {
         partidos.push(createMatchObject(null, ronda, bombo1[i], bombo2[i]));
@@ -369,7 +351,7 @@ function sortTeams(a, b, tournament, groupName) {
             if (golesA > golesB) return 1;
         }
     }
-    return Math.random() - 0.5; // Desempate aleatorio si todo es igual
+    return Math.random() - 0.5;
 }
 
 async function revertStats(tournament, partido) {
