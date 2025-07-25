@@ -181,7 +181,8 @@ export async function handleModal(interaction) {
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         await updatePublicMessages(client, updatedTournament);
         await updateTournamentManagementThread(client, updatedTournament);
-        await updateTournamentChannelName(client);
+        // CORRECCIÓN DE RENDIMIENTO
+        updateTournamentChannelName(client);
         return;
     }
     if (action === 'report_result_modal') {
