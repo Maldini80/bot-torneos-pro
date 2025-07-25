@@ -141,12 +141,7 @@ export async function kickTeam(client, tournament, captainId) {
             } 
         }
     );
-
-    // Paso 3: Actualizar todos los mensajes públicos y el estado del canal
-    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-    await updatePublicMessages(client, updatedTournament);
-    await updateTournamentManagementThread(client, updatedTournament);
-    await updateTournamentChannelName(client);
+    // Ya no se actualizan los mensajes desde aquí
 }
 // --- FIN DE LA MODIFICACIÓN ---
 
