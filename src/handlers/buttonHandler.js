@@ -2,7 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, addCoCaptain } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
@@ -24,18 +24,37 @@ export async function handleButton(interaction) {
         return;
     }
     if (action === 'inscribir_equipo_start') {
-        const [tournamentShortId] = params;
+        const [tournamentShortId, type] = params; // type puede ser 'reserva'
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
+        
         const captainId = interaction.user.id;
-        const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId];
+        const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
         if (isAlreadyRegistered) {
-            return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito en este torneo. No puedes registrarte dos veces.\n🇬🇧 You are already registered in this tournament. You cannot register twice.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the reserve list for this tournament.', flags: [MessageFlags.Ephemeral] });
         }
-        const modal = new ModalBuilder().setCustomId(`inscripcion_modal:${tournamentShortId}`).setTitle('Inscripción de Equipo / Team Registration');
+        
+        const modal = new ModalBuilder().setCustomId(`inscripcion_modal:${tournamentShortId}:${type || 'normal'}`).setTitle('Inscripción de Equipo / Team Registration');
         const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
         const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput), new ActionRowBuilder().addComponents(eafcNameInput));
+        await interaction.showModal(modal);
+        return;
+    }
+     if (action === 'request_kick_start') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
+
+        const captainId = interaction.user.id;
+        const teamData = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
+        if (!teamData) {
+            return interaction.reply({ content: '❌ No estás inscrito en este torneo.', flags: [MessageFlags.Ephemeral] });
+        }
+        
+        const modal = new ModalBuilder().setCustomId(`request_kick_modal:${tournamentShortId}:${captainId}`).setTitle('Solicitar Expulsión');
+        const reasonInput = new TextInputBuilder().setCustomId('kick_reason').setLabel("Motivo de la solicitud (opcional)").setStyle(TextInputStyle.Paragraph).setRequired(false);
+        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
         await interaction.showModal(modal);
         return;
     }
@@ -56,6 +75,20 @@ export async function handleButton(interaction) {
         } catch (e) {
             await interaction.editReply('❌ No he podido enviarte un MD. Asegúrate de que tus mensajes directos no estén bloqueados.');
         }
+        return;
+    }
+     if (action === 'invite_cocaptain_start') {
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return;
+        const teamData = tournament.teams.aprobados[captainId];
+        if (teamData && teamData.coCaptainId) {
+            return interaction.reply({ content: '❌ Ya tienes un co-capitán en este torneo.', flags: [MessageFlags.Ephemeral] });
+        }
+        const modal = new ModalBuilder().setCustomId(`invite_cocaptain_modal:${tournamentShortId}:${captainId}`).setTitle('Invitar Co-Capitán');
+        const coCaptainIdInput = new TextInputBuilder().setCustomId('cocaptain_id_input').setLabel("ID de Usuario de Discord del Co-Capitán").setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(coCaptainIdInput));
+        await interaction.showModal(modal);
         return;
     }
 
@@ -126,6 +159,51 @@ export async function handleButton(interaction) {
         await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
         return;
     }
+    if (action === 'cocaptain_accept') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, captainId] = params;
+        const coCaptainId = interaction.user.id;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return;
+        
+        await addCoCaptain(client, tournament, captainId, coCaptainId);
+        
+        const captainUser = await client.users.fetch(captainId).catch(() => null);
+        if (captainUser) await captainUser.send(`✅ ¡Tu invitación ha sido **aceptada**! <@${coCaptainId}> es ahora tu co-capitán para el torneo **${tournament.nombre}**.`);
+        await interaction.editReply({ content: `✅ Has aceptado la invitación. Ahora eres co-capitán en el torneo **${tournament.nombre}**.`, components: [] });
+        return;
+    }
+    if (action === 'cocaptain_reject') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return;
+
+        const captainUser = await client.users.fetch(captainId).catch(() => null);
+        if(captainUser) await captainUser.send(`❌ <@${interaction.user.id}> ha **rechazado** tu invitación a co-capitán para el torneo **${tournament.nombre}**.`);
+        await interaction.editReply({ content: 'Has rechazado la invitación.', components: [] });
+        return;
+    }
+     if (action === 'payment_paid_notification') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [userId, type] = params; // type es 'campeon' o 'finalista'
+        const user = await client.users.fetch(userId).catch(() => null);
+        if (user) {
+            try {
+                await user.send(`💰 ¡Tu premio de **${type}** ha sido abonado! Gracias por participar en el torneo.`);
+                // Desactivar botón
+                const originalMessage = interaction.message;
+                const newButton = ButtonBuilder.from(originalMessage.components[0].components[0]).setDisabled(true).setLabel(`Pago Notificado`).setStyle(ButtonStyle.Secondary);
+                await originalMessage.edit({ components: [new ActionRowBuilder().addComponents(newButton)] });
+                await interaction.editReply({ content: `✅ Notificación de pago enviada a ${user.tag}.`});
+            } catch (e) {
+                await interaction.editReply({ content: `❌ No se pudo enviar MD a ${user.tag}.`});
+            }
+        } else {
+            await interaction.editReply({ content: '❌ No se encontró al usuario.'});
+        }
+        return;
+    }
     
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
@@ -135,10 +213,7 @@ export async function handleButton(interaction) {
         if (!tournament || !tournament.teams.pendientes[captainId]) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
         const teamData = tournament.teams.pendientes[captainId];
         await approveTeam(client, tournament, teamData);
-        try {
-            const user = await client.users.fetch(captainId);
-            await user.send(`✅ 🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado** para el torneo **${tournament.nombre}**.\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved** for the **${tournament.nombre}** tournament.`);
-        } catch (e) { console.warn(`No se pudo enviar MD de aprobación al usuario ${captainId}`); }
+        
         const kickButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_kick:${captainId}:${tournamentShortId}`).setLabel("Expulsar del Torneo / Kick from Tournament").setStyle(ButtonStyle.Danger));
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
@@ -157,12 +232,41 @@ export async function handleButton(interaction) {
             const user = await client.users.fetch(captainId);
             await user.send(`❌ 🇪🇸 Tu inscripción para el equipo **${teamData.nombre}** en el torneo **${tournament.nombre}** ha sido **rechazada**.\n🇬🇧 Your registration for the team **${teamData.nombre}** in the **${tournament.nombre}** tournament has been **rejected**.`);
         } catch (e) { console.warn(`No se pudo enviar MD de rechazo al usuario ${captainId}`); }
-        const kickButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_kick:${captainId}:${tournamentShortId}`).setLabel("Expulsar del Torneo / Kick from Tournament").setStyle(ButtonStyle.Danger).setDisabled(true));
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Rechazado por ${interaction.user.tag}`}).setColor('#e74c3c');
-        await originalMessage.edit({ embeds: [originalEmbed], components: [kickButton] });
+        await originalMessage.edit({ embeds: [originalEmbed], components: [] });
         await interaction.editReply(`❌ Equipo rechazado y capitán notificado.`);
+        return;
+    }
+    if (action === 'admin_approve_kick') {
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+        
+        await kickTeam(client, tournament, captainId);
+        
+        try {
+            const user = await client.users.fetch(captainId);
+            await user.send(`✅ Tu solicitud de expulsión del torneo **${tournament.nombre}** ha sido **aprobada** por un administrador.`);
+        } catch(e) {}
+        
+        await interaction.message.edit({ content: `✅ Solicitud de expulsión de <@${captainId}> **aprobada** por <@${interaction.user.id}>.`, embeds:[], components: [] });
+        await interaction.editReply({ content: 'Expulsión aprobada.'});
+        return;
+    }
+    if (action === 'admin_reject_kick') {
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+        
+         try {
+            const user = await client.users.fetch(captainId);
+            await user.send(`❌ Tu solicitud de expulsión del torneo **${tournament.nombre}** ha sido **rechazada** por un administrador.`);
+        } catch(e) {}
+        
+        await interaction.message.edit({ content: `❌ Solicitud de expulsión de <@${captainId}> **rechazada** por <@${interaction.user.id}>.`, embeds: [], components: [] });
+        await interaction.editReply({ content: 'Expulsión rechazada.'});
         return;
     }
     if (action === 'admin_kick') {
