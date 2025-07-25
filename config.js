@@ -81,6 +81,5 @@ export const TOURNAMENT_STATUS_ICONS = {
     cancelado: '🔴'
 };
 
-// --- NUEVA ADICIÓN ---
-// Enlace al PDF con las normas del torneo.
-export const RULES_PDF_URL = 'ENLACE_A_TU_PDF_DE_NORMAS_AQUI'; 
+// --- Enlace al PDF con las normas del torneo ---
+export const RULES_PDF_URL = 'https://cdn.discordapp.com/attachments/1396998137859543240/1398204787622936606/Normas_de_los_partidos_y_guia_de_como_reportar_.pdf?ex=6884832e&is=688331ae&hm=ba0c2c2c775d50c581904ce15d86b29c088877a9a14bae1ba83fde927d4755db&'; 
