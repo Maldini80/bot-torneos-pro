@@ -4,9 +4,8 @@ import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, addCoCaptain } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
-import { updateAdminPanel } from '../utils/panelManager.js';
+import { updateAdminPanel, updateTournamentChannelName, updateTournamentManagementThread, updatePublicMessages } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
-import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
 export async function handleButton(interaction) {
     const customId = interaction.customId;
@@ -41,14 +40,12 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
-    // --- INICIO DE LA MODIFICACIÓN ---
      if (action === 'request_kick_start') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
 
         const captainId = interaction.user.id;
-        // Comprobar si el usuario está en alguna de las tres listas
         const isRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
         
         if (!isRegistered) {
@@ -61,7 +58,6 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
     if (action === 'user_view_participants') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -261,12 +257,10 @@ export async function handleButton(interaction) {
         return;
     }
     if (action === 'admin_approve_kick') {
-        // --- INICIO DE LA CORRECCIÓN ---
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        // --- FIN DE LA CORRECCIÓN ---
 
         const [tournamentShortId, captainId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         
         await kickTeam(client, tournament, captainId);
@@ -276,14 +270,21 @@ export async function handleButton(interaction) {
             await user.send(`✅ Tu solicitud de baja del torneo **${tournament.nombre}** ha sido **aprobada** por un administrador.`);
         } catch(e) {}
         
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Actualizar todo DESPUÉS de responder al admin
         await interaction.message.edit({ content: `✅ Solicitud de baja de <@${captainId}> **aprobada** por <@${interaction.user.id}>.`, embeds:[], components: [] });
         await interaction.editReply({ content: 'Baja del equipo aprobada.'});
+
+        // Llamar a todas las funciones de actualización
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        await updatePublicMessages(client, updatedTournament);
+        await updateTournamentManagementThread(client, updatedTournament);
+        await updateTournamentChannelName(client);
+        // --- FIN DE LA CORRECCIÓN ---
         return;
     }
     if (action === 'admin_reject_kick') {
-        // --- INICIO DE LA CORRECCIÓN ---
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        // --- FIN DE LA CORRECCIÓN ---
 
         const [tournamentShortId, captainId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
