@@ -8,6 +8,10 @@ import { handleModal } from './src/handlers/modalHandler.js';
 import { handleSelectMenu } from './src/handlers/selectMenuHandler.js';
 import { handleMessageTranslation } from './src/logic/translationLogic.js';
 import { updateTournamentChannelName, updateAdminPanel, updateAllManagementPanels } from './src/utils/panelManager.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se importa la configuración de canales para usarla en el nuevo listener
+import { CHANNELS } from './config.js';
+// --- FIN DE LA MODIFICACIÓN ---
 
 process.on('uncaughtException', (error, origin) => {
     console.error('💥 ERROR FATAL NO CAPTURADO:');
@@ -132,6 +136,24 @@ client.on(Events.MessageCreate, async message => {
         console.error("Error en el detector de enlaces de pruebas:", error);
     }
 });
+
+// --- INICIO DE LA MODIFICACIÓN ---
+// NUEVO LISTENER: Se activa cada vez que un mensaje es borrado.
+client.on(Events.MessageDelete, async message => {
+    // El objeto 'message' puede ser parcial. Usamos message.channelId que es más fiable.
+    // Si el mensaje borrado no es del canal de estado de torneos, no hacemos nada.
+    if (message.channelId !== CHANNELS.TORNEOS_STATUS) return;
+
+    // Si el mensaje borrado no era del bot, no nos interesa.
+    // Usamos ?. por si el mensaje es muy antiguo y no está en la caché.
+    if (message.author?.id !== client.user.id) return;
+    
+    // Si el mensaje borrado era un panel de torneo en el canal correcto,
+    // forzamos una actualización del nombre del canal.
+    console.log(`[SYNC] Panel de torneo borrado en el canal de estado. Forzando actualización de icono.`);
+    updateTournamentChannelName(client);
+});
+// --- FIN DE LA MODIFICACIÓN ---
 
 async function startBot() {
     await connectDb();
