@@ -198,8 +198,24 @@ async function startNextKnockoutRound(client, guild, tournament) {
     currentTournament.structure.eliminatorias.rondaActual = siguienteRonda;
 
     let partidos;
-    if (indiceRondaActual === -1) {
-        if (currentTournament.config.formatId === '8_teams_semis_classic') {
+    if (indiceRondaActual === -1) { // Lógica para la primera ronda eliminatoria (desde grupos)
+        // --- INICIO DE LA MODIFICACIÓN ---
+        const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
+        
+        if (format.qualifiersPerGroup === 1) {
+            // LÓGICA CORREGIDA: para formatos de 1 clasificado por grupo
+            const clasificados = [];
+            for (const groupName of gruposOrdenados) {
+                const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
+                if (grupoOrdenado[0]) {
+                    clasificados.push(JSON.parse(JSON.stringify(grupoOrdenado[0])));
+                }
+            }
+            // Usamos la función de emparejamiento aleatorio para un solo bombo
+            partidos = crearPartidosEliminatoria(clasificados, siguienteRonda);
+
+        } else if (currentTournament.config.formatId === '8_teams_semis_classic') {
+            // Mantenemos la lógica específica que ya funcionaba para este formato
             const grupoA = [...currentTournament.structure.grupos['Grupo A'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo A'));
             const grupoB = [...currentTournament.structure.grupos['Grupo B'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo B'));
             partidos = [
@@ -207,9 +223,9 @@ async function startNextKnockoutRound(client, guild, tournament) {
                 createMatchObject(null, siguienteRonda, grupoB[0], grupoA[1])
             ];
         } else {
+            // LÓGICA ORIGINAL: para formatos de 2 clasificados por grupo (1ros vs 2dos)
             const bombo1 = [];
             const bombo2 = [];
-            const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
             for (const groupName of gruposOrdenados) {
                 const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
                 if (grupoOrdenado[0]) bombo1.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[0])), group: groupName });
@@ -219,13 +235,23 @@ async function startNextKnockoutRound(client, guild, tournament) {
             }
             partidos = crearPartidosEvitandoMismoGrupo(bombo1, bombo2, siguienteRonda);
         }
-    } else {
+        // --- FIN DE LA MODIFICACIÓN ---
+    } else { // Lógica para rondas eliminatorias posteriores
         const partidosRondaAnterior = currentTournament.structure.eliminatorias[rondaActual];
         const clasificados = partidosRondaAnterior.map(p => {
             const [golesA, golesB] = p.resultado.split('-').map(Number);
             return golesA > golesB ? p.equipoA : p.equipoB;
         });
         partidos = crearPartidosEliminatoria(clasificados, siguienteRonda);
+    }
+
+    if (!partidos || partidos.length === 0) {
+        console.error(`[FATAL ERROR] No se generaron partidos para la ronda '${siguienteRonda}' del torneo ${currentTournament.shortId}. Abortando avance.`);
+        // Revertimos el estado para evitar que el torneo se quede bloqueado
+        currentTournament.status = rondaActual || 'fase_de_grupos';
+        currentTournament.structure.eliminatorias.rondaActual = rondaActual;
+        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "status": currentTournament.status, "structure.eliminatorias.rondaActual": currentTournament.structure.eliminatorias.rondaActual }});
+        return;
     }
 
     if (siguienteRonda === 'final') {
@@ -292,6 +318,7 @@ async function handleFinalResult(client, guild, tournament) {
 
 function crearPartidosEliminatoria(equipos, ronda) {
     let partidos = [];
+    // Barajamos la lista de equipos para que los emparejamientos sean aleatorios
     for (let i = equipos.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [equipos[i], equipos[j]] = [equipos[j], equipos[i]];
