@@ -58,42 +58,52 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
-// CORRECCIÓN DE RENDIMIENTO: Lógica reescrita para ser más eficiente.
+// --- INICIO DE LA MODIFICACIÓN ---
+// CORRECCIÓN: Lógica reescrita para no usar la base de datos.
+// Ahora lee los emojis de los embeds en el propio canal de estado.
 export function updateTournamentChannelName(client) {
-    // Se ejecuta sin async/await para no bloquear el hilo principal.
-    // El cambio de nombre es una tarea de fondo.
-    const db = getDb();
-    db.collection('tournaments').find(
-        { status: { $nin: ['finalizado', 'archivado', 'cancelado'] } },
-        // Proyección para obtener solo los campos necesarios, mucho más rápido.
-        { projection: { status: 1, 'teams.aprobados': 1, 'config.format.size': 1 } }
-    ).toArray().then(activeTournaments => {
-        let icon;
-        
-        const hasOpenForRegistration = activeTournaments.some(t => 
-            t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length < t.config.format.size
-        );
-        
-        const hasFullOrInProgress = activeTournaments.some(t => 
-            (t.status === 'inscripcion_abierta' && Object.keys(t.teams.aprobados).length >= t.config.format.size) ||
-            !['inscripcion_abierta', 'finalizado', 'archivado', 'cancelado'].includes(t.status)
-        );
+    // Se ejecuta sin async/await para no bloquear. Es una tarea de fondo.
+    client.channels.fetch(CHANNELS.TORNEOS_STATUS)
+        .then(async (channel) => {
+            if (!channel) {
+                console.warn("[WARN] No se pudo encontrar el canal de estado de torneos para renombrarlo.");
+                return;
+            }
 
-        if (hasOpenForRegistration) {
-            icon = '🟢';
-        } else if (hasFullOrInProgress) {
-            icon = '🔵';
-        } else {
-            icon = '🔴';
-        }
-        
-        const newChannelName = `${icon} 📢-torneos-tournaments`;
-        
-        client.channels.fetch(CHANNELS.TORNEOS_STATUS).then(channel => {
-            if (channel && channel.name !== newChannelName) {
+            const messages = await channel.messages.fetch({ limit: 50 });
+            // Filtramos por embeds que realmente tengan un título para evitar errores
+            const tournamentEmbeds = messages.filter(m => m.author.id === client.user.id && m.embeds.length > 0 && m.embeds[0].title);
+
+            if (tournamentEmbeds.size === 0) {
+                // Si no hay embeds, no hay torneos, por lo tanto rojo.
+                const newChannelName = `🔴 📢-torneos-tournaments`;
+                if (channel.name !== newChannelName) {
+                    channel.setName(newChannelName).catch(e => console.warn("Fallo al renombrar canal a rojo:", e.message));
+                }
+                return;
+            }
+
+            const titles = tournamentEmbeds.map(m => m.embeds[0].title);
+            let icon = '🔴'; // Por defecto es rojo
+
+            // Prioridad 1: Si hay al menos un torneo con inscripciones abiertas (verde)
+            if (titles.some(title => title.startsWith(TOURNAMENT_STATUS_ICONS.inscripcion_abierta))) {
+                icon = '🟢';
+            }
+            // Prioridad 2: Si no hay verdes, pero hay alguno en juego o lleno (azul/morado/naranja)
+            else if (titles.some(title =>
+                title.startsWith(TOURNAMENT_STATUS_ICONS.cupo_lleno) ||
+                title.startsWith(TOURNAMENT_STATUS_ICONS.fase_de_grupos) ||
+                title.startsWith(TOURNAMENT_STATUS_ICONS.octavos) // Este icono '🟣' cubre cuartos, semis, etc.
+            )) {
+                icon = '🔵';
+            }
+
+            const newChannelName = `${icon} 📢-torneos-tournaments`;
+            if (channel.name !== newChannelName) {
                 channel.setName(newChannelName.slice(0, 100)).catch(e => console.warn("Fallo al renombrar canal de estado:", e.message));
             }
-        }).catch(e => console.warn("[WARN] No se pudo encontrar el canal de estado de torneos.", e.message));
-
-    }).catch(e => console.error("Error al consultar torneos para actualizar nombre de canal:", e));
+        })
+        .catch(e => console.warn("[WARN] Error crítico al intentar actualizar el nombre del canal de estado.", e.message));
 }
+// --- FIN DE LA MODIFICACIÓN ---
