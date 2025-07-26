@@ -80,7 +80,6 @@ export async function approveTeam(client, tournament, teamData) {
         await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
         await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
 
-        // CORRECCIÓN: Se crea el botón de invitación aquí.
         const inviteButtonRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`invite_cocaptain_start:${latestTournament.shortId}`)
@@ -89,13 +88,11 @@ export async function approveTeam(client, tournament, teamData) {
                 .setEmoji('🤝')
         );
 
-        // CORRECCIÓN: El botón ahora se envía al canal de chat del torneo, que tiene contexto de servidor.
         await chatChannel.send({
             content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a un co-capitán.*`,
             components: [inviteButtonRow]
         });
 
-        // CORRECCIÓN: El MD ahora es solo un mensaje informativo, sin botones.
         const user = await client.users.fetch(teamData.capitanId);
         const embed = new EmbedBuilder()
             .setColor('#2ecc71')
@@ -174,7 +171,10 @@ export async function kickTeam(client, tournament, captainId) {
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Se añade la llamada aquí para asegurar que si se abre un cupo, el icono se actualice.
     updateTournamentChannelName(client);
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 
@@ -323,6 +323,10 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament); 
     await updateTournamentManagementThread(client, updatedTournament);
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Se añade la llamada aquí para asegurar que si se cambia el tamaño, el icono se actualice.
+    updateTournamentChannelName(client);
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function addTeamToWaitlist(client, tournament, teamData) {
