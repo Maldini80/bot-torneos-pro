@@ -105,22 +105,48 @@ export async function handleButton(interaction) {
         return;
     }
     
+    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'user_view_participants') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
+
         const approvedTeams = Object.values(tournament.teams.aprobados);
-        let teamList = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
+        const waitlistedTeams = tournament.teams.reserva ? Object.values(tournament.teams.reserva) : [];
+
+        let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
+
         if (approvedTeams.length > 0) {
-            teamList = approvedTeams.map((team, index) => {
+            description = approvedTeams.map((team, index) => {
                 let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}`;
                 if (team.coCaptainTag) teamString += `, Co-Cap: ${team.coCaptainTag}`;
                 teamString += `)`;
                 return teamString;
             }).join('\n');
         }
-        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Participantes: ${tournament.nombre}`).setDescription(teamList);
+
+        if (waitlistedTeams.length > 0) {
+            const waitlistDescription = waitlistedTeams.map((team, index) => {
+                 let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag})`;
+                 return teamString;
+            }).join('\n');
+            
+            if(approvedTeams.length > 0) {
+                // Si ya hay equipos aprobados, añade un separador
+                description += `\n\n---\n`;
+                description += `📋 **Lista de Reserva / Waitlist**\n${waitlistDescription}`;
+            } else {
+                // Si no hay equipos aprobados, reemplaza el mensaje inicial
+                description = `📋 **Lista de Reserva / Waitlist**\n${waitlistDescription}`;
+            }
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle(`Participantes: ${tournament.nombre}`)
+            .setDescription(description);
+
         try {
             await interaction.user.send({ embeds: [embed] });
             await interaction.editReply('✅ Te he enviado la lista de participantes por Mensaje Directo.');
@@ -129,6 +155,7 @@ export async function handleButton(interaction) {
         }
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'request_referee') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
