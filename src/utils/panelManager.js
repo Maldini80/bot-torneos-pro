@@ -58,47 +58,22 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
-export function updateTournamentChannelName(client) {
-    // Se ejecuta sin async/await para no bloquear. Es una tarea de fondo.
-    client.channels.fetch(CHANNELS.TORNEOS_STATUS)
-        .then(async (channel) => {
-            if (!channel) {
-                console.warn("[WARN] No se pudo encontrar el canal de estado de torneos para renombrarlo.");
-                return;
-            }
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se reemplaza la función compleja por una simple que solo establece el icono que se le pasa.
+export async function setChannelIcon(client, icon) {
+    try {
+        const channel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        if (!channel) {
+            console.warn("[WARN] No se pudo encontrar el canal de estado de torneos para renombrarlo.");
+            return;
+        }
 
-            // --- INICIO DE LA CORRECCIÓN ---
-            // Forzamos la lectura desde la API de Discord, ignorando la caché local.
-            const messages = await channel.messages.fetch({ limit: 50, cache: false });
-            // --- FIN DE LA CORRECCIÓN ---
-
-            const tournamentEmbeds = messages.filter(m => m.author.id === client.user.id && m.embeds.length > 0 && m.embeds[0].title);
-
-            let icon = '🔴'; // Por defecto, rojo (sin torneos activos)
-
-            if (tournamentEmbeds.size > 0) {
-                const titles = tournamentEmbeds.map(m => m.embeds[0].title);
-
-                // Prioridad 2: Comprobar si hay torneos en juego o llenos.
-                if (titles.some(title =>
-                    title.startsWith(TOURNAMENT_STATUS_ICONS.cupo_lleno) ||
-                    title.startsWith(TOURNAMENT_STATUS_ICONS.fase_de_grupos) ||
-                    title.startsWith(TOURNAMENT_STATUS_ICONS.octavos) 
-                )) {
-                    icon = '🔵';
-                }
-                
-                // Prioridad 1: Comprobar si hay torneos con inscripción abierta (VERDE).
-                // Esto SOBRESCRIBE cualquier otro estado anterior.
-                if (titles.some(title => title.startsWith(TOURNAMENT_STATUS_ICONS.inscripcion_abierta))) {
-                    icon = '🟢';
-                }
-            }
-
-            const newChannelName = `${icon} 📢-torneos-tournaments`;
-            if (channel.name !== newChannelName) {
-                channel.setName(newChannelName.slice(0, 100)).catch(e => console.warn("Fallo al renombrar canal de estado:", e.message));
-            }
-        })
-        .catch(e => console.warn("[WARN] Error crítico al intentar actualizar el nombre del canal de estado.", e.message));
+        const newChannelName = `${icon} 📢-torneos-tournaments`;
+        if (channel.name !== newChannelName) {
+            await channel.setName(newChannelName.slice(0, 100));
+        }
+    } catch (e) {
+        console.warn("[WARN] Error crítico al intentar actualizar el nombre del canal de estado.", e);
+    }
 }
+// --- FIN DE LA MODIFICACIÓN ---
