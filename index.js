@@ -1,16 +1,12 @@
 // index.js (Archivo Raíz)
-import { Client, GatewayIntentBits, Collection } from 'discord.js';
-import { TOKEN } from './config.js';
-import { connectDb, getDb } from './database.js';
+import { Client, GatewayIntentBits } from 'discord.js';
+import { connectDb } from './database.js';
 import { handleCommand } from './src/handlers/commandHandler.js';
 import { handleButton } from './src/handlers/buttonHandler.js';
 import { handleModal } from './src/handlers/modalHandler.js';
 import { handleSelectMenu } from './src/handlers/selectMenuHandler.js';
 import { handleMessageTranslation } from './src/logic/translationLogic.js';
-// --- INICIO DE LA CORRECCIÓN ---
-// Se elimina la importación de la función que ya no existe para prevenir el error de arranque.
 import { updateAdminPanel, updateAllManagementPanels } from './src/utils/panelManager.js';
-// --- FIN DE LA CORRECCIÓN ---
 
 const client = new Client({
     intents: [
@@ -34,16 +30,18 @@ export async function setBotBusy(state) {
 client.once('ready', async () => {
     console.log(`✅ Bot conectado como ${client.user.tag}`);
     try {
+        const guildId = process.env.GUILD_ID;
+        if (!guildId) {
+            console.error("[CACHE] ERROR: La variable de entorno GUILD_ID no está configurada.");
+            return;
+        }
         console.log('[CACHE] Forzando la carga de la lista de miembros del servidor...');
-        await client.guilds.cache.get('YOUR_GUILD_ID').members.fetch(); // Reemplaza YOUR_GUILD_ID con la ID de tu servidor
-        console.log(`[CACHE] Carga completa. ${client.guilds.cache.get('YOUR_GUILD_ID').members.cache.size} miembros están ahora en la caché.`);
+        const guild = await client.guilds.fetch(guildId);
+        await guild.members.fetch();
+        console.log(`[CACHE] Carga completa. ${guild.members.cache.size} miembros están ahora en la caché.`);
     } catch (e) {
         console.error("[CACHE] No se pudo forzar la carga de miembros:", e.message);
     }
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se elimina la llamada a la función que ya no existe.
-    // updateTournamentChannelName(client); 
-    // --- FIN DE LA CORRECCIÓN ---
 });
 
 client.on('interactionCreate', async interaction => {
@@ -74,7 +72,8 @@ client.on('messageCreate', async message => {
 
 async function start() {
     await connectDb();
-    await client.login(TOKEN);
+    // Usamos la variable de entorno directamente, que es la forma correcta
+    await client.login(process.env.DISCORD_TOKEN);
 }
 
 start();
