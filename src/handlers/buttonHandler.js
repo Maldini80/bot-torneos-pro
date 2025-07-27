@@ -5,8 +5,8 @@ import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 // --- INICIO DE LA MODIFICACIÓN ---
-// Importamos la función que vamos a llamar manualmente.
-import { updateAdminPanel, updateTournamentChannelName } from '../utils/panelManager.js';
+// Se elimina la importación innecesaria de updateTournamentChannelName
+import { updateAdminPanel } from '../utils/panelManager.js';
 // --- FIN DE LA MODIFICACIÓN ---
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName } from '../utils/tournamentUtils.js';
@@ -19,7 +19,6 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // CORRECCIÓN: Se elimina 'invite_cocaptain_start' de la lista de modales.
     const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'inscribir_equipo_start', 'inscribir_reserva_start'];
     if (modalActions.includes(action)) {
         const [p1, p2] = params;
@@ -82,16 +81,43 @@ export async function handleButton(interaction) {
     // --- ACCIONES QUE NO REQUIEREN MODAL ---
 
     // --- INICIO DE LA MODIFICACIÓN ---
-    // Añadimos la lógica para nuestro nuevo botón
+    // Se cambia la lógica del botón para que muestre un menú desplegable de selección manual.
     if (action === 'admin_update_channel_status') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        updateTournamentChannelName(client);
-        await interaction.editReply({ content: '✅ Estado del canal de torneos actualizado manualmente.' });
+        const statusMenu = new StringSelectMenuBuilder()
+            .setCustomId('admin_set_channel_icon')
+            .setPlaceholder('Selecciona el estado del canal manualmente')
+            .addOptions([
+                {
+                    label: 'Verde (Inscripciones Abiertas)',
+                    description: 'Hay torneos con plazas libres.',
+                    value: '🟢',
+                    emoji: '🟢'
+                },
+                {
+                    label: 'Azul (Torneos en Juego)',
+                    description: 'Hay torneos en progreso o llenos.',
+                    value: '🔵',
+                    emoji: '🔵'
+                },
+                {
+                    label: 'Rojo (Inactivo)',
+                    description: 'No hay torneos activos.',
+                    value: '🔴',
+                    emoji: '🔴'
+                }
+            ]);
+
+        const row = new ActionRowBuilder().addComponents(statusMenu);
+
+        await interaction.reply({
+            content: 'Elige qué icono de estado quieres establecer para el canal de torneos:',
+            components: [row],
+            flags: [MessageFlags.Ephemeral]
+        });
         return;
     }
     // --- FIN DE LA MODIFICACIÓN ---
 
-    // NUEVO: Lógica para el botón de invitar co-capitán con menú de selección
     if (action === 'invite_cocaptain_start') {
         const [tournamentShortId] = params;
         const userSelectMenu = new UserSelectMenuBuilder()
@@ -118,7 +144,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'user_view_participants') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -146,11 +171,9 @@ export async function handleButton(interaction) {
             }).join('\n');
             
             if(approvedTeams.length > 0) {
-                // Si ya hay equipos aprobados, añade un separador
                 description += `\n\n---\n`;
                 description += `📋 **Lista de Reserva / Waitlist**\n${waitlistDescription}`;
             } else {
-                // Si no hay equipos aprobados, reemplaza el mensaje inicial
                 description = `📋 **Lista de Reserva / Waitlist**\n${waitlistDescription}`;
             }
         }
@@ -168,7 +191,6 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'request_referee') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -198,7 +220,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- LÓGICA DE BOTONES QUE REQUIEREN DEFER ---
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
     if (action === 'admin_approve') {
@@ -311,8 +332,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- NUEVA LÓGICA DE BOTONES ---
-
     if (action === 'cocaptain_accept') {
         const [tournamentShortId, captainId, coCaptainId] = params;
         if (interaction.user.id !== coCaptainId) return interaction.editReply({ content: "Esta invitación no es para ti." });
