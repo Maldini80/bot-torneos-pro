@@ -274,7 +274,7 @@ async function startNextKnockoutRound(client, guild, tournament) {
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
-    await updateTournamentChannelName(client);
+    // await updateTournamentChannelName(client); // LÍNEA ELIMINADA
 }
 
 async function handleFinalResult(client, guild, tournament) {
@@ -310,7 +310,7 @@ async function handleFinalResult(client, guild, tournament) {
     
     const db = getDb();
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
-    await updateTournamentChannelName(client);
+    // await updateTournamentChannelName(client); // LÍNEA ELIMINADA
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
