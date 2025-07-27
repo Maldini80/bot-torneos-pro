@@ -3,10 +3,10 @@ import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
 import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed } from '../utils/embeds.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se elimina 'updateTournamentChannelName' de esta importación porque ya no existe ni se usa aquí.
+// --- INICIO DE LA CORRECCIÓN ---
+// Se elimina la importación de la función que ya no existe.
 import { updateAdminPanel, updateTournamentManagementThread } from '../utils/panelManager.js';
-// --- FIN DE LA MODIFICACIÓN ---
+// --- FIN DE LA CORRECCIÓN ---
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
