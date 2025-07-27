@@ -56,7 +56,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await setBotBusy(false); throw error;
     } finally {
         await setBotBusy(false);
-        updateTournamentChannelName(client, { forceIcon: '🟢' });
     }
 }
 
