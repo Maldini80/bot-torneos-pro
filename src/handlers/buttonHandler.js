@@ -4,10 +4,7 @@ import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se elimina la importación innecesaria de la función antigua.
 import { updateAdminPanel } from '../utils/panelManager.js';
-// --- FIN DE LA MODIFICACIÓN ---
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
@@ -19,6 +16,7 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
+    // CORRECCIÓN: Se elimina 'invite_cocaptain_start' de la lista de modales.
     const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'inscribir_equipo_start', 'inscribir_reserva_start'];
     if (modalActions.includes(action)) {
         const [p1, p2] = params;
@@ -81,7 +79,7 @@ export async function handleButton(interaction) {
     // --- ACCIONES QUE NO REQUIEREN MODAL ---
 
     // --- INICIO DE LA MODIFICACIÓN ---
-    // Se cambia la lógica del botón para que muestre un menú desplegable de selección manual.
+    // Se añade esta nueva lógica para el botón de actualizar canal.
     if (action === 'admin_update_channel_status') {
         const statusMenu = new StringSelectMenuBuilder()
             .setCustomId('admin_set_channel_icon')
@@ -117,7 +115,7 @@ export async function handleButton(interaction) {
         return;
     }
     // --- FIN DE LA MODIFICACIÓN ---
-
+    
     if (action === 'invite_cocaptain_start') {
         const [tournamentShortId] = params;
         const userSelectMenu = new UserSelectMenuBuilder()
