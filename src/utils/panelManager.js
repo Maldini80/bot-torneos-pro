@@ -58,8 +58,6 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
-// --- INICIO DE LA CORRECCIÓN ---
-// CORRECCIÓN: Lógica de prioridad de iconos reescrita para ser más robusta.
 export function updateTournamentChannelName(client) {
     // Se ejecuta sin async/await para no bloquear. Es una tarea de fondo.
     client.channels.fetch(CHANNELS.TORNEOS_STATUS)
@@ -69,8 +67,11 @@ export function updateTournamentChannelName(client) {
                 return;
             }
 
-            const messages = await channel.messages.fetch({ limit: 50 });
-            // Filtramos por embeds que realmente tengan un título para evitar errores
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Forzamos la lectura desde la API de Discord, ignorando la caché local.
+            const messages = await channel.messages.fetch({ limit: 50, cache: false });
+            // --- FIN DE LA CORRECCIÓN ---
+
             const tournamentEmbeds = messages.filter(m => m.author.id === client.user.id && m.embeds.length > 0 && m.embeds[0].title);
 
             let icon = '🔴'; // Por defecto, rojo (sin torneos activos)
@@ -79,17 +80,16 @@ export function updateTournamentChannelName(client) {
                 const titles = tournamentEmbeds.map(m => m.embeds[0].title);
 
                 // Prioridad 2: Comprobar si hay torneos en juego o llenos.
-                // Si los hay, el icono base será azul.
                 if (titles.some(title =>
                     title.startsWith(TOURNAMENT_STATUS_ICONS.cupo_lleno) ||
                     title.startsWith(TOURNAMENT_STATUS_ICONS.fase_de_grupos) ||
-                    title.startsWith(TOURNAMENT_STATUS_ICONS.octavos) // Este icono '🟣' cubre cuartos, semis, etc.
+                    title.startsWith(TOURNAMENT_STATUS_ICONS.octavos) 
                 )) {
                     icon = '🔵';
                 }
                 
-                // Prioridad 1: Comprobar si hay torneos con inscripción abierta.
-                // Si los hay, esto SOBRESCRIBE cualquier otro estado. Es la máxima prioridad.
+                // Prioridad 1: Comprobar si hay torneos con inscripción abierta (VERDE).
+                // Esto SOBRESCRIBE cualquier otro estado anterior.
                 if (titles.some(title => title.startsWith(TOURNAMENT_STATUS_ICONS.inscripcion_abierta))) {
                     icon = '🟢';
                 }
@@ -102,4 +102,3 @@ export function updateTournamentChannelName(client) {
         })
         .catch(e => console.warn("[WARN] Error crítico al intentar actualizar el nombre del canal de estado.", e.message));
 }
-// --- FIN DE LA CORRECCIÓN ---
