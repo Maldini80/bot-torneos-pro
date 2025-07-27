@@ -58,7 +58,6 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
-// --- INICIO DE LA MODIFICACIÓN ---
 export function updateTournamentChannelName(client, options = {}) {
     client.channels.fetch(CHANNELS.TORNEOS_STATUS)
         .then(async (channel) => {
@@ -109,4 +108,3 @@ export function updateTournamentChannelName(client, options = {}) {
         })
         .catch(e => console.warn("[WARN] Error crítico al intentar actualizar el nombre del canal de estado.", e.message));
 }
-// --- FIN DE LA MODIFICACIÓN ---
