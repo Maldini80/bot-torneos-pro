@@ -4,7 +4,10 @@ import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
-import { updateAdminPanel } from '../utils/panelManager.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Importamos la función que vamos a llamar manualmente.
+import { updateAdminPanel, updateTournamentChannelName } from '../utils/panelManager.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
@@ -77,6 +80,16 @@ export async function handleButton(interaction) {
     }
 
     // --- ACCIONES QUE NO REQUIEREN MODAL ---
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Añadimos la lógica para nuestro nuevo botón
+    if (action === 'admin_update_channel_status') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        updateTournamentChannelName(client);
+        await interaction.editReply({ content: '✅ Estado del canal de torneos actualizado manualmente.' });
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     // NUEVO: Lógica para el botón de invitar co-capitán con menú de selección
     if (action === 'invite_cocaptain_start') {
