@@ -4,7 +4,11 @@ import { createNewTournament, updateTournamentConfig, updatePublicMessages, forc
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG } from '../../config.js';
-import { updateTournamentManagementThread, updateTournamentChannelName } from '../utils/panelManager.js';
+// --- INICIO DE LA CORRECCIÓN ---
+// Se elimina la importación de la función que ya no existe para prevenir el error de arranque.
+import { updateTournamentManagementThread } from '../utils/panelManager.js';
+// --- FIN DE LA CORRECCIÓN ---
+
 
 export async function handleModal(interaction) {
     const customId = interaction.customId;
@@ -181,7 +185,6 @@ export async function handleModal(interaction) {
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         await updatePublicMessages(client, updatedTournament);
         await updateTournamentManagementThread(client, updatedTournament);
-        // updateTournamentChannelName(client); // LÍNEA ELIMINADA
         return;
     }
     if (action === 'report_result_modal') {
@@ -234,7 +237,6 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'invite_cocaptain_modal') {
-        // Esta sección ya no se usa, pero la dejamos por si acaso. La lógica ahora está en el selectMenuHandler.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -280,7 +282,6 @@ export async function handleModal(interaction) {
             );
 
             await coCaptainUser.send({ embeds: [embed], components: [row] });
-            // CORRECCIÓN: Se usa followUp en lugar de editReply para evitar el falso error de MD bloqueado.
             await interaction.followUp({ content: `✅ Invitación enviada a **${coCaptainUser.tag}**. Recibirá un MD para aceptar o rechazar.`, flags: [MessageFlags.Ephemeral] });
 
         } catch (error) {
