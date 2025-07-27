@@ -5,7 +5,7 @@ import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 // --- INICIO DE LA MODIFICACIÓN ---
-// Se elimina la importación innecesaria de updateTournamentChannelName
+// Se elimina la importación innecesaria de la función antigua.
 import { updateAdminPanel } from '../utils/panelManager.js';
 // --- FIN DE LA MODIFICACIÓN ---
 import { setBotBusy } from '../../index.js';
