@@ -3,7 +3,10 @@ import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
 import { updatePublicMessages, endTournament } from './tournamentLogic.js';
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
-import { updateTournamentManagementThread, updateTournamentChannelName } from '../utils/panelManager.js';
+// --- INICIO DE LA CORRECCIÓN ---
+// Se elimina la importación de la función que ya no existe.
+import { updateTournamentManagementThread } from '../utils/panelManager.js';
+// --- FIN DE LA CORRECCIÓN ---
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 export async function finalizeMatchThread(client, partido, resultString) {
@@ -199,11 +202,9 @@ async function startNextKnockoutRound(client, guild, tournament) {
 
     let partidos;
     if (indiceRondaActual === -1) { // Lógica para la primera ronda eliminatoria (desde grupos)
-        // --- INICIO DE LA MODIFICACIÓN ---
         const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
         
         if (format.qualifiersPerGroup === 1) {
-            // LÓGICA CORREGIDA: para formatos de 1 clasificado por grupo
             const clasificados = [];
             for (const groupName of gruposOrdenados) {
                 const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
@@ -211,11 +212,9 @@ async function startNextKnockoutRound(client, guild, tournament) {
                     clasificados.push(JSON.parse(JSON.stringify(grupoOrdenado[0])));
                 }
             }
-            // Usamos la función de emparejamiento aleatorio para un solo bombo
             partidos = crearPartidosEliminatoria(clasificados, siguienteRonda);
 
         } else if (currentTournament.config.formatId === '8_teams_semis_classic') {
-            // Mantenemos la lógica específica que ya funcionaba para este formato
             const grupoA = [...currentTournament.structure.grupos['Grupo A'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo A'));
             const grupoB = [...currentTournament.structure.grupos['Grupo B'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo B'));
             partidos = [
@@ -223,7 +222,6 @@ async function startNextKnockoutRound(client, guild, tournament) {
                 createMatchObject(null, siguienteRonda, grupoB[0], grupoA[1])
             ];
         } else {
-            // LÓGICA ORIGINAL: para formatos de 2 clasificados por grupo (1ros vs 2dos)
             const bombo1 = [];
             const bombo2 = [];
             for (const groupName of gruposOrdenados) {
@@ -235,7 +233,6 @@ async function startNextKnockoutRound(client, guild, tournament) {
             }
             partidos = crearPartidosEvitandoMismoGrupo(bombo1, bombo2, siguienteRonda);
         }
-        // --- FIN DE LA MODIFICACIÓN ---
     } else { // Lógica para rondas eliminatorias posteriores
         const partidosRondaAnterior = currentTournament.structure.eliminatorias[rondaActual];
         const clasificados = partidosRondaAnterior.map(p => {
@@ -247,7 +244,6 @@ async function startNextKnockoutRound(client, guild, tournament) {
 
     if (!partidos || partidos.length === 0) {
         console.error(`[FATAL ERROR] No se generaron partidos para la ronda '${siguienteRonda}' del torneo ${currentTournament.shortId}. Abortando avance.`);
-        // Revertimos el estado para evitar que el torneo se quede bloqueado
         currentTournament.status = rondaActual || 'fase_de_grupos';
         currentTournament.structure.eliminatorias.rondaActual = rondaActual;
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "status": currentTournament.status, "structure.eliminatorias.rondaActual": currentTournament.structure.eliminatorias.rondaActual }});
@@ -274,7 +270,6 @@ async function startNextKnockoutRound(client, guild, tournament) {
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
-    // await updateTournamentChannelName(client); // LÍNEA ELIMINADA
 }
 
 async function handleFinalResult(client, guild, tournament) {
@@ -310,7 +305,6 @@ async function handleFinalResult(client, guild, tournament) {
     
     const db = getDb();
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
-    // await updateTournamentChannelName(client); // LÍNEA ELIMINADA
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
@@ -318,7 +312,6 @@ async function handleFinalResult(client, guild, tournament) {
 
 function crearPartidosEliminatoria(equipos, ronda) {
     let partidos = [];
-    // Barajamos la lista de equipos para que los emparejamientos sean aleatorios
     for (let i = equipos.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [equipos[i], equipos[j]] = [equipos[j], equipos[i]];
@@ -332,10 +325,8 @@ function crearPartidosEliminatoria(equipos, ronda) {
     return partidos;
 }
 
-// CORRECCIÓN: Nueva función de sorteo que evita emparejamientos del mismo grupo.
 function crearPartidosEvitandoMismoGrupo(bombo1_data, bombo2_data, ronda) {
     const partidos = [];
-    // Barajar el bombo de segundos para aleatoriedad
     for (let i = bombo2_data.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [bombo2_data[i], bombo2_data[j]] = [bombo2_data[j], bombo2_data[i]];
@@ -345,7 +336,6 @@ function crearPartidosEvitandoMismoGrupo(bombo1_data, bombo2_data, ronda) {
         let opponentData = null;
         let opponentIndex = -1;
 
-        // Buscar un oponente de un grupo diferente
         for (let i = 0; i < bombo2_data.length; i++) {
             if (data1.group !== bombo2_data[i].group) {
                 opponentData = bombo2_data[i];
@@ -354,8 +344,6 @@ function crearPartidosEvitandoMismoGrupo(bombo1_data, bombo2_data, ronda) {
             }
         }
 
-        // Si no se encuentra (caso muy raro donde todos los restantes son del mismo grupo),
-        // se coge el primero disponible por defecto para evitar un error.
         if (!opponentData && bombo2_data.length > 0) {
             opponentData = bombo2_data[0];
             opponentIndex = 0;
@@ -363,7 +351,6 @@ function crearPartidosEvitandoMismoGrupo(bombo1_data, bombo2_data, ronda) {
         
         if (opponentData) {
             partidos.push(createMatchObject(null, ronda, data1.team, opponentData.team));
-            // Eliminar al oponente elegido de la lista para no volver a emparejarlo
             bombo2_data.splice(opponentIndex, 1);
         }
     }
