@@ -56,7 +56,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await setBotBusy(false); throw error;
     } finally {
         await setBotBusy(false);
-        // Llamamos a la función con la orden directa de poner el icono verde.
         updateTournamentChannelName(client, { forceIcon: '🟢' });
     }
 }
@@ -112,9 +111,7 @@ export async function approveTeam(client, tournament, teamData) {
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    // --- INICIO DE LA MODIFICACIÓN ---
     updateTournamentChannelName(client);
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
@@ -174,9 +171,7 @@ export async function kickTeam(client, tournament, captainId) {
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    // --- INICIO DE LA MODIFICACIÓN ---
     updateTournamentChannelName(client);
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 
@@ -191,7 +186,8 @@ export async function endTournament(client, tournament) {
     } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false);
-        updateTournamentChannelName(client);
+        // La actualización ahora se gestiona por el evento MessageDelete en index.js
+        // para máxima fiabilidad, así que la eliminamos de aquí.
     }
 }
 
@@ -238,11 +234,6 @@ export async function updatePublicMessages(client, tournament) {
     await editMessageSafe(CHANNELS.TORNEOS_STATUS, discordMessageIds.statusMessageId, createTournamentStatusEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.classificationMessageId, createClassificationEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.calendarMessageId, createCalendarEmbed(latestTournamentState));
-    
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Ya no llamamos a la actualización desde aquí para evitar conflictos.
-    // updateTournamentChannelName(client); 
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function startGroupStage(client, guild, tournament) {
@@ -284,10 +275,10 @@ export async function startGroupStage(client, guild, tournament) {
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
+        updateTournamentChannelName(client);
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
-        updateTournamentChannelName(client);
     }
 }
 
@@ -330,9 +321,7 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament); 
     await updateTournamentManagementThread(client, updatedTournament);
-    // --- INICIO DE LA MODIFICACIÓN ---
     updateTournamentChannelName(client);
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function addTeamToWaitlist(client, tournament, teamData) {
