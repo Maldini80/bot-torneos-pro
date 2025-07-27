@@ -8,10 +8,7 @@ import { handleModal } from './src/handlers/modalHandler.js';
 import { handleSelectMenu } from './src/handlers/selectMenuHandler.js';
 import { handleMessageTranslation } from './src/logic/translationLogic.js';
 import { updateTournamentChannelName, updateAdminPanel, updateAllManagementPanels } from './src/utils/panelManager.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se importa la configuración de canales para usarla en el nuevo listener
 import { CHANNELS } from './config.js';
-// --- FIN DE LA MODIFICACIÓN ---
 
 process.on('uncaughtException', (error, origin) => {
     console.error('💥 ERROR FATAL NO CAPTURADO:');
@@ -41,13 +38,10 @@ client.once(Events.ClientReady, async readyClient => {
     try {
         console.log(`✅ Bot conectado como ${readyClient.user.tag}`);
         
-        // CORRECCIÓN DEFINITIVA: Se implementa una carga más robusta y con verificación.
         const guild = readyClient.guilds.cache.get(process.env.GUILD_ID);
         if (guild) {
             console.log('[CACHE] Forzando la carga de la lista de miembros del servidor...');
-            // Usamos fetch({}) para asegurar que traiga a todos los miembros.
             const members = await guild.members.fetch({});
-            // AÑADIDO: Log de verificación para que puedas ver cuántos miembros se cargaron.
             console.log(`[CACHE] Carga completa. ${members.size} miembros están ahora en la caché.`);
         } else {
             console.error(`[CRASH EN READY] No se pudo encontrar el servidor con ID: ${process.env.GUILD_ID}. Verifica las variables de entorno.`);
@@ -137,23 +131,30 @@ client.on(Events.MessageCreate, async message => {
     }
 });
 
-// --- INICIO DE LA MODIFICACIÓN ---
-// NUEVO LISTENER: Se activa cada vez que un mensaje es borrado.
 client.on(Events.MessageDelete, async message => {
-    // El objeto 'message' puede ser parcial. Usamos message.channelId que es más fiable.
-    // Si el mensaje borrado no es del canal de estado de torneos, no hacemos nada.
     if (message.channelId !== CHANNELS.TORNEOS_STATUS) return;
-
-    // Si el mensaje borrado no era del bot, no nos interesa.
-    // Usamos ?. por si el mensaje es muy antiguo y no está en la caché.
     if (message.author?.id !== client.user.id) return;
     
-    // Si el mensaje borrado era un panel de torneo en el canal correcto,
-    // forzamos una actualización del nombre del canal.
     console.log(`[SYNC] Panel de torneo borrado en el canal de estado. Forzando actualización de icono.`);
     updateTournamentChannelName(client);
 });
+
+// --- INICIO DE LA MODIFICACIÓN ---
+// NUEVO AUDITOR: Se activa cada vez que un mensaje es editado.
+client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+    // Si el mensaje no es del canal de estado, no nos interesa.
+    if (newMessage.channelId !== CHANNELS.TORNEOS_STATUS) return;
+    // Si el mensaje no fue editado por el bot, tampoco.
+    if (newMessage.author?.id !== client.user.id) return;
+    // Si el embed no ha cambiado (ej: solo se añadió una reacción), no hacemos nada.
+    if (oldMessage.embeds[0]?.title === newMessage.embeds[0]?.title) return;
+
+    // Si un panel de torneo ha sido editado por el bot, forzamos la actualización.
+    console.log(`[SYNC] Panel de torneo editado en el canal de estado. Forzando actualización de icono.`);
+    updateTournamentChannelName(client);
+});
 // --- FIN DE LA MODIFICACIÓN ---
+
 
 async function startBot() {
     await connectDb();
