@@ -8,7 +8,6 @@ import { updateTournamentConfig } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 // --- FIN DE LA MODIFICACIÓN ---
 
-
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
     const client = interaction.client;
