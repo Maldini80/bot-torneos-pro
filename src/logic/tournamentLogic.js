@@ -56,10 +56,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await setBotBusy(false); throw error;
     } finally {
         await setBotBusy(false);
-        // --- INICIO DE LA MODIFICACIÓN ---
         // Llamamos a la función con la orden directa de poner el icono verde.
         updateTournamentChannelName(client, { forceIcon: '🟢' });
-        // --- FIN DE LA MODIFICACIÓN ---
     }
 }
 
@@ -114,6 +112,9 @@ export async function approveTeam(client, tournament, teamData) {
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
+    // --- INICIO DE LA MODIFICACIÓN ---
+    updateTournamentChannelName(client);
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
@@ -173,6 +174,9 @@ export async function kickTeam(client, tournament, captainId) {
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
+    // --- INICIO DE LA MODIFICACIÓN ---
+    updateTournamentChannelName(client);
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 
@@ -235,7 +239,10 @@ export async function updatePublicMessages(client, tournament) {
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.classificationMessageId, createClassificationEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.calendarMessageId, createCalendarEmbed(latestTournamentState));
     
-    updateTournamentChannelName(client); 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Ya no llamamos a la actualización desde aquí para evitar conflictos.
+    // updateTournamentChannelName(client); 
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function startGroupStage(client, guild, tournament) {
@@ -323,6 +330,9 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament); 
     await updateTournamentManagementThread(client, updatedTournament);
+    // --- INICIO DE LA MODIFICACIÓN ---
+    updateTournamentChannelName(client);
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function addTeamToWaitlist(client, tournament, teamData) {
