@@ -9,10 +9,13 @@ export function createGlobalAdminPanel(isBusy = false) {
         .setFooter({ text: 'Bot de Torneos v2.9.2' }); // Versión actualizada
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
-        : '✅ **ESTADO: LISTO**\nUsa el botón de abajo para crear un nuevo torneo.'
+        : '✅ **ESTADO: LISTO**\nUsa los botones de abajo para gestionar los torneos.'
     );
     const globalActionsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Nuevo Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
+        // --- INICIO DE LA MODIFICACIÓN ---
+        new ButtonBuilder().setCustomId('admin_update_channel_status').setLabel('Actualizar Estado Canal').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy),
+        // --- FIN DE LA MODIFICACIÓN ---
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
     return { embeds: [embed], components: [globalActionsRow] };
