@@ -59,10 +59,7 @@ export async function updateAllManagementPanels(client, busyState) {
 }
 
 // --- INICIO DE LA MODIFICACIÓN ---
-// CORRECCIÓN: Lógica reescrita para no usar la base de datos.
-// Ahora lee los emojis de los embeds en el propio canal de estado.
-export function updateTournamentChannelName(client) {
-    // Se ejecuta sin async/await para no bloquear. Es una tarea de fondo.
+export function updateTournamentChannelName(client, options = {}) {
     client.channels.fetch(CHANNELS.TORNEOS_STATUS)
         .then(async (channel) => {
             if (!channel) {
@@ -70,12 +67,20 @@ export function updateTournamentChannelName(client) {
                 return;
             }
 
+            // Vía Rápida: Si se pasa una orden directa, la ejecutamos y terminamos.
+            if (options.forceIcon) {
+                const newChannelName = `${options.forceIcon} 📢-torneos-tournaments`;
+                if (channel.name !== newChannelName) {
+                    await channel.setName(newChannelName).catch(e => console.warn("Fallo al forzar renombre de canal:", e.message));
+                }
+                return;
+            }
+
+            // Vía Automática: Si no hay orden directa, se ejecuta la lógica original de siempre.
             const messages = await channel.messages.fetch({ limit: 50 });
-            // Filtramos por embeds que realmente tengan un título para evitar errores
             const tournamentEmbeds = messages.filter(m => m.author.id === client.user.id && m.embeds.length > 0 && m.embeds[0].title);
 
             if (tournamentEmbeds.size === 0) {
-                // Si no hay embeds, no hay torneos, por lo tanto rojo.
                 const newChannelName = `🔴 📢-torneos-tournaments`;
                 if (channel.name !== newChannelName) {
                     channel.setName(newChannelName).catch(e => console.warn("Fallo al renombrar canal a rojo:", e.message));
@@ -84,17 +89,15 @@ export function updateTournamentChannelName(client) {
             }
 
             const titles = tournamentEmbeds.map(m => m.embeds[0].title);
-            let icon = '🔴'; // Por defecto es rojo
+            let icon = '🔴';
 
-            // Prioridad 1: Si hay al menos un torneo con inscripciones abiertas (verde)
             if (titles.some(title => title.startsWith(TOURNAMENT_STATUS_ICONS.inscripcion_abierta))) {
                 icon = '🟢';
             }
-            // Prioridad 2: Si no hay verdes, pero hay alguno en juego o lleno (azul/morado/naranja)
             else if (titles.some(title =>
                 title.startsWith(TOURNAMENT_STATUS_ICONS.cupo_lleno) ||
                 title.startsWith(TOURNAMENT_STATUS_ICONS.fase_de_grupos) ||
-                title.startsWith(TOURNAMENT_STATUS_ICONS.octavos) // Este icono '🟣' cubre cuartos, semis, etc.
+                title.startsWith(TOURNAMENT_STATUS_ICONS.octavos)
             )) {
                 icon = '🔵';
             }
