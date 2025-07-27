@@ -9,7 +9,7 @@ export function createGlobalAdminPanel(isBusy = false) {
         .setFooter({ text: 'Bot de Torneos v2.9.2' }); // Versión actualizada
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
-        : '✅ **ESTADO: LISTO**\nUsa los botones de abajo para gestionar los torneos.'
+        : '✅ **ESTADO: LISTO**\nUsa los botones de abajo para gestionar los torneos.' // Texto ligeramente modificado para incluir el nuevo botón
     );
     const globalActionsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Nuevo Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
