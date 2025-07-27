@@ -3,6 +3,11 @@ import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { updateTournamentConfig } from '../logic/tournamentLogic.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se importa la nueva función simple para establecer el icono.
+import { setChannelIcon } from '../utils/panelManager.js';
+// --- FIN DE LA MODIFICACIÓN ---
+
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
@@ -10,6 +15,19 @@ export async function handleSelectMenu(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Se añade la lógica para el nuevo menú de selección de estado del canal.
+    if (action === 'admin_set_channel_icon') {
+        await interaction.deferUpdate();
+        const selectedIcon = interaction.values[0]; // El valor es el propio emoji: '🟢', '🔵', o '🔴'
+        
+        await setChannelIcon(client, selectedIcon);
+
+        await interaction.editReply({ content: `✅ El estado del canal ha sido actualizado manualmente a ${selectedIcon}.`, components: [] });
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_create_format') {
         await interaction.deferUpdate();
