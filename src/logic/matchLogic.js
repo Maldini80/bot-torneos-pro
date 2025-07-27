@@ -4,7 +4,7 @@ import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
 import { updatePublicMessages, endTournament } from './tournamentLogic.js';
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
 // --- INICIO DE LA CORRECCIÓN ---
-// Se elimina la importación de la función que ya no existe.
+// Se elimina la importación de la función que ya no existe para prevenir el error de arranque.
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 // --- FIN DE LA CORRECCIÓN ---
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
