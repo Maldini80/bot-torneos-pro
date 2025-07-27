@@ -4,11 +4,10 @@ import { createNewTournament, updateTournamentConfig, updatePublicMessages, forc
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG } from '../../config.js';
-// --- INICIO DE LA CORRECCIÓN ---
+// --- INICIO DE LA MODIFICACIÓN ---
 // Se elimina la importación de la función que ya no existe para prevenir el error de arranque.
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
-// --- FIN DE LA CORRECCIÓN ---
-
+// --- FIN DE LA MODIFICACIÓN ---
 
 export async function handleModal(interaction) {
     const customId = interaction.customId;
@@ -237,6 +236,7 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'invite_cocaptain_modal') {
+        // Esta sección ya no se usa, pero la dejamos por si acaso. La lógica ahora está en el selectMenuHandler.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
