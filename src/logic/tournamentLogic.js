@@ -56,7 +56,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await setBotBusy(false); throw error;
     } finally {
         await setBotBusy(false);
-        updateTournamentChannelName(client);
+        // updateTournamentChannelName(client); // LÍNEA ELIMINADA
     }
 }
 
@@ -111,7 +111,7 @@ export async function approveTeam(client, tournament, teamData) {
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    updateTournamentChannelName(client);
+    // updateTournamentChannelName(client); // LÍNEA ELIMINADA
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
@@ -173,7 +173,7 @@ export async function kickTeam(client, tournament, captainId) {
     await updateTournamentManagementThread(client, updatedTournament);
     // --- INICIO DE LA MODIFICACIÓN ---
     // Se añade la llamada aquí para asegurar que si se abre un cupo, el icono se actualice.
-    updateTournamentChannelName(client);
+    // updateTournamentChannelName(client); // LÍNEA ELIMINADA
     // --- FIN DE LA MODIFICACIÓN ---
 }
 
@@ -189,7 +189,7 @@ export async function endTournament(client, tournament) {
     } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false);
-        updateTournamentChannelName(client);
+        // updateTournamentChannelName(client); // LÍNEA ELIMINADA
     }
 }
 
@@ -219,7 +219,7 @@ export async function forceResetAllTournaments(client) {
         console.error("Error crítico durante el reseteo forzoso:", error);
     } finally {
         await setBotBusy(false);
-        updateTournamentChannelName(client);
+        // updateTournamentChannelName(client); // LÍNEA ELIMINADA
     }
 }
 
@@ -277,7 +277,7 @@ export async function startGroupStage(client, guild, tournament) {
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
-        updateTournamentChannelName(client);
+        // updateTournamentChannelName(client); // LÍNEA ELIMINADA
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
@@ -325,7 +325,7 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     await updateTournamentManagementThread(client, updatedTournament);
     // --- INICIO DE LA MODIFICACIÓN ---
     // Se añade la llamada aquí para asegurar que si se cambia el tamaño, el icono se actualice.
-    updateTournamentChannelName(client);
+    // updateTournamentChannelName(client); // LÍNEA ELIMINADA
     // --- FIN DE LA MODIFICACIÓN ---
 }
 
