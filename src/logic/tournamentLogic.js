@@ -56,7 +56,10 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await setBotBusy(false); throw error;
     } finally {
         await setBotBusy(false);
-        updateTournamentChannelName(client);
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Llamamos a la función con la orden directa de poner el icono verde.
+        updateTournamentChannelName(client, { forceIcon: '🟢' });
+        // --- FIN DE LA MODIFICACIÓN ---
     }
 }
 
@@ -111,7 +114,6 @@ export async function approveTeam(client, tournament, teamData) {
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    updateTournamentChannelName(client);
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
@@ -171,10 +173,6 @@ export async function kickTeam(client, tournament, captainId) {
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se añade la llamada aquí para asegurar que si se abre un cupo, el icono se actualice.
-    updateTournamentChannelName(client);
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 
@@ -237,10 +235,7 @@ export async function updatePublicMessages(client, tournament) {
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.classificationMessageId, createClassificationEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.calendarMessageId, createCalendarEmbed(latestTournamentState));
     
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Cada vez que los paneles públicos se actualicen, revisamos el estado del canal.
     updateTournamentChannelName(client); 
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function startGroupStage(client, guild, tournament) {
@@ -282,10 +277,10 @@ export async function startGroupStage(client, guild, tournament) {
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
-        updateTournamentChannelName(client);
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
+        updateTournamentChannelName(client);
     }
 }
 
@@ -328,10 +323,6 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament); 
     await updateTournamentManagementThread(client, updatedTournament);
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se añade la llamada aquí para asegurar que si se cambia el tamaño, el icono se actualice.
-    updateTournamentChannelName(client);
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function addTeamToWaitlist(client, tournament, teamData) {
