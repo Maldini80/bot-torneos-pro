@@ -111,7 +111,6 @@ export async function approveTeam(client, tournament, teamData) {
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    updateTournamentChannelName(client);
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
@@ -171,7 +170,6 @@ export async function kickTeam(client, tournament, captainId) {
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
-    updateTournamentChannelName(client);
 }
 
 
@@ -186,8 +184,6 @@ export async function endTournament(client, tournament) {
     } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false);
-        // La actualización ahora se gestiona por el evento MessageDelete en index.js
-        // para máxima fiabilidad, así que la eliminamos de aquí.
     }
 }
 
@@ -275,7 +271,6 @@ export async function startGroupStage(client, guild, tournament) {
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
-        updateTournamentChannelName(client);
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
@@ -321,7 +316,6 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament); 
     await updateTournamentManagementThread(client, updatedTournament);
-    updateTournamentChannelName(client);
 }
 
 export async function addTeamToWaitlist(client, tournament, teamData) {
