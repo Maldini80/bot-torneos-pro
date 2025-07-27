@@ -236,6 +236,11 @@ export async function updatePublicMessages(client, tournament) {
     await editMessageSafe(CHANNELS.TORNEOS_STATUS, discordMessageIds.statusMessageId, createTournamentStatusEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.classificationMessageId, createClassificationEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.calendarMessageId, createCalendarEmbed(latestTournamentState));
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Cada vez que los paneles públicos se actualicen, revisamos el estado del canal.
+    updateTournamentChannelName(client); 
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export async function startGroupStage(client, guild, tournament) {
