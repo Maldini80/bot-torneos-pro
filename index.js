@@ -47,7 +47,9 @@ client.once(Events.ClientReady, async readyClient => {
             console.error(`[CRASH EN READY] No se pudo encontrar el servidor con ID: ${process.env.GUILD_ID}. Verifica las variables de entorno.`);
         }
 
-        await updateTournamentChannelName(readyClient);
+        // Al iniciar, damos un tiempo para que todo cargue y luego actualizamos
+        setTimeout(() => updateTournamentChannelName(readyClient), 2000);
+
     } catch (error) {
         console.error('[CRASH EN READY] Ocurrió un error crítico durante la inicialización:', error);
     }
@@ -92,7 +94,18 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 client.on(Events.MessageCreate, async message => {
-    if (message.author.bot || !message.guild) return;
+    if (message.author.bot || !message.guild) {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // GUARDIÁN 1: Si el mensaje se crea en el canal de estado y es del bot...
+        if (message.author.id === client.user.id && message.channelId === CHANNELS.TORNEOS_STATUS) {
+             console.log(`[SYNC] Nuevo panel de torneo creado. Forzando actualización de icono.`);
+             // Esperamos un poco para asegurar que el mensaje existe del todo antes de leerlo
+             setTimeout(() => updateTournamentChannelName(client), 500);
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+        return;
+    }
+    
     await handleMessageTranslation(message);
 
     try {
@@ -131,26 +144,24 @@ client.on(Events.MessageCreate, async message => {
     }
 });
 
+
+// --- INICIO DE LA MODIFICACIÓN ---
+// GUARDIÁN 2: Si se borra un mensaje en el canal de estado...
 client.on(Events.MessageDelete, async message => {
     if (message.channelId !== CHANNELS.TORNEOS_STATUS) return;
-    if (message.author?.id !== client.user.id) return;
+    if (message.author && message.author.id !== client.user.id) return;
     
-    console.log(`[SYNC] Panel de torneo borrado en el canal de estado. Forzando actualización de icono.`);
+    console.log(`[SYNC] Panel de torneo borrado. Forzando actualización de icono.`);
     updateTournamentChannelName(client);
 });
 
-// --- INICIO DE LA MODIFICACIÓN ---
-// NUEVO AUDITOR: Se activa cada vez que un mensaje es editado.
+// GUARDIÁN 3: Si se edita un mensaje en el canal de estado...
 client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
-    // Si el mensaje no es del canal de estado, no nos interesa.
     if (newMessage.channelId !== CHANNELS.TORNEOS_STATUS) return;
-    // Si el mensaje no fue editado por el bot, tampoco.
     if (newMessage.author?.id !== client.user.id) return;
-    // Si el embed no ha cambiado (ej: solo se añadió una reacción), no hacemos nada.
-    if (oldMessage.embeds[0]?.title === newMessage.embeds[0]?.title) return;
+    if (oldMessage.embeds[0]?.title === newMessage.embeds[0]?.title && oldMessage.content === newMessage.content) return;
 
-    // Si un panel de torneo ha sido editado por el bot, forzamos la actualización.
-    console.log(`[SYNC] Panel de torneo editado en el canal de estado. Forzando actualización de icono.`);
+    console.log(`[SYNC] Panel de torneo editado. Forzando actualización de icono.`);
     updateTournamentChannelName(client);
 });
 // --- FIN DE LA MODIFICACIÓN ---
