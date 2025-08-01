@@ -33,7 +33,6 @@ export async function handleModal(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'create_draft_paid_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [name] = params;
@@ -56,9 +55,9 @@ export async function handleModal(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
-
-    if (action === 'register_draft_captain_modal') {
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -67,109 +66,105 @@ export async function handleModal(interaction) {
         if (draft.status !== 'inscripcion') return interaction.editReply('❌ Las inscripciones para este draft están cerradas.');
 
         const userId = interaction.user.id;
-        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || draft.players.some(p => p.userId === userId);
-        if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito en este draft.');
-        if (draft.captains.length >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de capitanes.');
+        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || draft.players.some(p => p.userId === userId) || draft.reserves.some(r => r.userId === userId) || draft.pendingPayments[userId];
+        if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito, en reserva o pendiente de pago en este draft.');
 
-        const teamName = interaction.fields.getTextInputValue('team_name_input');
-        const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
-        const position = interaction.fields.getTextInputValue('position_input').toUpperCase();
+        let playerData;
+        let captainData;
+        const isRegisteringAsCaptain = action === 'register_draft_captain_modal';
+        
+        // Recopilar datos comunes y específicos
         const psnId = interaction.fields.getTextInputValue('psn_id_input');
         const twitter = interaction.fields.getTextInputValue('twitter_input');
 
-        if (!Object.keys(DRAFT_POSITIONS).includes(position)) {
-            return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
+        if (isRegisteringAsCaptain) {
+            if (draft.captains.length >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de capitanes.');
+            const teamName = interaction.fields.getTextInputValue('team_name_input');
+            const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
+            const position = interaction.fields.getTextInputValue('position_input').toUpperCase();
+            if (!Object.keys(DRAFT_POSITIONS).includes(position)) return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
+            if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
+
+            captainData = { userId, userName: interaction.user.tag, teamName, streamChannel, psnId, twitter };
+            playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: position, currentTeam: teamName, isCaptain: true, captainId: null };
+        } else {
+            const primaryPosition = interaction.fields.getTextInputValue('primary_pos_input').toUpperCase();
+            const secondaryPosition = interaction.fields.getTextInputValue('secondary_pos_input').toUpperCase();
+            const currentTeam = interaction.fields.getTextInputValue('current_team_input');
+            if (!Object.keys(DRAFT_POSITIONS).includes(primaryPosition) || !Object.keys(DRAFT_POSITIONS).includes(secondaryPosition)) return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
+            playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null };
         }
-        if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) {
-            return interaction.editReply('❌ Ya existe un equipo con ese nombre en este draft.');
+
+        // Lógica de pago o inscripción directa
+        if (draft.config.isPaid) {
+            const pendingData = { playerData, captainData }; // Guardamos ambos por si es capitán
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
+
+            const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`).setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.\n\n**Pagar a / Pay to:** \`${PAYMENT_CONFIG.PAYPAL_EMAIL}\`\n\nUna vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
+            const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_payment_confirm_start:${draftShortId}`).setLabel('✅ Ya he Pagado / I Have Paid').setStyle(ButtonStyle.Success));
+            try {
+                await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
+                await interaction.editReply('✅ ¡Inscripción recibida! Revisa tus Mensajes Directos para completar el pago.');
+            } catch (e) {
+                await interaction.editReply('❌ No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.');
+            }
+        } else {
+            // Lógica gratuita existente
+            const totalParticipants = draft.captains.length + draft.players.length;
+            if (totalParticipants < 88) {
+                let updateQuery = { $push: { players: playerData } };
+                if (isRegisteringAsCaptain) {
+                    updateQuery.$push.captains = captainData;
+                }
+                await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
+                await interaction.editReply(`✅ ¡Te has inscrito como ${isRegisteringAsCaptain ? 'capitán' : 'jugador'}!`);
+            } else if (draft.config.allowReserves) {
+                await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { reserves: playerData } });
+                await interaction.editReply('✅ El draft está lleno, pero te hemos añadido a la lista de reserva.');
+            } else {
+                return interaction.editReply('❌ Lo sentimos, el draft está completo.');
+            }
+            const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+            const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+            const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
+            await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
         }
+        return;
+    }
 
-        const captainData = {
-            userId,
-            userName: interaction.user.tag,
-            teamName,
-            streamChannel,
-            psnId,
-            twitter
-        };
+    if(action === 'draft_payment_confirm_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
+        
+        const notificationsThread = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT).catch(() => null); // Reutilizamos el canal de aprobaciones
+        if (!notificationsThread) return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
+        
+        const userPaypal = interaction.fields.getTextInputValue('user_paypal_input');
+        const userId = interaction.user.id;
+        const pendingData = draft.pendingPayments[userId];
 
-        const playerData = {
-            userId,
-            userName: interaction.user.tag,
-            psnId,
-            twitter,
-            primaryPosition: position,
-            secondaryPosition: position,
-            currentTeam: teamName,
-            isCaptain: true,
-            captainId: null,
-        };
+        if (!pendingData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
 
-        await db.collection('drafts').updateOne(
-            { _id: draft._id },
-            { $push: { captains: captainData, players: playerData } }
+        const role = pendingData.captainData ? 'Capitán' : 'Jugador';
+        const teamName = pendingData.captainData ? ` (Equipo: ${pendingData.captainData.teamName})` : '';
+
+        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago de Draft: ${draft.name}`).addFields( 
+            { name: 'Jugador', value: interaction.user.tag, inline: true },
+            { name: 'Rol', value: role + teamName, inline: true },
+            { name: "PayPal del Jugador", value: `\`${userPaypal}\`` } 
+        );
+        const adminButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`draft_approve_payment:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`draft_reject_payment:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
         );
         
-        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
-        const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
-        await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
-
-        await interaction.editReply('✅ ¡Te has inscrito como capitán! Tu equipo y tú ya contáis como participantes.');
+        await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
+        await interaction.editReply('✅ ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.');
         return;
     }
-
-    if (action === 'register_draft_player_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [draftShortId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-
-        if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
-        if (draft.status !== 'inscripcion') return interaction.editReply('❌ Las inscripciones para este draft están cerradas.');
-
-        const userId = interaction.user.id;
-        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || draft.players.some(p => p.userId === userId) || draft.reserves.some(r => r.userId === userId);
-        if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito en este draft (o en la lista de reserva).');
-        
-        const primaryPosition = interaction.fields.getTextInputValue('primary_pos_input').toUpperCase();
-        const secondaryPosition = interaction.fields.getTextInputValue('secondary_pos_input').toUpperCase();
-        const currentTeam = interaction.fields.getTextInputValue('current_team_input');
-        const psnId = interaction.fields.getTextInputValue('psn_id_input');
-        const twitter = interaction.fields.getTextInputValue('twitter_input');
-
-        if (!Object.keys(DRAFT_POSITIONS).includes(primaryPosition) || !Object.keys(DRAFT_POSITIONS).includes(secondaryPosition)) {
-            return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
-        }
-
-        const playerData = {
-            userId,
-            userName: interaction.user.tag,
-            psnId,
-            twitter,
-            primaryPosition,
-            secondaryPosition,
-            currentTeam,
-            isCaptain: false,
-            captainId: null,
-        };
-        
-        const totalParticipants = draft.captains.length + draft.players.length;
-        if (totalParticipants < 88) {
-            await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
-            await interaction.editReply('✅ ¡Te has inscrito como jugador!');
-        } else if (draft.config.allowReserves) {
-            await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { reserves: playerData } });
-            await interaction.editReply('✅ El draft está lleno, pero te hemos añadido a la lista de reserva. ¡Serás notificado si queda una plaza libre!');
-        } else {
-            return interaction.editReply('❌ Lo sentimos, el draft está completo y no admite lista de reserva.');
-        }
-
-        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
-        const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
-        await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
-        return;
-    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_force_reset_modal') {
         const confirmation = interaction.fields.getTextInputValue('confirmation_text');
