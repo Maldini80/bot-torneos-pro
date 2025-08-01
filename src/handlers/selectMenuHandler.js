@@ -99,14 +99,13 @@ export async function handleSelectMenu(interaction) {
     if (action === 'draft_pick_player') {
         await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
+        if(interaction.user.id !== captainId) return;
         const selectedPlayerId = interaction.values[0];
 
-        // Llama a la lógica para asignar el jugador
         await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
 
         const player = await client.users.fetch(selectedPlayerId);
 
-        // Muestra los botones de confirmación
         const confirmationRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`draft_confirm_pick:${draftShortId}:${captainId}`)
