@@ -807,6 +807,7 @@ export async function notifyCaptainsOfChanges(client, tournament) {
     }
     return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
 }
+
 export async function handlePlayerSelection(client, draftShortId, captainId, playerId) {
     const db = getDb();
     await db.collection('drafts').updateOne(
@@ -868,4 +869,65 @@ export async function advanceDraftTurn(client, draftShortId) {
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await notifyNextCaptain(client, updatedDraft);
+}
+
+export async function startDraftSelection(client, draftShortId) {
+    await setBotBusy(true);
+    try {
+        const db = getDb();
+        let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) throw new Error('Draft no encontrado.');
+        if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
+        
+        if (draft.captains.length < 8 || draft.players.length < 88) {
+            throw new Error(`No hay suficientes participantes. Se necesitan 8 capitanes y 88 jugadores en total. Actualmente hay ${draft.captains.length} capitanes y ${draft.players.length} jugadores.`);
+        }
+
+        const captainIds = draft.captains.map(c => c.userId);
+        for (let i = captainIds.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [captainIds[i], captainIds[j]] = [captainIds[j], captainIds[i]];
+        }
+
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $set: { status: 'seleccion', 'selection.order': captainIds, 'selection.turn': 0, 'selection.currentPick': 1 } }
+        );
+        
+        draft = await db.collection('drafts').findOne({ _id: draft._id });
+        
+        await updateDraftManagementPanel(client, draft);
+        await updateDraftMainInterface(client, draft.shortId);
+        await updatePublicMessages(client, draft);
+
+        await notifyNextCaptain(client, draft);
+    } catch (error) {
+        console.error("[DRAFT START SELECTION]", error);
+        throw error;
+    } finally {
+        await setBotBusy(false);
+    }
+}
+
+export async function notifyNextCaptain(client, draft) {
+    const nonCaptainPlayers = draft.players.filter(p => !p.isCaptain);
+    const picksToMake = nonCaptainPlayers.length;
+    if (draft.selection.currentPick > picksToMake) {
+         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
+         console.log(`El draft ${draft.shortId} ha finalizado la selección.`);
+         const draftChannel = await client.channels.fetch(draft.discordChannelId);
+         await draftChannel.send('**LA SELECCIÓN HA FINALIZADO.** Un administrador generará el torneo en breve.');
+         const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
+         await updateDraftManagementPanel(client, finalDraftState);
+         await updateDraftMainInterface(client, finalDraftState.shortId);
+         await updatePublicMessages(client, finalDraftState);
+         return;
+    }
+
+    const currentCaptainId = draft.selection.order[draft.selection.turn];
+    if (!currentCaptainId) return;
+
+    const draftChannel = await client.channels.fetch(draft.discordChannelId);
+    const pickEmbed = createDraftPickEmbed(draft, currentCaptainId);
+    await draftChannel.send(pickEmbed);
 }
