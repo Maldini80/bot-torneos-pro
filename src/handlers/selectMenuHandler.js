@@ -113,6 +113,40 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
+    if (action === 'admin_kick_participant_page_select') {
+        await interaction.deferUpdate();
+        const [draftShortId] = params;
+        const page = parseInt(interaction.values[0].replace('page_', ''));
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const allParticipants = [...draft.captains, ...draft.players.filter(p => !p.isCaptain)];
+        
+        const pageSize = 25;
+        const startIndex = page * pageSize;
+        const endIndex = startIndex + pageSize;
+        const participantsPage = allParticipants.slice(startIndex, endIndex);
+
+        const options = participantsPage.map(p => {
+            const isCaptain = draft.captains.some(c => c.userId === p.userId);
+            return {
+                label: p.userName || p.psnId,
+                description: isCaptain ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
+                value: p.userId,
+                emoji: isCaptain ? '👑' : '👤'
+            };
+        });
+    
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
+            .setPlaceholder(`Participantes ${startIndex + 1}-${endIndex}`)
+            .addOptions(options);
+        
+        await interaction.editReply({
+            content: 'Selecciona un participante de la lista para expulsarlo del draft. Esta acción es irreversible.',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
     if (action === 'draft_register_captain_pos_select') {
         const [draftShortId] = params;
         const position = interaction.values[0];
@@ -264,14 +298,16 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_pick_player') {
-        await interaction.deferUpdate();
+        await interaction.deferReply({ ephemeral: true });
         const [draftShortId, captainId] = params;
-        if(interaction.user.id !== captainId) return;
+        if (interaction.user.id !== captainId) {
+            return interaction.editReply({ content: 'No es tu turno de elegir.', components: [] });
+        }
         const selectedPlayerId = interaction.values[0];
-
+    
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const player = draft.players.find(p => p.userId === selectedPlayerId);
-
+    
         const confirmationRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`draft_confirm_pick:${draftShortId}:${captainId}:${selectedPlayerId}`)
@@ -280,7 +316,7 @@ export async function handleSelectMenu(interaction) {
                 .setEmoji('✅'),
             new ButtonBuilder()
                 .setCustomId(`draft_undo_pick:${draftShortId}:${captainId}`)
-                .setLabel('Deshacer Selección')
+                .setLabel('Elegir Otro Jugador')
                 .setStyle(ButtonStyle.Danger)
                 .setEmoji('↩️')
         );
