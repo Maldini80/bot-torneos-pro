@@ -7,13 +7,22 @@ export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
 export const ADMIN_ROLE_ID = 'ID_DE_TU_ROL_DE_ADMIN'; // Reemplaza esto si es necesario
 export const ARBITRO_ROLE_ID = '1393505777443930183';
 export const PARTICIPANTE_ROLE_ID = '1394321301748977684';
+export const CASTER_ROLE_ID = '1394815380614283286'; // NUEVO: Rol para los Caster
 
 // IDs de CANALES FIJOS que se reutilizan
 export const CHANNELS = {
     TOURNAMENTS_MANAGEMENT_PARENT: '1393507085286899744',
     TOURNAMENTS_APPROVALS_PARENT: '1393187598796587028',
     TORNEOS_STATUS: '1395276865597476908',
+    CASTER_HUB_ID: '1394818921453981766', // NUEVO: Canal para los hilos de casters
 };
+
+// NUEVO: URLs de las imágenes para el proceso de aceptación de normas
+export const RULES_ACCEPTANCE_IMAGE_URLS = [
+    'URL_DE_LA_IMAGEN_DE_NORMA_1', // Reemplaza esto con el enlace a tu primera imagen de normas
+    'URL_DE_LA_IMAGEN_DE_NORMA_2', // Reemplaza esto con el enlace a tu segunda imagen de normas
+    'URL_DE_LA_IMAGEN_DE_NORMA_3'  // Reemplaza esto con el enlace a tu tercera imagen de normas
+];
 
 // Configuración de Pagos
 export const PAYMENT_CONFIG = {
