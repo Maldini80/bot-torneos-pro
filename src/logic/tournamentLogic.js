@@ -7,7 +7,6 @@ import { updateAdminPanel, updateTournamentManagementThread } from '../utils/pan
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-// Se importa la función de Twitter
 import { postTournamentUpdate } from '../utils/twitter.js';
 
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
@@ -20,9 +19,7 @@ export async function confirmPrizePayment(client, userId, prizeType, tournament)
         return { success: false, error: e };
     }
 }
-// ... (El resto del archivo se mantiene igual, ya está correcto)
-// ... PEGA AQUÍ TODO EL RESTO DEL CÓDIGO DE TOURNAMENTLOGIC.JS DESDE createNewTournament HASTA EL FINAL ...
-// ... (Para evitar un bloque de código masivo, solo he puesto la parte superior, pero el resto no cambia)
+// ... (El resto del código hasta createNewDraft se mantiene igual)
 export async function createNewTournament(client, guild, name, shortId, config) {
     await setBotBusy(true);
     try {
@@ -502,11 +499,13 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             status: 'inscripcion',
             config: {
                 isPaid: config.isPaid,
+                entryFee: config.entryFee || 0, // Añadido
                 allowReserves: !config.isPaid
             },
             captains: [],
             players: [],
             reserves: [],
+            pendingPayments: {}, // Añadido
             selection: {
                 turn: 0,
                 order: [],
