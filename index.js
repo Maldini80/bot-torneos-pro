@@ -7,12 +7,11 @@ import { handleButton } from './src/handlers/buttonHandler.js';
 import { handleModal } from './src/handlers/modalHandler.js';
 import { handleSelectMenu } from './src/handlers/selectMenuHandler.js';
 import { handleMessageTranslation } from './src/logic/translationLogic.js';
-import { updateAdminPanel, updateAllManagementPanels, updateAllDraftManagementPanels } from './src/utils/panelManager.js';
-import { CHANNELS } from './config.js';
 // --- INICIO DE LA MODIFICACIÓN ---
-// Se importan TODAS las funciones de lógica para adjuntarlas al cliente.
-import * as tournamentLogic from './src/logic/tournamentLogic.js';
+// Se importa la nueva función para actualizar paneles de draft
+import { updateAdminPanel, updateAllManagementPanels, updateAllDraftManagementPanels } from './src/utils/panelManager.js';
 // --- FIN DE LA MODIFICACIÓN ---
+import { CHANNELS } from './config.js';
 
 process.on('uncaughtException', (error, origin) => {
     console.error('💥 ERROR FATAL NO CAPTURADO:');
@@ -22,12 +21,15 @@ process.on('uncaughtException', (error, origin) => {
 });
 
 export let isBotBusy = false;
+// --- INICIO DE LA MODIFICACIÓN ---
 export async function setBotBusy(status) { 
     isBotBusy = status;
     await updateAdminPanel(client);
     await updateAllManagementPanels(client, status);
+    // NUEVO: Actualizar también los paneles de gestión de drafts
     await updateAllDraftManagementPanels(client, status);
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
 const client = new Client({
     intents: [ 
@@ -38,11 +40,6 @@ const client = new Client({
         GatewayIntentBits.GuildMessageReactions 
     ]
 });
-
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se adjuntan todas las funciones de lógica al objeto 'client' para un acceso fácil.
-client.logic = tournamentLogic;
-// --- FIN DE LA MODIFICACIÓN ---
 
 client.once(Events.ClientReady, async readyClient => {
     try {
