@@ -56,7 +56,7 @@ export async function handleSelectMenu(interaction) {
             await interaction.deferUpdate();
             const isPaid = false;
             const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-            const config = { isPaid, entryFee: 0 };
+            const config = { isPaid, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 };
 
             try {
                 await createNewDraft(client, guild, name, shortId, config);
@@ -76,8 +76,26 @@ export async function handleSelectMenu(interaction) {
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true)
                 .setPlaceholder('Ej: 5');
+            
+            const prizeCInput = new TextInputBuilder()
+                .setCustomId('draft_prize_campeon')
+                .setLabel("Premio Equipo Campeón (€)")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setPlaceholder('Ej: 300');
 
-            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput));
+            const prizeFInput = new TextInputBuilder()
+                .setCustomId('draft_prize_finalista')
+                .setLabel("Premio Equipo Subcampeón (€)")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setValue('0');
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(entryFeeInput),
+                new ActionRowBuilder().addComponents(prizeCInput),
+                new ActionRowBuilder().addComponents(prizeFInput)
+            );
             await interaction.showModal(modal);
         }
         return;
