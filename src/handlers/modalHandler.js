@@ -1,13 +1,13 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist } from '../logic/tournamentLogic.js';
+// --- INICIO MODIFICACIÓN ---
+// Importamos la nueva función para notificar a los casters
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam } from '../logic/tournamentLogic.js';
+// --- FIN MODIFICACIÓN ---
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG } from '../../config.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se elimina la importación de la función que ya no existe para prevenir el error de arranque.
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
-// --- FIN DE LA MODIFICACIÓN ---
 
 export async function handleModal(interaction) {
     const customId = interaction.customId;
@@ -85,7 +85,10 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: `✅ Torneo actualizado a: **De Pago**.`, components: [] });
         return;
     }
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'inscripcion_modal' || action === 'reserva_modal') {
+        // 'deferUpdate' se usa porque la interacción original fue el modal, y esta es la respuesta.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -102,6 +105,10 @@ export async function handleModal(interaction) {
         
         const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
         const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
+        // NUEVO: Captura de los datos adicionales.
+        const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
+        const twitter = interaction.fields.getTextInputValue('twitter_input');
+
         const allTeamNames = [
             ...Object.values(tournament.teams.aprobados || {}).map(e => e.nombre.toLowerCase()),
             ...Object.values(tournament.teams.pendientes || {}).map(e => e.nombre.toLowerCase()),
@@ -112,7 +119,21 @@ export async function handleModal(interaction) {
             return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
         }
         
-        const teamData = { id: captainId, nombre: teamName, eafcTeamName, capitanId: captainId, capitanTag: interaction.user.tag, coCaptainId: null, coCaptainTag: null, bandera: '🏳️', paypal: null, inscritoEn: new Date() };
+        // NUEVO: Se añaden los nuevos campos al objeto teamData.
+        const teamData = { 
+            id: captainId, 
+            nombre: teamName, 
+            eafcTeamName, 
+            capitanId: captainId, 
+            capitanTag: interaction.user.tag, 
+            coCaptainId: null, 
+            coCaptainTag: null, 
+            bandera: '🏳️', 
+            paypal: null, 
+            streamChannel, // Campo de transmisión
+            twitter, // Campo de Twitter
+            inscritoEn: new Date() 
+        };
 
         if (action === 'reserva_modal') {
             await addTeamToWaitlist(client, tournament, teamData);
@@ -137,13 +158,25 @@ export async function handleModal(interaction) {
                 await interaction.editReply({ content: '❌ 🇪🇸 No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.\n🇬🇧 I could not send you a DM. Please open your DMs and try again.' });
             }
         } else {
-            const adminEmbed = new EmbedBuilder().setColor('#3498DB').setTitle(`🔔 Nueva Inscripción Gratuita`).addFields( { name: 'Equipo Torneo', value: teamName, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'Equipo EAFC', value: eafcTeamName, inline: false } );
+            // NUEVO: El embed de notificación ahora incluye la nueva información.
+            const adminEmbed = new EmbedBuilder()
+                .setColor('#3498DB')
+                .setTitle(`🔔 Nueva Inscripción Gratuita`)
+                .addFields( 
+                    { name: 'Equipo Torneo', value: teamName, inline: true }, 
+                    { name: 'Capitán', value: interaction.user.tag, inline: true }, 
+                    { name: 'Equipo EAFC', value: eafcTeamName, inline: false },
+                    { name: 'Canal Transmisión', value: streamChannel, inline: false },
+                    { name: 'Twitter', value: twitter || 'No proporcionado', inline: false }
+                );
             const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
             await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
             await interaction.editReply('✅ 🇪🇸 ¡Tu inscripción ha sido recibida! Un admin la revisará pronto.\n🇬🇧 Your registration has been received! An admin will review it shortly.');
         }
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
+
 
     if (action === 'payment_confirm_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -177,7 +210,7 @@ export async function handleModal(interaction) {
         let bulkOps = [];
         for (let i = 0; i < amountToAdd; i++) {
             const teamId = `test_${Date.now()}_${i}`;
-            const teamData = { id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`, capitanId: interaction.user.id, capitanTag: interaction.user.tag, bandera: '🧪', paypal: 'admin@test.com', inscritoEn: new Date() };
+            const teamData = { id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`, capitanId: interaction.user.id, capitanTag: interaction.user.tag, bandera: '🧪', paypal: 'admin@test.com', streamChannel: 'https://twitch.tv/test', twitter: 'test', inscritoEn: new Date() };
             bulkOps.push({ updateOne: { filter: { _id: tournament._id }, update: { $set: { [`teams.aprobados.${teamId}`]: teamData } } } });
         }
         if (bulkOps.length > 0) await db.collection('tournaments').bulkWrite(bulkOps);
