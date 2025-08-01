@@ -1,7 +1,7 @@
 // src/logic/matchLogic.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
-// CORRECCIÓN: Se quita la importación incorrecta
+// CORRECCIÓN: Se importa `updatePublicMessages` y `endTournament` desde el lugar correcto
 import { updatePublicMessages, endTournament } from './tournamentLogic.js';
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
