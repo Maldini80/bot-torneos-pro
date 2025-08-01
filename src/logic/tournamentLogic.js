@@ -8,7 +8,6 @@ import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
-// ... (Todo el código de torneos desde createNewTournament hasta notifyCaptainsOfChanges sigue aquí, sin cambios)
 export async function createNewTournament(client, guild, name, shortId, config) {
     await setBotBusy(true);
     try {
@@ -286,6 +285,7 @@ export async function forceResetAllTournaments(client) {
             await cleanupTournament(client, tournament);
         }
         await db.collection('tournaments').deleteMany({});
+        await db.collection('drafts').deleteMany({}); // Añadimos la limpieza de drafts
     } catch (error) {
         console.error("Error crítico durante el reseteo forzoso:", error);
     } finally {
@@ -490,6 +490,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 turn: 0,
                 order: [],
                 currentPick: 1,
+                lastPlayerId: null,
             },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
@@ -530,66 +531,111 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         await setBotBusy(false);
     }
 }
-
-// --- INICIO DE LA MODIFICACIÓN ---
-/**
- * NUEVO: Inicia la fase de selección de un draft.
- */
 export async function startDraftSelection(client, draftShortId) {
     const db = getDb();
-    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     if (!draft) throw new Error('Draft no encontrado.');
     if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
-    if (draft.captains.length < 8 || (draft.captains.length + draft.players.length) < 88) {
+    if (draft.captains.length < 8 || (draft.players.length) < 88) { // Corregido: solo players, ya que capitanes están dentro
         throw new Error('No hay suficientes capitanes o jugadores para iniciar la selección (se necesitan 8 capitanes y 88 participantes en total).');
     }
 
-    // 1. Desordenar el orden de los capitanes para la selección
     const captainIds = draft.captains.map(c => c.userId);
     for (let i = captainIds.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [captainIds[i], captainIds[j]] = [captainIds[j], captainIds[i]];
     }
 
-    // 2. Actualizar el estado y el orden en la DB
     await db.collection('drafts').updateOne(
         { _id: draft._id },
         { $set: { status: 'seleccion', 'selection.order': captainIds, 'selection.turn': 0, 'selection.currentPick': 1 } }
     );
     
-    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    draft = await db.collection('drafts').findOne({ _id: draft._id });
 
-    // 3. Publicar la interfaz principal en el canal del draft
-    const draftChannel = await client.channels.fetch(updatedDraft.discordChannelId);
-    const [playersEmbed, teamsEmbed] = createDraftMainInterface(updatedDraft);
+    const draftChannel = await client.channels.fetch(draft.discordChannelId);
+    const [playersEmbed, teamsEmbed] = createDraftMainInterface(draft);
     const playersMessage = await draftChannel.send({ embeds: [playersEmbed] });
     const teamsMessage = await draftChannel.send({ embeds: [teamsEmbed] });
 
     await db.collection('drafts').updateOne(
-        { _id: updatedDraft._id },
+        { _id: draft._id },
         { $set: { 
             'discordMessageIds.mainInterfacePlayerMessageId': playersMessage.id,
             'discordMessageIds.mainInterfaceTeamsMessageId': teamsMessage.id 
         }}
     );
 
-    // 4. Notificar al primer capitán
-    await notifyNextCaptain(client, updatedDraft);
+    await notifyNextCaptain(client, draft);
 }
-
-/**
- * NUEVO: Notifica al capitán que le toca elegir.
- */
 export async function notifyNextCaptain(client, draft) {
-    const currentCaptainId = draft.selection.order[draft.selection.turn];
-    if (!currentCaptainId) {
-        // Lógica para cuando el draft termina
-        console.log(`El draft ${draft.shortId} ha finalizado la selección.`);
-        return;
+    if (draft.selection.currentPick > 88) { // 11 jugadores * 8 equipos
+         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
+         // Lógica para finalizar
+         console.log(`El draft ${draft.shortId} ha finalizado la selección.`);
+         const draftChannel = await client.channels.fetch(draft.discordChannelId);
+         await draftChannel.send('**LA SELECCIÓN HA FINALIZADO.** Un administrador generará el torneo en breve.');
+         return;
     }
+
+    const currentCaptainId = draft.selection.order[draft.selection.turn];
+    if (!currentCaptainId) return;
 
     const draftChannel = await client.channels.fetch(draft.discordChannelId);
     const pickEmbed = createDraftPickEmbed(draft, currentCaptainId);
     await draftChannel.send(pickEmbed);
 }
-// --- FIN DE LA MODIFICACIÓN ---
+export async function handlePlayerSelection(client, draftShortId, captainId, playerId) {
+    const db = getDb();
+    await db.collection('drafts').updateOne(
+        { shortId: draftShortId, "players.userId": playerId },
+        { $set: { "players.$.captainId": captainId, "selection.lastPlayerId": playerId } }
+    );
+    await updateDraftMainInterface(client, draftShortId);
+}
+export async function updateDraftMainInterface(client, draftShortId) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) return;
+
+    const draftChannel = await client.channels.fetch(draft.discordChannelId);
+    const [playersEmbed, teamsEmbed] = createDraftMainInterface(draft);
+
+    const playersMessage = await draftChannel.messages.fetch(draft.discordMessageIds.mainInterfacePlayerMessageId);
+    await playersMessage.edit({ embeds: [playersEmbed] });
+
+    const teamsMessage = await draftChannel.messages.fetch(draft.discordMessageIds.mainInterfaceTeamsMessageId);
+    await teamsMessage.edit({ embeds: [teamsEmbed] });
+}
+export async function undoLastPick(client, draftShortId) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft || !draft.selection.lastPlayerId) return;
+
+    await db.collection('drafts').updateOne(
+        { shortId: draftShortId, "players.userId": draft.selection.lastPlayerId },
+        { $set: { "players.$.captainId": null }, $unset: { "selection.lastPlayerId": "" } }
+    );
+    await updateDraftMainInterface(client, draftShortId);
+}
+export async function advanceDraftTurn(client, draftShortId) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+    let nextTurn = draft.selection.turn + 1;
+    if (nextTurn >= draft.selection.order.length) {
+        nextTurn = 0; // Vuelve al principio para la siguiente ronda
+    }
+
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { 
+            $set: { "selection.turn": nextTurn },
+            $inc: { "selection.currentPick": 1 },
+            $unset: { "selection.lastPlayerId": "" }
+        }
+    );
+
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await notifyNextCaptain(client, updatedDraft);
+}
