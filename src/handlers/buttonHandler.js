@@ -2,7 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, kickPlayerFromDraft, approveUnregisterFromDraft } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
@@ -127,7 +127,7 @@ export async function handleButton(interaction) {
         });
         return;
     }
-
+    
     if (action === 'admin_unregister_draft_approve') {
         await interaction.deferUpdate();
         const [draftShortId, userId] = params;
@@ -164,7 +164,7 @@ export async function handleButton(interaction) {
         await interaction.followUp({ content: `❌ Solicitud de baja rechazada.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
-    
+
     if (action === 'draft_add_test_players') {
         const [draftShortId] = params;
         const modal = new ModalBuilder()
@@ -282,7 +282,7 @@ export async function handleButton(interaction) {
         await updateDraftMainInterface(client, updatedDraft.shortId);
         await updatePublicMessages(client, updatedDraft);
         
-        await interaction.followUp({ content: `La acción se ha completado.`, flags: [MessageFlags.Ephemeral] });
+        await interaction.followUp({ content: `La acción se ha completada.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
     
@@ -352,16 +352,32 @@ export async function handleButton(interaction) {
         const totalSteps = isCaptainFlow || isTournamentFlow ? 3 : 1;
     
         if (currentStep >= totalSteps) {
-            const platformButtons = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${entityId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${entityId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-            );
+            if (isTournamentFlow || isCaptainFlow) {
+                const platformButtons = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${entityId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${entityId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+                );
+        
+                await interaction.update({
+                    content: 'Has aceptado las normas. Por favor, selecciona tu plataforma de transmisión principal.',
+                    components: [platformButtons],
+                    embeds: []
+                });
+            } else { // Player flow
+                const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+                    label: value, value: key
+                }));
+                const primaryPosMenu = new StringSelectMenuBuilder()
+                    .setCustomId(`draft_register_player_pos_select_primary:${entityId}`)
+                    .setPlaceholder('Paso 1: Selecciona tu posición PRIMARIA')
+                    .addOptions(positionOptions);
     
-            await interaction.update({
-                content: 'Has aceptado las normas. Por favor, selecciona tu plataforma de transmisión principal.',
-                components: [platformButtons],
-                embeds: []
-            });
+                await interaction.update({
+                    content: 'Has aceptado las normas. Ahora, por favor, selecciona tu posición primaria.',
+                    components: [new ActionRowBuilder().addComponents(primaryPosMenu)],
+                    embeds: []
+                });
+            }
         } else {
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
             await interaction.update(nextStepContent);
@@ -370,14 +386,13 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'select_stream_platform') {
-        const [platform, originalAction, entityId, ...restParams] = params;
+        const [platform, originalAction, entityId] = params;
         const modal = new ModalBuilder();
         const usernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
         let finalActionId;
     
         if (originalAction.startsWith('register_draft_captain')) {
-            const position = restParams[0];
-            finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}`;
+            finalActionId = `register_draft_captain_modal:${entityId}:${platform}`;
             modal.setTitle('Inscripción como Capitán de Draft');
             
             const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
