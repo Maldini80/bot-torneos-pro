@@ -52,7 +52,7 @@ export async function approveDraftCaptain(client, draft, captainData) {
     
     // Actualizar los mensajes públicos del draft.
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updateDraftMainInterface(client, updatedDraft.shortId); // <-- Se añade la actualización de la interfaz
     const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
     const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
     await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
@@ -736,8 +736,6 @@ export async function notifyCaptainsOfChanges(client, tournament) {
     }
     return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
 }
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se modifica la función para que publique la interfaz del draft al crearse
 export async function createNewDraft(client, guild, name, shortId, config) {
     await setBotBusy(true);
     try {
@@ -746,7 +744,8 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         if (!arbitroRole) throw new Error("El rol de Árbitro no fue encontrado.");
 
         const draftChannelPermissions = [
-            { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }
+            { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] },
+            { id: client.user.id, allow: [PermissionsBitField.Flags.SendMessages] }
         ];
 
         const draftChannel = await guild.channels.create({
@@ -768,7 +767,6 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             }
         };
         
-        // Se crea y publica la interfaz principal inmediatamente
         const [playersEmbed, teamsEmbed] = createDraftMainInterface(newDraft);
         const playersMessage = await draftChannel.send({ embeds: [playersEmbed] });
         const teamsMessage = await draftChannel.send({ embeds: [teamsEmbed] });
@@ -803,7 +801,6 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         await setBotBusy(false);
     }
 }
-// --- FIN DE LA MODIFICACIÓN ---
 export async function startDraftSelection(client, draftShortId) {
     await setBotBusy(true);
     try {
@@ -812,12 +809,9 @@ export async function startDraftSelection(client, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se cambia la condición para que compruebe el total de jugadores (capitanes + resto)
         if (draft.captains.length < 8 || draft.players.length < 88) {
             throw new Error(`No hay suficientes participantes. Se necesitan 8 capitanes y 88 jugadores en total. Actualmente hay ${draft.captains.length} capitanes y ${draft.players.length} jugadores.`);
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
@@ -833,8 +827,6 @@ export async function startDraftSelection(client, draftShortId) {
         draft = await db.collection('drafts').findOne({ _id: draft._id });
         
         await updateDraftManagementPanel(client, draft);
-
-        // La interfaz ya está creada, así que la actualizamos en lugar de crearla de nuevo
         await updateDraftMainInterface(client, draft.shortId);
 
         await notifyNextCaptain(client, draft);
@@ -846,10 +838,9 @@ export async function startDraftSelection(client, draftShortId) {
     }
 }
 export async function notifyNextCaptain(client, draft) {
-    // La condición original es incorrecta. Debería ser >= 80 picks (8 capitanes * 10 jugadores).
-    // O más simple: si el pick actual es mayor que el número de jugadores que no son capitanes.
     const nonCaptainPlayers = draft.players.filter(p => !p.isCaptain);
-    if (draft.selection.currentPick > nonCaptainPlayers.length) {
+    const picksToMake = nonCaptainPlayers.length;
+    if (draft.selection.currentPick > picksToMake) {
          await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
          console.log(`El draft ${draft.shortId} ha finalizado la selección.`);
          const draftChannel = await client.channels.fetch(draft.discordChannelId);
@@ -859,7 +850,21 @@ export async function notifyNextCaptain(client, draft) {
          return;
     }
 
-    const currentCaptainId = draft.selection.order[draft.selection.turn];
+    const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
+    let turnIndex = draft.selection.turn;
+
+    if (round > 0) {
+        const previousRound = Math.floor((draft.selection.currentPick - 2) / draft.captains.length);
+        if (round !== previousRound) { // Es el inicio de una nueva ronda
+            if (round % 2 !== 0) { // Ronda impar, empieza el último
+                turnIndex = draft.captains.length - 1;
+            } else { // Ronda par, empieza el primero
+                turnIndex = 0;
+            }
+        }
+    }
+
+    const currentCaptainId = draft.selection.order[turnIndex];
     if (!currentCaptainId) return;
 
     const draftChannel = await client.channels.fetch(draft.discordChannelId);
@@ -889,7 +894,7 @@ export async function updateDraftMainInterface(client, draftShortId) {
         const teamsMessage = await draftChannel.messages.fetch(draft.discordMessageIds.mainInterfaceTeamsMessageId);
         await teamsMessage.edit({ embeds: [teamsEmbed] });
     } catch (error) {
-        if (error.code !== 10003) { // Unknown Channel
+        if (error.code !== 10003) {
             console.warn(`[WARN] No se pudo actualizar la interfaz del draft ${draftShortId}. El canal o los mensajes podrían haber sido borrados.`);
         }
     }
@@ -909,20 +914,20 @@ export async function advanceDraftTurn(client, draftShortId) {
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-    // Lógica de "serpiente" para el orden de pick
     const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
-    let nextTurnIndex;
+    let nextTurnIndex = draft.selection.turn;
 
-    // Si la ronda es par (0, 2, 4...), el orden es normal.
-    if (round % 2 === 0) {
-        nextTurnIndex = (draft.selection.turn + 1);
-        if (nextTurnIndex >= draft.captains.length) {
-            nextTurnIndex = draft.captains.length -1; // Se mantiene en el último para el pick de vuelta
-        }
-    } else { // Si la ronda es impar (1, 3, 5...), el orden es inverso.
-        nextTurnIndex = (draft.selection.turn - 1);
-         if (nextTurnIndex < 0) {
-            nextTurnIndex = 0; // Se mantiene en el primero para el pick de vuelta
+    if ( (draft.selection.currentPick -1) % draft.captains.length === 0 && draft.selection.currentPick > 1) { // Acaba de hacer el pick de vuelta
+         if(round % 2 === 0) { // Si la ronda que acaba es impar (1,3,5..) el siguiente es el último
+             nextTurnIndex = draft.captains.length -1;
+         } else { // si la ronda que acaba es par (0,2,4..) el siguiente es el primero
+             nextTurnIndex = 0;
+         }
+    } else {
+        if (round % 2 === 0) {
+            nextTurnIndex = (draft.selection.turn + 1);
+        } else {
+            nextTurnIndex = (draft.selection.turn - 1);
         }
     }
 
