@@ -2,10 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Importamos la nueva función simulateDraftPicks
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks } from '../logic/tournamentLogic.js';
-// --- FIN DE LA MODIFICACIÓN ---
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
@@ -116,7 +113,6 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'draft_simulate_picks') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -127,6 +123,36 @@ export async function handleButton(interaction) {
             console.error('Error al simular picks del draft:', error);
             await interaction.editReply(`❌ Hubo un error durante la simulación: ${error.message}`);
         }
+        return;
+    }
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'draft_force_tournament') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+
+        // Filtramos solo los formatos de torneo que son para 8 equipos
+        const eightTeamFormats = Object.entries(TOURNAMENT_FORMATS)
+            .filter(([key, format]) => format.size === 8)
+            .map(([key, format]) => ({
+                label: format.label,
+                description: format.description,
+                value: key
+            }));
+
+        if (eightTeamFormats.length === 0) {
+            return interaction.editReply('❌ No hay formatos de torneo de 8 equipos configurados. No se puede continuar.');
+        }
+
+        const formatMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_create_tournament_format:${draftShortId}`)
+            .setPlaceholder('Selecciona el formato para el torneo resultante')
+            .addOptions(eightTeamFormats);
+        
+        await interaction.editReply({
+            content: 'Por favor, elige el formato que tendrá el torneo que se creará a partir de este draft:',
+            components: [new ActionRowBuilder().addComponents(formatMenu)],
+        });
         return;
     }
     // --- FIN DE LA MODIFICACIÓN ---
