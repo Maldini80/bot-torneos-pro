@@ -90,6 +90,8 @@ async function cleanupDraft(client, draft) {
 
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordChannelId);
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.managementThreadId);
+    await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.notificationsThreadId);
+
 
     try {
         const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
@@ -201,10 +203,10 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const tournamentShortId = `draft-${draft.shortId}`;
         const config = {
             formatId: formatId,
-            isPaid: false,
-            entryFee: 0,
-            prizeCampeon: 0,
-            prizeFinalista: 0,
+            isPaid: draft.config.isPaid,
+            entryFee: draft.config.entryFee,
+            prizeCampeon: draft.config.prizeCampeon,
+            prizeFinalista: draft.config.prizeFinalista,
             startTime: null
         };
         
@@ -383,7 +385,7 @@ export async function approveTeam(client, tournament, teamData) {
         );
 
         await chatChannel.send({
-            content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a un co-capitán.*`,
+            content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
             components: [inviteButtonRow]
         });
 
@@ -757,14 +759,20 @@ export async function createNewDraft(client, guild, name, shortId, config) {
 
         const newDraft = {
             _id: new ObjectId(), shortId, guildId: guild.id, name, status: 'inscripcion',
-            config: { isPaid: config.isPaid, entryFee: config.entryFee || 0, allowReserves: !config.isPaid },
+            config: { 
+                isPaid: config.isPaid, 
+                entryFee: config.entryFee || 0, 
+                prizeCampeon: config.prizeCampeon || 0,
+                prizeFinalista: config.prizeFinalista || 0,
+                allowReserves: !config.isPaid 
+            },
             captains: [], pendingCaptains: {}, players: [], reserves: [], pendingPayments: {},
             selection: { turn: 0, order: [], currentPick: 1 },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
                 statusMessageId: null, managementThreadId: null,
                 mainInterfacePlayerMessageId: null, mainInterfaceTeamsMessageId: null,
-                turnOrderMessageId: null
+                turnOrderMessageId: null, notificationsThreadId: null
             }
         };
         
@@ -788,11 +796,20 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         });
         newDraft.discordMessageIds.managementThreadId = managementThread.id;
         
+        const notificationsParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT);
+        const notificationsThread = await notificationsParentChannel.threads.create({ 
+            name: `Avisos Draft - ${name.slice(0, 40)}`, 
+            type: ChannelType.PrivateThread, 
+            autoArchiveDuration: 10080 
+        });
+        newDraft.discordMessageIds.notificationsThreadId = notificationsThread.id;
+
         await db.collection('drafts').insertOne(newDraft);
 
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
                 await managementThread.members.add(member.id).catch(() => {});
+                await notificationsThread.members.add(member.id).catch(() => {});
             }
         }
         
@@ -832,6 +849,7 @@ export async function startDraftSelection(client, draftShortId) {
         
         await updateDraftManagementPanel(client, draft);
         await updateDraftMainInterface(client, draft.shortId);
+        await updatePublicMessages(client, draft);
 
         await notifyNextCaptain(client, draft);
     } catch (error) {
@@ -921,5 +939,6 @@ export async function advanceDraftTurn(client, draftShortId) {
     );
 
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
     await notifyNextCaptain(client, updatedDraft);
 }
