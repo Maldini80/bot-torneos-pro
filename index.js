@@ -7,10 +7,7 @@ import { handleButton } from './src/handlers/buttonHandler.js';
 import { handleModal } from './src/handlers/modalHandler.js';
 import { handleSelectMenu } from './src/handlers/selectMenuHandler.js';
 import { handleMessageTranslation } from './src/logic/translationLogic.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se importa la nueva función para actualizar paneles de draft
 import { updateAdminPanel, updateAllManagementPanels, updateAllDraftManagementPanels } from './src/utils/panelManager.js';
-// --- FIN DE LA MODIFICACIÓN ---
 import { CHANNELS } from './config.js';
 
 process.on('uncaughtException', (error, origin) => {
@@ -21,30 +18,28 @@ process.on('uncaughtException', (error, origin) => {
 });
 
 export let isBotBusy = false;
-// --- INICIO DE LA MODIFICACIÓN ---
-export async function setBotBusy(status) { 
+export async function setBotBusy(status) {
     isBotBusy = status;
     await updateAdminPanel(client);
     await updateAllManagementPanels(client, status);
     // NUEVO: Actualizar también los paneles de gestión de drafts
     await updateAllDraftManagementPanels(client, status);
 }
-// --- FIN DE LA MODIFICACIÓN ---
 
 const client = new Client({
-    intents: [ 
-        GatewayIntentBits.Guilds, 
-        GatewayIntentBits.GuildMembers, 
-        GatewayIntentBits.GuildMessages, 
-        GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMessageReactions 
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMessageReactions
     ]
 });
 
 client.once(Events.ClientReady, async readyClient => {
     try {
         console.log(`✅ Bot conectado como ${readyClient.user.tag}`);
-        
+
         const guild = readyClient.guilds.cache.get(process.env.GUILD_ID);
         if (guild) {
             console.log('[CACHE] Forzando la carga de la lista de miembros del servidor...');
@@ -67,7 +62,7 @@ client.on(Events.InteractionCreate, async interaction => {
         }
         return;
     }
-    
+
     try {
         if (interaction.isChatInputCommand()) await handleCommand(interaction);
         else if (interaction.isButton()) await handleButton(interaction);
@@ -78,9 +73,9 @@ client.on(Events.InteractionCreate, async interaction => {
             console.warn('[WARN] Se intentó responder a una interacción que ya había expirado.');
             return;
         }
-        
+
         console.error('[ERROR DE INTERACCIÓN]', error);
-        
+
         try {
             const errorMessage = { content: '❌ Hubo un error al procesar tu solicitud.', flags: [MessageFlags.Ephemeral] };
             if (interaction.replied || interaction.deferred) {
@@ -110,7 +105,7 @@ client.on(Events.MessageCreate, async message => {
         if (isMatchThread) {
             const knownVideoDomains = ['streamable.com', 'youtube.com', 'youtu.be', 'twitch.tv'];
             const linkInMessage = knownVideoDomains.some(domain => message.content.includes(domain));
-            
+
             if (linkInMessage) {
                 const urlMatch = message.content.match(/https?:\/\/[^\s]+/);
                 if (!urlMatch) return;
@@ -139,7 +134,7 @@ client.on(Events.MessageCreate, async message => {
 client.on(Events.MessageDelete, async message => {
     if (message.channelId !== CHANNELS.TORNEOS_STATUS) return;
     if (message.author?.id !== client.user.id) return;
-    
+
     console.log(`[SYNC] Panel de torneo borrado en el canal de estado. Forzando actualización de icono.`);
 });
 
