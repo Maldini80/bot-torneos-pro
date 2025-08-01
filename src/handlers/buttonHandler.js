@@ -209,7 +209,7 @@ export async function handleButton(interaction) {
         }
 
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await client.logic.updateDraftMainInterface(client, updatedDraft.shortId);
+        await updateDraftMainInterface(client, updatedDraft.shortId);
         const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
         if (updatedDraft.discordMessageIds.statusMessageId) {
             const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
@@ -282,64 +282,72 @@ export async function handleButton(interaction) {
         const currentStep = parseInt(currentStepStr);
         
         const isCaptainFlow = originalAction.includes('captain');
-        const totalSteps = isCaptainFlow ? 3 : 1;
-
+        const isTournamentFlow = !originalAction.startsWith('register_draft');
+        const totalSteps = isCaptainFlow || isTournamentFlow ? 3 : 1;
+    
         if (currentStep >= totalSteps) {
-            if (originalAction.startsWith('register_draft')) {
-                const draftShortId = entityId;
-                const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
-                    label: value,
-                    value: key
-                }));
-
-                if (isCaptainFlow) {
-                    const positionMenu = new StringSelectMenuBuilder()
-                        .setCustomId(`draft_register_captain_pos_select:${draftShortId}`)
-                        .setPlaceholder('Selecciona tu única posición como capitán')
-                        .addOptions(positionOptions);
-
-                    await interaction.update({
-                        content: 'Has aceptado las normas. Ahora, por favor, selecciona tu posición en el campo.',
-                        components: [new ActionRowBuilder().addComponents(positionMenu)],
-                        embeds: []
-                    });
-
-                } else { // Player flow
-                    const primaryPosMenu = new StringSelectMenuBuilder()
-                        .setCustomId(`draft_register_player_pos_select_primary:${draftShortId}`)
-                        .setPlaceholder('Paso 1: Selecciona tu posición PRIMARIA')
-                        .addOptions(positionOptions);
-
-                    await interaction.update({
-                        content: 'Has aceptado las normas. Ahora, por favor, selecciona tu posición primaria.',
-                        components: [new ActionRowBuilder().addComponents(primaryPosMenu)],
-                        embeds: []
-                    });
-                }
-            } else { // Tournament flow (unchanged)
-                const tournamentShortId = entityId;
-                const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-                if (!tournament) {
-                    return interaction.update({ content: 'Error: No se encontró este torneo.', components: [], embeds: [] });
-                }
-                const modalId = originalAction === 'inscribir_reserva_start' ? `reserva_modal:${tournamentShortId}` : `inscripcion_modal:${tournamentShortId}`;
-                const modal = new ModalBuilder().setCustomId(modalId).setTitle('Inscripción de Equipo / Team Registration');
-                const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
-                const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
-                const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter o el de tu equipo (Opcional)").setStyle(TextInputStyle.Short).setRequired(false);
-                const streamInput = new TextInputBuilder().setCustomId('stream_channel_input').setLabel("Tu canal de transmisión (Twitch, YT...)").setStyle(TextInputStyle.Short).setRequired(true);
-                modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput), new ActionRowBuilder().addComponents(eafcNameInput), new ActionRowBuilder().addComponents(streamInput), new ActionRowBuilder().addComponents(twitterInput));
-                await interaction.showModal(modal);
-            }
+            const platformButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${entityId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${entityId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+            );
+    
+            await interaction.update({
+                content: 'Has aceptado las normas. Por favor, selecciona tu plataforma de transmisión principal.',
+                components: [platformButtons],
+                embeds: []
+            });
         } else {
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
             await interaction.update(nextStepContent);
         }
         return;
     }
+
+    if (action === 'select_stream_platform') {
+        const [platform, originalAction, entityId, ...restParams] = params;
+        
+        const modal = new ModalBuilder();
+        const usernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu nombre de usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
+        let finalActionId;
+    
+        if (originalAction.startsWith('register_draft_captain')) {
+            finalActionId = `register_draft_captain_modal:${entityId}:${restParams[0]}:${platform}`; // entityId is draftShortId, restParams[0] is position
+            modal.setTitle('Inscripción como Capitán de Draft');
+            
+            const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
+            const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
+            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
+            
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(usernameInput),
+                new ActionRowBuilder().addComponents(teamNameInput), 
+                new ActionRowBuilder().addComponents(psnIdInput), 
+                new ActionRowBuilder().addComponents(twitterInput)
+            );
+    
+        } else { // Tournament Flow
+            finalActionId = `inscripcion_modal:${entityId}:${platform}`;
+            modal.setTitle('Inscripción de Equipo / Team Registration');
+            
+            const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
+            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
+            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter o el de tu equipo (Opcional)").setStyle(TextInputStyle.Short).setRequired(false);
+            
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(usernameInput),
+                new ActionRowBuilder().addComponents(teamNameInput), 
+                new ActionRowBuilder().addComponents(eafcNameInput), 
+                new ActionRowBuilder().addComponents(twitterInput)
+            );
+        }
+    
+        modal.setCustomId(finalActionId);
+        await interaction.showModal(modal);
+        return;
+    }
     
     if (action === 'rules_reject') {
-        await interaction.update({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [], embeds: [] });
+        await interaction.update({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción.', components: [], embeds: [] });
         return;
     }
     
