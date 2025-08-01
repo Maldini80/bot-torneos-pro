@@ -45,7 +45,7 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito, en reserva o pendiente de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
         
-        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length);
+        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length, customId);
         await interaction.reply(ruleStepContent);
         return;
     }
@@ -112,7 +112,7 @@ export async function handleButton(interaction) {
         await interaction.followUp({ content: `La acción se ha completado.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
-
+    
     if (action === 'draft_start_selection') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -163,12 +163,12 @@ export async function handleButton(interaction) {
         await interaction.deferUpdate();
         const currentStep = parseInt(action.split('_')[2]);
         const totalSteps = RULES_ACCEPTANCE_IMAGE_URLS.length;
+        const originalCustomId = params.join(':');
 
         if (currentStep < totalSteps) {
-            const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps);
+            const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalCustomId);
             await interaction.editReply(nextStepContent);
         } else {
-            const originalCustomId = interaction.message.interaction.customId;
             const [originalAction, id] = originalCustomId.split(':');
             
             if (originalAction.startsWith('register_draft')) {
@@ -239,6 +239,12 @@ export async function handleButton(interaction) {
         return;
     }
     
+    if (action === 'rules_reject') {
+        await interaction.deferUpdate();
+        await interaction.editReply({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [] });
+        return;
+    }
+    
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -251,7 +257,7 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.', flags: [MessageFlags.Ephemeral] });
         }
         
-        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length);
+        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length, customId);
         await interaction.reply(ruleStepContent);
         return;
     }
