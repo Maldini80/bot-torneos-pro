@@ -2,7 +2,10 @@
 import { TwitterApi } from 'twitter-api-v2';
 import 'dotenv/config';
 import fetch from 'node-fetch';
-import { TOURNAMENT_FORMATS } from '../../config.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Importamos la nueva constante con el enlace de invitación
+import { TOURNAMENT_FORMATS, DISCORD_INVITE_LINK } from '../../config.js';
+// --- FIN DE LA MODIFICACIÓN ---
 
 // 1. Configuración del Cliente de Twitter
 const client = new TwitterApi({
@@ -47,7 +50,11 @@ export async function postTournamentUpdate(tournament) {
     const format = TOURNAMENT_FORMATS[tournament.config.formatId];
     
     if (tournament.status === 'inscripcion_abierta') {
-        tweetText = `¡Inscripciones abiertas para el torneo "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Apúntate en nuestro Discord! #eSports`;
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se actualiza la plantilla del tweet para usar la constante DISCORD_INVITE_LINK
+        tweetText = `¡Inscripciones abiertas para el torneo "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Apúntate aquí! 👇\n${DISCORD_INVITE_LINK}\n\n#eSports`;
+        // --- FIN DE LA MODIFICACIÓN ---
+        
         // Para inscripciones abiertas, no publicaremos imagen de clasificación
         try {
             await twitterClient.v2.tweet(tweetText);
