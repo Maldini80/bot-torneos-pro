@@ -2,7 +2,10 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment, approveDraftCaptain, endDraft } from '../logic/tournamentLogic.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Importamos la nueva función simulateDraftPicks
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks } from '../logic/tournamentLogic.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
@@ -95,8 +98,6 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se añade la lógica para el botón de añadir jugadores de prueba
     if (action === 'draft_add_test_players') {
         const [draftShortId] = params;
         const modal = new ModalBuilder()
@@ -112,6 +113,20 @@ export async function handleButton(interaction) {
             
         modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
         await interaction.showModal(modal);
+        return;
+    }
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'draft_simulate_picks') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        try {
+            await simulateDraftPicks(client, draftShortId);
+            await interaction.editReply('✅ Simulación completada. El draft ha finalizado.');
+        } catch (error) {
+            console.error('Error al simular picks del draft:', error);
+            await interaction.editReply(`❌ Hubo un error durante la simulación: ${error.message}`);
+        }
         return;
     }
     // --- FIN DE LA MODIFICACIÓN ---
