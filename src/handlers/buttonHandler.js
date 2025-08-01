@@ -1,7 +1,10 @@
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
-import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, RULES_ACCEPTANCE_IMAGE_URLS, DRAFT_POSITIONS } from '../../config.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se elimina la importación de RULES_ACCEPTANCE_IMAGE_URLS porque ya no se usa.
+import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
@@ -45,7 +48,10 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito, en reserva o pendiente de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
         
-        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length, action, draftShortId);
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se establece el número de pasos a 3 (el número de embeds)
+        const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, draftShortId);
+        // --- FIN DE LA MODIFICACIÓN ---
         await interaction.reply(ruleStepContent);
         return;
     }
@@ -163,7 +169,10 @@ export async function handleButton(interaction) {
         await interaction.deferUpdate();
         const [currentStepStr, originalAction, entityId] = params;
         const currentStep = parseInt(currentStepStr);
-        const totalSteps = RULES_ACCEPTANCE_IMAGE_URLS.length;
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se establece el número de pasos a 3 (el número de embeds)
+        const totalSteps = 3;
+        // --- FIN DE LA MODIFICACIÓN ---
 
         if (currentStep < totalSteps) {
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
@@ -255,7 +264,10 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.', flags: [MessageFlags.Ephemeral] });
         }
         
-        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length, action, tournamentShortId);
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se establece el número de pasos a 3 (el número de embeds)
+        const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, tournamentShortId);
+        // --- FIN DE LA MODIFICACIÓN ---
         await interaction.reply(ruleStepContent);
         return;
     }
