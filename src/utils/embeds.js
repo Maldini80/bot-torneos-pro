@@ -189,14 +189,11 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     return { embeds: [embed], components };
 }
 
-// --- INICIO DE LA CORRECCIÓN ---
 export function createDraftStatusEmbed(draft) {
     const isRegistrationOpen = draft.status === 'inscripcion';
     
     const captainCount = draft.captains.length;
-    // Contamos solo los jugadores que NO son capitanes
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
-    // El total es la suma de capitanes y jugadores no capitanes
     const totalParticipants = captainCount + nonCaptainPlayerCount;
     
     const embed = new EmbedBuilder()
@@ -232,7 +229,6 @@ export function createDraftStatusEmbed(draft) {
 
     return { embeds: [embed], components: row.components.length > 0 ? [row] : [] };
 }
-// --- FIN DE LA CORRECCIÓN ---
 
 export function createDraftManagementPanel(draft, isBusy = false) {
     const embed = new EmbedBuilder()
@@ -319,7 +315,54 @@ export function createDraftMainInterface(draft) {
         });
     });
 
-    return [playersEmbed, teamsEmbed];
+    const turnOrderEmbed = new EmbedBuilder()
+        .setColor('#e67e22')
+        .setTitle('🐍 Orden de Selección del Draft');
+
+    if (draft.status === 'seleccion' && draft.selection.order.length > 0) {
+        const picksList = [];
+        const totalPicks = 80;
+        const numCaptains = draft.selection.order.length;
+        const captainMap = new Map(draft.captains.map(c => [c.userId, c.teamName]));
+
+        for (let i = 0; i < totalPicks; i++) {
+            const round = Math.floor(i / numCaptains);
+            const pickInRound = i % numCaptains;
+            let captainId;
+
+            if (round % 2 === 0) {
+                captainId = draft.selection.order[pickInRound];
+            } else {
+                captainId = draft.selection.order[numCaptains - 1 - pickInRound];
+            }
+            
+            const teamName = captainMap.get(captainId) || 'Equipo Desconocido';
+            const pickNumber = i + 1;
+
+            if (pickNumber === draft.selection.currentPick) {
+                picksList.push(`**➡️ ${pickNumber}. ${teamName}**`);
+            } else if (pickNumber < draft.selection.currentPick) {
+                picksList.push(`✅ ${pickNumber}. ${teamName}`);
+            } else {
+                picksList.push(`⏳ ${pickNumber}. ${teamName}`);
+            }
+        }
+        
+        const half = Math.ceil(picksList.length / 2);
+        const firstHalf = picksList.slice(0, half).join('\n');
+        const secondHalf = picksList.slice(half).join('\n');
+
+        turnOrderEmbed.setDescription(`Turno actual: **Pick ${draft.selection.currentPick} de ${totalPicks}**`);
+        turnOrderEmbed.addFields(
+            { name: 'Picks 1-40', value: firstHalf || 'N/A', inline: true },
+            { name: 'Picks 41-80', value: secondHalf || 'N/A', inline: true }
+        );
+
+    } else {
+        turnOrderEmbed.setDescription('El orden de selección se mostrará aquí cuando comience la fase de selección.');
+    }
+
+    return [playersEmbed, teamsEmbed, turnOrderEmbed];
 }
 
 export function createDraftPickEmbed(draft, captainId) {
