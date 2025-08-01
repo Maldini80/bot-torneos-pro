@@ -119,7 +119,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
             .setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
-    
+
     return { embeds: [embed], components: [globalActionsRow, globalSettingsRow] };
 }
 
@@ -135,7 +135,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
     const row3 = new ActionRowBuilder();
-    
+
     const isBeforeDraw = tournament.status === 'inscripcion_abierta';
     const isGroupStage = tournament.status === 'fase_de_grupos';
     const hasEnoughTeamsForDraw = Object.keys(tournament.teams.aprobados).length >= 2;
@@ -178,7 +178,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setEmoji('👥')
             .setDisabled(isBusy || !hasCaptains)
     );
-    
+
     row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
 
     const components = [];
@@ -198,11 +198,11 @@ export function createDraftStatusEmbed(draft) {
         cancelado: 'cancelado'
     };
     const statusIcon = TOURNAMENT_STATUS_ICONS[statusMap[draft.status]] || '❓';
-    
+
     const captainCount = draft.captains.length;
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
     const totalParticipants = captainCount + nonCaptainPlayerCount;
-    
+
     const embed = new EmbedBuilder()
         .setColor(draft.status === 'inscripcion' ? '#2ecc71' : '#3498db')
         .setTitle(`${statusIcon} Draft: ${draft.name}`)
@@ -271,10 +271,10 @@ export function createDraftManagementPanel(draft, isBusy = false) {
             ? `🔴 **ESTADO: OCUPADO**\nID: \`${draft.shortId}\`\nControles bloqueados.`
             : `✅ **ESTADO: LISTO**\nID: \`${draft.shortId}\`\nEstado: **${draft.status.replace(/_/g, ' ')}**`
         ).setFooter({ text: 'Panel de control exclusivo para este draft.' });
-    
+
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
-    
+
     if (draft.status === 'inscripcion') {
         row1.addComponents(
             new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️').setDisabled(isBusy),
@@ -288,34 +288,34 @@ export function createDraftManagementPanel(draft, isBusy = false) {
             new ButtonBuilder().setCustomId(`draft_simulate_picks:${draft.shortId}`).setLabel('Simular Picks').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy)
         );
     }
-    
+
     if (draft.status === 'finalizado') {
          row1.addComponents(
             new ButtonBuilder().setCustomId(`draft_force_tournament:${draft.shortId}`).setLabel('Forzar Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy)
         );
     }
-    
+
     row2.addComponents(new ButtonBuilder().setCustomId(`draft_end:${draft.shortId}`).setLabel('Finalizar Draft').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy));
 
     const components = [];
     if (row1.components.length > 0) components.push(row1);
     if (row2.components.length > 0) components.push(row2);
-    
+
     return { embeds: [embed], components };
 }
 
 export function createDraftMainInterface(draft) {
     const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
-    
+
     const playersEmbed = new EmbedBuilder()
         .setColor('#3498db')
         .setTitle('Jugadores Disponibles para Seleccionar');
-    
+
     if (availablePlayers.length > 0) {
         playersEmbed.setDescription('Lista de jugadores que aún no han sido elegidos.');
         const groupedPlayers = {};
         DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
-        
+
         availablePlayers.forEach(player => {
             if (groupedPlayers[player.primaryPosition]) {
                 groupedPlayers[player.primaryPosition].push(player.psnId);
@@ -343,10 +343,10 @@ export function createDraftMainInterface(draft) {
         .setColor('#2ecc71')
         .setTitle('Equipos del Draft')
         .setDescription('Plantillas actuales de cada equipo.');
-        
+
     draft.captains.forEach(captain => {
         const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
-        
+
         const sortedPlayerList = teamPlayers.sort((a, b) => {
             return DRAFT_POSITION_ORDER.indexOf(a.primaryPosition) - DRAFT_POSITION_ORDER.indexOf(b.primaryPosition);
         }).map(p => `• ${p.psnId} (${p.primaryPosition})`).join('\n');
@@ -378,7 +378,7 @@ export function createDraftMainInterface(draft) {
             } else {
                 captainId = draft.selection.order[numCaptains - 1 - pickInRound];
             }
-            
+
             const teamName = captainMap.get(captainId) || 'Equipo Desconocido';
             const pickNumber = i + 1;
 
@@ -390,7 +390,7 @@ export function createDraftMainInterface(draft) {
                 picksList.push(`⏳ ${pickNumber}. ${teamName}`);
             }
         }
-        
+
         const half = Math.ceil(picksList.length / 2);
         const firstHalf = picksList.slice(0, half).join('\n');
         const secondHalf = picksList.slice(half).join('\n');
@@ -425,7 +425,7 @@ export function createDraftPickEmbed(draft, captainId) {
                 { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
             ])
     );
-    
+
     return { content: `<@${captainId}>`, embeds: [embed], components: [searchTypeMenu], ephemeral: true };
 }
 
@@ -512,7 +512,7 @@ export function createTournamentStatusEmbed(tournament) {
     if (tournament.status === 'finalizado') {
         embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado / Finished)`);
     }
-    
+
     const components = [];
     if(row1.components.length > 0) components.push(row1);
     if(row2.components.length > 0) components.push(row2);
@@ -614,7 +614,7 @@ export function createCalendarEmbed(tournament) {
         for (const stageKey of tournament.config.format.knockoutStages) {
             const stageMatches = tournament.structure.eliminatorias[stageKey];
             if (!stageMatches || (Array.isArray(stageMatches) && stageMatches.length === 0)) continue;
-            
+
             const stageName = stageKey.charAt(0).toUpperCase() + stageKey.slice(1);
             const matches = Array.isArray(stageMatches) ? stageMatches : [stageMatches];
 
@@ -654,6 +654,6 @@ export function createCasterInfoEmbed(teamData, tournament) {
             { name: 'Canal de Transmisión', value: teamData.streamChannel || 'No proporcionado', inline: false }
         )
         .setTimestamp();
-    
+
     return { embeds: [embed] };
 }
