@@ -33,7 +33,6 @@ export async function handleModal(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'register_draft_captain_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -73,7 +72,7 @@ export async function handleModal(interaction) {
             secondaryPosition: position,
             currentTeam: teamName,
             isCaptain: true,
-            captainId: null, // Los capitanes no son elegidos
+            captainId: null,
         };
 
         await db.collection('drafts').updateOne(
@@ -137,7 +136,6 @@ export async function handleModal(interaction) {
         await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_force_reset_modal') {
         const confirmation = interaction.fields.getTextInputValue('confirmation_text');
