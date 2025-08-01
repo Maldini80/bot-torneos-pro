@@ -84,7 +84,7 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    
+
     if (action === 'draft_confirm_pick') {
         await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
@@ -471,7 +471,7 @@ export async function handleButton(interaction) {
         
         try {
             const user = await client.users.fetch(captainId);
-            await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have been **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
+            await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have sido **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
         } catch (e) { console.warn(`No se pudo enviar MD de expulsión al usuario ${captainId}`); }
         
         const originalMessage = interaction.message;
@@ -608,6 +608,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'admin_prize_paid') {
+        await interaction.deferUpdate();
         const [tournamentShortId, userId, prizeType] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
@@ -621,7 +622,7 @@ export async function handleButton(interaction) {
         disabledRow.components.forEach(c => c.setDisabled(true));
         
         await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-        await interaction.editReply(`✅ Pago marcado como realizado. Se ha notificado a <@${userId}>.`);
+        await interaction.followUp({ content: `✅ Pago marcado como realizado. Se ha notificado a <@${userId}>.`, flags: [MessageFlags.Ephemeral] });
     }
 
     if(action === 'admin_manage_waitlist') {
