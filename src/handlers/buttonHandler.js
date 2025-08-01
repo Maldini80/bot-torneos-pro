@@ -2,11 +2,10 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, RULES_ACCEPTANCE_IMAGE_URLS, DRAFT_POSITIONS } from '../../config.js';
-// Importamos la nueva lógica del draft
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftPickEmbed } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
@@ -73,7 +72,6 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'draft_start_selection') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -84,6 +82,30 @@ export async function handleButton(interaction) {
             console.error('Error al iniciar la selección del draft:', error);
             await interaction.editReply(`❌ Hubo un error: ${error.message}`);
         }
+        return;
+    }
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'draft_confirm_pick') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId] = params;
+        if(interaction.user.id !== captainId) return;
+
+        await advanceDraftTurn(client, draftShortId);
+        await interaction.editReply({ content: '✅ Selección confirmada. Esperando al siguiente capitán...', components: [] });
+        return;
+    }
+
+    if (action === 'draft_undo_pick') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId] = params;
+        if(interaction.user.id !== captainId) return;
+
+        await undoLastPick(client, draftShortId);
+        
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const pickEmbed = createDraftPickEmbed(draft, captainId);
+        await interaction.editReply(pickEmbed); // Volvemos a mostrar la interfaz de selección
         return;
     }
     // --- FIN DE LA MODIFICACIÓN ---
@@ -451,7 +473,7 @@ export async function handleButton(interaction) {
         
         try {
             const user = await client.users.fetch(captainId);
-            await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have been **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
+            await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have sido **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
         } catch (e) { console.warn(`No se pudo enviar MD de expulsión al usuario ${captainId}`); }
         
         const originalMessage = interaction.message;
