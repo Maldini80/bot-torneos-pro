@@ -24,21 +24,11 @@ export async function approveDraftCaptain(client, draft, captainData) {
     await updateDraftManagementPanel(client, updatedDraft);
 }
 
-// --- INICIO DE LA MODIFICACIÓN ---
-
-/**
- * NUEVO: Finaliza un draft, borrando sus canales y mensajes asociados.
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {object} draft El objeto completo del draft.
- */
 export async function endDraft(client, draft) {
     await setBotBusy(true);
     try {
         const db = getDb();
-        // Marca el draft como finalizado en la base de datos (o cancelado)
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
-
-        // Llama a la función de limpieza
         await cleanupDraft(client, draft);
 
     } catch (error) {
@@ -48,11 +38,6 @@ export async function endDraft(client, draft) {
     }
 }
 
-/**
- * NUEVO: Función auxiliar para borrar los recursos de Discord de un draft.
- * @param {import('discord.js').Client} client 
- * @param {object} draft 
- */
 async function cleanupDraft(client, draft) {
     const { discordChannelId, discordMessageIds } = draft;
 
@@ -62,19 +47,15 @@ async function cleanupDraft(client, draft) {
             const resource = await fetcher(resourceId).catch(() => null);
             if (resource) await resource.delete();
         } catch (err) {
-            if (err.code !== 10003 && err.code !== 10008) { // Unknown Channel/Message
+            if (err.code !== 10003 && err.code !== 10008) {
                 console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`);
             }
         }
     };
 
-    // Borrar el canal principal del draft
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordChannelId);
-
-    // Borrar el hilo de gestión
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.managementThreadId);
 
-    // Borrar el mensaje de estado en el canal principal
     try {
         const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
         await deleteResourceSafe(globalChannel.messages.fetch.bind(globalChannel.messages), discordMessageIds.statusMessageId);
@@ -83,8 +64,89 @@ async function cleanupDraft(client, draft) {
     }
 }
 
-// --- FIN DE LA MODIFICACIÓN ---
+// --- INICIO DE LA MODIFICACIÓN ---
 
+/**
+ * NUEVO: Simula la selección de todos los jugadores restantes en un draft.
+ * @param {import('discord.js').Client} client 
+ * @param {string} draftShortId 
+ */
+export async function simulateDraftPicks(client, draftShortId) {
+    await setBotBusy(true);
+    const db = getDb();
+    try {
+        let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) throw new Error('Draft no encontrado.');
+        if (draft.status !== 'seleccion') throw new Error('La simulación solo puede iniciarse durante la fase de selección.');
+
+        let availablePlayers = draft.players.filter(p => !p.captainId);
+        const captains = draft.captains;
+
+        // Función auxiliar para barajar el array de jugadores
+        const shuffleArray = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        };
+
+        shuffleArray(availablePlayers);
+
+        const playersPerTeam = 11; // 1 capitán + 10 jugadores
+        const bulkOps = [];
+
+        for (const captain of captains) {
+            const currentTeamSize = draft.players.filter(p => p.captainId === captain.userId).length;
+            const playersNeeded = playersPerTeam - currentTeamSize;
+
+            for (let i = 0; i < playersNeeded; i++) {
+                const playerToAssign = availablePlayers.pop();
+                if (!playerToAssign) break; // Detener si no hay más jugadores
+
+                // Preparamos una operación de actualización para la base de datos
+                bulkOps.push({
+                    updateOne: {
+                        filter: { _id: draft._id, "players.userId": playerToAssign.userId },
+                        update: { $set: { "players.$.captainId": captain.userId } }
+                    }
+                });
+            }
+        }
+
+        // Ejecutamos todas las actualizaciones de jugadores de una sola vez
+        if (bulkOps.length > 0) {
+            await db.collection('drafts').bulkWrite(bulkOps);
+        }
+
+        // Actualizamos el estado del draft a 'finalizado'
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $set: { status: 'finalizado' } }
+        );
+
+        // Actualizamos todos los mensajes e interfaces
+        const finalDraftState = await db.collection('drafts').findOne({ _id: draft._id });
+        await updateDraftMainInterface(client, finalDraftState.shortId);
+        await updateDraftManagementPanel(client, finalDraftState);
+        
+        const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        const statusMessage = await statusChannel.messages.fetch(finalDraftState.discordMessageIds.statusMessageId);
+        await statusMessage.edit(createDraftStatusEmbed(finalDraftState));
+
+        const draftChannel = await client.channels.fetch(finalDraftState.discordChannelId);
+        if (draftChannel) {
+             await draftChannel.send('**✅ LA SELECCIÓN HA SIDO COMPLETADA POR SIMULACIÓN DE UN ADMIN.**');
+        }
+
+    } catch (error) {
+        console.error(`[DRAFT SIMULATE] Error durante la simulación de picks para ${draftShortId}:`, error);
+        throw error; // Re-lanzamos el error para que sea capturado por el manejador del botón
+    } finally {
+        await setBotBusy(false);
+    }
+}
+
+// --- FIN DE LA MODIFICACIÓN ---
 
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
     try {
