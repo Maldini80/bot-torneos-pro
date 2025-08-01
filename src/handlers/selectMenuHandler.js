@@ -2,7 +2,7 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
-import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft } from '../logic/tournamentLogic.js';
+import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 
 export async function handleSelectMenu(interaction) {
@@ -101,27 +101,31 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
+    if (action === 'admin_kick_participant_draft_select') {
+        await interaction.deferUpdate();
+        const [draftShortId] = params;
+        const userIdToKick = interaction.values[0];
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        await kickPlayerFromDraft(client, draft, userIdToKick);
+
+        await interaction.editReply({ content: `✅ El participante ha sido expulsado del draft.`, components: [] });
+        return;
+    }
+
     if (action === 'draft_register_captain_pos_select') {
         const [draftShortId] = params;
         const position = interaction.values[0];
 
-        const modal = new ModalBuilder()
-            .setCustomId(`register_draft_captain_modal:${draftShortId}:${position}`)
-            .setTitle('Inscripción como Capitán de Draft');
-        
-        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
-        const streamInput = new TextInputBuilder().setCustomId('stream_channel_input').setLabel("Tu canal de transmisión (Twitch, YT...)").setStyle(TextInputStyle.Short).setRequired(true);
-        const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
-        const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-        
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(teamNameInput), 
-            new ActionRowBuilder().addComponents(psnIdInput), 
-            new ActionRowBuilder().addComponents(streamInput), 
-            new ActionRowBuilder().addComponents(twitterInput)
+        const platformButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:register_draft_captain:${draftShortId}:${position}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:register_draft_captain:${draftShortId}:${position}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
         );
 
-        await interaction.showModal(modal);
+        await interaction.update({
+            content: `Has seleccionado **${DRAFT_POSITIONS[position]}**. Ahora, selecciona tu plataforma de transmisión.`,
+            components: [platformButtons]
+        });
         return;
     }
 
