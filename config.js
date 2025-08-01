@@ -7,17 +7,17 @@ export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
 export const ADMIN_ROLE_ID = 'ID_DE_TU_ROL_DE_ADMIN'; // Reemplaza esto si es necesario
 export const ARBITRO_ROLE_ID = '1393505777443930183';
 export const PARTICIPANTE_ROLE_ID = '1394321301748977684';
-export const CASTER_ROLE_ID = '1394815380614283286'; // NUEVO: Rol para los Caster
+export const CASTER_ROLE_ID = '1394815380614283286'; // ROL para los Caster
 
 // IDs de CANALES FIJOS que se reutilizan
 export const CHANNELS = {
     TOURNAMENTS_MANAGEMENT_PARENT: '1393507085286899744',
     TOURNAMENTS_APPROVALS_PARENT: '1393187598796587028',
     TORNEOS_STATUS: '1395276865597476908',
-    CASTER_HUB_ID: '1394818921453981766', // NUEVO: Canal para los hilos de casters
+    CASTER_HUB_ID: '1394818921453981766', // Canal para los hilos de casters
 };
 
-// NUEVO: URLs de las imágenes para el proceso de aceptación de normas
+// URLs de las imágenes para el proceso de aceptación de normas
 export const RULES_ACCEPTANCE_IMAGE_URLS = [
     'URL_DE_LA_IMAGEN_DE_NORMA_1', // Reemplaza esto con el enlace a tu primera imagen de normas
     'URL_DE_LA_IMAGEN_DE_NORMA_2', // Reemplaza esto con el enlace a tu segunda imagen de normas
@@ -28,6 +28,24 @@ export const RULES_ACCEPTANCE_IMAGE_URLS = [
 export const PAYMENT_CONFIG = {
     PAYPAL_EMAIL: 'johancamirotti13@hotmail.com'
 };
+
+// --- INICIO DE LA MODIFICACIÓN ---
+
+// NUEVO: Configuración para el sistema de Draft
+export const DRAFT_POSITIONS = {
+    GK: 'Portero (GK)',
+    DFC: 'Defensa Central (DFC)',
+    CARR: 'Carrilero (CARR)',
+    MCD: 'Mediocentro Defensivo (MCD)',
+    'MV/MCO': 'Mediocentro/Ofensivo (MV/MCO)',
+    DC: 'Delantero Centro (DC)'
+};
+
+// NUEVO: Orden de visualización de las posiciones en las tablas del Draft
+export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
+
+// --- FIN DE LA MODIFICACIÓN ---
+
 
 // Configuración de los formatos de torneo CON TRADUCCIONES
 export const TOURNAMENT_FORMATS = {
