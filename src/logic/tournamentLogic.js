@@ -9,6 +9,52 @@ import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 
+// --- INICIO DE LA MODIFICACIÓN ---
+
+/**
+ * NUEVO: Aprueba a un capitán pendiente en un draft.
+ * @param {import('discord.js').Client} client El cliente de Discord.
+ * @param {object} draft El objeto completo del draft.
+ * @param {object} captainData Los datos del capitán a aprobar.
+ */
+export async function approveDraftCaptain(client, draft, captainData) {
+    const db = getDb();
+
+    // 1. Añadir al capitán a la lista de aprobados y quitarlo de pendientes.
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        {
+            $push: { captains: captainData },
+            $unset: { [`pendingCaptains.${captainData.userId}`]: "" }
+        }
+    );
+
+    // 2. Notificar al capitán por MD.
+    try {
+        const user = await client.users.fetch(captainData.userId);
+        const embed = new EmbedBuilder()
+            .setColor('#2ecc71')
+            .setTitle(`✅ Aprobado para el Draft: ${draft.name}`)
+            .setDescription(
+                `¡Enhorabuena! Tu solicitud para ser capitán del equipo **${captainData.teamName}** ha sido **aprobada**.\n\n` +
+                `Ya apareces en la lista oficial de capitanes.`
+            );
+        await user.send({ embeds: [embed] });
+    } catch (e) {
+        console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message);
+    }
+    
+    // 3. Actualizar los mensajes públicos del draft.
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+    const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
+    await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
+    await updateDraftManagementPanel(client, updatedDraft);
+}
+
+// --- FIN DE LA MODIFICACIÓN ---
+
+
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
     try {
         const user = await client.users.fetch(userId);
@@ -502,6 +548,10 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 allowReserves: !config.isPaid
             },
             captains: [],
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // Se añade un campo para guardar los capitanes pendientes de aprobación.
+            pendingCaptains: {},
+            // --- FIN DE LA MODIFICACIÓN ---
             players: [],
             reserves: [],
             pendingPayments: {},
