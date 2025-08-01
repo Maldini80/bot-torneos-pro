@@ -16,7 +16,7 @@ export async function connectDb() {
         console.log('[DATABASE] Conectado exitosamente a MongoDB Atlas.');
         // NUEVO: Asegurarse de que la configuración global del bot exista al arrancar.
         await getBotSettings();
-    } catch (err) { // ¡ESTA ES LA LÍNEA CORREGIDA!
+    } catch (err) { // Esta es la línea que corregimos para que tuviera las llaves.
         console.error('[DATABASE] ERROR FATAL AL CONECTAR CON MONGODB:', err);
         process.exit(1);
     }
@@ -29,8 +29,7 @@ export function getDb() {
     return db; // Simplemente devuelve la conexión
 }
 
-// --- INICIO DE LA MODIFICACIÓN ---
-// Nueva función para obtener la configuración global del bot
+// NUEVA SECCIÓN COMPLETA: Funciones para gestionar la configuración del bot.
 const defaultBotSettings = {
     _id: 'global_config', // Usamos un ID fijo para tener siempre un único documento de configuración
     translationEnabled: true,
@@ -66,4 +65,3 @@ export async function updateBotSettings(newSettings) {
     // Usamos $set para no sobreescribir todo el documento, solo los campos que cambiamos.
     return settingsCollection.updateOne({ _id: 'global_config' }, { $set: newSettings });
 }
-// --- FIN DE LA MODIFICACIÓN ---
