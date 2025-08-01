@@ -90,7 +90,9 @@ export async function handleModal(interaction) {
         await updateDraftManagementPanel(client, updatedDraft);
         await updateDraftMainInterface(client, updatedDraft.shortId);
         
-        await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${bulkPlayers.length - bulkPlayers.length} jugadores** de prueba.` });
+        // --- CORRECCIÓN DEL MENSAJE FINAL ---
+        const nonCaptainPlayersAdded = bulkPlayers.filter(p => !p.isCaptain).length;
+        await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${nonCaptainPlayersAdded} jugadores** de prueba.` });
         return;
     }
 
