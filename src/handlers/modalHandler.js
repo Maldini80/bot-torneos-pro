@@ -1,13 +1,13 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Importamos la nueva función para aprobar capitanes de draft
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain } from '../logic/tournamentLogic.js';
-// --- FIN DE LA MODIFICACIÓN ---
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
-import { updateTournamentManagementThread } from '../utils/panelManager.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se importa updateDraftManagementPanel para poder actualizar el panel del admin
+import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { createDraftStatusEmbed } from '../utils/embeds.js';
 
 export async function handleModal(interaction) {
@@ -16,6 +16,69 @@ export async function handleModal(interaction) {
     const guild = interaction.guild;
     const db = getDb();
     const [action, ...params] = customId.split(':');
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'add_draft_test_players_modal') {
+        await interaction.reply({ content: '✅ Orden recibida. Añadiendo jugadores de prueba en segundo plano...', flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
+
+        if (isNaN(amount) || amount <= 0) {
+            return interaction.followUp({ content: '❌ La cantidad debe ser un número mayor que cero.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) {
+            return interaction.followUp({ content: '❌ No se encontró el draft.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const currentParticipants = draft.captains.length + draft.players.length;
+        const maxParticipants = 88;
+        const availableSlots = maxParticipants - currentParticipants;
+        const amountToAdd = Math.min(amount, availableSlots);
+
+        if (amountToAdd <= 0) {
+            return interaction.followUp({ content: 'ℹ️ No hay huecos disponibles en el draft para añadir jugadores.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const positions = Object.keys(DRAFT_POSITIONS);
+        const bulkPlayers = [];
+        for (let i = 0; i < amountToAdd; i++) {
+            const randomPrimaryPos = positions[Math.floor(Math.random() * positions.length)];
+            const randomSecondaryPos = positions[Math.floor(Math.random() * positions.length)];
+            const uniqueId = `test_${Date.now()}_${i}`;
+            
+            const playerData = {
+                userId: uniqueId,
+                userName: `TestPlayer#${String(i).padStart(4, '0')}`,
+                psnId: `J-Prueba-${currentParticipants + i + 1}`,
+                twitter: 'test',
+                primaryPosition: randomPrimaryPos,
+                secondaryPosition: randomSecondaryPos,
+                currentTeam: 'Libre',
+                isCaptain: false,
+                captainId: null
+            };
+            bulkPlayers.push(playerData);
+        }
+
+        if (bulkPlayers.length > 0) {
+            await db.collection('drafts').updateOne(
+                { _id: draft._id },
+                { $push: { players: { $each: bulkPlayers } } }
+            );
+        }
+
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
+        await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
+        await updateDraftManagementPanel(client, updatedDraft);
+        
+        await interaction.editReply({ content: `✅ Se han añadido **${amountToAdd}** jugadores de prueba al draft.` });
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'create_draft_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -68,14 +131,11 @@ export async function handleModal(interaction) {
         if (draft.status !== 'inscripcion') return interaction.editReply('❌ Las inscripciones para este draft están cerradas.');
 
         const userId = interaction.user.id;
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se añade la comprobación de la nueva lista de pendientes.
         const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
                                   (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
                                   draft.players.some(p => p.userId === userId) || 
                                   draft.reserves.some(r => r.userId === userId) || 
                                   (draft.pendingPayments && draft.pendingPayments[userId]);
-        // --- FIN DE LA MODIFICACIÓN ---
                                   
         if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.');
 
@@ -87,11 +147,8 @@ export async function handleModal(interaction) {
         const twitter = interaction.fields.getTextInputValue('twitter_input');
 
         if (isRegisteringAsCaptain) {
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // Se cuenta tanto a los capitanes aprobados como a los pendientes.
             const totalCaptains = draft.captains.length + (draft.pendingCaptains ? Object.keys(draft.pendingCaptains).length : 0);
             if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
-            // --- FIN DE LA MODIFICACIÓN ---
             
             const teamName = interaction.fields.getTextInputValue('team_name_input');
             const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
@@ -110,9 +167,6 @@ export async function handleModal(interaction) {
         }
 
         if (draft.config.isPaid) {
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // Si el draft es de pago, la lógica para capitanes y jugadores no cambia.
-            // Siempre deben pagar primero.
             const pendingData = { playerData, captainData }; 
             await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
 
@@ -124,12 +178,8 @@ export async function handleModal(interaction) {
             } catch (e) {
                 await interaction.editReply('❌ No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.');
             }
-            // --- FIN DE LA MODIFICACIÓN ---
         } else {
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // Si el draft es GRATUITO, ahora diferenciamos.
             if (isRegisteringAsCaptain) {
-                // Si se registra como capitán, lo mandamos a aprobación.
                 await db.collection('drafts').updateOne(
                     { _id: draft._id },
                     { $set: { [`pendingCaptains.${userId}`]: captainData } }
@@ -156,7 +206,6 @@ export async function handleModal(interaction) {
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
             } else {
-                // Si se registra como JUGADOR, se aprueba automáticamente como antes.
                 const totalParticipants = draft.captains.length + draft.players.length;
                 if (totalParticipants < 88) {
                     await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
@@ -168,13 +217,11 @@ export async function handleModal(interaction) {
                     return interaction.editReply('❌ Lo sentimos, el draft está completo.');
                 }
 
-                // Actualizamos el embed de estado en cualquier caso para el jugador.
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
                 const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
                 const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
                 await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
             }
-            // --- FIN DE LA MODIFICACIÓN ---
         }
         return;
     }
@@ -415,7 +462,7 @@ export async function handleModal(interaction) {
         const golesA = interaction.fields.getTextInputValue('goles_a');
         const golesB = interaction.fields.getTextInputValue('goles_b');
         if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
-        const reportedResult = `${golesA}-${goleoB}`;
+        const reportedResult = `${golesA}-${golesB}`;
         const reporterId = interaction.user.id;
         const opponentId = reporterId === partido.equipoA.capitanId ? partido.equipoB.capitanId : partido.equipoA.capitanId;
         partido.reportedScores[reporterId] = reportedResult;
