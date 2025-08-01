@@ -20,7 +20,7 @@ export async function handleCommand(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
         const oldPanels = await interaction.channel.messages.fetch({ limit: 50 });
-        const messagesToDelete = oldPanels.filter(m => m.author.id === interaction.client.user.id && m.embeds[0]?.title === 'Panel de Creación de Torneos');
+        const messagesToDelete = oldPanels.filter(m => m.author.id === interaction.client.user.id && m.embeds[0]?.title.startsWith('Panel de Creación'));
         if (messagesToDelete.size > 0) {
             try {
                 await interaction.channel.bulkDelete(messagesToDelete);
@@ -29,7 +29,11 @@ export async function handleCommand(interaction) {
             }
         }
         
-        const panelContent = createGlobalAdminPanel();
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // La función createGlobalAdminPanel ahora es asíncrona, así que debemos usar 'await'.
+        const panelContent = await createGlobalAdminPanel();
+        // --- FIN DE LA MODIFICACIÓN ---
+
         await interaction.channel.send(panelContent);
         await interaction.editReply({ content: "✅ Panel de creación global generado con éxito." });
     }
