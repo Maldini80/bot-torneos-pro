@@ -7,15 +7,9 @@ import { updateAdminPanel, updateTournamentManagementThread } from '../utils/pan
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+// NUEVO: Importamos la función de Twitter
+import { postTournamentUpdate } from '../utils/twitter.js';
 
-// --- INICIO DE LA MODIFICACIÓN ---
-/**
- * NUEVO: Notifica a un usuario que su premio ha sido pagado.
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {string} userId - La ID del usuario a notificar.
- * @param {string} prizeType - El tipo de premio (ej. "campeón").
- * @param {object} tournament - El objeto del torneo.
- */
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
     try {
         const user = await client.users.fetch(userId);
@@ -26,10 +20,7 @@ export async function confirmPrizePayment(client, userId, prizeType, tournament)
         return { success: false, error: e };
     }
 }
-// --- FIN DE LA MODIFICACIÓN ---
 
-
-// ... (El resto del código del archivo, desde createNewTournament hasta el final, se mantiene igual)
 export async function createNewTournament(client, guild, name, shortId, config) {
     await setBotBusy(true);
     try {
@@ -91,6 +82,10 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         }
 
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
+
+        // NUEVO: Publicar en Twitter
+        postTournamentUpdate(newTournament).catch(console.error);
+
     } catch (error) {
         console.error('[CREATE] OCURRIÓ UN ERROR EN MEDIO DEL PROCESO DE CREACIÓN:', error);
         await setBotBusy(false); throw error;
@@ -98,6 +93,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await setBotBusy(false);
     }
 }
+// ... (El resto del código hasta startGroupStage se mantiene igual)
 export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
@@ -332,7 +328,7 @@ export async function startGroupStage(client, guild, tournament) {
     await setBotBusy(true);
     try {
         const db = getDb();
-        const currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+        let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
         if (currentTournament.status !== 'inscripcion_abierta') { return; }
         currentTournament.status = 'fase_de_grupos';
         const format = currentTournament.config.format;
@@ -367,6 +363,10 @@ export async function startGroupStage(client, guild, tournament) {
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
+
+        // NUEVO: Publicar en Twitter
+        postTournamentUpdate(finalTournamentState).catch(console.error);
+
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
