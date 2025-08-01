@@ -3,11 +3,7 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelec
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
 import { getBotSettings } from '../../database.js';
 
-// --- INICIO DE LA MODIFICACIÓN ---
-
-// 1. Definimos los tres embeds con el contenido de las normas.
 const ruleEmbeds = [
-    // Embed 1: Reglamento de Partido
     new EmbedBuilder()
         .setColor('#f1c40f')
         .setTitle('📜 REGLAMENTO OFICIAL DE PARTIDO')
@@ -37,8 +33,6 @@ const ruleEmbeds = [
             "**NOTA: Para saber cómo proceder después de un partido (reportar resultados, solicitar pruebas,\n" +
             "etc.), consulta la Guía de Reportes y Pruebas.**"
         ),
-
-    // Embed 2: Guía de Reportes
     new EmbedBuilder()
         .setColor('#f1c40f')
         .setTitle('📋 GUÍA DE REPORTES, PRUEBAS Y DISPUTAS')
@@ -75,8 +69,6 @@ const ruleEmbeds = [
             "• **Si detectas una irregularidad,** ahora es el momento de pulsar el botón 'Solicitar Arbitraje'\n" +
             "y explicar el problema a los árbitros en el hilo."
         ),
-
-    // Embed 3: Sanciones
     new EmbedBuilder()
         .setColor('#f1c40f')
         .setTitle('⚠️ SANCIONES POR INCUMPLIMIENTO')
@@ -97,8 +89,6 @@ const ruleEmbeds = [
             "por el Staff."
         )
 ];
-
-// --- FIN DE LA MODIFICACIÓN ---
 
 export async function createGlobalAdminPanel(isBusy = false) {
     const settings = await getBotSettings();
@@ -199,11 +189,15 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     return { embeds: [embed], components };
 }
 
+// --- INICIO DE LA CORRECCIÓN ---
 export function createDraftStatusEmbed(draft) {
     const isRegistrationOpen = draft.status === 'inscripcion';
+    
     const captainCount = draft.captains.length;
-    const playerCount = draft.players.length;
-    const totalParticipants = captainCount + playerCount;
+    // Contamos solo los jugadores que NO son capitanes
+    const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
+    // El total es la suma de capitanes y jugadores no capitanes
+    const totalParticipants = captainCount + nonCaptainPlayerCount;
     
     const embed = new EmbedBuilder()
         .setColor(isRegistrationOpen ? '#5865F2' : '#71368A')
@@ -211,7 +205,7 @@ export function createDraftStatusEmbed(draft) {
         .setDescription(draft.config.isPaid ? '**Este es un draft de pago.**' : '**Este es un draft gratuito.**')
         .addFields(
             { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
-            { name: 'Jugadores / Players', value: `${playerCount} / 80`, inline: true },
+            { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount} / 80`, inline: true },
             { name: 'Total', value: `${totalParticipants} / 88`, inline: true }
         )
         .setFooter({ text: `ID del Draft: ${draft.shortId}` });
@@ -238,6 +232,7 @@ export function createDraftStatusEmbed(draft) {
 
     return { embeds: [embed], components: row.components.length > 0 ? [row] : [] };
 }
+// --- FIN DE LA CORRECCIÓN ---
 
 export function createDraftManagementPanel(draft, isBusy = false) {
     const embed = new EmbedBuilder()
@@ -348,14 +343,8 @@ export function createDraftPickEmbed(draft, captainId) {
     return { content: `<@${captainId}>`, embeds: [embed], components: [searchTypeMenu], ephemeral: true };
 }
 
-// --- INICIO DE LA MODIFICACIÓN ---
-
-// 2. Modificamos la función para que use los embeds que creamos arriba.
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
-    // Obtenemos el embed correspondiente al paso actual. El array está basado en 0.
     const ruleEmbed = ruleEmbeds[step - 1];
-
-    // Le añadimos el pie de página dinámico para que el usuario sepa en qué paso está.
     ruleEmbed.setFooter({ text: `Paso ${step} de ${totalSteps} - Debes aceptar todas las normas para poder inscribirte.` });
 
     const row = new ActionRowBuilder().addComponents(
@@ -371,11 +360,8 @@ export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, enti
             .setEmoji('❌')
     );
 
-    // Devolvemos el embed del paso actual y los botones.
     return { embeds: [ruleEmbed], components: [row], ephemeral: true };
 }
-
-// --- FIN DE LA MODIFICACIÓN ---
 
 export function createTournamentStatusEmbed(tournament) {
     const format = tournament.config.format;
