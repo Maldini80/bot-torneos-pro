@@ -1,16 +1,11 @@
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
-// --- INICIO MODIFICACIÓN ---
-// Nuevas importaciones
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, RULES_ACCEPTANCE_IMAGE_URLS } from '../../config.js';
-// Se importa la futura función 'undoGroupStageDraw'
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
-// Se importa createRuleAcceptanceEmbed para el nuevo flujo de inscripción
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed } from '../utils/embeds.js';
-// --- FIN MODIFICACIÓN ---
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
@@ -22,79 +17,12 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // --- HANDLERS GLOBALES ---
-
-    if (action === 'admin_toggle_translation') {
-        // ... (código existente sin cambios)
-    }
-
-    if (action.startsWith('rules_accept_step_')) {
-        // ... (código existente sin cambios)
-    }
-
-    if (action === 'rules_reject') {
-        // ... (código existente sin cambios)
-    }
-    
-    if (action === 'admin_create_draft_start') {
-        // ... (código existente sin cambios)
-    }
-
-    // --- FLUJO DE INSCRIPCIÓN ---
-    if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
-        // ... (código existente sin cambios)
-    }
-
-    // --- LÓGICA DE MODALES ---
-    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
-    if (modalActions.includes(action)) {
-        // ... (código existente sin cambios)
-    }
-
-    // --- ACCIONES QUE NO REQUIEREN MODAL ---
-    // --- INICIO MODIFICACIÓN ---
-    if (action === 'admin_assign_cocaptain_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) {
-            return interaction.editReply('Error: Torneo no encontrado.');
-        }
-
-        const teamsWithoutCoCaptain = Object.values(tournament.teams.aprobados).filter(team => !team.coCaptainId);
-
-        if (teamsWithoutCoCaptain.length === 0) {
-            return interaction.editReply('Todos los equipos de este torneo ya tienen un co-capitán o no hay equipos.');
-        }
-
-        const teamSelectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_assign_cocap_team_select:${tournamentShortId}`)
-            .setPlaceholder('Paso 1: Selecciona el equipo')
-            .addOptions(
-                teamsWithoutCoCaptain.map(team => ({
-                    label: team.nombre,
-                    description: `Capitán: ${team.capitanTag}`,
-                    value: team.capitanId, // Usamos el ID del capitán como identificador único del equipo
-                }))
-            );
-
-        const row = new ActionRowBuilder().addComponents(teamSelectMenu);
-
-        await interaction.editReply({
-            content: 'Por favor, selecciona el equipo al que deseas asignarle un co-capitán:',
-            components: [row],
-        });
-        return;
-    }
-    // --- FIN MODIFICACIÓN ---
-    
-    // ... (El resto del código del archivo, desde 'if (action === 'admin_update_channel_status')', se mantiene igual)
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
         const currentSettings = await getBotSettings();
         const newState = !currentSettings.translationEnabled;
         await updateBotSettings({ translationEnabled: newState });
-        await updateAdminPanel(client); // Actualiza el panel para mostrar el nuevo estado
+        await updateAdminPanel(client); 
         await interaction.followUp({ content: `✅ La traducción automática ha sido **${newState ? 'ACTIVADA' : 'DESACTIVADA'}**.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
@@ -105,12 +33,9 @@ export async function handleButton(interaction) {
         const totalSteps = RULES_ACCEPTANCE_IMAGE_URLS.length;
 
         if (currentStep < totalSteps) {
-            // Mostrar el siguiente paso
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps);
             await interaction.editReply(nextStepContent);
         } else {
-            // Último paso aceptado, ahora mostramos el modal de inscripción
-            // La customId original (ej: 'inscribir_equipo_start:TORNEOID') está en el ID del componente del mensaje original
             const originalCustomId = interaction.message.interaction.customId;
             const [originalAction, tournamentShortId] = originalCustomId.split(':');
             
@@ -123,8 +48,6 @@ export async function handleButton(interaction) {
             const modal = new ModalBuilder().setCustomId(modalId).setTitle('Inscripción de Equipo / Team Registration');
             const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
             const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
-            
-            // FUTURO: Aquí añadiremos los campos de Twitter y canal de transmisión
             const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter o el de tu equipo (Opcional)").setStyle(TextInputStyle.Short).setRequired(false);
             const streamInput = new TextInputBuilder().setCustomId('stream_channel_input').setLabel("Tu canal de transmisión (Twitch, YT...)").setStyle(TextInputStyle.Short).setRequired(true);
 
@@ -146,12 +69,11 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // Placeholder para la creación del Draft
     if (action === 'admin_create_draft_start') {
-        // Lógica futura para iniciar la creación de un draft
         await interaction.reply({ content: 'La creación de Drafts se implementará aquí. ¡Próximamente!', flags: [MessageFlags.Ephemeral] });
         return;
     }
+
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -164,11 +86,93 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.', flags: [MessageFlags.Ephemeral] });
         }
         
-        // Inicia el proceso de aceptación de normas
         const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length);
         await interaction.reply(ruleStepContent);
         return;
     }
+
+    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
+    if (modalActions.includes(action)) {
+        const [p1, p2] = params;
+        
+        const tournamentShortId = action.includes('report') || action.includes('admin_modify_result') ? p2 : p1;
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        let modal;
+        if (action === 'report_result_start') {
+            const matchId = p1;
+            const { partido } = findMatch(tournament, matchId);
+            if (!partido) return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
+            modal = new ModalBuilder().setCustomId(`report_result_modal:${matchId}:${tournament.shortId}`).setTitle('Reportar Resultado');
+            const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
+            const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
+        } else if (action === 'admin_modify_result_start') {
+            const matchId = p1;
+            const { partido } = findMatch(tournament, matchId);
+            if (!partido) return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
+            modal = new ModalBuilder().setCustomId(`admin_force_result_modal:${matchId}:${tournament.shortId}`).setTitle('Forzar Resultado (Admin)');
+            const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
+            const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
+        } else if (action === 'admin_add_test_teams') {
+            modal = new ModalBuilder().setCustomId(`add_test_teams_modal:${tournamentShortId}`).setTitle('Añadir Equipos de Prueba');
+            const amountInput = new TextInputBuilder().setCustomId('amount_input').setLabel("¿Cuántos equipos de prueba quieres añadir?").setStyle(TextInputStyle.Short).setRequired(true).setValue('1');
+            modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
+        } else if (action === 'admin_edit_tournament_start') {
+            modal = new ModalBuilder().setCustomId(`edit_tournament_modal:${tournamentShortId}`).setTitle(`Editar Torneo: ${tournament.nombre}`);
+            const prizeCInput = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeCampeon.toString());
+            const prizeFInput = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeFinalista.toString());
+            const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
+            const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.startTime || '');
+            modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(startTimeInput));
+        } else if (action === 'payment_confirm_start') {
+            modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
+            const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
+        }
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_assign_cocaptain_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.editReply('Error: Torneo no encontrado.');
+        }
+
+        const teamsWithoutCoCaptain = Object.values(tournament.teams.aprobados).filter(team => !team.coCaptainId);
+
+        if (teamsWithoutCoCaptain.length === 0) {
+            return interaction.editReply('Todos los equipos de este torneo ya tienen un co-capitán o no hay equipos.');
+        }
+
+        const teamSelectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_assign_cocap_team_select:${tournamentShortId}`)
+            .setPlaceholder('Paso 1: Selecciona el equipo')
+            .addOptions(
+                teamsWithoutCoCaptain.map(team => ({
+                    label: team.nombre,
+                    description: `Capitán: ${team.capitanTag}`,
+                    value: team.capitanId, 
+                }))
+            );
+
+        const row = new ActionRowBuilder().addComponents(teamSelectMenu);
+
+        await interaction.editReply({
+            content: 'Por favor, selecciona el equipo al que deseas asignarle un co-capitán:',
+            components: [row],
+        });
+        return;
+    }
+
     if (action === 'admin_update_channel_status') {
         const statusMenu = new StringSelectMenuBuilder()
             .setCustomId('admin_set_channel_icon')
