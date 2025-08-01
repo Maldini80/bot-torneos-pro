@@ -1,9 +1,6 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-// --- INICIO MODIFICACIÓN ---
-// Importamos la nueva función para notificar a los casters
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam } from '../logic/tournamentLogic.js';
-// --- FIN MODIFICACIÓN ---
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG } from '../../config.js';
@@ -86,9 +83,7 @@ export async function handleModal(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'inscripcion_modal' || action === 'reserva_modal') {
-        // 'deferUpdate' se usa porque la interacción original fue el modal, y esta es la respuesta.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -105,7 +100,6 @@ export async function handleModal(interaction) {
         
         const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
         const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
-        // NUEVO: Captura de los datos adicionales.
         const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
         const twitter = interaction.fields.getTextInputValue('twitter_input');
 
@@ -119,7 +113,6 @@ export async function handleModal(interaction) {
             return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
         }
         
-        // NUEVO: Se añaden los nuevos campos al objeto teamData.
         const teamData = { 
             id: captainId, 
             nombre: teamName, 
@@ -130,8 +123,8 @@ export async function handleModal(interaction) {
             coCaptainTag: null, 
             bandera: '🏳️', 
             paypal: null, 
-            streamChannel, // Campo de transmisión
-            twitter, // Campo de Twitter
+            streamChannel, 
+            twitter, 
             inscritoEn: new Date() 
         };
 
@@ -158,7 +151,6 @@ export async function handleModal(interaction) {
                 await interaction.editReply({ content: '❌ 🇪🇸 No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.\n🇬🇧 I could not send you a DM. Please open your DMs and try again.' });
             }
         } else {
-            // NUEVO: El embed de notificación ahora incluye la nueva información.
             const adminEmbed = new EmbedBuilder()
                 .setColor('#3498DB')
                 .setTitle(`🔔 Nueva Inscripción Gratuita`)
@@ -175,8 +167,6 @@ export async function handleModal(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
-
 
     if (action === 'payment_confirm_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -269,7 +259,6 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'invite_cocaptain_modal') {
-        // Esta sección ya no se usa, pero la dejamos por si acaso. La lógica ahora está en el selectMenuHandler.
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
