@@ -192,7 +192,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 export function createDraftStatusEmbed(draft) {
     const statusMap = {
         inscripcion: 'inscripcion_abierta',
-        seleccion: 'fase_de_grupos', // Visualmente se asimila a "en juego"
+        seleccion: 'fase_de_grupos',
         finalizado: 'finalizado',
         torneo_generado: 'finalizado',
         cancelado: 'cancelado'
@@ -309,10 +309,10 @@ export function createDraftMainInterface(draft) {
     
     const playersEmbed = new EmbedBuilder()
         .setColor('#3498db')
-        .setTitle('Jugadores Disponibles para Seleccionar')
-        .setDescription(availablePlayers.length > 0 ? 'Lista de jugadores que aún no han sido elegidos.' : '¡Todos los jugadores han sido seleccionados!');
+        .setTitle('Jugadores Disponibles para Seleccionar');
     
     if (availablePlayers.length > 0) {
+        playersEmbed.setDescription('Lista de jugadores que aún no han sido elegidos.');
         const groupedPlayers = {};
         DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
         
@@ -329,10 +329,14 @@ export function createDraftMainInterface(draft) {
         });
 
         playersEmbed.addFields(
-            { name: 'Columna 1', value: columns[0].join('\n\n') || '\u200B', inline: true },
-            { name: 'Columna 2', value: columns[1].join('\n\n') || '\u200B', inline: true },
-            { name: 'Columna 3', value: columns[2].join('\n\n') || '\u200B', inline: true },
+            { name: '\u200B', value: columns[0].join('\n\n') || '\u200B', inline: true },
+            { name: '\u200B', value: columns[1].join('\n\n') || '\u200B', inline: true },
+            { name: '\u200B', value: columns[2].join('\n\n') || '\u200B', inline: true },
         );
+    } else if (draft.status === 'inscripcion' && draft.players.length === 0) {
+        playersEmbed.setDescription('Aún no se ha inscrito ningún jugador.');
+    } else {
+        playersEmbed.setDescription('¡Todos los jugadores han sido seleccionados!');
     }
 
     const teamsEmbed = new EmbedBuilder()
