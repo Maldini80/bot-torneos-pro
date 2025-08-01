@@ -140,12 +140,12 @@ export async function handleModal(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
         const isRegisteringAsCaptain = action === 'register_draft_captain_modal';
-        let draftShortId, position, primaryPosition, secondaryPosition;
+        let draftShortId, position, primaryPosition, secondaryPosition, teamStatus;
 
         if (isRegisteringAsCaptain) {
             [draftShortId, position] = params;
         } else {
-            [draftShortId, primaryPosition, secondaryPosition] = params;
+            [draftShortId, primaryPosition, secondaryPosition, teamStatus] = params;
         }
 
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -179,7 +179,12 @@ export async function handleModal(interaction) {
             captainData = { userId, userName: interaction.user.tag, teamName, streamChannel, psnId, twitter, position };
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: position, currentTeam: teamName, isCaptain: true, captainId: null };
         } else {
-            const currentTeam = interaction.fields.getTextInputValue('current_team_input');
+            let currentTeam;
+            if (teamStatus === 'Con Equipo') {
+                currentTeam = interaction.fields.getTextInputValue('current_team_input');
+            } else {
+                currentTeam = 'Libre';
+            }
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null };
         }
 
