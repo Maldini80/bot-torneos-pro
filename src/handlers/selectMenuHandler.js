@@ -80,17 +80,19 @@ export async function handleSelectMenu(interaction) {
         if (playersInPosition.length === 0) {
              return interaction.editReply({ content: 'No quedan jugadores en esa posición.', components: [] });
         }
-
+        
+        // --- INICIO DE LA MODIFICACIÓN ---
         const playerMenu = new StringSelectMenuBuilder()
             .setCustomId(`draft_pick_player:${draftShortId}:${captainId}`)
             .setPlaceholder('Paso 3: ¡Elige al jugador!')
             .addOptions(
                 playersInPosition.map(player => ({
-                    label: player.userName,
-                    description: `Posiciones: ${player.primaryPosition} / ${player.secondaryPosition}`,
+                    label: player.psnId, // Mostrar PSN ID en lugar de userName
+                    description: `Discord: ${player.userName}`, // Mostrar userName de Discord en la descripción
                     value: player.userId,
                 }))
             );
+        // --- FIN DE LA MODIFICACIÓN ---
         
         await interaction.editReply({ components: [new ActionRowBuilder().addComponents(playerMenu)] });
         return;
@@ -104,7 +106,8 @@ export async function handleSelectMenu(interaction) {
 
         await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
 
-        const player = await client.users.fetch(selectedPlayerId);
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const player = draft.players.find(p => p.userId === selectedPlayerId);
 
         const confirmationRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -119,10 +122,12 @@ export async function handleSelectMenu(interaction) {
                 .setEmoji('↩️')
         );
         
+        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.editReply({ 
-            content: `Has seleccionado a **${player.tag}**. ¿Confirmas tu elección?`, 
+            content: `Has seleccionado a **${player.psnId}** (${player.userName}). ¿Confirmas tu elección?`, 
             components: [confirmationRow] 
         });
+        // --- FIN DE LA MODIFICACIÓN ---
         return;
     }
 
