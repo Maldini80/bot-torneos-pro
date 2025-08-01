@@ -7,21 +7,21 @@ export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
 export const ADMIN_ROLE_ID = 'ID_DE_TU_ROL_DE_ADMIN'; // Reemplaza esto si es necesario
 export const ARBITRO_ROLE_ID = '1393505777443930183';
 export const PARTICIPANTE_ROLE_ID = '1394321301748977684';
-export const CASTER_ROLE_ID = '1394815380614283286'; // NUEVO: Rol para los Caster
+export const CASTER_ROLE_ID = '1394815380614283286'; // ROL para los Caster
 
 // IDs de CANALES FIJOS que se reutilizan
 export const CHANNELS = {
     TOURNAMENTS_MANAGEMENT_PARENT: '1393507085286899744',
     TOURNAMENTS_APPROVALS_PARENT: '1393187598796587028',
     TORNEOS_STATUS: '1395276865597476908',
-    CASTER_HUB_ID: '1394818921453981766', // NUEVO: Canal para los hilos de casters
+    CASTER_HUB_ID: '1394818921453981766', // Canal para los hilos de casters
 };
 
-// NUEVO: URLs de las imágenes para el proceso de aceptación de normas
+// URLs de las imágenes para el proceso de aceptación de normas
 export const RULES_ACCEPTANCE_IMAGE_URLS = [
-    'URL_DE_LA_IMAGEN_DE_NORMA_1', // Reemplaza esto con el enlace a tu primera imagen de normas
-    'URL_DE_LA_IMAGEN_DE_NORMA_2', // Reemplaza esto con el enlace a tu segunda imagen de normas
-    'URL_DE_LA_IMAGEN_DE_NORMA_3'  // Reemplaza esto con el enlace a tu tercera imagen de normas
+    'https://cdn.discordapp.com/attachments/1396998137859543240/1400797006334660608/image.png?ex=688df15f&is=688c9fdf&hm=4f185f637bc4bd83f194aece38ad18be5e2c6ad494c0909c4ae710feef800f47&',
+    'https://cdn.discordapp.com/attachments/1396998137859543240/1400797308211429396/image.png?ex=688df1a7&is=688ca027&hm=04386c59d42015b22d21fd914de7e7f3e6d2d8586fae15f58e019fa5a67b536e&',
+    'https://cdn.discordapp.com/attachments/1396998137859543240/1400797480471232553/image.png?ex=688df1d0&is=688ca050&hm=784661404e4116b79eb08fcfddda869a47af9f2996988aec075f3d6e8ac30897&'
 ];
 
 // Configuración de Pagos
@@ -29,7 +29,7 @@ export const PAYMENT_CONFIG = {
     PAYPAL_EMAIL: 'johancamirotti13@hotmail.com'
 };
 
-// NUEVO: Configuración para el sistema de Draft
+// Configuración para el sistema de Draft
 export const DRAFT_POSITIONS = {
     GK: 'Portero (GK)',
     DFC: 'Defensa Central (DFC)',
@@ -39,9 +39,8 @@ export const DRAFT_POSITIONS = {
     DC: 'Delantero Centro (DC)'
 };
 
-// NUEVO: Orden de visualización de las posiciones en las tablas del Draft
+// Orden de visualización de las posiciones en las tablas del Draft
 export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
-
 
 // Configuración de los formatos de torneo CON TRADUCCIONES
 export const TOURNAMENT_FORMATS = {
