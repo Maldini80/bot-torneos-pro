@@ -2,7 +2,7 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
-import { updateTournamentConfig, addCoCaptain, createNewDraft } from '../logic/tournamentLogic.js';
+import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 
 export async function handleSelectMenu(interaction) {
@@ -32,12 +32,10 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-
     if (action === 'draft_pick_search_type') {
         await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
-        const searchType = interaction.values[0]; // 'primary' o 'secondary'
+        const searchType = interaction.values[0];
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const availablePlayers = draft.players.filter(p => !p.captainId);
@@ -99,20 +97,35 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_pick_player') {
-        // Esta acción requerirá más lógica que se añadirá en un archivo dedicado
-        // Por ahora, solo confirmamos la selección
         await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
         const selectedPlayerId = interaction.values[0];
+
+        // Llama a la lógica para asignar el jugador
+        await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
+
+        const player = await client.users.fetch(selectedPlayerId);
+
+        // Muestra los botones de confirmación
+        const confirmationRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`draft_confirm_pick:${draftShortId}:${captainId}`)
+                .setLabel('Confirmar y Finalizar Turno')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('✅'),
+            new ButtonBuilder()
+                .setCustomId(`draft_undo_pick:${draftShortId}:${captainId}`)
+                .setLabel('Deshacer Selección')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('↩️')
+        );
         
-        // Aquí irá la lógica para asignar el jugador, actualizar los embeds,
-        // y mostrar los botones de confirmar/deshacer.
-        
-        await interaction.editReply({ content: `Has seleccionado al jugador con ID ${selectedPlayerId}. Lógica de confirmación pendiente.`, components: [] });
+        await interaction.editReply({ 
+            content: `Has seleccionado a **${player.tag}**. ¿Confirmas tu elección?`, 
+            components: [confirmationRow] 
+        });
         return;
     }
-
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_set_channel_icon') {
         await interaction.deferUpdate();
