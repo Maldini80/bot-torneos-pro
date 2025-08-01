@@ -90,7 +90,7 @@ export async function handleModal(interaction) {
         await updateDraftManagementPanel(client, updatedDraft);
         await updateDraftMainInterface(client, updatedDraft.shortId);
         
-        await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${bulkPlayers.length - bulkCaptains.length} jugadores** de prueba.` });
+        await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${bulkPlayers.length - bulkPlayers.length} jugadores** de prueba.` });
         return;
     }
 
