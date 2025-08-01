@@ -2,16 +2,43 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
-import { updateTournamentConfig, addCoCaptain } from '../logic/tournamentLogic.js';
+// Se importa createNewDraft
+import { updateTournamentConfig, addCoCaptain, createNewDraft } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
     const client = interaction.client;
+    const guild = interaction.guild;
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'create_draft_type') {
+        await interaction.deferUpdate();
+        const [name] = params;
+        const type = interaction.values[0];
+        const isPaid = type === 'pago';
+        const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+        const config = { isPaid };
+
+        try {
+            await createNewDraft(client, guild, name, shortId, config);
+            await interaction.editReply({ content: `✅ ¡Éxito! El draft **"${name}"** ha sido creado.`, components: [] });
+        } catch (error) {
+            console.error("Error capturado por el handler al crear el draft:", error);
+            await interaction.editReply({ content: `❌ Ocurrió un error al crear el draft. Revisa los logs.`, components: [] });
+        }
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    if (action === 'admin_set_channel_icon') {
+        // ... (código existente sin cambios)
+    }
+    // ... el resto del archivo
     if (action === 'admin_set_channel_icon') {
         await interaction.deferUpdate();
         const selectedIcon = interaction.values[0];
