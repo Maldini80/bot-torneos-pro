@@ -1,6 +1,8 @@
 // src/logic/translationLogic.js
 import { translate } from '@vitalets/google-translate-api';
 import { languageRoles } from '../../config.js';
+// NUEVO: Importamos la función para obtener la configuración del bot.
+import { getBotSettings } from '../../database.js';
 
 /**
  * Maneja la traducción de un mensaje si el autor tiene un rol de idioma.
@@ -8,6 +10,14 @@ import { languageRoles } from '../../config.js';
  */
 export async function handleMessageTranslation(message) {
     try {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // NUEVO: Comprobamos si la traducción está activada globalmente.
+        const botSettings = await getBotSettings();
+        if (!botSettings.translationEnabled) {
+            return; // Si está desactivada, no hacemos nada.
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+
         const authorMember = message.member;
         if (!authorMember) return;
 
