@@ -276,24 +276,29 @@ export function createDraftMainInterface(draft) {
     const playersEmbed = new EmbedBuilder()
         .setColor('#3498db')
         .setTitle('Jugadores Disponibles para Seleccionar')
-        .setDescription('Lista de todos los jugadores que aún no han sido elegidos.');
+        .setDescription(availablePlayers.length > 0 ? 'Lista de jugadores que aún no han sido elegidos.' : '¡Todos los jugadores han sido seleccionados!');
     
-    const groupedPlayers = {};
-    DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
-    
-    availablePlayers.forEach(player => {
-        if (groupedPlayers[player.primaryPosition]) {
-            groupedPlayers[player.primaryPosition].push(player.psnId);
-        }
-    });
+    if (availablePlayers.length > 0) {
+        const groupedPlayers = {};
+        DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
+        
+        availablePlayers.forEach(player => {
+            if (groupedPlayers[player.primaryPosition]) {
+                groupedPlayers[player.primaryPosition].push(player.psnId);
+            }
+        });
 
-    for (const position of DRAFT_POSITION_ORDER) {
-        const playersInPos = groupedPlayers[position];
-        let value = 'No hay jugadores disponibles.';
-        if (playersInPos.length > 0) {
-            value = '`' + playersInPos.join('`, `') + '`';
-        }
-        playersEmbed.addFields({ name: `--- ${DRAFT_POSITIONS[position]} ---`, value: value });
+        const columns = [[], [], []];
+        DRAFT_POSITION_ORDER.forEach((pos, index) => {
+            const columnContent = `**${DRAFT_POSITIONS[pos]}**\n` + (groupedPlayers[pos].length > 0 ? groupedPlayers[pos].map(p => `\`${p}\``).join('\n') : '*Vacío*');
+            columns[index % 3].push(columnContent);
+        });
+
+        playersEmbed.addFields(
+            { name: 'Columna 1', value: columns[0].join('\n\n') || '\u200B', inline: true },
+            { name: 'Columna 2', value: columns[1].join('\n\n') || '\u200B', inline: true },
+            { name: 'Columna 3', value: columns[2].join('\n\n') || '\u200B', inline: true },
+        );
     }
 
     const teamsEmbed = new EmbedBuilder()
@@ -388,7 +393,10 @@ export function createDraftPickEmbed(draft, captainId) {
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
     const ruleEmbed = ruleEmbeds[step - 1];
-    ruleEmbed.setFooter({ text: `Paso ${step} de ${totalSteps} - Debes aceptar todas las normas para poder inscribirte.` });
+    const isPlayer = originalAction.includes('player');
+    const finalTotalSteps = isPlayer ? 1 : 3;
+
+    ruleEmbed.setFooter({ text: `Paso ${step} de ${finalTotalSteps} - Debes aceptar todas las normas para poder inscribirte.` });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
