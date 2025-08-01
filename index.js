@@ -8,8 +8,8 @@ import { handleModal } from './src/handlers/modalHandler.js';
 import { handleSelectMenu } from './src/handlers/selectMenuHandler.js';
 import { handleMessageTranslation } from './src/logic/translationLogic.js';
 // --- INICIO DE LA MODIFICACIÓN ---
-// Se elimina la importación de la función que ya no existe para prevenir el error de arranque.
-import { updateAdminPanel, updateAllManagementPanels } from './src/utils/panelManager.js';
+// Se importa la nueva función para actualizar paneles de draft
+import { updateAdminPanel, updateAllManagementPanels, updateAllDraftManagementPanels } from './src/utils/panelManager.js';
 // --- FIN DE LA MODIFICACIÓN ---
 import { CHANNELS } from './config.js';
 
@@ -21,11 +21,15 @@ process.on('uncaughtException', (error, origin) => {
 });
 
 export let isBotBusy = false;
+// --- INICIO DE LA MODIFICACIÓN ---
 export async function setBotBusy(status) { 
     isBotBusy = status;
     await updateAdminPanel(client);
     await updateAllManagementPanels(client, status);
+    // NUEVO: Actualizar también los paneles de gestión de drafts
+    await updateAllDraftManagementPanels(client, status);
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
 const client = new Client({
     intents: [ 
@@ -49,11 +53,6 @@ client.once(Events.ClientReady, async readyClient => {
         } else {
             console.error(`[CRASH EN READY] No se pudo encontrar el servidor con ID: ${process.env.GUILD_ID}. Verifica las variables de entorno.`);
         }
-
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se elimina la llamada a la función que ya no existe.
-        // await updateTournamentChannelName(readyClient);
-        // --- FIN DE LA MODIFICACIÓN ---
     } catch (error) {
         console.error('[CRASH EN READY] Ocurrió un error crítico durante la inicialización:', error);
     }
@@ -142,10 +141,6 @@ client.on(Events.MessageDelete, async message => {
     if (message.author?.id !== client.user.id) return;
     
     console.log(`[SYNC] Panel de torneo borrado en el canal de estado. Forzando actualización de icono.`);
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se elimina la llamada a la función que ya no existe.
-    // updateTournamentChannelName(client);
-    // --- FIN DE LA MODIFICACIÓN ---
 });
 
 async function startBot() {
