@@ -52,13 +52,25 @@ export async function handleModal(interaction) {
             if (currentCaptainCount < 8) {
                 const teamName = `E-Prueba-${currentCaptainCount + 1}`;
                 const captainData = {
-                    userId: uniqueId, userName: `TestCaptain#${String(i).padStart(4, '0')}`, teamName: teamName,
-                    streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, twitter: 'test_captain'
+                    userId: uniqueId,
+                    userName: `TestCaptain#${String(i).padStart(4, '0')}`,
+                    teamName: teamName,
+                    streamChannel: 'https://twitch.tv/test',
+                    psnId: `Capi-Prueba-${currentCaptainCount + 1}`,
+                    twitter: 'test_captain',
+                    position: "DC" // Se añade la posición por defecto
                 };
                 
                 const captainAsPlayerData = {
-                    userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
-                    primaryPosition: "DC", secondaryPosition: "DC", currentTeam: teamName, isCaptain: true, captainId: null
+                    userId: uniqueId,
+                    userName: captainData.userName,
+                    psnId: captainData.psnId,
+                    twitter: captainData.twitter,
+                    primaryPosition: captainData.position,
+                    secondaryPosition: captainData.position,
+                    currentTeam: teamName,
+                    isCaptain: true,
+                    captainId: null
                 };
                 bulkCaptains.push(captainData);
                 bulkPlayers.push(captainAsPlayerData);
@@ -67,9 +79,15 @@ export async function handleModal(interaction) {
                 const randomSecondaryPos = positions[Math.floor(Math.random() * positions.length)];
                 
                 const playerData = {
-                    userId: uniqueId, userName: `TestPlayer#${String(i).padStart(4, '0')}`, psnId: `J-Prueba-${currentPlayerCount + 1}`,
-                    twitter: 'test_player', primaryPosition: randomPrimaryPos, secondaryPosition: randomSecondaryPos,
-                    currentTeam: 'Libre', isCaptain: false, captainId: null
+                    userId: uniqueId,
+                    userName: `TestPlayer#${String(i).padStart(4, '0')}`,
+                    psnId: `J-Prueba-${currentPlayerCount - draft.captains.length + 1}`, // Corregimos el contador
+                    twitter: 'test_player',
+                    primaryPosition: randomPrimaryPos,
+                    secondaryPosition: randomSecondaryPos,
+                    currentTeam: 'Libre',
+                    isCaptain: false,
+                    captainId: null
                 };
                 bulkPlayers.push(playerData);
             }
