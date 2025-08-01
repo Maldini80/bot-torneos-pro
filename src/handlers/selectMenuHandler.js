@@ -13,7 +13,6 @@ export async function handleSelectMenu(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'create_draft_type') {
         await interaction.deferUpdate();
         const [name] = params;
@@ -26,13 +25,12 @@ export async function handleSelectMenu(interaction) {
         try {
             await createNewDraft(client, guild, name, shortId, config);
             await interaction.editReply({ content: `✅ ¡Éxito! El draft **"${name}"** ha sido creado.`, components: [] });
-        } catch (error)
+        } catch (error) { // ¡ESTA ES LA LÍNEA CORREGIDA!
             console.error("Error capturado por el handler al crear el draft:", error);
             await interaction.editReply({ content: `❌ Ocurrió un error al crear el draft. Revisa los logs.`, components: [] });
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_set_channel_icon') {
         await interaction.deferUpdate();
