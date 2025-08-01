@@ -33,6 +33,7 @@ export async function handleModal(interaction) {
         return;
     }
 
+    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'register_draft_captain_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -44,12 +45,13 @@ export async function handleModal(interaction) {
         const userId = interaction.user.id;
         const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || draft.players.some(p => p.userId === userId);
         if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito en este draft.');
-
         if (draft.captains.length >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de capitanes.');
 
         const teamName = interaction.fields.getTextInputValue('team_name_input');
         const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
         const position = interaction.fields.getTextInputValue('position_input').toUpperCase();
+        const psnId = interaction.fields.getTextInputValue('psn_id_input');
+        const twitter = interaction.fields.getTextInputValue('twitter_input');
 
         if (!Object.keys(DRAFT_POSITIONS).includes(position)) {
             return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
@@ -59,15 +61,19 @@ export async function handleModal(interaction) {
         }
 
         const captainData = {
-            userId: userId,
+            userId,
             userName: interaction.user.tag,
-            teamName: teamName,
-            streamChannel: streamChannel,
+            teamName,
+            streamChannel,
+            psnId,
+            twitter
         };
 
         const playerData = {
-            userId: userId,
+            userId,
             userName: interaction.user.tag,
+            psnId,
+            twitter,
             primaryPosition: position,
             secondaryPosition: position,
             currentTeam: teamName,
@@ -104,14 +110,18 @@ export async function handleModal(interaction) {
         const primaryPosition = interaction.fields.getTextInputValue('primary_pos_input').toUpperCase();
         const secondaryPosition = interaction.fields.getTextInputValue('secondary_pos_input').toUpperCase();
         const currentTeam = interaction.fields.getTextInputValue('current_team_input');
+        const psnId = interaction.fields.getTextInputValue('psn_id_input');
+        const twitter = interaction.fields.getTextInputValue('twitter_input');
 
         if (!Object.keys(DRAFT_POSITIONS).includes(primaryPosition) || !Object.keys(DRAFT_POSITIONS).includes(secondaryPosition)) {
             return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
         }
 
         const playerData = {
-            userId: userId,
+            userId,
             userName: interaction.user.tag,
+            psnId,
+            twitter,
             primaryPosition,
             secondaryPosition,
             currentTeam,
@@ -136,6 +146,7 @@ export async function handleModal(interaction) {
         await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_force_reset_modal') {
         const confirmation = interaction.fields.getTextInputValue('confirmation_text');
