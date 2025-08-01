@@ -1,8 +1,9 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam } from '../logic/tournamentLogic.js';
+// Se importa createNewDraft para el nuevo flujo
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
-import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
+import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG } from '../../config.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 
@@ -13,6 +14,32 @@ export async function handleModal(interaction) {
     const db = getDb();
     const [action, ...params] = customId.split(':');
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'create_draft_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const name = interaction.fields.getTextInputValue('draft_name_input');
+        
+        // Como los modales no soportan menús, lo mostramos como respuesta al modal.
+        const typeMenu = new StringSelectMenuBuilder()
+            .setCustomId(`create_draft_type:${name.replace(/:/g, '')}`) // Pasamos el nombre como parámetro
+            .setPlaceholder('Paso 2: Selecciona el tipo de Draft')
+            .addOptions([
+                { label: 'Gratuito (con lista de reserva)', value: 'gratis' },
+                { label: 'De Pago (sin lista de reserva)', value: 'pago' }
+            ]);
+
+        await interaction.editReply({
+            content: `Nombre del Draft: **${name}**. Ahora, selecciona el tipo:`,
+            components: [new ActionRowBuilder().addComponents(typeMenu)]
+        });
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    if (action === 'admin_force_reset_modal') {
+        // ... (código existente sin cambios)
+    }
+    // ... el resto del archivo
     if (action === 'admin_force_reset_modal') {
         const confirmation = interaction.fields.getTextInputValue('confirmation_text');
         if (confirmation !== 'CONFIRMAR RESET') {
@@ -82,7 +109,6 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: `✅ Torneo actualizado a: **De Pago**.`, components: [] });
         return;
     }
-    
     if (action === 'inscripcion_modal' || action === 'reserva_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -167,7 +193,6 @@ export async function handleModal(interaction) {
         }
         return;
     }
-
     if (action === 'payment_confirm_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
