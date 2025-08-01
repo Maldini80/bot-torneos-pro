@@ -14,6 +14,23 @@ export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
     };
 }
 
+export async function inviteUserToMatchThread(interaction, team) {
+    if (!team.coCaptainId) {
+        return interaction.reply({ content: 'Tu equipo no tiene un co-capitán asignado.', flags: ['Ephemeral'] });
+    }
+    
+    const thread = interaction.channel;
+    if (!thread.isThread()) return;
+
+    try {
+        await thread.members.add(team.coCaptainId);
+        await interaction.reply({ content: `✅ <@${team.coCaptainId}> ha sido invitado a este hilo.`, flags: ['Ephemeral'] });
+    } catch (error) {
+        console.error(`Error al invitar al co-capitán ${team.coCaptainId} al hilo ${thread.id}:`, error);
+        await interaction.reply({ content: '❌ No se pudo invitar al co-capitán. Es posible que ya esté en el hilo.', flags: ['Ephemeral'] });
+    }
+}
+
 export async function createMatchThread(client, guild, partido, parentChannelId, tournamentShortId) {
     const parentChannel = await client.channels.fetch(parentChannelId).catch(() => null);
     if (!parentChannel || parentChannel.type !== ChannelType.GuildText) {
@@ -48,15 +65,12 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             thread.members.add(partido.equipoB.capitanId)
         ].map(p => p.catch(e => console.warn(`No se pudo añadir un capitán al hilo: ${e.message}`)));
         
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se añaden también los co-capitanes a la lista de promesas si existen
         if (partido.equipoA.coCaptainId) {
             memberPromises.push(thread.members.add(partido.equipoA.coCaptainId).catch(e => console.warn(`No se pudo añadir al co-capitán ${partido.equipoA.coCaptainId} al hilo: ${e.message}`)));
         }
         if (partido.equipoB.coCaptainId) {
             memberPromises.push(thread.members.add(partido.equipoB.coCaptainId).catch(e => console.warn(`No se pudo añadir al co-capitán ${partido.equipoB.coCaptainId} al hilo: ${e.message}`)));
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
         await Promise.all(memberPromises);
         
@@ -78,11 +92,10 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
 
         const row2 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`request_referee:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
-            new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
+            new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️"),
+            new ButtonBuilder().setCustomId(`invite_to_thread:${partido.matchId}:${tournamentShortId}`).setLabel("Invitar al Hilo").setStyle(ButtonStyle.Secondary).setEmoji("🤝")
         );
-
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Construcción dinámica de menciones para incluir co-capitanes
+        
         let mentions = [`<@${partido.equipoA.capitanId}>`, `<@${partido.equipoB.capitanId}>`];
         if (partido.equipoA.coCaptainId) {
             mentions.push(`<@${partido.equipoA.coCaptainId}>`);
@@ -92,7 +105,6 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         }
         
         await thread.send({ content: mentions.join(' y '), embeds: [embed], components: [row1, row2] });
-        // --- FIN DE LA MODIFICACIÓN ---
         
         return thread.id;
     } catch (error) {
