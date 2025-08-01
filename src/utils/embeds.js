@@ -190,16 +190,22 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 }
 
 export function createDraftStatusEmbed(draft) {
-    const isRegistrationOpen = draft.status === 'inscripcion';
+    const statusMap = {
+        inscripcion: 'inscripcion_abierta',
+        seleccion: 'fase_de_grupos', // Visualmente se asimila a "en juego"
+        finalizado: 'finalizado',
+        torneo_generado: 'finalizado',
+        cancelado: 'cancelado'
+    };
+    const statusIcon = TOURNAMENT_STATUS_ICONS[statusMap[draft.status]] || '❓';
     
     const captainCount = draft.captains.length;
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
     const totalParticipants = captainCount + nonCaptainPlayerCount;
     
     const embed = new EmbedBuilder()
-        .setColor(isRegistrationOpen ? '#5865F2' : '#71368A')
-        .setTitle(`📝 Draft: ${draft.name}`)
-        .setDescription(draft.config.isPaid ? '**Este es un draft de pago.**' : '**Este es un draft gratuito.**')
+        .setColor(draft.status === 'inscripcion' ? '#2ecc71' : '#3498db')
+        .setTitle(`${statusIcon} Draft: ${draft.name}`)
         .addFields(
             { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
             { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount} / 80`, inline: true },
@@ -207,9 +213,22 @@ export function createDraftStatusEmbed(draft) {
         )
         .setFooter({ text: `ID del Draft: ${draft.shortId}` });
 
-    const row = new ActionRowBuilder();
-    if (isRegistrationOpen) {
-        row.addComponents(
+    if (draft.config.isPaid) {
+        embed.setDescription('**Este es un draft de pago.**');
+        embed.addFields(
+            { name: 'Inscripción / Entry', value: `${draft.config.entryFee}€`, inline: true },
+            { name: '🏆 Premio Campeón', value: `${draft.config.prizeCampeon}€`, inline: true },
+            { name: '🥈 Premio Subcampeón', value: `${draft.config.prizeFinalista}€`, inline: true }
+        );
+    } else {
+        embed.setDescription('**Este es un draft gratuito.**');
+    }
+
+    const row1 = new ActionRowBuilder();
+    const row2 = new ActionRowBuilder();
+
+    if (draft.status === 'inscripcion') {
+        row1.addComponents(
             new ButtonBuilder()
                 .setCustomId(`register_draft_captain:${draft.shortId}`)
                 .setLabel('Inscribirme como Capitán')
@@ -221,14 +240,28 @@ export function createDraftStatusEmbed(draft) {
                 .setLabel('Inscribirme como Jugador')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('👤')
-                .setDisabled(totalParticipants >= 88 && !(draft.config.isPaid === false && draft.config.allowReserves))
+                .setDisabled(totalParticipants >= 88 && !draft.config.allowReserves)
         );
+        if (!draft.config.isPaid) {
+            row2.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`darse_baja_draft_start:${draft.shortId}`)
+                    .setLabel('Darse de Baja')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('👋')
+            );
+        }
     } else {
-        embed.setDescription(`**Estado actual: ${draft.status.replace(/_/g, ' ')}**`);
+        embed.setColor('#95a5a6');
     }
 
-    return { embeds: [embed], components: row.components.length > 0 ? [row] : [] };
+    const components = [];
+    if(row1.components.length > 0) components.push(row1);
+    if(row2.components.length > 0) components.push(row2);
+
+    return { embeds: [embed], components };
 }
+
 
 export function createDraftManagementPanel(draft, isBusy = false) {
     const embed = new EmbedBuilder()
@@ -245,6 +278,7 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     if (draft.status === 'inscripcion') {
         row1.addComponents(
             new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
     }
