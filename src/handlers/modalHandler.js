@@ -84,33 +84,12 @@ export async function handleModal(interaction) {
         }
 
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
-        const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
-        await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
-        await updateDraftManagementPanel(client, updatedDraft);
         await updateDraftMainInterface(client, updatedDraft.shortId);
+        await updatePublicMessages(client, updatedDraft);
+        await updateDraftManagementPanel(client, updatedDraft);
         
         const nonCaptainPlayersAdded = bulkPlayers.filter(p => !p.isCaptain).length;
         await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${nonCaptainPlayersAdded} jugadores** de prueba.` });
-        return;
-    }
-
-    if (action === 'create_draft_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const name = interaction.fields.getTextInputValue('draft_name_input');
-        
-        const typeMenu = new StringSelectMenuBuilder()
-            .setCustomId(`create_draft_type:${name.replace(/:/g, '')}`)
-            .setPlaceholder('Paso 2: Selecciona el tipo de Draft')
-            .addOptions([
-                { label: 'Gratuito (con lista de reserva)', value: 'gratis' },
-                { label: 'De Pago (sin lista de reserva)', value: 'pago' }
-            ]);
-
-        await interaction.editReply({
-            content: `Nombre del Draft: **${name}**. Ahora, selecciona el tipo:`,
-            components: [new ActionRowBuilder().addComponents(typeMenu)]
-        });
         return;
     }
 
@@ -146,7 +125,8 @@ export async function handleModal(interaction) {
         let draftShortId, position, primaryPosition, secondaryPosition, teamStatus, streamPlatform, streamUsername;
     
         if (isRegisteringAsCaptain) {
-            [draftShortId, position, streamPlatform, streamUsername] = params;
+            [draftShortId, position, streamPlatform] = params;
+            streamUsername = interaction.fields.getTextInputValue('stream_username_input');
         } else {
             [draftShortId, primaryPosition, secondaryPosition, teamStatus] = params;
         }
@@ -211,7 +191,7 @@ export async function handleModal(interaction) {
                     { $set: { [`pendingCaptains.${userId}`]: captainData } }
                 );
 
-                const approvalChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT);
+                const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
                 const adminEmbed = new EmbedBuilder()
                     .setColor('#5865F2')
                     .setTitle(`🔔 Nueva Solicitud de Capitán de Draft`)
@@ -245,9 +225,7 @@ export async function handleModal(interaction) {
                 
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
                 await updateDraftMainInterface(client, updatedDraft.shortId);
-                const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
-                const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
-                await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
+                await updatePublicMessages(client, updatedDraft);
             }
         }
         return;
@@ -259,7 +237,7 @@ export async function handleModal(interaction) {
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
         
-        const notificationsChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT).catch(() => null);
+        const notificationsChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsChannel) return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
         
         const userPaypal = interaction.fields.getTextInputValue('user_paypal_input');
@@ -357,7 +335,7 @@ export async function handleModal(interaction) {
     }
     if (action === 'inscripcion_modal' || action === 'reserva_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId, streamPlatform, streamUsername] = params;
+        const [tournamentShortId, streamPlatform] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
@@ -373,6 +351,7 @@ export async function handleModal(interaction) {
         const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
         const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
         const twitter = interaction.fields.getTextInputValue('twitter_input');
+        const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
         const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
     
         const allTeamNames = [
