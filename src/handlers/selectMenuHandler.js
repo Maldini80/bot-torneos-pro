@@ -1,6 +1,6 @@
 // src/handlers/selectMenuHandler.js
 import { getDb } from '../../database.js';
-import { TOURNAMENT_FORMATS } from '../../config.js';
+import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
 import { updateTournamentConfig, addCoCaptain, createNewDraft } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
@@ -25,12 +25,94 @@ export async function handleSelectMenu(interaction) {
         try {
             await createNewDraft(client, guild, name, shortId, config);
             await interaction.editReply({ content: `✅ ¡Éxito! El draft **"${name}"** ha sido creado.`, components: [] });
-        } catch (error) { // ¡ESTA ES LA LÍNEA CORREGIDA!
+        } catch (error) {
             console.error("Error capturado por el handler al crear el draft:", error);
             await interaction.editReply({ content: `❌ Ocurrió un error al crear el draft. Revisa los logs.`, components: [] });
         }
         return;
     }
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+
+    if (action === 'draft_pick_search_type') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId] = params;
+        const searchType = interaction.values[0]; // 'primary' o 'secondary'
+        
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const availablePlayers = draft.players.filter(p => !p.captainId);
+        
+        const positions = new Set();
+        availablePlayers.forEach(player => {
+            const pos = searchType === 'primary' ? player.primaryPosition : player.secondaryPosition;
+            positions.add(pos);
+        });
+
+        if (positions.size === 0) {
+            return interaction.editReply({ content: 'No hay jugadores con posiciones que coincidan con tu búsqueda.', components: [] });
+        }
+
+        const positionMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_pick_position:${draftShortId}:${captainId}:${searchType}`)
+            .setPlaceholder('Paso 2: Elige la posición')
+            .addOptions(
+                [...positions].map(pos => ({
+                    label: DRAFT_POSITIONS[pos] || pos,
+                    value: pos,
+                }))
+            );
+
+        await interaction.editReply({ components: [new ActionRowBuilder().addComponents(positionMenu)] });
+        return;
+    }
+
+    if (action === 'draft_pick_position') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId, searchType] = params;
+        const selectedPosition = interaction.values[0];
+        
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const availablePlayers = draft.players.filter(p => !p.captainId);
+
+        const playersInPosition = availablePlayers.filter(player => {
+            const pos = searchType === 'primary' ? player.primaryPosition : player.secondaryPosition;
+            return pos === selectedPosition;
+        });
+
+        if (playersInPosition.length === 0) {
+             return interaction.editReply({ content: 'No quedan jugadores en esa posición.', components: [] });
+        }
+
+        const playerMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_pick_player:${draftShortId}:${captainId}`)
+            .setPlaceholder('Paso 3: ¡Elige al jugador!')
+            .addOptions(
+                playersInPosition.map(player => ({
+                    label: player.userName,
+                    description: `Posiciones: ${player.primaryPosition} / ${player.secondaryPosition}`,
+                    value: player.userId,
+                }))
+            );
+        
+        await interaction.editReply({ components: [new ActionRowBuilder().addComponents(playerMenu)] });
+        return;
+    }
+
+    if (action === 'draft_pick_player') {
+        // Esta acción requerirá más lógica que se añadirá en un archivo dedicado
+        // Por ahora, solo confirmamos la selección
+        await interaction.deferUpdate();
+        const [draftShortId, captainId] = params;
+        const selectedPlayerId = interaction.values[0];
+        
+        // Aquí irá la lógica para asignar el jugador, actualizar los embeds,
+        // y mostrar los botones de confirmar/deshacer.
+        
+        await interaction.editReply({ content: `Has seleccionado al jugador con ID ${selectedPlayerId}. Lógica de confirmación pendiente.`, components: [] });
+        return;
+    }
+
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_set_channel_icon') {
         await interaction.deferUpdate();
