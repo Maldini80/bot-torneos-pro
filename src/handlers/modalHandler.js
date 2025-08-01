@@ -34,6 +34,30 @@ export async function handleModal(interaction) {
     }
 
     // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'create_draft_paid_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [name] = params;
+        const entryFee = parseFloat(interaction.fields.getTextInputValue('draft_entry_fee'));
+
+        if (isNaN(entryFee) || entryFee <= 0) {
+            return interaction.editReply({ content: '❌ Por favor, introduce un número válido para la cuota de inscripción.' });
+        }
+
+        const isPaid = true;
+        const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const config = { isPaid, entryFee };
+
+        try {
+            await createNewDraft(client, guild, name, shortId, config);
+            await interaction.editReply({ content: `✅ ¡Éxito! El draft de pago **"${name}"** ha sido creado con una cuota de **${entryFee}€**.`, components: [] });
+        } catch (error) {
+            console.error("Error capturado por el handler al crear el draft:", error);
+            await interaction.editReply({ content: `❌ Ocurrió un error al crear el draft. Revisa los logs.`, components: [] });
+        }
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
     if (action === 'register_draft_captain_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -146,7 +170,6 @@ export async function handleModal(interaction) {
         await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_force_reset_modal') {
         const confirmation = interaction.fields.getTextInputValue('confirmation_text');
