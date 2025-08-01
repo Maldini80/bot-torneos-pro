@@ -2,12 +2,12 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, kickPlayerFromDraft } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
-import { updateMatchThreadName } from '../utils/tournamentUtils.js';
+import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 
 export async function handleButton(interaction) {
     const customId = interaction.customId;
@@ -95,6 +95,36 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_gestionar_participantes_draft') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    
+        const allParticipants = [...draft.captains, ...draft.players.filter(p => !p.isCaptain)];
+    
+        if (allParticipants.length === 0) {
+            return interaction.editReply({ content: 'ℹ️ No hay participantes inscritos para gestionar.' });
+        }
+    
+        const options = allParticipants.map(p => ({
+            label: p.userName,
+            description: p.isCaptain || draft.captains.some(c => c.userId === p.userId) ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
+            value: p.userId,
+            emoji: p.isCaptain || draft.captains.some(c => c.userId === p.userId) ? '👑' : '👤'
+        }));
+    
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
+            .setPlaceholder('Selecciona un participante para expulsar')
+            .addOptions(options);
+        
+        await interaction.editReply({
+            content: 'Selecciona un participante de la lista para expulsarlo del draft. Esta acción es irreversible.',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+    
     if (action === 'draft_add_test_players') {
         const [draftShortId] = params;
         const modal = new ModalBuilder()
@@ -307,11 +337,12 @@ export async function handleButton(interaction) {
         const [platform, originalAction, entityId, ...restParams] = params;
         
         const modal = new ModalBuilder();
-        const usernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu nombre de usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
+        const usernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
         let finalActionId;
     
         if (originalAction.startsWith('register_draft_captain')) {
-            finalActionId = `register_draft_captain_modal:${entityId}:${restParams[0]}:${platform}`; // entityId is draftShortId, restParams[0] is position
+            const position = restParams[0]; // Passed from select menu handler
+            finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}`;
             modal.setTitle('Inscripción como Capitán de Draft');
             
             const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
@@ -327,7 +358,7 @@ export async function handleButton(interaction) {
     
         } else { // Tournament Flow
             finalActionId = `inscripcion_modal:${entityId}:${platform}`;
-            modal.setTitle('Inscripción de Equipo / Team Registration');
+            modal.setTitle('Inscripción de Equipo');
             
             const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
             const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
@@ -365,6 +396,16 @@ export async function handleButton(interaction) {
         
         const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, tournamentShortId);
         await interaction.reply(ruleStepContent);
+        return;
+    }
+
+    if (action === 'invite_to_thread') {
+        const [matchId, tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const { partido } = findMatch(tournament, matchId);
+        
+        const team = partido.equipoA.capitanId === interaction.user.id ? partido.equipoA : partido.equipoB;
+        await inviteUserToMatchThread(interaction, team);
         return;
     }
 
@@ -756,6 +797,15 @@ export async function handleButton(interaction) {
         await interaction.editReply({ content: result.message });
     }
 
+    if (action === 'darse_baja_draft_start') {
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.editReply({ content: "Error: Draft no encontrado." });
+    
+        const result = await requestUnregisterFromDraft(client, draft, interaction.user.id);
+        await interaction.editReply({ content: result.message });
+    }
+    
     if (action === 'admin_unregister_approve') {
         const [tournamentShortId, captainId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
