@@ -33,8 +33,7 @@ export async function handleButton(interaction) {
         await interaction.showModal(simpleModal);
         return;
     }
-    
-    // --- INICIO DE LA MODIFICACIÓN ---
+
     if (action === 'register_draft_captain' || action === 'register_draft_player') {
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -46,12 +45,56 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito en este draft (o en la lista de reserva).', flags: [MessageFlags.Ephemeral] });
         }
         
-        // Inicia el proceso de aceptación de normas
         const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length);
         await interaction.reply(ruleStepContent);
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
+
+    if (action === 'draft_start_selection') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        try {
+            await startDraftSelection(client, draftShortId);
+            await interaction.editReply('✅ La fase de selección del draft ha comenzado.');
+        } catch (error) {
+            console.error('Error al iniciar la selección del draft:', error);
+            await interaction.editReply(`❌ Hubo un error: ${error.message}`);
+        }
+        return;
+    }
+    
+    if (action === 'draft_confirm_pick') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId] = params;
+        if(interaction.user.id !== captainId) return;
+
+        await advanceDraftTurn(client, draftShortId);
+        await interaction.message.delete();
+        return;
+    }
+
+    if (action === 'draft_undo_pick') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId] = params;
+        if(interaction.user.id !== captainId) return;
+
+        await undoLastPick(client, draftShortId);
+        
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const pickEmbed = createDraftPickEmbed(draft, captainId);
+        await interaction.editReply(pickEmbed);
+        return;
+    }
+
+    if (action === 'admin_toggle_translation') {
+        await interaction.deferUpdate();
+        const currentSettings = await getBotSettings();
+        const newState = !currentSettings.translationEnabled;
+        await updateBotSettings({ translationEnabled: newState });
+        await updateAdminPanel(client); 
+        await interaction.followUp({ content: `✅ La traducción automática ha sido **${newState ? 'ACTIVADA' : 'DESACTIVADA'}**.`, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
 
     if (action.startsWith('rules_accept_step_')) {
         await interaction.deferUpdate();
@@ -62,11 +105,9 @@ export async function handleButton(interaction) {
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps);
             await interaction.editReply(nextStepContent);
         } else {
-            // Último paso aceptado, ahora mostramos el modal correspondiente
             const originalCustomId = interaction.message.interaction.customId;
             const [originalAction, id] = originalCustomId.split(':');
             
-            // --- INICIO DE LA MODIFICACIÓN: Distinguir entre Torneo y Draft ---
             if (originalAction.startsWith('register_draft')) {
                 const draftShortId = id;
                 let modal;
@@ -88,7 +129,7 @@ export async function handleButton(interaction) {
                         new ActionRowBuilder().addComponents(streamInput),
                         new ActionRowBuilder().addComponents(twitterInput)
                     );
-                } else { // register_draft_player
+                } else {
                     modal = new ModalBuilder()
                         .setCustomId(`register_draft_player_modal:${draftShortId}`)
                         .setTitle('Inscripción como Jugador de Draft');
@@ -109,7 +150,7 @@ export async function handleButton(interaction) {
                 }
                 await interaction.showModal(modal);
 
-            } else { // Lógica original para torneos
+            } else {
                 const tournamentShortId = id;
                 const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 if (!tournament) {
@@ -131,15 +172,7 @@ export async function handleButton(interaction) {
                 );
                 await interaction.showModal(modal);
             }
-            // --- FIN DE LA MODIFICACIÓN ---
         }
-        return;
-    }
-    
-    // ... El resto del archivo se mantiene igual que la última versión completa que te di
-    if (action === 'rules_reject') {
-        await interaction.deferUpdate();
-        await interaction.editReply({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [] });
         return;
     }
     
