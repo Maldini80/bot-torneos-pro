@@ -1,20 +1,18 @@
 // src/utils/embeds.js
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, RULES_ACCEPTANCE_IMAGE_URLS } from '../../config.js';
-// NUEVO: Importamos las funciones de la base de datos para leer la configuración
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
+// --- INICIO MODIFICACIÓN ---
+import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, RULES_ACCEPTANCE_IMAGE_URLS, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
+// --- FIN MODIFICACIÓN ---
 import { getBotSettings } from '../../database.js';
 
-// --- INICIO DE LA MODIFICACIÓN ---
-// La función ahora es 'async' para poder esperar la configuración de la DB.
 export async function createGlobalAdminPanel(isBusy = false) {
-    // Obtenemos la configuración actual para saber el estado de la traducción
     const settings = await getBotSettings();
     const translationEnabled = settings.translationEnabled;
 
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación de Torneos y Drafts')
-        .setFooter({ text: 'Bot de Torneos v3.0.0' }); // Versión actualizada
+        .setFooter({ text: 'Bot de Torneos v3.0.0' });
 
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
@@ -23,13 +21,11 @@ export async function createGlobalAdminPanel(isBusy = false) {
 
     const globalActionsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
-        // NUEVO: Botón para crear un Draft
         new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Draft').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_update_channel_status').setLabel('Estado Canal').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy)
     );
 
     const globalSettingsRow = new ActionRowBuilder().addComponents(
-        // NUEVO: Botón dinámico para la traducción
         new ButtonBuilder()
             .setCustomId('admin_toggle_translation')
             .setLabel(translationEnabled ? 'Desactivar Traducción' : 'Activar Traducción')
@@ -38,11 +34,9 @@ export async function createGlobalAdminPanel(isBusy = false) {
             .setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
-
-    // Devolvemos dos filas de botones
+    
     return { embeds: [embed], components: [globalActionsRow, globalSettingsRow] };
 }
-// --- FIN DE LA MODIFICACIÓN ---
 
 export function createTournamentManagementPanel(tournament, isBusy = false) {
     const embed = new EmbedBuilder()
@@ -55,7 +49,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
-    const row3 = new ActionRowBuilder(); // Fila adicional para nuevas acciones
+    const row3 = new ActionRowBuilder();
     
     const isBeforeDraw = tournament.status === 'inscripcion_abierta';
     const isGroupStage = tournament.status === 'fase_de_grupos';
@@ -91,8 +85,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // NUEVO: Botón para asignar co-capitán.
     row2.addComponents(
         new ButtonBuilder()
             .setCustomId(`admin_assign_cocaptain_start:${tournament.shortId}`)
@@ -101,7 +93,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setEmoji('👥')
             .setDisabled(isBusy || !hasCaptains)
     );
-    // --- FIN DE LA MODIFICACIÓN ---
     
     row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
 
@@ -113,8 +104,181 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     return { embeds: [embed], components };
 }
 
+// --- INICIO MODIFICACIÓN: NUEVOS EMBEDS PARA EL DRAFT ---
+
+/**
+ * NUEVO: Crea el embed de estado público para un Draft.
+ * @param {object} draft - El objeto del draft de la base de datos.
+ * @returns Un objeto de mensaje de Discord.
+ */
+export function createDraftStatusEmbed(draft) {
+    const isRegistrationOpen = draft.status === 'inscripcion';
+    const captainCount = draft.captains.length;
+    const playerCount = draft.players.length;
+    const totalParticipants = captainCount + playerCount;
+    
+    const embed = new EmbedBuilder()
+        .setColor(isRegistrationOpen ? '#5865F2' : '#71368A')
+        .setTitle(`📝 Draft: ${draft.name}`)
+        .setDescription(draft.config.isPaid ? '**Este es un draft de pago.**' : '**Este es un draft gratuito.**')
+        .addFields(
+            { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
+            { name: 'Jugadores / Players', value: `${playerCount} / 80`, inline: true }, // 88 total - 8 capitanes
+            { name: 'Total', value: `${totalParticipants} / 88`, inline: true }
+        )
+        .setFooter({ text: `ID del Draft: ${draft.shortId}` });
+
+    const row = new ActionRowBuilder();
+    if (isRegistrationOpen) {
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`register_draft_captain:${draft.shortId}`)
+                .setLabel('Inscribirme como Capitán')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('👑')
+                .setDisabled(captainCount >= 8),
+            new ButtonBuilder()
+                .setCustomId(`register_draft_player:${draft.shortId}`)
+                .setLabel('Inscribirme como Jugador')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('👤')
+                // Permitir inscripciones a reserva si la opción está activada
+                .setDisabled(totalParticipants >= 88 && !(draft.config.isPaid === false && draft.config.allowReserves))
+        );
+    } else {
+        embed.setDescription(`**Estado actual: ${draft.status.replace(/_/g, ' ')}**`);
+    }
+
+    return { embeds: [embed], components: row.components.length > 0 ? [row] : [] };
+}
+
+/**
+ * NUEVO: Crea el panel de gestión para un Draft.
+ * @param {object} draft - El objeto del draft.
+ * @param {boolean} isBusy - Si el bot está ocupado.
+ * @returns Un objeto de mensaje de Discord.
+ */
+export function createDraftManagementPanel(draft, isBusy = false) {
+    const embed = new EmbedBuilder()
+        .setColor(isBusy ? '#e74c3c' : '#e67e22')
+        .setTitle(`Gestión del Draft: ${draft.name}`)
+        .setDescription(isBusy
+            ? `🔴 **ESTADO: OCUPADO**\nID: \`${draft.shortId}\`\nControles bloqueados.`
+            : `✅ **ESTADO: LISTO**\nID: \`${draft.shortId}\`\nEstado: **${draft.status.replace(/_/g, ' ')}**`
+        ).setFooter({ text: 'Panel de control exclusivo para este draft.' });
+    
+    const row1 = new ActionRowBuilder();
+    const row2 = new ActionRowBuilder();
+    
+    if (draft.status === 'inscripcion') {
+        row1.addComponents(
+            new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
+        );
+    }
+
+    if (draft.status === 'seleccion') {
+        row1.addComponents(
+            new ButtonBuilder().setCustomId(`draft_simulate_picks:${draft.shortId}`).setLabel('Simular Picks').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy)
+        );
+    }
+    
+    if (draft.status === 'finalizado') {
+         row1.addComponents(
+            new ButtonBuilder().setCustomId(`draft_force_tournament:${draft.shortId}`).setLabel('Forzar Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy)
+        );
+    }
+    
+    row2.addComponents(new ButtonBuilder().setCustomId(`draft_end:${draft.shortId}`).setLabel('Finalizar Draft').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy));
+
+    const components = [];
+    if (row1.components.length > 0) components.push(row1);
+    if (row2.components.length > 0) components.push(row2);
+    
+    return { embeds: [embed], components };
+}
+
+/**
+ * NUEVO: Crea los embeds para la interfaz principal del draft (jugadores y equipos).
+ * @param {object} draft - El objeto del draft.
+ * @returns {Array<EmbedBuilder>} Un array con los dos embeds.
+ */
+export function createDraftMainInterface(draft) {
+    const availablePlayers = draft.players.filter(p => !p.captainId);
+    
+    // Embed 1: Jugadores Disponibles
+    const playersEmbed = new EmbedBuilder()
+        .setColor('#3498db')
+        .setTitle('Jugadores Disponibles para Seleccionar')
+        .setDescription('Lista de todos los jugadores que aún no han sido elegidos.');
+    
+    const groupedPlayers = {};
+    DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
+    
+    availablePlayers.forEach(player => {
+        if (groupedPlayers[player.primaryPosition]) {
+            groupedPlayers[player.primaryPosition].push(player.userName);
+        }
+    });
+
+    for (const position of DRAFT_POSITION_ORDER) {
+        const playersInPos = groupedPlayers[position];
+        let value = 'No hay jugadores disponibles.';
+        if (playersInPos.length > 0) {
+            value = '`' + playersInPos.join('`, `') + '`';
+        }
+        playersEmbed.addFields({ name: `--- ${DRAFT_POSITIONS[position]} ---`, value: value });
+    }
+
+    // Embed 2: Equipos
+    const teamsEmbed = new EmbedBuilder()
+        .setColor('#2ecc71')
+        .setTitle('Equipos del Draft')
+        .setDescription('Plantillas actuales de cada equipo.');
+        
+    draft.captains.forEach(captain => {
+        const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
+        const playerList = teamPlayers.map(p => `• ${p.userName} (${p.primaryPosition})`).join('\n');
+        teamsEmbed.addFields({
+            name: `👑 ${captain.teamName} (Cap: ${captain.userName})`,
+            value: teamPlayers.length > 0 ? playerList : '*Vacío*',
+            inline: true
+        });
+    });
+
+    return [playersEmbed, teamsEmbed];
+}
+
+/**
+ * NUEVO: Crea el mensaje de selección para el capitán.
+ * @param {object} draft - El objeto del draft.
+ * @param {string} captainId - La ID del capitán que debe elegir.
+ * @returns Un objeto de mensaje de Discord.
+ */
+export function createDraftPickEmbed(draft, captainId) {
+    const captain = draft.captains.find(c => c.userId === captainId);
+    const embed = new EmbedBuilder()
+        .setColor('#f1c40f')
+        .setTitle(`Turno de Selección: ${captain.teamName}`)
+        .setDescription(`Es tu turno, <@${captainId}>. Por favor, usa los menús para seleccionar a tu próximo jugador.`)
+        .setFooter({text: 'Paso 1: Elige cómo quieres buscar al jugador.'});
+
+    const searchTypeMenu = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`draft_pick_search_type:${draft.shortId}:${captainId}`)
+            .setPlaceholder('Buscar por posición...')
+            .addOptions([
+                { label: 'Posición Primaria', value: 'primary', emoji: '⭐' },
+                { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
+            ])
+    );
+    
+    return { content: `<@${captainId}>`, embeds: [embed], components: [searchTypeMenu], ephemeral: true };
+}
+
+// --- FIN MODIFICACIÓN ---
+
 export function createRuleAcceptanceEmbed(step, totalSteps) {
-// ... (código existente sin cambios)
     const imageUrl = RULES_ACCEPTANCE_IMAGE_URLS[step - 1];
 
     const embed = new EmbedBuilder()
@@ -142,7 +306,6 @@ export function createRuleAcceptanceEmbed(step, totalSteps) {
 
 
 export function createTournamentStatusEmbed(tournament) {
-// ... (código existente sin cambios)
     const format = tournament.config.format;
     const teamsCount = Object.keys(tournament.teams.aprobados).length;
     let statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
@@ -196,7 +359,6 @@ export function createTournamentStatusEmbed(tournament) {
 
     row2.addComponents(
         new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes / View Participants').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
-        // CORRECCIÓN FINAL: Se usa un emoji de libro abierto '📖', que es universalmente compatible.
         new ButtonBuilder().setLabel('Normas / Rules').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
     );
 
@@ -212,7 +374,6 @@ export function createTournamentStatusEmbed(tournament) {
 }
 
 export function createTeamListEmbed(tournament) {
-// ... (código existente sin cambios)
     const approvedTeams = Object.values(tournament.teams.aprobados);
     const format = tournament.config.format;
     let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
@@ -233,7 +394,6 @@ export function createTeamListEmbed(tournament) {
 }
 
 export function createClassificationEmbed(tournament) {
-// ... (código existente sin cambios)
     const embed = new EmbedBuilder().setColor('#1abc9c').setTitle(`📊 Clasificación / Ranking`).setTimestamp();
     if (Object.keys(tournament.structure.grupos).length === 0) {
         embed.setDescription('🇪🇸 La clasificación se mostrará aquí una vez que comience el torneo.\n🇬🇧 The ranking will be displayed here once the tournament starts.');
@@ -270,7 +430,6 @@ export function createClassificationEmbed(tournament) {
 }
 
 export function createCalendarEmbed(tournament) {
-// ... (código existente sin cambios)
     const embed = new EmbedBuilder().setColor('#9b59b6').setTitle(`🗓️ Calendario / Schedule`).setTimestamp();
     const hasGroupStage = Object.keys(tournament.structure.calendario).length > 0;
     const hasKnockoutStage = tournament.config.format.knockoutStages.some(
@@ -337,7 +496,6 @@ export function createCalendarEmbed(tournament) {
 }
 
 export function createCasterInfoEmbed(teamData, tournament) {
-// ... (código existente sin cambios)
     const embed = new EmbedBuilder()
         .setColor('#1abc9c')
         .setTitle(`📢 Nuevo Equipo Inscrito: ${teamData.nombre}`)
