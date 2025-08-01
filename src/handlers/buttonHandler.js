@@ -45,7 +45,7 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito, en reserva o pendiente de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
         
-        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length, customId);
+        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length, action, draftShortId);
         await interaction.reply(ruleStepContent);
         return;
     }
@@ -159,20 +159,18 @@ export async function handleButton(interaction) {
         return;
     }
 
-    if (action.startsWith('rules_accept_step_')) {
+    if (action === 'rules_accept') {
         await interaction.deferUpdate();
-        const currentStep = parseInt(action.split('_')[2]);
+        const [currentStepStr, originalAction, entityId] = params;
+        const currentStep = parseInt(currentStepStr);
         const totalSteps = RULES_ACCEPTANCE_IMAGE_URLS.length;
-        const originalCustomId = params.join(':');
 
         if (currentStep < totalSteps) {
-            const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalCustomId);
+            const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
             await interaction.editReply(nextStepContent);
         } else {
-            const [originalAction, id] = originalCustomId.split(':');
-            
             if (originalAction.startsWith('register_draft')) {
-                const draftShortId = id;
+                const draftShortId = entityId;
                 let modal;
                 if (originalAction === 'register_draft_captain') {
                     modal = new ModalBuilder()
@@ -214,7 +212,7 @@ export async function handleButton(interaction) {
                 await interaction.showModal(modal);
 
             } else {
-                const tournamentShortId = id;
+                const tournamentShortId = entityId;
                 const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 if (!tournament) {
                     return interaction.editReply({ content: 'Error: No se encontró este torneo.', components: [] });
@@ -257,7 +255,7 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.', flags: [MessageFlags.Ephemeral] });
         }
         
-        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length, customId);
+        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length, action, tournamentShortId);
         await interaction.reply(ruleStepContent);
         return;
     }
