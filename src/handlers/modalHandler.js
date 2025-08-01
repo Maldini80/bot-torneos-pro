@@ -14,6 +14,29 @@ export async function handleModal(interaction) {
     const db = getDb();
     const [action, ...params] = customId.split(':');
 
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se añade el manejador que faltaba para el modal de creación de draft.
+    if (action === 'create_draft_modal') {
+        const name = interaction.fields.getTextInputValue('draft_name_input');
+
+        const typeMenu = new StringSelectMenuBuilder()
+            .setCustomId(`create_draft_type:${name}`)
+            .setPlaceholder('Paso 2: Selecciona el tipo de draft')
+            .addOptions([
+                { label: 'Gratuito', value: 'gratis' },
+                { label: 'De Pago', value: 'pago' }
+            ]);
+
+        // Responder a la interacción con el siguiente paso.
+        await interaction.reply({
+            content: `Has nombrado al draft como "${name}". Ahora, selecciona su tipo:`,
+            components: [new ActionRowBuilder().addComponents(typeMenu)],
+            flags: [MessageFlags.Ephemeral]
+        });
+        return;
+    }
+    // --- FIN DE LA CORRECCIÓN ---
+
     if (action === 'add_draft_test_players_modal') {
         await interaction.reply({ content: '✅ Orden recibida. Añadiendo participantes de prueba...', flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
