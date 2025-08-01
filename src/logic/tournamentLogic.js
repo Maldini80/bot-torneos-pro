@@ -2,12 +2,14 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
-import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed, createCasterInfoEmbed } from '../utils/embeds.js';
+// Se importa el nuevo embed para el estado del Draft
+import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed, createCasterInfoEmbed, createDraftStatusEmbed, createDraftManagementPanel } from '../utils/embeds.js';
 import { updateAdminPanel, updateTournamentManagementThread } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
+// ... (Todo el código existente desde createNewTournament hasta notifyCaptainsOfChanges se mantiene igual)
 export async function createNewTournament(client, guild, name, shortId, config) {
     await setBotBusy(true);
     try {
@@ -76,7 +78,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await setBotBusy(false);
     }
 }
-
 export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
@@ -132,7 +133,6 @@ export async function approveTeam(client, tournament, teamData) {
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
 }
-
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const db = getDb();
     const coCaptainUser = await client.users.fetch(coCaptainId);
@@ -162,8 +162,6 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
 }
-
-
 export async function kickTeam(client, tournament, captainId) {
     const db = getDb();
     const teamData = tournament.teams.aprobados[captainId];
@@ -201,7 +199,6 @@ export async function kickTeam(client, tournament, captainId) {
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
 }
-
 export async function undoGroupStageDraw(client, tournamentShortId) {
     await setBotBusy(true);
     const db = getDb();
@@ -243,7 +240,6 @@ export async function undoGroupStageDraw(client, tournamentShortId) {
         await setBotBusy(false);
     }
 }
-
 export async function notifyCastersOfNewTeam(client, tournament, teamData) {
     if (!tournament.discordMessageIds.casterThreadId) return;
 
@@ -257,7 +253,6 @@ export async function notifyCastersOfNewTeam(client, tournament, teamData) {
         }
     }
 }
-
 export async function endTournament(client, tournament) {
     await setBotBusy(true);
     try {
@@ -271,7 +266,6 @@ export async function endTournament(client, tournament) {
         await setBotBusy(false); 
     }
 }
-
 async function cleanupTournament(client, tournament) {
     const { discordChannelIds, discordMessageIds } = tournament;
     const deleteResourceSafe = async (resourceId) => {
@@ -284,7 +278,6 @@ async function cleanupTournament(client, tournament) {
     try { const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS); await globalChannel.messages.delete(discordMessageIds.statusMessageId);
     } catch(e) { if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); }
 }
-
 export async function forceResetAllTournaments(client) {
     await setBotBusy(true);
     try {
@@ -300,7 +293,6 @@ export async function forceResetAllTournaments(client) {
         await setBotBusy(false);
     }
 }
-
 export async function updatePublicMessages(client, tournament) {
     const db = getDb();
     const latestTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
@@ -315,7 +307,6 @@ export async function updatePublicMessages(client, tournament) {
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.classificationMessageId, createClassificationEmbed(latestTournamentState));
     await editMessageSafe(discordChannelIds.infoChannelId, discordMessageIds.calendarMessageId, createCalendarEmbed(latestTournamentState));
 }
-
 export async function startGroupStage(client, guild, tournament) {
     await setBotBusy(true);
     try {
@@ -360,7 +351,6 @@ export async function startGroupStage(client, guild, tournament) {
         await setBotBusy(false); 
     }
 }
-
 async function promoteFromWaitlist(client, tournamentShortId, count) {
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -375,7 +365,6 @@ async function promoteFromWaitlist(client, tournamentShortId, count) {
         await approveTeam(client, tournament, teamData);
     }
 }
-
 export async function updateTournamentConfig(client, tournamentShortId, newConfig) {
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -401,7 +390,6 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     await updatePublicMessages(client, updatedTournament); 
     await updateTournamentManagementThread(client, updatedTournament);
 }
-
 export async function addTeamToWaitlist(client, tournament, teamData) {
     const db = getDb();
     
@@ -420,7 +408,6 @@ export async function addTeamToWaitlist(client, tournament, teamData) {
         await notificationsThread.send({ embeds: [embed] });
     }
 }
-
 export async function requestUnregister(client, tournament, userId) {
     const db = getDb();
     const team = tournament.teams.aprobados[userId];
@@ -444,7 +431,6 @@ export async function requestUnregister(client, tournament, userId) {
 
     return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores. Recibirás una notificación con su decisión." };
 }
-
 export async function notifyCaptainsOfChanges(client, tournament) {
     const approvedCaptains = Object.values(tournament.teams.aprobados);
     if (approvedCaptains.length === 0) {
@@ -470,3 +456,87 @@ export async function notifyCaptainsOfChanges(client, tournament) {
     }
     return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
 }
+
+// --- INICIO DE LA MODIFICACIÓN: NUEVA FUNCIÓN PARA CREAR DRAFTS ---
+
+/**
+ * NUEVO: Crea un nuevo Draft y toda su infraestructura en Discord.
+ */
+export async function createNewDraft(client, guild, name, shortId, config) {
+    await setBotBusy(true);
+    try {
+        const db = getDb();
+        const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
+        if (!arbitroRole) throw new Error("El rol de Árbitro no fue encontrado.");
+
+        // Permisos para el canal principal del draft (visible para todos, escritura denegada)
+        const draftChannelPermissions = [
+            { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }
+        ];
+
+        const draftChannel = await guild.channels.create({
+            name: `📝-${shortId}`,
+            type: ChannelType.GuildText,
+            parent: TOURNAMENT_CATEGORY_ID, // Usamos la misma categoría de torneos
+            permissionOverwrites: draftChannelPermissions,
+        });
+
+        const newDraft = {
+            _id: new ObjectId(),
+            shortId,
+            guildId: guild.id,
+            name,
+            status: 'inscripcion', // Estados: inscripcion, seleccion, finalizado, torneo_generado, cancelado
+            config: {
+                isPaid: config.isPaid,
+                allowReserves: !config.isPaid // Solo drafts gratuitos permiten reservas
+            },
+            captains: [], // Array de objetos de capitán
+            players: [], // Array de objetos de jugador
+            reserves: [], // Array de jugadores en reserva
+            selection: {
+                turn: 0,
+                order: [], // Array de IDs de capitanes en orden de selección
+                currentPick: 1,
+            },
+            discordChannelId: draftChannel.id,
+            discordMessageIds: {
+                statusMessageId: null,
+                managementThreadId: null,
+                mainInterfacePlayerMessageId: null,
+                mainInterfaceTeamsMessageId: null,
+            }
+        };
+
+        const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        const statusMsg = await globalStatusChannel.send(createDraftStatusEmbed(newDraft));
+        newDraft.discordMessageIds.statusMessageId = statusMsg.id;
+
+        const managementParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
+        const managementThread = await managementParentChannel.threads.create({
+            name: `Gestión Draft - ${name.slice(0, 40)}`,
+            type: ChannelType.PrivateThread,
+            autoArchiveDuration: 10080
+        });
+        newDraft.discordMessageIds.managementThreadId = managementThread.id;
+        
+        await db.collection('drafts').insertOne(newDraft);
+
+        if (arbitroRole) {
+            for (const member of arbitroRole.members.values()) {
+                await managementThread.members.add(member.id).catch(() => {});
+            }
+        }
+        
+        await managementThread.send(createDraftManagementPanel(newDraft, true));
+
+    } catch (error) {
+        console.error('[CREATE DRAFT] Ocurrió un error al crear el draft:', error);
+        await setBotBusy(false);
+        throw error;
+    } finally {
+        await setBotBusy(false);
+    }
+}
+
+// --- FIN DE LA MODIFICACIÓN ---
