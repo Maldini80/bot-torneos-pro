@@ -13,24 +13,42 @@ export async function handleSelectMenu(interaction) {
     
     const [action, ...params] = customId.split(':');
 
+    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'create_draft_type') {
-        await interaction.deferUpdate();
         const [name] = params;
         const type = interaction.values[0];
-        const isPaid = type === 'pago';
-        const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
-        const config = { isPaid };
+        if (type === 'gratis') {
+            await interaction.deferUpdate();
+            const isPaid = false;
+            const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            const config = { isPaid, entryFee: 0 };
 
-        try {
-            await createNewDraft(client, guild, name, shortId, config);
-            await interaction.editReply({ content: `✅ ¡Éxito! El draft **"${name}"** ha sido creado.`, components: [] });
-        } catch (error) {
-            console.error("Error capturado por el handler al crear el draft:", error);
-            await interaction.editReply({ content: `❌ Ocurrió un error al crear el draft. Revisa los logs.`, components: [] });
+            try {
+                await createNewDraft(client, guild, name, shortId, config);
+                await interaction.editReply({ content: `✅ ¡Éxito! El draft gratuito **"${name}"** ha sido creado.`, components: [] });
+            } catch (error) {
+                console.error("Error capturado por el handler al crear el draft:", error);
+                await interaction.editReply({ content: `❌ Ocurrió un error al crear el draft. Revisa los logs.`, components: [] });
+            }
+        } else { // type === 'pago'
+            const modal = new ModalBuilder()
+                .setCustomId(`create_draft_paid_modal:${name}`)
+                .setTitle(`Crear Draft de Pago: ${name}`);
+
+            const entryFeeInput = new TextInputBuilder()
+                .setCustomId('draft_entry_fee')
+                .setLabel("Cuota de Inscripción por Jugador (€)")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setPlaceholder('Ej: 5');
+
+            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput));
+            await interaction.showModal(modal);
         }
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'draft_pick_search_type') {
         await interaction.deferUpdate();
@@ -81,18 +99,16 @@ export async function handleSelectMenu(interaction) {
              return interaction.editReply({ content: 'No quedan jugadores en esa posición.', components: [] });
         }
         
-        // --- INICIO DE LA MODIFICACIÓN ---
         const playerMenu = new StringSelectMenuBuilder()
             .setCustomId(`draft_pick_player:${draftShortId}:${captainId}`)
             .setPlaceholder('Paso 3: ¡Elige al jugador!')
             .addOptions(
                 playersInPosition.map(player => ({
-                    label: player.psnId, // Mostrar PSN ID en lugar de userName
-                    description: `Discord: ${player.userName}`, // Mostrar userName de Discord en la descripción
+                    label: player.psnId,
+                    description: `Discord: ${player.userName}`,
                     value: player.userId,
                 }))
             );
-        // --- FIN DE LA MODIFICACIÓN ---
         
         await interaction.editReply({ components: [new ActionRowBuilder().addComponents(playerMenu)] });
         return;
@@ -122,12 +138,10 @@ export async function handleSelectMenu(interaction) {
                 .setEmoji('↩️')
         );
         
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.editReply({ 
             content: `Has seleccionado a **${player.psnId}** (${player.userName}). ¿Confirmas tu elección?`, 
             components: [confirmationRow] 
         });
-        // --- FIN DE LA MODIFICACIÓN ---
         return;
     }
 
