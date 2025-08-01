@@ -3,6 +3,11 @@
 // ID de la Categoría Principal de Torneos donde se crearán los canales de partidos
 export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
 
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se añade la constante para el enlace de invitación al servidor de Discord
+export const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
+// --- FIN DE LA MODIFICACIÓN ---
+
 // IDs de Roles globales del servidor
 export const ADMIN_ROLE_ID = 'ID_DE_TU_ROL_DE_ADMIN'; // Reemplaza esto si es necesario
 export const ARBITRO_ROLE_ID = '1393505777443930183';
@@ -16,10 +21,6 @@ export const CHANNELS = {
     TORNEOS_STATUS: '1395276865597476908',
     CASTER_HUB_ID: '1394818921453981766', // Canal para los hilos de casters
 };
-
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se elimina la constante RULES_ACCEPTANCE_IMAGE_URLS ya que no se utiliza más.
-// --- FIN DE LA MODIFICACIÓN ---
 
 // Configuración de Pagos
 export const PAYMENT_CONFIG = {
