@@ -136,10 +136,18 @@ export async function handleModal(interaction) {
         return;
     }
     
-    // --- INICIO DE LA CORRECCIÓN ---
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [draftShortId] = params;
+        
+        const isRegisteringAsCaptain = action === 'register_draft_captain_modal';
+        let draftShortId, position, primaryPosition, secondaryPosition;
+
+        if (isRegisteringAsCaptain) {
+            [draftShortId, position] = params;
+        } else {
+            [draftShortId, primaryPosition, secondaryPosition] = params;
+        }
+
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
         if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
@@ -156,7 +164,6 @@ export async function handleModal(interaction) {
 
         let playerData;
         let captainData;
-        const isRegisteringAsCaptain = action === 'register_draft_captain_modal';
         
         const psnId = interaction.fields.getTextInputValue('psn_id_input');
         const twitter = interaction.fields.getTextInputValue('twitter_input');
@@ -167,17 +174,12 @@ export async function handleModal(interaction) {
             
             const teamName = interaction.fields.getTextInputValue('team_name_input');
             const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
-            const position = interaction.fields.getTextInputValue('position_input').toUpperCase();
-            if (!Object.keys(DRAFT_POSITIONS).includes(position)) return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
             if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
 
             captainData = { userId, userName: interaction.user.tag, teamName, streamChannel, psnId, twitter, position };
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: position, currentTeam: teamName, isCaptain: true, captainId: null };
         } else {
-            const primaryPosition = interaction.fields.getTextInputValue('primary_pos_input').toUpperCase();
-            const secondaryPosition = interaction.fields.getTextInputValue('secondary_pos_input').toUpperCase();
             const currentTeam = interaction.fields.getTextInputValue('current_team_input');
-            if (!Object.keys(DRAFT_POSITIONS).includes(primaryPosition) || !Object.keys(DRAFT_POSITIONS).includes(secondaryPosition)) return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null };
         }
 
@@ -241,7 +243,6 @@ export async function handleModal(interaction) {
         }
         return;
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     if(action === 'draft_payment_confirm_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
