@@ -2,7 +2,10 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
-import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection } from '../logic/tournamentLogic.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Importamos la nueva función createTournamentFromDraft
+import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft } from '../logic/tournamentLogic.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { setChannelIcon } from '../utils/panelManager.js';
 
 export async function handleSelectMenu(interaction) {
@@ -14,6 +17,43 @@ export async function handleSelectMenu(interaction) {
     const [action, ...params] = customId.split(':');
 
     // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'draft_create_tournament_format') {
+        await interaction.deferUpdate();
+        const [draftShortId] = params;
+        const selectedFormatId = interaction.values[0];
+
+        try {
+            const newTournament = await createTournamentFromDraft(client, guild, draftShortId, selectedFormatId);
+            await interaction.editReply({
+                content: `✅ ¡Torneo **"${newTournament.nombre}"** creado con éxito a partir del draft! Ya puedes gestionarlo desde su propio hilo en el canal de administración.`,
+                components: []
+            });
+
+            // Opcional: Iniciar el sorteo del nuevo torneo inmediatamente
+            const managementThread = await client.channels.fetch(newTournament.discordMessageIds.managementThreadId);
+            const startDrawButton = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`admin_force_draw:${newTournament.shortId}`)
+                    .setLabel('Iniciar Sorteo Inmediatamente')
+                    .setStyle(ButtonStyle.Success)
+                    .setEmoji('🎲')
+            );
+            await managementThread.send({
+                content: 'El torneo ha sido poblado con los equipos del draft. ¿Quieres iniciar el sorteo de la fase de grupos ahora?',
+                components: [startDrawButton]
+            });
+
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({
+                content: `❌ Hubo un error crítico al crear el torneo desde el draft: ${error.message}`,
+                components: []
+            });
+        }
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
     if (action === 'create_draft_type') {
         const [name] = params;
         const type = interaction.values[0];
@@ -48,7 +88,6 @@ export async function handleSelectMenu(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'draft_pick_search_type') {
         await interaction.deferUpdate();
