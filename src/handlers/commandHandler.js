@@ -29,11 +29,9 @@ export async function handleCommand(interaction) {
             }
         }
         
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // La función createGlobalAdminPanel ahora es asíncrona, así que debemos usar 'await'.
+        // Esta es la línea que modificamos para usar 'await'
         const panelContent = await createGlobalAdminPanel();
-        // --- FIN DE LA MODIFICACIÓN ---
-
+        
         await interaction.channel.send(panelContent);
         await interaction.editReply({ content: "✅ Panel de creación global generado con éxito." });
     }
