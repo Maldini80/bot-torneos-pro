@@ -8,6 +8,28 @@ import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
+// --- INICIO DE LA MODIFICACIÓN ---
+/**
+ * NUEVO: Notifica a un usuario que su premio ha sido pagado.
+ * @param {import('discord.js').Client} client El cliente de Discord.
+ * @param {string} userId - La ID del usuario a notificar.
+ * @param {string} prizeType - El tipo de premio (ej. "campeón").
+ * @param {object} tournament - El objeto del torneo.
+ */
+export async function confirmPrizePayment(client, userId, prizeType, tournament) {
+    try {
+        const user = await client.users.fetch(userId);
+        await user.send(`💰 ¡Buenas noticias! Tu premio de **${prizeType}** del torneo **${tournament.nombre}** ha sido marcado como **pagado**. ¡Gracias por participar!`);
+        return { success: true };
+    } catch (e) {
+        console.warn(`No se pudo notificar al usuario ${userId} del pago del premio.`);
+        return { success: false, error: e };
+    }
+}
+// --- FIN DE LA MODIFICACIÓN ---
+
+
+// ... (El resto del código del archivo, desde createNewTournament hasta el final, se mantiene igual)
 export async function createNewTournament(client, guild, name, shortId, config) {
     await setBotBusy(true);
     try {
@@ -285,7 +307,7 @@ export async function forceResetAllTournaments(client) {
             await cleanupTournament(client, tournament);
         }
         await db.collection('tournaments').deleteMany({});
-        await db.collection('drafts').deleteMany({}); // Añadimos la limpieza de drafts
+        await db.collection('drafts').deleteMany({});
     } catch (error) {
         console.error("Error crítico durante el reseteo forzoso:", error);
     } finally {
@@ -536,7 +558,7 @@ export async function startDraftSelection(client, draftShortId) {
     let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     if (!draft) throw new Error('Draft no encontrado.');
     if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
-    if (draft.captains.length < 8 || (draft.players.length) < 88) { // Corregido: solo players, ya que capitanes están dentro
+    if (draft.captains.length < 8 || (draft.players.length) < 88) {
         throw new Error('No hay suficientes capitanes o jugadores para iniciar la selección (se necesitan 8 capitanes y 88 participantes en total).');
     }
 
@@ -569,9 +591,8 @@ export async function startDraftSelection(client, draftShortId) {
     await notifyNextCaptain(client, draft);
 }
 export async function notifyNextCaptain(client, draft) {
-    if (draft.selection.currentPick > 88) { // 11 jugadores * 8 equipos
+    if (draft.selection.currentPick > 88) {
          await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
-         // Lógica para finalizar
          console.log(`El draft ${draft.shortId} ha finalizado la selección.`);
          const draftChannel = await client.channels.fetch(draft.discordChannelId);
          await draftChannel.send('**LA SELECCIÓN HA FINALIZADO.** Un administrador generará el torneo en breve.');
@@ -596,7 +617,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, pla
 export async function updateDraftMainInterface(client, draftShortId) {
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-    if (!draft) return;
+    if (!draft || !draft.discordMessageIds.mainInterfacePlayerMessageId) return;
 
     const draftChannel = await client.channels.fetch(draft.discordChannelId);
     const [playersEmbed, teamsEmbed] = createDraftMainInterface(draft);
@@ -624,7 +645,7 @@ export async function advanceDraftTurn(client, draftShortId) {
 
     let nextTurn = draft.selection.turn + 1;
     if (nextTurn >= draft.selection.order.length) {
-        nextTurn = 0; // Vuelve al principio para la siguiente ronda
+        nextTurn = 0;
     }
 
     await db.collection('drafts').updateOne(
