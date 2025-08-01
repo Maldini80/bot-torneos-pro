@@ -64,13 +64,6 @@ async function cleanupDraft(client, draft) {
     }
 }
 
-// --- INICIO DE LA MODIFICACIÓN ---
-
-/**
- * NUEVO: Simula la selección de todos los jugadores restantes en un draft.
- * @param {import('discord.js').Client} client 
- * @param {string} draftShortId 
- */
 export async function simulateDraftPicks(client, draftShortId) {
     await setBotBusy(true);
     const db = getDb();
@@ -82,7 +75,6 @@ export async function simulateDraftPicks(client, draftShortId) {
         let availablePlayers = draft.players.filter(p => !p.captainId);
         const captains = draft.captains;
 
-        // Función auxiliar para barajar el array de jugadores
         const shuffleArray = (array) => {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -92,7 +84,7 @@ export async function simulateDraftPicks(client, draftShortId) {
 
         shuffleArray(availablePlayers);
 
-        const playersPerTeam = 11; // 1 capitán + 10 jugadores
+        const playersPerTeam = 11;
         const bulkOps = [];
 
         for (const captain of captains) {
@@ -101,9 +93,7 @@ export async function simulateDraftPicks(client, draftShortId) {
 
             for (let i = 0; i < playersNeeded; i++) {
                 const playerToAssign = availablePlayers.pop();
-                if (!playerToAssign) break; // Detener si no hay más jugadores
-
-                // Preparamos una operación de actualización para la base de datos
+                if (!playerToAssign) break; 
                 bulkOps.push({
                     updateOne: {
                         filter: { _id: draft._id, "players.userId": playerToAssign.userId },
@@ -113,18 +103,15 @@ export async function simulateDraftPicks(client, draftShortId) {
             }
         }
 
-        // Ejecutamos todas las actualizaciones de jugadores de una sola vez
         if (bulkOps.length > 0) {
             await db.collection('drafts').bulkWrite(bulkOps);
         }
 
-        // Actualizamos el estado del draft a 'finalizado'
         await db.collection('drafts').updateOne(
             { _id: draft._id },
             { $set: { status: 'finalizado' } }
         );
 
-        // Actualizamos todos los mensajes e interfaces
         const finalDraftState = await db.collection('drafts').findOne({ _id: draft._id });
         await updateDraftMainInterface(client, finalDraftState.shortId);
         await updateDraftManagementPanel(client, finalDraftState);
@@ -140,12 +127,130 @@ export async function simulateDraftPicks(client, draftShortId) {
 
     } catch (error) {
         console.error(`[DRAFT SIMULATE] Error durante la simulación de picks para ${draftShortId}:`, error);
-        throw error; // Re-lanzamos el error para que sea capturado por el manejador del botón
+        throw error;
     } finally {
         await setBotBusy(false);
     }
 }
 
+// --- INICIO DE LA MODIFICACIÓN ---
+
+/**
+ * NUEVO: Crea un nuevo torneo a partir de un draft finalizado.
+ * @param {import('discord.js').Client} client 
+ * @param {import('discord.js').Guild} guild
+ * @param {string} draftShortId 
+ * @param {string} formatId El ID del formato de torneo seleccionado por el admin
+ */
+export async function createTournamentFromDraft(client, guild, draftShortId, formatId) {
+    await setBotBusy(true);
+    const db = getDb();
+
+    try {
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft || draft.status !== 'finalizado') {
+            throw new Error('Este draft no ha finalizado o no existe.');
+        }
+
+        // 1. Transformar equipos del draft a equipos de torneo
+        const approvedTeams = {};
+        for (const captain of draft.captains) {
+            const teamData = {
+                id: captain.userId,
+                nombre: captain.teamName,
+                eafcTeamName: captain.psnId, // Usamos el PSN ID como EAFC ID por defecto
+                capitanId: captain.userId,
+                capitanTag: captain.userName,
+                coCaptainId: null,
+                coCaptainTag: null,
+                bandera: '🏳️',
+                paypal: null, // Los drafts de pago se manejan individualmente, el premio es aparte
+                streamChannel: captain.streamChannel,
+                twitter: captain.twitter,
+                inscritoEn: new Date()
+            };
+            approvedTeams[captain.userId] = teamData;
+        }
+
+        // 2. Crear el nuevo torneo usando la función existente
+        const tournamentName = `Torneo Draft - ${draft.name}`;
+        const tournamentShortId = `draft-${draft.shortId}`;
+        const config = {
+            formatId: formatId,
+            isPaid: false, // El torneo en sí es gratuito, el acceso fue el draft
+            entryFee: 0,
+            prizeCampeon: 0, // Se pueden editar después si se quiere añadir premio
+            prizeFinalista: 0,
+            startTime: null
+        };
+        
+        // Creamos la estructura base del torneo (sin llamar a la función de creación completa para evitar duplicados)
+        const format = TOURNAMENT_FORMATS[config.formatId];
+        if (!format) throw new Error(`Formato de torneo inválido: ${config.formatId}`);
+        
+        const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
+        const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+
+        const participantsAndStaffPermissions = [
+            { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+            { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+            ...Object.keys(approvedTeams).map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
+        ];
+
+        const infoChannel = await guild.channels.create({ name: `🏆-${tournamentShortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: [{ id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }] });
+        const matchesChannel = await guild.channels.create({ name: `⚽-${tournamentShortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
+        const chatChannel = await guild.channels.create({ name: `💬-${tournamentShortId}-chat`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
+
+        const newTournament = {
+            _id: new ObjectId(), shortId: tournamentShortId, guildId: guild.id, nombre: tournamentName, status: 'inscripcion_abierta',
+            config,
+            teams: { pendientes: {}, aprobados: approvedTeams, reserva: {}, coCapitanes: {} },
+            structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
+            discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
+            discordMessageIds: {}
+        };
+
+        // 3. Crear canales, mensajes y hilos para el nuevo torneo
+        const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        const statusMsg = await globalStatusChannel.send(createTournamentStatusEmbed(newTournament));
+        const classificationMsg = await infoChannel.send(createClassificationEmbed(newTournament));
+        const calendarMsg = await infoChannel.send(createCalendarEmbed(newTournament));
+        newTournament.discordMessageIds.statusMessageId = statusMsg.id;
+        newTournament.discordMessageIds.classificationMessageId = classificationMsg.id;
+        newTournament.discordMessageIds.calendarMessageId = calendarMsg.id;
+        
+        const managementParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
+        const managementThread = await managementParentChannel.threads.create({ name: `Gestión - ${tournamentName.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
+        newTournament.discordMessageIds.managementThreadId = managementThread.id;
+        
+        const notificationsParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT);
+        const notificationsThread = await notificationsParentChannel.threads.create({ name: `Avisos - ${tournamentName.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
+        newTournament.discordMessageIds.notificationsThreadId = notificationsThread.id;
+        
+        const casterParentChannel = await client.channels.fetch(CHANNELS.CASTER_HUB_ID);
+        const casterThread = await casterParentChannel.threads.create({ name: `Casters - ${tournamentName.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
+        newTournament.discordMessageIds.casterThreadId = casterThread.id;
+
+        await db.collection('tournaments').insertOne(newTournament);
+        
+        for (const member of arbitroRole.members.values()) { await managementThread.members.add(member.id).catch(()=>{}); await notificationsThread.members.add(member.id).catch(()=>{}); }
+        if (casterRole) { for (const member of casterRole.members.values()) { await casterThread.members.add(member.id).catch(()=>{}); } }
+        
+        await managementThread.send(createTournamentManagementPanel(newTournament, true));
+
+        // 4. Marcar el draft como "torneo generado" para que no se pueda usar de nuevo y limpiar
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
+        await cleanupDraft(client, draft);
+
+        return newTournament; // Devolvemos el torneo creado
+
+    } catch (error) {
+        console.error('[CREATE TOURNAMENT FROM DRAFT] Error:', error);
+        throw error;
+    } finally {
+        await setBotBusy(false);
+    }
+}
 // --- FIN DE LA MODIFICACIÓN ---
 
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
