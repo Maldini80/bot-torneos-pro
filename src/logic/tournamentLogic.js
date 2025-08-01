@@ -9,6 +9,9 @@ import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 
+// --- INICIO DE LA CORRECCIÓN ---
+// Se modifica la función approveDraftCaptain para que también guarde la posición del capitán
+// y llame correctamente a la función de actualización de la interfaz.
 export async function approveDraftCaptain(client, draft, captainData) {
     const db = getDb();
 
@@ -52,12 +55,14 @@ export async function approveDraftCaptain(client, draft, captainData) {
     
     // Actualizar los mensajes públicos del draft.
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    await updateDraftMainInterface(client, updatedDraft.shortId); // <-- Se añade la actualización de la interfaz
+    await updateDraftMainInterface(client, updatedDraft.shortId); // Llamada corregida
     const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
     const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
     await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
     await updateDraftManagementPanel(client, updatedDraft);
 }
+// --- FIN DE LA CORRECCIÓN ---
+
 
 export async function endDraft(client, draft) {
     await setBotBusy(true);
@@ -853,15 +858,12 @@ export async function notifyNextCaptain(client, draft) {
     const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
     let turnIndex = draft.selection.turn;
 
-    if (round > 0) {
-        const previousRound = Math.floor((draft.selection.currentPick - 2) / draft.captains.length);
-        if (round !== previousRound) { // Es el inicio de una nueva ronda
-            if (round % 2 !== 0) { // Ronda impar, empieza el último
-                turnIndex = draft.captains.length - 1;
-            } else { // Ronda par, empieza el primero
-                turnIndex = 0;
-            }
-        }
+    if ( (draft.selection.currentPick -1) % draft.captains.length === 0 && draft.selection.currentPick > 1) { // Acaba de hacer el pick de vuelta
+         if(round % 2 === 0) { // Si la ronda que acaba es impar (1,3,5..) el siguiente es el último
+             turnIndex = draft.captains.length -1;
+         } else { // si la ronda que acaba es par (0,2,4..) el siguiente es el primero
+             turnIndex = 0;
+         }
     }
 
     const currentCaptainId = draft.selection.order[turnIndex];
@@ -917,20 +919,18 @@ export async function advanceDraftTurn(client, draftShortId) {
     const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
     let nextTurnIndex = draft.selection.turn;
 
-    if ( (draft.selection.currentPick -1) % draft.captains.length === 0 && draft.selection.currentPick > 1) { // Acaba de hacer el pick de vuelta
-         if(round % 2 === 0) { // Si la ronda que acaba es impar (1,3,5..) el siguiente es el último
-             nextTurnIndex = draft.captains.length -1;
-         } else { // si la ronda que acaba es par (0,2,4..) el siguiente es el primero
-             nextTurnIndex = 0;
-         }
+    const isTurnaroundPick = (draft.selection.currentPick - 1) % draft.captains.length === 0;
+
+    if (isTurnaroundPick && draft.selection.currentPick > 1) {
+        // No cambia el índice, es el pick de vuelta
     } else {
-        if (round % 2 === 0) {
-            nextTurnIndex = (draft.selection.turn + 1);
-        } else {
-            nextTurnIndex = (draft.selection.turn - 1);
+        if (round % 2 === 0) { // Ronda par (0, 2...), orden normal
+            nextTurnIndex++;
+        } else { // Ronda impar (1, 3...), orden inverso
+            nextTurnIndex--;
         }
     }
-
+    
     await db.collection('drafts').updateOne(
         { _id: draft._id },
         { 
