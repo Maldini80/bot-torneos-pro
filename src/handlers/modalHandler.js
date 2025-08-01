@@ -90,7 +90,7 @@ export async function handleModal(interaction) {
         await updateDraftManagementPanel(client, updatedDraft);
         await updateDraftMainInterface(client, updatedDraft.shortId);
         
-        await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${bulkPlayers.length - bulkPlayers.length} jugadores** de prueba.` });
+        await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${bulkPlayers.length - bulkCaptains.length} jugadores** de prueba.` });
         return;
     }
 
@@ -138,12 +138,12 @@ export async function handleModal(interaction) {
     
     // --- INICIO DE LA CORRECCIÓN ---
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
-        // Se elimina el deferReply de aquí
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-        if (!draft) return interaction.reply({ content: '❌ Este draft ya no existe.', flags: [MessageFlags.Ephemeral] });
-        if (draft.status !== 'inscripcion') return interaction.reply({ content: '❌ Las inscripciones para este draft están cerradas.', flags: [MessageFlags.Ephemeral] });
+        if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
+        if (draft.status !== 'inscripcion') return interaction.editReply('❌ Las inscripciones para este draft están cerradas.');
 
         const userId = interaction.user.id;
         const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
@@ -152,7 +152,7 @@ export async function handleModal(interaction) {
                                   draft.reserves.some(r => r.userId === userId) || 
                                   (draft.pendingPayments && draft.pendingPayments[userId]);
                                   
-        if (isAlreadyRegistered) return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
+        if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.');
 
         let playerData;
         let captainData;
@@ -163,13 +163,13 @@ export async function handleModal(interaction) {
 
         if (isRegisteringAsCaptain) {
             const totalCaptains = draft.captains.length + (draft.pendingCaptains ? Object.keys(draft.pendingCaptains).length : 0);
-            if (totalCaptains >= 8) return interaction.reply({ content: '❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.', flags: [MessageFlags.Ephemeral] });
+            if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
             
             const teamName = interaction.fields.getTextInputValue('team_name_input');
             const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
             const position = interaction.fields.getTextInputValue('position_input').toUpperCase();
-            if (!Object.keys(DRAFT_POSITIONS).includes(position)) return interaction.reply({ content: `❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`, flags: [MessageFlags.Ephemeral] });
-            if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.reply({ content: '❌ Ya existe un equipo con ese nombre.', flags: [MessageFlags.Ephemeral] });
+            if (!Object.keys(DRAFT_POSITIONS).includes(position)) return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
+            if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
 
             captainData = { userId, userName: interaction.user.tag, teamName, streamChannel, psnId, twitter, position };
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: position, currentTeam: teamName, isCaptain: true, captainId: null };
@@ -177,12 +177,11 @@ export async function handleModal(interaction) {
             const primaryPosition = interaction.fields.getTextInputValue('primary_pos_input').toUpperCase();
             const secondaryPosition = interaction.fields.getTextInputValue('secondary_pos_input').toUpperCase();
             const currentTeam = interaction.fields.getTextInputValue('current_team_input');
-            if (!Object.keys(DRAFT_POSITIONS).includes(primaryPosition) || !Object.keys(DRAFT_POSITIONS).includes(secondaryPosition)) return interaction.reply({ content: `❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`, flags: [MessageFlags.Ephemeral] });
+            if (!Object.keys(DRAFT_POSITIONS).includes(primaryPosition) || !Object.keys(DRAFT_POSITIONS).includes(secondaryPosition)) return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null };
         }
 
         if (draft.config.isPaid) {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }); // Defer para operaciones con MD
             const pendingData = { playerData, captainData }; 
             await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
 
@@ -195,7 +194,6 @@ export async function handleModal(interaction) {
                 await interaction.editReply('❌ No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.');
             }
         } else {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }); // Defer para operaciones con DB y mensajes
             if (isRegisteringAsCaptain) {
                 await db.collection('drafts').updateOne(
                     { _id: draft._id },
