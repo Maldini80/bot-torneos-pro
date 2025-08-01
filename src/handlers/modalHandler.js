@@ -1,9 +1,6 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-// --- INICIO DE LA CORRECCIÓN ---
-// Se importa 'updateDraftMainInterface' para poder llamarla directamente
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface } from '../logic/tournamentLogic.js';
-// --- FIN DE LA CORRECCIÓN ---
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
@@ -52,25 +49,13 @@ export async function handleModal(interaction) {
             if (currentCaptainCount < 8) {
                 const teamName = `E-Prueba-${currentCaptainCount + 1}`;
                 const captainData = {
-                    userId: uniqueId,
-                    userName: `TestCaptain#${String(i).padStart(4, '0')}`,
-                    teamName: teamName,
-                    streamChannel: 'https://twitch.tv/test',
-                    psnId: `Capi-Prueba-${currentCaptainCount + 1}`,
-                    twitter: 'test_captain',
-                    position: "DC" // Se añade la posición por defecto
+                    userId: uniqueId, userName: `TestCaptain#${String(i).padStart(4, '0')}`, teamName: teamName,
+                    streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
                 };
                 
                 const captainAsPlayerData = {
-                    userId: uniqueId,
-                    userName: captainData.userName,
-                    psnId: captainData.psnId,
-                    twitter: captainData.twitter,
-                    primaryPosition: captainData.position,
-                    secondaryPosition: captainData.position,
-                    currentTeam: teamName,
-                    isCaptain: true,
-                    captainId: null
+                    userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
+                    primaryPosition: captainData.position, secondaryPosition: captainData.position, currentTeam: teamName, isCaptain: true, captainId: null
                 };
                 bulkCaptains.push(captainData);
                 bulkPlayers.push(captainAsPlayerData);
@@ -79,15 +64,8 @@ export async function handleModal(interaction) {
                 const randomSecondaryPos = positions[Math.floor(Math.random() * positions.length)];
                 
                 const playerData = {
-                    userId: uniqueId,
-                    userName: `TestPlayer#${String(i).padStart(4, '0')}`,
-                    psnId: `J-Prueba-${currentPlayerCount - draft.captains.length + 1}`, // Corregimos el contador
-                    twitter: 'test_player',
-                    primaryPosition: randomPrimaryPos,
-                    secondaryPosition: randomSecondaryPos,
-                    currentTeam: 'Libre',
-                    isCaptain: false,
-                    captainId: null
+                    userId: uniqueId, userName: `TestPlayer#${String(i).padStart(4, '0')}`, psnId: `J-Prueba-${currentPlayerCount - draft.captains.length + 1}`,
+                    twitter: 'test_player', primaryPosition: randomPrimaryPos, secondaryPosition: randomSecondaryPos, currentTeam: 'Libre', isCaptain: false, captainId: null
                 };
                 bulkPlayers.push(playerData);
             }
@@ -110,13 +88,9 @@ export async function handleModal(interaction) {
         const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
         await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
         await updateDraftManagementPanel(client, updatedDraft);
-        
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Se llama a la función de forma correcta
         await updateDraftMainInterface(client, updatedDraft.shortId);
-        // --- FIN DE LA CORRECCIÓN ---
         
-        await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${bulkPlayers.length - bulkCaptains.length} jugadores** de prueba.` });
+        await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${bulkPlayers.length - bulkPlayers.length} jugadores** de prueba.` });
         return;
     }
 
@@ -162,13 +136,14 @@ export async function handleModal(interaction) {
         return;
     }
     
+    // --- INICIO DE LA CORRECCIÓN ---
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // Se elimina el deferReply de aquí
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-        if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
-        if (draft.status !== 'inscripcion') return interaction.editReply('❌ Las inscripciones para este draft están cerradas.');
+        if (!draft) return interaction.reply({ content: '❌ Este draft ya no existe.', flags: [MessageFlags.Ephemeral] });
+        if (draft.status !== 'inscripcion') return interaction.reply({ content: '❌ Las inscripciones para este draft están cerradas.', flags: [MessageFlags.Ephemeral] });
 
         const userId = interaction.user.id;
         const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
@@ -177,7 +152,7 @@ export async function handleModal(interaction) {
                                   draft.reserves.some(r => r.userId === userId) || 
                                   (draft.pendingPayments && draft.pendingPayments[userId]);
                                   
-        if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.');
+        if (isAlreadyRegistered) return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
 
         let playerData;
         let captainData;
@@ -188,13 +163,13 @@ export async function handleModal(interaction) {
 
         if (isRegisteringAsCaptain) {
             const totalCaptains = draft.captains.length + (draft.pendingCaptains ? Object.keys(draft.pendingCaptains).length : 0);
-            if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
+            if (totalCaptains >= 8) return interaction.reply({ content: '❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.', flags: [MessageFlags.Ephemeral] });
             
             const teamName = interaction.fields.getTextInputValue('team_name_input');
             const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
             const position = interaction.fields.getTextInputValue('position_input').toUpperCase();
-            if (!Object.keys(DRAFT_POSITIONS).includes(position)) return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
-            if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
+            if (!Object.keys(DRAFT_POSITIONS).includes(position)) return interaction.reply({ content: `❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`, flags: [MessageFlags.Ephemeral] });
+            if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.reply({ content: '❌ Ya existe un equipo con ese nombre.', flags: [MessageFlags.Ephemeral] });
 
             captainData = { userId, userName: interaction.user.tag, teamName, streamChannel, psnId, twitter, position };
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: position, currentTeam: teamName, isCaptain: true, captainId: null };
@@ -202,11 +177,12 @@ export async function handleModal(interaction) {
             const primaryPosition = interaction.fields.getTextInputValue('primary_pos_input').toUpperCase();
             const secondaryPosition = interaction.fields.getTextInputValue('secondary_pos_input').toUpperCase();
             const currentTeam = interaction.fields.getTextInputValue('current_team_input');
-            if (!Object.keys(DRAFT_POSITIONS).includes(primaryPosition) || !Object.keys(DRAFT_POSITIONS).includes(secondaryPosition)) return interaction.editReply(`❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`);
+            if (!Object.keys(DRAFT_POSITIONS).includes(primaryPosition) || !Object.keys(DRAFT_POSITIONS).includes(secondaryPosition)) return interaction.reply({ content: `❌ Posición inválida. Usa una de estas: ${Object.keys(DRAFT_POSITIONS).join(', ')}`, flags: [MessageFlags.Ephemeral] });
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null };
         }
 
         if (draft.config.isPaid) {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }); // Defer para operaciones con MD
             const pendingData = { playerData, captainData }; 
             await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
 
@@ -219,6 +195,7 @@ export async function handleModal(interaction) {
                 await interaction.editReply('❌ No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.');
             }
         } else {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }); // Defer para operaciones con DB y mensajes
             if (isRegisteringAsCaptain) {
                 await db.collection('drafts').updateOne(
                     { _id: draft._id },
@@ -258,9 +235,7 @@ export async function handleModal(interaction) {
                 }
                 
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-                // --- INICIO DE LA CORRECCIÓN ---
                 await updateDraftMainInterface(client, updatedDraft.shortId);
-                // --- FIN DE LA CORRECCIÓN ---
                 const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
                 const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
                 await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
@@ -268,6 +243,7 @@ export async function handleModal(interaction) {
         }
         return;
     }
+    // --- FIN DE LA CORRECCIÓN ---
 
     if(action === 'draft_payment_confirm_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
