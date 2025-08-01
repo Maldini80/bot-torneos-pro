@@ -1,11 +1,13 @@
 // src/logic/matchLogic.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
-// Se importa la función de Twitter
-import { updatePublicMessages, endTournament, postTournamentUpdate } from './tournamentLogic.js';
+// CORRECCIÓN: Se quita la importación incorrecta
+import { updatePublicMessages, endTournament } from './tournamentLogic.js';
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+// NUEVO: Se importa la función de Twitter desde el lugar correcto
+import { postTournamentUpdate } from '../utils/twitter.js';
 
 export async function finalizeMatchThread(client, partido, resultString) {
     if (!partido || !partido.threadId) return;
@@ -305,7 +307,6 @@ async function handleFinalResult(client, guild, tournament) {
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
 
-    // NUEVO: Publicar en Twitter
     postTournamentUpdate(updatedTournament).catch(console.error);
 
     await updateTournamentManagementThread(client, updatedTournament);
