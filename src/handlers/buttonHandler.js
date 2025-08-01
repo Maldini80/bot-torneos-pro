@@ -282,7 +282,6 @@ export async function handleButton(interaction) {
         const currentStep = parseInt(currentStepStr);
         const totalSteps = 3;
 
-        // Si la acción es para un jugador de draft, o si ya estamos en el último paso para cualquier otra acción...
         if (originalAction === 'register_draft_player' || currentStep >= totalSteps) {
             if (originalAction.startsWith('register_draft')) {
                 const draftShortId = entityId;
