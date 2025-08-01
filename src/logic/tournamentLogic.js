@@ -759,19 +759,23 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             _id: new ObjectId(), shortId, guildId: guild.id, name, status: 'inscripcion',
             config: { isPaid: config.isPaid, entryFee: config.entryFee || 0, allowReserves: !config.isPaid },
             captains: [], pendingCaptains: {}, players: [], reserves: [], pendingPayments: {},
-            selection: { turn: 0, order: [], currentPick: 1, lastPlayerId: null, },
+            selection: { turn: 0, order: [], currentPick: 1 },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
                 statusMessageId: null, managementThreadId: null,
                 mainInterfacePlayerMessageId: null, mainInterfaceTeamsMessageId: null,
+                turnOrderMessageId: null
             }
         };
         
-        const [playersEmbed, teamsEmbed] = createDraftMainInterface(newDraft);
+        const [playersEmbed, teamsEmbed, turnOrderEmbed] = createDraftMainInterface(newDraft);
         const playersMessage = await draftChannel.send({ embeds: [playersEmbed] });
         const teamsMessage = await draftChannel.send({ embeds: [teamsEmbed] });
+        const turnOrderMessage = await draftChannel.send({ embeds: [turnOrderEmbed] });
+        
         newDraft.discordMessageIds.mainInterfacePlayerMessageId = playersMessage.id;
         newDraft.discordMessageIds.mainInterfaceTeamsMessageId = teamsMessage.id;
+        newDraft.discordMessageIds.turnOrderMessageId = turnOrderMessage.id;
         
         const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
         const statusMsg = await globalStatusChannel.send(createDraftStatusEmbed(newDraft));
@@ -847,6 +851,7 @@ export async function notifyNextCaptain(client, draft) {
          await draftChannel.send('**LA SELECCIÓN HA FINALIZADO.** Un administrador generará el torneo en breve.');
          const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
          await updateDraftManagementPanel(client, finalDraftState);
+         await updateDraftMainInterface(client, finalDraftState.shortId);
          return;
     }
 
@@ -861,7 +866,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, pla
     const db = getDb();
     await db.collection('drafts').updateOne(
         { shortId: draftShortId, "players.userId": playerId },
-        { $set: { "players.$.captainId": captainId, "selection.lastPlayerId": playerId } }
+        { $set: { "players.$.captainId": captainId } }
     );
     await updateDraftMainInterface(client, draftShortId);
 }
@@ -872,29 +877,23 @@ export async function updateDraftMainInterface(client, draftShortId) {
 
     try {
         const draftChannel = await client.channels.fetch(draft.discordChannelId);
-        const [playersEmbed, teamsEmbed] = createDraftMainInterface(draft);
+        const [playersEmbed, teamsEmbed, turnOrderEmbed] = createDraftMainInterface(draft);
 
         const playersMessage = await draftChannel.messages.fetch(draft.discordMessageIds.mainInterfacePlayerMessageId);
         await playersMessage.edit({ embeds: [playersEmbed] });
 
         const teamsMessage = await draftChannel.messages.fetch(draft.discordMessageIds.mainInterfaceTeamsMessageId);
         await teamsMessage.edit({ embeds: [teamsEmbed] });
+        
+        if (draft.discordMessageIds.turnOrderMessageId) {
+            const turnOrderMessage = await draftChannel.messages.fetch(draft.discordMessageIds.turnOrderMessageId);
+            await turnOrderMessage.edit({ embeds: [turnOrderEmbed] });
+        }
     } catch (error) {
-        if (error.code !== 10003) {
+        if (error.code !== 10003 && error.code !== 10008) {
             console.warn(`[WARN] No se pudo actualizar la interfaz del draft ${draftShortId}. El canal o los mensajes podrían haber sido borrados.`);
         }
     }
-}
-export async function undoLastPick(client, draftShortId) {
-    const db = getDb();
-    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-    if (!draft || !draft.selection.lastPlayerId) return;
-
-    await db.collection('drafts').updateOne(
-        { shortId: draftShortId, "players.userId": draft.selection.lastPlayerId },
-        { $set: { "players.$.captainId": null }, $unset: { "selection.lastPlayerId": "" } }
-    );
-    await updateDraftMainInterface(client, draftShortId);
 }
 export async function advanceDraftTurn(client, draftShortId) {
     const db = getDb();
@@ -903,12 +902,12 @@ export async function advanceDraftTurn(client, draftShortId) {
     const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
     let nextTurnIndex = draft.selection.turn;
 
-    const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0 && round > 0;
+    const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0;
 
     if (!isTurnaroundPick) {
-        if (round % 2 === 0) { // Ronda par (0, 2...), orden normal
+        if (round % 2 === 0) {
             nextTurnIndex++;
-        } else { // Ronda impar (1, 3...), orden inverso
+        } else {
             nextTurnIndex--;
         }
     }
@@ -918,7 +917,6 @@ export async function advanceDraftTurn(client, draftShortId) {
         { 
             $set: { "selection.turn": nextTurnIndex },
             $inc: { "selection.currentPick": 1 },
-            $unset: { "selection.lastPlayerId": "" }
         }
     );
 
