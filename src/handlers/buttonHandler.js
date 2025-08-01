@@ -84,15 +84,15 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    
-    // --- INICIO DE LA MODIFICACIÓN ---
+
     if (action === 'draft_confirm_pick') {
         await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
         if(interaction.user.id !== captainId) return;
 
         await advanceDraftTurn(client, draftShortId);
-        await interaction.editReply({ content: '✅ Selección confirmada. Esperando al siguiente capitán...', components: [] });
+        // Eliminamos el mensaje de selección/confirmación
+        await interaction.message.delete();
         return;
     }
 
@@ -105,10 +105,10 @@ export async function handleButton(interaction) {
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const pickEmbed = createDraftPickEmbed(draft, captainId);
-        await interaction.editReply(pickEmbed); // Volvemos a mostrar la interfaz de selección
+        // Volvemos a mostrar la interfaz de selección original
+        await interaction.editReply(pickEmbed); 
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
@@ -473,7 +473,7 @@ export async function handleButton(interaction) {
         
         try {
             const user = await client.users.fetch(captainId);
-            await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have sido **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
+            await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have been **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
         } catch (e) { console.warn(`No se pudo enviar MD de expulsión al usuario ${captainId}`); }
         
         const originalMessage = interaction.message;
@@ -612,13 +612,9 @@ export async function handleButton(interaction) {
     if (action === 'admin_prize_paid') {
         const [tournamentShortId, userId, prizeType] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-
-        try {
-            const user = await client.users.fetch(userId);
-            await user.send(`💰 ¡Buenas noticias! El premio de **${prizeType}** del torneo **${tournament.nombre}** ha sido pagado. ¡Gracias por participar!`);
-        } catch (e) {
-            console.warn(`No se pudo notificar al usuario ${userId} del pago del premio.`);
-        }
+        
+        // Usamos la nueva función para notificar
+        await confirmPrizePayment(client, userId, prizeType, tournament);
         
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
