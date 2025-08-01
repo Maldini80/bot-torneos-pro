@@ -1,10 +1,7 @@
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se elimina la importación de RULES_ACCEPTANCE_IMAGE_URLS porque ya no se usa.
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-// --- FIN DE LA MODIFICACIÓN ---
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
@@ -48,10 +45,7 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito, en reserva o pendiente de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
         
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se establece el número de pasos a 3 (el número de embeds)
         const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, draftShortId);
-        // --- FIN DE LA MODIFICACIÓN ---
         await interaction.reply(ruleStepContent);
         return;
     }
@@ -165,19 +159,21 @@ export async function handleButton(interaction) {
         return;
     }
 
+    // --- INICIO DE LA CORRECCIÓN ---
     if (action === 'rules_accept') {
-        await interaction.deferUpdate();
+        // Se elimina el "deferUpdate()" de aquí.
         const [currentStepStr, originalAction, entityId] = params;
         const currentStep = parseInt(currentStepStr);
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se establece el número de pasos a 3 (el número de embeds)
         const totalSteps = 3;
-        // --- FIN DE LA MODIFICACIÓN ---
 
         if (currentStep < totalSteps) {
+            // Si no es el último paso, actualizamos el mensaje para mostrar el siguiente embed.
+            // interaction.update() es la respuesta única a la interacción del botón.
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
-            await interaction.editReply(nextStepContent);
+            await interaction.update(nextStepContent);
         } else {
+            // Si ES el último paso, la única respuesta que damos a la interacción es mostrar el modal.
+            // Esto es válido porque no hemos hecho un defer ni un reply antes.
             if (originalAction.startsWith('register_draft')) {
                 const draftShortId = entityId;
                 let modal;
@@ -224,7 +220,8 @@ export async function handleButton(interaction) {
                 const tournamentShortId = entityId;
                 const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 if (!tournament) {
-                    return interaction.editReply({ content: 'Error: No se encontró este torneo.', components: [] });
+                    // Si algo falla aquí, necesitamos responder a la interacción.
+                    return interaction.update({ content: 'Error: No se encontró este torneo.', components: [], embeds: [] });
                 }
 
                 const modalId = originalAction === 'inscribir_reserva_start' ? `reserva_modal:${tournamentShortId}` : `inscripcion_modal:${tournamentShortId}`;
@@ -245,10 +242,11 @@ export async function handleButton(interaction) {
         }
         return;
     }
+    // --- FIN DE LA CORRECCIÓN ---
     
     if (action === 'rules_reject') {
         await interaction.deferUpdate();
-        await interaction.editReply({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [] });
+        await interaction.editReply({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [], embeds: [] });
         return;
     }
     
@@ -264,10 +262,7 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.', flags: [MessageFlags.Ephemeral] });
         }
         
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se establece el número de pasos a 3 (el número de embeds)
         const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, tournamentShortId);
-        // --- FIN DE LA MODIFICACIÓN ---
         await interaction.reply(ruleStepContent);
         return;
     }
