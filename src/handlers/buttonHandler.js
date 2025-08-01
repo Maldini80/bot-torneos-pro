@@ -209,7 +209,7 @@ export async function handleButton(interaction) {
         }
 
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await updateDraftMainInterface(client, updatedDraft.shortId);
+        await client.logic.updateDraftMainInterface(client, updatedDraft.shortId);
         const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
         if (updatedDraft.discordMessageIds.statusMessageId) {
             const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
@@ -277,7 +277,6 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'rules_accept') {
         const [currentStepStr, originalAction, entityId] = params;
         const currentStep = parseInt(currentStepStr);
@@ -285,8 +284,6 @@ export async function handleButton(interaction) {
 
         // Si la acción es para un jugador de draft, o si ya estamos en el último paso para cualquier otra acción...
         if (originalAction === 'register_draft_player' || currentStep >= totalSteps) {
-            // ... entonces mostramos el formulario directamente
-            
             if (originalAction.startsWith('register_draft')) {
                 const draftShortId = entityId;
                 let modal;
@@ -308,7 +305,7 @@ export async function handleButton(interaction) {
                     modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(primaryPosInput), new ActionRowBuilder().addComponents(secondaryPosInput), new ActionRowBuilder().addComponents(twitterInput), new ActionRowBuilder().addComponents(currentTeamInput));
                 }
                 await interaction.showModal(modal);
-            } else { // Lógica para torneos (sin cambios)
+            } else {
                 const tournamentShortId = entityId;
                 const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 if (!tournament) {
@@ -324,13 +321,11 @@ export async function handleButton(interaction) {
                 await interaction.showModal(modal);
             }
         } else {
-            // Si no, simplemente pasamos al siguiente embed de normas
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
             await interaction.update(nextStepContent);
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
     
     if (action === 'rules_reject') {
         await interaction.update({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [], embeds: [] });
