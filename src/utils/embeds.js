@@ -114,7 +114,7 @@ export function createDraftStatusEmbed(draft) {
         .setDescription(draft.config.isPaid ? '**Este es un draft de pago.**' : '**Este es un draft gratuito.**')
         .addFields(
             { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
-            { name: 'Jugadores / Players', value: `${playerCount} / 80`, inline: true }, // 88 total - 8 capitanes
+            { name: 'Jugadores / Players', value: `${playerCount} / 80`, inline: true },
             { name: 'Total', value: `${totalParticipants} / 88`, inline: true }
         )
         .setFooter({ text: `ID del Draft: ${draft.shortId}` });
@@ -133,7 +133,6 @@ export function createDraftStatusEmbed(draft) {
                 .setLabel('Inscribirme como Jugador')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('👤')
-                // Permitir inscripciones a reserva si la opción está activada
                 .setDisabled(totalParticipants >= 88 && !(draft.config.isPaid === false && draft.config.allowReserves))
         );
     } else {
@@ -184,7 +183,7 @@ export function createDraftManagementPanel(draft, isBusy = false) {
 }
 
 export function createDraftMainInterface(draft) {
-    const availablePlayers = draft.players.filter(p => !p.captainId);
+    const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
     
     const playersEmbed = new EmbedBuilder()
         .setColor('#3498db')
@@ -196,7 +195,7 @@ export function createDraftMainInterface(draft) {
     
     availablePlayers.forEach(player => {
         if (groupedPlayers[player.primaryPosition]) {
-            groupedPlayers[player.primaryPosition].push(player.userName);
+            groupedPlayers[player.primaryPosition].push(player.psnId);
         }
     });
 
@@ -216,10 +215,14 @@ export function createDraftMainInterface(draft) {
         
     draft.captains.forEach(captain => {
         const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
-        const playerList = teamPlayers.map(p => `• ${p.userName} (${p.primaryPosition})`).join('\n');
+        
+        const sortedPlayerList = teamPlayers.sort((a, b) => {
+            return DRAFT_POSITION_ORDER.indexOf(a.primaryPosition) - DRAFT_POSITION_ORDER.indexOf(b.primaryPosition);
+        }).map(p => `• ${p.psnId} (${p.primaryPosition})`).join('\n');
+
         teamsEmbed.addFields({
-            name: `👑 ${captain.teamName} (Cap: ${captain.userName})`,
-            value: teamPlayers.length > 0 ? playerList : '*Vacío*',
+            name: `👑 ${captain.teamName} (Cap: ${captain.psnId})`,
+            value: teamPlayers.length > 0 ? sortedPlayerList : '*Vacío*',
             inline: true
         });
     });
@@ -248,19 +251,19 @@ export function createDraftPickEmbed(draft, captainId) {
     return { content: `<@${captainId}>`, embeds: [embed], components: [searchTypeMenu], ephemeral: true };
 }
 
-export function createRuleAcceptanceEmbed(step, totalSteps) {
+export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
     const imageUrl = RULES_ACCEPTANCE_IMAGE_URLS[step - 1];
 
     const embed = new EmbedBuilder()
         .setColor('#f1c40f')
-        .setTitle(`📜 Normas del Torneo - Paso ${step} de ${totalSteps}`)
+        .setTitle(`📜 Normas del Torneo/Draft - Paso ${step} de ${totalSteps}`)
         .setDescription('Por favor, lee las normas en la imagen y pulsa "Aceptar" para continuar.\n*Please read the rules in the image and press "Accept" to continue.*')
         .setImage(imageUrl)
         .setFooter({ text: 'Debes aceptar todas las normas para poder inscribirte.' });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`rules_accept_step_${step}`)
+            .setCustomId(`rules_accept:${step}:${originalAction}:${entityId}`)
             .setLabel('Acepto / I Accept')
             .setStyle(ButtonStyle.Success)
             .setEmoji('✅'),
