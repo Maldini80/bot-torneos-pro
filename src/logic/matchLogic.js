@@ -1,12 +1,10 @@
 // src/logic/matchLogic.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
-import { updatePublicMessages, endTournament } from './tournamentLogic.js';
+// Se importa la función de Twitter
+import { updatePublicMessages, endTournament, postTournamentUpdate } from './tournamentLogic.js';
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
-// --- INICIO DE LA CORRECCIÓN ---
-// Se elimina la importación de la función que ya no existe para prevenir el error de arranque.
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
-// --- FIN DE LA CORRECCIÓN ---
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 export async function finalizeMatchThread(client, partido, resultString) {
@@ -201,7 +199,7 @@ async function startNextKnockoutRound(client, guild, tournament) {
     currentTournament.structure.eliminatorias.rondaActual = siguienteRonda;
 
     let partidos;
-    if (indiceRondaActual === -1) { // Lógica para la primera ronda eliminatoria (desde grupos)
+    if (indiceRondaActual === -1) {
         const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
         
         if (format.qualifiersPerGroup === 1) {
@@ -233,7 +231,7 @@ async function startNextKnockoutRound(client, guild, tournament) {
             }
             partidos = crearPartidosEvitandoMismoGrupo(bombo1, bombo2, siguienteRonda);
         }
-    } else { // Lógica para rondas eliminatorias posteriores
+    } else {
         const partidosRondaAnterior = currentTournament.structure.eliminatorias[rondaActual];
         const clasificados = partidosRondaAnterior.map(p => {
             const [golesA, golesB] = p.resultado.split('-').map(Number);
@@ -306,6 +304,10 @@ async function handleFinalResult(client, guild, tournament) {
     const db = getDb();
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
+
+    // NUEVO: Publicar en Twitter
+    postTournamentUpdate(updatedTournament).catch(console.error);
+
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
 }
