@@ -16,7 +16,7 @@ export async function connectDb() {
         console.log('[DATABASE] Conectado exitosamente a MongoDB Atlas.');
         // NUEVO: Asegurarse de que la configuración global del bot exista al arrancar.
         await getBotSettings();
-    } catch (err)
+    } catch (err) { // ¡ESTA ES LA LÍNEA CORREGIDA!
         console.error('[DATABASE] ERROR FATAL AL CONECTAR CON MONGODB:', err);
         process.exit(1);
     }
