@@ -1,8 +1,6 @@
 // src/utils/embeds.js
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
-// --- INICIO MODIFICACIÓN ---
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, RULES_ACCEPTANCE_IMAGE_URLS, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
-// --- FIN MODIFICACIÓN ---
 import { getBotSettings } from '../../database.js';
 
 export async function createGlobalAdminPanel(isBusy = false) {
@@ -104,13 +102,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     return { embeds: [embed], components };
 }
 
-// --- INICIO MODIFICACIÓN: NUEVOS EMBEDS PARA EL DRAFT ---
-
-/**
- * NUEVO: Crea el embed de estado público para un Draft.
- * @param {object} draft - El objeto del draft de la base de datos.
- * @returns Un objeto de mensaje de Discord.
- */
 export function createDraftStatusEmbed(draft) {
     const isRegistrationOpen = draft.status === 'inscripcion';
     const captainCount = draft.captains.length;
@@ -152,12 +143,6 @@ export function createDraftStatusEmbed(draft) {
     return { embeds: [embed], components: row.components.length > 0 ? [row] : [] };
 }
 
-/**
- * NUEVO: Crea el panel de gestión para un Draft.
- * @param {object} draft - El objeto del draft.
- * @param {boolean} isBusy - Si el bot está ocupado.
- * @returns Un objeto de mensaje de Discord.
- */
 export function createDraftManagementPanel(draft, isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#e67e22')
@@ -198,15 +183,9 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     return { embeds: [embed], components };
 }
 
-/**
- * NUEVO: Crea los embeds para la interfaz principal del draft (jugadores y equipos).
- * @param {object} draft - El objeto del draft.
- * @returns {Array<EmbedBuilder>} Un array con los dos embeds.
- */
 export function createDraftMainInterface(draft) {
     const availablePlayers = draft.players.filter(p => !p.captainId);
     
-    // Embed 1: Jugadores Disponibles
     const playersEmbed = new EmbedBuilder()
         .setColor('#3498db')
         .setTitle('Jugadores Disponibles para Seleccionar')
@@ -230,7 +209,6 @@ export function createDraftMainInterface(draft) {
         playersEmbed.addFields({ name: `--- ${DRAFT_POSITIONS[position]} ---`, value: value });
     }
 
-    // Embed 2: Equipos
     const teamsEmbed = new EmbedBuilder()
         .setColor('#2ecc71')
         .setTitle('Equipos del Draft')
@@ -249,12 +227,6 @@ export function createDraftMainInterface(draft) {
     return [playersEmbed, teamsEmbed];
 }
 
-/**
- * NUEVO: Crea el mensaje de selección para el capitán.
- * @param {object} draft - El objeto del draft.
- * @param {string} captainId - La ID del capitán que debe elegir.
- * @returns Un objeto de mensaje de Discord.
- */
 export function createDraftPickEmbed(draft, captainId) {
     const captain = draft.captains.find(c => c.userId === captainId);
     const embed = new EmbedBuilder()
@@ -275,8 +247,6 @@ export function createDraftPickEmbed(draft, captainId) {
     
     return { content: `<@${captainId}>`, embeds: [embed], components: [searchTypeMenu], ephemeral: true };
 }
-
-// --- FIN MODIFICACIÓN ---
 
 export function createRuleAcceptanceEmbed(step, totalSteps) {
     const imageUrl = RULES_ACCEPTANCE_IMAGE_URLS[step - 1];
@@ -303,7 +273,6 @@ export function createRuleAcceptanceEmbed(step, totalSteps) {
 
     return { embeds: [embed], components: [row], ephemeral: true };
 }
-
 
 export function createTournamentStatusEmbed(tournament) {
     const format = tournament.config.format;
