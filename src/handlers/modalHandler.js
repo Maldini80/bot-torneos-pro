@@ -90,7 +90,6 @@ export async function handleModal(interaction) {
         await updateDraftManagementPanel(client, updatedDraft);
         await updateDraftMainInterface(client, updatedDraft.shortId);
         
-        // --- CORRECCIÓN DEL MENSAJE FINAL ---
         const nonCaptainPlayersAdded = bulkPlayers.filter(p => !p.isCaptain).length;
         await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${nonCaptainPlayersAdded} jugadores** de prueba.` });
         return;
@@ -119,18 +118,20 @@ export async function handleModal(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [name] = params;
         const entryFee = parseFloat(interaction.fields.getTextInputValue('draft_entry_fee'));
+        const prizeCampeon = parseFloat(interaction.fields.getTextInputValue('draft_prize_campeon'));
+        const prizeFinalista = parseFloat(interaction.fields.getTextInputValue('draft_prize_finalista'));
 
-        if (isNaN(entryFee) || entryFee <= 0) {
-            return interaction.editReply({ content: '❌ Por favor, introduce un número válido para la cuota de inscripción.' });
+        if (isNaN(entryFee) || entryFee <= 0 || isNaN(prizeCampeon) || prizeCampeon < 0 || isNaN(prizeFinalista) || prizeFinalista < 0) {
+            return interaction.editReply({ content: '❌ Por favor, introduce números válidos y positivos para los campos monetarios.' });
         }
 
         const isPaid = true;
         const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const config = { isPaid, entryFee };
+        const config = { isPaid, entryFee, prizeCampeon, prizeFinalista };
 
         try {
             await createNewDraft(client, guild, name, shortId, config);
-            await interaction.editReply({ content: `✅ ¡Éxito! El draft de pago **"${name}"** ha sido creado con una cuota de **${entryFee}€**.`, components: [] });
+            await interaction.editReply({ content: `✅ ¡Éxito! El draft de pago **"${name}"** ha sido creado.`, components: [] });
         } catch (error) {
             console.error("Error capturado por el handler al crear el draft:", error);
             await interaction.editReply({ content: `❌ Ocurrió un error al crear el draft. Revisa los logs.`, components: [] });
@@ -141,15 +142,15 @@ export async function handleModal(interaction) {
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
-        const isRegisteringAsCaptain = action === 'register_draft_captain_modal';
-        let draftShortId, position, primaryPosition, secondaryPosition, teamStatus;
-
+        const isRegisteringAsCaptain = action.includes('captain');
+        let draftShortId, position, primaryPosition, secondaryPosition, teamStatus, streamPlatform, streamUsername;
+    
         if (isRegisteringAsCaptain) {
-            [draftShortId, position] = params;
+            [draftShortId, position, streamPlatform, streamUsername] = params;
         } else {
             [draftShortId, primaryPosition, secondaryPosition, teamStatus] = params;
         }
-
+    
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
         if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
@@ -175,7 +176,8 @@ export async function handleModal(interaction) {
             if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
             
             const teamName = interaction.fields.getTextInputValue('team_name_input');
-            const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
+            const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
+            
             if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
 
             captainData = { userId, userName: interaction.user.tag, teamName, streamChannel, psnId, twitter, position };
@@ -355,13 +357,13 @@ export async function handleModal(interaction) {
     }
     if (action === 'inscripcion_modal' || action === 'reserva_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
+        const [tournamentShortId, streamPlatform, streamUsername] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-
+    
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
             return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
         }
-
+    
         const captainId = interaction.user.id;
         const isAlreadyInTournament = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
         if (isAlreadyInTournament) {
@@ -370,15 +372,15 @@ export async function handleModal(interaction) {
         
         const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
         const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
-        const streamChannel = interaction.fields.getTextInputValue('stream_channel_input');
         const twitter = interaction.fields.getTextInputValue('twitter_input');
-
+        const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
+    
         const allTeamNames = [
             ...Object.values(tournament.teams.aprobados || {}).map(e => e.nombre.toLowerCase()),
             ...Object.values(tournament.teams.pendientes || {}).map(e => e.nombre.toLowerCase()),
             ...Object.values(tournament.teams.reserva || {}).map(e => e.nombre.toLowerCase())
         ];
-
+    
         if (allTeamNames.includes(teamName.toLowerCase())) {
             return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
         }
@@ -397,20 +399,20 @@ export async function handleModal(interaction) {
             twitter, 
             inscritoEn: new Date() 
         };
-
+    
         if (action === 'reserva_modal') {
             await addTeamToWaitlist(client, tournament, teamData);
             await interaction.editReply('✅ 🇪🇸 ¡Inscripción recibida! Has sido añadido a la **lista de reserva**. Serás notificado si una plaza queda libre.\n🇬🇧 Registration received! You have been added to the **waitlist**. You will be notified if a spot becomes available.');
             return;
         }
-
+    
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${captainId}`]: teamData } });
         
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) {
             return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
         }
-
+    
         if (tournament.config.isPaid) {
             const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${tournament.config.enlacePaypal}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
             const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournament.shortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
