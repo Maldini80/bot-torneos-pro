@@ -2,7 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, kickPlayerFromDraft } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, kickPlayerFromDraft, approveUnregisterFromDraft } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
@@ -106,12 +106,15 @@ export async function handleButton(interaction) {
             return interaction.editReply({ content: 'ℹ️ No hay participantes inscritos para gestionar.' });
         }
     
-        const options = allParticipants.map(p => ({
-            label: p.userName,
-            description: p.isCaptain || draft.captains.some(c => c.userId === p.userId) ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
-            value: p.userId,
-            emoji: p.isCaptain || draft.captains.some(c => c.userId === p.userId) ? '👑' : '👤'
-        }));
+        const options = allParticipants.map(p => {
+            const isCaptain = draft.captains.some(c => c.userId === p.userId);
+            return {
+                label: p.userName || p.psnId,
+                description: isCaptain ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
+                value: p.userId,
+                emoji: isCaptain ? '👑' : '👤'
+            };
+        });
     
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
@@ -122,6 +125,43 @@ export async function handleButton(interaction) {
             content: 'Selecciona un participante de la lista para expulsarlo del draft. Esta acción es irreversible.',
             components: [new ActionRowBuilder().addComponents(selectMenu)]
         });
+        return;
+    }
+
+    if (action === 'admin_unregister_draft_approve') {
+        await interaction.deferUpdate();
+        const [draftShortId, userId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        
+        await approveUnregisterFromDraft(client, draft, userId);
+        
+        const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+        originalEmbed.setColor('#2ecc71').setFooter({ text: `Baja aprobada por ${interaction.user.tag}` });
+        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
+
+        await interaction.followUp({ content: `✅ Baja del jugador procesada.`, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'admin_unregister_draft_reject') {
+        await interaction.deferUpdate();
+        const [draftShortId, userId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        
+        try {
+            const user = await client.users.fetch(userId);
+            await user.send(`❌ Tu solicitud de baja del draft **${draft.name}** ha sido **rechazada**.`);
+        } catch(e) { console.warn('No se pudo notificar al usuario de la baja de draft rechazada'); }
+
+        const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+        originalEmbed.setColor('#e74c3c').setFooter({ text: `Baja rechazada por ${interaction.user.tag}` });
+        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
+
+        await interaction.followUp({ content: `❌ Solicitud de baja rechazada.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
     
@@ -240,11 +280,7 @@ export async function handleButton(interaction) {
 
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         await updateDraftMainInterface(client, updatedDraft.shortId);
-        const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
-        if (updatedDraft.discordMessageIds.statusMessageId) {
-            const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
-            await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
-        }
+        await updatePublicMessages(client, updatedDraft);
         
         await interaction.followUp({ content: `La acción se ha completado.`, flags: [MessageFlags.Ephemeral] });
         return;
@@ -335,13 +371,12 @@ export async function handleButton(interaction) {
 
     if (action === 'select_stream_platform') {
         const [platform, originalAction, entityId, ...restParams] = params;
-        
         const modal = new ModalBuilder();
         const usernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
         let finalActionId;
     
         if (originalAction.startsWith('register_draft_captain')) {
-            const position = restParams[0]; // Passed from select menu handler
+            const position = restParams[0];
             finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}`;
             modal.setTitle('Inscripción como Capitán de Draft');
             
