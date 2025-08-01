@@ -139,7 +139,11 @@ export async function handleSelectMenu(interaction) {
 
         const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
         const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-        const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("¿Equipo actual? (Escribe 'Libre' si no tienes)").setStyle(TextInputStyle.Short).setRequired(true);
+        const currentTeamInput = new TextInputBuilder()
+            .setCustomId('current_team_input')
+            .setLabel("Equipo actual (o 'Libre' si no tienes)") // <-- ETIQUETA CORREGIDA
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(psnIdInput),
