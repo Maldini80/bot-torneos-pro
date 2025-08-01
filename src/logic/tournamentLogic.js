@@ -1,12 +1,13 @@
 // src/logic/tournamentLogic.js
 import { getDb } from '../../database.js';
-import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID } from '../../config.js';
+// --- INICIO MODIFICACIÓN ---
+// Se añaden los nuevos roles y canales
+import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
-import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed } from '../utils/embeds.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se elimina la importación de la función que ya no existe para prevenir el error de arranque.
+// Se importa el nuevo embed para casters
+import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed, createCasterInfoEmbed } from '../utils/embeds.js';
+// --- FIN MODIFICACIÓN ---
 import { updateAdminPanel, updateTournamentManagementThread } from '../utils/panelManager.js';
-// --- FIN DE LA MODIFICACIÓN ---
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
@@ -19,6 +20,19 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         if (!format) throw new Error(`Formato de torneo inválido: ${config.formatId}`);
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         if (!arbitroRole) throw new Error("El rol de Árbitro no fue encontrado.");
+
+        // --- INICIO MODIFICACIÓN ---
+        const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+        // Permisos para el hilo de casters
+        const casterPermissions = [
+            { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+            { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] }
+        ];
+        if (casterRole) {
+            casterPermissions.push({ id: casterRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
+        }
+        // --- FIN MODIFICACIÓN ---
+
         const participantsAndStaffPermissions = [ { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] }, { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] } ];
         const infoChannel = await guild.channels.create({ name: `🏆-${shortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: [{ id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }] });
         const matchesChannel = await guild.channels.create({ name: `⚽-${shortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
@@ -30,7 +44,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
-            discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null }
+            discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null, casterThreadId: null } // casterThreadId añadido
         };
 
         const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
@@ -40,19 +54,37 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         newTournament.discordMessageIds.statusMessageId = statusMsg.id;
         newTournament.discordMessageIds.classificationMessageId = classificationMsg.id;
         newTournament.discordMessageIds.calendarMessageId = calendarMsg.id;
+        
         const managementParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
         const managementThread = await managementParentChannel.threads.create({ name: `Gestión - ${name.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
         newTournament.discordMessageIds.managementThreadId = managementThread.id;
+        
         const notificationsParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT);
         const notificationsThread = await notificationsParentChannel.threads.create({ name: `Avisos - ${name.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
         newTournament.discordMessageIds.notificationsThreadId = notificationsThread.id;
+        
+        // --- INICIO MODIFICACIÓN: Creación del Hilo de Casters ---
+        const casterParentChannel = await client.channels.fetch(CHANNELS.CASTER_HUB_ID);
+        const casterThread = await casterParentChannel.threads.create({ name: `Casters - ${name.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
+        newTournament.discordMessageIds.casterThreadId = casterThread.id;
+        // --- FIN MODIFICACIÓN ---
+
         await db.collection('tournaments').insertOne(newTournament);
+
+        // Añadir miembros a los hilos privados
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
                 await managementThread.members.add(member.id).catch(()=>{});
                 await notificationsThread.members.add(member.id).catch(()=>{});
+                await casterThread.members.add(member.id).catch(()=>{});
             }
         }
+        if (casterRole) {
+            for (const member of casterRole.members.values()) {
+                 await casterThread.members.add(member.id).catch(()=>{});
+            }
+        }
+
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
     } catch (error) {
         console.error('[CREATE] OCURRIÓ UN ERROR EN MEDIO DEL PROCESO DE CREACIÓN:', error);
@@ -111,11 +143,18 @@ export async function approveTeam(client, tournament, teamData) {
     }
     
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
+    
+    // --- INICIO MODIFICACIÓN ---
+    // Notificamos a los casters
+    await notifyCastersOfNewTeam(client, updatedTournament, teamData);
+    // --- FIN MODIFICACIÓN ---
+
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
+    // ... (código existente sin cambios)
     const db = getDb();
     const coCaptainUser = await client.users.fetch(coCaptainId);
     
@@ -145,7 +184,6 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     await updatePublicMessages(client, updatedTournament);
 }
 
-
 export async function kickTeam(client, tournament, captainId) {
     const db = getDb();
     const teamData = tournament.teams.aprobados[captainId];
@@ -170,12 +208,96 @@ export async function kickTeam(client, tournament, captainId) {
     await db.collection('tournaments').updateOne( { _id: tournament._id }, { $unset: { [`teams.aprobados.${captainId}`]: "" } } );
     
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+
+    // --- INICIO MODIFICACIÓN ---
+    // Notificamos a los casters de la expulsión
+    try {
+        const casterThread = await client.channels.fetch(updatedTournament.discordMessageIds.casterThreadId);
+        await casterThread.send(`- Equipo **${teamData.nombre}** (Capitán: ${teamData.capitanTag}) ha sido eliminado del torneo.`);
+    } catch (e) {
+        console.warn(`No se pudo notificar la expulsión en el hilo de casters para el torneo ${tournament.shortId}`);
+    }
+    // --- FIN MODIFICACIÓN ---
+
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
 }
 
+// --- INICIO DE LA MODIFICACIÓN: NUEVAS FUNCIONES ---
+
+/**
+ * NUEVO: Revierte el sorteo de un torneo, volviendo al estado de inscripción.
+ * @param {import('discord.js').Client} client - El cliente de Discord.
+ * @param {string} tournamentShortId - El ID corto del torneo a revertir.
+ */
+export async function undoGroupStageDraw(client, tournamentShortId) {
+    await setBotBusy(true);
+    const db = getDb();
+    
+    try {
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament || tournament.status !== 'fase_de_grupos') {
+            throw new Error('El torneo no está en fase de grupos o no existe.');
+        }
+
+        // 1. Eliminar todos los hilos de partido
+        const allMatches = Object.values(tournament.structure.calendario).flat();
+        for (const match of allMatches) {
+            if (match.threadId) {
+                const thread = await client.channels.fetch(match.threadId).catch(() => null);
+                if (thread) {
+                    await thread.delete('Sorteo revertido por un administrador.').catch(e => console.warn(`No se pudo borrar el hilo ${thread.id}: ${e.message}`));
+                }
+            }
+        }
+        
+        // 2. Limpiar la estructura del torneo en la base de datos
+        const updateQuery = {
+            $set: {
+                status: 'inscripcion_abierta',
+                'structure.grupos': {},
+                'structure.calendario': {},
+                'structure.eliminatorias': { rondaActual: null },
+            }
+        };
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, updateQuery);
+        
+        // 3. Actualizar mensajes públicos
+        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await updatePublicMessages(client, updatedTournament);
+        await updateTournamentManagementThread(client, updatedTournament);
+
+    } catch (error) {
+        console.error(`Error crítico al revertir el sorteo para ${tournamentShortId}:`, error);
+        throw error;
+    } finally {
+        await setBotBusy(false);
+    }
+}
+
+/**
+ * NUEVO: Notifica en el hilo de casters sobre un nuevo equipo aprobado.
+ * @param {import('discord.js').Client} client - El cliente de Discord.
+ * @param {object} tournament - El objeto del torneo.
+ * @param {object} teamData - Los datos del equipo aprobado.
+ */
+export async function notifyCastersOfNewTeam(client, tournament, teamData) {
+    if (!tournament.discordMessageIds.casterThreadId) return;
+
+    try {
+        const casterThread = await client.channels.fetch(tournament.discordMessageIds.casterThreadId);
+        const embedMessage = createCasterInfoEmbed(teamData, tournament);
+        await casterThread.send(embedMessage);
+    } catch (e) {
+        if (e.code !== 10003) { // Ignorar si el canal no se encuentra
+            console.error(`Error al notificar a los casters para el torneo ${tournament.shortId}:`, e);
+        }
+    }
+}
+// --- FIN DE LA MODIFICACIÓN ---
 
 export async function endTournament(client, tournament) {
+    // ... (código existente sin cambios)
     await setBotBusy(true);
     try {
         const db = getDb();
@@ -197,12 +319,14 @@ async function cleanupTournament(client, tournament) {
         catch (err) { if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); }
     };
     for (const channelId of Object.values(discordChannelIds)) { await deleteResourceSafe(channelId); }
-    for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId]) { await deleteResourceSafe(threadId); }
+    // Añadimos el casterThreadId a la limpieza
+    for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) { await deleteResourceSafe(threadId); }
     try { const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS); await globalChannel.messages.delete(discordMessageIds.statusMessageId);
     } catch(e) { if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); }
 }
 
 export async function forceResetAllTournaments(client) {
+    // ... (código existente sin cambios)
     await setBotBusy(true);
     try {
         const db = getDb();
@@ -219,6 +343,7 @@ export async function forceResetAllTournaments(client) {
 }
 
 export async function updatePublicMessages(client, tournament) {
+    // ... (código existente sin cambios)
     const db = getDb();
     const latestTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
     if (!latestTournamentState || !latestTournamentState.discordChannelIds) return;
@@ -234,6 +359,7 @@ export async function updatePublicMessages(client, tournament) {
 }
 
 export async function startGroupStage(client, guild, tournament) {
+    // ... (código existente sin cambios)
     await setBotBusy(true);
     try {
         const db = getDb();
@@ -279,6 +405,7 @@ export async function startGroupStage(client, guild, tournament) {
 }
 
 async function promoteFromWaitlist(client, tournamentShortId, count) {
+    // ... (código existente sin cambios)
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     if (!tournament || !tournament.teams.reserva) return;
@@ -294,6 +421,7 @@ async function promoteFromWaitlist(client, tournamentShortId, count) {
 }
 
 export async function updateTournamentConfig(client, tournamentShortId, newConfig) {
+    // ... (código existente sin cambios)
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     if (!tournament) throw new Error('Torneo no encontrado');
@@ -320,6 +448,7 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
 }
 
 export async function addTeamToWaitlist(client, tournament, teamData) {
+    // ... (código existente sin cambios)
     const db = getDb();
     
     await db.collection('tournaments').updateOne(
@@ -339,6 +468,7 @@ export async function addTeamToWaitlist(client, tournament, teamData) {
 }
 
 export async function requestUnregister(client, tournament, userId) {
+    // ... (código existente sin cambios)
     const db = getDb();
     const team = tournament.teams.aprobados[userId];
     if (!team) return { success: false, message: "No estás inscrito en este torneo." };
@@ -362,8 +492,8 @@ export async function requestUnregister(client, tournament, userId) {
     return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores. Recibirás una notificación con su decisión." };
 }
 
-
 export async function notifyCaptainsOfChanges(client, tournament) {
+    // ... (código existente sin cambios)
     const approvedCaptains = Object.values(tournament.teams.aprobados);
     if (approvedCaptains.length === 0) {
         return { success: true, message: "✅ No hay capitanes inscritos a los que notificar." };
