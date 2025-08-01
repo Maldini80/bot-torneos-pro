@@ -250,7 +250,7 @@ export async function handleButton(interaction) {
         if(interaction.user.id !== captainId) return;
 
         await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
-
+        
         await advanceDraftTurn(client, draftShortId);
         await interaction.message.delete();
         return;
@@ -280,7 +280,9 @@ export async function handleButton(interaction) {
     if (action === 'rules_accept') {
         const [currentStepStr, originalAction, entityId] = params;
         const currentStep = parseInt(currentStepStr);
-        const totalSteps = 3;
+        
+        const isCaptainFlow = originalAction.includes('captain');
+        const totalSteps = isCaptainFlow ? 3 : 1;
 
         if (currentStep >= totalSteps) {
             if (originalAction.startsWith('register_draft')) {
@@ -290,7 +292,7 @@ export async function handleButton(interaction) {
                     value: key
                 }));
 
-                if (originalAction === 'register_draft_captain') {
+                if (isCaptainFlow) {
                     const positionMenu = new StringSelectMenuBuilder()
                         .setCustomId(`draft_register_captain_pos_select:${draftShortId}`)
                         .setPlaceholder('Selecciona tu única posición como capitán')
@@ -302,7 +304,7 @@ export async function handleButton(interaction) {
                         embeds: []
                     });
 
-                } else { // register_draft_player
+                } else { // Player flow
                     const primaryPosMenu = new StringSelectMenuBuilder()
                         .setCustomId(`draft_register_player_pos_select_primary:${draftShortId}`)
                         .setPlaceholder('Paso 1: Selecciona tu posición PRIMARIA')
@@ -314,7 +316,7 @@ export async function handleButton(interaction) {
                         embeds: []
                     });
                 }
-            } else {
+            } else { // Tournament flow (unchanged)
                 const tournamentShortId = entityId;
                 const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 if (!tournament) {
