@@ -9,47 +9,78 @@ import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 
-// --- INICIO DE LA MODIFICACIÓN ---
-
-/**
- * NUEVO: Aprueba a un capitán pendiente en un draft.
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {object} draft El objeto completo del draft.
- * @param {object} captainData Los datos del capitán a aprobar.
- */
 export async function approveDraftCaptain(client, draft, captainData) {
     const db = getDb();
-
-    // 1. Añadir al capitán a la lista de aprobados y quitarlo de pendientes.
-    await db.collection('drafts').updateOne(
-        { _id: draft._id },
-        {
-            $push: { captains: captainData },
-            $unset: { [`pendingCaptains.${captainData.userId}`]: "" }
-        }
-    );
-
-    // 2. Notificar al capitán por MD.
+    await db.collection('drafts').updateOne( { _id: draft._id }, { $push: { captains: captainData }, $unset: { [`pendingCaptains.${captainData.userId}`]: "" } } );
     try {
         const user = await client.users.fetch(captainData.userId);
-        const embed = new EmbedBuilder()
-            .setColor('#2ecc71')
-            .setTitle(`✅ Aprobado para el Draft: ${draft.name}`)
-            .setDescription(
-                `¡Enhorabuena! Tu solicitud para ser capitán del equipo **${captainData.teamName}** ha sido **aprobada**.\n\n` +
-                `Ya apareces en la lista oficial de capitanes.`
-            );
+        const embed = new EmbedBuilder().setColor('#2ecc71').setTitle(`✅ Aprobado para el Draft: ${draft.name}`).setDescription( `¡Enhorabuena! Tu solicitud para ser capitán del equipo **${captainData.teamName}** ha sido **aprobada**.\n\n` + `Ya apareces en la lista oficial de capitanes.` );
         await user.send({ embeds: [embed] });
-    } catch (e) {
-        console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message);
-    }
-    
-    // 3. Actualizar los mensajes públicos del draft.
+    } catch (e) { console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message); }
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
     const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
     await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
     await updateDraftManagementPanel(client, updatedDraft);
+}
+
+// --- INICIO DE LA MODIFICACIÓN ---
+
+/**
+ * NUEVO: Finaliza un draft, borrando sus canales y mensajes asociados.
+ * @param {import('discord.js').Client} client El cliente de Discord.
+ * @param {object} draft El objeto completo del draft.
+ */
+export async function endDraft(client, draft) {
+    await setBotBusy(true);
+    try {
+        const db = getDb();
+        // Marca el draft como finalizado en la base de datos (o cancelado)
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
+
+        // Llama a la función de limpieza
+        await cleanupDraft(client, draft);
+
+    } catch (error) {
+        console.error(`Error crítico al finalizar el draft ${draft.shortId}:`, error);
+    } finally {
+        await setBotBusy(false);
+    }
+}
+
+/**
+ * NUEVO: Función auxiliar para borrar los recursos de Discord de un draft.
+ * @param {import('discord.js').Client} client 
+ * @param {object} draft 
+ */
+async function cleanupDraft(client, draft) {
+    const { discordChannelId, discordMessageIds } = draft;
+
+    const deleteResourceSafe = async (fetcher, resourceId) => {
+        if (!resourceId) return;
+        try {
+            const resource = await fetcher(resourceId).catch(() => null);
+            if (resource) await resource.delete();
+        } catch (err) {
+            if (err.code !== 10003 && err.code !== 10008) { // Unknown Channel/Message
+                console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`);
+            }
+        }
+    };
+
+    // Borrar el canal principal del draft
+    await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordChannelId);
+
+    // Borrar el hilo de gestión
+    await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.managementThreadId);
+
+    // Borrar el mensaje de estado en el canal principal
+    try {
+        const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        await deleteResourceSafe(globalChannel.messages.fetch.bind(globalChannel.messages), discordMessageIds.statusMessageId);
+    } catch(e) {
+        console.warn("No se pudo encontrar o borrar el mensaje de estado del draft.");
+    }
 }
 
 // --- FIN DE LA MODIFICACIÓN ---
@@ -548,10 +579,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 allowReserves: !config.isPaid
             },
             captains: [],
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // Se añade un campo para guardar los capitanes pendientes de aprobación.
             pendingCaptains: {},
-            // --- FIN DE LA MODIFICACIÓN ---
             players: [],
             reserves: [],
             pendingPayments: {},
