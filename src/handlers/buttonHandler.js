@@ -40,13 +40,76 @@ export async function handleButton(interaction) {
         if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
 
         const userId = interaction.user.id;
-        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || draft.players.some(p => p.userId === userId) || draft.reserves.some(r => r.userId === userId);
+        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || draft.players.some(p => p.userId === userId) || draft.reserves.some(r => r.userId === userId) || (draft.pendingPayments && draft.pendingPayments[userId]);
         if (isAlreadyRegistered) {
-            return interaction.reply({ content: '❌ Ya estás inscrito en este draft (o en la lista de reserva).', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: '❌ Ya estás inscrito, en reserva o pendiente de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
         
         const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length);
         await interaction.reply(ruleStepContent);
+        return;
+    }
+
+    if (action === 'draft_payment_confirm_start') {
+        const [draftShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`draft_payment_confirm_modal:${draftShortId}`)
+            .setTitle('Confirmar Pago del Draft');
+
+        const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para verificar el pago)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'draft_approve_payment' || action === 'draft_reject_payment') {
+        await interaction.deferUpdate();
+        const [draftShortId, targetUserId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const pendingData = draft.pendingPayments[targetUserId];
+
+        if (!pendingData) {
+            return interaction.followUp({ content: 'Este usuario ya no tiene un pago pendiente.', flags: [MessageFlags.Ephemeral] });
+        }
+        
+        const originalMessage = interaction.message;
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+
+        const user = await client.users.fetch(targetUserId);
+
+        if (action === 'draft_approve_payment') {
+            let updateQuery = { $push: { players: pendingData.playerData } };
+            if (pendingData.captainData) {
+                updateQuery.$push.captains = pendingData.captainData;
+            }
+            await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $unset: { [`pendingPayments.${targetUserId}`]: "" } });
+
+            originalEmbed.setColor('#2ecc71').setFooter({ text: `Pago aprobado por ${interaction.user.tag}` });
+            await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+            
+            try {
+                await user.send(`✅ ¡Tu pago para el draft **${draft.name}** ha sido aprobado! Ya estás inscrito.`);
+            } catch (e) { console.warn("No se pudo notificar al usuario de la aprobación del pago."); }
+        } else { // draft_reject_payment
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $unset: { [`pendingPayments.${targetUserId}`]: "" } });
+
+            originalEmbed.setColor('#e74c3c').setFooter({ text: `Pago rechazado por ${interaction.user.tag}` });
+            await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+            
+            try {
+                await user.send(`❌ Tu pago para el draft **${draft.name}** ha sido rechazado. Por favor, contacta con un administrador.`);
+            } catch(e) { console.warn("No se pudo notificar al usuario del rechazo del pago."); }
+        }
+
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
+        await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
+        
+        await interaction.followUp({ content: `La acción se ha completado.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
 
@@ -624,7 +687,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'admin_prize_paid') {
-        await interaction.deferUpdate();
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, userId, prizeType] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
@@ -638,7 +701,7 @@ export async function handleButton(interaction) {
         disabledRow.components.forEach(c => c.setDisabled(true));
         
         await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-        await interaction.followUp({ content: `✅ Pago marcado como realizado. Se ha notificado a <@${userId}>.`, flags: [MessageFlags.Ephemeral] });
+        await interaction.editReply(`✅ Pago marcado como realizado. Se ha notificado a <@${userId}>.`);
     }
 
     if(action === 'admin_manage_waitlist') {
