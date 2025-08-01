@@ -17,12 +17,9 @@ export const CHANNELS = {
     CASTER_HUB_ID: '1394818921453981766', // Canal para los hilos de casters
 };
 
-// URLs de las imágenes para el proceso de aceptación de normas
-export const RULES_ACCEPTANCE_IMAGE_URLS = [
-    'https://cdn.discordapp.com/attachments/1396998137859543240/1400797006334660608/image.png?ex=688df15f&is=688c9fdf&hm=4f185f637bc4bd83f194aece38ad18be5e2c6ad494c0909c4ae710feef800f47&',
-    'https://cdn.discordapp.com/attachments/1396998137859543240/1400797308211429396/image.png?ex=688df1a7&is=688ca027&hm=04386c59d42015b22d21fd914de7e7f3e6d2d8586fae15f58e019fa5a67b536e&',
-    'https://cdn.discordapp.com/attachments/1396998137859543240/1400797480471232553/image.png?ex=688df1d0&is=688ca050&hm=784661404e4116b79eb08fcfddda869a47af9f2996988aec075f3d6e8ac30897&'
-];
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se elimina la constante RULES_ACCEPTANCE_IMAGE_URLS ya que no se utiliza más.
+// --- FIN DE LA MODIFICACIÓN ---
 
 // Configuración de Pagos
 export const PAYMENT_CONFIG = {
