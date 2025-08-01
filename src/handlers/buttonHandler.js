@@ -17,6 +17,48 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'admin_create_draft_start') {
+        const modal = new ModalBuilder()
+            .setCustomId('create_draft_modal')
+            .setTitle('Crear Nuevo Draft');
+            
+        const nameInput = new TextInputBuilder()
+            .setCustomId('draft_name_input')
+            .setLabel("Nombre del Draft")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const typeInput = new ActionRowBuilder().addComponents(
+             new StringSelectMenuBuilder()
+                .setCustomId('draft_type_select_placeholder') // Esto se gestionará en el modal handler
+                .setPlaceholder('Selecciona el tipo de Draft')
+                .addOptions([
+                    { label: 'Gratuito (con lista de reserva)', value: 'gratis' },
+                    { label: 'De Pago (sin lista de reserva)', value: 'pago' }
+                ])
+        );
+
+        // NOTA: Como los modales de Discord no soportan menús desplegables,
+        // vamos a usar un truco: pediremos el nombre en el modal,
+        // y el tipo de pago lo preguntaremos en el siguiente paso.
+        // Por ahora, simplificamos y creamos solo el modal de nombre.
+        
+        const simpleModal = new ModalBuilder()
+            .setCustomId('create_draft_modal')
+            .setTitle('Crear Nuevo Draft');
+
+        simpleModal.addComponents(new ActionRowBuilder().addComponents(nameInput));
+
+        await interaction.showModal(simpleModal);
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    if (action === 'admin_toggle_translation') {
+        // ... (código existente sin cambios)
+    }
+    // ... y el resto del archivo
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
         const currentSettings = await getBotSettings();
@@ -68,12 +110,6 @@ export async function handleButton(interaction) {
         await interaction.editReply({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [] });
         return;
     }
-    
-    if (action === 'admin_create_draft_start') {
-        await interaction.reply({ content: 'La creación de Drafts se implementará aquí. ¡Próximamente!', flags: [MessageFlags.Ephemeral] });
-        return;
-    }
-
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
