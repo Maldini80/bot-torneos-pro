@@ -898,16 +898,14 @@ export async function undoLastPick(client, draftShortId) {
 }
 export async function advanceDraftTurn(client, draftShortId) {
     const db = getDb();
-    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
     const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
     let nextTurnIndex = draft.selection.turn;
 
-    const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0;
+    const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0 && round > 0;
 
-    if (isTurnaroundPick && draft.selection.currentPick > 1) {
-        // No cambia el índice, es el pick de vuelta
-    } else {
+    if (!isTurnaroundPick) {
         if (round % 2 === 0) { // Ronda par (0, 2...), orden normal
             nextTurnIndex++;
         } else { // Ronda impar (1, 3...), orden inverso
