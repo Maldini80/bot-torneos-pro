@@ -2,10 +2,13 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment } from '../logic/tournamentLogic.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Importamos la nueva función que creamos en el paso 1
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment, approveDraftCaptain } from '../logic/tournamentLogic.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftPickEmbed } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
@@ -40,15 +43,64 @@ export async function handleButton(interaction) {
         if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
 
         const userId = interaction.user.id;
-        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || draft.players.some(p => p.userId === userId) || draft.reserves.some(r => r.userId === userId) || (draft.pendingPayments && draft.pendingPayments[userId]);
+        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
+                                  (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
+                                  draft.players.some(p => p.userId === userId) || 
+                                  draft.reserves.some(r => r.userId === userId) || 
+                                  (draft.pendingPayments && draft.pendingPayments[userId]);
         if (isAlreadyRegistered) {
-            return interaction.reply({ content: '❌ Ya estás inscrito, en reserva o pendiente de pago en este draft.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
         
         const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, draftShortId);
         await interaction.reply(ruleStepContent);
         return;
     }
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Añadimos la nueva lógica para manejar la aprobación/rechazo de capitanes de draft
+    if (action === 'draft_approve_captain' || action === 'draft_reject_captain') {
+        await interaction.deferUpdate();
+        const [draftShortId, targetUserId] = params;
+        
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft || !draft.pendingCaptains || !draft.pendingCaptains[targetUserId]) {
+            await interaction.followUp({ content: 'Error: Solicitud de capitán no encontrada o ya procesada.', flags: [MessageFlags.Ephemeral] });
+            return;
+        }
+
+        const captainData = draft.pendingCaptains[targetUserId];
+        const originalMessage = interaction.message;
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+
+        if (action === 'draft_approve_captain') {
+            await approveDraftCaptain(client, draft, captainData);
+            originalEmbed.setColor('#2ecc71').setFooter({ text: `Capitán aprobado por ${interaction.user.tag}` });
+            await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+            await interaction.followUp({ content: '✅ Capitán aprobado y notificado.', flags: [MessageFlags.Ephemeral] });
+        } else { // draft_reject_captain
+            await db.collection('drafts').updateOne(
+                { _id: draft._id },
+                { $unset: { [`pendingCaptains.${targetUserId}`]: "" } }
+            );
+
+            try {
+                const user = await client.users.fetch(targetUserId);
+                await user.send(`❌ Tu solicitud para ser capitán en el draft **${draft.name}** ha sido rechazada.`);
+            } catch (e) {
+                console.warn(`No se pudo enviar MD de rechazo de draft al capitán ${targetUserId}.`);
+            }
+
+            originalEmbed.setColor('#e74c3c').setFooter({ text: `Solicitud rechazada por ${interaction.user.tag}` });
+            await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+            await interaction.followUp({ content: '❌ Solicitud de capitán rechazada.', flags: [MessageFlags.Ephemeral] });
+        }
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
 
     if (action === 'draft_payment_confirm_start') {
         const [draftShortId] = params;
@@ -106,8 +158,10 @@ export async function handleButton(interaction) {
 
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         const statusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
-        const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
-        await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
+        if (updatedDraft.discordMessageIds.statusMessageId) {
+            const statusMessage = await statusChannel.messages.fetch(updatedDraft.discordMessageIds.statusMessageId);
+            await statusMessage.edit(createDraftStatusEmbed(updatedDraft));
+        }
         
         await interaction.followUp({ content: `La acción se ha completado.`, flags: [MessageFlags.Ephemeral] });
         return;
@@ -159,21 +213,15 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- INICIO DE LA CORRECCIÓN ---
     if (action === 'rules_accept') {
-        // Se elimina el "deferUpdate()" de aquí.
         const [currentStepStr, originalAction, entityId] = params;
         const currentStep = parseInt(currentStepStr);
         const totalSteps = 3;
 
         if (currentStep < totalSteps) {
-            // Si no es el último paso, actualizamos el mensaje para mostrar el siguiente embed.
-            // interaction.update() es la respuesta única a la interacción del botón.
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
             await interaction.update(nextStepContent);
         } else {
-            // Si ES el último paso, la única respuesta que damos a la interacción es mostrar el modal.
-            // Esto es válido porque no hemos hecho un defer ni un reply antes.
             if (originalAction.startsWith('register_draft')) {
                 const draftShortId = entityId;
                 let modal;
@@ -220,7 +268,6 @@ export async function handleButton(interaction) {
                 const tournamentShortId = entityId;
                 const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 if (!tournament) {
-                    // Si algo falla aquí, necesitamos responder a la interacción.
                     return interaction.update({ content: 'Error: No se encontró este torneo.', components: [], embeds: [] });
                 }
 
@@ -242,11 +289,9 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    // --- FIN DE LA CORRECCIÓN ---
     
     if (action === 'rules_reject') {
-        await interaction.deferUpdate();
-        await interaction.editReply({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [], embeds: [] });
+        await interaction.update({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [], embeds: [] });
         return;
     }
     
