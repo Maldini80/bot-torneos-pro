@@ -48,13 +48,13 @@ export async function postTournamentUpdate(tournament) {
 
     // Generar texto y HTML según el estado del torneo
     const format = TOURNAMENT_FORMATS[tournament.config.formatId];
-    
+
     if (tournament.status === 'inscripcion_abierta') {
         // --- INICIO DE LA MODIFICACIÓN ---
         // Se actualiza la plantilla del tweet para usar la constante DISCORD_INVITE_LINK
         tweetText = `¡Inscripciones abiertas para el torneo "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Apúntate aquí! 👇\n${DISCORD_INVITE_LINK}\n\n#eSports`;
         // --- FIN DE LA MODIFICACIÓN ---
-        
+
         // Para inscripciones abiertas, no publicaremos imagen de clasificación
         try {
             await twitterClient.v2.tweet(tweetText);
@@ -66,7 +66,7 @@ export async function postTournamentUpdate(tournament) {
 
     } else if (tournament.status === 'fase_de_grupos') {
         tweetText = `¡Comienza la fase de grupos en el torneo "${tournament.nombre}"! 🔥\n\nAquí están los grupos y la primera jornada. ¡Mucha suerte a todos los equipos! #eSports`;
-        
+
         // Generar HTML para la clasificación de grupos
         let tableHtml = "<table><tr><th>Equipo</th><th>Pts</th><th>PJ</th><th>DG</th></tr>";
         Object.values(tournament.structure.grupos).forEach(group => {
@@ -76,7 +76,7 @@ export async function postTournamentUpdate(tournament) {
         });
         tableHtml += "</table>";
         htmlForImage = `<div class="container"><h2>Grupos - ${tournament.nombre}</h2>${tableHtml}</div>`;
-    
+
     } else if (tournament.status === 'finalizado') {
         // Encontrar al campeón y finalista (esta lógica se debe mejorar si no está presente)
         const finalMatch = tournament.structure.eliminatorias.final;
