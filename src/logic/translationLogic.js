@@ -1,7 +1,7 @@
 // src/logic/translationLogic.js
 import { translate } from '@vitalets/google-translate-api';
 import { languageRoles } from '../../config.js';
-// NUEVO: Importamos la función para obtener la configuración del bot.
+// Importamos la función para obtener la configuración del bot.
 import { getBotSettings } from '../../database.js';
 
 /**
@@ -10,13 +10,11 @@ import { getBotSettings } from '../../database.js';
  */
 export async function handleMessageTranslation(message) {
     try {
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // NUEVO: Comprobamos si la traducción está activada globalmente.
+        // Comprobamos si la traducción está activada globalmente.
         const botSettings = await getBotSettings();
         if (!botSettings.translationEnabled) {
             return; // Si está desactivada, no hacemos nada.
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const authorMember = message.member;
         if (!authorMember) return;
@@ -37,8 +35,6 @@ export async function handleMessageTranslation(message) {
 
         if (!hasLangRole) return;
 
-        // --- INICIO DE LA CORRECCIÓN ---
-        
         // Obtener la colección de miembros del canal/hilo de forma segura
         let membersToTranslateFor = [];
         try {
@@ -65,8 +61,6 @@ export async function handleMessageTranslation(message) {
             }
         }
         
-        // --- FIN DE LA CORRECCIÓN ---
-
         if (targetLangCodes.size === 0) return;
 
         const translationEmbeds = [];
