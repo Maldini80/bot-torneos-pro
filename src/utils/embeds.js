@@ -1,25 +1,48 @@
 // src/utils/embeds.js
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL } from '../../config.js';
+import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, RULES_ACCEPTANCE_IMAGE_URLS } from '../../config.js';
+// NUEVO: Importamos las funciones de la base de datos para leer la configuración
+import { getBotSettings } from '../../database.js';
 
-export function createGlobalAdminPanel(isBusy = false) {
+// --- INICIO DE LA MODIFICACIÓN ---
+// La función ahora es 'async' para poder esperar la configuración de la DB.
+export async function createGlobalAdminPanel(isBusy = false) {
+    // Obtenemos la configuración actual para saber el estado de la traducción
+    const settings = await getBotSettings();
+    const translationEnabled = settings.translationEnabled;
+
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
-        .setTitle('Panel de Creación de Torneos')
-        .setFooter({ text: 'Bot de Torneos v2.9.2' }); // Versión actualizada
+        .setTitle('Panel de Creación de Torneos y Drafts')
+        .setFooter({ text: 'Bot de Torneos v3.0.0' }); // Versión actualizada
+
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
-        : '✅ **ESTADO: LISTO**\nUsa los botones de abajo para gestionar los torneos.' // Texto ligeramente modificado para incluir el nuevo botón
+        : `✅ **ESTADO: LISTO**\nTraducción Automática: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}**\nUsa los botones de abajo para gestionar.`
     );
+
     const globalActionsRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Nuevo Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
-        // --- INICIO DE LA MODIFICACIÓN ---
-        new ButtonBuilder().setCustomId('admin_update_channel_status').setLabel('Actualizar Estado Canal').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy),
-        // --- FIN DE LA MODIFICACIÓN ---
+        new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
+        // NUEVO: Botón para crear un Draft
+        new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Draft').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId('admin_update_channel_status').setLabel('Estado Canal').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy)
+    );
+
+    const globalSettingsRow = new ActionRowBuilder().addComponents(
+        // NUEVO: Botón dinámico para la traducción
+        new ButtonBuilder()
+            .setCustomId('admin_toggle_translation')
+            .setLabel(translationEnabled ? 'Desactivar Traducción' : 'Activar Traducción')
+            .setStyle(translationEnabled ? ButtonStyle.Secondary : ButtonStyle.Success)
+            .setEmoji(translationEnabled ? '🔇' : '🔊')
+            .setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
-    return { embeds: [embed], components: [globalActionsRow] };
+
+    // Devolvemos dos filas de botones
+    return { embeds: [embed], components: [globalActionsRow, globalSettingsRow] };
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
 export function createTournamentManagementPanel(tournament, isBusy = false) {
     const embed = new EmbedBuilder()
@@ -32,7 +55,10 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
+    const row3 = new ActionRowBuilder(); // Fila adicional para nuevas acciones
+    
     const isBeforeDraw = tournament.status === 'inscripcion_abierta';
+    const isGroupStage = tournament.status === 'fase_de_grupos';
     const hasEnoughTeamsForDraw = Object.keys(tournament.teams.aprobados).length >= 2;
     const hasCaptains = Object.keys(tournament.teams.aprobados).length > 0;
 
@@ -54,14 +80,64 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
          row1.addComponents( new ButtonBuilder().setCustomId(`admin_simulate_matches:${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy) );
     }
 
-    row2.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // NUEVO: Botón para eliminar el sorteo, solo visible si el sorteo ya se hizo
+    if (isGroupStage) {
+        row2.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_undo_draw:${tournament.shortId}`)
+                .setLabel('Eliminar Sorteo')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('⏪')
+                .setDisabled(isBusy)
+        );
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
 
     const components = [];
     if (row1.components.length > 0) components.push(row1);
     if (row2.components.length > 0) components.push(row2);
+    if (row3.components.length > 0) components.push(row3);
 
     return { embeds: [embed], components };
 }
+
+// --- INICIO DE LA MODIFICACIÓN ---
+/**
+ * NUEVO: Crea el embed para un paso del proceso de aceptación de normas.
+ * @param {number} step - El paso actual (de 1 a 3).
+ * @param {number} totalSteps - El número total de pasos.
+ * @returns Un objeto de mensaje de Discord con el embed y los botones.
+ */
+export function createRuleAcceptanceEmbed(step, totalSteps) {
+    const imageUrl = RULES_ACCEPTANCE_IMAGE_URLS[step - 1];
+
+    const embed = new EmbedBuilder()
+        .setColor('#f1c40f')
+        .setTitle(`📜 Normas del Torneo - Paso ${step} de ${totalSteps}`)
+        .setDescription('Por favor, lee las normas en la imagen y pulsa "Aceptar" para continuar.\n*Please read the rules in the image and press "Accept" to continue.*')
+        .setImage(imageUrl)
+        .setFooter({ text: 'Debes aceptar todas las normas para poder inscribirte.' });
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`rules_accept_step_${step}`)
+            .setLabel('Acepto / I Accept')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('✅'),
+        new ButtonBuilder()
+            .setCustomId('rules_reject')
+            .setLabel('Rechazar / Decline')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('❌')
+    );
+
+    return { embeds: [embed], components: [row], ephemeral: true };
+}
+// --- FIN DE LA MODIFICACIÓN ---
+
 
 export function createTournamentStatusEmbed(tournament) {
     const format = tournament.config.format;
@@ -253,3 +329,27 @@ export function createCalendarEmbed(tournament) {
 
     return { embeds: [embed] };
 }
+
+// --- INICIO DE LA MODIFICACIÓN ---
+/**
+ * NUEVO: Crea el embed con la información de un equipo para el canal de casters.
+ * @param {object} teamData - Los datos del equipo.
+ * @param {object} tournament - Los datos del torneo.
+ * @returns Un objeto de mensaje de Discord con el embed.
+ */
+export function createCasterInfoEmbed(teamData, tournament) {
+    const embed = new EmbedBuilder()
+        .setColor('#1abc9c')
+        .setTitle(`📢 Nuevo Equipo Inscrito: ${teamData.nombre}`)
+        .setAuthor({ name: `Torneo: ${tournament.nombre}`})
+        .addFields(
+            { name: 'Capitán', value: teamData.capitanTag, inline: true },
+            { name: 'ID Capitán', value: `\`${teamData.capitanId}\``, inline: true },
+            { name: 'Twitter', value: teamData.twitter ? `[Ver Twitter](${teamData.twitter.startsWith('http') ? '' : 'https://twitter.com/'}${teamData.twitter})` : 'No proporcionado', inline: true },
+            { name: 'Canal de Transmisión', value: teamData.streamChannel || 'No proporcionado', inline: false }
+        )
+        .setTimestamp();
+    
+    return { embeds: [embed] };
+}
+// --- FIN DE LA MODIFICACIÓN ---
