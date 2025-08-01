@@ -2,7 +2,8 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, RULES_ACCEPTANCE_IMAGE_URLS, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw } from '../logic/tournamentLogic.js';
+// Importamos la nueva lógica del draft
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed } from '../utils/embeds.js';
@@ -34,7 +35,6 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'register_draft_captain') {
         const [draftShortId] = params;
         const modal = new ModalBuilder()
@@ -43,7 +43,6 @@ export async function handleButton(interaction) {
         
         const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
         const streamInput = new TextInputBuilder().setCustomId('stream_channel_input').setLabel("Tu canal de transmisión (Twitch, YT...)").setStyle(TextInputStyle.Short).setRequired(true);
-        // Usamos un campo de texto para la posición por limitación de los modales
         const positionInput = new TextInputBuilder().setCustomId('position_input').setLabel(`Tu Posición (${Object.keys(DRAFT_POSITIONS).join(', ')})`).setStyle(TextInputStyle.Short).setRequired(true);
 
         modal.addComponents(
@@ -71,6 +70,20 @@ export async function handleButton(interaction) {
             new ActionRowBuilder().addComponents(currentTeamInput)
         );
         await interaction.showModal(modal);
+        return;
+    }
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'draft_start_selection') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        try {
+            await startDraftSelection(client, draftShortId);
+            await interaction.editReply('✅ La fase de selección del draft ha comenzado.');
+        } catch (error) {
+            console.error('Error al iniciar la selección del draft:', error);
+            await interaction.editReply(`❌ Hubo un error: ${error.message}`);
+        }
         return;
     }
     // --- FIN DE LA MODIFICACIÓN ---
