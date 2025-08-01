@@ -2,7 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
@@ -246,8 +246,10 @@ export async function handleButton(interaction) {
     
     if (action === 'draft_confirm_pick') {
         await interaction.deferUpdate();
-        const [draftShortId, captainId] = params;
+        const [draftShortId, captainId, selectedPlayerId] = params;
         if(interaction.user.id !== captainId) return;
+
+        await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
 
         await advanceDraftTurn(client, draftShortId);
         await interaction.message.delete();
@@ -258,8 +260,6 @@ export async function handleButton(interaction) {
         await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
         if(interaction.user.id !== captainId) return;
-
-        await undoLastPick(client, draftShortId);
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const pickEmbed = createDraftPickEmbed(draft, captainId);
@@ -282,28 +282,38 @@ export async function handleButton(interaction) {
         const currentStep = parseInt(currentStepStr);
         const totalSteps = 3;
 
-        if (originalAction === 'register_draft_player' || currentStep >= totalSteps) {
+        if (currentStep >= totalSteps) {
             if (originalAction.startsWith('register_draft')) {
                 const draftShortId = entityId;
-                let modal;
+                const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+                    label: value,
+                    value: key
+                }));
+
                 if (originalAction === 'register_draft_captain') {
-                    modal = new ModalBuilder().setCustomId(`register_draft_captain_modal:${draftShortId}`).setTitle('Inscripción como Capitán de Draft');
-                    const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
-                    const streamInput = new TextInputBuilder().setCustomId('stream_channel_input').setLabel("Tu canal de transmisión (Twitch, YT...)").setStyle(TextInputStyle.Short).setRequired(true);
-                    const positionInput = new TextInputBuilder().setCustomId('position_input').setLabel(`Tu Posición (${Object.keys(DRAFT_POSITIONS).join(', ')})`).setStyle(TextInputStyle.Short).setRequired(true);
-                    const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
-                    const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-                    modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput), new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(positionInput), new ActionRowBuilder().addComponents(streamInput), new ActionRowBuilder().addComponents(twitterInput));
+                    const positionMenu = new StringSelectMenuBuilder()
+                        .setCustomId(`draft_register_captain_pos_select:${draftShortId}`)
+                        .setPlaceholder('Selecciona tu única posición como capitán')
+                        .addOptions(positionOptions);
+
+                    await interaction.update({
+                        content: 'Has aceptado las normas. Ahora, por favor, selecciona tu posición en el campo.',
+                        components: [new ActionRowBuilder().addComponents(positionMenu)],
+                        embeds: []
+                    });
+
                 } else { // register_draft_player
-                    modal = new ModalBuilder().setCustomId(`register_draft_player_modal:${draftShortId}`).setTitle('Inscripción como Jugador de Draft');
-                    const primaryPosInput = new TextInputBuilder().setCustomId('primary_pos_input').setLabel(`Posición Primaria (${Object.keys(DRAFT_POSITIONS).join(', ')})`).setStyle(TextInputStyle.Short).setRequired(true);
-                    const secondaryPosInput = new TextInputBuilder().setCustomId('secondary_pos_input').setLabel(`Posición Secundaria (${Object.keys(DRAFT_POSITIONS).join(', ')})`).setStyle(TextInputStyle.Short).setRequired(true);
-                    const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
-                    const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-                    const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("¿Equipo actual? (Escribe 'Libre' si no tienes)").setStyle(TextInputStyle.Short).setRequired(true);
-                    modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(primaryPosInput), new ActionRowBuilder().addComponents(secondaryPosInput), new ActionRowBuilder().addComponents(twitterInput), new ActionRowBuilder().addComponents(currentTeamInput));
+                    const primaryPosMenu = new StringSelectMenuBuilder()
+                        .setCustomId(`draft_register_player_pos_select_primary:${draftShortId}`)
+                        .setPlaceholder('Paso 1: Selecciona tu posición PRIMARIA')
+                        .addOptions(positionOptions);
+
+                    await interaction.update({
+                        content: 'Has aceptado las normas. Ahora, por favor, selecciona tu posición primaria.',
+                        components: [new ActionRowBuilder().addComponents(primaryPosMenu)],
+                        embeds: []
+                    });
                 }
-                await interaction.showModal(modal);
             } else {
                 const tournamentShortId = entityId;
                 const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
