@@ -1,7 +1,7 @@
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
-import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, RULES_ACCEPTANCE_IMAGE_URLS } from '../../config.js';
+import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, RULES_ACCEPTANCE_IMAGE_URLS, DRAFT_POSITIONS } from '../../config.js';
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
@@ -17,48 +17,64 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'admin_create_draft_start') {
-        const modal = new ModalBuilder()
+        const simpleModal = new ModalBuilder()
             .setCustomId('create_draft_modal')
             .setTitle('Crear Nuevo Draft');
-            
+        
         const nameInput = new TextInputBuilder()
             .setCustomId('draft_name_input')
             .setLabel("Nombre del Draft")
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        const typeInput = new ActionRowBuilder().addComponents(
-             new StringSelectMenuBuilder()
-                .setCustomId('draft_type_select_placeholder') // Esto se gestionará en el modal handler
-                .setPlaceholder('Selecciona el tipo de Draft')
-                .addOptions([
-                    { label: 'Gratuito (con lista de reserva)', value: 'gratis' },
-                    { label: 'De Pago (sin lista de reserva)', value: 'pago' }
-                ])
-        );
-
-        // NOTA: Como los modales de Discord no soportan menús desplegables,
-        // vamos a usar un truco: pediremos el nombre en el modal,
-        // y el tipo de pago lo preguntaremos en el siguiente paso.
-        // Por ahora, simplificamos y creamos solo el modal de nombre.
-        
-        const simpleModal = new ModalBuilder()
-            .setCustomId('create_draft_modal')
-            .setTitle('Crear Nuevo Draft');
-
         simpleModal.addComponents(new ActionRowBuilder().addComponents(nameInput));
 
         await interaction.showModal(simpleModal);
         return;
     }
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'register_draft_captain') {
+        const [draftShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`register_draft_captain_modal:${draftShortId}`)
+            .setTitle('Inscripción como Capitán de Draft');
+        
+        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
+        const streamInput = new TextInputBuilder().setCustomId('stream_channel_input').setLabel("Tu canal de transmisión (Twitch, YT...)").setStyle(TextInputStyle.Short).setRequired(true);
+        // Usamos un campo de texto para la posición por limitación de los modales
+        const positionInput = new TextInputBuilder().setCustomId('position_input').setLabel(`Tu Posición (${Object.keys(DRAFT_POSITIONS).join(', ')})`).setStyle(TextInputStyle.Short).setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(teamNameInput),
+            new ActionRowBuilder().addComponents(streamInput),
+            new ActionRowBuilder().addComponents(positionInput)
+        );
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'register_draft_player') {
+        const [draftShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`register_draft_player_modal:${draftShortId}`)
+            .setTitle('Inscripción como Jugador de Draft');
+
+        const primaryPosInput = new TextInputBuilder().setCustomId('primary_pos_input').setLabel(`Posición Primaria (${Object.keys(DRAFT_POSITIONS).join(', ')})`).setStyle(TextInputStyle.Short).setRequired(true);
+        const secondaryPosInput = new TextInputBuilder().setCustomId('secondary_pos_input').setLabel(`Posición Secundaria (${Object.keys(DRAFT_POSITIONS).join(', ')})`).setStyle(TextInputStyle.Short).setRequired(true);
+        const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("¿Equipo actual? (Escribe 'Libre' si no tienes)").setStyle(TextInputStyle.Short).setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(primaryPosInput),
+            new ActionRowBuilder().addComponents(secondaryPosInput),
+            new ActionRowBuilder().addComponents(currentTeamInput)
+        );
+        await interaction.showModal(modal);
+        return;
+    }
     // --- FIN DE LA MODIFICACIÓN ---
 
-    if (action === 'admin_toggle_translation') {
-        // ... (código existente sin cambios)
-    }
-    // ... y el resto del archivo
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
         const currentSettings = await getBotSettings();
@@ -110,6 +126,7 @@ export async function handleButton(interaction) {
         await interaction.editReply({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [] });
         return;
     }
+    
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
