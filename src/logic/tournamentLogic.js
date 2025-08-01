@@ -7,7 +7,7 @@ import { updateAdminPanel, updateTournamentManagementThread } from '../utils/pan
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-// NUEVO: Importamos la función de Twitter
+// Se importa la función de Twitter
 import { postTournamentUpdate } from '../utils/twitter.js';
 
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
@@ -20,7 +20,9 @@ export async function confirmPrizePayment(client, userId, prizeType, tournament)
         return { success: false, error: e };
     }
 }
-
+// ... (El resto del archivo se mantiene igual, ya está correcto)
+// ... PEGA AQUÍ TODO EL RESTO DEL CÓDIGO DE TOURNAMENTLOGIC.JS DESDE createNewTournament HASTA EL FINAL ...
+// ... (Para evitar un bloque de código masivo, solo he puesto la parte superior, pero el resto no cambia)
 export async function createNewTournament(client, guild, name, shortId, config) {
     await setBotBusy(true);
     try {
@@ -83,7 +85,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
 
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
-        // NUEVO: Publicar en Twitter
         postTournamentUpdate(newTournament).catch(console.error);
 
     } catch (error) {
@@ -93,7 +94,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await setBotBusy(false);
     }
 }
-// ... (El resto del código hasta startGroupStage se mantiene igual)
 export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
@@ -364,7 +364,6 @@ export async function startGroupStage(client, guild, tournament) {
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
 
-        // NUEVO: Publicar en Twitter
         postTournamentUpdate(finalTournamentState).catch(console.error);
 
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
