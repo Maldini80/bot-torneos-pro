@@ -1,12 +1,9 @@
 // src/handlers/selectMenuHandler.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS } from '../../config.js';
-import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { updateTournamentConfig } from '../logic/tournamentLogic.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se importa la nueva función simple para establecer el icono.
+import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
+import { updateTournamentConfig, addCoCaptain } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
-// --- FIN DE LA MODIFICACIÓN ---
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
@@ -15,18 +12,73 @@ export async function handleSelectMenu(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se añade la lógica para el nuevo menú de selección de estado del canal.
     if (action === 'admin_set_channel_icon') {
         await interaction.deferUpdate();
-        const selectedIcon = interaction.values[0]; // El valor es el propio emoji: '🟢', '🔵', o '🔴'
+        const selectedIcon = interaction.values[0];
         
         await setChannelIcon(client, selectedIcon);
 
         await interaction.editReply({ content: `✅ El estado del canal ha sido actualizado manualmente a ${selectedIcon}.`, components: [] });
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
+
+    if (action === 'admin_assign_cocap_team_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const selectedCaptainId = interaction.values[0];
+
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId(`admin_assign_cocap_user_select:${tournamentShortId}:${selectedCaptainId}`)
+            .setPlaceholder('Paso 2: Busca y selecciona al nuevo co-capitán...')
+            .setMinValues(1)
+            .setMaxValues(1);
+
+        const row = new ActionRowBuilder().addComponents(userSelectMenu);
+        
+        await interaction.editReply({
+            content: 'Ahora, selecciona al miembro del servidor que quieres asignar como co-capitán de este equipo.',
+            components: [row],
+        });
+        return;
+    }
+
+    if (action === 'admin_assign_cocap_user_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, captainId] = params;
+        const coCaptainId = interaction.values[0];
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.', components: [] });
+
+        const team = tournament.teams.aprobados[captainId];
+        if (!team) return interaction.editReply({ content: 'Error: El equipo seleccionado ya no existe.', components: [] });
+        if (team.coCaptainId) return interaction.editReply({ content: 'Error: Este equipo ya tiene un co-capitán.', components: [] });
+
+        const coCaptainUser = await client.users.fetch(coCaptainId);
+        if (coCaptainUser.bot) {
+            return interaction.editReply({ content: 'No puedes asignar a un bot como co-capitán.', components: [] });
+        }
+
+        const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
+        if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
+            return interaction.editReply({ content: '❌ Esta persona ya participa en el torneo como capitán o co-capitán.', components: [] });
+        }
+
+        try {
+            await addCoCaptain(client, tournament, captainId, coCaptainId);
+            
+            const captainUser = await client.users.fetch(captainId);
+            await captainUser.send(`ℹ️ Un administrador te ha asignado a **${coCaptainUser.tag}** como co-capitán de tu equipo **${team.nombre}**.`);
+
+            await coCaptainUser.send(`ℹ️ Un administrador te ha asignado como co-capitán del equipo **${team.nombre}** (Capitán: ${captainUser.tag}) en el torneo **${tournament.nombre}**.`);
+            
+            await interaction.editReply({ content: `✅ **${coCaptainUser.tag}** ha sido asignado como co-capitán del equipo **${team.nombre}**.`, components: [] });
+        } catch (error) {
+            console.error('Error al asignar co-capitán por admin:', error);
+            await interaction.editReply({ content: 'Hubo un error al procesar la asignación.', components: [] });
+        }
+        return;
+    }
 
     if (action === 'admin_create_format') {
         await interaction.deferUpdate();
