@@ -2,10 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se importa la nueva función endDraft
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment, approveDraftCaptain, endDraft } from '../logic/tournamentLogic.js';
-// --- FIN DE LA MODIFICACIÓN ---
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
@@ -98,6 +95,26 @@ export async function handleButton(interaction) {
         return;
     }
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Se añade la lógica para el botón de añadir jugadores de prueba
+    if (action === 'draft_add_test_players') {
+        const [draftShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`add_draft_test_players_modal:${draftShortId}`)
+            .setTitle('Añadir Jugadores de Prueba');
+            
+        const amountInput = new TextInputBuilder()
+            .setCustomId('amount_input')
+            .setLabel("¿Cuántos jugadores de prueba quieres añadir?")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue('1');
+            
+        modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
+        await interaction.showModal(modal);
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'draft_payment_confirm_start') {
         const [draftShortId] = params;
@@ -177,20 +194,16 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'draft_end') {
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) {
             return interaction.reply({ content: 'Error: No se pudo encontrar ese draft.', flags: [MessageFlags.Ephemeral] });
         }
-        // Respondemos primero para que no se quede "pensando"
         await interaction.reply({ content: `⏳ Recibido. Finalizando el draft **${draft.name}**. Los canales y mensajes se borrarán en breve.`, flags: [MessageFlags.Ephemeral] });
-        // Ejecutamos la lógica de limpieza
         await endDraft(client, draft);
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
     
     if (action === 'draft_confirm_pick') {
         await interaction.deferUpdate();
