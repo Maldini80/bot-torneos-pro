@@ -1,10 +1,16 @@
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
-import { getDb } from '../../database.js';
-import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain } from '../logic/tournamentLogic.js';
+// --- INICIO MODIFICACIÓN ---
+// Nuevas importaciones
+import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
+import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, RULES_ACCEPTANCE_IMAGE_URLS } from '../../config.js';
+// Se importa la futura función 'undoGroupStageDraw'
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
+// Se importa createRuleAcceptanceEmbed para el nuevo flujo de inscripción
 import { updateAdminPanel } from '../utils/panelManager.js';
+import { createRuleAcceptanceEmbed } from '../utils/embeds.js';
+// --- FIN MODIFICACIÓN ---
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName } from '../utils/tournamentUtils.js';
 
@@ -16,8 +22,97 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // CORRECCIÓN: Se elimina 'invite_cocaptain_start' de la lista de modales.
-    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start', 'inscribir_equipo_start', 'inscribir_reserva_start'];
+    // --- INICIO DE LA MODIFICACIÓN: NUEVOS HANDLERS GLOBALES ---
+
+    if (action === 'admin_toggle_translation') {
+        await interaction.deferUpdate();
+        const currentSettings = await getBotSettings();
+        const newState = !currentSettings.translationEnabled;
+        await updateBotSettings({ translationEnabled: newState });
+        await updateAdminPanel(client); // Actualiza el panel para mostrar el nuevo estado
+        await interaction.followUp({ content: `✅ La traducción automática ha sido **${newState ? 'ACTIVADA' : 'DESACTIVADA'}**.`, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action.startsWith('rules_accept_step_')) {
+        await interaction.deferUpdate();
+        const currentStep = parseInt(action.split('_')[2]);
+        const totalSteps = RULES_ACCEPTANCE_IMAGE_URLS.length;
+
+        if (currentStep < totalSteps) {
+            // Mostrar el siguiente paso
+            const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps);
+            await interaction.editReply(nextStepContent);
+        } else {
+            // Último paso aceptado, ahora mostramos el modal de inscripción
+            // La customId original (ej: 'inscribir_equipo_start:TORNEOID') está en el ID del componente del mensaje original
+            const originalCustomId = interaction.message.interaction.customId;
+            const [originalAction, tournamentShortId] = originalCustomId.split(':');
+            
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) {
+                return interaction.editReply({ content: 'Error: No se encontró este torneo.', components: [] });
+            }
+
+            const modalId = originalAction === 'inscribir_reserva_start' ? `reserva_modal:${tournamentShortId}` : `inscripcion_modal:${tournamentShortId}`;
+            const modal = new ModalBuilder().setCustomId(modalId).setTitle('Inscripción de Equipo / Team Registration');
+            const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
+            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
+            
+            // FUTURO: Aquí añadiremos los campos de Twitter y canal de transmisión
+            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter o el de tu equipo (Opcional)").setStyle(TextInputStyle.Short).setRequired(false);
+            const streamInput = new TextInputBuilder().setCustomId('stream_channel_input').setLabel("Tu canal de transmisión (Twitch, YT...)").setStyle(TextInputStyle.Short).setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(teamNameInput), 
+                new ActionRowBuilder().addComponents(eafcNameInput),
+                new ActionRowBuilder().addComponents(streamInput),
+                new ActionRowBuilder().addComponents(twitterInput)
+            );
+
+            await interaction.showModal(modal);
+        }
+        return;
+    }
+
+    if (action === 'rules_reject') {
+        await interaction.deferUpdate();
+        await interaction.editReply({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción en el canal de torneos.', components: [] });
+        return;
+    }
+    
+    // Placeholder para la creación del Draft
+    if (action === 'admin_create_draft_start') {
+        // Lógica futura para iniciar la creación de un draft
+        await interaction.reply({ content: 'La creación de Drafts se implementará aquí. ¡Próximamente!', flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    // --- INICIO DE LA MODIFICACIÓN: CAMBIO EN EL FLUJO DE INSCRIPCIÓN ---
+    // Ahora, en lugar de mostrar un modal, iniciamos el flujo de aceptación de normas.
+    if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+             return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
+        }
+        const captainId = interaction.user.id;
+        const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
+        if (isAlreadyRegistered) {
+            return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.', flags: [MessageFlags.Ephemeral] });
+        }
+        
+        // Inicia el proceso de aceptación de normas
+        const ruleStepContent = createRuleAcceptanceEmbed(1, RULES_ACCEPTANCE_IMAGE_URLS.length);
+        await interaction.reply(ruleStepContent);
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    // CORRECCIÓN: Se elimina 'inscribir_equipo_start' y 'inscribir_reserva_start' de la lista de modales directos.
+    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
     if (modalActions.includes(action)) {
         const [p1, p2] = params;
         
@@ -29,18 +124,8 @@ export async function handleButton(interaction) {
         }
 
         let modal;
-        if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
-            const captainId = interaction.user.id;
-            const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
-            if (isAlreadyRegistered) {
-                return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.', flags: [MessageFlags.Ephemeral] });
-            }
-            const modalId = action === 'inscribir_reserva_start' ? `reserva_modal:${tournamentShortId}` : `inscripcion_modal:${tournamentShortId}`;
-            modal = new ModalBuilder().setCustomId(modalId).setTitle('Inscripción de Equipo / Team Registration');
-            const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
-            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(teamNameInput), new ActionRowBuilder().addComponents(eafcNameInput));
-        } else if (action === 'report_result_start') {
+        // La lógica del modal de inscripción ya no está aquí
+        if (action === 'report_result_start') {
             const matchId = p1;
             const { partido } = findMatch(tournament, matchId);
             if (!partido) return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
@@ -78,8 +163,13 @@ export async function handleButton(interaction) {
 
     // --- ACCIONES QUE NO REQUIEREN MODAL ---
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se añade esta nueva lógica para el botón de actualizar canal.
+    if (action === 'admin_update_channel_status') {
+        // ... (código existente sin cambios)
+    }
+    
+    // --- MANTENEMOS EL RESTO DEL CÓDIGO CON LOS NUEVOS BOTONES AÑADIDOS ---
+
+    // ... (resto del código del archivo, desde 'if (action === 'admin_update_channel_status') {' hasta el final)
     if (action === 'admin_update_channel_status') {
         const statusMenu = new StringSelectMenuBuilder()
             .setCustomId('admin_set_channel_icon')
@@ -114,7 +204,6 @@ export async function handleButton(interaction) {
         });
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
     
     if (action === 'invite_cocaptain_start') {
         const [tournamentShortId] = params;
@@ -220,6 +309,22 @@ export async function handleButton(interaction) {
     
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // NUEVO: Handler para el botón de deshacer sorteo
+    if (action === 'admin_undo_draw') {
+        const [tournamentShortId] = params;
+        await interaction.editReply({ content: '⏳ **Recibido.** Iniciando el proceso para revertir el sorteo. Esto puede tardar unos segundos...' });
+        try {
+            await undoGroupStageDraw(client, tournamentShortId);
+            await interaction.followUp({ content: '✅ **Sorteo revertido con éxito!** El torneo está de nuevo en fase de inscripción.', flags: [MessageFlags.Ephemeral]});
+        } catch (error) {
+            console.error(`Error al revertir el sorteo para ${tournamentShortId}:`, error);
+            await interaction.followUp({ content: `❌ Hubo un error al revertir el sorteo: ${error.message}`, flags: [MessageFlags.Ephemeral]});
+        }
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
     if (action === 'admin_approve') {
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
