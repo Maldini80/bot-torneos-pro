@@ -80,8 +80,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
          row1.addComponents( new ButtonBuilder().setCustomId(`admin_simulate_matches:${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy) );
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // NUEVO: Botón para eliminar el sorteo, solo visible si el sorteo ya se hizo
     if (isGroupStage) {
         row2.addComponents(
             new ButtonBuilder()
@@ -92,8 +90,19 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
                 .setDisabled(isBusy)
         );
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // NUEVO: Botón para asignar co-capitán.
+    row2.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`admin_assign_cocaptain_start:${tournament.shortId}`)
+            .setLabel('Asignar Co-Capitán')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('👥')
+            .setDisabled(isBusy || !hasCaptains)
+    );
+    // --- FIN DE LA MODIFICACIÓN ---
+    
     row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
 
     const components = [];
@@ -104,14 +113,8 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     return { embeds: [embed], components };
 }
 
-// --- INICIO DE LA MODIFICACIÓN ---
-/**
- * NUEVO: Crea el embed para un paso del proceso de aceptación de normas.
- * @param {number} step - El paso actual (de 1 a 3).
- * @param {number} totalSteps - El número total de pasos.
- * @returns Un objeto de mensaje de Discord con el embed y los botones.
- */
 export function createRuleAcceptanceEmbed(step, totalSteps) {
+// ... (código existente sin cambios)
     const imageUrl = RULES_ACCEPTANCE_IMAGE_URLS[step - 1];
 
     const embed = new EmbedBuilder()
@@ -136,10 +139,10 @@ export function createRuleAcceptanceEmbed(step, totalSteps) {
 
     return { embeds: [embed], components: [row], ephemeral: true };
 }
-// --- FIN DE LA MODIFICACIÓN ---
 
 
 export function createTournamentStatusEmbed(tournament) {
+// ... (código existente sin cambios)
     const format = tournament.config.format;
     const teamsCount = Object.keys(tournament.teams.aprobados).length;
     let statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
@@ -209,6 +212,7 @@ export function createTournamentStatusEmbed(tournament) {
 }
 
 export function createTeamListEmbed(tournament) {
+// ... (código existente sin cambios)
     const approvedTeams = Object.values(tournament.teams.aprobados);
     const format = tournament.config.format;
     let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
@@ -229,6 +233,7 @@ export function createTeamListEmbed(tournament) {
 }
 
 export function createClassificationEmbed(tournament) {
+// ... (código existente sin cambios)
     const embed = new EmbedBuilder().setColor('#1abc9c').setTitle(`📊 Clasificación / Ranking`).setTimestamp();
     if (Object.keys(tournament.structure.grupos).length === 0) {
         embed.setDescription('🇪🇸 La clasificación se mostrará aquí una vez que comience el torneo.\n🇬🇧 The ranking will be displayed here once the tournament starts.');
@@ -265,6 +270,7 @@ export function createClassificationEmbed(tournament) {
 }
 
 export function createCalendarEmbed(tournament) {
+// ... (código existente sin cambios)
     const embed = new EmbedBuilder().setColor('#9b59b6').setTitle(`🗓️ Calendario / Schedule`).setTimestamp();
     const hasGroupStage = Object.keys(tournament.structure.calendario).length > 0;
     const hasKnockoutStage = tournament.config.format.knockoutStages.some(
@@ -330,14 +336,8 @@ export function createCalendarEmbed(tournament) {
     return { embeds: [embed] };
 }
 
-// --- INICIO DE LA MODIFICACIÓN ---
-/**
- * NUEVO: Crea el embed con la información de un equipo para el canal de casters.
- * @param {object} teamData - Los datos del equipo.
- * @param {object} tournament - Los datos del torneo.
- * @returns Un objeto de mensaje de Discord con el embed.
- */
 export function createCasterInfoEmbed(teamData, tournament) {
+// ... (código existente sin cambios)
     const embed = new EmbedBuilder()
         .setColor('#1abc9c')
         .setTitle(`📢 Nuevo Equipo Inscrito: ${teamData.nombre}`)
@@ -352,4 +352,3 @@ export function createCasterInfoEmbed(teamData, tournament) {
     
     return { embeds: [embed] };
 }
-// --- FIN DE LA MODIFICACIÓN ---
