@@ -2,7 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, RULES_ACCEPTANCE_IMAGE_URLS, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed } from '../utils/embeds.js';
@@ -84,14 +84,13 @@ export async function handleButton(interaction) {
         }
         return;
     }
-
+    
     if (action === 'draft_confirm_pick') {
         await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
         if(interaction.user.id !== captainId) return;
 
         await advanceDraftTurn(client, draftShortId);
-        // Eliminamos el mensaje de selección/confirmación
         await interaction.message.delete();
         return;
     }
@@ -105,8 +104,7 @@ export async function handleButton(interaction) {
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const pickEmbed = createDraftPickEmbed(draft, captainId);
-        // Volvemos a mostrar la interfaz de selección original
-        await interaction.editReply(pickEmbed); 
+        await interaction.editReply(pickEmbed);
         return;
     }
 
@@ -613,7 +611,6 @@ export async function handleButton(interaction) {
         const [tournamentShortId, userId, prizeType] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
-        // Usamos la nueva función para notificar
         await confirmPrizePayment(client, userId, prizeType, tournament);
         
         const originalMessage = interaction.message;
