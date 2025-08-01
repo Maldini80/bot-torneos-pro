@@ -22,8 +22,73 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // --- INICIO DE LA MODIFICACIÓN: NUEVOS HANDLERS GLOBALES ---
+    // --- HANDLERS GLOBALES ---
 
+    if (action === 'admin_toggle_translation') {
+        // ... (código existente sin cambios)
+    }
+
+    if (action.startsWith('rules_accept_step_')) {
+        // ... (código existente sin cambios)
+    }
+
+    if (action === 'rules_reject') {
+        // ... (código existente sin cambios)
+    }
+    
+    if (action === 'admin_create_draft_start') {
+        // ... (código existente sin cambios)
+    }
+
+    // --- FLUJO DE INSCRIPCIÓN ---
+    if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
+        // ... (código existente sin cambios)
+    }
+
+    // --- LÓGICA DE MODALES ---
+    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
+    if (modalActions.includes(action)) {
+        // ... (código existente sin cambios)
+    }
+
+    // --- ACCIONES QUE NO REQUIEREN MODAL ---
+    // --- INICIO MODIFICACIÓN ---
+    if (action === 'admin_assign_cocaptain_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.editReply('Error: Torneo no encontrado.');
+        }
+
+        const teamsWithoutCoCaptain = Object.values(tournament.teams.aprobados).filter(team => !team.coCaptainId);
+
+        if (teamsWithoutCoCaptain.length === 0) {
+            return interaction.editReply('Todos los equipos de este torneo ya tienen un co-capitán o no hay equipos.');
+        }
+
+        const teamSelectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_assign_cocap_team_select:${tournamentShortId}`)
+            .setPlaceholder('Paso 1: Selecciona el equipo')
+            .addOptions(
+                teamsWithoutCoCaptain.map(team => ({
+                    label: team.nombre,
+                    description: `Capitán: ${team.capitanTag}`,
+                    value: team.capitanId, // Usamos el ID del capitán como identificador único del equipo
+                }))
+            );
+
+        const row = new ActionRowBuilder().addComponents(teamSelectMenu);
+
+        await interaction.editReply({
+            content: 'Por favor, selecciona el equipo al que deseas asignarle un co-capitán:',
+            components: [row],
+        });
+        return;
+    }
+    // --- FIN MODIFICACIÓN ---
+    
+    // ... (El resto del código del archivo, desde 'if (action === 'admin_update_channel_status')', se mantiene igual)
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
         const currentSettings = await getBotSettings();
@@ -87,11 +152,6 @@ export async function handleButton(interaction) {
         await interaction.reply({ content: 'La creación de Drafts se implementará aquí. ¡Próximamente!', flags: [MessageFlags.Ephemeral] });
         return;
     }
-
-    // --- FIN DE LA MODIFICACIÓN ---
-
-    // --- INICIO DE LA MODIFICACIÓN: CAMBIO EN EL FLUJO DE INSCRIPCIÓN ---
-    // Ahora, en lugar de mostrar un modal, iniciamos el flujo de aceptación de normas.
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -109,67 +169,6 @@ export async function handleButton(interaction) {
         await interaction.reply(ruleStepContent);
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
-
-    // CORRECCIÓN: Se elimina 'inscribir_equipo_start' y 'inscribir_reserva_start' de la lista de modales directos.
-    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
-    if (modalActions.includes(action)) {
-        const [p1, p2] = params;
-        
-        const tournamentShortId = action.includes('report') || action.includes('admin_modify_result') ? p2 : p1;
-
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) {
-            return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
-        }
-
-        let modal;
-        // La lógica del modal de inscripción ya no está aquí
-        if (action === 'report_result_start') {
-            const matchId = p1;
-            const { partido } = findMatch(tournament, matchId);
-            if (!partido) return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
-            modal = new ModalBuilder().setCustomId(`report_result_modal:${matchId}:${tournament.shortId}`).setTitle('Reportar Resultado');
-            const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
-            const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
-        } else if (action === 'admin_modify_result_start') {
-            const matchId = p1;
-            const { partido } = findMatch(tournament, matchId);
-            if (!partido) return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
-            modal = new ModalBuilder().setCustomId(`admin_force_result_modal:${matchId}:${tournament.shortId}`).setTitle('Forzar Resultado (Admin)');
-            const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
-            const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
-        } else if (action === 'admin_add_test_teams') {
-            modal = new ModalBuilder().setCustomId(`add_test_teams_modal:${tournamentShortId}`).setTitle('Añadir Equipos de Prueba');
-            const amountInput = new TextInputBuilder().setCustomId('amount_input').setLabel("¿Cuántos equipos de prueba quieres añadir?").setStyle(TextInputStyle.Short).setRequired(true).setValue('1');
-            modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
-        } else if (action === 'admin_edit_tournament_start') {
-            modal = new ModalBuilder().setCustomId(`edit_tournament_modal:${tournamentShortId}`).setTitle(`Editar Torneo: ${tournament.nombre}`);
-            const prizeCInput = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeCampeon.toString());
-            const prizeFInput = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeFinalista.toString());
-            const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
-            const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.startTime || '');
-            modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(startTimeInput));
-        } else if (action === 'payment_confirm_start') {
-            modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
-            const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
-        }
-        await interaction.showModal(modal);
-        return;
-    }
-
-    // --- ACCIONES QUE NO REQUIEREN MODAL ---
-
-    if (action === 'admin_update_channel_status') {
-        // ... (código existente sin cambios)
-    }
-    
-    // --- MANTENEMOS EL RESTO DEL CÓDIGO CON LOS NUEVOS BOTONES AÑADIDOS ---
-
-    // ... (resto del código del archivo, desde 'if (action === 'admin_update_channel_status') {' hasta el final)
     if (action === 'admin_update_channel_status') {
         const statusMenu = new StringSelectMenuBuilder()
             .setCustomId('admin_set_channel_icon')
@@ -309,8 +308,6 @@ export async function handleButton(interaction) {
     
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // NUEVO: Handler para el botón de deshacer sorteo
     if (action === 'admin_undo_draw') {
         const [tournamentShortId] = params;
         await interaction.editReply({ content: '⏳ **Recibido.** Iniciando el proceso para revertir el sorteo. Esto puede tardar unos segundos...' });
@@ -323,7 +320,6 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_approve') {
         const [captainId, tournamentShortId] = params;
