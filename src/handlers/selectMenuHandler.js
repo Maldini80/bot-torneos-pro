@@ -133,23 +133,45 @@ export async function handleSelectMenu(interaction) {
         const [draftShortId, primaryPosition] = params;
         const secondaryPosition = interaction.values[0];
 
+        const statusMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_register_player_status_select:${draftShortId}:${primaryPosition}:${secondaryPosition}`)
+            .setPlaceholder('Paso 3: ¿Tienes equipo actualmente?')
+            .addOptions([
+                { label: 'Soy Agente Libre', value: 'Libre', emoji: '👋' },
+                { label: 'Tengo Equipo', value: 'Con Equipo', emoji: '🛡️' }
+            ]);
+
+        await interaction.update({
+            content: `Posiciones seleccionadas: **${DRAFT_POSITIONS[primaryPosition]}** (Primaria) y **${DRAFT_POSITIONS[secondaryPosition]}** (Secundaria).\n\nÚltimo paso, ¿cuál es tu situación actual?`,
+            components: [new ActionRowBuilder().addComponents(statusMenu)]
+        });
+        return;
+    }
+
+    if (action === 'draft_register_player_status_select') {
+        const [draftShortId, primaryPosition, secondaryPosition] = params;
+        const teamStatus = interaction.values[0];
+
         const modal = new ModalBuilder()
-            .setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}`)
-            .setTitle('Inscripción como Jugador de Draft');
+            .setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`)
+            .setTitle('Finalizar Inscripción de Jugador');
 
         const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
         const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-        const currentTeamInput = new TextInputBuilder()
-            .setCustomId('current_team_input')
-            .setLabel("Equipo actual (o 'Libre' si no tienes)") // <-- ETIQUETA CORREGIDA
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
+        
         modal.addComponents(
             new ActionRowBuilder().addComponents(psnIdInput),
-            new ActionRowBuilder().addComponents(twitterInput),
-            new ActionRowBuilder().addComponents(currentTeamInput)
+            new ActionRowBuilder().addComponents(twitterInput)
         );
+
+        if (teamStatus === 'Con Equipo') {
+            const currentTeamInput = new TextInputBuilder()
+                .setCustomId('current_team_input')
+                .setLabel("Nombre de tu equipo actual")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
+        }
 
         await interaction.showModal(modal);
         return;
