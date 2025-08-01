@@ -3,8 +3,8 @@ import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, Butto
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
 // --- INICIO DE LA MODIFICACIÓN ---
-// Importamos la nueva función que creamos en el paso 1
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment, approveDraftCaptain } from '../logic/tournamentLogic.js';
+// Se importa la nueva función endDraft
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, undoLastPick, confirmPrizePayment, approveDraftCaptain, endDraft } from '../logic/tournamentLogic.js';
 // --- FIN DE LA MODIFICACIÓN ---
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
@@ -56,9 +56,7 @@ export async function handleButton(interaction) {
         await interaction.reply(ruleStepContent);
         return;
     }
-    
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Añadimos la nueva lógica para manejar la aprobación/rechazo de capitanes de draft
+
     if (action === 'draft_approve_captain' || action === 'draft_reject_captain') {
         await interaction.deferUpdate();
         const [draftShortId, targetUserId] = params;
@@ -99,7 +97,6 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
 
     if (action === 'draft_payment_confirm_start') {
@@ -179,6 +176,21 @@ export async function handleButton(interaction) {
         }
         return;
     }
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'draft_end') {
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) {
+            return interaction.reply({ content: 'Error: No se pudo encontrar ese draft.', flags: [MessageFlags.Ephemeral] });
+        }
+        // Respondemos primero para que no se quede "pensando"
+        await interaction.reply({ content: `⏳ Recibido. Finalizando el draft **${draft.name}**. Los canales y mensajes se borrarán en breve.`, flags: [MessageFlags.Ephemeral] });
+        // Ejecutamos la lógica de limpieza
+        await endDraft(client, draft);
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
     
     if (action === 'draft_confirm_pick') {
         await interaction.deferUpdate();
