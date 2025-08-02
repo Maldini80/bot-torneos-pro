@@ -112,57 +112,29 @@ export async function handleSelectMenu(interaction) {
         await interaction.editReply({ content: `✅ El participante ha sido expulsado del draft.`, components: [] });
         return;
     }
-
-    if (action === 'admin_kick_participant_page_select') {
-        await interaction.deferUpdate();
-        const [draftShortId] = params;
-        const page = parseInt(interaction.values[0].replace('page_', ''));
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const allParticipants = [...draft.captains, ...draft.players.filter(p => !p.isCaptain)];
-        
-        const pageSize = 25;
-        const startIndex = page * pageSize;
-        const endIndex = startIndex + pageSize;
-        const participantsPage = allParticipants.slice(startIndex, endIndex);
-
-        const options = participantsPage.map(p => {
-            const isCaptain = draft.captains.some(c => c.userId === p.userId);
-            return {
-                label: p.userName || p.psnId,
-                description: isCaptain ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
-                value: p.userId,
-                emoji: isCaptain ? '👑' : '👤'
-            };
-        });
     
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
-            .setPlaceholder(`Participantes ${startIndex + 1}-${endIndex}`)
-            .addOptions(options);
+    // --- INICIO DE LA MODIFICACIÓN (Nuevos Handlers de Draft) ---
+    
+    if (action === 'captain_report_player_select') {
+        const [draftShortId, captainId] = params;
+        const targetPlayerId = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId(`captain_report_player_modal:${draftShortId}:${captainId}:${targetPlayerId}`)
+            .setTitle('Reportar Jugador');
         
-        await interaction.editReply({
-            content: 'Selecciona un participante de la lista para expulsarlo del draft. Esta acción es irreversible.',
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
-        });
+        const reasonInput = new TextInputBuilder()
+            .setCustomId('report_reason_input')
+            .setLabel("Motivo del reporte")
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Explica brevemente por qué reportas a este jugador (ej: actitud, no se presentó, etc.)')
+            .setRequired(true);
+            
+        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+        await interaction.showModal(modal);
         return;
     }
-
-    if (action === 'draft_register_captain_pos_select') {
-        const [draftShortId] = params;
-        const position = interaction.values[0];
-
-        const platformButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:register_draft_captain:${draftShortId}:${position}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:register_draft_captain:${draftShortId}:${position}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-        );
-
-        await interaction.update({
-            content: `Has seleccionado **${DRAFT_POSITIONS[position]}**. Ahora, selecciona tu plataforma de transmisión.`,
-            components: [platformButtons]
-        });
-        return;
-    }
-
+    
     if (action === 'draft_register_player_pos_select_primary') {
         const [draftShortId] = params;
         const primaryPosition = interaction.values[0];
@@ -185,7 +157,7 @@ export async function handleSelectMenu(interaction) {
             .addOptions(positionOptions);
         
         await interaction.update({
-            content: `Has elegido **${DRAFT_POSITIONS[primaryPosition]}** como primaria. Ahora, selecciona tu posición secundaria.`,
+            content: `Has elegido **${DRAFT_POSITIONS[primaryPosition]}** como primaria. Ahora, selecciona tu posición secundaria (o ninguna).`,
             components: [new ActionRowBuilder().addComponents(secondaryPosMenu)]
         });
         return;
@@ -195,29 +167,8 @@ export async function handleSelectMenu(interaction) {
         const [draftShortId, primaryPosition] = params;
         const secondaryPosition = interaction.values[0];
         
-        const secondaryPositionLabel = secondaryPosition === 'NONE' ? 'Ninguna' : DRAFT_POSITIONS[secondaryPosition];
-
-        const statusMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_register_player_status_select:${draftShortId}:${primaryPosition}:${secondaryPosition}`)
-            .setPlaceholder('Paso 3: ¿Tienes equipo actualmente?')
-            .addOptions([
-                { label: 'Soy Agente Libre', value: 'Libre', emoji: '🔎' },
-                { label: 'Tengo Equipo', value: 'Con Equipo', emoji: '🛡️' }
-            ]);
-
-        await interaction.update({
-            content: `Posiciones seleccionadas: **${DRAFT_POSITIONS[primaryPosition]}** (Primaria) y **${secondaryPositionLabel}** (Secundaria).\n\nÚltimo paso, ¿cuál es tu situación actual?`,
-            components: [new ActionRowBuilder().addComponents(statusMenu)]
-        });
-        return;
-    }
-
-    if (action === 'draft_register_player_status_select') {
-        const [draftShortId, primaryPosition, secondaryPosition] = params;
-        const teamStatus = interaction.values[0];
-
         const modal = new ModalBuilder()
-            .setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`)
+            .setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}`)
             .setTitle('Finalizar Inscripción de Jugador');
 
         const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
@@ -228,18 +179,11 @@ export async function handleSelectMenu(interaction) {
             new ActionRowBuilder().addComponents(twitterInput)
         );
 
-        if (teamStatus === 'Con Equipo') {
-            const currentTeamInput = new TextInputBuilder()
-                .setCustomId('current_team_input')
-                .setLabel("Nombre de tu equipo actual")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
-        }
-
         await interaction.showModal(modal);
         return;
     }
+    
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'draft_pick_search_type') {
         await interaction.deferUpdate();
@@ -308,12 +252,8 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_pick_player') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const [draftShortId, captainId] = params;
-        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
-        if (interaction.user.id !== captainId && !isAdmin) {
-            return interaction.editReply({ content: 'No es tu turno de elegir.', components: [] });
-        }
         const selectedPlayerId = interaction.values[0];
     
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
