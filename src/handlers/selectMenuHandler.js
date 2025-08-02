@@ -201,7 +201,7 @@ export async function handleSelectMenu(interaction) {
             .setCustomId(`draft_register_player_status_select:${draftShortId}:${primaryPosition}:${secondaryPosition}`)
             .setPlaceholder('Paso 3: ¿Tienes equipo actualmente?')
             .addOptions([
-                { label: 'Soy Agente Libre', value: 'Libre', emoji: '👋' },
+                { label: 'Soy Agente Libre', value: 'Libre', emoji: '🔎' },
                 { label: 'Tengo Equipo', value: 'Con Equipo', emoji: '🛡️' }
             ]);
 
