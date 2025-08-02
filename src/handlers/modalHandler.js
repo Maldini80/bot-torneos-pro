@@ -47,11 +47,7 @@ export async function handleModal(interaction) {
             return interaction.followUp({ content: '❌ No se encontró el draft.', flags: [MessageFlags.Ephemeral] });
         }
 
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Se corrige el cálculo para evitar contar a los capitanes dos veces.
-        // `draft.players` ya incluye a los capitanes.
         const currentTotalParticipants = draft.players.length;
-        // --- FIN DE LA CORRECCIÓN ---
 
         const maxTotalParticipants = 88;
         const availableSlots = maxTotalParticipants - currentTotalParticipants;
@@ -137,7 +133,10 @@ export async function handleModal(interaction) {
             await interaction.editReply({ content: `✅ ¡Éxito! El draft de pago **"${name}"** ha sido creado.`, components: [] });
         } catch (error) {
             console.error("Error capturado por el handler al crear el draft:", error);
-            await interaction.editReply({ content: `❌ Ocurrió un error al crear el draft. Revisa los logs.`, components: [] });
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // Se muestra el mensaje de error específico al admin.
+            await interaction.editReply({ content: `❌ Ocurrió un error: ${error.message}`, components: [] });
+            // --- FIN DE LA MODIFICACIÓN ---
         }
         return;
     }
