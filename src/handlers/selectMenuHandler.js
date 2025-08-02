@@ -48,26 +48,26 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN: Corregir el flujo de interacción ---
+    // --- INICIO DE LA MODIFICACIÓN: Solución al "está pensando..." ---
     if (action === 'create_draft_type') {
         const [name] = params;
         const type = interaction.values[0];
 
         if (type === 'gratis') {
-            // Usamos deferReply para poder usar editReply después de la operación larga.
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            // Respondemos inmediatamente al usuario y eliminamos el menú.
+            await interaction.update({ content: `✅ Recibido. Creando el draft gratuito **"${name}"** en segundo plano...`, components: [] });
+
             const isPaid = false;
             const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             const config = { isPaid, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 };
 
-            try {
-                await createNewDraft(client, guild, name, shortId, config);
-                // Ahora editReply es válido.
-                await interaction.editReply({ content: `✅ ¡Éxito! El draft gratuito **"${name}"** ha sido creado.`, components: [] });
-            } catch (error) {
-                console.error("Error capturado por el handler al crear el draft:", error);
-                await interaction.editReply({ content: `❌ Ocurrió un error: ${error.message}`, components: [] });
-            }
+            // Ejecutamos la función de creación sin 'await' para que no bloquee la respuesta.
+            // Si falla, el error se registrará en la consola gracias al .catch()
+            createNewDraft(client, guild, name, shortId, config).catch(error => {
+                console.error("Error en la creación del draft en segundo plano:", error);
+                // Opcionalmente, se podría enviar un mensaje de error al canal de administración aquí.
+            });
+
         } else { // type === 'pago'
             const modal = new ModalBuilder()
                 .setCustomId(`create_draft_paid_modal:${name}`)
@@ -99,7 +99,6 @@ export async function handleSelectMenu(interaction) {
                 new ActionRowBuilder().addComponents(prizeCInput),
                 new ActionRowBuilder().addComponents(prizeFInput)
             );
-            // showModal "cierra" la interacción actual, por lo que no hay problema aquí.
             await interaction.showModal(modal);
         }
         return;
