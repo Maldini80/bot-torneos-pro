@@ -199,9 +199,8 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 export function createDraftStatusEmbed(draft) {
     const captainCount = draft.captains.length;
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
-    const totalParticipants = captainCount + nonCaptainPlayerCount;
-    const isFull = captainCount >= 8 && totalParticipants >= 88;
 
+    const isFull = captainCount >= 8; 
     const statusMap = {
         inscripcion: isFull ? 'cupo_lleno' : 'inscripcion_abierta',
         seleccion: 'fase_de_grupos',
@@ -211,7 +210,6 @@ export function createDraftStatusEmbed(draft) {
     };
 
     const statusIcon = TOURNAMENT_STATUS_ICONS[statusMap[draft.status]] || '❓';
-
     let embedColor = '#3498db';
     if (draft.status === 'inscripcion') {
         embedColor = isFull ? '#f39c12' : '#2ecc71';
@@ -226,14 +224,9 @@ export function createDraftStatusEmbed(draft) {
         .setTitle(`${statusIcon} Draft: ${draft.name}`)
         .addFields(
             { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
-            { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount} / 80`, inline: true },
-            { name: 'Total', value: `${totalParticipants} / 88`, inline: true }
+            { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount}`, inline: true }
         )
         .setFooter({ text: `ID del Draft: ${draft.shortId}` });
-
-    if (draft.reserves && draft.reserves.length > 0) {
-        embed.addFields({ name: 'Reservas / Reserves', value: `${draft.reserves.length}`, inline: true });
-    }
 
     if (draft.config.isPaid) {
         embed.setDescription('**Este es un draft de pago.**');
@@ -262,7 +255,6 @@ export function createDraftStatusEmbed(draft) {
                 .setLabel('Inscribirme como Jugador')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('👤')
-                .setDisabled(isFull && !draft.config.allowReserves)
         );
         if (!draft.config.isPaid) {
             row2.addComponents(
@@ -282,7 +274,7 @@ export function createDraftStatusEmbed(draft) {
     return { embeds: [embed], components };
 }
 
-// --- INICIO DE LA MODIFICACIÓN: Añadir lógica de habilitación al botón "Iniciar Selección" ---
+// --- INICIO DE LA MODIFICACIÓN: Incluir capitanes en el recuento de posiciones ---
 export function createDraftManagementPanel(draft, isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#e67e22')
@@ -296,8 +288,25 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     const row2 = new ActionRowBuilder();
 
     if (draft.status === 'inscripcion') {
-        // Se añade la condición para habilitar/deshabilitar el botón de iniciar selección.
-        const isReadyForSelection = draft.captains.length >= 8 && draft.players.filter(p => !p.isCaptain).length >= 80;
+        const positionMinimums = { GK: 8, DFC: 24, CARR: 16, MCD: 16, 'MV/MCO': 8, DC: 16 };
+        const positionCounts = { GK: 0, DFC: 0, CARR: 0, MCD: 0, 'MV/MCO': 0, DC: 0 };
+        
+        // CORRECCIÓN: Ahora se usa draft.players, que incluye tanto a capitanes como a jugadores.
+        const allParticipants = draft.players;
+
+        allParticipants.forEach(player => {
+            const uniquePositions = new Set([player.primaryPosition, player.secondaryPosition]);
+            uniquePositions.forEach(pos => {
+                if (positionCounts.hasOwnProperty(pos)) {
+                    positionCounts[pos]++;
+                }
+            });
+        });
+
+        const meetsCaptainRequirement = draft.captains.length >= 8;
+        const meetsPositionRequirements = Object.keys(positionMinimums).every(pos => positionCounts[pos] >= positionMinimums[pos]);
+        
+        const isReadyForSelection = meetsCaptainRequirement && meetsPositionRequirements;
 
         row1.addComponents(
             new ButtonBuilder()
@@ -305,7 +314,7 @@ export function createDraftManagementPanel(draft, isBusy = false) {
                 .setLabel('Iniciar Selección')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('▶️')
-                .setDisabled(isBusy || !isReadyForSelection), // El botón se deshabilita si el bot está ocupado O si no se cumplen los requisitos.
+                .setDisabled(isBusy || !isReadyForSelection),
             new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
@@ -396,7 +405,7 @@ export function createDraftMainInterface(draft) {
 
     if (draft.status === 'seleccion' && draft.selection.order.length > 0) {
         const picksList = [];
-        const totalPicks = 80;
+        const totalPicks = draft.players.filter(p => !p.isCaptain).length;
         const numCaptains = draft.selection.order.length;
         const captainMap = new Map(draft.captains.map(c => [c.userId, c.teamName]));
 
