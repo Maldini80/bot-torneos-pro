@@ -35,6 +35,18 @@ export const DRAFT_POSITIONS = {
     DC: 'Delantero Centro (DC)'
 };
 
+// --- INICIO DE LA MODIFICACIÓN ---
+// Regla Maestra: Mínimos de jugadores por posición para poder iniciar el draft.
+export const DRAFT_MINIMUMS = {
+    GK: 8,
+    DFC: 24,
+    CARR: 16,
+    MCD: 8, // Este es un caso especial, ver la lógica de comprobación
+    'MV/MCO': 8, // Este es un caso especial, ver la lógica de comprobación
+    DC: 16
+};
+// --- FIN DE LA MODIFICACIÓN ---
+
 // Orden de visualización de las posiciones en las tablas del Draft
 export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
 
