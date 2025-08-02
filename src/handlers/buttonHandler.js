@@ -386,13 +386,13 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'select_stream_platform') {
-        const [platform, originalAction, entityId] = params;
+        const [platform, originalAction, entityId, position] = params;
         const modal = new ModalBuilder();
         const usernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
         let finalActionId;
     
         if (originalAction.startsWith('register_draft_captain')) {
-            finalActionId = `register_draft_captain_modal:${entityId}:${platform}`;
+            finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}`;
             modal.setTitle('Inscripción como Capitán de Draft');
             
             const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
