@@ -1,7 +1,57 @@
 // src/utils/embeds.js
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
-import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se importa DRAFT_MINIMUMS para la validación del botón de inicio.
+import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS, DRAFT_MINIMUMS } from '../../config.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { getBotSettings } from '../../database.js';
+
+// --- INICIO DE LA MODIFICACIÓN ---
+// Nueva función auxiliar para comprobar si se cumplen los mínimos del draft.
+function checkDraftMinimums(draft) {
+    const positionCounts = {};
+    for (const pos in DRAFT_POSITIONS) {
+        positionCounts[pos] = 0;
+    }
+
+    // Contar jugadores (incluidos capitanes) por su posición primaria
+    draft.players.forEach(p => {
+        if (positionCounts[p.primaryPosition] !== undefined) {
+            positionCounts[p.primaryPosition]++;
+        }
+    });
+
+    const errors = [];
+    let meetsMinimums = true;
+
+    // Comprobación especial para MCD y MV/MCO
+    const mcdOk = (positionCounts.MCD >= 16 && positionCounts['MV/MCO'] >= 8);
+    const mcoOk = (positionCounts.MCD >= 8 && positionCounts['MV/MCO'] >= 16);
+
+    if (!(mcdOk || mcoOk)) {
+        meetsMinimums = false;
+        errors.push(`- **Mediocampo**: Se requiere la combinación 16 MCD y 8 MV/MCO, o viceversa. Actualmente hay ${positionCounts.MCD} MCD y ${positionCounts['MV/MCO']} MV/MCO.`);
+    }
+
+    // Comprobar el resto de posiciones
+    for (const pos in DRAFT_MINIMUMS) {
+        if (pos === 'MCD' || pos === 'MV/MCO') continue; // Ya comprobados
+
+        if (positionCounts[pos] < DRAFT_MINIMUMS[pos]) {
+            meetsMinimums = false;
+            errors.push(`- **${DRAFT_POSITIONS[pos]}**: Se necesitan ${DRAFT_MINIMUMS[pos]}, hay ${positionCounts[pos]}.`);
+        }
+    }
+    
+    // Comprobar mínimo de capitanes
+    if(draft.captains.length < 8) {
+        meetsMinimums = false;
+        errors.push(`- **Capitanes**: Se necesitan 8, hay ${draft.captains.length}.`);
+    }
+
+    return { meetsMinimums, errors };
+}
+// --- FIN DE LA MODIFICACIÓN ---
 
 const ruleEmbeds = [
     new EmbedBuilder()
@@ -200,10 +250,11 @@ export function createDraftStatusEmbed(draft) {
     const captainCount = draft.captains.length;
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
     const totalParticipants = captainCount + nonCaptainPlayerCount;
-    const isFull = captainCount >= 8 && totalParticipants >= 88;
-
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Se elimina la lógica de 'isFull' y 'cupo_lleno' ya que no hay límite.
     const statusMap = {
-        inscripcion: isFull ? 'cupo_lleno' : 'inscripcion_abierta',
+        inscripcion: 'inscripcion_abierta',
         seleccion: 'fase_de_grupos',
         finalizado: 'finalizado',
         torneo_generado: 'finalizado',
@@ -214,28 +265,26 @@ export function createDraftStatusEmbed(draft) {
 
     let embedColor = '#3498db';
     if (draft.status === 'inscripcion') {
-        embedColor = isFull ? '#f39c12' : '#2ecc71';
+        embedColor = '#2ecc71';
     } else if (draft.status === 'finalizado' || draft.status === 'torneo_generado') {
         embedColor = '#95a5a6';
     } else if (draft.status === 'cancelado') {
         embedColor = '#e74c3c';
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     const embed = new EmbedBuilder()
         .setColor(embedColor)
         .setTitle(`${statusIcon} Draft: ${draft.name}`)
         .addFields(
             { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
-            { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount} / 80`, inline: true },
-            { name: 'Total', value: `${totalParticipants} / 88`, inline: true }
+            { name: 'Jugadores Inscritos', value: `${nonCaptainPlayerCount}`, inline: true },
+            { name: 'Total', value: `${totalParticipants}`, inline: true }
         )
         .setFooter({ text: `ID del Draft: ${draft.shortId}` });
 
     // --- INICIO DE LA MODIFICACIÓN ---
-    // Se añade el campo de Reservas si existen.
-    if (draft.reserves && draft.reserves.length > 0) {
-        embed.addFields({ name: 'Reservas / Reserves', value: `${draft.reserves.length}`, inline: true });
-    }
+    // Se ha eliminado el campo de Reservas.
     // --- FIN DE LA MODIFICACIÓN ---
 
     if (draft.config.isPaid) {
@@ -259,13 +308,16 @@ export function createDraftStatusEmbed(draft) {
                 .setLabel('Inscribirme como Capitán')
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji('👑')
+                // --- INICIO DE LA MODIFICACIÓN ---
+                // Se mantiene el límite de capitanes, pero no el de jugadores.
                 .setDisabled(captainCount >= 8),
             new ButtonBuilder()
                 .setCustomId(`register_draft_player:${draft.shortId}`)
                 .setLabel('Inscribirme como Jugador')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('👤')
-                .setDisabled(isFull && !draft.config.allowReserves)
+                // Se elimina la condición de deshabilitado por draft lleno
+                // --- FIN DE LA MODIFICACIÓN ---
         );
         if (!draft.config.isPaid) {
             row2.addComponents(
@@ -287,6 +339,11 @@ export function createDraftStatusEmbed(draft) {
 
 
 export function createDraftManagementPanel(draft, isBusy = false) {
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Se añade la comprobación de mínimos para habilitar/deshabilitar el botón de inicio.
+    const minimumsCheck = checkDraftMinimums(draft);
+    // --- FIN DE LA MODIFICACIÓN ---
+
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#e67e22')
         .setTitle(`Gestión del Draft: ${draft.name}`)
@@ -300,7 +357,14 @@ export function createDraftManagementPanel(draft, isBusy = false) {
 
     if (draft.status === 'inscripcion') {
         row1.addComponents(
-            new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`)
+                .setLabel('Iniciar Selección')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('▶️')
+                // --- INICIO DE LA MODIFICACIÓN ---
+                // El botón solo se activa si se cumplen los mínimos.
+                .setDisabled(isBusy || !minimumsCheck.meetsMinimums),
+                // --- FIN DE LA MODIFICACIÓN ---
             new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
@@ -336,8 +400,8 @@ export function createDraftMainInterface(draft) {
 
     if (availablePlayers.length > 0) {
         // --- INICIO DE LA MODIFICACIÓN ---
-        // Se añade leyenda para los emojis de estado
-        playersEmbed.setDescription('👋 = Agente Libre\n🛡️ = Con Equipo');
+        // Se cambia la leyenda y el icono para agentes libres.
+        playersEmbed.setDescription('🔎 = Agente Libre\n🛡️ = Con Equipo');
         // --- FIN DE LA MODIFICACIÓN ---
         const groupedPlayers = {};
         DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
@@ -345,9 +409,14 @@ export function createDraftMainInterface(draft) {
         availablePlayers.forEach(player => {
             if (groupedPlayers[player.primaryPosition]) {
                 // --- INICIO DE LA MODIFICACIÓN ---
-                // Se añade el emoji de estado al lado del PSN ID
-                const statusEmoji = player.currentTeam === 'Libre' ? '👋' : '🛡️';
-                groupedPlayers[player.primaryPosition].push(`${statusEmoji} \`${player.psnId}\``);
+                // Se añade el nuevo icono y el formato de jugador con posición secundaria.
+                const statusEmoji = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
+                let playerString = `\`${player.psnId}`;
+                if (player.secondaryPosition && player.secondaryPosition !== 'NONE') {
+                    playerString += ` (sec: ${player.secondaryPosition})`;
+                }
+                playerString += '`';
+                groupedPlayers[player.primaryPosition].push(`${statusEmoji} ${playerString}`);
                 // --- FIN DE LA MODIFICACIÓN ---
             }
         });
@@ -374,14 +443,12 @@ export function createDraftMainInterface(draft) {
         .setTitle('Equipos del Draft')
         .setDescription('Plantillas actuales de cada equipo.');
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Nueva lógica de columnas para mejorar el diseño
     const teamFields = [[], [], []]; // Tres columnas
     draft.captains.forEach((captain, index) => {
         const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
         const sortedPlayerList = teamPlayers
             .sort((a, b) => DRAFT_POSITION_ORDER.indexOf(a.primaryPosition) - DRAFT_POSITION_ORDER.indexOf(b.primaryPosition))
-            .map(p => `• ${p.psnId} (${p.primaryPosition})`) // Se usa la sigla
+            .map(p => `• ${p.psnId} (${p.primaryPosition})`)
             .join('\n');
 
         const teamString = `**👑 E-${captain.teamName}**\n(Cap: ${captain.psnId})\n${teamPlayers.length > 0 ? sortedPlayerList : '*Vacío*'}`;
@@ -391,7 +458,6 @@ export function createDraftMainInterface(draft) {
     if (teamFields[0].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[0].join('\n\n'), inline: true });
     if (teamFields[1].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[1].join('\n\n'), inline: true });
     if (teamFields[2].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[2].join('\n\n'), inline: true });
-    // --- FIN DE LA MODIFICACIÓN ---
 
     const turnOrderEmbed = new EmbedBuilder()
         .setColor('#e67e22')
@@ -399,7 +465,11 @@ export function createDraftMainInterface(draft) {
 
     if (draft.status === 'seleccion' && draft.selection.order.length > 0) {
         const picksList = [];
-        const totalPicks = 80;
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // El total de picks ahora se basa en el número de jugadores no capitanes.
+        const nonCaptainPlayersCount = draft.players.filter(p => !p.isCaptain).length;
+        const totalPicks = nonCaptainPlayersCount;
+        // --- FIN DE LA MODIFICACIÓN ---
         const numCaptains = draft.selection.order.length;
         const captainMap = new Map(draft.captains.map(c => [c.userId, c.teamName]));
 
@@ -483,7 +553,16 @@ export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, enti
             .setStyle(ButtonStyle.Danger)
             .setEmoji('❌')
     );
-    return { embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] };
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Añadido un embed de ayuda al contenido.
+    const content = {
+        embeds: [ruleEmbed],
+        components: [row],
+        flags: [MessageFlags.Ephemeral]
+    };
+    return content;
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export function createTournamentStatusEmbed(tournament) {
