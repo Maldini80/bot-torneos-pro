@@ -33,10 +33,11 @@ export async function handleModal(interaction) {
         return;
     }
 
+    // --- INICIO DE LA MODIFICACIÓN: Corregir el cálculo de jugadores de prueba ---
     if (action === 'add_draft_test_players_modal') {
         await interaction.reply({ content: '✅ Orden recibida. Añadiendo participantes de prueba...', flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
-        let amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
+        const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
 
         if (isNaN(amount) || amount <= 0) {
             return interaction.followUp({ content: '❌ La cantidad debe ser un número mayor que cero.', flags: [MessageFlags.Ephemeral] });
@@ -50,7 +51,7 @@ export async function handleModal(interaction) {
         const currentTotalParticipants = draft.players.length;
         const maxTotalParticipants = 88;
         const availableSlots = maxTotalParticipants - currentTotalParticipants;
-        let amountToAdd = Math.min(amount, availableSlots);
+        const amountToAdd = Math.min(amount, availableSlots);
 
         if (amountToAdd <= 0) {
             return interaction.followUp({ content: 'ℹ️ No hay huecos disponibles en el draft.', flags: [MessageFlags.Ephemeral] });
@@ -65,8 +66,7 @@ export async function handleModal(interaction) {
 
         const isAdminAlreadyRegistered = draft.captains.some(c => c.userId === adminUser.id) || draft.players.some(p => p.userId === adminUser.id);
 
-        // --- INICIO DE LA MODIFICACIÓN: Añadir al admin como capitán de prueba ---
-        if (!isAdminAlreadyRegistered && draft.captains.length < 8 && amountToAdd > 0) {
+        if (!isAdminAlreadyRegistered && (draft.captains.length + bulkCaptains.length) < 8) {
             adminTeamName = `E-${adminUser.username.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 8)}`;
             const adminCaptainData = {
                 userId: adminUser.id, userName: adminUser.tag, teamName: adminTeamName,
@@ -79,22 +79,18 @@ export async function handleModal(interaction) {
             bulkCaptains.push(adminCaptainData);
             bulkPlayers.push(adminAsPlayerData);
             adminAddedAsCaptain = true;
-            amountToAdd--; // Un hueco ha sido utilizado por el admin
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
         for (let i = 0; i < amountToAdd; i++) {
             const uniqueId = `test_${Date.now()}_${i}`;
             const currentCaptainCount = draft.captains.length + bulkCaptains.length;
-            const currentPlayerCount = draft.players.length + bulkPlayers.length;
-
+            
             if (currentCaptainCount < 8) {
                 const teamName = `E-Prueba-${currentCaptainCount + 1}`;
                 const captainData = {
                     userId: uniqueId, userName: `TestCaptain#${String(i).padStart(4, '0')}`, teamName: teamName,
                     streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
                 };
-                
                 const captainAsPlayerData = {
                     userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
                     primaryPosition: captainData.position, secondaryPosition: captainData.position, currentTeam: teamName, isCaptain: true, captainId: null
@@ -102,11 +98,14 @@ export async function handleModal(interaction) {
                 bulkCaptains.push(captainData);
                 bulkPlayers.push(captainAsPlayerData);
             } else {
+                const currentPlayerCount = draft.players.length + bulkPlayers.length;
+                const nonCaptainCount = currentPlayerCount - (draft.captains.length + bulkCaptains.length);
+                
                 const randomPrimaryPos = positions[Math.floor(Math.random() * positions.length)];
                 const randomSecondaryPos = positions[Math.floor(Math.random() * positions.length)];
                 
                 const playerData = {
-                    userId: uniqueId, userName: `TestPlayer#${String(i).padStart(4, '0')}`, psnId: `J-Prueba-${currentPlayerCount - draft.captains.length - bulkCaptains.length + 1}`,
+                    userId: uniqueId, userName: `TestPlayer#${String(i).padStart(4, '0')}`, psnId: `J-Prueba-${nonCaptainCount + 1}`,
                     twitter: 'test_player', primaryPosition: randomPrimaryPos, secondaryPosition: randomSecondaryPos, currentTeam: 'Libre', isCaptain: false, captainId: null
                 };
                 bulkPlayers.push(playerData);
@@ -140,6 +139,7 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: successMessage });
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'create_draft_paid_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -161,10 +161,7 @@ export async function handleModal(interaction) {
             await interaction.editReply({ content: `✅ ¡Éxito! El draft de pago **"${name}"** ha sido creado.`, components: [] });
         } catch (error) {
             console.error("Error capturado por el handler al crear el draft:", error);
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // Se muestra el mensaje de error específico al admin.
             await interaction.editReply({ content: `❌ Ocurrió un error: ${error.message}`, components: [] });
-            // --- FIN DE LA MODIFICACIÓN ---
         }
         return;
     }
