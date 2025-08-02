@@ -200,7 +200,7 @@ export function createDraftStatusEmbed(draft) {
     const captainCount = draft.captains.length;
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
 
-    const isFull = captainCount >= 8; 
+    const isFull = captainCount >= 8;
     const statusMap = {
         inscripcion: isFull ? 'cupo_lleno' : 'inscripcion_abierta',
         seleccion: 'fase_de_grupos',
@@ -274,7 +274,6 @@ export function createDraftStatusEmbed(draft) {
     return { embeds: [embed], components };
 }
 
-// --- INICIO DE LA MODIFICACIÓN: Incluir capitanes en el recuento de posiciones ---
 export function createDraftManagementPanel(draft, isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#e67e22')
@@ -291,7 +290,6 @@ export function createDraftManagementPanel(draft, isBusy = false) {
         const positionMinimums = { GK: 8, DFC: 24, CARR: 16, MCD: 16, 'MV/MCO': 8, DC: 16 };
         const positionCounts = { GK: 0, DFC: 0, CARR: 0, MCD: 0, 'MV/MCO': 0, DC: 0 };
         
-        // CORRECCIÓN: Ahora se usa draft.players, que incluye tanto a capitanes como a jugadores.
         const allParticipants = draft.players;
 
         allParticipants.forEach(player => {
@@ -340,8 +338,8 @@ export function createDraftManagementPanel(draft, isBusy = false) {
 
     return { embeds: [embed], components };
 }
-// --- FIN DE LA MODIFICACIÓN ---
 
+// --- INICIO DE LA MODIFICACIÓN: Restaurar interfaz de lista de jugadores ---
 export function createDraftMainInterface(draft) {
     const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
 
@@ -350,14 +348,15 @@ export function createDraftMainInterface(draft) {
         .setTitle('Jugadores Disponibles para Seleccionar');
 
     if (availablePlayers.length > 0) {
-        playersEmbed.setDescription('👋 = Agente Libre\n🛡️ = Con Equipo');
+        playersEmbed.setDescription('🔎 = Jugador disponible'); // Leyenda simplificada y corregida
         const groupedPlayers = {};
         DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
 
         availablePlayers.forEach(player => {
             if (groupedPlayers[player.primaryPosition]) {
-                const statusEmoji = player.currentTeam === 'Libre' ? '👋' : '🛡️';
-                groupedPlayers[player.primaryPosition].push(`${statusEmoji} \`${player.psnId}\``);
+                // Se restaura el emoji de la lupa y se añade la posición secundaria
+                const playerString = `🔎 \`${player.psnId}\` (sec: ${player.secondaryPosition || 'N/A'})`;
+                groupedPlayers[player.primaryPosition].push(playerString);
             }
         });
 
@@ -417,7 +416,7 @@ export function createDraftMainInterface(draft) {
 
         for (let i = startPickOfRound; i < endPickOfRound; i++) {
             const roundForThisPick = Math.floor(i / numCaptains);
-            const pickInRound = i % numCaptains;
+            const pickInRound = (i) % numCaptains;
             let captainId;
 
             if (roundForThisPick % 2 === 0) {
@@ -449,6 +448,7 @@ export function createDraftMainInterface(draft) {
 
     return [playersEmbed, teamsEmbed, turnOrderEmbed];
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
 export function createDraftPickEmbed(draft, captainId) {
     const captain = draft.captains.find(c => c.userId === captainId);
