@@ -269,11 +269,17 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
 
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Se filtran las IDs de los capitanes para incluir solo las que son numéricas (IDs de Discord reales),
+        // ignorando las IDs de texto de los jugadores de prueba para evitar el crash.
         const participantsAndStaffPermissions = [
             { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
             { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-            ...Object.keys(approvedTeams).map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
+            ...Object.keys(approvedTeams)
+                .filter(id => /^\d+$/.test(id)) // <-- Esta línea filtra las IDs no válidas.
+                .map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
         ];
+        // --- FIN DE LA CORRECCIÓN ---
 
         const infoChannel = await guild.channels.create({ name: `🏆-${tournamentShortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: [{ id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }] });
         const matchesChannel = await guild.channels.create({ name: `⚽-${tournamentShortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
