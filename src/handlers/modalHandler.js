@@ -47,7 +47,12 @@ export async function handleModal(interaction) {
             return interaction.followUp({ content: '❌ No se encontró el draft.', flags: [MessageFlags.Ephemeral] });
         }
 
-        const currentTotalParticipants = draft.captains.length + draft.players.length;
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Se corrige el cálculo para evitar contar a los capitanes dos veces.
+        // `draft.players` ya incluye a los capitanes.
+        const currentTotalParticipants = draft.players.length;
+        // --- FIN DE LA CORRECCIÓN ---
+
         const maxTotalParticipants = 88;
         const availableSlots = maxTotalParticipants - currentTotalParticipants;
         const amountToAdd = Math.min(amount, availableSlots);
