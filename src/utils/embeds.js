@@ -1,5 +1,5 @@
 // src/utils/embeds.js
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
 import { getBotSettings } from '../../database.js';
 
@@ -433,8 +433,9 @@ export function createDraftPickEmbed(draft, captainId) {
                 { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
             ])
     );
-
-    return { content: `<@${captainId}>`, embeds: [embed], components: [searchTypeMenu], ephemeral: true };
+    // --- INICIO DE LA MODIFICACIÓN ---
+    return { content: `<@${captainId}>`, embeds: [embed], components: [searchTypeMenu], flags: [MessageFlags.Ephemeral] };
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
@@ -456,8 +457,9 @@ export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, enti
             .setStyle(ButtonStyle.Danger)
             .setEmoji('❌')
     );
-
-    return { embeds: [ruleEmbed], components: [row], ephemeral: true };
+    // --- INICIO DE LA MODIFICACIÓN ---
+    return { embeds: [ruleEmbed], components: [row], flags: [MessageFlags.Ephemeral] };
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export function createTournamentStatusEmbed(tournament) {
