@@ -63,10 +63,10 @@ export async function updateBotSettings(newSettings) {
 
 // --- INICIO DE LA MODIFICACIÓN ---
 /**
- * Gets or creates a player's reputation profile.
- * @param {string} playerId - The player's Discord ID.
- * @param {string} psnId - The player's PSN ID.
- * @returns {Promise<object>} The player's reputation profile.
+ * Obtiene o crea el perfil de reputación de un jugador.
+ * @param {string} playerId - La ID de Discord del jugador.
+ * @param {string} psnId - El PSN ID del jugador.
+ * @returns {Promise<object>} El perfil de reputación del jugador.
  */
 export async function getOrRegisterPlayerReputation(playerId, psnId) {
     if (!db) await connectDb();
@@ -80,7 +80,7 @@ export async function getOrRegisterPlayerReputation(playerId, psnId) {
             strikes: 0,
             draftsPlayedSinceLastStrike: 0,
             reportHistory: [], // { reporterId, reporterPsn, draftId, reason, timestamp }
-            isVetted: false
+            isVetted: false,
         };
         await reputationCollection.insertOne(newReputationProfile);
         return newReputationProfile;
@@ -94,12 +94,12 @@ export async function getOrRegisterPlayerReputation(playerId, psnId) {
 }
 
 /**
- * Adds a strike to a player and updates their history.
- * @param {string} targetPlayerId - The ID of the reported player.
- * @param {object} reporter - The captain object of the reporter.
- * @param {string} draftId - The ID of the draft where the report occurs.
- * @param {string} reason - The reason for the report.
- * @returns {Promise<boolean>} True if the player is now vetted.
+ * Añade un strike a un jugador y actualiza su historial.
+ * @param {string} targetPlayerId - La ID del jugador reportado.
+ * @param {object} reporter - El objeto del capitán que reporta.
+ * @param {string} draftId - La ID del draft en el que ocurre el reporte.
+ * @param {string} reason - El motivo del reporte.
+ * @returns {Promise<boolean>} True si el jugador queda vetado tras el strike.
  */
 export async function addStrikeToPlayer(targetPlayerId, reporter, draftId, reason) {
     if (!db) await connectDb();
@@ -120,7 +120,7 @@ export async function addStrikeToPlayer(targetPlayerId, reporter, draftId, reaso
                 }
             }
         },
-        { returnDocument: 'after' }
+        { returnDocument: 'after' } // Devuelve el documento después de actualizar
     );
 
     const newStrikes = updateResult.value.strikes;
@@ -134,18 +134,20 @@ export async function addStrikeToPlayer(targetPlayerId, reporter, draftId, reaso
 }
 
 /**
- * Updates the draft count for strike removal for all participants of a draft.
- * @param {string[]} playerIds - Array of IDs of all players who participated.
+ * Actualiza el contador de drafts jugados para la limpieza de strikes.
+ * @param {string[]} playerIds - Array de IDs de todos los jugadores que participaron.
  */
 export async function incrementDraftsPlayedForStrikeRemoval(playerIds) {
     if (!db) await connectDb();
     const reputationCollection = db.collection('playerReputation');
 
+    // Incrementar el contador para jugadores con 1 strike
     await reputationCollection.updateMany(
         { playerId: { $in: playerIds }, strikes: 1 },
         { $inc: { draftsPlayedSinceLastStrike: 1 } }
     );
     
+    // Limpiar el strike si han jugado 2 drafts sin incidentes
     await reputationCollection.updateMany(
         { strikes: 1, draftsPlayedSinceLastStrike: { $gte: 2 } },
         { $set: { strikes: 0, draftsPlayedSinceLastStrike: 0 } }
