@@ -167,20 +167,17 @@ export async function handleSelectMenu(interaction) {
         const [draftShortId] = params;
         const primaryPosition = interaction.values[0];
 
-        // --- INICIO DE LA MODIFICACIÓN ---
         const positionOptions = Object.entries(DRAFT_POSITIONS)
             .map(([key, value]) => ({
                 label: value,
                 value: key
             }));
         
-        // Se añade la nueva opción de "Sin Secundaria"
         positionOptions.push({
             label: 'No tengo posición secundaria',
             value: 'NONE',
             emoji: '✖️'
         });
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const secondaryPosMenu = new StringSelectMenuBuilder()
             .setCustomId(`draft_register_player_pos_select_secondary:${draftShortId}:${primaryPosition}`)
@@ -198,9 +195,7 @@ export async function handleSelectMenu(interaction) {
         const [draftShortId, primaryPosition] = params;
         const secondaryPosition = interaction.values[0];
         
-        // --- INICIO DE LA MODIFICACIÓN ---
         const secondaryPositionLabel = secondaryPosition === 'NONE' ? 'Ninguna' : DRAFT_POSITIONS[secondaryPosition];
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const statusMenu = new StringSelectMenuBuilder()
             .setCustomId(`draft_register_player_status_select:${draftShortId}:${primaryPosition}:${secondaryPosition}`)
@@ -211,9 +206,7 @@ export async function handleSelectMenu(interaction) {
             ]);
 
         await interaction.update({
-            // --- INICIO DE LA MODIFICACIÓN ---
             content: `Posiciones seleccionadas: **${DRAFT_POSITIONS[primaryPosition]}** (Primaria) y **${secondaryPositionLabel}** (Secundaria).\n\nÚltimo paso, ¿cuál es tu situación actual?`,
-            // --- FIN DE LA MODIFICACIÓN ---
             components: [new ActionRowBuilder().addComponents(statusMenu)]
         });
         return;
@@ -259,12 +252,9 @@ export async function handleSelectMenu(interaction) {
         const positions = new Set();
         availablePlayers.forEach(player => {
             const pos = searchType === 'primary' ? player.primaryPosition : player.secondaryPosition;
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // Se ignora la posición 'NONE'
             if (pos && pos !== 'NONE') {
                 positions.add(pos);
             }
-            // --- FIN DE LA MODIFICACIÓN ---
         });
 
         if (positions.size === 0) {
@@ -276,10 +266,7 @@ export async function handleSelectMenu(interaction) {
             .setPlaceholder('Paso 2: Elige la posición')
             .addOptions(
                 [...positions].map(pos => ({
-                    // --- INICIO DE LA MODIFICACIÓN ---
-                    // Se añade una comprobación para evitar el 'undefined'
                     label: DRAFT_POSITIONS[pos] || pos.toUpperCase(),
-                    // --- FIN DE LA MODIFICACIÓN ---
                     value: pos,
                 }))
             );
