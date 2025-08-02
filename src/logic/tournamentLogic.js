@@ -117,8 +117,8 @@ export async function requestUnregisterFromDraft(client, draft, userId) {
 }
 
 export async function endDraft(client, draft) {
-    await setBotBusy(true);
     try {
+        await setBotBusy(true);
         const db = getDb();
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
         await fullCleanupDraft(client, draft);
@@ -198,22 +198,20 @@ async function cleanupDraftChannel(client, draft) {
     }
 }
 
-// --- INICIO DE LA MODIFICACIÓN: Lógica de Simulación Híbrida ---
+
 export async function simulateDraftPicks(client, draftShortId, manualPickerId = null) {
-    await setBotBusy(true);
-    const db = getDb();
     try {
+        await setBotBusy(true);
+        const db = getDb();
         let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'seleccion') throw new Error('La simulación solo puede iniciarse durante la fase de selección.');
         if (!manualPickerId) throw new Error('Se requiere una ID de usuario para la simulación híbrida.');
 
         while (true) {
-            // Recargamos el estado del draft en cada iteración para tener la información más reciente.
             let currentDraftState = await db.collection('drafts').findOne({ _id: draft._id });
             const totalPlayersToPick = currentDraftState.players.filter(p => !p.isCaptain).length;
 
-            // Condición de salida: El draft ha terminado
             if (currentDraftState.selection.currentPick > totalPlayersToPick) {
                 await db.collection('drafts').updateOne({ _id: currentDraftState._id }, { $set: { status: 'finalizado' } });
                 const finalDraftState = await db.collection('drafts').findOne({ _id: currentDraftState._id });
@@ -227,31 +225,27 @@ export async function simulateDraftPicks(client, draftShortId, manualPickerId = 
                 break;
             }
 
-            // Determinar a quién le toca elegir
             const numCaptains = currentDraftState.captains.length;
             const currentRound = Math.floor((currentDraftState.selection.currentPick - 1) / numCaptains);
             const pickInRound = (currentDraftState.selection.currentPick - 1) % numCaptains;
             let currentCaptainId;
-            if (currentRound % 2 === 0) { // Orden normal
+            if (currentRound % 2 === 0) {
                 currentCaptainId = currentDraftState.selection.order[pickInRound];
-            } else { // Orden inverso (serpiente)
+            } else {
                 currentCaptainId = currentDraftState.selection.order[numCaptains - 1 - pickInRound];
             }
 
-            // Condición de salida: Es el turno del admin para elegir manualmente
             if (currentCaptainId === manualPickerId) {
                 await notifyNextCaptain(client, currentDraftState);
                 break;
             }
 
-            // Lógica de auto-pick para los demás capitanes
             const availablePlayers = currentDraftState.players.filter(p => !p.captainId);
             if (availablePlayers.length === 0) continue;
 
             const randomPlayerIndex = Math.floor(Math.random() * availablePlayers.length);
             const selectedPlayer = availablePlayers[randomPlayerIndex];
 
-            // Reutilizamos las funciones existentes para asegurar la consistencia
             await handlePlayerSelection(client, draftShortId, currentCaptainId, selectedPlayer.userId);
             await advanceDraftTurn(client, draftShortId);
         }
@@ -262,13 +256,11 @@ export async function simulateDraftPicks(client, draftShortId, manualPickerId = 
         await setBotBusy(false);
     }
 }
-// --- FIN DE LA MODIFICACIÓN ---
 
 export async function createTournamentFromDraft(client, guild, draftShortId, formatId) {
-    await setBotBusy(true);
-    const db = getDb();
-
     try {
+        await setBotBusy(true);
+        const db = getDb();
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft || draft.status !== 'finalizado') {
             throw new Error('Este draft no ha finalizado o no existe.');
@@ -365,7 +357,6 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         await cleanupDraftChannel(client, draft);
 
         return newTournament;
-
     } catch (error) {
         console.error('[CREATE TOURNAMENT FROM DRAFT] Error:', error);
         throw error;
@@ -384,8 +375,8 @@ export async function confirmPrizePayment(client, userId, prizeType, tournament)
     }
 }
 export async function createNewTournament(client, guild, name, shortId, config) {
-    await setBotBusy(true);
     try {
+        await setBotBusy(true);
         const db = getDb();
         const format = TOURNAMENT_FORMATS[config.formatId];
         if (!format) throw new Error(`Formato de torneo inválido: ${config.formatId}`);
@@ -449,7 +440,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
 
     } catch (error) {
         console.error('[CREATE] OCURRIÓ UN ERROR EN MEDIO DEL PROCESO DE CREACIÓN:', error);
-        await setBotBusy(false); throw error;
+        throw error;
     } finally {
         await setBotBusy(false);
     }
@@ -582,10 +573,9 @@ export async function kickTeam(client, tournament, captainId) {
     await updateTournamentManagementThread(client, updatedTournament);
 }
 export async function undoGroupStageDraw(client, tournamentShortId) {
-    await setBotBusy(true);
-    const db = getDb();
-    
     try {
+        await setBotBusy(true);
+        const db = getDb();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || tournament.status !== 'fase_de_grupos') {
             throw new Error('El torneo no está en fase de grupos o no existe.');
@@ -636,14 +626,15 @@ export async function notifyCastersOfNewTeam(client, tournament, teamData) {
     }
 }
 export async function endTournament(client, tournament) {
-    await setBotBusy(true);
     try {
+        await setBotBusy(true);
         const db = getDb();
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
         await updateTournamentManagementThread(client, finalTournamentState);
         await cleanupTournament(client, finalTournamentState);
-    } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
+    } catch (error) { 
+        console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
     }
@@ -661,8 +652,8 @@ async function cleanupTournament(client, tournament) {
     } catch(e) { if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); }
 }
 export async function forceResetAllTournaments(client) {
-    await setBotBusy(true);
     try {
+        await setBotBusy(true);
         const db = getDb();
         const allTournaments = await db.collection('tournaments').find({}).toArray();
         for (const tournament of allTournaments) {
@@ -706,8 +697,8 @@ export async function updatePublicMessages(client, entity) {
     }
 }
 export async function startGroupStage(client, guild, tournament) {
-    await setBotBusy(true);
     try {
+        await setBotBusy(true);
         const db = getDb();
         let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
         if (currentTournament.status !== 'inscripcion_abierta') { return; }
@@ -747,7 +738,8 @@ export async function startGroupStage(client, guild, tournament) {
 
         postTournamentUpdate(finalTournamentState).catch(console.error);
 
-    } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
+    } catch (error) { 
+        console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
     }
@@ -859,8 +851,8 @@ export async function notifyCaptainsOfChanges(client, tournament) {
 }
 
 export async function createNewDraft(client, guild, name, shortId, config) {
-    await setBotBusy(true);
     try {
+        await setBotBusy(true);
         const db = getDb();
         const existingDraft = await db.collection('drafts').findOne({ shortId });
         if (existingDraft) {
@@ -942,15 +934,15 @@ export async function createNewDraft(client, guild, name, shortId, config) {
 
     } catch (error) {
         console.error('[CREATE DRAFT] Ocurrió un error al crear el draft:', error);
-        await setBotBusy(false); throw error;
+        throw error;
     } finally {
         await setBotBusy(false);
     }
 }
 
 export async function startDraftSelection(client, draftShortId) {
-    await setBotBusy(true);
     try {
+        await setBotBusy(true);
         const db = getDb();
         let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) throw new Error('Draft no encontrado.');
@@ -988,21 +980,22 @@ export async function startDraftSelection(client, draftShortId) {
 }
 
 export async function notifyNextCaptain(client, draft) {
+    const db = getDb();
     const guild = await client.guilds.fetch(draft.guildId);
     const nonCaptainPlayers = draft.players.filter(p => !p.isCaptain);
     const picksToMake = nonCaptainPlayers.length;
     if (draft.selection.currentPick > picksToMake) {
-         await getDb().collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
+         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
          console.log(`El draft ${draft.shortId} ha finalizado la selección.`);
          const draftChannel = await client.channels.fetch(draft.discordChannelId);
          await draftChannel.send('**LA SELECCIÓN HA FINALIZADO.** Un administrador generará el torneo en breve.');
-         const finalDraftState = await getDb().collection('drafts').findOne({_id: draft._id});
+         const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
          await updateDraftManagementPanel(client, finalDraftState);
          await updateDraftMainInterface(client, finalDraftState.shortId);
          await updatePublicMessages(client, finalDraftState);
          return;
     }
-
+    
     const numCaptains = draft.captains.length;
     const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains);
     const pickInRound = (draft.selection.currentPick - 1) % numCaptains;
@@ -1051,18 +1044,15 @@ export async function handlePlayerSelection(client, draftShortId, captainId, pla
         { $set: { "players.$.captainId": captainId } }
     );
     
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Enviar anuncio público temporal
     try {
         const channel = await client.channels.fetch(draft.discordChannelId);
         const announcement = await channel.send(`🛡️ **${captain.teamName}** ha seleccionado a **${player.psnId}** (${player.primaryPosition})!`);
         setTimeout(() => {
             announcement.delete().catch(() => {});
-        }, 20000); // 20 segundos
+        }, 20000); 
     } catch (e) {
         console.warn('No se pudo enviar el anuncio del pick.');
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     await updateDraftMainInterface(client, draftShortId);
 }
@@ -1094,26 +1084,10 @@ export async function updateDraftMainInterface(client, draftShortId) {
 export async function advanceDraftTurn(client, draftShortId) {
     const db = getDb();
     let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-
-    const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
-    let nextTurnIndex = draft.selection.turn;
-
-    const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0;
-
-    if (!isTurnaroundPick) {
-        if (round % 2 === 0) {
-            nextTurnIndex++;
-        } else {
-            nextTurnIndex--;
-        }
-    }
     
     await db.collection('drafts').updateOne(
         { _id: draft._id },
-        { 
-            $set: { "selection.turn": nextTurnIndex },
-            $inc: { "selection.currentPick": 1 },
-        }
+        { $inc: { "selection.currentPick": 1 } }
     );
 
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
