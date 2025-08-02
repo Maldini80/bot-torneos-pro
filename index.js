@@ -1,4 +1,4 @@
-// index.js
+// index.js (Versión Limpia para Background Worker)
 import { Client, GatewayIntentBits, Events, MessageFlags, EmbedBuilder } from 'discord.js';
 import 'dotenv/config';
 import { connectDb, getDb } from './database.js';
@@ -16,15 +16,13 @@ process.on('uncaughtException', (error, origin) => {
     console.error('💥 ORIGEN DEL ERROR:');
     console.error(origin);
 });
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('💥 RECHAZO DE PROMESA NO MANEJADO:', { reason, promise });
-});
 
 export let isBotBusy = false;
-export async function setBotBusy(status, client) {
+export async function setBotBusy(status) {
     isBotBusy = status;
     await updateAdminPanel(client);
     await updateAllManagementPanels(client, status);
+    // NUEVO: Actualizar también los paneles de gestión de drafts
     await updateAllDraftManagementPanels(client, status);
 }
 
@@ -56,10 +54,7 @@ client.once(Events.ClientReady, async readyClient => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se pasa el client a setBotBusy cuando se invoca
     if (isBotBusy && interaction.isButton() && !interaction.customId.startsWith('admin_force_reset_bot')) {
-    // --- FIN DE LA MODIFICACIÓN ---
         try {
             await interaction.reply({ content: '⏳ El bot está realizando una operación crítica. Por favor, espera un momento.', flags: [MessageFlags.Ephemeral] });
         } catch (e) {
@@ -82,7 +77,7 @@ client.on(Events.InteractionCreate, async interaction => {
         console.error('[ERROR DE INTERACCIÓN]', error);
 
         try {
-            const errorMessage = { content: `❌ Hubo un error al procesar tu solicitud: ${error.message}`, flags: [MessageFlags.Ephemeral] };
+            const errorMessage = { content: '❌ Hubo un error al procesar tu solicitud.', flags: [MessageFlags.Ephemeral] };
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(errorMessage);
             } else {
