@@ -48,24 +48,19 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN: Solución al "está pensando..." ---
     if (action === 'create_draft_type') {
         const [name] = params;
         const type = interaction.values[0];
 
         if (type === 'gratis') {
-            // Respondemos inmediatamente al usuario y eliminamos el menú.
             await interaction.update({ content: `✅ Recibido. Creando el draft gratuito **"${name}"** en segundo plano...`, components: [] });
 
             const isPaid = false;
             const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             const config = { isPaid, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 };
 
-            // Ejecutamos la función de creación sin 'await' para que no bloquee la respuesta.
-            // Si falla, el error se registrará en la consola gracias al .catch()
-            createNewDraft(client, guild, name, shortId, config).catch(error => {
+            createNewDraft(client, interaction.guild, name, shortId, config).catch(error => {
                 console.error("Error en la creación del draft en segundo plano:", error);
-                // Opcionalmente, se podría enviar un mensaje de error al canal de administración aquí.
             });
 
         } else { // type === 'pago'
@@ -103,7 +98,6 @@ export async function handleSelectMenu(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_kick_participant_draft_select') {
         await interaction.deferUpdate();
@@ -311,16 +305,29 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
+    // --- INICIO DE LA CORRECCIÓN: Solucionar `interaction.member` nulo en MDs ---
     if (action === 'draft_pick_player') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, captainId] = params;
-        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) {
+            return interaction.editReply({ content: 'Error: Draft no encontrado.' });
+        }
+
+        let isAdmin = false;
+        try {
+            const guild = await client.guilds.fetch(draft.guildId);
+            const member = await guild.members.fetch(interaction.user.id);
+            isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+        } catch (e) {
+            console.warn("No se pudo verificar los permisos de administrador para la selección del draft.");
+        }
+
         if (interaction.user.id !== captainId && !isAdmin) {
             return interaction.editReply({ content: 'No es tu turno de elegir.', components: [] });
         }
         const selectedPlayerId = interaction.values[0];
     
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const player = draft.players.find(p => p.userId === selectedPlayerId);
     
         const confirmationRow = new ActionRowBuilder().addComponents(
@@ -342,6 +349,7 @@ export async function handleSelectMenu(interaction) {
         });
         return;
     }
+    // --- FIN DE LA CORRECCIÓN ---
 
     if (action === 'admin_set_channel_icon') {
         await interaction.deferUpdate();
