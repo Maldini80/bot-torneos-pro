@@ -1,6 +1,9 @@
 // src/logic/tournamentLogic.js
 import { getDb } from '../../database.js';
-import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID } from '../../config.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se importan los nuevos requisitos mínimos del draft y las posiciones.
+import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID, DRAFT_MINIMUMS, DRAFT_POSITIONS } from '../../config.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
 import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed, createCasterInfoEmbed, createDraftStatusEmbed, createDraftManagementPanel, createDraftMainInterface, createDraftPickEmbed } from '../utils/embeds.js';
 import { updateAdminPanel, updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
@@ -59,9 +62,14 @@ export async function kickPlayerFromDraft(client, draft, userIdToKick) {
 
     let updateQuery;
     if (isCaptain) {
+        // Si es capitán, se elimina de la lista de capitanes y de la de jugadores.
         updateQuery = { $pull: { captains: { userId: userIdToKick }, players: { userId: userIdToKick } } };
     } else {
-        updateQuery = { $pull: { players: { userId: userIdToKick }, reserves: { userId: userIdToKick } } };
+        // Si es solo jugador, se elimina de la lista de jugadores.
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se elimina la lógica de 'reserves'.
+        updateQuery = { $pull: { players: { userId: userIdToKick } } };
+        // --- FIN DE LA MODIFICACIÓN ---
     }
 
     await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
@@ -218,8 +226,10 @@ export async function simulateDraftPicks(client, draftShortId) {
         };
 
         shuffleArray(availablePlayers);
+        
+        const nonCaptainPlayers = draft.players.filter(p => !p.isCaptain).length;
+        const playersPerTeam = Math.floor(nonCaptainPlayers / captains.length) + 1;
 
-        const playersPerTeam = 11;
         const bulkOps = [];
 
         for (const captain of captains) {
@@ -890,9 +900,14 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 entryFee: config.entryFee || 0, 
                 prizeCampeon: config.prizeCampeon || 0,
                 prizeFinalista: config.prizeFinalista || 0,
-                allowReserves: !config.isPaid 
+                // --- INICIO DE LA MODIFICACIÓN ---
+                // Se elimina 'allowReserves'
+                // --- FIN DE LA MODIFICACIÓN ---
             },
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // Se mantiene 'reserves' como un array vacío para evitar errores, pero no se usará.
             captains: [], pendingCaptains: {}, players: [], reserves: [], pendingPayments: {},
+            // --- FIN DE LA MODIFICACIÓN ---
             selection: { turn: 0, order: [], currentPick: 1 },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
@@ -957,10 +972,44 @@ export async function startDraftSelection(client, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        const nonCaptainPlayersCount = draft.players.filter(p => !p.isCaptain).length;
-        if (draft.captains.length < 8 || nonCaptainPlayersCount < 80) {
-            throw new Error(`No hay suficientes participantes. Se necesitan 8 capitanes y 80 jugadores. Actualmente hay ${draft.captains.length} capitanes y ${nonCaptainPlayersCount} jugadores.`);
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Nueva lógica de validación basada en los mínimos por posición.
+        const positionCounts = {};
+        for (const pos in DRAFT_POSITIONS) {
+            positionCounts[pos] = 0;
         }
+        draft.players.forEach(p => {
+            if (positionCounts[p.primaryPosition] !== undefined) {
+                positionCounts[p.primaryPosition]++;
+            }
+        });
+
+        const errors = [];
+        
+        // Comprobación de capitanes
+        if (draft.captains.length < 8) {
+            errors.push(`- Se necesitan 8 capitanes (hay ${draft.captains.length}).`);
+        }
+
+        // Comprobación especial para MCD y MV/MCO
+        const mcdOk = (positionCounts.MCD >= 16 && positionCounts['MV/MCO'] >= 8);
+        const mcoOk = (positionCounts.MCD >= 8 && positionCounts['MV/MCO'] >= 16);
+        if (!(mcdOk || mcoOk)) {
+            errors.push(`- Combinación de Mediocampo inválida. Se necesita (16 MCD y 8 MV/MCO) o (8 MCD y 16 MV/MCO). Actual: ${positionCounts.MCD} MCD, ${positionCounts['MV/MCO']} MV/MCO.`);
+        }
+
+        // Comprobación del resto de posiciones
+        for (const pos in DRAFT_MINIMUMS) {
+            if (pos === 'MCD' || pos === 'MV/MCO') continue;
+            if (positionCounts[pos] < DRAFT_MINIMUMS[pos]) {
+                errors.push(`- **${DRAFT_POSITIONS[pos]}**: Faltan ${DRAFT_MINIMUMS[pos] - positionCounts[pos]} jugadores (hay ${positionCounts[pos]} de ${DRAFT_MINIMUMS[pos]}).`);
+            }
+        }
+        
+        if (errors.length > 0) {
+            throw new Error(`No se cumplen los requisitos mínimos para iniciar el draft:\n${errors.join('\n')}`);
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
 
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
@@ -993,6 +1042,7 @@ export async function notifyNextCaptain(client, draft) {
     const nonCaptainPlayers = draft.players.filter(p => !p.isCaptain);
     const picksToMake = nonCaptainPlayers.length;
     if (draft.selection.currentPick > picksToMake) {
+         const db = getDb();
          await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
          console.log(`El draft ${draft.shortId} ha finalizado la selección.`);
          const draftChannel = await client.channels.fetch(draft.discordChannelId);
@@ -1044,13 +1094,13 @@ export async function handlePlayerSelection(client, draftShortId, captainId, pla
     );
     
     // --- INICIO DE LA MODIFICACIÓN ---
-    // Enviar anuncio público temporal
+    // Enviar anuncio público temporal de la selección.
     try {
         const channel = await client.channels.fetch(draft.discordChannelId);
         const announcement = await channel.send(`🛡️ **${captain.teamName}** ha seleccionado a **${player.psnId}** (${player.primaryPosition})!`);
         setTimeout(() => {
             announcement.delete().catch(() => {});
-        }, 20000); // 20 segundos
+        }, 20000); // Se borra a los 20 segundos
     } catch (e) {
         console.warn('No se pudo enviar el anuncio del pick.');
     }
@@ -1112,3 +1162,92 @@ export async function advanceDraftTurn(client, draftShortId) {
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await notifyNextCaptain(client, updatedDraft);
 }
+
+// --- INICIO DE LA MODIFICACIÓN ---
+// Nueva función "inteligente" para añadir jugadores de prueba hasta cumplir los mínimos.
+export async function addTestPlayersToMeetMinimums(client, draftShortId) {
+    await setBotBusy(true);
+    const db = getDb();
+    try {
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) throw new Error('Draft no encontrado.');
+
+        const positionCounts = {};
+        for (const pos in DRAFT_POSITIONS) {
+            positionCounts[pos] = 0;
+        }
+        draft.players.forEach(p => {
+            if (positionCounts[p.primaryPosition] !== undefined) {
+                positionCounts[p.primaryPosition]++;
+            }
+        });
+
+        const playersToAdd = [];
+        let neededSummary = [];
+
+        // Lógica para calcular carencias
+        
+        // Estrategia para mediocampo: priorizar la combinación 16 MCD / 8 MV-MCO
+        const mcdTarget = Math.max(0, 16 - positionCounts.MCD);
+        const mvmcoTarget = Math.max(0, 8 - positionCounts['MV/MCO']);
+        
+        for (let i = 0; i < mcdTarget; i++) playersToAdd.push('MCD');
+        if(mcdTarget > 0) neededSummary.push(`${mcdTarget} MCD`);
+        
+        for (let i = 0; i < mvmcoTarget; i++) playersToAdd.push('MV/MCO');
+        if(mvmcoTarget > 0) neededSummary.push(`${mvmcoTarget} MV/MCO`);
+
+        for (const pos in DRAFT_MINIMUMS) {
+            if (pos === 'MCD' || pos === 'MV/MCO') continue;
+            const needed = DRAFT_MINIMUMS[pos] - positionCounts[pos];
+            if (needed > 0) {
+                neededSummary.push(`${needed} ${pos}`);
+                for (let i = 0; i < needed; i++) {
+                    playersToAdd.push(pos);
+                }
+            }
+        }
+
+        if (playersToAdd.length === 0) {
+             const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+             await updateDraftManagementPanel(client, updatedDraft);
+            return { summary: "No se necesitan jugadores de prueba, ya se cumplen todos los mínimos." };
+        }
+
+        const bulkPlayers = [];
+        for (let i = 0; i < playersToAdd.length; i++) {
+            const position = playersToAdd[i];
+            const uniqueId = `test_${Date.now()}_${i}`;
+            const playerData = {
+                userId: uniqueId,
+                userName: `TestPlayer#${String(i).padStart(4, '0')}`,
+                psnId: `J-Prueba-${position}-${i + 1}`,
+                twitter: 'test_player',
+                primaryPosition: position,
+                secondaryPosition: 'NONE', // Simplificamos para los jugadores de prueba
+                currentTeam: 'Libre',
+                isCaptain: false,
+                captainId: null
+            };
+            bulkPlayers.push(playerData);
+        }
+
+        if(bulkPlayers.length > 0) {
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: { $each: bulkPlayers } } });
+        }
+
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await updateDraftMainInterface(client, updatedDraft.shortId);
+        await updatePublicMessages(client, updatedDraft);
+        await updateDraftManagementPanel(client, updatedDraft);
+
+        return { summary: `Se añadieron: ${neededSummary.join(', ')}.` };
+
+    } catch (error) {
+        console.error("Error en addTestPlayersToMeetMinimums:", error);
+        throw error;
+    } finally {
+        await setBotBusy(false);
+    }
+}
+// --- FIN DE LA MODIFICACIÓN ---
