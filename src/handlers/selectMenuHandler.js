@@ -1,7 +1,10 @@
 // src/handlers/selectMenuHandler.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
-import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder } from 'discord.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se añade MessageFlags a la lista de importaciones para corregir el error.
+import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags } from 'discord.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 
@@ -114,9 +117,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_kick_participant_page_select') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.deferUpdate();
-        // --- FIN DE LA MODIFICACIÓN ---
         const [draftShortId] = params;
         const page = parseInt(interaction.values[0].replace('page_', ''));
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -236,9 +237,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_pick_search_type') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.deferUpdate();
-        // --- FIN DE LA MODIFICACIÓN ---
         const [draftShortId, captainId] = params;
         const searchType = interaction.values[0];
         
@@ -270,9 +269,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_pick_position') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.deferUpdate();
-        // --- FIN DE LA MODIFICACIÓN ---
         const [draftShortId, captainId, searchType] = params;
         const selectedPosition = interaction.values[0];
         
@@ -335,9 +332,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_set_channel_icon') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.deferUpdate();
-        // --- FIN DE LA MODIFICACIÓN ---
         const selectedIcon = interaction.values[0];
         
         await setChannelIcon(client, selectedIcon);
@@ -347,9 +342,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_assign_cocap_team_select') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.deferUpdate();
-        // --- FIN DE LA MODIFICACIÓN ---
         const [tournamentShortId] = params;
         const selectedCaptainId = interaction.values[0];
 
@@ -369,9 +362,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_assign_cocap_user_select') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.deferUpdate();
-        // --- FIN DE LA MODIFICACIÓN ---
         const [tournamentShortId, captainId] = params;
         const coCaptainId = interaction.values[0];
 
@@ -409,17 +400,14 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_create_format') {
-        // --- INICIO DE LA MODIFICACIÓN ---
-        await interaction.update({
-            content: `Formato seleccionado: **${TOURNAMENT_FORMATS[interaction.values[0]].label}**. Ahora, el tipo:`,
-            components: [new ActionRowBuilder().addComponents(
-                new StringSelectMenuBuilder()
-                    .setCustomId(`admin_create_type:${interaction.values[0]}`)
-                    .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
-                    .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }])
-            )]
-        });
-        // --- FIN DE LA MODIFICACIÓN ---
+        const formatId = interaction.values[0];
+        const typeMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_create_type:${formatId}`)
+            .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
+            .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
+        
+        await interaction.update({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
+
     } else if (action === 'admin_create_type') {
         const [formatId] = params;
         const type = interaction.values[0];
@@ -445,9 +433,8 @@ export async function handleSelectMenu(interaction) {
         await interaction.showModal(modal);
 
     } else if (action === 'admin_change_format_select') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.deferUpdate();
-        // --- FIN DE LA MODIFICACIÓN ---
+        
         const [tournamentShortId] = params;
         const newFormatId = interaction.values[0];
         await updateTournamentConfig(interaction.client, tournamentShortId, { formatId: newFormatId });
@@ -471,9 +458,7 @@ export async function handleSelectMenu(interaction) {
             await interaction.editReply({ content: `✅ Torneo actualizado a: **Gratuito**.`, components: [] });
         }
     } else if (action === 'invite_cocaptain_select') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.deferUpdate();
-        // --- FIN DE LA MODIFICACIÓN ---
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
