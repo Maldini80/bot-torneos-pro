@@ -310,34 +310,39 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'draft_confirm_pick') {
-        await interaction.deferUpdate();
         const [draftShortId, captainId, selectedPlayerId] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-        if(interaction.user.id !== captainId && !isAdmin) return;
+        if (interaction.user.id !== captainId && !isAdmin) {
+            return interaction.reply({ content: 'No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.update({
+            content: '✅ Pick confirmado. Procesando siguiente turno...',
+            embeds: [],
+            components: []
+        });
 
         await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
-        
         await advanceDraftTurn(client, draftShortId);
-        await interaction.message.delete();
         return;
     }
 
     if (action === 'draft_undo_pick') {
-        await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-        if(interaction.user.id !== captainId && !isAdmin) return;
+        if(interaction.user.id !== captainId && !isAdmin) {
+            return interaction.reply({ content: 'No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
+        }
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const pickEmbed = createDraftPickEmbed(draft, captainId);
-        await interaction.editReply(pickEmbed);
+        
+        await interaction.update(pickEmbed);
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
