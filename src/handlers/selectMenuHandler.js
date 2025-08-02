@@ -1,10 +1,7 @@
 // src/handlers/selectMenuHandler.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se añade PermissionsBitField para la comprobación de administrador
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
-// --- FIN DE LA MODIFICACIÓN ---
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 
@@ -66,7 +63,9 @@ export async function handleSelectMenu(interaction) {
                 await interaction.editReply({ content: `✅ ¡Éxito! El draft gratuito **"${name}"** ha sido creado.`, components: [] });
             } catch (error) {
                 console.error("Error capturado por el handler al crear el draft:", error);
-                await interaction.editReply({ content: `❌ Ocurrió un error al crear el draft. Revisa los logs.`, components: [] });
+                // --- INICIO DE LA MODIFICACIÓN ---
+                await interaction.editReply({ content: `❌ Ocurrió un error: ${error.message}`, components: [] });
+                // --- FIN DE LA MODIFICACIÓN ---
             }
         } else { // type === 'pago'
             const modal = new ModalBuilder()
@@ -303,15 +302,10 @@ export async function handleSelectMenu(interaction) {
     if (action === 'draft_pick_player') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, captainId] = params;
-
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Permite a los administradores realizar el pick para probar el sistema.
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
         if (interaction.user.id !== captainId && !isAdmin) {
             return interaction.editReply({ content: 'No es tu turno de elegir.', components: [] });
         }
-        // --- FIN DE LA MODIFICACIÓN ---
-
         const selectedPlayerId = interaction.values[0];
     
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
