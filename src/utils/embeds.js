@@ -93,6 +93,7 @@ const ruleEmbeds = [
 export async function createGlobalAdminPanel(isBusy = false) {
     const settings = await getBotSettings();
     const translationEnabled = settings.translationEnabled;
+    const twitterEnabled = settings.twitterEnabled;
 
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
@@ -101,7 +102,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
 
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
-        : `✅ **ESTADO: LISTO**\nTraducción Automática: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}**\nUsa los botones de abajo para gestionar.`
+        : `✅ **ESTADO: LISTO**\nTraducción Automática: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}**\nTwitter Automático: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**\nUsa los botones de abajo para gestionar.`
     );
 
     const globalActionsRow = new ActionRowBuilder().addComponents(
@@ -116,6 +117,12 @@ export async function createGlobalAdminPanel(isBusy = false) {
             .setLabel(translationEnabled ? 'Desactivar Traducción' : 'Activar Traducción')
             .setStyle(translationEnabled ? ButtonStyle.Secondary : ButtonStyle.Success)
             .setEmoji(translationEnabled ? '🔇' : '🔊')
+            .setDisabled(isBusy),
+        new ButtonBuilder()
+            .setCustomId('admin_toggle_twitter')
+            .setLabel(twitterEnabled ? 'Desactivar Twitter' : 'Activar Twitter')
+            .setStyle(twitterEnabled ? ButtonStyle.Secondary : ButtonStyle.Success)
+            .setEmoji('🐦')
             .setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
@@ -368,12 +375,18 @@ export function createDraftMainInterface(draft) {
         const numCaptains = draft.selection.order.length;
         const captainMap = new Map(draft.captains.map(c => [c.userId, c.teamName]));
 
-        for (let i = 0; i < totalPicks; i++) {
-            const round = Math.floor(i / numCaptains);
+        const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
+        const totalRounds = Math.ceil(totalPicks / numCaptains);
+        
+        const startPickOfRound = (currentRound - 1) * numCaptains;
+        const endPickOfRound = Math.min(startPickOfRound + numCaptains, totalPicks);
+
+        for (let i = startPickOfRound; i < endPickOfRound; i++) {
+            const roundForThisPick = Math.floor(i / numCaptains);
             const pickInRound = i % numCaptains;
             let captainId;
 
-            if (round % 2 === 0) {
+            if (roundForThisPick % 2 === 0) {
                 captainId = draft.selection.order[pickInRound];
             } else {
                 captainId = draft.selection.order[numCaptains - 1 - pickInRound];
@@ -390,15 +403,10 @@ export function createDraftMainInterface(draft) {
                 picksList.push(`⏳ ${pickNumber}. ${teamName}`);
             }
         }
-
-        const half = Math.ceil(picksList.length / 2);
-        const firstHalf = picksList.slice(0, half).join('\n');
-        const secondHalf = picksList.slice(half).join('\n');
-
+        
         turnOrderEmbed.setDescription(`Turno actual: **Pick ${draft.selection.currentPick} de ${totalPicks}**`);
         turnOrderEmbed.addFields(
-            { name: 'Picks 1-40', value: firstHalf || 'N/A', inline: true },
-            { name: 'Picks 41-80', value: secondHalf || 'N/A', inline: true }
+            { name: `Ronda ${currentRound} de ${totalRounds}`, value: picksList.join('\n') || 'N/A' }
         );
 
     } else {
