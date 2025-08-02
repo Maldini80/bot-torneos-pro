@@ -204,7 +204,7 @@ export function createDraftStatusEmbed(draft) {
 
     const statusMap = {
         inscripcion: isFull ? 'cupo_lleno' : 'inscripcion_abierta',
-        seleccion: 'fase_de_grupos', // Reutilizamos el icono azul
+        seleccion: 'fase_de_grupos',
         finalizado: 'finalizado',
         torneo_generado: 'finalizado',
         cancelado: 'cancelado'
@@ -212,17 +212,14 @@ export function createDraftStatusEmbed(draft) {
 
     const statusIcon = TOURNAMENT_STATUS_ICONS[statusMap[draft.status]] || '❓';
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Lógica de color mejorada
-    let embedColor = '#3498db'; // Azul por defecto
+    let embedColor = '#3498db';
     if (draft.status === 'inscripcion') {
-        embedColor = isFull ? '#f39c12' : '#2ecc71'; // Naranja si está lleno, si no verde
+        embedColor = isFull ? '#f39c12' : '#2ecc71';
     } else if (draft.status === 'finalizado' || draft.status === 'torneo_generado') {
-        embedColor = '#95a5a6'; // Gris
+        embedColor = '#95a5a6';
     } else if (draft.status === 'cancelado') {
-        embedColor = '#e74c3c'; // Rojo
+        embedColor = '#e74c3c';
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     const embed = new EmbedBuilder()
         .setColor(embedColor)
