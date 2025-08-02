@@ -255,13 +255,14 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const tournamentName = `Torneo Draft - ${draft.name}`;
         const tournamentShortId = `draft-${draft.shortId}`;
         
-        // --- INICIO DE LA MODIFICACIÓN ---
         const format = TOURNAMENT_FORMATS[formatId];
         if (!format) throw new Error(`Formato de torneo inválido: ${formatId}`);
 
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se construye el objeto config completo, incluyendo el objeto 'format'.
         const config = {
             formatId: formatId,
-            format: format, // Se añade el objeto de formato completo
+            format: format, 
             isPaid: draft.config.isPaid,
             entryFee: draft.config.entryFee,
             prizeCampeon: draft.config.prizeCampeon,
