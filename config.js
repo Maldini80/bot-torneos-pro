@@ -2,6 +2,7 @@
 
 export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
 export const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
+
 export const ADMIN_ROLE_ID = 'ID_DE_TU_ROL_DE_ADMIN';
 export const ARBITRO_ROLE_ID = '1393505777443930183';
 export const PARTICIPANTE_ROLE_ID = '1394321301748977684';
@@ -34,13 +35,13 @@ export const DRAFT_POSITIONS = {
 export const DRAFT_START_REQUIREMENTS = {
     GK: 8,
     DFC: 24,
-    MCD_MV: 16, // Combined pool of MCD and MV
-    MCO_MV: 8,  // Combined pool of MCO and MV
+    MCD_MV: 16, // Pool combinado de MCD y MV
+    MCO_MV: 8,  // Pool combinado de MCO y MV
     CAR: 16,
     DC: 16
 };
 
-// This is the full roster composition for a team
+// Composición final de la plantilla (11 jugadores)
 export const DRAFT_TEAM_COMPOSITION = {
     GK: 1, DFC: 3, CAR: 2, MCD_MV: 2, MCO_MV: 1, DC: 2
 };
