@@ -269,7 +269,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
 
-        // --- INICIO DE LA CORRECCIÓN ---
+        // --- INICIO DE LA MODIFICACIÓN ---
         // Se filtran las IDs de los capitanes para incluir solo las que son numéricas (IDs de Discord reales),
         // ignorando las IDs de texto de los jugadores de prueba para evitar el crash.
         const participantsAndStaffPermissions = [
@@ -279,7 +279,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
                 .filter(id => /^\d+$/.test(id)) // <-- Esta línea filtra las IDs no válidas.
                 .map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
         ];
-        // --- FIN DE LA CORRECCIÓN ---
+        // --- FIN DE LA MODIFICACIÓN ---
 
         const infoChannel = await guild.channels.create({ name: `🏆-${tournamentShortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: [{ id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }] });
         const matchesChannel = await guild.channels.create({ name: `⚽-${tournamentShortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
@@ -427,40 +427,44 @@ export async function approveTeam(client, tournament, teamData) {
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes, 'teams.reserva': latestTournament.teams.reserva }});
     
-    try {
-        const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
-        const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (/^\d+$/.test(teamData.capitanId)) { // Comprobar si es una ID real
+        try {
+            const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
+            const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
 
-        await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
-        await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
+            await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
+            await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
 
-        const inviteButtonRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`invite_cocaptain_start:${latestTournament.shortId}`)
-                .setLabel('Invitar Co-Capitán / Invite Co-Captain')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('🤝')
-        );
+            const inviteButtonRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`invite_cocaptain_start:${latestTournament.shortId}`)
+                    .setLabel('Invitar Co-Capitán / Invite Co-Captain')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🤝')
+            );
 
-        await chatChannel.send({
-            content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
-            components: [inviteButtonRow]
-        });
+            await chatChannel.send({
+                content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
+                components: [inviteButtonRow]
+            });
 
-        const user = await client.users.fetch(teamData.capitanId);
-        const embed = new EmbedBuilder()
-            .setColor('#2ecc71')
-            .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
-            .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado**.\n\n` +
-                          `Dirígete al canal <#${chatChannel.id}> para chatear con otros participantes e invitar a tu co-capitán.` +
-                          `\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved**.\n\n` +
-                          `Head over to the <#${chatChannel.id}> channel to chat with other participants and invite your co-captain.`);
-        
-        await user.send({ embeds: [embed] });
+            const user = await client.users.fetch(teamData.capitanId);
+            const embed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
+                .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado**.\n\n` +
+                              `Dirígete al canal <#${chatChannel.id}> para chatear con otros participantes e invitar a tu co-capitán.` +
+                              `\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved**.\n\n` +
+                              `Head over to the <#${chatChannel.id}> channel to chat with other participants and invite your co-captain.`);
+            
+            await user.send({ embeds: [embed] });
 
-    } catch(e) { 
-        console.error(`Error en la aprobación o al dar permisos al capitán ${teamData.capitanId}:`, e); 
+        } catch(e) { 
+            console.error(`Error en la aprobación o al dar permisos al capitán ${teamData.capitanId}:`, e); 
+        }
     }
+    // --- FIN DE LA MODIFICACIÓN ---
     
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     
@@ -486,14 +490,18 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     );
 
-    try {
-        const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
-        await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
-        const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
-        await matchesChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: false });
-    } catch (e) {
-        console.error(`No se pudieron dar permisos al co-capitán ${coCaptainId}:`, e);
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (/^\d+$/.test(coCaptainId)) { // Comprobar si es una ID real
+        try {
+            const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
+            await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
+            const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
+            await matchesChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: false });
+        } catch (e) {
+            console.error(`No se pudieron dar permisos al co-capitán ${coCaptainId}:`, e);
+        }
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
@@ -503,14 +511,17 @@ export async function kickTeam(client, tournament, captainId) {
     const teamData = tournament.teams.aprobados[captainId];
     if (!teamData) return;
 
-    try {
-        const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
-        await chatChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo');
-        const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
-        await matchesChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo');
-    } catch (e) { console.error(`No se pudieron revocar los permisos para el capitán ${captainId}:`, e); }
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (/^\d+$/.test(captainId)) { // Comprobar si es una ID real
+        try {
+            const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
+            await chatChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo');
+            const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
+            await matchesChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo');
+        } catch (e) { console.error(`No se pudieron revocar los permisos para el capitán ${captainId}:`, e); }
+    }
 
-    if (teamData.coCaptainId) {
+    if (teamData.coCaptainId && /^\d+$/.test(teamData.coCaptainId)) { // Comprobar si es una ID real
         try {
             const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
             await chatChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo');
@@ -518,6 +529,7 @@ export async function kickTeam(client, tournament, captainId) {
             await matchesChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo');
         } catch (e) { console.error(`No se pudieron revocar los permisos para el co-capitán ${teamData.coCaptainId}:`, e); }
     }
+    // --- FIN DE LA MODIFICACIÓN ---
     
     await db.collection('tournaments').updateOne( { _id: tournament._id }, { $unset: { [`teams.aprobados.${captainId}`]: "" } } );
     
