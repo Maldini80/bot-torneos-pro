@@ -2,7 +2,14 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings, getOrRegisterPlayerReputation } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, endDraft, approveDraftCaptain, simulateDraftPicks, fillDraftWithTestPlayers, requestUnregisterFromDraft, approveUnregisterFromDraft, handlePlayerSelection } from '../logic/tournamentLogic.js';
+// --- INICIO DE LA MODIFICACIÓN (Verificación de importaciones) ---
+import { 
+    approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, 
+    undoGroupStageDraw, startDraftSelection, endDraft, approveDraftCaptain, simulateDraftPicks, 
+    fillDraftWithTestPlayers, requestUnregisterFromDraft, approveUnregisterFromDraft, handlePlayerSelection, confirmPrizePayment,
+    createTournamentFromDraft, kickPlayerFromDraft
+} from '../logic/tournamentLogic.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed } from '../utils/embeds.js';
@@ -17,8 +24,6 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // --- INICIO DE LA MODIFICACIÓN (Nuevos Handlers y Lógica de Reputación) ---
-    
     if (action === 'admin_manage_reputation_start') {
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -83,7 +88,7 @@ export async function handleButton(interaction) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const [draftShortId] = params;
         try {
-            const resultMessage = await fillDraftWithTestPlayers(draftShortId);
+            const resultMessage = await fillDraftWithTestPlayers(client, draftShortId);
             await interaction.editReply(resultMessage);
         } catch (error) {
             console.error('Error al rellenar con jugadores de prueba:', error);
