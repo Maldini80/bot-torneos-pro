@@ -1,5 +1,5 @@
 // src/handlers/buttonHandler.js
-import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } from 'discord.js';
+import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft } from '../logic/tournamentLogic.js';
@@ -310,10 +310,13 @@ export async function handleButton(interaction) {
         return;
     }
     
+    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'draft_confirm_pick') {
         await interaction.deferUpdate();
         const [draftShortId, captainId, selectedPlayerId] = params;
-        if(interaction.user.id !== captainId) return;
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if(interaction.user.id !== captainId && !isAdmin) return;
 
         await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
         
@@ -325,13 +328,16 @@ export async function handleButton(interaction) {
     if (action === 'draft_undo_pick') {
         await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
-        if(interaction.user.id !== captainId) return;
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if(interaction.user.id !== captainId && !isAdmin) return;
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const pickEmbed = createDraftPickEmbed(draft, captainId);
         await interaction.editReply(pickEmbed);
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
@@ -343,7 +349,6 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'admin_toggle_twitter') {
         await interaction.deferUpdate();
         const currentSettings = await getBotSettings();
@@ -353,7 +358,6 @@ export async function handleButton(interaction) {
         await interaction.followUp({ content: `✅ La publicación automática en Twitter ha sido **${newState ? 'ACTIVADA' : 'DESACTIVADA'}**.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'rules_accept') {
         const [currentStepStr, originalAction, entityId] = params;
