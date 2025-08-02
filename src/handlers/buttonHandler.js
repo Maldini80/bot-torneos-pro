@@ -343,6 +343,18 @@ export async function handleButton(interaction) {
         return;
     }
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'admin_toggle_twitter') {
+        await interaction.deferUpdate();
+        const currentSettings = await getBotSettings();
+        const newState = !currentSettings.twitterEnabled;
+        await updateBotSettings({ twitterEnabled: newState });
+        await updateAdminPanel(client); 
+        await interaction.followUp({ content: `✅ La publicación automática en Twitter ha sido **${newState ? 'ACTIVADA' : 'DESACTIVADA'}**.`, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
     if (action === 'rules_accept') {
         const [currentStepStr, originalAction, entityId] = params;
         const currentStep = parseInt(currentStepStr);
