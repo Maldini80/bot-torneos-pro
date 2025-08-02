@@ -1009,7 +1009,6 @@ export async function notifyNextCaptain(client, draft) {
 
     const draftChannel = await client.channels.fetch(draft.discordChannelId);
     
-    // --- INICIO DE LA MODIFICACIÓN ---
     const messages = await draftChannel.messages.fetch({ limit: 50 });
     const oldPickMessages = messages.filter(m => 
         m.author.id === client.user.id && 
@@ -1021,27 +1020,42 @@ export async function notifyNextCaptain(client, draft) {
 
     const pickInteractionContent = createDraftPickEmbed(draft, currentCaptainId);
     
-    // Intentar enviar por MD, si falla, enviar efímero en el canal.
     try {
         if (/^\d+$/.test(currentCaptainId)) {
             const captainUser = await client.users.fetch(currentCaptainId);
             await captainUser.send(pickInteractionContent);
         } else {
-            // Si es un capitán de prueba, enviar siempre al canal
             await draftChannel.send(pickInteractionContent);
         }
     } catch(e) {
         console.warn(`No se pudo enviar el MD de turno a ${currentCaptainId}, enviando al canal.`);
         await draftChannel.send(pickInteractionContent);
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 export async function handlePlayerSelection(client, draftShortId, captainId, playerId) {
     const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const player = draft.players.find(p => p.userId === playerId);
+    const captain = draft.captains.find(c => c.userId === captainId);
+
     await db.collection('drafts').updateOne(
         { shortId: draftShortId, "players.userId": playerId },
         { $set: { "players.$.captainId": captainId } }
     );
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Enviar anuncio público temporal
+    try {
+        const channel = await client.channels.fetch(draft.discordChannelId);
+        const announcement = await channel.send(`🛡️ **${captain.teamName}** ha seleccionado a **${player.psnId}** (${player.primaryPosition})!`);
+        setTimeout(() => {
+            announcement.delete().catch(() => {});
+        }, 20000); // 20 segundos
+    } catch (e) {
+        console.warn('No se pudo enviar el anuncio del pick.');
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
     await updateDraftMainInterface(client, draftShortId);
 }
 export async function updateDraftMainInterface(client, draftShortId) {
