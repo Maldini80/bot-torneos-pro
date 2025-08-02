@@ -157,19 +157,15 @@ async function fullCleanupDraft(client, draft) {
     }
 }
 
-// --- INICIO DE LA MODIFICACIÓN ---
-// Lógica de limpieza completamente reescrita para ser más robusta
 async function cleanupDraftChannel(client, draft) {
      try {
         const channel = await client.channels.fetch(draft.discordChannelId).catch(() => null);
         if (!channel) return;
 
-        // 1. Obtener todos los mensajes del canal
         const messages = await channel.messages.fetch({ limit: 100 });
         const messagesToDelete = [];
         let teamsMessageToKeep = null;
 
-        // 2. Identificar el panel de equipos a conservar y el resto de mensajes del bot a borrar
         for (const message of messages.values()) {
             if (message.author.id === client.user.id) {
                 if (message.id === draft.discordMessageIds.mainInterfaceTeamsMessageId) {
@@ -180,7 +176,6 @@ async function cleanupDraftChannel(client, draft) {
             }
         }
 
-        // 3. Borrar todos los mensajes innecesarios en un solo lote
         if (messagesToDelete.length > 0) {
             await channel.bulkDelete(messagesToDelete, true).catch(err => {
                 console.warn(`No se pudieron borrar todos los mensajes del draft en lote, intentando uno por uno: ${err.message}`);
@@ -190,21 +185,18 @@ async function cleanupDraftChannel(client, draft) {
             });
         }
         
-        // 4. Actualizar el panel de equipos que se queda
         if (teamsMessageToKeep) {
             const finalDraftState = await getDb().collection('drafts').findOne({ _id: draft._id });
             const [, finalTeamsEmbed] = createDraftMainInterface(finalDraftState);
-            await teamsMessageToKeep.edit({ embeds: [finalTeamsEmbed], components: [] }); // Eliminar componentes por si acaso
+            await teamsMessageToKeep.edit({ embeds: [finalTeamsEmbed], components: [] });
         }
 
-        // 5. Enviar mensaje final de archivo
         await channel.send({ content: '✅ **Draft finalizado y torneo generado.**\nEste canal permanecerá como archivo para consultar las plantillas de los equipos.' });
 
     } catch (error) {
         console.error(`Error al limpiar el canal del draft ${draft.shortId}:`, error);
     }
 }
-// --- FIN DE LA MODIFICACIÓN ---
 
 
 export async function simulateDraftPicks(client, draftShortId) {
@@ -1014,9 +1006,31 @@ export async function notifyNextCaptain(client, draft) {
     const currentCaptainId = draft.selection.order[draft.selection.turn];
     if (!currentCaptainId) return;
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Se rediseña el envío de mensajes de pick para que sean efímeros
     const draftChannel = await client.channels.fetch(draft.discordChannelId);
-    const pickEmbed = createDraftPickEmbed(draft, currentCaptainId);
-    await draftChannel.send(pickEmbed);
+    
+    // 1. Borrar mensajes de pick anteriores que no sean efímeros (si los hubiera de versiones antiguas)
+    const messages = await draftChannel.messages.fetch({ limit: 20 });
+    const oldPickMessages = messages.filter(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Turno de Selección:'));
+    if (oldPickMessages.size > 0) {
+        await draftChannel.bulkDelete(oldPickMessages).catch(() => {});
+    }
+
+    // 2. Enviar el nuevo mensaje de pick como efímero (privado)
+    const pickInteractionContent = createDraftPickEmbed(draft, currentCaptainId);
+    try {
+        const captainUser = await client.users.fetch(currentCaptainId);
+        await captainUser.send(pickInteractionContent);
+    } catch(e) {
+        console.warn(`No se pudo enviar el MD de turno a ${currentCaptainId}, enviando al canal.`);
+        // Si falla el MD, lo envía al canal como antes pero seguirá siendo efímero.
+        const captainMember = await guild.members.fetch(currentCaptainId).catch(()=>null);
+        if(captainMember) {
+             await draftChannel.send(pickInteractionContent);
+        }
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 }
 export async function handlePlayerSelection(client, draftShortId, captainId, playerId) {
     const db = getDb();
