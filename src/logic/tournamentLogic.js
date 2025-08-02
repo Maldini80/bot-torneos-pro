@@ -121,7 +121,11 @@ export async function endDraft(client, draft) {
     try {
         const db = getDb();
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
-        await cleanupDraft(client, draft);
+        
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se llama a la función de borrado completo
+        await fullCleanupDraft(client, draft);
+        // --- FIN DE LA MODIFICACIÓN ---
 
     } catch (error) {
         console.error(`Error crítico al finalizar el draft ${draft.shortId}:`, error);
@@ -130,7 +134,9 @@ export async function endDraft(client, draft) {
     }
 }
 
-async function cleanupDraft(client, draft) {
+// --- INICIO DE LA MODIFICACIÓN ---
+// Nueva función para borrar TODO, incluido el canal principal del draft
+async function fullCleanupDraft(client, draft) {
     const { discordChannelId, discordMessageIds } = draft;
 
     const deleteResourceSafe = async (fetcher, resourceId) => {
@@ -144,7 +150,8 @@ async function cleanupDraft(client, draft) {
             }
         }
     };
-
+    
+    // Se añade el canal principal a la lista de borrado
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordChannelId);
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.managementThreadId);
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.notificationsThreadId);
@@ -156,6 +163,42 @@ async function cleanupDraft(client, draft) {
         console.warn("No se pudo encontrar o borrar el mensaje de estado del draft.");
     }
 }
+
+// Nueva función que SOLO limpia los mensajes del canal, pero no el canal en sí.
+async function cleanupDraftChannel(client, draft) {
+     try {
+        const channel = await client.channels.fetch(draft.discordChannelId).catch(() => null);
+        if (!channel) return;
+
+        const deleteMessageSafe = async (messageId) => {
+            if (!messageId) return;
+            try {
+                const msg = await channel.messages.fetch(messageId).catch(() => null);
+                if (msg) await msg.delete();
+            } catch (err) {
+                 if (err.code !== 10008) { // Ignorar si el mensaje ya no existe
+                    console.warn(`No se pudo borrar el mensaje ${messageId} del canal de draft: ${err.message}`);
+                 }
+            }
+        };
+
+        await deleteMessageSafe(draft.discordMessageIds.mainInterfacePlayerMessageId);
+        await deleteMessageSafe(draft.discordMessageIds.turnOrderMessageId);
+        
+        // Envía un mensaje final y actualiza el panel de equipos
+        const finalDraftState = await getDb().collection('drafts').findOne({ _id: draft._id });
+        const [,, teamsEmbed] = createDraftMainInterface(finalDraftState); // Obtenemos el embed de equipos actualizado
+        const teamsMessage = await channel.messages.fetch(draft.discordMessageIds.mainInterfaceTeamsMessageId).catch(() => null);
+        if(teamsMessage) await teamsMessage.edit({ embeds: [teamsEmbed] });
+
+        await channel.send({ content: '✅ **Draft finalizado y torneo generado.**\nEste canal permanecerá como archivo para consultar las plantillas de los equipos.' });
+
+    } catch (error) {
+        console.error(`Error al limpiar el canal del draft ${draft.shortId}:`, error);
+    }
+}
+// --- FIN DE LA MODIFICACIÓN ---
+
 
 export async function simulateDraftPicks(client, draftShortId) {
     await setBotBusy(true);
@@ -258,8 +301,6 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const format = TOURNAMENT_FORMATS[formatId];
         if (!format) throw new Error(`Formato de torneo inválido: ${formatId}`);
 
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se construye el objeto config completo, incluyendo el objeto 'format'.
         const config = {
             formatId: formatId,
             format: format, 
@@ -269,7 +310,6 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             prizeFinalista: draft.config.prizeFinalista,
             startTime: null
         };
-        // --- FIN DE LA MODIFICACIÓN ---
         
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
@@ -323,7 +363,11 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
-        await cleanupDraft(client, draft);
+        
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se llama a la nueva función que solo limpia el canal, pero no lo borra
+        await cleanupDraftChannel(client, draft);
+        // --- FIN DE LA MODIFICACIÓN ---
 
         return newTournament;
 
