@@ -197,21 +197,35 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 }
 
 export function createDraftStatusEmbed(draft) {
+    const captainCount = draft.captains.length;
+    const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
+    const totalParticipants = captainCount + nonCaptainPlayerCount;
+    const isFull = captainCount >= 8 && totalParticipants >= 88;
+
     const statusMap = {
-        inscripcion: 'inscripcion_abierta',
-        seleccion: 'fase_de_grupos',
+        inscripcion: isFull ? 'cupo_lleno' : 'inscripcion_abierta',
+        seleccion: 'fase_de_grupos', // Reutilizamos el icono azul
         finalizado: 'finalizado',
         torneo_generado: 'finalizado',
         cancelado: 'cancelado'
     };
+
     const statusIcon = TOURNAMENT_STATUS_ICONS[statusMap[draft.status]] || '❓';
 
-    const captainCount = draft.captains.length;
-    const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
-    const totalParticipants = captainCount + nonCaptainPlayerCount;
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Lógica de color mejorada
+    let embedColor = '#3498db'; // Azul por defecto
+    if (draft.status === 'inscripcion') {
+        embedColor = isFull ? '#f39c12' : '#2ecc71'; // Naranja si está lleno, si no verde
+    } else if (draft.status === 'finalizado' || draft.status === 'torneo_generado') {
+        embedColor = '#95a5a6'; // Gris
+    } else if (draft.status === 'cancelado') {
+        embedColor = '#e74c3c'; // Rojo
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     const embed = new EmbedBuilder()
-        .setColor(draft.status === 'inscripcion' ? '#2ecc71' : '#3498db')
+        .setColor(embedColor)
         .setTitle(`${statusIcon} Draft: ${draft.name}`)
         .addFields(
             { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
@@ -247,7 +261,7 @@ export function createDraftStatusEmbed(draft) {
                 .setLabel('Inscribirme como Jugador')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('👤')
-                .setDisabled(totalParticipants >= 88 && !draft.config.allowReserves)
+                .setDisabled(isFull && !draft.config.allowReserves)
         );
         if (!draft.config.isPaid) {
             row2.addComponents(
@@ -258,8 +272,6 @@ export function createDraftStatusEmbed(draft) {
                     .setEmoji('👋')
             );
         }
-    } else {
-        embed.setColor('#95a5a6');
     }
 
     const components = [];
@@ -433,9 +445,7 @@ export function createDraftPickEmbed(draft, captainId) {
                 { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
             ])
     );
-    // --- INICIO DE LA MODIFICACIÓN ---
     return { content: `<@${captainId}>`, embeds: [embed], components: [searchTypeMenu], flags: [MessageFlags.Ephemeral] };
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
@@ -457,9 +467,7 @@ export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, enti
             .setStyle(ButtonStyle.Danger)
             .setEmoji('❌')
     );
-    // --- INICIO DE LA MODIFICACIÓN ---
     return { embeds: [ruleEmbed], components: [row], flags: [MessageFlags.Ephemeral] };
-    // --- FIN DE LA MODIFICACIÓN ---
 }
 
 export function createTournamentStatusEmbed(tournament) {
