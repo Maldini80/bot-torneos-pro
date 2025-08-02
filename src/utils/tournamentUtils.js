@@ -61,27 +61,28 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         });
 
         // --- INICIO DE LA MODIFICACIÓN ---
-        // Función para añadir miembros solo si tienen una ID válida (numérica)
+        // Función para añadir miembros solo si tienen una ID válida (numérica, no de prueba)
         const addMemberIfReal = async (memberId) => {
             if (memberId && /^\d+$/.test(memberId)) {
                 await thread.members.add(memberId).catch(e => console.warn(`No se pudo añadir al miembro ${memberId} al hilo: ${e.message}`));
             }
         };
 
-        const memberPromises = [
+        // Añadir a todos los miembros reales (capitanes y co-capitanes)
+        await Promise.all([
             addMemberIfReal(partido.equipoA.capitanId),
             addMemberIfReal(partido.equipoB.capitanId),
             addMemberIfReal(partido.equipoA.coCaptainId),
             addMemberIfReal(partido.equipoB.coCaptainId)
-        ];
+        ]);
         
-        await Promise.all(memberPromises);
-        
+        // Construir la cadena de menciones solo para miembros reales
         let mentions = [];
         if (partido.equipoA.capitanId && /^\d+$/.test(partido.equipoA.capitanId)) mentions.push(`<@${partido.equipoA.capitanId}>`);
         if (partido.equipoB.capitanId && /^\d+$/.test(partido.equipoB.capitanId)) mentions.push(`<@${partido.equipoB.capitanId}>`);
         if (partido.equipoA.coCaptainId && /^\d+$/.test(partido.equipoA.coCaptainId)) mentions.push(`<@${partido.equipoA.coCaptainId}>`);
         if (partido.equipoB.coCaptainId && /^\d+$/.test(partido.equipoB.coCaptainId)) mentions.push(`<@${partido.equipoB.coCaptainId}>`);
+        const mentionString = mentions.length > 0 ? mentions.join(' y ') : 'Capitanes no encontrados (equipos de prueba).';
         // --- FIN DE LA MODIFICACIÓN ---
 
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
@@ -106,7 +107,7 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             new ButtonBuilder().setCustomId(`invite_to_thread:${partido.matchId}:${tournamentShortId}`).setLabel("Invitar al Hilo").setStyle(ButtonStyle.Secondary).setEmoji("🤝")
         );
         
-        await thread.send({ content: mentions.join(' y '), embeds: [embed], components: [row1, row2] });
+        await thread.send({ content: mentionString, embeds: [embed], components: [row1, row2] });
         
         return thread.id;
     } catch (error) {
