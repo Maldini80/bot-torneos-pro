@@ -1,20 +1,13 @@
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
-import { getDb, getBotSettings, updateBotSettings, getOrRegisterPlayerReputation } from '../../database.js';
+import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-// --- INICIO DE LA MODIFICACIÓN (Verificación de importaciones) ---
-import { 
-    approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, 
-    undoGroupStageDraw, startDraftSelection, endDraft, approveDraftCaptain, simulateDraftPicks, 
-    fillDraftWithTestPlayers, requestUnregisterFromDraft, approveUnregisterFromDraft, handlePlayerSelection, confirmPrizePayment,
-    createTournamentFromDraft, kickPlayerFromDraft
-} from '../logic/tournamentLogic.js';
-// --- FIN DE LA MODIFICACIÓN ---
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftPickEmbed } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
-import { inviteUserToMatchThread } from '../utils/tournamentUtils.js';
+import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 
 export async function handleButton(interaction) {
     const customId = interaction.customId;
@@ -23,154 +16,6 @@ export async function handleButton(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
-
-    if (action === 'admin_manage_reputation_start') {
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('admin_reputation_search_start')
-                .setLabel('Buscar Jugador por PSN ID')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('🔍'),
-            new ButtonBuilder()
-                .setCustomId('admin_reputation_view_vetted')
-                .setLabel('Ver Jugadores Vetados')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('🚫')
-        );
-
-        await interaction.reply({
-            content: 'Selecciona una opción para gestionar la reputación de los jugadores.',
-            components: [row],
-            flags: MessageFlags.Ephemeral
-        });
-        return;
-    }
-
-    if (action === 'admin_reputation_search_start') {
-        const modal = new ModalBuilder()
-            .setCustomId('admin_reputation_search_modal')
-            .setTitle('Buscar Reputación de Jugador');
-        
-        const psnIdInput = new TextInputBuilder()
-            .setCustomId('psn_id_input')
-            .setLabel("PSN ID del jugador")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput));
-        await interaction.showModal(modal);
-        return;
-    }
-
-    if (action === 'admin_reputation_view_vetted') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const vettedPlayers = await db.collection('playerReputation').find({ isVetted: true }).toArray();
-
-        if (vettedPlayers.length === 0) {
-            return interaction.editReply({ content: '✅ No hay jugadores vetados actualmente.' });
-        }
-
-        const description = vettedPlayers.map(p => 
-            `• **${p.psnId}** (<@${p.playerId}>) - Strikes: **${p.strikes}**`
-        ).join('\n');
-
-        const embed = new EmbedBuilder()
-            .setTitle('🚫 Jugadores Vetados')
-            .setColor('#e74c3c')
-            .setDescription(description)
-            .setFooter({ text: `Total: ${vettedPlayers.length}` });
-        
-        await interaction.editReply({ embeds: [embed] });
-        return;
-    }
-
-    if (action === 'draft_fill_test_players') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const [draftShortId] = params;
-        try {
-            const resultMessage = await fillDraftWithTestPlayers(client, draftShortId);
-            await interaction.editReply(resultMessage);
-        } catch (error) {
-            console.error('Error al rellenar con jugadores de prueba:', error);
-            await interaction.editReply(`❌ Hubo un error durante el relleno: ${error.message}`);
-        }
-        return;
-    }
-
-    if (action === 'captain_make_pick') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const [draftShortId, captainId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-
-        if (draft.status !== 'seleccion' || draft.selection.order[draft.selection.turn] !== captainId) {
-            return interaction.editReply({ content: '❌ No es tu turno de seleccionar.' });
-        }
-
-        const pickEmbed = createDraftPickEmbed(draft, captainId);
-        await interaction.editReply(pickEmbed);
-        return;
-    }
-
-    if (action === 'captain_report_player_start') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const [draftShortId, captainId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-
-        const myPlayers = draft.players.filter(p => p.captainId === captainId && p.userId !== captainId);
-        
-        if (myPlayers.length === 0) {
-            return interaction.editReply({ content: 'No tienes jugadores en tu plantilla para reportar.' });
-        }
-
-        const playerOptions = myPlayers.map(p => ({
-            label: p.psnId,
-            description: `Posición: ${p.primaryPosition}`,
-            value: p.userId,
-        }));
-        
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`captain_report_player_select:${draftShortId}:${captainId}`)
-            .setPlaceholder('Selecciona el jugador que quieres reportar')
-            .addOptions(playerOptions);
-
-        await interaction.editReply({
-            content: 'Selecciona un jugador de tu plantilla para registrar un reporte. Solo puedes reportar a cada jugador una vez por draft.',
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
-        });
-        return;
-    }
-
-    if (action === 'captain_propose_trade' || action === 'captain_request_substitution') {
-        await interaction.reply({ content: 'Esta funcionalidad aún no está implementada.', flags: MessageFlags.Ephemeral });
-        return;
-    }
-
-    if (action === 'register_draft_captain' || action === 'register_draft_player') {
-        const [draftShortId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
-        
-        const userReputation = await getOrRegisterPlayerReputation(interaction.user.id, interaction.user.username);
-        if (userReputation.isVetted) {
-            return interaction.reply({
-                content: `❌ Tu cuenta está vetada y no puedes inscribirte en este draft debido a que tienes ${userReputation.strikes} strikes.`,
-                flags: MessageFlags.Ephemeral
-            });
-        }
-
-        const userId = interaction.user.id;
-        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
-                                  (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
-                                  draft.players.some(p => p.userId === userId) || 
-                                  (draft.pendingPayments && draft.pendingPayments[userId]);
-        if (isAlreadyRegistered) {
-            return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
-        }
-        
-        const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, draftShortId);
-        await interaction.reply(ruleStepContent);
-        return;
-    }
 
     if (action === 'admin_create_draft_start') {
         const simpleModal = new ModalBuilder()
@@ -186,6 +31,26 @@ export async function handleButton(interaction) {
         simpleModal.addComponents(new ActionRowBuilder().addComponents(nameInput));
 
         await interaction.showModal(simpleModal);
+        return;
+    }
+
+    if (action === 'register_draft_captain' || action === 'register_draft_player') {
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
+
+        const userId = interaction.user.id;
+        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
+                                  (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
+                                  draft.players.some(p => p.userId === userId) || 
+                                  draft.reserves.some(r => r.userId === userId) || 
+                                  (draft.pendingPayments && draft.pendingPayments[userId]);
+        if (isAlreadyRegistered) {
+            return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
+        }
+        
+        const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, draftShortId);
+        await interaction.reply(ruleStepContent);
         return;
     }
 
@@ -300,6 +165,24 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'draft_add_test_players') {
+        const [draftShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`add_draft_test_players_modal:${draftShortId}`)
+            .setTitle('Añadir Jugadores de Prueba');
+            
+        const amountInput = new TextInputBuilder()
+            .setCustomId('amount_input')
+            .setLabel("¿Cuántos jugadores de prueba quieres añadir?")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue('1');
+            
+        modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
     if (action === 'draft_simulate_picks') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -404,11 +287,11 @@ export async function handleButton(interaction) {
     }
     
     if (action === 'draft_start_selection') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         try {
             await startDraftSelection(client, draftShortId);
-            await interaction.editReply('✅ La fase de selección del draft ha comenzado. Se han enviado los paneles de control por MD a los capitanes.');
+            await interaction.editReply('✅ La fase de selección del draft ha comenzado.');
         } catch (error) {
             console.error('Error al iniciar la selección del draft:', error);
             await interaction.editReply(`❌ Hubo un error: ${error.message}`);
@@ -422,13 +305,18 @@ export async function handleButton(interaction) {
         if (!draft) {
             return interaction.reply({ content: 'Error: No se pudo encontrar ese draft.', flags: [MessageFlags.Ephemeral] });
         }
-        await interaction.reply({ content: `⏳ Recibido. Finalizando el draft **${draft.name}**. Los canales y paneles se limpiarán en breve.`, flags: [MessageFlags.Ephemeral] });
+        await interaction.reply({ content: `⏳ Recibido. Finalizando el draft **${draft.name}**. Los canales y mensajes se borrarán en breve.`, flags: [MessageFlags.Ephemeral] });
         await endDraft(client, draft);
         return;
     }
     
     if (action === 'draft_confirm_pick') {
         const [draftShortId, captainId, selectedPlayerId] = params;
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if (interaction.user.id !== captainId && !isAdmin) {
+            return interaction.reply({ content: 'No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
+        }
 
         await interaction.update({
             content: '✅ Pick confirmado. Procesando siguiente turno...',
@@ -443,6 +331,11 @@ export async function handleButton(interaction) {
 
     if (action === 'draft_undo_pick') {
         const [draftShortId, captainId] = params;
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if(interaction.user.id !== captainId && !isAdmin) {
+            return interaction.reply({ content: 'No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
+        }
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const pickEmbed = createDraftPickEmbed(draft, captainId);
