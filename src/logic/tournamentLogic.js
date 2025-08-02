@@ -1,4 +1,5 @@
-// src/logic/tournamentLogic.js
+// src/logic/tournamentLogic.js (Archivo Corregido)
+
 import { getDb, getOrRegisterPlayerReputation, incrementDraftsPlayedForStrikeRemoval, addStrikeToPlayer } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID, DRAFT_START_REQUIREMENTS, DRAFT_POSITIONS, PAYMENT_CONFIG } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
@@ -8,8 +9,6 @@ import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
-
-// --- INICIO DE LA MODIFICACIÓN (Función simulateDraftPicks añadida) ---
 
 /**
  * Simula todos los picks restantes en un draft, asignando jugadores aleatoriamente.
@@ -82,7 +81,6 @@ export async function simulateDraftPicks(client, draftShortId) {
         await setBotBusy(false, client);
     }
 }
-// --- FIN DE LA MODIFICACIÓN ---
 
 /**
  * Comprueba si el draft cumple los requisitos de jugadores para empezar.
@@ -258,15 +256,14 @@ export async function advanceDraftTurn(client, draftShortId) {
     const db = getDb();
     let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-    // Lógica de avance en serpentina
     const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
     let nextTurnIndex = draft.selection.turn;
     const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0;
 
     if (!isTurnaroundPick) {
-        if (round % 2 === 0) { // Ida
+        if (round % 2 === 0) { 
             nextTurnIndex++;
-        } else { // Vuelta
+        } else {
             nextTurnIndex--;
         }
     }
@@ -458,6 +455,34 @@ export async function requestUnregisterFromDraft(client, draft, userId) {
     await notificationsThread.send({ embeds: [embed], components: [row] });
     return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores." };
 }
+
+// --- INICIO DE LA CORRECCIÓN ---
+/**
+ * Confirma que el pago de un premio ha sido realizado y notifica al usuario.
+ * @param {import('discord.js').Client} client - El cliente de Discord.
+ * @param {string} userId - La ID del usuario que recibe el premio.
+ * @param {string} prizeType - El tipo de premio ('campeon' o 'finalista').
+ * @param {object} tournament - El objeto del torneo.
+ */
+export async function confirmPrizePayment(client, userId, prizeType, tournament) {
+    const db = getDb();
+    
+    // Este es un buen lugar para registrar en la base de datos que el pago se ha realizado.
+    // Por ejemplo:
+    // await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`prizesPaid.${prizeType}`]: true } });
+
+    try {
+        const user = await client.users.fetch(userId);
+        const prizeAmount = prizeType === 'campeon' ? tournament.config.prizeCampeon : tournament.config.prizeFinalista;
+        
+        await user.send(`✅ ¡Un administrador ha marcado tu premio de **${prizeAmount}€** (${prizeType}) del torneo **"${tournament.nombre}"** como pagado! Gracias por participar.`);
+
+    } catch (e) {
+        console.warn(`No se pudo notificar al usuario ${userId} sobre el pago del premio: ${e.message}`);
+    }
+}
+// --- FIN DE LA CORRECCIÓN ---
+
 
 // ==========================================================================================
 // CÓDIGO DE TORNEOS (SE MANTIENE SIN ALTERACIONES)
