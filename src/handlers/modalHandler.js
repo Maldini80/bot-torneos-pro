@@ -14,8 +14,6 @@ export async function handleModal(interaction) {
     const db = getDb();
     const [action, ...params] = customId.split(':');
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Se añade el manejador que faltaba para el modal de creación de draft.
     if (action === 'create_draft_modal') {
         const name = interaction.fields.getTextInputValue('draft_name_input');
 
@@ -27,7 +25,6 @@ export async function handleModal(interaction) {
                 { label: 'De Pago', value: 'pago' }
             ]);
 
-        // Responder a la interacción con el siguiente paso.
         await interaction.reply({
             content: `Has nombrado al draft como "${name}". Ahora, selecciona su tipo:`,
             components: [new ActionRowBuilder().addComponents(typeMenu)],
@@ -35,7 +32,6 @@ export async function handleModal(interaction) {
         });
         return;
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     if (action === 'add_draft_test_players_modal') {
         await interaction.reply({ content: '✅ Orden recibida. Añadiendo participantes de prueba...', flags: [MessageFlags.Ephemeral] });
@@ -145,11 +141,10 @@ export async function handleModal(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
         const isRegisteringAsCaptain = action.includes('captain');
-        let draftShortId, position, primaryPosition, secondaryPosition, teamStatus, streamPlatform, streamUsername;
+        let draftShortId, position, primaryPosition, secondaryPosition, teamStatus, streamPlatform;
     
         if (isRegisteringAsCaptain) {
             [draftShortId, position, streamPlatform] = params;
-            streamUsername = interaction.fields.getTextInputValue('stream_username_input');
         } else {
             [draftShortId, primaryPosition, secondaryPosition, teamStatus] = params;
         }
@@ -179,6 +174,7 @@ export async function handleModal(interaction) {
             if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
             
             const teamName = interaction.fields.getTextInputValue('team_name_input');
+            const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
             const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
             
             if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
@@ -473,7 +469,7 @@ export async function handleModal(interaction) {
         let bulkOps = [];
         for (let i = 0; i < amountToAdd; i++) {
             const teamId = `test_${Date.now()}_${i}`;
-            const teamData = { id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`, capitanId: interaction.user.id, capitanTag: interaction.user.tag, bandera: '🧪', paypal: 'admin@test.com', streamChannel: 'https://twitch.tv/test', twitter: 'test', inscritoEn: new Date() };
+            const teamData = { id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`, capitanId: teamId, capitanTag: `TestUser#${1000 + i}`, bandera: '🧪', paypal: 'admin@test.com', streamChannel: 'https://twitch.tv/test', twitter: 'test', inscritoEn: new Date() };
             bulkOps.push({ updateOne: { filter: { _id: tournament._id }, update: { $set: { [`teams.aprobados.${teamId}`]: teamData } } } });
         }
         if (bulkOps.length > 0) await db.collection('tournaments').bulkWrite(bulkOps);
