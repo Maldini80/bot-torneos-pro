@@ -157,37 +157,54 @@ async function fullCleanupDraft(client, draft) {
     }
 }
 
+// --- INICIO DE LA MODIFICACIÓN ---
+// Lógica de limpieza completamente reescrita para ser más robusta
 async function cleanupDraftChannel(client, draft) {
      try {
         const channel = await client.channels.fetch(draft.discordChannelId).catch(() => null);
         if (!channel) return;
 
-        const deleteMessageSafe = async (messageId) => {
-            if (!messageId) return;
-            try {
-                const msg = await channel.messages.fetch(messageId).catch(() => null);
-                if (msg) await msg.delete();
-            } catch (err) {
-                 if (err.code !== 10008) {
-                    console.warn(`No se pudo borrar el mensaje ${messageId} del canal de draft: ${err.message}`);
-                 }
+        // 1. Obtener todos los mensajes del canal
+        const messages = await channel.messages.fetch({ limit: 100 });
+        const messagesToDelete = [];
+        let teamsMessageToKeep = null;
+
+        // 2. Identificar el panel de equipos a conservar y el resto de mensajes del bot a borrar
+        for (const message of messages.values()) {
+            if (message.author.id === client.user.id) {
+                if (message.id === draft.discordMessageIds.mainInterfaceTeamsMessageId) {
+                    teamsMessageToKeep = message;
+                } else {
+                    messagesToDelete.push(message);
+                }
             }
-        };
+        }
 
-        await deleteMessageSafe(draft.discordMessageIds.mainInterfacePlayerMessageId);
-        await deleteMessageSafe(draft.discordMessageIds.turnOrderMessageId);
+        // 3. Borrar todos los mensajes innecesarios en un solo lote
+        if (messagesToDelete.length > 0) {
+            await channel.bulkDelete(messagesToDelete, true).catch(err => {
+                console.warn(`No se pudieron borrar todos los mensajes del draft en lote, intentando uno por uno: ${err.message}`);
+                for (const msg of messagesToDelete) {
+                    msg.delete().catch(e => console.warn(`No se pudo borrar el mensaje individual ${msg.id}: ${e.message}`));
+                }
+            });
+        }
         
-        const finalDraftState = await getDb().collection('drafts').findOne({ _id: draft._id });
-        const [,, teamsEmbed] = createDraftMainInterface(finalDraftState);
-        const teamsMessage = await channel.messages.fetch(draft.discordMessageIds.mainInterfaceTeamsMessageId).catch(() => null);
-        if(teamsMessage) await teamsMessage.edit({ embeds: [teamsEmbed] });
+        // 4. Actualizar el panel de equipos que se queda
+        if (teamsMessageToKeep) {
+            const finalDraftState = await getDb().collection('drafts').findOne({ _id: draft._id });
+            const [, finalTeamsEmbed] = createDraftMainInterface(finalDraftState);
+            await teamsMessageToKeep.edit({ embeds: [finalTeamsEmbed], components: [] }); // Eliminar componentes por si acaso
+        }
 
+        // 5. Enviar mensaje final de archivo
         await channel.send({ content: '✅ **Draft finalizado y torneo generado.**\nEste canal permanecerá como archivo para consultar las plantillas de los equipos.' });
 
     } catch (error) {
         console.error(`Error al limpiar el canal del draft ${draft.shortId}:`, error);
     }
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
 
 export async function simulateDraftPicks(client, draftShortId) {
@@ -854,12 +871,10 @@ export async function createNewDraft(client, guild, name, shortId, config) {
     await setBotBusy(true);
     try {
         const db = getDb();
-        // --- INICIO DE LA MODIFICACIÓN ---
         const existingDraft = await db.collection('drafts').findOne({ shortId });
         if (existingDraft) {
             throw new Error(`Ya existe un draft con el nombre o ID "${name}". Por favor, elige un nombre único.`);
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         if (!arbitroRole) throw new Error("El rol de Árbitro no fue encontrado.");
