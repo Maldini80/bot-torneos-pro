@@ -9,7 +9,80 @@ import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 
-// --- INICIO DE LA MODIFICACIÓN (Nuevas funciones y lógica de Draft) ---
+// --- INICIO DE LA MODIFICACIÓN (Función simulateDraftPicks añadida) ---
+
+/**
+ * Simula todos los picks restantes en un draft, asignando jugadores aleatoriamente.
+ * @param {import('discord.js').Client} client - El cliente de Discord.
+ * @param {string} draftShortId - La ID corta del draft.
+ */
+export async function simulateDraftPicks(client, draftShortId) {
+    await setBotBusy(true, client);
+    const db = getDb();
+    try {
+        let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) throw new Error('Draft no encontrado.');
+        if (draft.status !== 'seleccion') throw new Error('La simulación solo puede iniciarse durante la fase de selección.');
+
+        let availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
+        const captains = draft.captains;
+
+        const shuffleArray = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        };
+
+        shuffleArray(availablePlayers);
+
+        const playersPerTeam = 11;
+        const bulkOps = [];
+
+        for (const captain of captains) {
+            const currentTeamSize = draft.players.filter(p => p.captainId === captain.userId).length;
+            const playersNeeded = playersPerTeam - currentTeamSize;
+
+            for (let i = 0; i < playersNeeded; i++) {
+                const playerToAssign = availablePlayers.pop();
+                if (!playerToAssign) break;
+                bulkOps.push({
+                    updateOne: {
+                        filter: { _id: draft._id, "players.userId": playerToAssign.userId },
+                        update: { $set: { "players.$.captainId": captain.userId } }
+                    }
+                });
+            }
+        }
+
+        if (bulkOps.length > 0) {
+            await db.collection('drafts').bulkWrite(bulkOps);
+        }
+
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $set: { status: 'finalizado' } }
+        );
+
+        const finalDraftState = await db.collection('drafts').findOne({ _id: draft._id });
+        await updateDraftMainInterface(client, finalDraftState.shortId);
+        await updateDraftManagementPanel(client, finalDraftState);
+        await updatePublicMessages(client, finalDraftState);
+        await updateAllCaptainDmPanels(client, finalDraftState); // Desactivar paneles
+        
+        const draftChannel = await client.channels.fetch(finalDraftState.discordChannelId);
+        if (draftChannel) {
+             await draftChannel.send('**✅ LA SELECCIÓN HA SIDO COMPLETADA POR SIMULACIÓN DE UN ADMIN.**');
+        }
+
+    } catch (error) {
+        console.error(`[DRAFT SIMULATE] Error durante la simulación de picks para ${draftShortId}:`, error);
+        throw error;
+    } finally {
+        await setBotBusy(false, client);
+    }
+}
+// --- FIN DE LA MODIFICACIÓN ---
 
 /**
  * Comprueba si el draft cumple los requisitos de jugadores para empezar.
@@ -47,7 +120,7 @@ export function checkDraftStartRequirements(draft) {
  * @param {string} draftShortId - La ID corta del draft.
  * @returns {Promise<string>} Un mensaje de confirmación para el administrador.
  */
-export async function fillDraftWithTestPlayers(draftShortId) {
+export async function fillDraftWithTestPlayers(client, draftShortId) {
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     if (!draft) throw new Error('Draft no encontrado.');
@@ -77,7 +150,6 @@ export async function fillDraftWithTestPlayers(draftShortId) {
         reportMessage += `• **${count}** x ${DRAFT_POSITIONS[pos] || pos}\n`;
     };
     
-    // Rellenar déficits específicos
     if (deficits.GK) addPlayersFor('GK', deficits.GK);
     if (deficits.DFC) addPlayersFor('DFC', deficits.DFC);
     if (deficits.CAR) addPlayersFor('CAR', deficits.CAR);
@@ -124,22 +196,24 @@ export async function startDraftSelection(client, draftShortId) {
 
         await db.collection('drafts').updateOne(
             { _id: draft._id },
-            { $set: { status: 'seleccion', 'selection.order': captainIds, 'selection.currentPick': 1 } }
+            { $set: { status: 'seleccion', 'selection.order': captainIds, 'selection.currentPick': 1, 'selection.turn': 0 } }
         );
         
         draft = await db.collection('drafts').findOne({ _id: draft._id });
         
         const captainUpdatePromises = draft.captains.map(async (captain) => {
-            const panelContent = createCaptainDmPanel(captain, draft);
-            try {
-                const user = await client.users.fetch(captain.userId);
-                const dmMessage = await user.send(panelContent);
-                await db.collection('drafts').updateOne(
-                    { _id: draft._id, "captains.userId": captain.userId },
-                    { $set: { "captains.$.dmPanelMessageId": dmMessage.id } }
-                );
-            } catch (e) {
-                console.error(`No se pudo enviar el panel de MD al capitán ${captain.userName}`, e.message);
+            if (/^\d+$/.test(captain.userId)) {
+                const panelContent = createCaptainDmPanel(captain, draft);
+                try {
+                    const user = await client.users.fetch(captain.userId);
+                    const dmMessage = await user.send(panelContent);
+                    await db.collection('drafts').updateOne(
+                        { _id: draft._id, "captains.userId": captain.userId },
+                        { $set: { "captains.$.dmPanelMessageId": dmMessage.id } }
+                    );
+                } catch (e) {
+                    console.error(`No se pudo enviar el panel de MD al capitán ${captain.userName}`, e.message);
+                }
             }
         });
         await Promise.all(captainUpdatePromises);
@@ -184,9 +258,9 @@ export async function advanceDraftTurn(client, draftShortId) {
     const db = getDb();
     let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
+    // Lógica de avance en serpentina
     const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
     let nextTurnIndex = draft.selection.turn;
-
     const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0;
 
     if (!isTurnaroundPick) {
@@ -286,16 +360,7 @@ async function fullCleanupDraft(client, draft) {
     }
 }
 
-/**
- * Procesa un reporte de un jugador hecho por un capitán.
- * @param {string} targetPlayerId - ID del jugador reportado.
- * @param {string} captainId - ID del capitán que reporta.
- * @param {object} draft - El objeto del draft.
- * @param {string} reason - Motivo del reporte.
- * @returns {Promise<string>} Mensaje de confirmación para el capitán.
- */
 export async function handlePlayerReport(targetPlayerId, captainId, draft, reason) {
-    const db = getDb();
     const captain = draft.captains.find(c => c.userId === captainId);
     const targetPlayer = draft.players.find(p => p.userId === targetPlayerId);
     
@@ -315,49 +380,27 @@ export async function handlePlayerReport(targetPlayerId, captainId, draft, reaso
     }
 }
 
-// --- FIN DE LA MODIFICACIÓN ---
-
-
-// ==========================================================================================
-// A PARTIR DE AQUÍ, EL CÓDIGO PERTENECE AL SISTEMA DE TORNEOS Y SE MANTIENE SIN ALTERACIONES
-// ==========================================================================================
-
 export async function approveDraftCaptain(client, draft, captainData) {
     const db = getDb();
+    await getOrRegisterPlayerReputation(captainData.userId, captainData.psnId);
 
     const captainAsPlayer = {
-        userId: captainData.userId,
-        userName: captainData.userName,
-        psnId: captainData.psnId,
-        twitter: captainData.twitter,
-        primaryPosition: captainData.position,
-        secondaryPosition: captainData.position,
-        currentTeam: captainData.teamName,
-        isCaptain: true,
-        captainId: null
+        userId: captainData.userId, userName: captainData.userName, psnId: captainData.psnId,
+        twitter: captainData.twitter, primaryPosition: captainData.position, secondaryPosition: captainData.position,
+        isCaptain: true, captainId: null
     };
 
     await db.collection('drafts').updateOne(
         { _id: draft._id },
         {
-            $push: {
-                captains: captainData,
-                players: captainAsPlayer
-            },
+            $push: { captains: captainData, players: captainAsPlayer },
             $unset: { [`pendingCaptains.${captainData.userId}`]: "" }
         }
     );
 
     try {
         const user = await client.users.fetch(captainData.userId);
-        const embed = new EmbedBuilder()
-            .setColor('#2ecc71')
-            .setTitle(`✅ Aprobado para el Draft: ${draft.name}`)
-            .setDescription(
-                `¡Enhorabuena! Tu solicitud para ser capitán del equipo **${captainData.teamName}** ha sido **aprobada**.\n\n` +
-                `Ya apareces en la lista oficial de capitanes y jugadores.`
-            );
-        await user.send({ embeds: [embed] });
+        await user.send(`✅ ¡Enhorabuena! Tu solicitud para ser capitán del equipo **${captainData.teamName}** en el draft **${draft.name}** ha sido **aprobada**.`);
     } catch (e) { console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message); }
     
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
@@ -374,7 +417,6 @@ export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     if (isCaptain) {
         updateQuery = { $pull: { captains: { userId: userIdToKick }, players: { userId: userIdToKick } } };
     } else {
-        // Se elimina la referencia a 'reserves'
         updateQuery = { $pull: { players: { userId: userIdToKick } } };
     }
 
@@ -398,37 +440,28 @@ export async function approveUnregisterFromDraft(client, draft, userIdToUnregist
 
 export async function requestUnregisterFromDraft(client, draft, userId) {
     const isPlayer = draft.players.some(p => p.userId === userId);
-    if (!isPlayer) {
-        return { success: false, message: "No estás inscrito en este draft." };
-    }
-
+    if (!isPlayer) return { success: false, message: "No estás inscrito en este draft." };
     const isCaptain = draft.captains.some(c => c.userId === userId);
-    if (isCaptain) {
-        return { success: false, message: "Los capitanes no pueden solicitar la baja. Debe ser gestionado por un administrador." };
-    }
+    if (isCaptain) return { success: false, message: "Los capitanes no pueden solicitar la baja. Debe ser gestionado por un administrador." };
 
     const notificationsThread = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
-    if (!notificationsThread) {
-        return { success: false, message: "Error interno del bot." };
-    }
+    if (!notificationsThread) return { success: false, message: "Error interno del bot." };
 
     const player = draft.players.find(p => p.userId === userId);
-
-    const embed = new EmbedBuilder()
-        .setColor('#e67e22')
-        .setTitle('👋 Solicitud de Baja de Draft')
+    const embed = new EmbedBuilder().setColor('#e67e22').setTitle('👋 Solicitud de Baja de Draft')
         .setDescription(`El jugador **${player.userName}** (${player.psnId}) solicita darse de baja del draft **${draft.name}**.`)
         .setFooter({ text: `ID del Jugador: ${userId}`});
-
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`admin_unregister_draft_approve:${draft.shortId}:${userId}`).setLabel('Aprobar Baja').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`admin_unregister_draft_reject:${draft.shortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
     );
-
     await notificationsThread.send({ embeds: [embed], components: [row] });
-
     return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores." };
 }
+
+// ==========================================================================================
+// CÓDIGO DE TORNEOS (SE MANTIENE SIN ALTERACIONES)
+// ==========================================================================================
 
 export async function createNewTournament(client, guild, name, shortId, config) {
     await setBotBusy(true, client);
