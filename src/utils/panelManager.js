@@ -1,10 +1,8 @@
 // src/utils/panelManager.js
 import { getDb } from '../../database.js';
 import { CHANNELS, TOURNAMENT_STATUS_ICONS } from '../../config.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se importa el nuevo embed para el panel de MD del capitán.
-import { createGlobalAdminPanel, createTournamentManagementPanel, createDraftManagementPanel, createCaptainDmPanel } from './embeds.js';
-// --- FIN DE LA MODIFICACIÓN ---
+// Se importa el nuevo embed para la gestión del draft
+import { createGlobalAdminPanel, createTournamentManagementPanel, createDraftManagementPanel } from './embeds.js';
 import { isBotBusy } from '../../index.js';
 
 async function fetchGlobalCreationPanel(client) {
@@ -24,6 +22,7 @@ async function fetchGlobalCreationPanel(client) {
 export async function updateAdminPanel(client) {
     const msg = await fetchGlobalCreationPanel(client);
     if (!msg) return;
+    // La creación del panel ahora es asíncrona
     const panelContent = await createGlobalAdminPanel(isBotBusy);
     try {
         await msg.edit(panelContent);
@@ -61,6 +60,12 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
+
+// --- INICIO DE LA MODIFICACIÓN ---
+
+/**
+ * NUEVO: Actualiza el panel de gestión de un draft específico.
+ */
 export async function updateDraftManagementPanel(client, draft, busyState = isBotBusy) {
     if (!draft || !draft.discordMessageIds.managementThreadId) return;
     try {
@@ -80,51 +85,14 @@ export async function updateDraftManagementPanel(client, draft, busyState = isBo
     }
 }
 
+/**
+ * NUEVO: Actualiza TODOS los paneles de gestión de drafts activos.
+ */
 export async function updateAllDraftManagementPanels(client, busyState) {
     const db = getDb();
     const activeDrafts = await db.collection('drafts').find({ status: { $nin: ['torneo_generado', 'cancelado'] } }).toArray();
     for (const draft of activeDrafts) {
         await updateDraftManagementPanel(client, draft, busyState);
-    }
-}
-
-// --- INICIO DE LA MODIFICACIÓN (Nuevas funciones para paneles de MD) ---
-
-/**
- * Actualiza el panel de MD de un capitán específico.
- * @param {import('discord.js').Client} client - El cliente de Discord.
- * @param {object} captain - El objeto del capitán.
- * @param {object} draft - El estado actual del draft.
- */
-export async function updateCaptainDmPanel(client, captain, draft) {
-    if (!captain.dmPanelMessageId || !/^\d+$/.test(captain.userId)) return;
-
-    try {
-        const user = await client.users.fetch(captain.userId);
-        const dmChannel = await user.createDM();
-        const message = await dmChannel.messages.fetch(captain.dmPanelMessageId);
-        const panelContent = createCaptainDmPanel(captain, draft);
-        await message.edit(panelContent);
-    } catch (error) {
-        if (error.code === 50007) { // Cannot send messages to this user
-            console.warn(`No se pudo actualizar el panel de MD para ${captain.userName} porque tiene los MDs bloqueados.`);
-        } else if (error.code !== 10008) { // Unknown Message
-            console.warn(`No se pudo actualizar el panel de MD para ${captain.userName}. El mensaje podría haber sido borrado. Error: ${error.message}`);
-        }
-    }
-}
-
-
-/**
- * Actualiza todos los paneles de MD de los capitanes de un draft.
- * @param {import('discord.js').Client} client - El cliente de Discord.
- * @param {object} draft - El estado actual del draft.
- */
-export async function updateAllCaptainDmPanels(client, draft) {
-    if (draft.status !== 'seleccion') return;
-
-    for (const captain of draft.captains) {
-        await updateCaptainDmPanel(client, captain, draft);
     }
 }
 
