@@ -95,6 +95,7 @@ export async function handleButton(interaction) {
         return;
     }
 
+    // --- INICIO DE LA MODIFICACIÓN: Implementar paginación para la lista de participantes ---
     if (action === 'admin_gestionar_participantes_draft') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -106,27 +107,55 @@ export async function handleButton(interaction) {
             return interaction.editReply({ content: 'ℹ️ No hay participantes inscritos para gestionar.' });
         }
     
-        const options = allParticipants.map(p => {
-            const isCaptain = draft.captains.some(c => c.userId === p.userId);
-            return {
-                label: p.userName || p.psnId,
-                description: isCaptain ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
-                value: p.userId,
-                emoji: isCaptain ? '👑' : '👤'
-            };
-        });
+        const pageSize = 25; // Límite de opciones de Discord
+        if (allParticipants.length > pageSize) {
+            // Se necesita paginación
+            const pageCount = Math.ceil(allParticipants.length / pageSize);
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const start = i * pageSize + 1;
+                const end = Math.min((i + 1) * pageSize, allParticipants.length);
+                pageOptions.push({
+                    label: `Participantes ${start} - ${end}`,
+                    value: `page_${i}`,
+                });
+            }
+
+            const pageSelectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_kick_participant_page_select:${draftShortId}`)
+                .setPlaceholder('Selecciona una página de participantes')
+                .addOptions(pageOptions);
+
+            await interaction.editReply({
+                content: `Hay demasiados participantes para mostrarlos en una sola lista. Por favor, selecciona un grupo para ver:`,
+                components: [new ActionRowBuilder().addComponents(pageSelectMenu)]
+            });
+
+        } else {
+            // No se necesita paginación, mostrar la lista directamente
+            const options = allParticipants.map(p => {
+                const isCaptain = draft.captains.some(c => c.userId === p.userId);
+                return {
+                    label: p.userName || p.psnId,
+                    description: isCaptain ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
+                    value: p.userId,
+                    emoji: isCaptain ? '👑' : '👤'
+                };
+            });
     
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
-            .setPlaceholder('Selecciona un participante para expulsar')
-            .addOptions(options);
-        
-        await interaction.editReply({
-            content: 'Selecciona un participante de la lista para expulsarlo del draft. Esta acción es irreversible.',
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
-        });
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
+                .setPlaceholder('Selecciona un participante para expulsar')
+                .addOptions(options);
+            
+            await interaction.editReply({
+                content: 'Selecciona un participante de la lista para expulsarlo del draft. Esta acción es irreversible.',
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+        }
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
     
     if (action === 'admin_unregister_draft_approve') {
         await interaction.deferUpdate();
@@ -183,15 +212,12 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN: Preparar para simulación híbrida ---
     if (action === 'draft_simulate_picks') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
-        const adminUserId = interaction.user.id; // Capturamos la ID del admin que hace clic
+        const adminUserId = interaction.user.id; 
         try {
-            // Pasamos el ID del usuario que inicia la simulación a la lógica.
             await simulateDraftPicks(client, draftShortId, adminUserId);
-            // La respuesta ahora indica que es una simulación híbrida.
             await interaction.editReply('✅ Simulación híbrida iniciada. El bot elegirá automáticamente por los demás capitanes. Se te notificará cuando sea tu turno de elegir.');
         } catch (error) {
             console.error('Error al simular picks del draft:', error);
@@ -199,7 +225,6 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
     
     if (action === 'draft_force_tournament') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
