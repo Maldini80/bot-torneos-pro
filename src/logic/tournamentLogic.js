@@ -989,6 +989,7 @@ export async function startDraftSelection(client, draftShortId) {
 }
 
 export async function notifyNextCaptain(client, draft) {
+    const guild = await client.guilds.fetch(draft.guildId);
     const nonCaptainPlayers = draft.players.filter(p => !p.isCaptain);
     const picksToMake = nonCaptainPlayers.length;
     if (draft.selection.currentPick > picksToMake) {
@@ -1006,29 +1007,32 @@ export async function notifyNextCaptain(client, draft) {
     const currentCaptainId = draft.selection.order[draft.selection.turn];
     if (!currentCaptainId) return;
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se rediseña el envío de mensajes de pick para que sean efímeros
     const draftChannel = await client.channels.fetch(draft.discordChannelId);
     
-    // 1. Borrar mensajes de pick anteriores que no sean efímeros (si los hubiera de versiones antiguas)
-    const messages = await draftChannel.messages.fetch({ limit: 20 });
-    const oldPickMessages = messages.filter(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Turno de Selección:'));
+    // --- INICIO DE LA MODIFICACIÓN ---
+    const messages = await draftChannel.messages.fetch({ limit: 50 });
+    const oldPickMessages = messages.filter(m => 
+        m.author.id === client.user.id && 
+        m.embeds[0]?.title.startsWith('Turno de Selección:')
+    );
     if (oldPickMessages.size > 0) {
         await draftChannel.bulkDelete(oldPickMessages).catch(() => {});
     }
 
-    // 2. Enviar el nuevo mensaje de pick como efímero (privado)
     const pickInteractionContent = createDraftPickEmbed(draft, currentCaptainId);
+    
+    // Intentar enviar por MD, si falla, enviar efímero en el canal.
     try {
-        const captainUser = await client.users.fetch(currentCaptainId);
-        await captainUser.send(pickInteractionContent);
+        if (/^\d+$/.test(currentCaptainId)) {
+            const captainUser = await client.users.fetch(currentCaptainId);
+            await captainUser.send(pickInteractionContent);
+        } else {
+            // Si es un capitán de prueba, enviar siempre al canal
+            await draftChannel.send(pickInteractionContent);
+        }
     } catch(e) {
         console.warn(`No se pudo enviar el MD de turno a ${currentCaptainId}, enviando al canal.`);
-        // Si falla el MD, lo envía al canal como antes pero seguirá siendo efímero.
-        const captainMember = await guild.members.fetch(currentCaptainId).catch(()=>null);
-        if(captainMember) {
-             await draftChannel.send(pickInteractionContent);
-        }
+        await draftChannel.send(pickInteractionContent);
     }
     // --- FIN DE LA MODIFICACIÓN ---
 }
