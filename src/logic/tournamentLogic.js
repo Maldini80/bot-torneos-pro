@@ -53,15 +53,18 @@ export async function approveDraftCaptain(client, draft, captainData) {
     await updateDraftManagementPanel(client, updatedDraft);
 }
 
+// --- INICIO DE LA MODIFICACIÓN: Eliminar lógica de 'reserves' ---
 export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     const db = getDb();
     const isCaptain = draft.captains.some(c => c.userId === userIdToKick);
 
     let updateQuery;
     if (isCaptain) {
+        // Si es capitán, se elimina de ambas listas
         updateQuery = { $pull: { captains: { userId: userIdToKick }, players: { userId: userIdToKick } } };
     } else {
-        updateQuery = { $pull: { players: { userId: userIdToKick }, reserves: { userId: userIdToKick } } };
+        // Si es solo jugador, se elimina de la lista de jugadores
+        updateQuery = { $pull: { players: { userId: userIdToKick } } };
     }
 
     await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
@@ -71,6 +74,7 @@ export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
 export async function approveUnregisterFromDraft(client, draft, userIdToUnregister) {
     await kickPlayerFromDraft(client, draft, userIdToUnregister);
@@ -881,9 +885,9 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 entryFee: config.entryFee || 0, 
                 prizeCampeon: config.prizeCampeon || 0,
                 prizeFinalista: config.prizeFinalista || 0,
-                allowReserves: !config.isPaid 
+                allowReserves: false // Se establece en false para eliminar el sistema de reservas
             },
-            captains: [], pendingCaptains: {}, players: [], reserves: [], pendingPayments: {},
+            captains: [], pendingCaptains: {}, players: [], pendingPayments: {},
             selection: { turn: 0, order: [], currentPick: 1 },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
@@ -940,6 +944,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
     }
 }
 
+// --- INICIO DE LA MODIFICACIÓN: Lógica de validación por cuotas de posición ---
 export async function startDraftSelection(client, draftShortId) {
     try {
         await setBotBusy(true);
@@ -948,11 +953,32 @@ export async function startDraftSelection(client, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        const nonCaptainPlayersCount = draft.players.filter(p => !p.isCaptain).length;
-        if (draft.captains.length < 8 || nonCaptainPlayersCount < 80) {
-            throw new Error(`No hay suficientes participantes. Se necesitan 8 capitanes y 80 jugadores. Actualmente hay ${draft.captains.length} capitanes y ${nonCaptainPlayersCount} jugadores.`);
+        // Comprobación de requisitos
+        const positionMinimums = { GK: 8, DFC: 24, CARR: 16, MCD: 16, 'MV/MCO': 8, DC: 16 };
+        const positionCounts = { GK: 0, DFC: 0, CARR: 0, MCD: 0, 'MV/MCO': 0, DC: 0 };
+        
+        draft.players.forEach(player => {
+            const uniquePositions = new Set([player.primaryPosition, player.secondaryPosition]);
+            uniquePositions.forEach(pos => {
+                if (positionCounts.hasOwnProperty(pos)) {
+                    positionCounts[pos]++;
+                }
+            });
+        });
+
+        if (draft.captains.length < 8) {
+            throw new Error(`No se cumplen los requisitos. Se necesitan 8 capitanes (hay ${draft.captains.length}).`);
         }
 
+        const missingPositions = Object.keys(positionMinimums)
+            .filter(pos => positionCounts[pos] < positionMinimums[pos])
+            .map(pos => `- ${pos}: Se necesitan ${positionMinimums[pos]} (hay ${positionCounts[pos]})`);
+
+        if (missingPositions.length > 0) {
+            throw new Error(`No se cumplen los requisitos. Faltan jugadores en las siguientes posiciones:\n${missingPositions.join('\n')}`);
+        }
+
+        // Si se cumplen los requisitos, se procede
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -961,7 +987,7 @@ export async function startDraftSelection(client, draftShortId) {
 
         await db.collection('drafts').updateOne(
             { _id: draft._id },
-            { $set: { status: 'seleccion', 'selection.order': captainIds, 'selection.turn': 0, 'selection.currentPick': 1 } }
+            { $set: { status: 'seleccion', 'selection.order': captainIds, 'selection.currentPick': 1 } }
         );
         
         draft = await db.collection('drafts').findOne({ _id: draft._id });
@@ -973,11 +999,12 @@ export async function startDraftSelection(client, draftShortId) {
         await notifyNextCaptain(client, draft);
     } catch (error) {
         console.error("[DRAFT START SELECTION]", error);
-        throw error;
+        throw error; // Re-lanzamos el error para que sea capturado por el manejador del botón.
     } finally {
         await setBotBusy(false);
     }
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
 export async function notifyNextCaptain(client, draft) {
     const db = getDb();
