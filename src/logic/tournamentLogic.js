@@ -890,9 +890,9 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 entryFee: config.entryFee || 0, 
                 prizeCampeon: config.prizeCampeon || 0,
                 prizeFinalista: config.prizeFinalista || 0,
-                allowReserves: !config.isPaid 
+                allowReserves: false // Se elimina la lógica de reservas
             },
-            captains: [], pendingCaptains: {}, players: [], reserves: [], pendingPayments: {},
+            captains: [], pendingCaptains: {}, players: [], pendingPayments: {},
             selection: { turn: 0, order: [], currentPick: 1 },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
@@ -957,10 +957,27 @@ export async function startDraftSelection(client, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        const nonCaptainPlayersCount = draft.players.filter(p => !p.isCaptain).length;
-        if (draft.captains.length < 8 || nonCaptainPlayersCount < 80) {
-            throw new Error(`No hay suficientes participantes. Se necesitan 8 capitanes y 80 jugadores. Actualmente hay ${draft.captains.length} capitanes y ${nonCaptainPlayersCount} jugadores.`);
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Nueva lógica de comprobación de mínimos
+        const playerCounts = { GK: 0, DFC: 0, CARR: 0, MCD: 0, 'MV/MCO': 0, DC: 0 };
+        draft.players.forEach(p => {
+            if (playerCounts[p.primaryPosition] !== undefined) {
+                playerCounts[p.primaryPosition]++;
+            }
+        });
+
+        const minimums = { GK: 8, DFC: 24, CARR: 16, MCD: 8, 'MV/MCO': 16, DC: 16 };
+        const missing = [];
+        for (const pos in minimums) {
+            if (playerCounts[pos] < minimums[pos]) {
+                missing.push(`**${minimums[pos]} ${pos}** (hay ${playerCounts[pos]})`);
+            }
         }
+
+        if (missing.length > 0) {
+            throw new Error(`No se puede iniciar el draft. Faltan jugadores:\n- ${missing.join('\n- ')}`);
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
 
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
@@ -1043,18 +1060,15 @@ export async function handlePlayerSelection(client, draftShortId, captainId, pla
         { $set: { "players.$.captainId": captainId } }
     );
     
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Enviar anuncio público temporal
     try {
         const channel = await client.channels.fetch(draft.discordChannelId);
         const announcement = await channel.send(`🛡️ **${captain.teamName}** ha seleccionado a **${player.psnId}** (${player.primaryPosition})!`);
         setTimeout(() => {
             announcement.delete().catch(() => {});
-        }, 20000); // 20 segundos
+        }, 20000);
     } catch (e) {
         console.warn('No se pudo enviar el anuncio del pick.');
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     await updateDraftMainInterface(client, draftShortId);
 }
