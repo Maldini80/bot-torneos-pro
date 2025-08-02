@@ -7,6 +7,11 @@ export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
     const cleanEquipoA = JSON.parse(JSON.stringify(equipoA));
     const cleanEquipoB = JSON.parse(JSON.stringify(equipoB));
 
+    // --- INICIO DE LA MODIFICACIÓN (Eliminada referencia a 'reserves') ---
+    // La estructura base del partido se mantiene, solo que los datos de equipo ya no provendrán de una lista de reservas.
+    // El código como tal no cambia, pero su contexto sí.
+    // --- FIN DE LA MODIFICACIÓN ---
+
     return {
         matchId: `match_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
         nombreGrupo, jornada, equipoA: cleanEquipoA, equipoB: cleanEquipoB,
@@ -60,15 +65,12 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             reason: `Partido de torneo: ${tournamentShortId}`
         });
 
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Función para añadir miembros solo si tienen una ID válida (numérica, no de prueba)
         const addMemberIfReal = async (memberId) => {
             if (memberId && /^\d+$/.test(memberId)) {
                 await thread.members.add(memberId).catch(e => console.warn(`No se pudo añadir al miembro ${memberId} al hilo: ${e.message}`));
             }
         };
 
-        // Añadir a todos los miembros reales (capitanes y co-capitanes)
         await Promise.all([
             addMemberIfReal(partido.equipoA.capitanId),
             addMemberIfReal(partido.equipoB.capitanId),
@@ -76,14 +78,12 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             addMemberIfReal(partido.equipoB.coCaptainId)
         ]);
         
-        // Construir la cadena de menciones solo para miembros reales
         let mentions = [];
         if (partido.equipoA.capitanId && /^\d+$/.test(partido.equipoA.capitanId)) mentions.push(`<@${partido.equipoA.capitanId}>`);
         if (partido.equipoB.capitanId && /^\d+$/.test(partido.equipoB.capitanId)) mentions.push(`<@${partido.equipoB.capitanId}>`);
         if (partido.equipoA.coCaptainId && /^\d+$/.test(partido.equipoA.coCaptainId)) mentions.push(`<@${partido.equipoA.coCaptainId}>`);
         if (partido.equipoB.coCaptainId && /^\d+$/.test(partido.equipoB.coCaptainId)) mentions.push(`<@${partido.equipoB.coCaptainId}>`);
         const mentionString = mentions.length > 0 ? mentions.join(' y ') : 'Capitanes no encontrados (equipos de prueba).';
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
             .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*`);
