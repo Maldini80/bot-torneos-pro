@@ -254,32 +254,32 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
 
         const tournamentName = `Torneo Draft - ${draft.name}`;
         const tournamentShortId = `draft-${draft.shortId}`;
+        
+        // --- INICIO DE LA MODIFICACIÓN ---
+        const format = TOURNAMENT_FORMATS[formatId];
+        if (!format) throw new Error(`Formato de torneo inválido: ${formatId}`);
+
         const config = {
             formatId: formatId,
+            format: format, // Se añade el objeto de formato completo
             isPaid: draft.config.isPaid,
             entryFee: draft.config.entryFee,
             prizeCampeon: draft.config.prizeCampeon,
             prizeFinalista: draft.config.prizeFinalista,
             startTime: null
         };
-        
-        const format = TOURNAMENT_FORMATS[config.formatId];
-        if (!format) throw new Error(`Formato de torneo inválido: ${config.formatId}`);
+        // --- FIN DE LA MODIFICACIÓN ---
         
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
 
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se filtran las IDs de los capitanes para incluir solo las que son numéricas (IDs de Discord reales),
-        // ignorando las IDs de texto de los jugadores de prueba para evitar el crash.
         const participantsAndStaffPermissions = [
             { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
             { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
             ...Object.keys(approvedTeams)
-                .filter(id => /^\d+$/.test(id)) // <-- Esta línea filtra las IDs no válidas.
+                .filter(id => /^\d+$/.test(id))
                 .map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
         ];
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const infoChannel = await guild.channels.create({ name: `🏆-${tournamentShortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: [{ id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }] });
         const matchesChannel = await guild.channels.create({ name: `⚽-${tournamentShortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
@@ -427,8 +427,7 @@ export async function approveTeam(client, tournament, teamData) {
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes, 'teams.reserva': latestTournament.teams.reserva }});
     
-    // --- INICIO DE LA MODIFICACIÓN ---
-    if (/^\d+$/.test(teamData.capitanId)) { // Comprobar si es una ID real
+    if (/^\d+$/.test(teamData.capitanId)) {
         try {
             const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
             const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
@@ -464,7 +463,6 @@ export async function approveTeam(client, tournament, teamData) {
             console.error(`Error en la aprobación o al dar permisos al capitán ${teamData.capitanId}:`, e); 
         }
     }
-    // --- FIN DE LA MODIFICACIÓN ---
     
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     
@@ -490,8 +488,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     );
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    if (/^\d+$/.test(coCaptainId)) { // Comprobar si es una ID real
+    if (/^\d+$/.test(coCaptainId)) {
         try {
             const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
             await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
@@ -501,7 +498,6 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
             console.error(`No se pudieron dar permisos al co-capitán ${coCaptainId}:`, e);
         }
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
@@ -511,8 +507,7 @@ export async function kickTeam(client, tournament, captainId) {
     const teamData = tournament.teams.aprobados[captainId];
     if (!teamData) return;
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    if (/^\d+$/.test(captainId)) { // Comprobar si es una ID real
+    if (/^\d+$/.test(captainId)) {
         try {
             const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
             await chatChannel.permissionOverwrites.delete(captainId, 'Equipo expulsado del torneo');
@@ -521,7 +516,7 @@ export async function kickTeam(client, tournament, captainId) {
         } catch (e) { console.error(`No se pudieron revocar los permisos para el capitán ${captainId}:`, e); }
     }
 
-    if (teamData.coCaptainId && /^\d+$/.test(teamData.coCaptainId)) { // Comprobar si es una ID real
+    if (teamData.coCaptainId && /^\d+$/.test(teamData.coCaptainId)) {
         try {
             const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
             await chatChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo');
@@ -529,7 +524,6 @@ export async function kickTeam(client, tournament, captainId) {
             await matchesChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo');
         } catch (e) { console.error(`No se pudieron revocar los permisos para el co-capitán ${teamData.coCaptainId}:`, e); }
     }
-    // --- FIN DE LA MODIFICACIÓN ---
     
     await db.collection('tournaments').updateOne( { _id: tournament._id }, { $unset: { [`teams.aprobados.${captainId}`]: "" } } );
     
