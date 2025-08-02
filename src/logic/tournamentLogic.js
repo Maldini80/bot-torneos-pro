@@ -2,7 +2,7 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
-import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed, createCasterInfoEmbed, createDraftStatusEmbed, createDraftManagementPanel, createDraftMainInterface, createDraftPickEmbed } from '../utils/embeds.js';
+import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed, createCasterInfoEmbed, createDraftStatusEmbed, createDraftManagementPanel, createDraftMainInterface, createDraftPickEmbed, createCaptainControlPanelEmbed } from '../utils/embeds.js';
 import { updateAdminPanel, updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
@@ -61,7 +61,7 @@ export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     if (isCaptain) {
         updateQuery = { $pull: { captains: { userId: userIdToKick }, players: { userId: userIdToKick } } };
     } else {
-        updateQuery = { $pull: { players: { userId: userIdToKick }, reserves: { userId: userIdToKick } } };
+        updateQuery = { $pull: { players: { userId: userIdToKick } } };
     }
 
     await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
@@ -131,7 +131,29 @@ export async function endDraft(client, draft) {
 }
 
 async function fullCleanupDraft(client, draft) {
-    const { discordChannelId, discordMessageIds } = draft;
+    const { discordChannelId, discordMessageIds, captains } = draft;
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Limpiar MDs de los paneles de control de los capitanes
+    for (const captain of captains) {
+        if (captain.dmPanelMessageId && /^\d+$/.test(captain.userId)) {
+            try {
+                const user = await client.users.fetch(captain.userId);
+                const dmChannel = await user.createDM();
+                const message = await dmChannel.messages.fetch(captain.dmPanelMessageId).catch(() => null);
+                if (message) {
+                    await message.edit({
+                        content: 'Este draft ha finalizado y el panel de control ha sido desactivado.',
+                        embeds: [],
+                        components: []
+                    });
+                }
+            } catch (e) {
+                console.warn(`No se pudo limpiar el panel de MD para el capitán ${captain.userId}: ${e.message}`);
+            }
+        }
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     const deleteResourceSafe = async (fetcher, resourceId) => {
         if (!resourceId) return;
@@ -890,7 +912,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 entryFee: config.entryFee || 0, 
                 prizeCampeon: config.prizeCampeon || 0,
                 prizeFinalista: config.prizeFinalista || 0,
-                allowReserves: false // Se elimina la lógica de reservas
+                allowReserves: false 
             },
             captains: [], pendingCaptains: {}, players: [], pendingPayments: {},
             selection: { turn: 0, order: [], currentPick: 1 },
@@ -957,8 +979,6 @@ export async function startDraftSelection(client, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Nueva lógica de comprobación de mínimos
         const playerCounts = { GK: 0, DFC: 0, CARR: 0, MCD: 0, 'MV/MCO': 0, DC: 0 };
         draft.players.forEach(p => {
             if (playerCounts[p.primaryPosition] !== undefined) {
@@ -977,7 +997,6 @@ export async function startDraftSelection(client, draftShortId) {
         if (missing.length > 0) {
             throw new Error(`No se puede iniciar el draft. Faltan jugadores:\n- ${missing.join('\n- ')}`);
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
