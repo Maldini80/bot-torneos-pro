@@ -47,14 +47,10 @@ export async function handleModal(interaction) {
             return interaction.followUp({ content: '❌ No se encontró el draft.', flags: [MessageFlags.Ephemeral] });
         }
 
-        const currentTotalParticipants = draft.players.length;
-        const maxTotalParticipants = 88;
-        const availableSlots = maxTotalParticipants - currentTotalParticipants;
-        const amountToAdd = Math.min(amount, availableSlots);
-
-        if (amountToAdd <= 0) {
-            return interaction.followUp({ content: 'ℹ️ No hay huecos disponibles en el draft.', flags: [MessageFlags.Ephemeral] });
-        }
+        // --- INICIO DE LA CORRECCIÓN: Eliminar el límite de jugadores ---
+        // Ya no calculamos availableSlots ni limitamos la cantidad a añadir.
+        const amountToAdd = amount;
+        // --- FIN DE LA CORRECCIÓN ---
 
         const positions = Object.keys(DRAFT_POSITIONS);
         const bulkCaptains = [];
@@ -79,10 +75,10 @@ export async function handleModal(interaction) {
             bulkPlayers.push(adminAsPlayerData);
             adminAddedAsCaptain = true;
         }
-        
-        const totalPlayersToAdd = amountToAdd - (adminAddedAsCaptain ? 1 : 0);
 
-        for (let i = 0; i < totalPlayersToAdd; i++) {
+        const playersToCreateLoop = adminAddedAsCaptain ? amountToAdd - 1 : amountToAdd;
+        
+        for (let i = 0; i < playersToCreateLoop; i++) {
             const uniqueId = `test_${Date.now()}_${i}`;
             const currentCaptainCount = draft.captains.length + bulkCaptains.length;
             
@@ -259,12 +255,14 @@ export async function handleModal(interaction) {
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
             } else {
+                // --- INICIO DE LA CORRECCIÓN: Eliminar el sistema de reservas y límite de jugadores. ---
                 await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
                 await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
                 
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
                 await updateDraftMainInterface(client, updatedDraft.shortId);
                 await updatePublicMessages(client, updatedDraft);
+                // --- FIN DE LA CORRECCIÓN ---
             }
         }
         return;
