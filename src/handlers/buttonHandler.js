@@ -2,10 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se importa la nueva función 'addTestPlayersToMeetMinimums'.
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft, addTestPlayersToMeetMinimums } from '../logic/tournamentLogic.js';
-// --- FIN DE LA MODIFICACIÓN ---
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
@@ -43,13 +40,11 @@ export async function handleButton(interaction) {
         if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
 
         const userId = interaction.user.id;
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se elimina la comprobación de 'reserves'
         const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
                                   (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
                                   draft.players.some(p => p.userId === userId) || 
+                                  draft.reserves.some(r => r.userId === userId) || 
                                   (draft.pendingPayments && draft.pendingPayments[userId]);
-        // --- FIN DE LA MODIFICACIÓN ---
         if (isAlreadyRegistered) {
             return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
@@ -170,34 +165,41 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // El botón ahora llama directamente a la lógica inteligente, sin abrir un modal.
     if (action === 'draft_add_test_players') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
-        try {
-            const result = await addTestPlayersToMeetMinimums(client, draftShortId);
-            await interaction.editReply(`✅ **Jugadores de prueba añadidos con éxito.**\n${result.summary}`);
-        } catch (error) {
-            console.error('Error al añadir jugadores de prueba inteligentes:', error);
-            await interaction.editReply(`❌ Hubo un error al añadir jugadores: ${error.message}`);
-        }
+        const modal = new ModalBuilder()
+            .setCustomId(`add_draft_test_players_modal:${draftShortId}`)
+            .setTitle('Añadir Jugadores de Prueba');
+            
+        const amountInput = new TextInputBuilder()
+            .setCustomId('amount_input')
+            .setLabel("¿Cuántos jugadores de prueba quieres añadir?")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue('1');
+            
+        modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
+        await interaction.showModal(modal);
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
+    // --- INICIO DE LA MODIFICACIÓN: Preparar para simulación híbrida ---
     if (action === 'draft_simulate_picks') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
+        const adminUserId = interaction.user.id; // Capturamos la ID del admin que hace clic
         try {
-            await simulateDraftPicks(client, draftShortId);
-            await interaction.editReply('✅ Simulación completada. El draft ha finalizado.');
+            // Pasamos el ID del usuario que inicia la simulación a la lógica.
+            await simulateDraftPicks(client, draftShortId, adminUserId);
+            // La respuesta ahora indica que es una simulación híbrida.
+            await interaction.editReply('✅ Simulación híbrida iniciada. El bot elegirá automáticamente por los demás capitanes. Se te notificará cuando sea tu turno de elegir.');
         } catch (error) {
             console.error('Error al simular picks del draft:', error);
             await interaction.editReply(`❌ Hubo un error durante la simulación: ${error.message}`);
         }
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
     
     if (action === 'draft_force_tournament') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
