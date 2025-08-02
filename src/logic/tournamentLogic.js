@@ -899,8 +899,9 @@ export async function startDraftSelection(client, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        if (draft.captains.length < 8 || draft.players.length < 88) {
-            throw new Error(`No hay suficientes participantes. Se necesitan 8 capitanes y 88 jugadores en total. Actualmente hay ${draft.captains.length} capitanes y ${draft.players.length} jugadores.`);
+        const nonCaptainPlayersCount = draft.players.filter(p => !p.isCaptain).length;
+        if (draft.captains.length < 8 || nonCaptainPlayersCount < 80) {
+            throw new Error(`No hay suficientes participantes. Se necesitan 8 capitanes y 80 jugadores. Actualmente hay ${draft.captains.length} capitanes y ${nonCaptainPlayersCount} jugadores.`);
         }
 
         const captainIds = draft.captains.map(c => c.userId);
