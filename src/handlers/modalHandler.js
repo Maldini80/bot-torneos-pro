@@ -33,7 +33,6 @@ export async function handleModal(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN: Corregir el cálculo de jugadores de prueba ---
     if (action === 'add_draft_test_players_modal') {
         await interaction.reply({ content: '✅ Orden recibida. Añadiendo participantes de prueba...', flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -80,8 +79,10 @@ export async function handleModal(interaction) {
             bulkPlayers.push(adminAsPlayerData);
             adminAddedAsCaptain = true;
         }
+        
+        const totalPlayersToAdd = amountToAdd - (adminAddedAsCaptain ? 1 : 0);
 
-        for (let i = 0; i < amountToAdd; i++) {
+        for (let i = 0; i < totalPlayersToAdd; i++) {
             const uniqueId = `test_${Date.now()}_${i}`;
             const currentCaptainCount = draft.captains.length + bulkCaptains.length;
             
@@ -139,7 +140,6 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: successMessage });
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'create_draft_paid_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -187,7 +187,6 @@ export async function handleModal(interaction) {
         const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
                                   (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
                                   draft.players.some(p => p.userId === userId) || 
-                                  draft.reserves.some(r => r.userId === userId) || 
                                   (draft.pendingPayments && draft.pendingPayments[userId]);
                                   
         if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.');
@@ -260,16 +259,8 @@ export async function handleModal(interaction) {
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
             } else {
-                const totalParticipants = draft.captains.length + draft.players.length;
-                if (totalParticipants < 88) {
-                    await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
-                    await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
-                } else if (draft.config.allowReserves) {
-                    await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { reserves: playerData } });
-                    await interaction.editReply('✅ El draft está lleno, pero te hemos añadido a la lista de reserva.');
-                } else {
-                    return interaction.editReply('❌ Lo sentimos, el draft está completo.');
-                }
+                await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+                await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
                 
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
                 await updateDraftMainInterface(client, updatedDraft.shortId);
