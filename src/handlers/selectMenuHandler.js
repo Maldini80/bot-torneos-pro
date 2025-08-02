@@ -48,18 +48,21 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
+    // --- INICIO DE LA MODIFICACIÓN: Corregir el flujo de interacción ---
     if (action === 'create_draft_type') {
         const [name] = params;
         const type = interaction.values[0];
 
         if (type === 'gratis') {
-            await interaction.deferUpdate();
+            // Usamos deferReply para poder usar editReply después de la operación larga.
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
             const isPaid = false;
             const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             const config = { isPaid, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 };
 
             try {
                 await createNewDraft(client, guild, name, shortId, config);
+                // Ahora editReply es válido.
                 await interaction.editReply({ content: `✅ ¡Éxito! El draft gratuito **"${name}"** ha sido creado.`, components: [] });
             } catch (error) {
                 console.error("Error capturado por el handler al crear el draft:", error);
@@ -96,10 +99,12 @@ export async function handleSelectMenu(interaction) {
                 new ActionRowBuilder().addComponents(prizeCInput),
                 new ActionRowBuilder().addComponents(prizeFInput)
             );
+            // showModal "cierra" la interacción actual, por lo que no hay problema aquí.
             await interaction.showModal(modal);
         }
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_kick_participant_draft_select') {
         await interaction.deferUpdate();
