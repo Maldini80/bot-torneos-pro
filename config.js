@@ -1,54 +1,44 @@
 // config.js
 
+// ID de la Categoría Principal de Torneos donde se crearán los canales de partidos
 export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
+
+// Se añade la constante para el enlace de invitación al servidor de Discord
 export const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 
-export const ADMIN_ROLE_ID = 'ID_DE_TU_ROL_DE_ADMIN';
+// IDs de Roles globales del servidor
+export const ADMIN_ROLE_ID = 'ID_DE_TU_ROL_DE_ADMIN'; // Reemplaza esto si es necesario
 export const ARBITRO_ROLE_ID = '1393505777443930183';
 export const PARTICIPANTE_ROLE_ID = '1394321301748977684';
-export const CASTER_ROLE_ID = '1394815380614283286';
+export const CASTER_ROLE_ID = '1394815380614283286'; // ROL para los Caster
 
+// IDs de CANALES FIJOS que se reutilizan
 export const CHANNELS = {
     TOURNAMENTS_MANAGEMENT_PARENT: '1393507085286899744',
     TOURNAMENTS_APPROVALS_PARENT: '1393187598796587028',
     TORNEOS_STATUS: '1395276865597476908',
-    CASTER_HUB_ID: '1394818921453981766',
+    CASTER_HUB_ID: '1394818921453981766', // Canal para los hilos de casters
 };
 
+// Configuración de Pagos
 export const PAYMENT_CONFIG = {
     PAYPAL_EMAIL: 'johancamirotti13@hotmail.com'
 };
 
-// --- INICIO DE LA MODIFICACIÓN ---
+// Configuración para el sistema de Draft
 export const DRAFT_POSITIONS = {
-    GK: 'Portero',
-    DFC: 'Defensa Central',
-    LTD: 'Lateral Derecho',
-    LTI: 'Lateral Izquierdo',
-    MCD: 'Mediocentro Defensivo',
-    MV: 'Mediocentro',
-    MCO: 'Mediocentro Ofensivo',
-    CAR: 'Carrilero',
-    DC: 'Delantero Centro'
+    GK: 'Portero (GK)',
+    DFC: 'Defensa Central (DFC)',
+    CARR: 'Carrilero (CARR)',
+    MCD: 'Mediocentro Defensivo (MCD)',
+    'MV/MCO': 'Mediocentro/Ofensivo (MV/MCO)',
+    DC: 'Delantero Centro (DC)'
 };
 
-export const DRAFT_START_REQUIREMENTS = {
-    GK: 8,
-    DFC: 24,
-    MCD_MV: 16, // Pool combinado de MCD y MV
-    MCO_MV: 8,  // Pool combinado de MCO y MV
-    CAR: 16,
-    DC: 16
-};
+// Orden de visualización de las posiciones en las tablas del Draft
+export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
 
-// Composición final de la plantilla (11 jugadores)
-export const DRAFT_TEAM_COMPOSITION = {
-    GK: 1, DFC: 3, CAR: 2, MCD_MV: 2, MCO_MV: 1, DC: 2
-};
-// --- FIN DE LA MODIFICACIÓN ---
-
-export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'LTD', 'LTI', 'CAR', 'MCD', 'MV', 'MCO', 'DC'];
-
+// Configuración de los formatos de torneo CON TRADUCCIONES
 export const TOURNAMENT_FORMATS = {
     '8_teams_semis_classic': {
         label: '8 Equipos (Clásico - Semifinales)',
@@ -90,12 +80,14 @@ export const TOURNAMENT_FORMATS = {
     }
 };
 
+// Configuración de idiomas
 export const languageRoles = {
     '🇪🇸': { name: 'Español', code: 'es' }, '🇮🇹': { name: 'Italiano', code: 'it' }, '🇬🇧': { name: 'English', code: 'en' },
     '🇫🇷': { name: 'Français', code: 'fr' }, '🇵🇹': { name: 'Português', code: 'pt' }, '🇩🇪': { name: 'Deutsch', code: 'de' },
     '🇹🇷': { name: 'Türkçe', code: 'tr' }
 };
 
+// Iconos de estado para los embeds y nombres de canales
 export const TOURNAMENT_STATUS_ICONS = {
     inscripcion_abierta: '🟢',
     cupo_lleno: '🟠',
@@ -108,4 +100,5 @@ export const TOURNAMENT_STATUS_ICONS = {
     cancelado: '🔴'
 };
 
+// Enlace al PDF de las normas del torneo
 export const PDF_RULES_URL = 'https://cdn.discordapp.com/attachments/1396998137859543240/1398204787622936606/Normas_de_los_partidos_y_guia_de_como_reportar_.pdf?ex=6884832e&is=688331ae&hm=ba0c2c2c775d50c581904ce15d86b29c088877a9a14bae1ba83fde927d4755db&';
