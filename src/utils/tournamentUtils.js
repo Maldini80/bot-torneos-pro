@@ -16,7 +16,10 @@ export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
 
 export async function inviteUserToMatchThread(interaction, team) {
     if (!team.coCaptainId) {
-        return interaction.reply({ content: 'Tu equipo no tiene un co-capitán asignado.', flags: ['Ephemeral'] });
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se cambia reply por editReply para solucionar el error
+        return interaction.editReply({ content: 'Tu equipo no tiene un co-capitán asignado.', flags: ['Ephemeral'] });
+        // --- FIN DE LA MODIFICACIÓN ---
     }
     
     const thread = interaction.channel;
@@ -24,10 +27,16 @@ export async function inviteUserToMatchThread(interaction, team) {
 
     try {
         await thread.members.add(team.coCaptainId);
-        await interaction.reply({ content: `✅ <@${team.coCaptainId}> ha sido invitado a este hilo.`, flags: ['Ephemeral'] });
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se cambia reply por editReply para solucionar el error
+        await interaction.editReply({ content: `✅ <@${team.coCaptainId}> ha sido invitado a este hilo.`, flags: ['Ephemeral'] });
+        // --- FIN DE LA MODIFICACIÓN ---
     } catch (error) {
         console.error(`Error al invitar al co-capitán ${team.coCaptainId} al hilo ${thread.id}:`, error);
-        await interaction.reply({ content: '❌ No se pudo invitar al co-capitán. Es posible que ya esté en el hilo.', flags: ['Ephemeral'] });
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se cambia reply por editReply para solucionar el error
+        await interaction.editReply({ content: '❌ No se pudo invitar al co-capitán. Es posible que ya esté en el hilo.', flags: ['Ephemeral'] });
+        // --- FIN DE LA MODIFICACIÓN ---
     }
 }
 
@@ -60,15 +69,12 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             reason: `Partido de torneo: ${tournamentShortId}`
         });
 
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Función para añadir miembros solo si tienen una ID válida (numérica, no de prueba)
         const addMemberIfReal = async (memberId) => {
             if (memberId && /^\d+$/.test(memberId)) {
                 await thread.members.add(memberId).catch(e => console.warn(`No se pudo añadir al miembro ${memberId} al hilo: ${e.message}`));
             }
         };
 
-        // Añadir a todos los miembros reales (capitanes y co-capitanes)
         await Promise.all([
             addMemberIfReal(partido.equipoA.capitanId),
             addMemberIfReal(partido.equipoB.capitanId),
@@ -76,14 +82,12 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             addMemberIfReal(partido.equipoB.coCaptainId)
         ]);
         
-        // Construir la cadena de menciones solo para miembros reales
         let mentions = [];
         if (partido.equipoA.capitanId && /^\d+$/.test(partido.equipoA.capitanId)) mentions.push(`<@${partido.equipoA.capitanId}>`);
         if (partido.equipoB.capitanId && /^\d+$/.test(partido.equipoB.capitanId)) mentions.push(`<@${partido.equipoB.capitanId}>`);
         if (partido.equipoA.coCaptainId && /^\d+$/.test(partido.equipoA.coCaptainId)) mentions.push(`<@${partido.equipoA.coCaptainId}>`);
         if (partido.equipoB.coCaptainId && /^\d+$/.test(partido.equipoB.coCaptainId)) mentions.push(`<@${partido.equipoB.coCaptainId}>`);
         const mentionString = mentions.length > 0 ? mentions.join(' y ') : 'Capitanes no encontrados (equipos de prueba).';
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
             .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*`);
