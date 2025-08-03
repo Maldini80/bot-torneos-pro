@@ -1,9 +1,6 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se importa 'reportPlayer' que ahora se usará aquí
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, reportPlayer } from '../logic/tournamentLogic.js';
-// --- FIN DE LA MODIFICACIÓN ---
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
@@ -16,8 +13,6 @@ export async function handleModal(interaction) {
     const guild = interaction.guild;
     const db = getDb();
     const [action, ...params] = customId.split(':');
-
-    // --- INICIO DE NUEVOS MANEJADORES DE MODAL ---
 
     if (action === 'report_player_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -55,8 +50,6 @@ export async function handleModal(interaction) {
         }
         return;
     }
-
-    // --- FIN DE NUEVOS MANEJADORES DE MODAL ---
 
     if (action === 'create_draft_modal') {
         const name = interaction.fields.getTextInputValue('draft_name_input');
