@@ -9,20 +9,6 @@ import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 
-// --- INICIO DE LA MODIFICACIÓN ---
-// Se añaden todas las nuevas funciones a la exportación
-export {
-    approveDraftCaptain, kickPlayerFromDraft, approveUnregisterFromDraft, requestUnregisterFromDraft,
-    endDraft, simulateDraftPicks, createTournamentFromDraft, confirmPrizePayment, createNewDraft,
-    startDraftSelection, updateCaptainControlPanel, advanceDraftTurn, createNewTournament, approveTeam,
-    addCoCaptain, kickTeam, undoGroupStageDraw, notifyCastersOfNewTeam, endTournament,
-    forceResetAllTournaments, updatePublicMessages, startGroupStage, updateTournamentConfig,
-    addTeamToWaitlist, requestUnregister, notifyCaptainsOfChanges, handlePlayerSelection,
-    reportPlayer, requestPlayerKick, handleKickApproval, forceKickPlayer, removeStrike, pardonPlayer, inviteReplacementPlayer
-};
-// --- FIN DE LA MODIFICACIÓN ---
-
-
 export async function handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId) {
     const db = getDb();
     await db.collection('drafts').updateOne(
@@ -47,7 +33,6 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     }
 }
 
-
 export async function approveDraftCaptain(client, draft, captainData) {
     const db = getDb();
 
@@ -55,7 +40,6 @@ export async function approveDraftCaptain(client, draft, captainData) {
         userId: captainData.userId,
         userName: captainData.userName,
         psnId: captainData.psnId,
-        // Guardar el nuevo campo
         eafcTeamName: captainData.eafcTeamName,
         twitter: captainData.twitter,
         primaryPosition: captainData.position,
@@ -1291,8 +1275,8 @@ export async function inviteReplacementPlayer(client, draft, captainId, replacem
         .setDescription(`El capitán ${captain.userName} del equipo **${captain.teamName}** te ha invitado a unirte a su plantilla en el draft **${draft.name}** como reemplazo.`)
         .setColor('#3498db');
     
-    // Aquí se necesitaría un sistema de botones de aceptar/rechazar,
-    // pero por ahora, la lógica solo envía la invitación como se describe.
+    // NOTA: Para un flujo completo, aquí irían botones de aceptar/rechazar.
+    // Por ahora, solo se envía la notificación.
     
     await replacementUser.send({ embeds: [embed] });
 }
