@@ -1,4 +1,3 @@
-```javascript
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
