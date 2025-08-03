@@ -2,7 +2,7 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft, updateCaptainControlPanel } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
@@ -333,22 +333,25 @@ export async function handleButton(interaction) {
         await endDraft(client, draft);
         return;
     }
-    
-    if (action === 'draft_pick_start') {
-        const [draftShortId, targetCaptainId] = params;
+
+    if (action === 'captain_pick_start') {
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        const currentCaptainId = draft.selection.order[draft.selection.turn];
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-        if (interaction.user.id !== targetCaptainId && !isAdmin) {
-            return interaction.reply({ content: 'No es tu turno de elegir o no eres el capitán designado.', flags: [MessageFlags.Ephemeral] });
+        if (interaction.user.id !== currentCaptainId && !isAdmin) {
+            return interaction.reply({ content: 'No es tu turno de elegir o no tienes permiso.', flags: [MessageFlags.Ephemeral] });
         }
         
-        // --- INICIO DE LA MODIFICACIÓN: Implementar bloqueo ---
-        await setBotBusy(true); // Bloqueamos el bot para evitar interacciones simultáneas
-        // --- FIN DE LA MODIFICACIÓN ---
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.isPicking": true } });
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await updateCaptainControlPanel(client, updatedDraft);
 
         const searchTypeMenu = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
-                .setCustomId(`draft_pick_search_type:${draftShortId}:${targetCaptainId}`)
+                .setCustomId(`draft_pick_search_type:${draftShortId}:${currentCaptainId}`)
                 .setPlaceholder('Buscar jugador por...')
                 .addOptions([
                     { label: 'Posición Primaria', value: 'primary', emoji: '⭐' },
@@ -357,24 +360,21 @@ export async function handleButton(interaction) {
         );
 
         await interaction.reply({ 
-            content: `Por favor, elige cómo quieres buscar al jugador. (Selección para el equipo de <@${targetCaptainId}>)`, 
+            content: `**Turno de ${updatedDraft.captains.find(c => c.userId === currentCaptainId).teamName}**\nPor favor, elige cómo quieres buscar al jugador.`, 
             components: [searchTypeMenu], 
             flags: [MessageFlags.Ephemeral] 
         });
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN: Añadir desbloqueo al confirmar/cancelar ---
     if (action === 'draft_confirm_pick') {
         const [draftShortId, captainId, selectedPlayerId] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
         if (interaction.user.id !== captainId && !isAdmin) {
-            // Aunque el bot está ocupado, esta respuesta efímera es segura
             return interaction.reply({ content: 'No puedes confirmar este pick.', flags: [MessageFlags.Ephemeral] });
         }
 
-        // Reconocemos la interacción ANTES de las operaciones largas
         await interaction.update({
             content: '✅ Pick confirmado. Procesando siguiente turno...',
             embeds: [],
@@ -382,7 +382,7 @@ export async function handleButton(interaction) {
         });
 
         await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
-        await advanceDraftTurn(client, draftShortId); // advanceDraftTurn ahora se encargará de desbloquear el bot
+        await advanceDraftTurn(client, draftShortId);
         return;
     }
 
@@ -394,26 +394,16 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: 'No puedes deshacer este pick.', flags: [MessageFlags.Ephemeral] });
         }
         
-        // Desbloqueamos el bot si el usuario cancela la selección
-        await setBotBusy(false);
+        await db.collection('drafts').updateOne({ shortId: draftShortId }, { $set: { "selection.isPicking": false } });
+        const updatedDraft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        await updateCaptainControlPanel(client, updatedDraft);
 
-        const searchTypeMenu = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-                .setCustomId(`draft_pick_search_type:${draftShortId}:${captainId}`)
-                .setPlaceholder('Buscar jugador por...')
-                .addOptions([
-                    { label: 'Posición Primaria', value: 'primary', emoji: '⭐' },
-                    { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
-                ])
-        );
-        
         await interaction.update({
-            content: 'Selección cancelada. Por favor, elige de nuevo cómo quieres buscar al jugador.',
-            components: [searchTypeMenu]
+            content: 'Selección cancelada. Puedes volver a pulsar el botón "Elegir Jugador" en el canal.',
+            components: []
         });
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
@@ -542,6 +532,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'invite_to_thread') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const { partido } = findMatch(tournament, matchId);
@@ -638,24 +629,9 @@ export async function handleButton(interaction) {
             .setCustomId('admin_set_channel_icon')
             .setPlaceholder('Selecciona el estado del canal manualmente')
             .addOptions([
-                {
-                    label: 'Verde (Inscripciones Abiertas)',
-                    description: 'Hay torneos con plazas libres.',
-                    value: '🟢',
-                    emoji: '🟢'
-                },
-                {
-                    label: 'Azul (Torneos en Juego)',
-                    description: 'Hay torneos en progreso o llenos.',
-                    value: '🔵',
-                    emoji: '🔵'
-                },
-                {
-                    label: 'Rojo (Inactivo)',
-                    description: 'No hay torneos activos.',
-                    value: '🔴',
-                    emoji: '🔴'
-                }
+                { label: 'Verde (Inscripciones Abiertas)', description: 'Hay torneos con plazas libres.', value: '🟢', emoji: '🟢' },
+                { label: 'Azul (Torneos en Juego)', description: 'Hay torneos en progreso o llenos.', value: '🔵', emoji: '🔵' },
+                { label: 'Rojo (Inactivo)', description: 'No hay torneos activos.', value: '🔴', emoji: '🔴' }
             ]);
 
         const row = new ActionRowBuilder().addComponents(statusMenu);
