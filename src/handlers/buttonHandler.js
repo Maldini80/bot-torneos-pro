@@ -5,7 +5,7 @@ import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../conf
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftPickEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 
@@ -42,8 +42,7 @@ export async function handleButton(interaction) {
         const userId = interaction.user.id;
         const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
                                   (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
-                                  draft.players.some(p => p.userId === userId) || 
-                                  draft.reserves.some(r => r.userId === userId) || 
+                                  draft.players.some(p => p.userId === userId) ||
                                   (draft.pendingPayments && draft.pendingPayments[userId]);
         if (isAlreadyRegistered) {
             return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
@@ -94,7 +93,8 @@ export async function handleButton(interaction) {
         }
         return;
     }
-
+    
+    // --- INICIO DE LA MODIFICACIÓN: Paginación para gestionar participantes ---
     if (action === 'admin_gestionar_participantes_draft') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -106,27 +106,55 @@ export async function handleButton(interaction) {
             return interaction.editReply({ content: 'ℹ️ No hay participantes inscritos para gestionar.' });
         }
     
-        const options = allParticipants.map(p => {
-            const isCaptain = draft.captains.some(c => c.userId === p.userId);
-            return {
-                label: p.userName || p.psnId,
-                description: isCaptain ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
-                value: p.userId,
-                emoji: isCaptain ? '👑' : '👤'
-            };
-        });
+        const pageSize = 25;
+        if (allParticipants.length > pageSize) {
+            // Si hay más de 25, mostramos un menú de paginación
+            const pageCount = Math.ceil(allParticipants.length / pageSize);
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const start = i * pageSize + 1;
+                const end = Math.min((i + 1) * pageSize, allParticipants.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (${start}-${end})`,
+                    value: `page_${i}`,
+                });
+            }
+
+            const pageMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_kick_participant_page_select:${draftShortId}`)
+                .setPlaceholder('Selecciona una página de participantes')
+                .addOptions(pageOptions);
+
+            await interaction.editReply({
+                content: `Hay demasiados participantes para mostrarlos todos. Por favor, selecciona una página:`,
+                components: [new ActionRowBuilder().addComponents(pageMenu)]
+            });
+
+        } else {
+            // Si caben en una página, mostramos la lista directamente
+            const options = allParticipants.map(p => {
+                const isCaptain = draft.captains.some(c => c.userId === p.userId);
+                return {
+                    label: p.userName || p.psnId,
+                    description: isCaptain ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
+                    value: p.userId,
+                    emoji: isCaptain ? '👑' : '👤'
+                };
+            });
     
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
-            .setPlaceholder('Selecciona un participante para expulsar')
-            .addOptions(options);
-        
-        await interaction.editReply({
-            content: 'Selecciona un participante de la lista para expulsarlo del draft. Esta acción es irreversible.',
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
-        });
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
+                .setPlaceholder('Selecciona un participante para expulsar')
+                .addOptions(options);
+            
+            await interaction.editReply({
+                content: 'Selecciona un participante de la lista para expulsarlo del draft. Esta acción es irreversible.',
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+        }
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
     
     if (action === 'admin_unregister_draft_approve') {
         await interaction.deferUpdate();
@@ -290,7 +318,7 @@ export async function handleButton(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         try {
-            await startDraftSelection(client, draftShortId);
+            await startDraftSelection(client, guild, draftShortId);
             await interaction.editReply('✅ La fase de selección del draft ha comenzado.');
         } catch (error) {
             console.error('Error al iniciar la selección del draft:', error);
@@ -310,12 +338,41 @@ export async function handleButton(interaction) {
         return;
     }
     
+    // --- INICIO DE LA MODIFICACIÓN: Nuevo flujo de selección ---
+    if (action === 'draft_pick_start') {
+        const [draftShortId, targetCaptainId] = params;
+        
+        if (interaction.user.id !== targetCaptainId) {
+            return interaction.reply({ content: 'No es tu turno de elegir o no eres el capitán designado.', flags: [MessageFlags.Ephemeral] });
+        }
+        
+        // El resto de la comprobación (si es su turno real) se hace en el backend, aquí solo comprobamos que el botón es para él.
+        // Ahora le mostramos el primer menú de selección al capitán.
+        const searchTypeMenu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`draft_pick_search_type:${draftShortId}:${targetCaptainId}`)
+                .setPlaceholder('Buscar jugador por...')
+                .addOptions([
+                    { label: 'Posición Primaria', value: 'primary', emoji: '⭐' },
+                    { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
+                ])
+        );
+
+        await interaction.reply({ 
+            content: 'Por favor, elige cómo quieres buscar al jugador.', 
+            components: [searchTypeMenu], 
+            flags: [MessageFlags.Ephemeral] 
+        });
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+
     if (action === 'draft_confirm_pick') {
         const [draftShortId, captainId, selectedPlayerId] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
         if (interaction.user.id !== captainId && !isAdmin) {
-            return interaction.reply({ content: 'No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: 'No puedes confirmar este pick.', flags: [MessageFlags.Ephemeral] });
         }
 
         await interaction.update({
@@ -334,13 +391,24 @@ export async function handleButton(interaction) {
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
         if(interaction.user.id !== captainId && !isAdmin) {
-            return interaction.reply({ content: 'No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: 'No puedes deshacer este pick.', flags: [MessageFlags.Ephemeral] });
         }
         
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const pickEmbed = createDraftPickEmbed(draft, captainId);
+        // Al deshacer, volvemos a mostrarle el menú de búsqueda por posición
+        const searchTypeMenu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`draft_pick_search_type:${draftShortId}:${captainId}`)
+                .setPlaceholder('Buscar jugador por...')
+                .addOptions([
+                    { label: 'Posición Primaria', value: 'primary', emoji: '⭐' },
+                    { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
+                ])
+        );
         
-        await interaction.update(pickEmbed);
+        await interaction.update({
+            content: 'Selección cancelada. Por favor, elige de nuevo cómo quieres buscar al jugador.',
+            components: [searchTypeMenu]
+        });
         return;
     }
 
