@@ -94,7 +94,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN: Paginación para gestionar participantes ---
     if (action === 'admin_gestionar_participantes_draft') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -108,7 +107,6 @@ export async function handleButton(interaction) {
     
         const pageSize = 25;
         if (allParticipants.length > pageSize) {
-            // Si hay más de 25, mostramos un menú de paginación
             const pageCount = Math.ceil(allParticipants.length / pageSize);
             const pageOptions = [];
             for (let i = 0; i < pageCount; i++) {
@@ -131,7 +129,6 @@ export async function handleButton(interaction) {
             });
 
         } else {
-            // Si caben en una página, mostramos la lista directamente
             const options = allParticipants.map(p => {
                 const isCaptain = draft.captains.some(c => c.userId === p.userId);
                 return {
@@ -154,7 +151,6 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
     
     if (action === 'admin_unregister_draft_approve') {
         await interaction.deferUpdate();
@@ -338,7 +334,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN: Nuevo flujo de selección ---
     if (action === 'draft_pick_start') {
         const [draftShortId, targetCaptainId] = params;
         
@@ -346,8 +341,6 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: 'No es tu turno de elegir o no eres el capitán designado.', flags: [MessageFlags.Ephemeral] });
         }
         
-        // El resto de la comprobación (si es su turno real) se hace en el backend, aquí solo comprobamos que el botón es para él.
-        // Ahora le mostramos el primer menú de selección al capitán.
         const searchTypeMenu = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
                 .setCustomId(`draft_pick_search_type:${draftShortId}:${targetCaptainId}`)
@@ -365,7 +358,6 @@ export async function handleButton(interaction) {
         });
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'draft_confirm_pick') {
         const [draftShortId, captainId, selectedPlayerId] = params;
@@ -394,7 +386,6 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: 'No puedes deshacer este pick.', flags: [MessageFlags.Ephemeral] });
         }
         
-        // Al deshacer, volvemos a mostrarle el menú de búsqueda por posición
         const searchTypeMenu = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
                 .setCustomId(`draft_pick_search_type:${draftShortId}:${captainId}`)
@@ -767,9 +758,12 @@ export async function handleButton(interaction) {
         return;
     }
     
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    // --- INICIO DE LA MODIFICACIÓN: Se elimina el deferReply final ---
+    // La siguiente línea era la causa del error "Interaction has already been acknowledged."
+    // await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
     if (action === 'admin_undo_draw') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         await interaction.editReply({ content: '⏳ **Recibido.** Iniciando el proceso para revertir el sorteo. Esto puede tardar unos segundos...' });
         try {
@@ -783,6 +777,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'admin_approve') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || (!tournament.teams.pendientes[captainId] && !tournament.teams.reserva[captainId])) {
@@ -805,6 +800,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'admin_reject') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const teamData = tournament.teams.pendientes[captainId] || tournament.teams.reserva[captainId];
@@ -832,6 +828,7 @@ export async function handleButton(interaction) {
         return;
     }
     if (action === 'admin_kick') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
@@ -856,6 +853,7 @@ export async function handleButton(interaction) {
         return;
     }
     if (action === 'admin_force_draw') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
@@ -869,6 +867,7 @@ export async function handleButton(interaction) {
         return;
     }
     if (action === 'admin_simulate_matches') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         await interaction.editReply({ content: '⏳ Simulando todos los partidos pendientes... Esto puede tardar un momento.' });
         const result = await simulateAllPendingMatches(client, tournamentShortId);
@@ -876,6 +875,7 @@ export async function handleButton(interaction) {
         return;
     }
     if (action === 'admin_end_tournament') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
@@ -884,6 +884,7 @@ export async function handleButton(interaction) {
         return;
     }
     if (action === 'admin_notify_changes') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
@@ -893,6 +894,7 @@ export async function handleButton(interaction) {
     }
     
     if (action === 'cocaptain_accept') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, captainId, coCaptainId] = params;
         if (interaction.user.id !== coCaptainId) return interaction.editReply({ content: "Esta invitación no es para ti." });
 
@@ -913,6 +915,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'cocaptain_reject') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, captainId, coCaptainId] = params;
         if (interaction.user.id !== coCaptainId) return interaction.editReply({ content: "Esta invitación no es para ti." });
 
@@ -928,6 +931,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'darse_baja_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
@@ -937,6 +941,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'darse_baja_draft_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) return interaction.editReply({ content: "Error: Draft no encontrado." });
@@ -946,6 +951,7 @@ export async function handleButton(interaction) {
     }
     
     if (action === 'admin_unregister_approve') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, captainId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
@@ -970,6 +976,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'admin_unregister_reject') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, captainId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
@@ -1006,6 +1013,7 @@ export async function handleButton(interaction) {
     }
 
     if(action === 'admin_manage_waitlist') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const waitlist = tournament.teams.reserva ? Object.values(tournament.teams.reserva) : [];
@@ -1024,4 +1032,5 @@ export async function handleButton(interaction) {
         
         await interaction.editReply({content: 'Selecciona un equipo de la lista de reserva para aprobarlo y añadirlo al torneo:', components: [new ActionRowBuilder().addComponents(selectMenu)]});
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 }
