@@ -1,6 +1,9 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Se importa 'reportPlayer' que ahora se usará aquí
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, reportPlayer } from '../logic/tournamentLogic.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
@@ -13,6 +16,47 @@ export async function handleModal(interaction) {
     const guild = interaction.guild;
     const db = getDb();
     const [action, ...params] = customId.split(':');
+
+    // --- INICIO DE NUEVOS MANEJADORES DE MODAL ---
+
+    if (action === 'report_player_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId, teamId, playerId] = params;
+        const reason = interaction.fields.getTextInputValue('reason_input');
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        try {
+            await reportPlayer(client, draft, interaction.user.id, playerId, reason);
+            await interaction.editReply({ content: '✅ Tu reporte ha sido enviado y se ha añadido un strike al jugador.' });
+        } catch (error) {
+            await interaction.editReply({ content: `❌ Error al reportar: ${error.message}` });
+        }
+        return;
+    }
+
+    if (action === 'captain_dm_player_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [playerId] = params;
+        const messageContent = interaction.fields.getTextInputValue('message_content');
+        
+        try {
+            const targetUser = await client.users.fetch(playerId);
+            const embed = new EmbedBuilder()
+                .setColor('#3498db')
+                .setTitle(`✉️ Mensaje de ${interaction.user.tag}`)
+                .setDescription(messageContent)
+                .setTimestamp();
+            
+            await targetUser.send({ embeds: [embed] });
+            await interaction.editReply({ content: `✅ Mensaje enviado a ${targetUser.tag}.` });
+        } catch (e) {
+            console.error(e);
+            await interaction.editReply({ content: '❌ No se pudo enviar el mensaje. Es posible que el usuario tenga los MDs bloqueados.' });
+        }
+        return;
+    }
+
+    // --- FIN DE NUEVOS MANEJADORES DE MODAL ---
 
     if (action === 'create_draft_modal') {
         const name = interaction.fields.getTextInputValue('draft_name_input');
