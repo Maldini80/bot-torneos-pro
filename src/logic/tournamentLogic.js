@@ -424,7 +424,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 prizeFinalista: config.isPaid ? config.prizeFinalista : 0,
             },
             captains: [], pendingCaptains: {}, players: [], pendingPayments: {},
-            selection: { turn: 0, order: [], currentPick: 1, isPicking: false },
+            selection: { turn: 0, order: [], currentPick: 1, isPicking: false, activeInteractionToken: null },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
                 statusMessageId: null, managementThreadId: null,
@@ -617,7 +617,7 @@ export async function advanceDraftTurn(client, draftShortId) {
 
     const totalPicks = 80;
     if (draft.selection.currentPick >= totalPicks) {
-         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado', "selection.isPicking": false } });
+         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado', "selection.isPicking": false, "selection.activeInteractionToken": null } });
          const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
          
          await updateDraftManagementPanel(client, finalDraftState);
@@ -643,7 +643,7 @@ export async function advanceDraftTurn(client, draftShortId) {
     await db.collection('drafts').updateOne(
         { _id: draft._id },
         { 
-            $set: { "selection.turn": nextTurnIndex, "selection.isPicking": false },
+            $set: { "selection.turn": nextTurnIndex, "selection.isPicking": false, "selection.activeInteractionToken": null },
             $inc: { "selection.currentPick": 1 },
         }
     );
