@@ -334,7 +334,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN: Añadir comprobación de administrador ---
     if (action === 'draft_pick_start') {
         const [draftShortId, targetCaptainId] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
@@ -343,6 +342,10 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: 'No es tu turno de elegir o no eres el capitán designado.', flags: [MessageFlags.Ephemeral] });
         }
         
+        // --- INICIO DE LA MODIFICACIÓN: Implementar bloqueo ---
+        await setBotBusy(true); // Bloqueamos el bot para evitar interacciones simultáneas
+        // --- FIN DE LA MODIFICACIÓN ---
+
         const searchTypeMenu = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
                 .setCustomId(`draft_pick_search_type:${draftShortId}:${targetCaptainId}`)
@@ -360,16 +363,18 @@ export async function handleButton(interaction) {
         });
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
+    // --- INICIO DE LA MODIFICACIÓN: Añadir desbloqueo al confirmar/cancelar ---
     if (action === 'draft_confirm_pick') {
         const [draftShortId, captainId, selectedPlayerId] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
         if (interaction.user.id !== captainId && !isAdmin) {
+            // Aunque el bot está ocupado, esta respuesta efímera es segura
             return interaction.reply({ content: 'No puedes confirmar este pick.', flags: [MessageFlags.Ephemeral] });
         }
 
+        // Reconocemos la interacción ANTES de las operaciones largas
         await interaction.update({
             content: '✅ Pick confirmado. Procesando siguiente turno...',
             embeds: [],
@@ -377,7 +382,7 @@ export async function handleButton(interaction) {
         });
 
         await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
-        await advanceDraftTurn(client, draftShortId);
+        await advanceDraftTurn(client, draftShortId); // advanceDraftTurn ahora se encargará de desbloquear el bot
         return;
     }
 
@@ -389,6 +394,9 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: 'No puedes deshacer este pick.', flags: [MessageFlags.Ephemeral] });
         }
         
+        // Desbloqueamos el bot si el usuario cancela la selección
+        await setBotBusy(false);
+
         const searchTypeMenu = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
                 .setCustomId(`draft_pick_search_type:${draftShortId}:${captainId}`)
@@ -405,6 +413,7 @@ export async function handleButton(interaction) {
         });
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
