@@ -108,7 +108,6 @@ export async function createGlobalAdminPanel(isBusy = false) {
     const globalActionsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Draft').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
-        // --- BOTÓN AÑADIDO ---
         new ButtonBuilder().setCustomId('admin_manage_drafts_players').setLabel('Gestionar Jugadores/Drafts').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy)
     );
 
@@ -310,7 +309,6 @@ export function createDraftManagementPanel(draft, isBusy = false) {
         .setCustomId(`draft_end:${draft.shortId}`)
         .setLabel('Finalizar Draft (Borrar)')
         .setStyle(ButtonStyle.Danger).setEmoji('🛑')
-        // Habilitar el borrado solo después de que se genere el torneo
         .setDisabled(isBusy || draft.status !== 'torneo_generado')
     );
 
@@ -546,7 +544,10 @@ export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin
         );
         if (!player.isCaptain) {
              adminRow.addComponents(
-                new ButtonBuilder().setCustomId(`admin_force_kick_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Forzar Expulsión').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`admin_force_kick_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Forzar Expulsión').setStyle(ButtonStyle.Danger),
+                // --- INICIO DE LA MODIFICACIÓN ---
+                new ButtonBuilder().setCustomId(`admin_invite_replacement_start:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Invitar Reemplazo').setStyle(ButtonStyle.Primary).setEmoji('🔄')
+                // --- FIN DE LA MODIFICACIÓN ---
             );
         }
         components.push(adminRow);
