@@ -98,7 +98,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación de Torneos y Drafts')
-        .setFooter({ text: 'Bot de Torneos v3.1.2' });
+        .setFooter({ text: 'Bot de Torneos v3.1.4' });
 
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
@@ -434,7 +434,7 @@ export function createDraftMainInterface(draft) {
     return [playersEmbed, teamsEmbed, turnOrderEmbed];
 }
 
-export function createCaptainControlPanel(draft) {
+export function createCaptainControlPanel(draft, interactionUserId = null) {
     const embed = new EmbedBuilder()
         .setColor('#f1c40f')
         .setTitle('🕹️ Panel de Control de Capitanes');
@@ -442,12 +442,8 @@ export function createCaptainControlPanel(draft) {
     if (draft.status !== 'seleccion' || draft.selection.currentPick > 80) {
         embed.setDescription('**La fase de selección ha finalizado.**\nGracias a todos los capitanes por participar.');
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('captain_pick_start_disabled')
-                .setLabel('Elegir Jugador')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('👤')
-                .setDisabled(true)
+            new ButtonBuilder().setCustomId('captain_pick_start_disabled').setLabel('Elegir Jugador').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(true),
+            new ButtonBuilder().setCustomId('captain_cancel_pick_disabled').setLabel('Cancelar mi Selección').setStyle(ButtonStyle.Danger).setEmoji('🔴').setDisabled(true)
         );
         return { embeds: [embed], components: [row] };
     }
@@ -455,8 +451,10 @@ export function createCaptainControlPanel(draft) {
     const currentCaptainId = draft.selection.order[draft.selection.turn];
     const captain = draft.captains.find(c => c.userId === currentCaptainId);
 
-    embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar el botón.*`);
+    embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
     embed.setFooter({ text: `Pick #${draft.selection.currentPick} de 80` });
+
+    const isPicking = draft.selection.isPicking || false;
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -464,11 +462,18 @@ export function createCaptainControlPanel(draft) {
             .setLabel('Elegir Jugador')
             .setStyle(ButtonStyle.Success)
             .setEmoji('👤')
-            .setDisabled(draft.selection.isPicking || false)
+            .setDisabled(isPicking),
+        new ButtonBuilder()
+            .setCustomId(`captain_cancel_pick:${draft.shortId}:${currentCaptainId}`)
+            .setLabel('Cancelar mi Selección')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('🔴')
+            .setDisabled(!isPicking)
     );
 
     return { embeds: [embed], components: [row] };
 }
+
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
     const ruleEmbed = ruleEmbeds[step - 1];
