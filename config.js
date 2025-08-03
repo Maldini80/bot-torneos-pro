@@ -2,6 +2,8 @@
 
 // ID de la Categoría Principal de Torneos donde se crearán los canales de partidos
 export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
+// NUEVO: ID de la Categoría donde se crearán los canales privados de cada equipo del draft
+export const TEAM_CHANNELS_CATEGORY_ID = 'ID_DE_TU_CATEGORIA_DE_EQUIPOS';
 
 // Se añade la constante para el enlace de invitación al servidor de Discord
 export const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
@@ -34,18 +36,6 @@ export const DRAFT_POSITIONS = {
     'MV/MCO': 'Mediocentro/Ofensivo (MV/MCO)',
     DC: 'Delantero Centro (DC)'
 };
-
-// --- INICIO DE LA MODIFICACIÓN ---
-// Regla Maestra: Mínimos de jugadores por posición para poder iniciar el draft.
-export const DRAFT_MINIMUMS = {
-    GK: 8,
-    DFC: 24,
-    CARR: 16,
-    MCD: 8, // Este es un caso especial, ver la lógica de comprobación
-    'MV/MCO': 8, // Este es un caso especial, ver la lógica de comprobación
-    DC: 16
-};
-// --- FIN DE LA MODIFICACIÓN ---
 
 // Orden de visualización de las posiciones en las tablas del Draft
 export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
