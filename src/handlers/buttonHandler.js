@@ -3,7 +3,14 @@ import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, Butto
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
 // --- INICIO DE LA MODIFICACIÓN ---
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval, forceKickPlayer } from '../logic/tournamentLogic.js';
+// Se añaden todas las nuevas funciones a la importación para que estén disponibles
+import {
+    approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister,
+    addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
+    approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft,
+    approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
+    forceKickPlayer, removeStrike, pardonPlayer
+} from '../logic/tournamentLogic.js';
 // --- FIN DE LA MODIFICACIÓN ---
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
@@ -443,7 +450,128 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN ---
+    // --- INICIO DE NUEVOS MANEJADORES ---
+
+    if (action === 'captain_manage_roster_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if (isAdmin) {
+            const teamOptions = draft.captains.map(c => ({
+                label: c.teamName,
+                description: `Capitán: ${c.userName}`,
+                value: c.userId
+            }));
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_select_team_to_manage:${draftShortId}`)
+                .setPlaceholder('Selecciona un equipo para gestionar')
+                .addOptions(teamOptions);
+
+            await interaction.editReply({
+                content: 'Como administrador, puedes seleccionar cualquier equipo para gestionar su plantilla:',
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+        } else {
+            const captain = draft.captains.find(c => c.userId === interaction.user.id);
+            if (!captain) {
+                return interaction.editReply({ content: 'No eres capitán en este draft.' });
+            }
+            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
+            const rosterEmbed = createTeamRosterManagementEmbed(captain, teamPlayers, draftShortId);
+            await interaction.editReply(rosterEmbed);
+        }
+        return;
+    }
+
+    if (action === 'captain_dm_player') {
+        const [playerId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`captain_dm_player_modal:${playerId}`)
+            .setTitle('Enviar Mensaje Directo');
+        const messageInput = new TextInputBuilder()
+            .setCustomId('message_content')
+            .setLabel("Contenido del Mensaje")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(messageInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'captain_request_kick') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId, teamId, playerIdToKick] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        try {
+            await requestPlayerKick(client, draft, teamId, playerIdToKick);
+            await interaction.editReply({ content: '✅ Tu solicitud para expulsar al jugador ha sido enviada a los administradores para su revisión.' });
+        } catch (error) {
+            await interaction.editReply({ content: `❌ Error: ${error.message}` });
+        }
+        return;
+    }
+    
+    if (action === 'admin_approve_kick' || action === 'admin_reject_kick') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId, playerIdToKick] = params;
+        const wasApproved = action === 'admin_approve_kick';
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const result = await handleKickApproval(client, draft, captainId, playerIdToKick, wasApproved);
+
+        const originalMessage = interaction.message;
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+
+        if (wasApproved) {
+            originalEmbed.setColor('#2ecc71').setFooter({ text: `Expulsión aprobada por ${interaction.user.tag}` });
+        } else {
+            originalEmbed.setColor('#e74c3c').setFooter({ text: `Expulsión rechazada por ${interaction.user.tag}` });
+        }
+        
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+        await interaction.followUp({ content: `✅ ${result.message}`, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'captain_report_player') {
+        const [draftShortId, teamId, playerId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`report_player_modal:${draftShortId}:${teamId}:${playerId}`)
+            .setTitle('Reportar Jugador (Aplicar Strike)');
+        const reasonInput = new TextInputBuilder()
+            .setCustomId('reason_input')
+            .setLabel("Razón del Strike")
+            .setPlaceholder("Ej: Comportamiento tóxico, inactividad, etc.")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_remove_strike' || action === 'admin_pardon_player') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [playerId] = params;
+
+        if (action === 'admin_remove_strike') {
+            await removeStrike(client, playerId);
+            await interaction.editReply({ content: '✅ Se ha quitado 1 strike al jugador.' });
+        } else {
+            await pardonPlayer(client, playerId);
+            await interaction.editReply({ content: '✅ Se han perdonado todos los strikes del jugador.' });
+        }
+        
+        // Para una experiencia completa, se debería recargar el embed del jugador.
+        // Por ahora, se envía una confirmación simple.
+        return;
+    }
+
     if (action === 'admin_force_kick_player') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, teamId, playerIdToKick] = params;
@@ -457,7 +585,8 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
+    
+    // --- FIN DE NUEVOS MANEJADORES ---
 
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
