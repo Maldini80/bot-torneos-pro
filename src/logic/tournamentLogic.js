@@ -16,6 +16,7 @@ export async function approveDraftCaptain(client, draft, captainData) {
         userId: captainData.userId,
         userName: captainData.userName,
         psnId: captainData.psnId,
+        eafcTeamName: captainData.eafcTeamName,
         twitter: captainData.twitter,
         primaryPosition: captainData.position,
         secondaryPosition: captainData.position,
@@ -282,19 +283,21 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
 
         const approvedTeams = {};
         for (const captain of draft.captains) {
+            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
             const teamData = {
                 id: captain.userId,
                 nombre: captain.teamName,
-                eafcTeamName: captain.psnId,
+                eafcTeamName: captain.eafcTeamName,
                 capitanId: captain.userId,
                 capitanTag: captain.userName,
                 coCaptainId: null,
                 coCaptainTag: null,
                 bandera: '🏳️',
-                paypal: null,
+                paypal: null, 
                 streamChannel: captain.streamChannel,
                 twitter: captain.twitter,
-                inscritoEn: new Date()
+                inscritoEn: new Date(),
+                players: teamPlayers 
             };
             approvedTeams[captain.userId] = teamData;
         }
@@ -368,7 +371,14 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
 
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
         
-        await cleanupDraftChannel(client, draft);
+        for (const teamData of Object.values(newTournament.teams.aprobados)) {
+            await notifyCastersOfNewTeam(client, newTournament, teamData);
+        }
+        
+        const draftChannel = await client.channels.fetch(draft.discordChannelId).catch(() => null);
+        if (draftChannel) {
+             await draftChannel.send('✅ **Torneo generado con éxito.** Este canal permanecerá como archivo para consultar las plantillas de los equipos.');
+        }
 
         return newTournament;
 
@@ -424,7 +434,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 prizeFinalista: config.isPaid ? config.prizeFinalista : 0,
             },
             captains: [], pendingCaptains: {}, players: [], pendingPayments: {},
-            selection: { turn: 0, order: [], currentPick: 1, isPicking: false, activeInteractionToken: null },
+            selection: { turn: 0, order: [], currentPick: 1, isPicking: false, activeInteractionId: null },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
                 statusMessageId: null, managementThreadId: null,
@@ -519,7 +529,7 @@ export async function startDraftSelection(client, guild, draftShortId) {
 
         await db.collection('drafts').updateOne(
             { _id: draft._id },
-            { $set: { status: 'seleccion', 'selection.order': captainIds, 'selection.turn': 0, 'selection.currentPick': 1, 'selection.isPicking': false } }
+            { $set: { status: 'seleccion', 'selection.order': captainIds, 'selection.turn': 0, 'selection.currentPick': 1, 'selection.isPicking': false, 'selection.activeInteractionId': null } }
         );
         
         draft = await db.collection('drafts').findOne({ _id: draft._id });
@@ -617,7 +627,7 @@ export async function advanceDraftTurn(client, draftShortId) {
 
     const totalPicks = 80;
     if (draft.selection.currentPick >= totalPicks) {
-         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado', "selection.isPicking": false, "selection.activeInteractionToken": null } });
+         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado', "selection.isPicking": false, "selection.activeInteractionId": null } });
          const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
          
          await updateDraftManagementPanel(client, finalDraftState);
@@ -643,7 +653,7 @@ export async function advanceDraftTurn(client, draftShortId) {
     await db.collection('drafts').updateOne(
         { _id: draft._id },
         { 
-            $set: { "selection.turn": nextTurnIndex, "selection.isPicking": false, "selection.activeInteractionToken": null },
+            $set: { "selection.turn": nextTurnIndex, "selection.isPicking": false, "selection.activeInteractionId": null },
             $inc: { "selection.currentPick": 1 },
         }
     );
