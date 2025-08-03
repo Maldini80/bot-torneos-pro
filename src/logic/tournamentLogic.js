@@ -76,6 +76,12 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
             console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`);
         }
     }
+    
+    // Comprobar si la plantilla está completa para tuitear
+    const teamPlayers = draft.players.filter(p => p.captainId === captainId);
+    if (teamPlayers.length === 11) {
+        postTournamentUpdate('ROSTER_COMPLETE', { captain, players: teamPlayers, draft }).catch(console.error);
+    }
 }
 
 
@@ -124,6 +130,9 @@ export async function approveDraftCaptain(client, draft, captainData) {
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
+
+    // Publicar tuit de nuevo capitán aprobado
+    postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft }).catch(console.error);
 }
 
 export async function kickPlayerFromDraft(client, draft, userIdToKick) {
@@ -743,7 +752,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
 
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
-        postTournamentUpdate(newTournament).catch(console.error);
+        postTournamentUpdate('INSCRIPCION_ABIERTA', newTournament).catch(console.error);
 
     } catch (error) { console.error('[CREATE] OCURRIÓ UN ERROR EN MEDIO DEL PROCESO DE CREACIÓN:', error);
         await setBotBusy(false); throw error;
