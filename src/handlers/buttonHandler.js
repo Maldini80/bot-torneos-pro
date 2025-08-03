@@ -2,7 +2,9 @@
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
+// --- INICIO DE LA MODIFICACIÓN ---
 import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval, forceKickPlayer } from '../logic/tournamentLogic.js';
+// --- FIN DE LA MODIFICACIÓN ---
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed } from '../utils/embeds.js';
@@ -440,6 +442,22 @@ export async function handleButton(interaction) {
         });
         return;
     }
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    if (action === 'admin_force_kick_player') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId, teamId, playerIdToKick] = params;
+
+        try {
+            await forceKickPlayer(client, draftShortId, teamId, playerIdToKick);
+            await interaction.editReply({ content: '✅ Jugador expulsado del equipo y devuelto a la lista de agentes libres.' });
+        } catch (error) {
+            console.error("Error al forzar expulsión de jugador:", error);
+            await interaction.editReply({ content: `❌ Hubo un error: ${error.message}` });
+        }
+        return;
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'admin_toggle_translation') {
         await interaction.deferUpdate();
