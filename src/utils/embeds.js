@@ -1,7 +1,7 @@
 // src/utils/embeds.js
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
-import { getBotSettings } from '../../database.js';
+import { getBotSettings, getDb } from '../../database.js';
 
 const ruleEmbeds = [
     new EmbedBuilder()
@@ -97,8 +97,8 @@ export async function createGlobalAdminPanel(isBusy = false) {
 
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
-        .setTitle('Panel de Creación de Torneos y Drafts')
-        .setFooter({ text: 'Bot de Torneos v3.1.4' });
+        .setTitle('Panel de Creación y Gestión Global')
+        .setFooter({ text: 'Bot de Torneos v3.2.0' });
 
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
@@ -108,7 +108,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
     const globalActionsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Draft').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
-        new ButtonBuilder().setCustomId('admin_update_channel_status').setLabel('Estado Canal').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy)
+        new ButtonBuilder().setCustomId('admin_manage_drafts_players').setLabel('Gestionar Jugadores/Drafts').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy)
     );
 
     const globalSettingsRow = new ActionRowBuilder().addComponents(
@@ -305,7 +305,12 @@ export function createDraftManagementPanel(draft, isBusy = false) {
         );
     }
 
-    row2.addComponents(new ButtonBuilder().setCustomId(`draft_end:${draft.shortId}`).setLabel('Finalizar Draft').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy));
+    row2.addComponents(new ButtonBuilder()
+        .setCustomId(`draft_end:${draft.shortId}`)
+        .setLabel('Finalizar Draft (Borrar)')
+        .setStyle(ButtonStyle.Danger).setEmoji('🛑')
+        .setDisabled(isBusy || draft.status !== 'torneo_generado')
+    );
 
     const components = [];
     if (row1.components.length > 0) components.push(row1);
@@ -439,38 +444,113 @@ export function createCaptainControlPanel(draft) {
         .setColor('#f1c40f')
         .setTitle('🕹️ Panel de Control de Capitanes');
 
-    if (draft.status !== 'seleccion' || draft.selection.currentPick > 80) {
-        embed.setDescription('**La fase de selección ha finalizado.**\nGracias a todos los capitanes por participar.');
+    if (draft.status === 'seleccion' && draft.selection.currentPick <= 80) {
+        const currentCaptainId = draft.selection.order[draft.selection.turn];
+        const captain = draft.captains.find(c => c.userId === currentCaptainId);
+
+        embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
+        embed.setFooter({ text: `Pick #${draft.selection.currentPick} de 80` });
+
+        const isPicking = draft.selection.isPicking || false;
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`captain_pick_start:${draft.shortId}`).setLabel('Elegir Jugador').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(isPicking),
+            new ButtonBuilder().setCustomId(`captain_cancel_pick:${draft.shortId}:${currentCaptainId}`).setLabel('Cancelar mi Selección').setStyle(ButtonStyle.Danger).setDisabled(!isPicking)
+        );
+        return { embeds: [embed], components: [row] };
+    }
+    
+    if (draft.status === 'finalizado') {
+        embed.setDescription('**La fase de selección ha finalizado.**\nUn administrador debe pulsar "Forzar Torneo" en el panel de gestión para continuar.');
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('captain_pick_start_disabled').setLabel('Elegir Jugador').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(true),
-            new ButtonBuilder().setCustomId('captain_cancel_pick_disabled').setLabel('Cancelar Selección').setStyle(ButtonStyle.Danger).setDisabled(true)
+            new ButtonBuilder().setCustomId('captain_manage_roster_disabled').setLabel('Gestionar Plantilla').setStyle(ButtonStyle.Primary).setEmoji('📋').setDisabled(true)
         );
         return { embeds: [embed], components: [row] };
     }
 
-    const currentCaptainId = draft.selection.order[draft.selection.turn];
-    const captain = draft.captains.find(c => c.userId === currentCaptainId);
+    if (draft.status === 'torneo_generado') {
+        embed.setDescription('**El torneo ha sido generado.**\nUsa el botón de abajo para gestionar tu plantilla (hacer cambios, reportar jugadores, etc.).');
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`captain_manage_roster_start:${draft.shortId}`).setLabel('Gestionar Plantilla').setStyle(ButtonStyle.Primary).setEmoji('📋')
+        );
+        return { embeds: [embed], components: [row] };
+    }
 
-    embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
-    embed.setFooter({ text: `Pick #${draft.selection.currentPick} de 80` });
+    embed.setDescription('Este panel de control está inactivo.');
+    return { embeds: [embed], components: [] };
+}
 
-    const isPicking = draft.selection.isPicking || false;
+export function createTeamRosterManagementEmbed(team, players, draftShortId) {
+    const embed = new EmbedBuilder()
+        .setColor('#1abc9c')
+        .setTitle(`Gestión de Plantilla: ${team.teamName || team.nombre}`)
+        .setDescription('Selecciona un jugador de la lista para ver sus detalles y gestionarlo.');
 
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`captain_pick_start:${draft.shortId}`)
-            .setLabel('Elegir Jugador')
-            .setStyle(ButtonStyle.Success)
-            .setEmoji('👤')
-            .setDisabled(isPicking),
-        new ButtonBuilder()
-            .setCustomId(`captain_cancel_pick:${draft.shortId}:${currentCaptainId}`)
-            .setLabel('Cancelar mi Selección')
-            .setStyle(ButtonStyle.Danger)
-            .setDisabled(!isPicking)
+    const playerOptions = players.map(p => ({
+        label: p.psnId,
+        description: `Pos: ${p.primaryPosition} / ${p.secondaryPosition === 'NONE' ? 'N/A' : p.secondaryPosition}`,
+        value: p.userId,
+        emoji: p.isCaptain ? '👑' : '👤'
+    }));
+
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId(`admin_select_player_from_roster:${draftShortId}:${team.userId || team.capitanId}`)
+        .setPlaceholder('Selecciona un jugador...')
+        .addOptions(playerOptions);
+
+    return { embeds: [embed], components: [new ActionRowBuilder().addComponents(selectMenu)], flags: [MessageFlags.Ephemeral] };
+}
+
+export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin) {
+    const db = getDb();
+    let playerRecord = await db.collection('player_records').findOne({ userId: player.userId });
+    if (!playerRecord) playerRecord = { userId: player.userId, strikes: 0, history: [] };
+
+    const embed = new EmbedBuilder()
+        .setColor('#3498db')
+        .setTitle(`${player.isCaptain ? '👑' : '👤'} ${player.psnId}`)
+        .addFields(
+            { name: 'Discord', value: `<@${player.userId}>`, inline: true },
+            { name: 'Posición Primaria', value: DRAFT_POSITIONS[player.primaryPosition], inline: true },
+            { name: 'Posición Secundaria', value: player.secondaryPosition === 'NONE' ? 'Ninguna' : DRAFT_POSITIONS[player.secondaryPosition], inline: true },
+            { name: 'Twitter', value: player.twitter ? `[@${player.twitter}](https://twitter.com/${player.twitter})` : 'No proporcionado', inline: true },
+            { name: 'Strikes Actuales', value: `\`${playerRecord.strikes}\``, inline: true }
+        );
+
+    const components = [];
+    const row1 = new ActionRowBuilder();
+    row1.addComponents(
+        new ButtonBuilder().setCustomId(`captain_dm_player:${player.userId}`).setLabel('Enviar MD').setStyle(ButtonStyle.Secondary).setEmoji('✉️')
     );
 
-    return { embeds: [embed], components: [row] };
+    if (!player.isCaptain) {
+        row1.addComponents(
+            new ButtonBuilder().setCustomId(`captain_request_kick:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Expulsar Jugador').setStyle(ButtonStyle.Danger).setEmoji('🚫')
+        );
+    }
+    
+    row1.addComponents(
+        new ButtonBuilder().setCustomId(`captain_report_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Reportar Jugador (Strike)').setStyle(ButtonStyle.Danger).setEmoji('⚠️')
+    );
+    
+    components.push(row1);
+
+    if (isAdmin) {
+        const adminRow = new ActionRowBuilder();
+        adminRow.addComponents(
+            new ButtonBuilder().setCustomId(`admin_remove_strike:${player.userId}`).setLabel('Quitar Strike').setStyle(ButtonStyle.Success).setEmoji('✅').setDisabled(playerRecord.strikes === 0),
+            new ButtonBuilder().setCustomId(`admin_pardon_player:${player.userId}`).setLabel('Perdonar (Quitar todos)').setStyle(ButtonStyle.Success).setEmoji('♻️').setDisabled(playerRecord.strikes === 0)
+        );
+        if (!player.isCaptain) {
+             adminRow.addComponents(
+                new ButtonBuilder().setCustomId(`admin_force_kick_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Forzar Expulsión').setStyle(ButtonStyle.Danger)
+            );
+        }
+        components.push(adminRow);
+    }
+
+    return { embeds: [embed], components, flags: [MessageFlags.Ephemeral] };
 }
 
 
