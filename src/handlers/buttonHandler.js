@@ -366,8 +366,7 @@ export async function handleButton(interaction) {
             fetchReply: true
         });
 
-        // Guardamos el token de la interacción para poder editarla/invalidarla después
-        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.activeInteractionToken": response.id } });
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.activeInteractionId": response.id } });
         return;
     }
 
@@ -380,11 +379,10 @@ export async function handleButton(interaction) {
         if (interaction.user.id !== targetCaptainId && !isAdmin) {
              return interaction.followUp({ content: 'No puedes cancelar una selección que no es tuya.', flags: [MessageFlags.Ephemeral] });
         }
-        
-        // Invalidar la interacción de selección anterior si existe
-        if (draft.selection.activeInteractionToken) {
+
+        if (draft.selection.activeInteractionId) {
             try {
-                await interaction.webhook.editMessage(draft.selection.activeInteractionToken, {
+                await interaction.webhook.editMessage(draft.selection.activeInteractionId, {
                     content: '❌ Esta selección ha sido cancelada.',
                     components: []
                 });
@@ -393,7 +391,7 @@ export async function handleButton(interaction) {
             }
         }
         
-        await db.collection('drafts').updateOne({ shortId: draftShortId }, { $set: { "selection.isPicking": false, "selection.activeInteractionToken": null } });
+        await db.collection('drafts').updateOne({ shortId: draftShortId }, { $set: { "selection.isPicking": false, "selection.activeInteractionId": null } });
         const updatedDraft = await db.collection('drafts').findOne({ shortId: draftShortId });
         await updateCaptainControlPanel(client, updatedDraft);
         return;
@@ -516,12 +514,14 @@ export async function handleButton(interaction) {
             modal.setTitle('Inscripción como Capitán de Draft');
             
             const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
+            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
             const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
             const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
             
             modal.addComponents(
                 new ActionRowBuilder().addComponents(usernameInput),
                 new ActionRowBuilder().addComponents(teamNameInput), 
+                new ActionRowBuilder().addComponents(eafcNameInput),
                 new ActionRowBuilder().addComponents(psnIdInput), 
                 new ActionRowBuilder().addComponents(twitterInput)
             );
@@ -531,7 +531,7 @@ export async function handleButton(interaction) {
             modal.setTitle('Inscripción de Equipo');
             
             const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
-            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo (ID en EAFC)").setStyle(TextInputStyle.Short).setRequired(true);
+            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
             const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter o el de tu equipo (Opcional)").setStyle(TextInputStyle.Short).setRequired(false);
             
             modal.addComponents(
