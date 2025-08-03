@@ -7,7 +7,7 @@ import {
     addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
     approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft,
     approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
-    forceKickPlayer, removeStrike, pardonPlayer
+    forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement
 } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
@@ -135,6 +135,72 @@ export async function handleButton(interaction) {
         await interaction.followUp({ content: `✅ ${result.message}`, flags: [MessageFlags.Ephemeral] });
         return;
     }
+    
+    // --- INICIO DE NUEVA LÓGICA ---
+    if (action === 'admin_invite_replacement_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId, teamId, kickedPlayerId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        const freeAgents = draft.players.filter(p => !p.captainId && !p.isCaptain);
+        if (freeAgents.length === 0) {
+            return interaction.editReply({ content: 'No hay agentes libres disponibles para invitar.' });
+        }
+
+        const agentOptions = freeAgents.map(p => ({
+            label: p.psnId,
+            description: `Pos: ${p.primaryPosition}`,
+            value: p.userId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`captain_invite_replacement_select:${draftShortId}:${teamId}:${kickedPlayerId}`)
+            .setPlaceholder('Selecciona un agente libre para invitar')
+            .addOptions(agentOptions.slice(0, 25)); // Discord solo permite 25 opciones por menú
+
+        await interaction.editReply({
+            content: `Selecciona un jugador de la lista de agentes libres para invitarlo como reemplazo:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'draft_accept_replacement') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId, kickedPlayerId, replacementPlayerId] = params;
+
+        // Solo el jugador invitado puede aceptar
+        if (interaction.user.id !== replacementPlayerId) {
+            return interaction.followUp({ content: "Esta invitación no es para ti.", flags: [MessageFlags.Ephemeral] });
+        }
+        
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        await acceptReplacement(client, guild, draft, captainId, kickedPlayerId, replacementPlayerId);
+
+        await interaction.editReply({
+            content: '✅ Has aceptado la invitación y te has unido al equipo. Los botones de esta invitación han sido desactivados.',
+            components: []
+        });
+        return;
+    }
+
+    if (action === 'draft_reject_replacement') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId] = params;
+        const captain = await client.users.fetch(captainId).catch(() => null);
+
+        if (captain) {
+            await captain.send(`❌ El jugador ${interaction.user.tag} ha rechazado tu invitación para unirse a tu equipo.`);
+        }
+
+        await interaction.editReply({
+            content: '❌ Has rechazado la invitación. Los botones han sido desactivados.',
+            components: []
+        });
+        return;
+    }
+    // --- FIN DE NUEVA LÓGICA ---
+
 
     if (action === 'captain_report_player') {
         const [draftShortId, teamId, playerId] = params;
@@ -164,9 +230,6 @@ export async function handleButton(interaction) {
             await interaction.editReply({ content: '✅ Se han perdonado todos los strikes del jugador.' });
         }
         
-        // Para una experiencia de usuario ideal, se debería recargar el embed del jugador aquí.
-        // Como la interacción original ya fue respondida, esto requeriría más lógica
-        // para encontrar el mensaje y editarlo. Por ahora, se envía una confirmación.
         return;
     }
 
