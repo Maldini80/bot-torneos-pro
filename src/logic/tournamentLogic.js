@@ -59,10 +59,8 @@ export async function kickPlayerFromDraft(client, draft, userIdToKick) {
 
     let updateQuery;
     if (isCaptain) {
-        // Si es capitán, se elimina de ambas listas
         updateQuery = { $pull: { captains: { userId: userIdToKick }, players: { userId: userIdToKick } } };
     } else {
-        // Si es jugador, se elimina solo de la lista de jugadores
         updateQuery = { $pull: { players: { userId: userIdToKick } } };
     }
 
@@ -165,7 +163,6 @@ async function cleanupDraftChannel(client, draft) {
         const channel = await client.channels.fetch(draft.discordChannelId).catch(() => null);
         if (!channel) return;
 
-        // Borramos todos los mensajes excepto el de los equipos
         const messages = await channel.messages.fetch({ limit: 100 });
         const messagesToDelete = [];
         let teamsMessageToKeep = null;
@@ -178,7 +175,6 @@ async function cleanupDraftChannel(client, draft) {
             }
         }
         
-        // Borramos el panel de pick si existe
         if (draft.discordMessageIds.pickPanelMessageId) {
              const pickPanelMsg = await channel.messages.fetch(draft.discordMessageIds.pickPanelMessageId).catch(() => null);
              if (pickPanelMsg) messagesToDelete.push(pickPanelMsg);
@@ -260,6 +256,7 @@ export async function simulateDraftPicks(client, draftShortId) {
         await updateDraftMainInterface(client, finalDraftState.shortId);
         await updateDraftManagementPanel(client, finalDraftState);
         await updatePublicMessages(client, finalDraftState);
+        await updateDraftPickPanel(client, finalDraftState);
         
         const draftChannel = await client.channels.fetch(finalDraftState.discordChannelId);
         if (draftChannel) {
@@ -891,7 +888,6 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             permissionOverwrites: draftChannelPermissions,
         });
 
-        // --- INICIO DE LA MODIFICACIÓN: Se añade pickPanelMessageId y se quita la lógica de reservas ---
         const newDraft = {
             _id: new ObjectId(), shortId, guildId: guild.id, name, status: 'inscripcion',
             config: { 
@@ -907,10 +903,9 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 statusMessageId: null, managementThreadId: null,
                 mainInterfacePlayerMessageId: null, mainInterfaceTeamsMessageId: null,
                 turnOrderMessageId: null, notificationsThreadId: null,
-                pickPanelMessageId: null // ID para el nuevo panel de selección
+                pickPanelMessageId: null
             }
         };
-        // --- FIN DE LA MODIFICACIÓN ---
         
         const [playersEmbed, teamsEmbed, turnOrderEmbed] = createDraftMainInterface(newDraft);
         const playersMessage = await draftChannel.send({ embeds: [playersEmbed] });
@@ -959,7 +954,6 @@ export async function createNewDraft(client, guild, name, shortId, config) {
     }
 }
 
-// --- INICIO DE LA MODIFICACIÓN: Lógica de cuotas y panel de selección ---
 export async function startDraftSelection(client, guild, draftShortId) {
     await setBotBusy(true);
     try {
@@ -968,12 +962,11 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        // Comprobación de cuotas de posiciones
         const positionQuotas = { GK: 1, DFC: 2, CARR: 2, MCD: 2, 'MV/MCO': 2, DC: 2 };
         const positionCounts = {};
         Object.keys(positionQuotas).forEach(p => positionCounts[p] = 0);
 
-        const allPlayers = draft.players; // Incluye capitanes
+        const allPlayers = draft.players;
 
         for (const player of allPlayers) {
             const positions = new Set([player.primaryPosition, player.secondaryPosition]);
@@ -995,7 +988,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
             throw new Error(`No se cumplen las cuotas mínimas de jugadores. Faltan: ${missingPositions.join(', ')}.`);
         }
 
-        // Continúa la lógica si se cumplen las cuotas
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -1009,12 +1001,10 @@ export async function startDraftSelection(client, guild, draftShortId) {
         
         draft = await db.collection('drafts').findOne({ _id: draft._id });
         
-        // Crear el panel de selección por primera vez
         const draftChannel = await client.channels.fetch(draft.discordChannelId);
         const pickPanelContent = createDraftPickPanel(draft);
         const pickPanelMessage = await draftChannel.send(pickPanelContent);
 
-        // Guardar el ID del panel
         await db.collection('drafts').updateOne(
             { _id: draft._id },
             { $set: { 'discordMessageIds.pickPanelMessageId': pickPanelMessage.id } }
@@ -1022,17 +1012,17 @@ export async function startDraftSelection(client, guild, draftShortId) {
 
         await updateDraftManagementPanel(client, draft);
         await updatePublicMessages(client, draft);
+        await updateDraftMainInterface(client, draft.shortId); // Actualizar la lista de picks
 
     } catch (error) {
         console.error("[DRAFT START SELECTION]", error);
-        await setBotBusy(false); // Asegurarse de liberar el bot en caso de error
-        throw error; // Re-lanzar para que el handler lo capture
+        await setBotBusy(false);
+        throw error;
     } finally {
         await setBotBusy(false);
     }
 }
 
-// NUEVA FUNCIÓN para actualizar el panel
 export async function updateDraftPickPanel(client, draft) {
     if (!draft.discordMessageIds.pickPanelMessageId) return;
 
@@ -1048,8 +1038,6 @@ export async function updateDraftPickPanel(client, draft) {
         }
     }
 }
-// --- FIN DE LA MODIFICACIÓN ---
-
 export async function handlePlayerSelection(client, draftShortId, captainId, playerId) {
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -1066,7 +1054,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, pla
         const announcement = await channel.send(`🛡️ **${captain.teamName}** ha seleccionado a **${player.psnId}** (${player.primaryPosition})!`);
         setTimeout(() => {
             announcement.delete().catch(() => {});
-        }, 20000); // 20 segundos
+        }, 20000);
     } catch (e) {
         console.warn('No se pudo enviar el anuncio del pick.');
     }
@@ -1098,44 +1086,55 @@ export async function updateDraftMainInterface(client, draftShortId) {
         }
     }
 }
+
+// --- INICIO DE LA MODIFICACIÓN: Añadir desbloqueo al final del turno ---
 export async function advanceDraftTurn(client, draftShortId) {
     const db = getDb();
-    let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    try {
+        let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-    const totalPicks = 80;
-    if (draft.selection.currentPick >= totalPicks) {
-         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
-         const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
-         
-         await updateDraftManagementPanel(client, finalDraftState);
-         await updateDraftMainInterface(client, finalDraftState.shortId);
-         await updatePublicMessages(client, finalDraftState);
-         await updateDraftPickPanel(client, finalDraftState); // Actualiza el panel a "finalizado"
-         return;
-    }
-
-    const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
-    let nextTurnIndex = draft.selection.turn;
-
-    const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0;
-
-    if (!isTurnaroundPick) {
-        if (round % 2 === 0) { // Ronda par, avanzamos
-            nextTurnIndex++;
-        } else { // Ronda impar, retrocedemos
-            nextTurnIndex--;
+        const totalPicks = 80;
+        if (draft.selection.currentPick >= totalPicks) {
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
+            const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
+            
+            await updateDraftManagementPanel(client, finalDraftState);
+            await updateDraftMainInterface(client, finalDraftState.shortId);
+            await updatePublicMessages(client, finalDraftState);
+            await updateDraftPickPanel(client, finalDraftState);
+            return; // Salimos de la función aquí
         }
-    }
-    
-    await db.collection('drafts').updateOne(
-        { _id: draft._id },
-        { 
-            $set: { "selection.turn": nextTurnIndex },
-            $inc: { "selection.currentPick": 1 },
-        }
-    );
 
-    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    await updateDraftMainInterface(client, updatedDraft.shortId);
-    await updateDraftPickPanel(client, updatedDraft); // Llama a la nueva función
+        const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
+        let nextTurnIndex = draft.selection.turn;
+
+        const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0;
+
+        if (!isTurnaroundPick) {
+            if (round % 2 === 0) {
+                nextTurnIndex++;
+            } else {
+                nextTurnIndex--;
+            }
+        }
+        
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { 
+                $set: { "selection.turn": nextTurnIndex },
+                $inc: { "selection.currentPick": 1 },
+            }
+        );
+
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await updateDraftMainInterface(client, updatedDraft.shortId);
+        await updateDraftPickPanel(client, updatedDraft);
+
+    } catch (error) {
+        console.error("Error al avanzar el turno del draft:", error);
+    } finally {
+        // Pase lo que pase, desbloqueamos el bot para el siguiente turno
+        await setBotBusy(false);
+    }
 }
+// --- FIN DE LA MODIFICACIÓN ---
