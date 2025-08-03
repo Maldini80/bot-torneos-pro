@@ -3,7 +3,7 @@
 // ID de la Categoría Principal de Torneos donde se crearán los canales de partidos
 export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
 // NUEVO: ID de la Categoría donde se crearán los canales privados de cada equipo del draft
-export const TEAM_CHANNELS_CATEGORY_ID = 'ID_DE_TU_CATEGORIA_DE_EQUIPOS';
+export const TEAM_CHANNELS_CATEGORY_ID = '1392406963463262209';
 
 // Se añade la constante para el enlace de invitación al servidor de Discord
 export const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
