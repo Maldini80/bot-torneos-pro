@@ -53,16 +53,18 @@ export async function handleSelectMenu(interaction) {
         const type = interaction.values[0];
 
         if (type === 'gratis') {
-            await interaction.update({ content: `✅ Recibido. Creando el draft gratuito **"${name}"** en segundo plano...`, components: [] });
-
+            await interaction.deferUpdate();
             const isPaid = false;
             const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             const config = { isPaid, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 };
 
-            createNewDraft(client, interaction.guild, name, shortId, config).catch(error => {
-                console.error("Error en la creación del draft en segundo plano:", error);
-            });
-
+            try {
+                await createNewDraft(client, guild, name, shortId, config);
+                await interaction.editReply({ content: `✅ ¡Éxito! El draft gratuito **"${name}"** ha sido creado.`, components: [] });
+            } catch (error) {
+                console.error("Error capturado por el handler al crear el draft:", error);
+                await interaction.editReply({ content: `❌ Ocurrió un error: ${error.message}`, components: [] });
+            }
         } else { // type === 'pago'
             const modal = new ModalBuilder()
                 .setCustomId(`create_draft_paid_modal:${name}`)
@@ -305,29 +307,16 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    // --- INICIO DE LA CORRECCIÓN: Solucionar `interaction.member` nulo en MDs ---
     if (action === 'draft_pick_player') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, captainId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        if (!draft) {
-            return interaction.editReply({ content: 'Error: Draft no encontrado.' });
-        }
-
-        let isAdmin = false;
-        try {
-            const guild = await client.guilds.fetch(draft.guildId);
-            const member = await guild.members.fetch(interaction.user.id);
-            isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
-        } catch (e) {
-            console.warn("No se pudo verificar los permisos de administrador para la selección del draft.");
-        }
-
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
         if (interaction.user.id !== captainId && !isAdmin) {
             return interaction.editReply({ content: 'No es tu turno de elegir.', components: [] });
         }
         const selectedPlayerId = interaction.values[0];
     
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const player = draft.players.find(p => p.userId === selectedPlayerId);
     
         const confirmationRow = new ActionRowBuilder().addComponents(
@@ -349,7 +338,6 @@ export async function handleSelectMenu(interaction) {
         });
         return;
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     if (action === 'admin_set_channel_icon') {
         await interaction.deferUpdate();
