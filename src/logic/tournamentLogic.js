@@ -1166,6 +1166,11 @@ export async function reportPlayer(client, draft, reporterId, reportedPlayerId, 
     const reporter = draft.players.find(p => p.userId === reporterId);
     const reported = draft.players.find(p => p.userId === reportedPlayerId);
     
+    const playerRecord = await records.findOne({ userId: reportedPlayerId });
+    if (playerRecord && playerRecord.history && playerRecord.history.some(strike => strike.draftId === draft.shortId && strike.reporterId === reporterId)) {
+        throw new Error('Ya has reportado a este jugador en este draft. No puedes reportarlo de nuevo.');
+    }
+
     const updateResult = await records.findOneAndUpdate(
         { userId: reportedPlayerId },
         { 
