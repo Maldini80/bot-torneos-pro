@@ -327,7 +327,7 @@ export async function handleButton(interaction) {
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) {
-            return interaction.reply({ content: 'Error: No se pudo encontrar ese draft.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
         }
         await interaction.reply({ content: `⏳ Recibido. Finalizando el draft **${draft.name}**. Los canales y mensajes se borrarán en breve.`, flags: [MessageFlags.Ephemeral] });
         await endDraft(client, draft);
@@ -367,6 +367,21 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'captain_cancel_pick') {
+        await interaction.deferUpdate();
+        const [draftShortId, targetCaptainId] = params;
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+        
+        if (interaction.user.id !== targetCaptainId && !isAdmin) {
+             return interaction.followUp({ content: 'No puedes cancelar una selección que no es tuya.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await db.collection('drafts').updateOne({ shortId: draftShortId }, { $set: { "selection.isPicking": false } });
+        const updatedDraft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        await updateCaptainControlPanel(client, updatedDraft);
+        return;
+    }
+
     if (action === 'draft_confirm_pick') {
         const [draftShortId, captainId, selectedPlayerId] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
@@ -394,13 +409,19 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: 'No puedes deshacer este pick.', flags: [MessageFlags.Ephemeral] });
         }
         
-        await db.collection('drafts').updateOne({ shortId: draftShortId }, { $set: { "selection.isPicking": false } });
-        const updatedDraft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        await updateCaptainControlPanel(client, updatedDraft);
-
+        const searchTypeMenu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`draft_pick_search_type:${draftShortId}:${captainId}`)
+                .setPlaceholder('Buscar jugador por...')
+                .addOptions([
+                    { label: 'Posición Primaria', value: 'primary', emoji: '⭐' },
+                    { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
+                ])
+        );
+        
         await interaction.update({
-            content: 'Selección cancelada. Puedes volver a pulsar el botón "Elegir Jugador" en el canal.',
-            components: []
+            content: 'Selección cancelada. Por favor, elige de nuevo cómo quieres buscar al jugador.',
+            components: [searchTypeMenu]
         });
         return;
     }
