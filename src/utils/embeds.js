@@ -309,7 +309,7 @@ export function createDraftManagementPanel(draft, isBusy = false) {
         .setCustomId(`draft_end:${draft.shortId}`)
         .setLabel('Finalizar Draft (Borrar)')
         .setStyle(ButtonStyle.Danger).setEmoji('🛑')
-        .setDisabled(isBusy || draft.status !== 'torneo_generado')
+        .setDisabled(isBusy)
     );
 
     const components = [];
@@ -545,9 +545,7 @@ export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin
         if (!player.isCaptain) {
              adminRow.addComponents(
                 new ButtonBuilder().setCustomId(`admin_force_kick_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Forzar Expulsión').setStyle(ButtonStyle.Danger),
-                // --- INICIO DE LA MODIFICACIÓN ---
                 new ButtonBuilder().setCustomId(`admin_invite_replacement_start:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Invitar Reemplazo').setStyle(ButtonStyle.Primary).setEmoji('🔄')
-                // --- FIN DE LA MODIFICACIÓN ---
             );
         }
         components.push(adminRow);
