@@ -16,10 +16,7 @@ export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
 
 export async function inviteUserToMatchThread(interaction, team) {
     if (!team.coCaptainId) {
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se cambia reply por editReply para solucionar el error
-        return interaction.editReply({ content: 'Tu equipo no tiene un co-capitán asignado.', flags: ['Ephemeral'] });
-        // --- FIN DE LA MODIFICACIÓN ---
+        return interaction.editReply({ content: 'Tu equipo no tiene un co-capitán asignado.' });
     }
     
     const thread = interaction.channel;
@@ -27,16 +24,10 @@ export async function inviteUserToMatchThread(interaction, team) {
 
     try {
         await thread.members.add(team.coCaptainId);
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se cambia reply por editReply para solucionar el error
-        await interaction.editReply({ content: `✅ <@${team.coCaptainId}> ha sido invitado a este hilo.`, flags: ['Ephemeral'] });
-        // --- FIN DE LA MODIFICACIÓN ---
+        await interaction.editReply({ content: `✅ <@${team.coCaptainId}> ha sido invitado a este hilo.` });
     } catch (error) {
         console.error(`Error al invitar al co-capitán ${team.coCaptainId} al hilo ${thread.id}:`, error);
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Se cambia reply por editReply para solucionar el error
-        await interaction.editReply({ content: '❌ No se pudo invitar al co-capitán. Es posible que ya esté en el hilo.', flags: ['Ephemeral'] });
-        // --- FIN DE LA MODIFICACIÓN ---
+        await interaction.editReply({ content: '❌ No se pudo invitar al co-capitán. Es posible que ya esté en el hilo.' });
     }
 }
 
