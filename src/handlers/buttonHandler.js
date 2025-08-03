@@ -17,8 +17,6 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // --- CADA BLOQUE AHORA GESTIONA SU PROPIA RESPUESTA ---
-
     if (action === 'admin_create_draft_start') {
         const simpleModal = new ModalBuilder()
             .setCustomId('create_draft_modal')
@@ -32,7 +30,6 @@ export async function handleButton(interaction) {
 
         simpleModal.addComponents(new ActionRowBuilder().addComponents(nameInput));
 
-        // showModal es la única respuesta necesaria.
         await interaction.showModal(simpleModal);
         return;
     }
@@ -52,14 +49,13 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
         
-        // reply es la única respuesta necesaria.
         const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, draftShortId);
         await interaction.reply(ruleStepContent);
         return;
     }
 
     if (action === 'draft_approve_captain' || action === 'draft_reject_captain') {
-        await interaction.deferUpdate(); // Defer para editar el mensaje original
+        await interaction.deferUpdate();
         const [draftShortId, targetUserId] = params;
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -110,47 +106,25 @@ export async function handleButton(interaction) {
             return interaction.editReply({ content: 'ℹ️ No hay participantes inscritos para gestionar.' });
         }
     
-        const pageSize = 25;
-        if (allParticipants.length > pageSize) {
-            const pageCount = Math.ceil(allParticipants.length / pageSize);
-            const pageOptions = [];
-            for (let i = 0; i < pageCount; i++) {
-                const start = i * pageSize + 1;
-                const end = Math.min((i + 1) * pageSize, allParticipants.length);
-                pageOptions.push({ label: `Participantes ${start} - ${end}`, value: `page_${i}` });
-            }
-
-            const pageSelectMenu = new StringSelectMenuBuilder()
-                .setCustomId(`admin_kick_participant_page_select:${draftShortId}`)
-                .setPlaceholder('Selecciona una página de participantes')
-                .addOptions(pageOptions);
-
-            await interaction.editReply({
-                content: `Hay demasiados participantes. Por favor, selecciona un grupo para ver:`,
-                components: [new ActionRowBuilder().addComponents(pageSelectMenu)]
-            });
-
-        } else {
-            const options = allParticipants.map(p => {
-                const isCaptain = draft.captains.some(c => c.userId === p.userId);
-                return {
-                    label: p.userName || p.psnId,
-                    description: isCaptain ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
-                    value: p.userId,
-                    emoji: isCaptain ? '👑' : '👤'
-                };
-            });
+        const options = allParticipants.map(p => {
+            const isCaptain = draft.captains.some(c => c.userId === p.userId);
+            return {
+                label: p.userName || p.psnId,
+                description: isCaptain ? `CAPITÁN - ${p.psnId}` : `JUGADOR - ${p.psnId}`,
+                value: p.userId,
+                emoji: isCaptain ? '👑' : '👤'
+            };
+        });
     
-            const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
-                .setPlaceholder('Selecciona un participante para expulsar')
-                .addOptions(options);
-            
-            await interaction.editReply({
-                content: 'Selecciona un participante para expulsarlo del draft. Esta acción es irreversible.',
-                components: [new ActionRowBuilder().addComponents(selectMenu)]
-            });
-        }
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_kick_participant_draft_select:${draftShortId}`)
+            .setPlaceholder('Selecciona un participante para expulsar')
+            .addOptions(options);
+        
+        await interaction.editReply({
+            content: 'Selecciona un participante de la lista para expulsarlo del draft. Esta acción es irreversible.',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
         return;
     }
     
@@ -212,10 +186,9 @@ export async function handleButton(interaction) {
     if (action === 'draft_simulate_picks') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
-        const adminUserId = interaction.user.id;
         try {
-            await simulateDraftPicks(client, draftShortId, adminUserId);
-            await interaction.editReply('✅ Simulación híbrida iniciada. El bot elegirá por los demás. Se te notificará en tu turno.');
+            await simulateDraftPicks(client, draftShortId);
+            await interaction.editReply('✅ Simulación completada. El draft ha finalizado.');
         } catch (error) {
             console.error('Error al simular picks del draft:', error);
             await interaction.editReply(`❌ Hubo un error durante la simulación: ${error.message}`);
@@ -236,7 +209,7 @@ export async function handleButton(interaction) {
             }));
 
         if (eightTeamFormats.length === 0) {
-            return interaction.editReply('❌ No hay formatos de torneo de 8 equipos configurados.');
+            return interaction.editReply('❌ No hay formatos de torneo de 8 equipos configurados. No se puede continuar.');
         }
 
         const formatMenu = new StringSelectMenuBuilder()
@@ -327,13 +300,12 @@ export async function handleButton(interaction) {
     }
     
     if (action === 'draft_end') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) {
-            return interaction.editReply({ content: 'Error: No se pudo encontrar ese draft.' });
+            return interaction.reply({ content: 'Error: No se pudo encontrar ese draft.', flags: [MessageFlags.Ephemeral] });
         }
-        await interaction.editReply({ content: `⏳ Recibido. Finalizando el draft **${draft.name}**. Los canales y mensajes se borrarán en breve.` });
+        await interaction.reply({ content: `⏳ Recibido. Finalizando el draft **${draft.name}**. Los canales y mensajes se borrarán en breve.`, flags: [MessageFlags.Ephemeral] });
         await endDraft(client, draft);
         return;
     }
@@ -499,14 +471,12 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'invite_to_thread') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const { partido } = findMatch(tournament, matchId);
         
         const team = partido.equipoA.capitanId === interaction.user.id ? partido.equipoA : partido.equipoB;
         await inviteUserToMatchThread(interaction, team);
-        await interaction.editReply({ content: '✅ Invitación enviada.' });
         return;
     }
 
@@ -597,9 +567,24 @@ export async function handleButton(interaction) {
             .setCustomId('admin_set_channel_icon')
             .setPlaceholder('Selecciona el estado del canal manualmente')
             .addOptions([
-                { label: 'Verde (Inscripciones Abiertas)', value: '🟢', emoji: '🟢' },
-                { label: 'Azul (Torneos en Juego)', value: '🔵', emoji: '🔵' },
-                { label: 'Rojo (Inactivo)', value: '🔴', emoji: '🔴' }
+                {
+                    label: 'Verde (Inscripciones Abiertas)',
+                    description: 'Hay torneos con plazas libres.',
+                    value: '🟢',
+                    emoji: '🟢'
+                },
+                {
+                    label: 'Azul (Torneos en Juego)',
+                    description: 'Hay torneos en progreso o llenos.',
+                    value: '🔵',
+                    emoji: '🔵'
+                },
+                {
+                    label: 'Rojo (Inactivo)',
+                    description: 'No hay torneos activos.',
+                    value: '🔴',
+                    emoji: '🔴'
+                }
             ]);
 
         const row = new ActionRowBuilder().addComponents(statusMenu);
@@ -650,14 +635,32 @@ export async function handleButton(interaction) {
         let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
 
         if (approvedTeams.length > 0) {
-            description = approvedTeams.map((team, index) => `...`).join('\n');
+            description = approvedTeams.map((team, index) => {
+                let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}`;
+                if (team.coCaptainTag) teamString += `, Co-Cap: ${team.coCaptainTag}`;
+                teamString += `)`;
+                return teamString;
+            }).join('\n');
         }
 
         if (waitlistedTeams.length > 0) {
-            // ... (lógica omitida por brevedad)
+            const waitlistDescription = waitlistedTeams.map((team, index) => {
+                 let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag})`;
+                 return teamString;
+            }).join('\n');
+            
+            if(approvedTeams.length > 0) {
+                description += `\n\n---\n`;
+                description += `📋 **Lista de Reserva / Waitlist**\n${waitlistDescription}`;
+            } else {
+                description = `📋 **Lista de Reserva / Waitlist**\n${waitlistDescription}`;
+            }
         }
         
-        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Participantes: ${tournament.nombre}`).setDescription(description);
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle(`Participantes: ${tournament.nombre}`)
+            .setDescription(description);
 
         try {
             await interaction.user.send({ embeds: [embed] });
@@ -696,16 +699,14 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // El deferReply genérico ha sido eliminado. Cada bloque de arriba ahora lo gestiona.
-    // Los siguientes bloques también necesitan su propio deferReply.
-
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    
     if (action === 'admin_undo_draw') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
-        await interaction.editReply({ content: '⏳ **Recibido.** Iniciando el proceso para revertir el sorteo...' });
+        await interaction.editReply({ content: '⏳ **Recibido.** Iniciando el proceso para revertir el sorteo. Esto puede tardar unos segundos...' });
         try {
             await undoGroupStageDraw(client, tournamentShortId);
-            await interaction.followUp({ content: '✅ **Sorteo revertido con éxito!**', flags: [MessageFlags.Ephemeral]});
+            await interaction.followUp({ content: '✅ **Sorteo revertido con éxito!** El torneo está de nuevo en fase de inscripción.', flags: [MessageFlags.Ephemeral]});
         } catch (error) {
             console.error(`Error al revertir el sorteo para ${tournamentShortId}:`, error);
             await interaction.followUp({ content: `❌ Hubo un error al revertir el sorteo: ${error.message}`, flags: [MessageFlags.Ephemeral]});
@@ -714,7 +715,6 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'admin_approve') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || (!tournament.teams.pendientes[captainId] && !tournament.teams.reserva[captainId])) {
@@ -723,7 +723,7 @@ export async function handleButton(interaction) {
         const teamData = tournament.teams.pendientes[captainId] || tournament.teams.reserva[captainId];
         await approveTeam(client, tournament, teamData);
         
-        const kickButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_kick:${captainId}:${tournamentShortId}`).setLabel("Expulsar del Torneo").setStyle(ButtonStyle.Danger));
+        const kickButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_kick:${captainId}:${tournamentShortId}`).setLabel("Expulsar del Torneo / Kick from Tournament").setStyle(ButtonStyle.Danger));
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Aprobado por ${interaction.user.tag}`}).setColor('#2ecc71');
@@ -737,7 +737,6 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'admin_reject') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const teamData = tournament.teams.pendientes[captainId] || tournament.teams.reserva[captainId];
@@ -750,7 +749,7 @@ export async function handleButton(interaction) {
         
         try {
             const user = await client.users.fetch(captainId);
-            await user.send(`❌ Tu inscripción para **${teamData.nombre}** en **${tournament.nombre}** ha sido **rechazada**.`);
+            await user.send(`❌ 🇪🇸 Tu inscripción para el equipo **${teamData.nombre}** en el torneo **${tournament.nombre}** ha sido **rechazada**.\n🇬🇧 Your registration for the team **${teamData.nombre}** in the **${tournament.nombre}** tournament has been **rejected**.`);
         } catch (e) { console.warn(`No se pudo enviar MD de rechazo al usuario ${captainId}`); }
         
         const originalMessage = interaction.message;
@@ -765,7 +764,6 @@ export async function handleButton(interaction) {
         return;
     }
     if (action === 'admin_kick') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
@@ -776,7 +774,7 @@ export async function handleButton(interaction) {
         
         try {
             const user = await client.users.fetch(captainId);
-            await user.send(`🚨 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.`);
+            await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have sido **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
         } catch (e) { console.warn(`No se pudo enviar MD de expulsión al usuario ${captainId}`); }
         
         const originalMessage = interaction.message;
@@ -790,36 +788,34 @@ export async function handleButton(interaction) {
         return;
     }
     if (action === 'admin_force_draw') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
-        if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos.' });
+        if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
         
-        await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano.` });
+        await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Esto puede tardar varios minutos.` });
         
-        startGroupStage(client, guild, tournament).catch(console.error);
+        startGroupStage(client, guild, tournament)
+            .then(() => { if (interaction.channel) { interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`); } })
+            .catch(error => { console.error("Error durante el sorteo en segundo plano:", error); if (interaction.channel) { interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`); } });
         return;
     }
     if (action === 'admin_simulate_matches') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
-        await interaction.editReply({ content: '⏳ Simulando todos los partidos pendientes...' });
+        await interaction.editReply({ content: '⏳ Simulando todos los partidos pendientes... Esto puede tardar un momento.' });
         const result = await simulateAllPendingMatches(client, tournamentShortId);
         await interaction.editReply(`✅ Simulación completada. ${result.message}`);
         return;
     }
     if (action === 'admin_end_tournament') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
-        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**.` });
+        await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Los canales se borrarán en breve.` });
         await endTournament(client, tournament);
         return;
     }
     if (action === 'admin_notify_changes') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
@@ -829,7 +825,6 @@ export async function handleButton(interaction) {
     }
     
     if (action === 'cocaptain_accept') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, captainId, coCaptainId] = params;
         if (interaction.user.id !== coCaptainId) return interaction.editReply({ content: "Esta invitación no es para ti." });
 
@@ -841,17 +836,15 @@ export async function handleButton(interaction) {
         await addCoCaptain(client, tournament, captainId, coCaptainId);
         
         const captainUser = await client.users.fetch(captainId);
-        await captainUser.send(`✅ **${interaction.user.tag}** ha aceptado tu invitación de co-capitán.`);
-        await interaction.editReply({ content: "✅ ¡Has aceptado la invitación!" });
+        await captainUser.send(`✅ **${interaction.user.tag}** ha aceptado tu invitación y ahora es tu co-capitán.`);
+        await interaction.editReply({ content: "✅ ¡Has aceptado la invitación! Ahora eres co-capitán." });
 
         const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ components: [disabledRow] });
-        return;
     }
 
     if (action === 'cocaptain_reject') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, captainId, coCaptainId] = params;
         if (interaction.user.id !== coCaptainId) return interaction.editReply({ content: "Esta invitación no es para ti." });
 
@@ -864,33 +857,27 @@ export async function handleButton(interaction) {
         const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ components: [disabledRow] });
-        return;
     }
 
     if (action === 'darse_baja_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
 
         const result = await requestUnregister(client, tournament, interaction.user.id);
         await interaction.editReply({ content: result.message });
-        return;
     }
 
     if (action === 'darse_baja_draft_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) return interaction.editReply({ content: "Error: Draft no encontrado." });
     
         const result = await requestUnregisterFromDraft(client, draft, interaction.user.id);
         await interaction.editReply({ content: result.message });
-        return;
     }
     
     if (action === 'admin_unregister_approve') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, captainId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
@@ -912,17 +899,15 @@ export async function handleButton(interaction) {
         await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
         await interaction.editReply(`✅ Baja del equipo **${team.nombre}** procesada.`);
-        return;
     }
 
     if (action === 'admin_unregister_reject') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, captainId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
         try {
             const user = await client.users.fetch(captainId);
-            await user.send(`❌ Tu solicitud de baja del torneo **${tournament.nombre}** ha sido **rechazada**.`);
+            await user.send(`❌ Tu solicitud de baja del torneo **${tournament.nombre}** ha sido **rechazada** por un administrador.`);
         } catch(e) { console.warn('No se pudo notificar al usuario de la baja rechazada'); }
 
         const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
@@ -932,7 +917,6 @@ export async function handleButton(interaction) {
         await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
         await interaction.editReply(`❌ Solicitud de baja rechazada.`);
-        return;
     }
 
     if (action === 'admin_prize_paid') {
@@ -951,11 +935,9 @@ export async function handleButton(interaction) {
         
         await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
         await interaction.editReply(`✅ Pago marcado como realizado. Se ha notificado a <@${userId}>.`);
-        return;
     }
 
     if(action === 'admin_manage_waitlist') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const waitlist = tournament.teams.reserva ? Object.values(tournament.teams.reserva) : [];
@@ -972,7 +954,6 @@ export async function handleButton(interaction) {
             .setPlaceholder('Selecciona un equipo para promoverlo')
             .addOptions(options);
         
-        await interaction.editReply({content: 'Selecciona un equipo para aprobarlo y añadirlo al torneo:', components: [new ActionRowBuilder().addComponents(selectMenu)]});
-        return;
+        await interaction.editReply({content: 'Selecciona un equipo de la lista de reserva para aprobarlo y añadirlo al torneo:', components: [new ActionRowBuilder().addComponents(selectMenu)]});
     }
 }
