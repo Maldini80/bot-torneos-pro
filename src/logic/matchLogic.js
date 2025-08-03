@@ -53,10 +53,6 @@ export async function processMatchResult(client, guild, tournament, matchId, res
 
     } else {
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
-        
-        // Publicar el resultado del partido de eliminatoria en Twitter
-        postTournamentUpdate('KNOCKOUT_MATCH_FINISHED', { match: partido, tournament: currentTournament }).catch(console.error);
-        
         let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
         await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats);
     }
@@ -159,7 +155,6 @@ async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
     if (allFinished) {
         console.log(`[ADVANCEMENT] Fase de grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
-        // Publicar tuit de fin de fase de grupos
         postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
         await startNextKnockoutRound(client, guild, tournament);
     }
@@ -182,6 +177,7 @@ async function checkForKnockoutAdvancement(client, guild, tournament) {
 
     if (allFinished) {
         console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
+        postTournamentUpdate('KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament }).catch(console.error);
         await startNextKnockoutRound(client, guild, tournament);
     }
 }
@@ -259,8 +255,7 @@ async function startNextKnockoutRound(client, guild, tournament) {
     } else {
         currentTournament.structure.eliminatorias[siguienteRonda] = partidos;
     }
-
-    // Publicar tuit con los nuevos cruces
+    
     postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRonda, tournament: currentTournament }).catch(console.error);
 
     const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
