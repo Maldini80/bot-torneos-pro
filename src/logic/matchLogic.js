@@ -1,12 +1,10 @@
 // src/logic/matchLogic.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
-// CORRECCIÓN: Se importa `updatePublicMessages` y `endTournament` desde el lugar correcto
 import { updatePublicMessages, endTournament } from './tournamentLogic.js';
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-// NUEVO: Se importa la función de Twitter desde el lugar correcto
 import { postTournamentUpdate } from '../utils/twitter.js';
 
 export async function finalizeMatchThread(client, partido, resultString) {
@@ -55,6 +53,10 @@ export async function processMatchResult(client, guild, tournament, matchId, res
 
     } else {
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
+        
+        // Publicar el resultado del partido de eliminatoria en Twitter
+        postTournamentUpdate('KNOCKOUT_MATCH_FINISHED', { match: partido, tournament: currentTournament }).catch(console.error);
+        
         let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
         await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats);
     }
@@ -157,6 +159,8 @@ async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
     if (allFinished) {
         console.log(`[ADVANCEMENT] Fase de grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
+        // Publicar tuit de fin de fase de grupos
+        postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
         await startNextKnockoutRound(client, guild, tournament);
     }
 }
@@ -256,6 +260,9 @@ async function startNextKnockoutRound(client, guild, tournament) {
         currentTournament.structure.eliminatorias[siguienteRonda] = partidos;
     }
 
+    // Publicar tuit con los nuevos cruces
+    postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRonda, tournament: currentTournament }).catch(console.error);
+
     const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
     const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🔥`).setFooter({text: '¡Mucha suerte!'});
 
@@ -307,7 +314,7 @@ async function handleFinalResult(client, guild, tournament) {
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
 
-    postTournamentUpdate(updatedTournament).catch(console.error);
+    postTournamentUpdate('FINALIZADO', updatedTournament).catch(console.error);
 
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
