@@ -98,7 +98,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación de Torneos y Drafts')
-        .setFooter({ text: 'Bot de Torneos v3.1.0' });
+        .setFooter({ text: 'Bot de Torneos v3.1.1' });
 
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
@@ -383,6 +383,7 @@ export function createDraftMainInterface(draft) {
     if (teamFields[1].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[1].join('\n\n'), inline: true });
     if (teamFields[2].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[2].join('\n\n'), inline: true });
 
+    // --- INICIO DE LA MODIFICACIÓN: Lógica de la lista de picks restaurada ---
     const turnOrderEmbed = new EmbedBuilder()
         .setColor('#e67e22')
         .setTitle('🐍 Orden de Selección del Draft');
@@ -404,9 +405,9 @@ export function createDraftMainInterface(draft) {
             const pickInRound = i % numCaptains;
             let captainId;
 
-            if (roundForThisPick % 2 === 0) {
+            if (roundForThisPick % 2 === 0) { // Ronda par (0, 2, 4...)
                 captainId = draft.selection.order[pickInRound];
-            } else {
+            } else { // Ronda impar (1, 3, 5...)
                 captainId = draft.selection.order[numCaptains - 1 - pickInRound];
             }
 
@@ -430,11 +431,11 @@ export function createDraftMainInterface(draft) {
     } else {
         turnOrderEmbed.setDescription('El orden de selección se mostrará aquí cuando comience la fase de selección.');
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     return [playersEmbed, teamsEmbed, turnOrderEmbed];
 }
 
-// --- INICIO DE LA MODIFICACIÓN: Lógica de filas de botones corregida ---
 export function createDraftPickPanel(draft) {
     if (draft.status !== 'seleccion') {
         return {
@@ -465,11 +466,11 @@ export function createDraftPickPanel(draft) {
         .setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.`)
         .setFooter({ text: 'El capitán debe usar el botón con el nombre de su equipo para elegir.' });
 
+    // --- INICIO DE LA MODIFICACIÓN: Lógica de filas de botones corregida ---
     const componentRows = [];
     let currentRow = new ActionRowBuilder();
 
     draft.captains.forEach((cap) => {
-        // Si la fila actual ya tiene 5 botones, la guardamos y creamos una nueva.
         if (currentRow.components.length === 5) {
             componentRows.push(currentRow);
             currentRow = new ActionRowBuilder();
@@ -477,21 +478,20 @@ export function createDraftPickPanel(draft) {
 
         const button = new ButtonBuilder()
             .setCustomId(`draft_pick_start:${draft.shortId}:${cap.userId}`)
-            .setLabel(cap.teamName.substring(0, 80)) // Límite de 80 caracteres para el label
+            .setLabel(cap.teamName.substring(0, 80))
             .setStyle(cap.userId === currentCaptainId ? ButtonStyle.Success : ButtonStyle.Secondary)
             .setDisabled(cap.userId !== currentCaptainId);
 
         currentRow.addComponents(button);
     });
 
-    // Añadimos la última fila si contiene algún botón.
     if (currentRow.components.length > 0) {
         componentRows.push(currentRow);
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     return { content: `<@${currentCaptainId}>, ¡es tu turno!`, embeds: [embed], components: componentRows };
 }
-// --- FIN DE LA MODIFICACIÓN ---
 
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
