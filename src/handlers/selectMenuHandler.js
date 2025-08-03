@@ -67,13 +67,13 @@ export async function handleSelectMenu(interaction) {
     
     if (action === 'captain_invite_replacement_select') {
         await interaction.deferUpdate();
-        const [draftShortId, teamId] = params;
+        const [draftShortId, teamId, kickedPlayerId] = params;
         const replacementPlayerId = interaction.values[0];
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         
         try {
-            await inviteReplacementPlayer(client, draft, teamId, replacementPlayerId);
+            await inviteReplacementPlayer(client, draft, teamId, kickedPlayerId, replacementPlayerId);
             await interaction.editReply({ content: '✅ Invitación enviada al jugador de reemplazo.', components: [] });
         } catch(error) {
             await interaction.editReply({ content: `❌ Error: ${error.message}`, components: [] });
