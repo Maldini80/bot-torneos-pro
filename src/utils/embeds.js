@@ -98,7 +98,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación de Torneos y Drafts')
-        .setFooter({ text: 'Bot de Torneos v3.0.0' });
+        .setFooter({ text: 'Bot de Torneos v3.1.0' });
 
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
@@ -200,21 +200,21 @@ export function createDraftStatusEmbed(draft) {
     const captainCount = draft.captains.length;
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
     const totalParticipants = captainCount + nonCaptainPlayerCount;
-    const isFull = captainCount >= 8 && totalParticipants >= 88;
-
+    
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // El draft ya no está "lleno" nunca, se quita la lógica de isFull
     const statusMap = {
-        inscripcion: isFull ? 'cupo_lleno' : 'inscripcion_abierta',
+        inscripcion: 'inscripcion_abierta',
         seleccion: 'fase_de_grupos',
         finalizado: 'finalizado',
         torneo_generado: 'finalizado',
         cancelado: 'cancelado'
     };
-
     const statusIcon = TOURNAMENT_STATUS_ICONS[statusMap[draft.status]] || '❓';
-
     let embedColor = '#3498db';
     if (draft.status === 'inscripcion') {
-        embedColor = isFull ? '#f39c12' : '#2ecc71';
+        embedColor = '#2ecc71';
+    // --- FIN DE LA MODIFICACIÓN ---
     } else if (draft.status === 'finalizado' || draft.status === 'torneo_generado') {
         embedColor = '#95a5a6';
     } else if (draft.status === 'cancelado') {
@@ -226,17 +226,10 @@ export function createDraftStatusEmbed(draft) {
         .setTitle(`${statusIcon} Draft: ${draft.name}`)
         .addFields(
             { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
-            { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount} / 80`, inline: true },
-            { name: 'Total', value: `${totalParticipants} / 88`, inline: true }
+            { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount}`, inline: true }, // No hay límite
+            { name: 'Total', value: `${totalParticipants}`, inline: true }
         )
         .setFooter({ text: `ID del Draft: ${draft.shortId}` });
-
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Se añade el campo de Reservas si existen.
-    if (draft.reserves && draft.reserves.length > 0) {
-        embed.addFields({ name: 'Reservas / Reserves', value: `${draft.reserves.length}`, inline: true });
-    }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (draft.config.isPaid) {
         embed.setDescription('**Este es un draft de pago.**');
@@ -265,17 +258,19 @@ export function createDraftStatusEmbed(draft) {
                 .setLabel('Inscribirme como Jugador')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('👤')
-                .setDisabled(isFull && !draft.config.allowReserves)
+                // --- INICIO DE LA MODIFICACIÓN ---
+                // Se elimina el setDisabled para que siempre se puedan inscribir jugadores
+                // .setDisabled(isFull && !draft.config.allowReserves)
+                // --- FIN DE LA MODIFICACIÓN ---
         );
-        if (!draft.config.isPaid) {
-            row2.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`darse_baja_draft_start:${draft.shortId}`)
-                    .setLabel('Darse de Baja')
-                    .setStyle(ButtonStyle.Danger)
-                    .setEmoji('👋')
-            );
-        }
+        // El botón de darse de baja se mantiene igual
+        row2.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`darse_baja_draft_start:${draft.shortId}`)
+                .setLabel('Darse de Baja')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('👋')
+        );
     }
 
     const components = [];
@@ -300,7 +295,10 @@ export function createDraftManagementPanel(draft, isBusy = false) {
 
     if (draft.status === 'inscripcion') {
         row1.addComponents(
-            new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️').setDisabled(isBusy),
+            // --- INICIO DE LA MODIFICACIÓN ---
+            // Se quita el isBusy para que el botón siempre esté habilitado. La comprobación se hará en la lógica.
+            new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️'),
+            // --- FIN DE LA MODIFICACIÓN ---
             new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
@@ -337,17 +335,22 @@ export function createDraftMainInterface(draft) {
     if (availablePlayers.length > 0) {
         // --- INICIO DE LA MODIFICACIÓN ---
         // Se añade leyenda para los emojis de estado
-        playersEmbed.setDescription('👋 = Agente Libre\n🛡️ = Con Equipo');
+        playersEmbed.setDescription('🔎 = Agente Libre\n🛡️ = Con Equipo');
         // --- FIN DE LA MODIFICACIÓN ---
         const groupedPlayers = {};
         DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
 
+        // --- INICIO DE LA MODIFICACIÓN: Ordenación alfabética ---
+        availablePlayers.sort((a, b) => a.psnId.localeCompare(b.psnId));
+        // --- FIN DE LA MODIFICACIÓN ---
+
         availablePlayers.forEach(player => {
             if (groupedPlayers[player.primaryPosition]) {
                 // --- INICIO DE LA MODIFICACIÓN ---
-                // Se añade el emoji de estado al lado del PSN ID
-                const statusEmoji = player.currentTeam === 'Libre' ? '👋' : '🛡️';
-                groupedPlayers[player.primaryPosition].push(`${statusEmoji} \`${player.psnId}\``);
+                // Se cambia el emoji y se añade la posición secundaria
+                const statusEmoji = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
+                const secondaryPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? ` (S: ${player.secondaryPosition})` : '';
+                groupedPlayers[player.primaryPosition].push(`${statusEmoji} \`${player.psnId}${secondaryPos}\``);
                 // --- FIN DE LA MODIFICACIÓN ---
             }
         });
@@ -357,11 +360,20 @@ export function createDraftMainInterface(draft) {
             const columnContent = `**${DRAFT_POSITIONS[pos]}**\n` + (groupedPlayers[pos].length > 0 ? groupedPlayers[pos].join('\n') : '*Vacío*');
             columns[index % 3].push(columnContent);
         });
+        
+        // Se trunca el contenido de las columnas si excede el límite de Discord
+        columns.forEach((col, i) => {
+            let colString = col.join('\n\n');
+            if (colString.length > 1024) {
+                 colString = colString.substring(0, 1021) + '...';
+            }
+            columns[i] = colString;
+        });
 
         playersEmbed.addFields(
-            { name: '\u200B', value: columns[0].join('\n\n') || '\u200B', inline: true },
-            { name: '\u200B', value: columns[1].join('\n\n') || '\u200B', inline: true },
-            { name: '\u200B', value: columns[2].join('\n\n') || '\u200B', inline: true },
+            { name: '\u200B', value: columns[0] || '\u200B', inline: true },
+            { name: '\u200B', value: columns[1] || '\u200B', inline: true },
+            { name: '\u200B', value: columns[2] || '\u200B', inline: true },
         );
     } else if (draft.status === 'inscripcion' && draft.players.length === 0) {
         playersEmbed.setDescription('Aún no se ha inscrito ningún jugador.');
@@ -374,14 +386,12 @@ export function createDraftMainInterface(draft) {
         .setTitle('Equipos del Draft')
         .setDescription('Plantillas actuales de cada equipo.');
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Nueva lógica de columnas para mejorar el diseño
-    const teamFields = [[], [], []]; // Tres columnas
+    const teamFields = [[], [], []];
     draft.captains.forEach((captain, index) => {
         const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
         const sortedPlayerList = teamPlayers
             .sort((a, b) => DRAFT_POSITION_ORDER.indexOf(a.primaryPosition) - DRAFT_POSITION_ORDER.indexOf(b.primaryPosition))
-            .map(p => `• ${p.psnId} (${p.primaryPosition})`) // Se usa la sigla
+            .map(p => `• ${p.psnId} (${p.primaryPosition})`)
             .join('\n');
 
         const teamString = `**👑 E-${captain.teamName}**\n(Cap: ${captain.psnId})\n${teamPlayers.length > 0 ? sortedPlayerList : '*Vacío*'}`;
@@ -391,7 +401,6 @@ export function createDraftMainInterface(draft) {
     if (teamFields[0].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[0].join('\n\n'), inline: true });
     if (teamFields[1].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[1].join('\n\n'), inline: true });
     if (teamFields[2].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[2].join('\n\n'), inline: true });
-    // --- FIN DE LA MODIFICACIÓN ---
 
     const turnOrderEmbed = new EmbedBuilder()
         .setColor('#e67e22')
@@ -444,25 +453,54 @@ export function createDraftMainInterface(draft) {
     return [playersEmbed, teamsEmbed, turnOrderEmbed];
 }
 
-export function createDraftPickEmbed(draft, captainId) {
-    const captain = draft.captains.find(c => c.userId === captainId);
+// --- INICIO DE LA MODIFICACIÓN ---
+// NUEVA FUNCIÓN para el panel de selección en el canal
+export function createDraftPickPanel(draft) {
+    if (draft.status !== 'seleccion') {
+        return {
+            content: 'La fase de selección ha finalizado.',
+            embeds: [new EmbedBuilder().setColor('#95a5a6').setTitle('Selección Finalizada').setDescription('El draft ha concluido. Un administrador creará el torneo pronto.')],
+            components: []
+        };
+    }
+
+    const currentPickNumber = draft.selection.currentPick;
+    const totalPicks = 80; // Hardcoded, puede mejorarse
+
+    if (currentPickNumber > totalPicks) {
+         return {
+            content: 'La fase de selección ha finalizado.',
+            embeds: [new EmbedBuilder().setColor('#95a5a6').setTitle('Selección Finalizada').setDescription('Todos los jugadores han sido seleccionados.')],
+            components: []
+        };
+    }
+
+    const turn = draft.selection.turn;
+    const currentCaptainId = draft.selection.order[turn];
+    const captain = draft.captains.find(c => c.userId === currentCaptainId);
+
     const embed = new EmbedBuilder()
         .setColor('#f1c40f')
-        .setTitle(`Turno de Selección: ${captain.teamName}`)
-        .setDescription(`Es tu turno, <@${captainId}>. Por favor, usa los menús para seleccionar a tu próximo jugador.`)
-        .setFooter({text: 'Paso 1: Elige cómo quieres buscar al jugador.'});
+        .setTitle(`🐍 Turno de Selección (Pick #${currentPickNumber})`)
+        .setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.`)
+        .setFooter({ text: 'El capitán debe usar el botón para elegir a su jugador.' });
 
-    const searchTypeMenu = new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-            .setCustomId(`draft_pick_search_type:${draft.shortId}:${captainId}`)
-            .setPlaceholder('Buscar por posición...')
-            .addOptions([
-                { label: 'Posición Primaria', value: 'primary', emoji: '⭐' },
-                { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
-            ])
-    );
-    return { content: `<@${captainId}>`, embeds: [embed], components: [searchTypeMenu], flags: [MessageFlags.Ephemeral] };
+    const row = new ActionRowBuilder();
+
+    // Añadimos un botón por cada capitán, pero solo habilitamos el del turno actual
+    draft.captains.forEach(cap => {
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`draft_pick_start:${draft.shortId}:${cap.userId}`)
+                .setLabel(cap.teamName.substring(0, 20)) // Nombres de equipo cortos
+                .setStyle(cap.userId === currentCaptainId ? ButtonStyle.Success : ButtonStyle.Secondary)
+                .setDisabled(cap.userId !== currentCaptainId)
+        );
+    });
+
+    return { content: `<@${currentCaptainId}>, ¡es tu turno!`, embeds: [embed], components: [row] };
 }
+// --- FIN DE LA MODIFICACIÓN ---
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
     const ruleEmbed = ruleEmbeds[step - 1];
