@@ -14,6 +14,73 @@ export async function handleSelectMenu(interaction) {
     
     const [action, ...params] = customId.split(':');
 
+    if (action === 'admin_select_draft_to_manage_players') {
+        await interaction.deferUpdate();
+        const draftShortId = interaction.values[0];
+        
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const teamOptions = draft.captains.map(c => ({
+            label: c.teamName,
+            description: `Capitán: ${c.userName}`,
+            value: c.userId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_team_to_manage:${draftShortId}`)
+            .setPlaceholder('Selecciona un equipo para ver su plantilla')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: `Gestionando **${draft.name}**. Selecciona un equipo:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'admin_select_team_to_manage') {
+        await interaction.deferUpdate();
+        const [draftShortId] = params;
+        const teamId = interaction.values[0];
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const team = draft.captains.find(c => c.userId === teamId);
+        const teamPlayers = draft.players.filter(p => p.captainId === teamId);
+
+        const rosterEmbed = createTeamRosterManagementEmbed(team, teamPlayers, draftShortId);
+        await interaction.editReply(rosterEmbed);
+        return;
+    }
+
+    if (action === 'admin_select_player_from_roster') {
+        await interaction.deferUpdate();
+        const [draftShortId, teamId] = params;
+        const selectedPlayerId = interaction.values[0];
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const player = draft.players.find(p => p.userId === selectedPlayerId);
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        const playerManagementEmbed = await createPlayerManagementEmbed(player, draft, teamId, isAdmin);
+        await interaction.editReply(playerManagementEmbed);
+        return;
+    }
+    
+    if (action === 'captain_invite_replacement_select') {
+        await interaction.deferUpdate();
+        const [draftShortId, teamId] = params;
+        const replacementPlayerId = interaction.values[0];
+        
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        
+        try {
+            await inviteReplacementPlayer(client, draft, teamId, replacementPlayerId);
+            await interaction.editReply({ content: '✅ Invitación enviada al jugador de reemplazo.', components: [] });
+        } catch(error) {
+            await interaction.editReply({ content: `❌ Error: ${error.message}`, components: [] });
+        }
+        return;
+    }
+
     if (action === 'draft_create_tournament_format') {
         await interaction.deferUpdate();
         const [draftShortId] = params;
