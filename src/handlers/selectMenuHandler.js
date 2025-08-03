@@ -2,8 +2,9 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
-import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft } from '../logic/tournamentLogic.js';
+import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
+import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
@@ -113,7 +114,6 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN: Manejador para la selección de página de expulsión ---
     if (action === 'admin_kick_participant_page_select') {
         await interaction.deferUpdate();
         const [draftShortId] = params;
@@ -141,7 +141,6 @@ export async function handleSelectMenu(interaction) {
             .setPlaceholder(`Selecciona de la Página ${page + 1}`)
             .addOptions(options);
 
-        // Volvemos a añadir el menú de paginación para que puedan cambiar de página
         const pageCount = Math.ceil(allParticipants.length / pageSize);
         const pageOptions = [];
         for (let i = 0; i < pageCount; i++) {
@@ -163,7 +162,6 @@ export async function handleSelectMenu(interaction) {
         });
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'draft_register_captain_pos_select') {
         const [draftShortId] = params;
@@ -292,8 +290,7 @@ export async function handleSelectMenu(interaction) {
         await interaction.editReply({ components: [new ActionRowBuilder().addComponents(positionMenu)], content: "Ahora, elige la posición del jugador que buscas:" });
         return;
     }
-
-    // --- INICIO DE LA MODIFICACIÓN: Paginación para la selección de jugadores ---
+    
     if (action === 'draft_pick_position') {
         await interaction.deferUpdate();
         const [draftShortId, captainId, searchType] = params;
@@ -305,7 +302,7 @@ export async function handleSelectMenu(interaction) {
         const playersInPosition = availablePlayers.filter(player => {
             const pos = searchType === 'primary' ? player.primaryPosition : player.secondaryPosition;
             return pos === selectedPosition;
-        }).sort((a,b) => a.psnId.localeCompare(b.psnId)); // Ordenar alfabéticamente
+        }).sort((a,b) => a.psnId.localeCompare(b.psnId));
 
         if (playersInPosition.length === 0) {
              return interaction.editReply({ content: 'No quedan jugadores en esa posición.', components: [] });
@@ -313,7 +310,6 @@ export async function handleSelectMenu(interaction) {
         
         const pageSize = 25;
         if (playersInPosition.length > pageSize) {
-            // Paginación necesaria
             const pageCount = Math.ceil(playersInPosition.length / pageSize);
             const pageOptions = [];
             for (let i = 0; i < pageCount; i++) {
@@ -332,7 +328,6 @@ export async function handleSelectMenu(interaction) {
             });
 
         } else {
-            // No se necesita paginación
             const playerMenu = new StringSelectMenuBuilder()
                 .setCustomId(`draft_pick_player:${draftShortId}:${captainId}`)
                 .setPlaceholder('Paso 3: ¡Elige al jugador!')
@@ -381,15 +376,13 @@ export async function handleSelectMenu(interaction) {
 
         await interaction.editReply({
             content: `Jugadores disponibles en **${DRAFT_POSITIONS[selectedPosition]}** (Página ${page + 1}):`,
-            components: [interaction.message.components[0], new ActionRowBuilder().addComponents(playerMenu)] // Mantenemos el menú de páginas
+            components: [interaction.message.components[0], new ActionRowBuilder().addComponents(playerMenu)]
         });
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
-
-
+    
     if (action === 'draft_pick_player') {
-        await interaction.deferUpdate(); // Defer para evitar que la interacción falle
+        await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
         if (interaction.user.id !== captainId && !isAdmin) {
