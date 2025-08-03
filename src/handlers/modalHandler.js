@@ -1,6 +1,6 @@
 // src/handlers/modalHandler.js
 import { getDb } from '../../database.js';
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface } from '../logic/tournamentLogic.js';
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, reportPlayer } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
@@ -46,10 +46,8 @@ export async function handleModal(interaction) {
         if (!draft) {
             return interaction.followUp({ content: '❌ No se encontró el draft.', flags: [MessageFlags.Ephemeral] });
         }
-
-        // --- INICIO DE LA MODIFICACIÓN: Se quitan límites de jugadores ---
+        
         const amountToAdd = amount;
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const positions = Object.keys(DRAFT_POSITIONS);
         const bulkCaptains = [];
@@ -64,7 +62,7 @@ export async function handleModal(interaction) {
                 const teamName = `E-Prueba-${currentCaptainCount + 1}`;
                 const captainData = {
                     userId: uniqueId, userName: `TestCaptain#${String(i).padStart(4, '0')}`, teamName: teamName,
-                    streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
+                    streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, eafcTeamName: `EAFC-Test-${currentCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
                 };
                 
                 const captainAsPlayerData = {
@@ -168,12 +166,13 @@ export async function handleModal(interaction) {
             if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
             
             const teamName = interaction.fields.getTextInputValue('team_name_input');
+            const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
             const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
             const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
             
             if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
 
-            captainData = { userId, userName: interaction.user.tag, teamName, streamChannel, psnId, twitter, position };
+            captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId, twitter, position };
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: position, currentTeam: teamName, isCaptain: true, captainId: null };
         } else {
             let currentTeam;
@@ -213,6 +212,7 @@ export async function handleModal(interaction) {
                         { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, 
                         { name: 'Capitán', value: interaction.user.tag, inline: true },
                         { name: 'PSN ID', value: captainData.psnId, inline: false },
+                        { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false },
                         { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
                         { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
                     );
@@ -225,10 +225,8 @@ export async function handleModal(interaction) {
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
             } else {
-                // --- INICIO DE LA MODIFICACIÓN: Se elimina el límite de jugadores y la lista de reserva ---
                 await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
                 await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
-                // --- FIN DE LA MODIFICACIÓN ---
                 
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
                 await updateDraftMainInterface(client, updatedDraft.shortId);
@@ -237,7 +235,7 @@ export async function handleModal(interaction) {
         }
         return;
     }
-
+    
     if(action === 'draft_payment_confirm_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
