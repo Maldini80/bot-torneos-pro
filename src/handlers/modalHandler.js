@@ -21,13 +21,10 @@ export async function handleModal(interaction) {
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
         try {
-            // --- CORRECCIÓN ---
-            // Pasamos teamId a la función para que sepa quién es el capitán,
-            // incluso si un admin está haciendo la acción.
             await reportPlayer(client, draft, interaction.user.id, teamId, playerId, reason);
             await interaction.editReply({ content: '✅ Tu reporte ha sido enviado y se ha añadido un strike al jugador.' });
         } catch (error) {
-            console.error(error); // Loguear el error completo para depuración
+            console.error(error);
             await interaction.editReply({ content: `❌ Error al reportar: ${error.message}` });
         }
         return;
@@ -325,8 +322,12 @@ export async function handleModal(interaction) {
         }
         return;
     }
+
+    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'create_tournament') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // Se reemplaza deferReply por un reply inmediato
+        await interaction.reply({ content: '⏳ Creando el torneo, por favor espera...', flags: [MessageFlags.Ephemeral] });
+        
         const [formatId, type] = params;
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -340,6 +341,7 @@ export async function handleModal(interaction) {
         }
         try {
             await createNewTournament(client, guild, nombre, shortId, config);
+            // Se usa editReply para actualizar el mensaje de espera
             await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
         } catch (error) {
             console.error("Error capturado por el handler al crear el torneo:", error);
@@ -347,6 +349,8 @@ export async function handleModal(interaction) {
         }
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
+
     if (action === 'edit_tournament_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
