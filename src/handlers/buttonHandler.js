@@ -1,11 +1,12 @@
+```javascript
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
-import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft, updateCaptainControlPanel } from '../logic/tournamentLogic.js';
+import { approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister, addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment, approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft, approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval, forceKickPlayer } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftStatusEmbed } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 
@@ -383,7 +384,7 @@ export async function handleButton(interaction) {
         if (draft.selection.activeInteractionId) {
             try {
                 await interaction.webhook.editMessage(draft.selection.activeInteractionId, {
-                    content: '❌ Esta selección ha sido cancelada.',
+                    content: '❌ Esta selección ha sido cancelada por el capitán.',
                     components: []
                 });
             } catch (e) {
