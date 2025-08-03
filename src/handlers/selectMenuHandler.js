@@ -19,6 +19,17 @@ export async function handleSelectMenu(interaction) {
         const draftShortId = interaction.values[0];
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Comprobamos si el draft tiene capitanes antes de crear el menú
+        if (!draft.captains || draft.captains.length === 0) {
+            return interaction.editReply({
+                content: `❌ El draft **${draft.name}** no tiene capitanes aprobados. No hay plantillas para gestionar.`,
+                components: []
+            });
+        }
+        // --- FIN DE LA CORRECCIÓN ---
+
         const teamOptions = draft.captains.map(c => ({
             label: c.teamName,
             description: `Capitán: ${c.userName}`,
