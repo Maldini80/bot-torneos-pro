@@ -46,11 +46,8 @@ export async function handleModal(interaction) {
         if (!draft) {
             return interaction.followUp({ content: '❌ No se encontró el draft.', flags: [MessageFlags.Ephemeral] });
         }
-
-        // --- INICIO DE LA CORRECCIÓN: Eliminar el límite de jugadores ---
-        // Ya no calculamos availableSlots ni limitamos la cantidad a añadir.
+        
         const amountToAdd = amount;
-        // --- FIN DE LA CORRECCIÓN ---
 
         const positions = Object.keys(DRAFT_POSITIONS);
         const bulkCaptains = [];
@@ -63,19 +60,13 @@ export async function handleModal(interaction) {
 
         if (!isAdminAlreadyRegistered && (draft.captains.length + bulkCaptains.length) < 8) {
             adminTeamName = `E-${adminUser.username.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 8)}`;
-            const adminCaptainData = {
-                userId: adminUser.id, userName: adminUser.tag, teamName: adminTeamName,
-                streamChannel: 'https://twitch.tv/test', psnId: `Admin-${adminUser.username}`, twitter: 'admin_test', position: "DC"
-            };
-            const adminAsPlayerData = {
-                userId: adminUser.id, userName: adminUser.tag, psnId: adminCaptainData.psnId, twitter: adminCaptainData.twitter,
-                primaryPosition: adminCaptainData.position, secondaryPosition: adminCaptainData.position, currentTeam: adminTeamName, isCaptain: true, captainId: null
-            };
+            const adminCaptainData = { userId: adminUser.id, userName: adminUser.tag, teamName: adminTeamName, streamChannel: 'https://twitch.tv/test', psnId: `Admin-${adminUser.username}`, twitter: 'admin_test', position: "DC" };
+            const adminAsPlayerData = { userId: adminUser.id, userName: adminUser.tag, psnId: adminCaptainData.psnId, twitter: adminCaptainData.twitter, primaryPosition: adminCaptainData.position, secondaryPosition: adminCaptainData.position, currentTeam: adminTeamName, isCaptain: true, captainId: null };
             bulkCaptains.push(adminCaptainData);
             bulkPlayers.push(adminAsPlayerData);
             adminAddedAsCaptain = true;
         }
-
+        
         const playersToCreateLoop = adminAddedAsCaptain ? amountToAdd - 1 : amountToAdd;
         
         for (let i = 0; i < playersToCreateLoop; i++) {
@@ -84,42 +75,25 @@ export async function handleModal(interaction) {
             
             if (currentCaptainCount < 8) {
                 const teamName = `E-Prueba-${currentCaptainCount + 1}`;
-                const captainData = {
-                    userId: uniqueId, userName: `TestCaptain#${String(i).padStart(4, '0')}`, teamName: teamName,
-                    streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
-                };
-                const captainAsPlayerData = {
-                    userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
-                    primaryPosition: captainData.position, secondaryPosition: captainData.position, currentTeam: teamName, isCaptain: true, captainId: null
-                };
+                const captainData = { userId: uniqueId, userName: `TestCaptain#${String(i).padStart(4, '0')}`, teamName: teamName, streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, twitter: 'test_captain', position: "DC" };
+                const captainAsPlayerData = { userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter, primaryPosition: captainData.position, secondaryPosition: captainData.position, currentTeam: teamName, isCaptain: true, captainId: null };
                 bulkCaptains.push(captainData);
                 bulkPlayers.push(captainAsPlayerData);
             } else {
                 const currentPlayerCount = draft.players.length + bulkPlayers.length;
                 const nonCaptainCount = currentPlayerCount - (draft.captains.length + bulkCaptains.length);
-                
                 const randomPrimaryPos = positions[Math.floor(Math.random() * positions.length)];
                 const randomSecondaryPos = positions[Math.floor(Math.random() * positions.length)];
-                
-                const playerData = {
-                    userId: uniqueId, userName: `TestPlayer#${String(i).padStart(4, '0')}`, psnId: `J-Prueba-${nonCaptainCount + 1}`,
-                    twitter: 'test_player', primaryPosition: randomPrimaryPos, secondaryPosition: randomSecondaryPos, currentTeam: 'Libre', isCaptain: false, captainId: null
-                };
+                const playerData = { userId: uniqueId, userName: `TestPlayer#${String(i).padStart(4, '0')}`, psnId: `J-Prueba-${nonCaptainCount + 1}`, twitter: 'test_player', primaryPosition: randomPrimaryPos, secondaryPosition: randomSecondaryPos, currentTeam: 'Libre', isCaptain: false, captainId: null };
                 bulkPlayers.push(playerData);
             }
         }
 
         const updateQuery = {};
-        if (bulkCaptains.length > 0) {
-            updateQuery.$push = { ...updateQuery.$push, captains: { $each: bulkCaptains } };
-        }
-        if (bulkPlayers.length > 0) {
-            updateQuery.$push = { ...updateQuery.$push, players: { $each: bulkPlayers } };
-        }
+        if (bulkCaptains.length > 0) updateQuery.$push = { ...updateQuery.$push, captains: { $each: bulkCaptains } };
+        if (bulkPlayers.length > 0) updateQuery.$push = { ...updateQuery.$push, players: { $each: bulkPlayers } };
 
-        if (Object.keys(updateQuery).length > 0) {
-            await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
-        }
+        if (Object.keys(updateQuery).length > 0) await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
 
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         await updateDraftMainInterface(client, updatedDraft.shortId);
@@ -130,9 +104,7 @@ export async function handleModal(interaction) {
         const fakeCaptainsAdded = adminAddedAsCaptain ? bulkCaptains.length - 1 : bulkCaptains.length;
         
         let successMessage = `✅ Se han añadido **${fakeCaptainsAdded} capitanes de prueba** y **${nonCaptainPlayersAdded} jugadores de prueba**.`;
-        if (adminAddedAsCaptain) {
-            successMessage += `\n**Tú has sido añadido como capitán del equipo ${adminTeamName}**.`;
-        }
+        if (adminAddedAsCaptain) successMessage += `\n**Tú has sido añadido como capitán del equipo ${adminTeamName}**.`;
         await interaction.editReply({ content: successMessage });
         return;
     }
@@ -143,15 +115,12 @@ export async function handleModal(interaction) {
         const entryFee = parseFloat(interaction.fields.getTextInputValue('draft_entry_fee'));
         const prizeCampeon = parseFloat(interaction.fields.getTextInputValue('draft_prize_campeon'));
         const prizeFinalista = parseFloat(interaction.fields.getTextInputValue('draft_prize_finalista'));
-
         if (isNaN(entryFee) || entryFee <= 0 || isNaN(prizeCampeon) || prizeCampeon < 0 || isNaN(prizeFinalista) || prizeFinalista < 0) {
             return interaction.editReply({ content: '❌ Por favor, introduce números válidos y positivos para los campos monetarios.' });
         }
-
         const isPaid = true;
         const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const config = { isPaid, entryFee, prizeCampeon, prizeFinalista };
-
         try {
             await createNewDraft(client, guild, name, shortId, config);
             await interaction.editReply({ content: `✅ ¡Éxito! El draft de pago **"${name}"** ha sido creado.`, components: [] });
@@ -164,61 +133,35 @@ export async function handleModal(interaction) {
     
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        
         const isRegisteringAsCaptain = action.includes('captain');
         let draftShortId, position, primaryPosition, secondaryPosition, teamStatus, streamPlatform;
-    
-        if (isRegisteringAsCaptain) {
-            [draftShortId, position, streamPlatform] = params;
-        } else {
-            [draftShortId, primaryPosition, secondaryPosition, teamStatus] = params;
-        }
-    
+        if (isRegisteringAsCaptain) { [draftShortId, position, streamPlatform] = params; } 
+        else { [draftShortId, primaryPosition, secondaryPosition, teamStatus] = params; }
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-
         if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
         if (draft.status !== 'inscripcion') return interaction.editReply('❌ Las inscripciones para este draft están cerradas.');
-
         const userId = interaction.user.id;
-        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
-                                  (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
-                                  draft.players.some(p => p.userId === userId) || 
-                                  (draft.pendingPayments && draft.pendingPayments[userId]);
-                                  
+        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || (draft.pendingCaptains && draft.pendingCaptains[userId]) || draft.players.some(p => p.userId === userId) || (draft.pendingPayments && draft.pendingPayments[userId]);
         if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.');
-
-        let playerData;
-        let captainData;
-        
+        let playerData, captainData;
         const psnId = interaction.fields.getTextInputValue('psn_id_input');
         const twitter = interaction.fields.getTextInputValue('twitter_input');
-
         if (isRegisteringAsCaptain) {
             const totalCaptains = draft.captains.length + (draft.pendingCaptains ? Object.keys(draft.pendingCaptains).length : 0);
             if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
-            
             const teamName = interaction.fields.getTextInputValue('team_name_input');
             const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
             const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
-            
             if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
-
             captainData = { userId, userName: interaction.user.tag, teamName, streamChannel, psnId, twitter, position };
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: position, currentTeam: teamName, isCaptain: true, captainId: null };
         } else {
-            let currentTeam;
-            if (teamStatus === 'Con Equipo') {
-                currentTeam = interaction.fields.getTextInputValue('current_team_input');
-            } else {
-                currentTeam = 'Libre';
-            }
+            let currentTeam = (teamStatus === 'Con Equipo') ? interaction.fields.getTextInputValue('current_team_input') : 'Libre';
             playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null };
         }
-
         if (draft.config.isPaid) {
             const pendingData = { playerData, captainData }; 
             await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
-
             const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`).setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.\n\n**Pagar a / Pay to:** \`${PAYMENT_CONFIG.PAYPAL_EMAIL}\`\n\nUna vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
             const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_payment_confirm_start:${draftShortId}`).setLabel('✅ Ya he Pagado / I Have Paid').setStyle(ButtonStyle.Success));
             try {
@@ -229,40 +172,18 @@ export async function handleModal(interaction) {
             }
         } else {
             if (isRegisteringAsCaptain) {
-                await db.collection('drafts').updateOne(
-                    { _id: draft._id },
-                    { $set: { [`pendingCaptains.${userId}`]: captainData } }
-                );
-
+                await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingCaptains.${userId}`]: captainData } });
                 const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
-                const adminEmbed = new EmbedBuilder()
-                    .setColor('#5865F2')
-                    .setTitle(`🔔 Nueva Solicitud de Capitán de Draft`)
-                    .setDescription(`**Draft:** ${draft.name}`)
-                    .addFields( 
-                        { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, 
-                        { name: 'Capitán', value: interaction.user.tag, inline: true },
-                        { name: 'PSN ID', value: captainData.psnId, inline: false },
-                        { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
-                        { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
-                    );
-                const adminButtons = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-                );
-                
+                const adminEmbed = new EmbedBuilder().setColor('#5865F2').setTitle(`🔔 Nueva Solicitud de Capitán de Draft`).setDescription(`**Draft:** ${draft.name}`).addFields({ name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'PSN ID', value: captainData.psnId, inline: false }, { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false }, { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false });
+                const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
                 await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
-
             } else {
-                // --- INICIO DE LA CORRECCIÓN: Eliminar el sistema de reservas y límite de jugadores. ---
                 await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
                 await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
-                
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
                 await updateDraftMainInterface(client, updatedDraft.shortId);
                 await updatePublicMessages(client, updatedDraft);
-                // --- FIN DE LA CORRECCIÓN ---
             }
         }
         return;
@@ -273,29 +194,16 @@ export async function handleModal(interaction) {
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
-        
         const notificationsChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsChannel) return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
-        
         const userPaypal = interaction.fields.getTextInputValue('user_paypal_input');
         const userId = interaction.user.id;
         const pendingData = draft.pendingPayments[userId];
-
         if (!pendingData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
-
         const role = pendingData.captainData ? 'Capitán' : 'Jugador';
         const teamName = pendingData.captainData ? ` (Equipo: ${pendingData.captainData.teamName})` : '';
-
-        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago de Draft: ${draft.name}`).addFields( 
-            { name: 'Jugador', value: interaction.user.tag, inline: true },
-            { name: 'Rol', value: role + teamName, inline: true },
-            { name: "PayPal del Jugador", value: `\`${userPaypal}\`` } 
-        );
-        const adminButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`draft_approve_payment:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`draft_reject_payment:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-        );
-        
+        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago de Draft: ${draft.name}`).addFields( { name: 'Jugador', value: interaction.user.tag, inline: true }, { name: 'Rol', value: role + teamName, inline: true }, { name: "PayPal del Jugador", value: `\`${userPaypal}\`` } );
+        const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_payment:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_payment:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await notificationsChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         await interaction.editReply('✅ ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.');
         return;
@@ -360,12 +268,7 @@ export async function handleModal(interaction) {
     if (action === 'edit_payment_details_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
-        const newConfig = {
-            isPaid: true,
-            entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')),
-            prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
-            prizeFinalista: parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista')),
-        };
+        const newConfig = { isPaid: true, entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')), prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')), prizeFinalista: parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista')) };
         await updateTournamentConfig(client, tournamentShortId, newConfig);
         await interaction.editReply({ content: `✅ Torneo actualizado a: **De Pago**.`, components: [] });
         return;
@@ -374,61 +277,34 @@ export async function handleModal(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, streamPlatform] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-    
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
             return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
         }
-    
         const captainId = interaction.user.id;
         const isAlreadyInTournament = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
         if (isAlreadyInTournament) {
             return interaction.editReply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.'});
         }
-        
         const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
         const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
         const twitter = interaction.fields.getTextInputValue('twitter_input');
         const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
         const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
-    
-        const allTeamNames = [
-            ...Object.values(tournament.teams.aprobados || {}).map(e => e.nombre.toLowerCase()),
-            ...Object.values(tournament.teams.pendientes || {}).map(e => e.nombre.toLowerCase()),
-            ...Object.values(tournament.teams.reserva || {}).map(e => e.nombre.toLowerCase())
-        ];
-    
+        const allTeamNames = [...Object.values(tournament.teams.aprobados || {}).map(e => e.nombre.toLowerCase()), ...Object.values(tournament.teams.pendientes || {}).map(e => e.nombre.toLowerCase()), ...Object.values(tournament.teams.reserva || {}).map(e => e.nombre.toLowerCase())];
         if (allTeamNames.includes(teamName.toLowerCase())) {
             return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
         }
-        
-        const teamData = { 
-            id: captainId, 
-            nombre: teamName, 
-            eafcTeamName, 
-            capitanId: captainId, 
-            capitanTag: interaction.user.tag, 
-            coCaptainId: null, 
-            coCaptainTag: null, 
-            bandera: '🏳️', 
-            paypal: null, 
-            streamChannel, 
-            twitter, 
-            inscritoEn: new Date() 
-        };
-    
+        const teamData = { id: captainId, nombre: teamName, eafcTeamName, capitanId: captainId, capitanTag: interaction.user.tag, coCaptainId: null, coCaptainTag: null, bandera: '🏳️', paypal: null, streamChannel, twitter, inscritoEn: new Date() };
         if (action === 'reserva_modal') {
             await addTeamToWaitlist(client, tournament, teamData);
             await interaction.editReply('✅ 🇪🇸 ¡Inscripción recibida! Has sido añadido a la **lista de reserva**. Serás notificado si una plaza queda libre.\n🇬🇧 Registration received! You have been added to the **waitlist**. You will be notified if a spot becomes available.');
             return;
         }
-    
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${captainId}`]: teamData } });
-        
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) {
             return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
         }
-    
         if (tournament.config.isPaid) {
             const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${tournament.config.enlacePaypal}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
             const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournament.shortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
@@ -439,16 +315,7 @@ export async function handleModal(interaction) {
                 await interaction.editReply({ content: '❌ 🇪🇸 No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.\n🇬🇧 I could not send you a DM. Please open your DMs and try again.' });
             }
         } else {
-            const adminEmbed = new EmbedBuilder()
-                .setColor('#3498DB')
-                .setTitle(`🔔 Nueva Inscripción Gratuita`)
-                .addFields( 
-                    { name: 'Equipo Torneo', value: teamName, inline: true }, 
-                    { name: 'Capitán', value: interaction.user.tag, inline: true }, 
-                    { name: 'Equipo EAFC', value: eafcTeamName, inline: false },
-                    { name: 'Canal Transmisión', value: streamChannel, inline: false },
-                    { name: 'Twitter', value: twitter || 'No proporcionado', inline: false }
-                );
+            const adminEmbed = new EmbedBuilder().setColor('#3498DB').setTitle(`🔔 Nueva Inscripción Gratuita`).addFields({ name: 'Equipo Torneo', value: teamName, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true }, { name: 'Equipo EAFC', value: eafcTeamName, inline: false }, { name: 'Canal Transmisión', value: streamChannel, inline: false }, { name: 'Twitter', value: twitter || 'No proporcionado', inline: false });
             const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
             await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
             await interaction.editReply('✅ 🇪🇸 ¡Tu inscripción ha sido recibida! Un admin la revisará pronto.\n🇬🇧 Your registration has been received! An admin will review it shortly.');
@@ -467,7 +334,7 @@ export async function handleModal(interaction) {
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const teamData = updatedTournament.teams.pendientes[interaction.user.id];
         if (!teamData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
-        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields( { name: 'Equipo', value: teamData.nombre, inline: true }, { name: 'Capitán', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán", value: `\`${userPaypal}\`` } );
+        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields({ name: 'Equipo', value: teamData.nombre, inline: true }, { name: 'Capitán', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán", value: `\`${userPaypal}\`` } );
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
         await interaction.editReply('✅ 🇪🇸 ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.\n🇬🇧 Thank you! Your payment has been notified. You will receive a notice upon approval.');
@@ -538,11 +405,9 @@ export async function handleModal(interaction) {
         const golesB = interaction.fields.getTextInputValue('goles_b');
         if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
         const resultString = `${golesA}-${golesB}`;
-        
         const processedMatch = await processMatchResult(client, guild, tournament, matchId, resultString);
         await interaction.editReply(`✅ Resultado forzado a **${resultString}** por un administrador.`);
         await finalizeMatchThread(client, processedMatch, resultString);
-
         return;
     }
     if (action === 'invite_cocaptain_modal') {
@@ -550,49 +415,26 @@ export async function handleModal(interaction) {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
-
         const captainId = interaction.user.id;
         const team = tournament.teams.aprobados[captainId];
         if (!team) return interaction.editReply({ content: 'Error: No eres el capitán de un equipo en este torneo.' });
         if (team.coCaptainId) return interaction.editReply({ content: 'Ya tienes un co-capitán.'});
-        
         const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input').trim();
-        
         if (!/^\d+$/.test(coCaptainId)) {
-            return interaction.editReply({ 
-                content: '❌ **Error:** El valor introducido no es una ID de Discord válida. Por favor, introduce únicamente la ID numérica del usuario (ej: 1398287366929776670).',
-                flags: [MessageFlags.Ephemeral]
-            });
+            return interaction.editReply({ content: '❌ **Error:** El valor introducido no es una ID de Discord válida. Por favor, introduce únicamente la ID numérica del usuario (ej: 1398287366929776670).', flags: [MessageFlags.Ephemeral] });
         }
-        
         const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
         if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
             return interaction.editReply({ content: '❌ Esta persona ya participa en el torneo como capitán o co-capitán.' });
         }
-
         try {
             const coCaptainUser = await client.users.fetch(coCaptainId);
             if (coCaptainUser.bot) return interaction.editReply({ content: 'No puedes invitar a un bot.' });
-            
-            await db.collection('tournaments').updateOne(
-                { _id: tournament._id },
-                { $set: { [`teams.coCapitanes.${captainId}`]: { inviterId: captainId, invitedId: coCaptainId, invitedAt: new Date() } } }
-            );
-
-            const embed = new EmbedBuilder()
-                .setColor('#3498db')
-                .setTitle(`🤝 Invitación de Co-Capitán / Co-Captain Invitation`)
-                .setDescription(`🇪🇸 Has sido invitado por **${interaction.user.tag}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n\n` +
-                              `🇬🇧 You have been invited by **${interaction.user.tag}** to be the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.`);
-            
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`cocaptain_accept:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Aceptar / Accept').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`cocaptain_reject:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Rechazar / Reject').setStyle(ButtonStyle.Danger)
-            );
-
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.coCapitanes.${captainId}`]: { inviterId: captainId, invitedId: coCaptainId, invitedAt: new Date() } } });
+            const embed = new EmbedBuilder().setColor('#3498db').setTitle(`🤝 Invitación de Co-Capitán / Co-Captain Invitation`).setDescription(`🇪🇸 Has sido invitado por **${interaction.user.tag}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n\n` + `🇬🇧 You have been invited by **${interaction.user.tag}** to be the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.`);
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`cocaptain_accept:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Aceptar / Accept').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`cocaptain_reject:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Rechazar / Reject').setStyle(ButtonStyle.Danger));
             await coCaptainUser.send({ embeds: [embed], components: [row] });
             await interaction.followUp({ content: `✅ Invitación enviada a **${coCaptainUser.tag}**. Recibirá un MD para aceptar o rechazar.`, flags: [MessageFlags.Ephemeral] });
-
         } catch (error) {
             console.error(error);
             if (error.code === 10013) {
