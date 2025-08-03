@@ -21,9 +21,13 @@ export async function handleModal(interaction) {
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
         try {
-            await reportPlayer(client, draft, interaction.user.id, playerId, reason);
+            // --- CORRECCIÓN ---
+            // Pasamos teamId a la función para que sepa quién es el capitán,
+            // incluso si un admin está haciendo la acción.
+            await reportPlayer(client, draft, interaction.user.id, teamId, playerId, reason);
             await interaction.editReply({ content: '✅ Tu reporte ha sido enviado y se ha añadido un strike al jugador.' });
         } catch (error) {
+            console.error(error); // Loguear el error completo para depuración
             await interaction.editReply({ content: `❌ Error al reportar: ${error.message}` });
         }
         return;
