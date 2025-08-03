@@ -3,6 +3,7 @@ import { TwitterApi } from 'twitter-api-v2';
 import 'dotenv/config';
 import fetch from 'node-fetch';
 import { getBotSettings } from '../../database.js';
+import { DISCORD_INVITE_LINK } from '../../config.js';
 
 // 1. Configuración del Cliente de Twitter
 const client = new TwitterApi({
@@ -16,94 +17,111 @@ const twitterClient = client.readWrite;
 
 // --- INICIO DE LA MODIFICACIÓN ---
 
-// 2. CSS Global para todas las imágenes
+// 2. CSS Global para todas las imágenes (Estilo VPG ProDiarios)
 const globalCss = `
   body { 
-    font-family: 'Helvetica Neue', sans-serif; 
-    background-color: #15202B; 
+    font-family: 'Montserrat', sans-serif; 
+    background-color: #141414; 
     color: #ffffff;
     margin: 0;
     padding: 0;
   }
   .container { 
-    padding: 30px; 
-    border: 2px solid #1DA1F2;
-    background: linear-gradient(145deg, #192734, #15202B);
+    padding: 40px; 
+    border: 3px solid #C70000;
+    background: #1D1D1D;
+    position: relative;
+    overflow: hidden;
+  }
+   .container::before {
+    content: 'VPG';
+    position: absolute;
+    top: -50px;
+    left: -50px;
+    font-size: 200px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.03);
+    transform: rotate(-20deg);
   }
   h1 { 
-    color: #1DA1F2; 
-    font-size: 42px; 
+    color: #C70000; 
+    font-size: 48px; 
     margin-top: 0;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
     font-weight: 900;
+    text-transform: uppercase;
   }
   h2 {
     color: #e1e8ed;
-    font-size: 28px;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #38444d;
+    font-size: 32px;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #333;
     padding-bottom: 10px;
+    font-weight: 700;
   }
   p { 
-    font-size: 20px; 
-    margin-bottom: 5px; 
+    font-size: 22px; 
+    margin-bottom: 10px; 
   }
   .label { 
     color: #8899a6; 
-    font-weight: bold; 
+    font-weight: 400; 
   }
   .value { 
     color: #ffffff; 
-    font-weight: bold; 
+    font-weight: 700; 
   }
   .roster-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px 20px;
-    font-size: 18px;
+    gap: 12px 25px;
+    font-size: 20px;
   }
   .group-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 25px;
   }
   table { 
     width: 100%; 
     border-collapse: collapse; 
     margin-bottom: 20px;
+    background-color: #2a2a2a;
   }
   th, td { 
-    padding: 10px; 
+    padding: 12px 15px; 
     text-align: left; 
     border-bottom: 1px solid #38444d; 
-    font-size: 16px;
+    font-size: 18px;
   }
   th { 
-    color: #1DA1F2; 
-    font-weight: bold;
+    color: #C70000; 
+    font-weight: 700;
+    text-transform: uppercase;
   }
   .matchup-box {
     text-align: center;
-    border: 1px solid #38444d;
+    border: 1px solid #333;
     padding: 20px;
     margin-bottom: 15px;
-    background-color: #192734;
+    background-color: #141414;
     border-radius: 10px;
   }
   .vs {
-    color: #1DA1F2;
-    font-size: 24px;
-    font-weight: bold;
+    color: #C70000;
+    font-size: 28px;
+    font-weight: 900;
     margin: 10px 0;
   }
   .team-name {
-    font-size: 28px;
-    font-weight: bold;
+    font-size: 30px;
+    font-weight: 700;
   }
    .result {
-    font-size: 32px;
-    font-weight: bold;
-    color: #1DA1F2;
+    font-size: 36px;
+    font-weight: 900;
+    color: #C70000;
+    margin: 5px 0;
   }
 `;
 
@@ -116,7 +134,7 @@ async function generateHtmlImage(htmlContent) {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + Buffer.from(process.env.HCTI_API_USER_ID + ':' + process.env.HCTI_API_KEY).toString('base64')
             },
-            body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Helvetica Neue" })
+            body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
         });
         const data = await response.json();
         return data.url;
@@ -127,6 +145,16 @@ async function generateHtmlImage(htmlContent) {
 }
 
 // 4. Generadores de HTML para cada tipo de anuncio
+function generateTournamentAnnouncementHtml(tournament) {
+    return `
+      <div class="container">
+        <h1>¡Inscripciones Abiertas!</h1>
+        <h2>${tournament.nombre}</h2>
+        <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
+        <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
+      </div>`;
+}
+
 function generateNewCaptainHtml(data) {
     const { captainData, draft } = data;
     return `
@@ -176,56 +204,42 @@ function generateGroupTablesHtml(tournament) {
     return `<div class="container"><h1>Clasificación Fase de Grupos</h1><div class="group-grid">${allGroupsHtml}</div></div>`;
 }
 
-function generateKnockoutMatchupsHtml(data) {
+function generateKnockoutStageHtml(data) {
     const { matches, stage, tournament } = data;
     const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
+    const hasResults = matches.some(m => m.resultado);
+    const title = hasResults ? `${stageName} - Resultados` : `${stageName} - Cruces`;
+    
     let matchupsHtml = '';
     matches.forEach(match => {
+        const centerContent = match.resultado 
+            ? `<div class="result">${match.resultado}</div>` 
+            : `<div class="vs">vs</div>`;
+        
         matchupsHtml += `
           <div class="matchup-box">
             <div class="team-name">${match.equipoA.nombre}</div>
-            <div class="vs">vs</div>
+            ${centerContent}
             <div class="team-name">${match.equipoB.nombre}</div>
           </div>`;
     });
     return `
         <div class="container">
-            <h1>${stageName} - Cruces</h1>
+            <h1>${title}</h1>
             <h2>${tournament.nombre}</h2>
             ${matchupsHtml}
         </div>`;
 }
 
-function generateMatchResultHtml(data) {
-    const { match, tournament } = data;
-    const [scoreA, scoreB] = match.resultado.split('-');
-    const winner = parseInt(scoreA) > parseInt(scoreB) ? match.equipoA.nombre : match.equipoB.nombre;
-    const stageName = match.jornada.charAt(0).toUpperCase() + match.jornada.slice(1);
-
-    return `
-        <div class="container">
-            <h1>Resultado del Partido</h1>
-            <h2>${tournament.nombre} - ${stageName}</h2>
-            <div class="matchup-box">
-                <div class="team-name">${match.equipoA.nombre}</div>
-                <div class="result">${match.resultado}</div>
-                <div class="team-name">${match.equipoB.nombre}</div>
-            </div>
-            <p style="text-align:center;"><span class="label">Ganador:</span> <span class="value">${winner}</span></p>
-        </div>`;
-}
-
 // 5. Función principal reestructurada para postear en Twitter
 export async function postTournamentUpdate(eventType, data) {
-    // Comprobamos si la publicación en Twitter está activada globalmente
     const settings = await getBotSettings();
     if (!settings.twitterEnabled) {
-        console.log("[TWITTER] La publicación automática está desactivada globalmente, se omite la publicación.");
+        console.log("[TWITTER] La publicación automática está desactivada globalmente.");
         return;
     }
-
     if (!process.env.TWITTER_API_KEY) {
-        console.log("[TWITTER] No se han configurado las claves de API, se omite la publicación.");
+        console.log("[TWITTER] No se han configurado las claves de API.");
         return;
     }
 
@@ -237,7 +251,8 @@ export async function postTournamentUpdate(eventType, data) {
         case 'INSCRIPCION_ABIERTA': {
             const tournament = data;
             const format = tournament.config.format;
-            tweetText = `¡Inscripciones abiertas para el torneo "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Apúntate en nuestro Discord! 👇\n\n#eSports`;
+            tweetText = `¡Inscripciones abiertas para el torneo "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Apúntate en nuestro Discord! 👇\n${DISCORD_INVITE_LINK}\n\n#eSports`;
+            htmlContent = generateTournamentAnnouncementHtml(tournament);
             logMessage = `Tweet de apertura de inscripciones publicado para ${tournament.nombre}`;
             break;
         }
@@ -266,17 +281,16 @@ export async function postTournamentUpdate(eventType, data) {
             const { stage, tournament } = data;
             const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
             tweetText = `¡Arrancan los ${stageName} del torneo "${tournament.nombre}"! 💥\n\nEstos son los enfrentamientos. ¡Que gane el mejor!\n\n#eSports`;
-            htmlContent = generateKnockoutMatchupsHtml(data);
+            htmlContent = generateKnockoutStageHtml(data);
             logMessage = `Tweet de cruces de ${stageName} publicado para ${tournament.nombre}`;
             break;
         }
-        case 'KNOCKOUT_MATCH_FINISHED': {
-            const { match, tournament } = data;
-            const [scoreA, scoreB] = match.resultado.split('-');
-            const winner = parseInt(scoreA) > parseInt(scoreB) ? match.equipoA.nombre : match.equipoB.nombre;
-            tweetText = `¡Resultado final en el torneo "${tournament.nombre}"! ${winner} avanza de ronda tras vencer ${match.resultado} a su rival.\n\n#eSports`;
-            htmlContent = generateMatchResultHtml(data);
-            logMessage = `Tweet de resultado de partido publicado para ${tournament.nombre}`;
+        case 'KNOCKOUT_ROUND_COMPLETE': {
+            const { stage, tournament } = data;
+            const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
+            tweetText = `¡Resultados finales de ${stageName} en el torneo "${tournament.nombre}"!\n\nAsí quedan los marcadores de esta ronda. ¡Los ganadores avanzan!\n\n#eSports`;
+            htmlContent = generateKnockoutStageHtml(data);
+            logMessage = `Tweet de resultados de ${stageName} publicado para ${tournament.nombre}`;
             break;
         }
         case 'FINALIZADO': {
@@ -292,33 +306,17 @@ export async function postTournamentUpdate(eventType, data) {
             logMessage = `Tweet de finalización publicado para ${tournament.nombre}`;
             break;
         }
-        // CASO LEGADO: Para mantener la compatibilidad con llamadas antiguas
-        default: {
-            const tournament = eventType; // El primer argumento es el objeto del torneo
-            if (tournament.status === 'fase_de_grupos') {
-                tweetText = `¡Comienza la fase de grupos en el torneo "${tournament.nombre}"! 🔥\n\n¡Mucha suerte a todos los equipos! #eSports`;
-                htmlContent = generateGroupTablesHtml(tournament);
-                logMessage = `Tweet de actualización (fase de grupos) publicado para ${tournament.nombre}`;
-            } else if (tournament.status !== 'inscripcion_abierta' && tournament.status !== 'finalizado') {
-                tweetText = `¡Avanzamos a la fase de ${tournament.status.replace('_', ' ')} en el torneo "${tournament.nombre}"! 💥 #eSports`;
-                logMessage = `Tweet de actualización simple publicado para ${tournament.nombre}`;
-            }
-        }
     }
 
-    // Ejecutar la publicación
     try {
         if (htmlContent) {
             const imageUrl = await generateHtmlImage(htmlContent);
             if (!imageUrl) throw new Error("No se pudo obtener la URL de la imagen.");
-
             const imageResponse = await fetch(imageUrl);
             const imageBuffer = await imageResponse.arrayBuffer();
             const mediaId = await client.v1.uploadMedia(Buffer.from(imageBuffer), { mimeType: 'image/png' });
-
             await twitterClient.v2.tweet({ text: tweetText, media: { media_ids: [mediaId] } });
             console.log(`[TWITTER] ${logMessage} (con imagen)`);
-
         } else if (tweetText) {
             await twitterClient.v2.tweet(tweetText);
             console.log(`[TWITTER] ${logMessage} (solo texto)`);
@@ -327,4 +325,3 @@ export async function postTournamentUpdate(eventType, data) {
         console.error(`[TWITTER] Error al publicar tweet para el evento ${eventType}:`, e);
     }
 }
-// --- FIN DE LA MODIFICACIÓN ---
