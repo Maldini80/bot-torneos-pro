@@ -108,6 +108,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
     const globalActionsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Draft').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
+        // --- BOTÓN AÑADIDO ---
         new ButtonBuilder().setCustomId('admin_manage_drafts_players').setLabel('Gestionar Jugadores/Drafts').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy)
     );
 
@@ -309,6 +310,7 @@ export function createDraftManagementPanel(draft, isBusy = false) {
         .setCustomId(`draft_end:${draft.shortId}`)
         .setLabel('Finalizar Draft (Borrar)')
         .setStyle(ButtonStyle.Danger).setEmoji('🛑')
+        // Habilitar el borrado solo después de que se genere el torneo
         .setDisabled(isBusy || draft.status !== 'torneo_generado')
     );
 
@@ -573,7 +575,7 @@ export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, enti
             .setStyle(ButtonStyle.Danger)
             .setEmoji('❌')
     );
-    return { embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] };
+    return { embeds: [ruleEmbed], components: [row], flags: [MessageFlags.Ephemeral] };
 }
 
 export function createTournamentStatusEmbed(tournament) {
