@@ -47,15 +47,9 @@ export async function handleModal(interaction) {
             return interaction.followUp({ content: '❌ No se encontró el draft.', flags: [MessageFlags.Ephemeral] });
         }
 
-        const currentTotalParticipants = draft.players.length;
-
-        const maxTotalParticipants = 88;
-        const availableSlots = maxTotalParticipants - currentTotalParticipants;
-        const amountToAdd = Math.min(amount, availableSlots);
-
-        if (amountToAdd <= 0) {
-            return interaction.followUp({ content: 'ℹ️ No hay huecos disponibles en el draft.', flags: [MessageFlags.Ephemeral] });
-        }
+        // --- INICIO DE LA MODIFICACIÓN: Se quitan límites de jugadores ---
+        const amountToAdd = amount;
+        // --- FIN DE LA MODIFICACIÓN ---
 
         const positions = Object.keys(DRAFT_POSITIONS);
         const bulkCaptains = [];
@@ -133,10 +127,7 @@ export async function handleModal(interaction) {
             await interaction.editReply({ content: `✅ ¡Éxito! El draft de pago **"${name}"** ha sido creado.`, components: [] });
         } catch (error) {
             console.error("Error capturado por el handler al crear el draft:", error);
-            // --- INICIO DE LA MODIFICACIÓN ---
-            // Se muestra el mensaje de error específico al admin.
             await interaction.editReply({ content: `❌ Ocurrió un error: ${error.message}`, components: [] });
-            // --- FIN DE LA MODIFICACIÓN ---
         }
         return;
     }
@@ -162,7 +153,6 @@ export async function handleModal(interaction) {
         const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
                                   (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
                                   draft.players.some(p => p.userId === userId) || 
-                                  draft.reserves.some(r => r.userId === userId) || 
                                   (draft.pendingPayments && draft.pendingPayments[userId]);
                                   
         if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.');
@@ -235,16 +225,10 @@ export async function handleModal(interaction) {
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
             } else {
-                const totalParticipants = draft.captains.length + draft.players.length;
-                if (totalParticipants < 88) {
-                    await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
-                    await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
-                } else if (draft.config.allowReserves) {
-                    await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { reserves: playerData } });
-                    await interaction.editReply('✅ El draft está lleno, pero te hemos añadido a la lista de reserva.');
-                } else {
-                    return interaction.editReply('❌ Lo sentimos, el draft está completo.');
-                }
+                // --- INICIO DE LA MODIFICACIÓN: Se elimina el límite de jugadores y la lista de reserva ---
+                await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+                await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
+                // --- FIN DE LA MODIFICACIÓN ---
                 
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
                 await updateDraftMainInterface(client, updatedDraft.shortId);
