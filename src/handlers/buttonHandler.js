@@ -334,10 +334,12 @@ export async function handleButton(interaction) {
         return;
     }
     
+    // --- INICIO DE LA MODIFICACIÓN: Añadir comprobación de administrador ---
     if (action === 'draft_pick_start') {
         const [draftShortId, targetCaptainId] = params;
-        
-        if (interaction.user.id !== targetCaptainId) {
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if (interaction.user.id !== targetCaptainId && !isAdmin) {
             return interaction.reply({ content: 'No es tu turno de elegir o no eres el capitán designado.', flags: [MessageFlags.Ephemeral] });
         }
         
@@ -352,12 +354,13 @@ export async function handleButton(interaction) {
         );
 
         await interaction.reply({ 
-            content: 'Por favor, elige cómo quieres buscar al jugador.', 
+            content: `Por favor, elige cómo quieres buscar al jugador. (Selección para el equipo de <@${targetCaptainId}>)`, 
             components: [searchTypeMenu], 
             flags: [MessageFlags.Ephemeral] 
         });
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'draft_confirm_pick') {
         const [draftShortId, captainId, selectedPlayerId] = params;
@@ -758,10 +761,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN: Se elimina el deferReply final ---
-    // La siguiente línea era la causa del error "Interaction has already been acknowledged."
-    // await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-    
     if (action === 'admin_undo_draw') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -1032,5 +1031,4 @@ export async function handleButton(interaction) {
         
         await interaction.editReply({content: 'Selecciona un equipo de la lista de reserva para aprobarlo y añadirlo al torneo:', components: [new ActionRowBuilder().addComponents(selectMenu)]});
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 }
