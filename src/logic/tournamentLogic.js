@@ -72,6 +72,7 @@ export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     await updateDraftManagementPanel(client, updatedDraft);
 }
 
+
 export async function approveUnregisterFromDraft(client, draft, userIdToUnregister) {
     await kickPlayerFromDraft(client, draft, userIdToUnregister);
     try {
@@ -200,6 +201,7 @@ async function cleanupDraftChannel(client, draft) {
         console.error(`Error al limpiar el canal del draft ${draft.shortId}:`, error);
     }
 }
+
 
 export async function simulateDraftPicks(client, draftShortId) {
     await setBotBusy(true);
