@@ -1088,3 +1088,48 @@ export async function notifyCaptainsOfChanges(client, tournament) {
     }
     return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
 }
+
+// --- INICIO DE LA MODIFICACIÓN ---
+/**
+ * NUEVO: Expulsa forzosamente a un jugador de un equipo del draft, devolviéndolo a la lista de agentes libres.
+ * @param {import('discord.js').Client} client
+ * @param {string} draftShortId
+ * @param {string} teamId - La ID del capitán del equipo.
+ * @param {string} playerIdToKick - La ID del jugador a expulsar.
+ */
+export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKick) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
+    const player = draft.players.find(p => p.userId === playerIdToKick);
+    if (!player) throw new Error('Jugador no encontrado en el draft.');
+    if (player.captainId !== teamId) throw new Error('El jugador no pertenece a este equipo.');
+
+    // Actualizar al jugador para quitarle la asignación de equipo
+    await db.collection('drafts').updateOne(
+        { _id: draft._id, "players.userId": playerIdToKick },
+        { $set: { "players.$.captainId": null } }
+    );
+
+    // Notificar a las partes implicadas
+    try {
+        const captain = await client.users.fetch(teamId);
+        await captain.send(`ℹ️ Un administrador ha expulsado a **${player.psnId}** de tu equipo en el draft **${draft.name}**. Ahora es un agente libre.`);
+    } catch (e) {
+        console.warn(`No se pudo notificar al capitán ${teamId} de la expulsión forzosa.`);
+    }
+
+    try {
+        const kickedUser = await client.users.fetch(playerIdToKick);
+        await kickedUser.send(`🚨 Has sido expulsado del equipo por un administrador en el draft **${draft.name}**. Vuelves a estar en la lista de jugadores disponibles.`);
+    } catch (e) {
+        console.warn(`No se pudo notificar al jugador expulsado ${playerIdToKick}.`);
+    }
+
+    // Actualizar la interfaz pública
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updatePublicMessages(client, updatedDraft);
+}
+// --- FIN DE LA MODIFICACIÓN ---
