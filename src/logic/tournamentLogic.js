@@ -10,6 +10,37 @@ import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, Butto
 import { postTournamentUpdate } from '../utils/twitter.js';
 
 /**
+ * Envía una notificación sobre el estado de una publicación de Twitter al canal de administración.
+ * @param {import('discord.js').Client} client El cliente de Discord.
+ * @param {object} entity El objeto del torneo o draft.
+ * @param {object} tweetResult El resultado de la función postTournamentUpdate.
+ */
+async function sendTwitterNotification(client, entity, tweetResult) {
+    const isDraft = entity.players !== undefined;
+    const notificationsThreadId = isDraft ? entity.discordMessageIds.notificationsThreadId : entity.discordMessageIds.managementThreadId;
+
+    if (!notificationsThreadId) {
+        console.warn(`[TWITTER NOTIFY] No se encontró el hilo de notificación para ${entity.shortId}.`);
+        return;
+    }
+
+    try {
+        const thread = await client.channels.fetch(notificationsThreadId);
+        let messageContent;
+
+        if (tweetResult.success) {
+            messageContent = `✅ Tweet publicado con éxito. Puedes verlo aquí: ${tweetResult.url || '(URL no disponible)'}`;
+        } else {
+            messageContent = `❌ No se pudo publicar el tweet. Razón: ${tweetResult.error}`;
+        }
+        await thread.send(messageContent);
+    } catch (e) {
+        console.error(`[TWITTER NOTIFY] Fallo al enviar el estado de Twitter al hilo de administración ${notificationsThreadId}:`, e);
+    }
+}
+
+
+/**
  * Actualiza los embeds principales de la interfaz de un draft (jugadores, equipos, orden).
  * @param {import('discord.js').Client} client El cliente de Discord.
  * @param {string} draftShortId El ID corto del draft a actualizar.
@@ -79,7 +110,8 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     
     const teamPlayers = draft.players.filter(p => p.captainId === captainId);
     if (teamPlayers.length === 11) {
-        postTournamentUpdate('ROSTER_COMPLETE', { captain, players: teamPlayers, draft }).catch(console.error);
+        const tweetResult = await postTournamentUpdate('ROSTER_COMPLETE', { captain, players: teamPlayers, draft });
+        await sendTwitterNotification(client, draft, tweetResult);
     }
 }
 
@@ -130,7 +162,8 @@ export async function approveDraftCaptain(client, draft, captainData) {
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
 
-    postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft }).catch(console.error);
+    const tweetResult = await postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft });
+    await sendTwitterNotification(client, updatedDraft, tweetResult);
 }
 
 export async function kickPlayerFromDraft(client, draft, userIdToKick) {
@@ -199,21 +232,7 @@ export async function requestUnregisterFromDraft(client, draft, userId) {
     return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores." };
 }
 
-export async function endDraft(client, draft) {
-    await setBotBusy(true);
-    try {
-        const db = getDb();
-        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado' } });
-        await fullCleanupDraft(client, draft);
-
-    } catch (error) {
-        console.error(`Error crítico al finalizar el draft ${draft.shortId}:`, error);
-    } finally {
-        await setBotBusy(false);
-    }
-}
-
-async function fullCleanupDraft(client, draft) {
+async function _cleanupDraft(client, draft) {
     const { discordChannelId, discordMessageIds } = draft;
 
     const deleteResourceSafe = async (fetcher, resourceId) => {
@@ -237,6 +256,19 @@ async function fullCleanupDraft(client, draft) {
         await deleteResourceSafe(globalChannel.messages.fetch.bind(globalChannel.messages), discordMessageIds.statusMessageId);
     } catch(e) {
         console.warn("No se pudo encontrar o borrar el mensaje de estado del draft.");
+    }
+}
+
+export async function endDraft(client, draft) {
+    await setBotBusy(true);
+    try {
+        const db = getDb();
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'cancelado' } }); // Marcar como cancelado/borrado
+        await _cleanupDraft(client, draft);
+    } catch (error) {
+        console.error(`Error crítico al finalizar el draft ${draft.shortId}:`, error);
+    } finally {
+        await setBotBusy(false);
     }
 }
 
@@ -777,7 +809,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
         console.log(`[CREATE] Panel de gestión enviado para ${shortId}.`);
 
-        postTournamentUpdate('INSCRIPCION_ABIERTA', newTournament).catch(console.error);
+        const tweetResult = await postTournamentUpdate('INSCRIPCION_ABIERTA', newTournament);
+        await sendTwitterNotification(client, newTournament, tweetResult);
         
         await setBotBusy(false);
         return { success: true, tournament: newTournament };
@@ -850,6 +883,7 @@ export async function startGroupStage(client, guild, tournament) {
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
         
+        // This event type doesn't exist in twitter.js, but keeping the call structure is harmless
         postTournamentUpdate('GROUP_STAGE_START', finalTournamentState).catch(console.error);
 
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
@@ -1044,6 +1078,29 @@ export async function notifyCastersOfNewTeam(client, tournament, teamData) {
     }
 }
 
+async function _cleanupTournament(client, tournament) {
+    const { discordChannelIds, discordMessageIds } = tournament;
+    const deleteResourceSafe = async (resourceId) => {
+        if (!resourceId) return;
+        try {
+            const resource = await client.channels.fetch(resourceId).catch(() => null);
+            if (resource) await resource.delete();
+        } catch (err) {
+            if (err.code !== 10003) { // 10003 = Unknown Channel, it was already deleted.
+                console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`);
+            }
+        }
+    };
+    for (const channelId of Object.values(discordChannelIds)) { await deleteResourceSafe(channelId); }
+    for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) { await deleteResourceSafe(threadId); }
+    try {
+        const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        await globalChannel.messages.delete(discordMessageIds.statusMessageId).catch(() => {});
+    } catch(e) {
+        if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global");
+    }
+}
+
 export async function endTournament(client, tournament) {
     await setBotBusy(true);
     try {
@@ -1051,24 +1108,12 @@ export async function endTournament(client, tournament) {
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
         await updateTournamentManagementThread(client, finalTournamentState);
-        await cleanupTournament(client, finalTournamentState);
-    } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
-    } finally { 
-        await setBotBusy(false); 
+        await _cleanupTournament(client, finalTournamentState);
+    } catch (error) {
+        console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
+    } finally {
+        await setBotBusy(false);
     }
-}
-
-async function cleanupTournament(client, tournament) {
-    const { discordChannelIds, discordMessageIds } = tournament;
-    const deleteResourceSafe = async (resourceId) => {
-        if (!resourceId) return;
-        try { const resource = await client.channels.fetch(resourceId).catch(() => null); if(resource) await resource.delete(); }
-        catch (err) { if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); }
-    };
-    for (const channelId of Object.values(discordChannelIds)) { await deleteResourceSafe(channelId); }
-    for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) { await deleteResourceSafe(threadId); }
-    try { const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS); await globalChannel.messages.delete(discordMessageIds.statusMessageId);
-    } catch(e) { if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); }
 }
 
 export async function forceResetAllTournaments(client) {
@@ -1077,10 +1122,16 @@ export async function forceResetAllTournaments(client) {
         const db = getDb();
         const allTournaments = await db.collection('tournaments').find({}).toArray();
         for (const tournament of allTournaments) {
-            await cleanupTournament(client, tournament);
+            await _cleanupTournament(client, tournament);
         }
         await db.collection('tournaments').deleteMany({});
+        
+        const allDrafts = await db.collection('drafts').find({}).toArray();
+        for (const draft of allDrafts) {
+            await _cleanupDraft(client, draft);
+        }
         await db.collection('drafts').deleteMany({});
+
     } catch (error) {
         console.error("Error crítico durante el reseteo forzoso:", error);
     } finally {
@@ -1477,4 +1528,47 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
+}
+
+
+/**
+ * NUEVO: Orquesta la finalización y limpieza de un torneo Y su draft asociado.
+ * @param {import('discord.js').Client} client El cliente de Discord.
+ * @param {object} tournament El objeto del torneo a finalizar.
+ */
+export async function endTournamentAndDraft(client, tournament) {
+    await setBotBusy(true);
+    try {
+        console.log(`[FINISH-COMBO] Iniciando finalización combinada para torneo ${tournament.shortId}`);
+
+        // 1. Finalizar el torneo (limpieza de canales y actualización de BD)
+        const db = getDb();
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
+        await _cleanupTournament(client, tournament);
+
+        // 2. Extraer el ID del draft y finalizarlo
+        if (tournament.shortId.startsWith('draft-')) {
+            const draftShortId = tournament.shortId.replace('draft-', '');
+            const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+            
+            if (draft) {
+                console.log(`[FINISH-COMBO] Draft asociado ${draftShortId} encontrado. Iniciando finalización.`);
+                await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'cancelado' } });
+                await _cleanupDraft(client, draft);
+            } else {
+                console.warn(`[FINISH-COMBO] No se encontró un draft asociado con el ID ${draftShortId}.`);
+            }
+        } else {
+            console.warn(`[FINISH-COMBO] El torneo ${tournament.shortId} no parece ser de un draft. Solo se finalizó el torneo.`);
+        }
+
+        console.log(`[FINISH-COMBO] Finalización combinada completada para ${tournament.shortId}`);
+        return { success: true, message: "El torneo y su draft asociado han sido finalizados y eliminados con éxito." };
+
+    } catch (error) {
+        console.error(`[FINISH-COMBO] Error crítico al finalizar el torneo y draft combinado ${tournament.shortId}:`, error);
+        return { success: false, message: `Error: ${error.message}` };
+    } finally {
+        await setBotBusy(false);
+    }
 }
