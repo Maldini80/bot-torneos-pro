@@ -17,9 +17,11 @@ import { postTournamentUpdate } from '../utils/twitter.js';
  * @param {string} eventType El tipo de evento para Twitter.
  * @param {object} data La data para la función de Twitter.
  */
-async function notifyTwitterResult(client, entity, eventType, data) {
+export async function notifyTwitterResult(client, entity, eventType, data) {
     try {
         const tweetResult = await postTournamentUpdate(eventType, data);
+        if (!tweetResult) return; // Si la función de twitter no devuelve nada (ej. está desactivado)
+        
         const isDraft = entity.players !== undefined;
         const notificationsThreadId = isDraft ? entity.discordMessageIds.notificationsThreadId : entity.discordMessageIds.managementThreadId;
 
