@@ -1,7 +1,7 @@
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
-import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
+import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS, CHANNELS } from '../../config.js';
 import {
     approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister,
     addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
@@ -1142,7 +1142,13 @@ export async function handleButton(interaction) {
         
         const result = await endTournamentAndDraft(client, tournament);
         
-        await interaction.followUp({ content: result.message, flags: [MessageFlags.Ephemeral] });
+        try {
+            const managementChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
+            await managementChannel.send({ content: `<@${interaction.user.id}> ${result.message}` });
+        } catch (e) {
+            console.error("Error al enviar el mensaje de confirmación final:", e);
+        }
+
         return;
     }
 
