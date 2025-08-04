@@ -334,6 +334,23 @@ export async function handleSelectMenu(interaction) {
         await interaction.showModal(modal);
         return;
     }
+    // --- CÓDIGO NUEVO QUE VAS A PEGAR ---
+if (action === 'draft_register_captain_pos_select') {
+    const [draftShortId] = params;
+    const position = interaction.values[0];
+
+    const platformButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`select_stream_platform:twitch:register_draft_captain:${draftShortId}:${position}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`select_stream_platform:youtube:register_draft_captain:${draftShortId}:${position}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.update({
+        content: `Has seleccionado **${DRAFT_POSITIONS[position]}**. Ahora, selecciona tu plataforma de transmisión.`,
+        components: [platformButtons]
+    });
+    return;
+}
+// --- FIN DEL CÓDIGO NUEVO ---
 
     if (action === 'draft_pick_search_type') {
         await interaction.deferUpdate();
