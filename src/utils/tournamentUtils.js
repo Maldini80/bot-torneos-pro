@@ -15,12 +15,17 @@ export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
 }
 
 export async function inviteUserToMatchThread(interaction, team) {
+    // Se responde a la interacción ANTES de cualquier operación asíncrona
+    await interaction.deferReply({ flags: ['Ephemeral'] });
+
     if (!team.coCaptainId) {
         return interaction.editReply({ content: 'Tu equipo no tiene un co-capitán asignado.' });
     }
     
     const thread = interaction.channel;
-    if (!thread.isThread()) return;
+    if (!thread.isThread()) {
+        return interaction.editReply({ content: 'Esta acción solo se puede usar dentro de un hilo de partido.' });
+    }
 
     try {
         await thread.members.add(team.coCaptainId);
@@ -92,9 +97,7 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         if (partido.equipoA.coCaptainId && /^\d+$/.test(partido.equipoA.coCaptainId)) mentions.push(`<@${partido.equipoA.coCaptainId}>`);
         if (partido.equipoB.coCaptainId && /^\d+$/.test(partido.equipoB.coCaptainId)) mentions.push(`<@${partido.equipoB.coCaptainId}>`);
         
-        // --- INICIO DE LA CORRECCIÓN: MENSAJE PARA EQUIPOS DE PRUEBA ---
         const mentionString = mentions.length > 0 ? mentions.join(' y ') : 'No se pudieron mencionar a los capitanes (equipos de prueba).';
-        // --- FIN DE LA CORRECCIÓN ---
 
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
             .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*`);
