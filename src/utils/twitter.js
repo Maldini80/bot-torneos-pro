@@ -158,7 +158,7 @@ async function generateHtmlImage(htmlContent) {
 }
 
 // 4. Generadores de HTML para cada tipo de anuncio (con logo integrado)
-const LOGO_IMG_TAG = '<img src="https://i.imgur.com/r62z5eZ.png" class="logo" alt="VPG Logo" />';
+const LOGO_IMG_TAG = '<img src="https://www.rektv.es/wp-content/uploads/2022/11/Recurso-10.png" class="logo" alt="VPG Logo" />';
 
 function generateTournamentAnnouncementHtml(tournament) {
     return `
