@@ -87,18 +87,18 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
 export async function approveDraftCaptain(client, draft, captainData) {
     const db = getDb();
 
-    const captainAsPlayer = {
-        userId: captainData.userId,
-        userName: captainData.userName,
-        psnId: captainData.psnId,
-        eafcTeamName: captainData.eafcTeamName,
-        twitter: captainData.twitter,
-        primaryPosition: captainData.position,
-        secondaryPosition: captainData.position,
-        currentTeam: captainData.teamName,
-        isCaptain: true,
-        captainId: null
-    };
+   const captainAsPlayer = {
+    userId: captainData.userId,
+    userName: captainData.userName,
+    psnId: captainData.psnId,
+    eafcTeamName: captainData.eafcTeamName,
+    twitter: captainData.twitter,
+    primaryPosition: captainData.position,
+    secondaryPosition: captainData.position,
+    currentTeam: captainData.teamName,
+    isCaptain: true,
+    captainId: captainData.userId // <--- CORRECCIÓN APLICADA
+};
 
     await db.collection('drafts').updateOne(
         { _id: draft._id },
