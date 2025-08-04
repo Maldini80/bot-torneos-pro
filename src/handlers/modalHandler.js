@@ -14,7 +14,7 @@ export async function handleModal(interaction) {
     const db = getDb();
     const [action, ...params] = customId.split(':');
 
-    // Deferral preventivo para todas las acciones modales
+    // --- INICIO DE LA CORRECCIÓN: DEFERRAL PREVENTIVO ---
     try {
         if (!interaction.deferred && !interaction.replied) {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -24,6 +24,7 @@ export async function handleModal(interaction) {
         console.error(`Error al hacer defer en modal ${action}:`, e);
         return;
     }
+    // --- FIN DE LA CORRECCIÓN ---
 
     if (action === 'report_player_modal') {
         const [draftShortId, teamId, playerId] = params;
