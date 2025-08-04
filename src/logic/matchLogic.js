@@ -1,7 +1,7 @@
 // src/logic/matchLogic.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
-import { updatePublicMessages, endTournament, sendTwitterNotification } from './tournamentLogic.js';
+import { updatePublicMessages, endTournament, notifyTwitterResult } from './tournamentLogic.js';
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
@@ -155,8 +155,7 @@ async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
     if (allFinished) {
         console.log(`[ADVANCEMENT] Fase de grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
-        const tweetResult = await postTournamentUpdate('GROUP_STAGE_END', tournament);
-        await sendTwitterNotification(client, tournament, tweetResult);
+        notifyTwitterResult(client, tournament, 'GROUP_STAGE_END', tournament).catch(console.error);
         await startNextKnockoutRound(client, guild, tournament);
     }
 }
@@ -178,8 +177,7 @@ async function checkForKnockoutAdvancement(client, guild, tournament) {
 
     if (allFinished) {
         console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
-        const tweetResult = await postTournamentUpdate('KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament });
-        await sendTwitterNotification(client, tournament, tweetResult);
+        notifyTwitterResult(client, tournament, 'KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament }).catch(console.error);
         await startNextKnockoutRound(client, guild, tournament);
     }
 }
@@ -258,8 +256,7 @@ async function startNextKnockoutRound(client, guild, tournament) {
         currentTournament.structure.eliminatorias[siguienteRonda] = partidos;
     }
     
-    const tweetResult = await postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRonda, tournament: currentTournament });
-    await sendTwitterNotification(client, currentTournament, tweetResult);
+    notifyTwitterResult(client, currentTournament, 'KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRonda, tournament: currentTournament }).catch(console.error);
 
     const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
     const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🔥`).setFooter({text: '¡Mucha suerte!'});
@@ -289,7 +286,7 @@ async function handleFinalResult(client, guild, tournament) {
             .setColor('#ffd700')
             .setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`)
             .setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`)
-            .setThumbnail('https://i.imgur.com/C5mJg1s.png') // <-- URL DE LA IMAGEN DE CAMPEÓN ACTUALIZADA
+            .setThumbnail('https://i.imgur.com/r62z5eZ.png') // <-- URL DE LA IMAGEN DE CAMPEÓN ACTUALIZADA
             .setTimestamp();
         await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
     }
@@ -317,8 +314,7 @@ async function handleFinalResult(client, guild, tournament) {
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
 
-    const tweetResult = await postTournamentUpdate('FINALIZADO', updatedTournament);
-    await sendTwitterNotification(client, updatedTournament, tweetResult);
+    notifyTwitterResult(client, updatedTournament, 'FINALIZADO', updatedTournament).catch(console.error);
 
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
