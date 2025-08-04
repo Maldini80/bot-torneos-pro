@@ -15,8 +15,6 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- INICIO DE LA MODIFICACIÓN ---
-
 // 2. CSS Global para todas las imágenes (Estilo VPG ProDiarios)
 const globalCss = `
   body { 
@@ -286,10 +284,10 @@ export async function postTournamentUpdate(eventType, data) {
             break;
         }
         case 'KNOCKOUT_ROUND_COMPLETE': {
-            const { stage, tournament } = data;
+            const { stage, tournament, matches } = data;
             const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
             tweetText = `¡Resultados finales de ${stageName} en el torneo "${tournament.nombre}"!\n\nAsí quedan los marcadores de esta ronda. ¡Los ganadores avanzan!\n\n#eSports`;
-            htmlContent = generateKnockoutStageHtml(data);
+            htmlContent = generateKnockoutStageHtml({ matches, stage, tournament });
             logMessage = `Tweet de resultados de ${stageName} publicado para ${tournament.nombre}`;
             break;
         }
