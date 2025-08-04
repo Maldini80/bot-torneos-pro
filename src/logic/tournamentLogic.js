@@ -77,7 +77,6 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         }
     }
     
-    // Comprobar si la plantilla está completa para tuitear
     const teamPlayers = draft.players.filter(p => p.captainId === captainId);
     if (teamPlayers.length === 11) {
         postTournamentUpdate('ROSTER_COMPLETE', { captain, players: teamPlayers, draft }).catch(console.error);
@@ -131,7 +130,6 @@ export async function approveDraftCaptain(client, draft, captainData) {
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
 
-    // Publicar tuit de nuevo capitán aprobado
     postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft }).catch(console.error);
 }
 
