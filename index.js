@@ -69,25 +69,39 @@ client.on(Events.InteractionCreate, async interaction => {
         else if (interaction.isModalSubmit()) await handleModal(interaction);
         else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) await handleSelectMenu(interaction);
     } catch (error) {
-        if (error.code === 10062) {
-            console.warn('[WARN] Se intentó responder a una interacción que ya había expirado.');
-            return;
-        }
-
+        // --- INICIO DE LA CORRECCIÓN ---
         console.error('[ERROR DE INTERACCIÓN]', error);
 
+        let userMessage = '❌ Hubo un error desconocido al procesar tu solicitud.';
+
+        if (error.code === 10062 || error.code === 40060) {
+            // Error 10062: Unknown interaction (interacción caducada).
+            // Error 40060: Interaction has already been acknowledged.
+            userMessage = '⏳ Esta interacción ha caducado o ya ha sido respondida. Por favor, inténtalo de nuevo.';
+            // No es necesario notificar al usuario, ya que la interacción está muerta.
+            return;
+        } else if (error.code === 50013) {
+            // Error 50013: Missing Permissions
+            userMessage = '❌ No tengo los permisos necesarios para realizar esta acción. Por favor, contacta a un administrador.';
+        } else if (error.code === 10008) {
+            // Error 10008: Unknown Message (el mensaje al que se intentaba responder fue borrado)
+            userMessage = '❌ Parece que el mensaje original fue borrado. No se puede continuar.';
+        }
+
         try {
-            const errorMessage = { content: '❌ Hubo un error al procesar tu solicitud.', flags: [MessageFlags.Ephemeral] };
+            const errorMessage = { content: userMessage, flags: [MessageFlags.Ephemeral] };
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(errorMessage);
             } else {
                 await interaction.reply(errorMessage);
             }
         } catch (e) {
+            // Evitar bucles de error si incluso el mensaje de error falla.
             if (e.code !== 10062 && e.code !== 40060) {
-                 console.error("Error al enviar mensaje de error de interacción:", e.message);
+                 console.error("Error al enviar el mensaje de error de la interacción:", e.message);
             }
         }
+        // --- FIN DE LA CORRECCIÓN ---
     }
 });
 
