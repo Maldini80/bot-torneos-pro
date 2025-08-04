@@ -2,7 +2,7 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
-import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer } from '../logic/tournamentLogic.js';
+import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 
@@ -20,15 +20,12 @@ export async function handleSelectMenu(interaction) {
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Comprobamos si el draft tiene capitanes antes de crear el menú
         if (!draft.captains || draft.captains.length === 0) {
             return interaction.editReply({
                 content: `❌ El draft **${draft.name}** no tiene capitanes aprobados. No hay plantillas para gestionar.`,
                 components: []
             });
         }
-        // --- FIN DE LA CORRECCIÓN ---
 
         const teamOptions = draft.captains.map(c => ({
             label: c.teamName,
@@ -558,6 +555,43 @@ export async function handleSelectMenu(interaction) {
         }
         return;
     }
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    if (action === 'admin_promote_from_waitlist') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const captainIdToPromote = interaction.values[0];
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        if (!tournament) {
+            return interaction.editReply({ content: '❌ Error: El torneo ya no existe.', components: [] });
+        }
+
+        const teamData = tournament.teams.reserva[captainIdToPromote];
+        if (!teamData) {
+            return interaction.editReply({ content: '❌ Error: Este equipo ya no está en la lista de reserva o ya fue procesado.', components: [] });
+        }
+
+        const approvedCount = Object.keys(tournament.teams.aprobados).length;
+        if (approvedCount >= tournament.config.format.size) {
+            return interaction.editReply({ content: `❌ No se puede promover al equipo. El torneo ya está lleno (${approvedCount}/${tournament.config.format.size}).`, components: [] });
+        }
+
+        try {
+            await approveTeam(client, tournament, teamData);
+            
+            await interaction.editReply({ 
+                content: `✅ El equipo **${teamData.nombre}** ha sido promovido con éxito de la lista de reserva al torneo.`, 
+                components: [] 
+            });
+        } catch (error) {
+            console.error('Error al promover equipo desde la lista de reserva:', error);
+            await interaction.editReply({ content: `❌ Hubo un error al promover al equipo: ${error.message}`, components: [] });
+        }
+        return;
+    }
+    // --- FIN DE LA CORRECCIÓN ---
 
     if (action === 'admin_create_format') {
         const formatId = interaction.values[0];
