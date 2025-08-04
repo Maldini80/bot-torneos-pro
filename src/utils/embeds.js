@@ -405,8 +405,12 @@ export function createDraftMainInterface(draft) {
             .sort((a, b) => DRAFT_POSITION_ORDER.indexOf(a.primaryPosition) - DRAFT_POSITION_ORDER.indexOf(b.primaryPosition))
             .map(p => `• ${p.psnId} (${p.primaryPosition})`)
             .join('\n');
-
-        const teamString = `**👑 E-${captain.teamName}**\n(Cap: ${captain.psnId})\n${teamPlayers.length > 0 ? sortedPlayerList : '*Vacío*'}`;
+        
+        // --- INICIO DE LA CORRECCIÓN: MOSTRAR POSICIÓN DEL CAPITÁN ---
+        const captainPlayerInfo = draft.players.find(p => p.userId === captain.userId);
+        const captainPosition = captainPlayerInfo ? captainPlayerInfo.primaryPosition : 'N/A';
+        const teamString = `**👑 E-${captain.teamName}**\n(Cap: ${captain.psnId} - ${captainPosition})\n${teamPlayers.length > 0 ? sortedPlayerList : '*Sin Jugadores*'}`;
+        // --- FIN DE LA CORRECCIÓN ---
         teamFields[index % 3].push(teamString);
     });
 
@@ -512,7 +516,7 @@ export function createTeamRosterManagementEmbed(team, players, draftShortId) {
     const embed = new EmbedBuilder()
         .setColor('#1abc9c')
         .setTitle(`Gestión de Plantilla: ${team.teamName || team.nombre}`);
-
+    
     if (!players || players.length === 0) {
         embed.setDescription('Este equipo aún no tiene jugadores en su plantilla.');
         return { embeds: [embed], components: [], flags: [MessageFlags.Ephemeral] };
@@ -545,8 +549,8 @@ export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin
         .setTitle(`${player.isCaptain ? '👑' : '👤'} ${player.psnId}`)
         .addFields(
             { name: 'Discord', value: `<@${player.userId}>`, inline: true },
-            { name: 'Posición Primaria', value: DRAFT_POSITIONS[player.primaryPosition], inline: true },
-            { name: 'Posición Secundaria', value: player.secondaryPosition === 'NONE' ? 'Ninguna' : DRAFT_POSITIONS[player.secondaryPosition], inline: true },
+            { name: 'Posición Primaria', value: DRAFT_POSITIONS[player.primaryPosition] || 'N/A', inline: true },
+            { name: 'Posición Secundaria', value: player.secondaryPosition === 'NONE' ? 'Ninguna' : (DRAFT_POSITIONS[player.secondaryPosition] || 'N/A'), inline: true },
             { name: 'Twitter', value: player.twitter ? `[@${player.twitter}](https://twitter.com/${player.twitter})` : 'No proporcionado', inline: true },
             { name: 'Strikes Actuales', value: `\`${playerRecord.strikes}\``, inline: true }
         );
