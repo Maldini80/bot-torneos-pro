@@ -687,7 +687,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-    if (action === 'rules_accept') {
+        if (action === 'rules_accept') {
         const [currentStepStr, originalAction, entityId] = params;
         const currentStep = parseInt(currentStepStr);
         
@@ -696,7 +696,24 @@ export async function handleButton(interaction) {
         const totalSteps = isCaptainFlow || isTournamentFlow ? 3 : 1;
     
         if (currentStep >= totalSteps) {
-            if (isTournamentFlow || isCaptainFlow) {
+            // --- INICIO DE LA MODIFICACIÓN ---
+            if (originalAction.startsWith('register_draft_captain')) {
+                // Para el capitán del draft, primero preguntamos la posición
+                const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+                    label: value, value: key
+                }));
+                const posMenu = new StringSelectMenuBuilder()
+                    .setCustomId(`draft_register_captain_pos_select:${entityId}`)
+                    .setPlaceholder('Selecciona tu posición PRIMARIA como Capitán')
+                    .addOptions(positionOptions);
+
+                await interaction.update({
+                    content: 'Has aceptado las normas. Ahora, por favor, selecciona la posición en la que jugarás como capitán.',
+                    components: [new ActionRowBuilder().addComponents(posMenu)],
+                    embeds: []
+                });
+
+            } else if (isTournamentFlow) { // Flujo de torneo normal
                 const platformButtons = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${entityId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
                     new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${entityId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
@@ -722,13 +739,13 @@ export async function handleButton(interaction) {
                     embeds: []
                 });
             }
+            // --- FIN DE LA MODIFICACIÓN ---
         } else {
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
             await interaction.update(nextStepContent);
         }
         return;
     }
-
     if (action === 'select_stream_platform') {
         const [platform, originalAction, entityId, position] = params;
         const modal = new ModalBuilder();
