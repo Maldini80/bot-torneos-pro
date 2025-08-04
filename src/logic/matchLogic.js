@@ -1,7 +1,7 @@
 // src/logic/matchLogic.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
-import { updatePublicMessages, endTournament, notifyTwitterResult, postSimulationUpdateToDiscord } from './tournamentLogic.js';
+import { updatePublicMessages, endTournament } from './tournamentLogic.js';
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
@@ -25,7 +25,7 @@ export async function finalizeMatchThread(client, partido, resultString) {
     }
 }
 
-export async function processMatchResult(client, guild, tournament, matchId, resultString, isSimulation = false) {
+export async function processMatchResult(client, guild, tournament, matchId, resultString) {
     const db = getDb();
     let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
@@ -39,7 +39,6 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     partido.resultado = resultString;
     partido.status = 'finalizado';
 
-    // CORRECCIÓN: Se actualiza el nombre del hilo siempre, incluso en simulación.
     await updateMatchThreadName(client, partido);
     
     if (fase === 'grupos') {
@@ -47,17 +46,15 @@ export async function processMatchResult(client, guild, tournament, matchId, res
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
         
         let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
-        if (!isSimulation) {
-            await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
-        }
+        await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
         
         updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats, isSimulation);
+        await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats);
 
     } else {
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
         let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats, isSimulation);
+        await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats);
     }
     
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
@@ -74,25 +71,26 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
 
     const guild = await client.guilds.fetch(tournament.guildId);
     
-    let pendingMatches = [];
-    
-    // --- INICIO DE LA CORRECCIÓN: LÓGICA DE SIMULACIÓN SECUENCIAL ---
-    // Determinar qué partidos simular basándose en la fase actual del torneo.
-    if (tournament.status === 'fase_de_grupos' && tournament.structure.calendario) {
-        pendingMatches = Object.values(tournament.structure.calendario).flat().filter(p => p && (p.status === 'pendiente' || p.status === 'en_curso'));
-    } else if (tournament.structure.eliminatorias && tournament.structure.eliminatorias.rondaActual) {
-        const currentStage = tournament.structure.eliminatorias.rondaActual;
-        const stageData = tournament.structure.eliminatorias[currentStage];
-        if (Array.isArray(stageData)) {
-            pendingMatches = stageData.filter(p => p && (p.status === 'pendiente' || p.status === 'en_curso'));
-        } else if (stageData && typeof stageData === 'object' && (stageData.status === 'pendiente' || stageData.status === 'en_curso')) {
-            pendingMatches = [stageData];
+    let allMatches = [];
+    if (tournament.structure.calendario) {
+        allMatches.push(...Object.values(tournament.structure.calendario).flat());
+    }
+    if (tournament.structure.eliminatorias) {
+        for (const stageKey in tournament.structure.eliminatorias) {
+            if (stageKey === 'rondaActual') continue;
+            const stageData = tournament.structure.eliminatorias[stageKey];
+            if (Array.isArray(stageData)) {
+                allMatches.push(...stageData);
+            } else if (stageData && typeof stageData === 'object' && stageData.matchId) {
+                allMatches.push(stageData);
+            }
         }
     }
-    // --- FIN DE LA CORRECCIÓN ---
+    
+    const pendingMatches = allMatches.filter(p => p && (p.status === 'pendiente' || p.status === 'en_curso'));
 
     if (pendingMatches.length === 0) {
-        return { message: 'No hay partidos pendientes para simular en la fase actual.' };
+        return { message: 'No hay partidos pendientes para simular.' };
     }
 
     for (const match of pendingMatches) {
@@ -101,10 +99,10 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
         const resultString = `${golesA}-${golesB}`;
         
         let currentTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        await processMatchResult(client, guild, currentTournamentState, match.matchId, resultString, true);
+        await processMatchResult(client, guild, currentTournamentState, match.matchId, resultString);
     }
     
-    return { message: `Se han simulado con éxito ${pendingMatches.length} partidos de la fase actual.`};
+    return { message: `Se han simulado con éxito ${pendingMatches.length} partidos.`};
 }
 
 export function findMatch(tournament, matchId) {
@@ -150,28 +148,26 @@ async function updateGroupStageStats(tournament, partido) {
     }
 }
 
-async function checkForGroupStageAdvancement(client, guild, tournament, isSimulation = false) {
+async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allGroupMatches = Object.values(tournament.structure.calendario).flat();
     if (allGroupMatches.length === 0 || tournament.status !== 'fase_de_grupos') return;
 
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
     if (allFinished) {
         console.log(`[ADVANCEMENT] Fase de grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
-        if (!isSimulation) {
-            notifyTwitterResult(client, tournament, 'GROUP_STAGE_END', tournament).catch(console.error);
-        }
-        await startNextKnockoutRound(client, guild, tournament, isSimulation);
+        postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
+        await startNextKnockoutRound(client, guild, tournament);
     }
 }
 
-async function checkForKnockoutAdvancement(client, guild, tournament, isSimulation = false) {
+async function checkForKnockoutAdvancement(client, guild, tournament) {
     const rondaActual = tournament.structure.eliminatorias.rondaActual;
     if (!rondaActual) return;
 
     if (rondaActual === 'final') {
         const finalMatch = tournament.structure.eliminatorias.final;
         if (finalMatch && finalMatch.status === 'finalizado') {
-            await handleFinalResult(client, guild, tournament, isSimulation);
+            await handleFinalResult(client, guild, tournament);
         }
         return;
     }
@@ -181,15 +177,12 @@ async function checkForKnockoutAdvancement(client, guild, tournament, isSimulati
 
     if (allFinished) {
         console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
-        const data = { matches: partidosRonda, stage: rondaActual, tournament };
-        if (!isSimulation) {
-            notifyTwitterResult(client, tournament, 'KNOCKOUT_ROUND_COMPLETE', data).catch(console.error);
-        }
-        await startNextKnockoutRound(client, guild, tournament, isSimulation);
+        postTournamentUpdate('KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament }).catch(console.error);
+        await startNextKnockoutRound(client, guild, tournament);
     }
 }
 
-async function startNextKnockoutRound(client, guild, tournament, isSimulation = false) {
+async function startNextKnockoutRound(client, guild, tournament) {
     const db = getDb();
     let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
@@ -263,22 +256,17 @@ async function startNextKnockoutRound(client, guild, tournament, isSimulation = 
         currentTournament.structure.eliminatorias[siguienteRonda] = partidos;
     }
     
-    const data = { matches: partidos, stage: siguienteRonda, tournament: currentTournament };
-    if (!isSimulation) {
-        notifyTwitterResult(client, currentTournament, 'KNOCKOUT_MATCHUPS_CREATED', data).catch(console.error);
-    }
+    postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRonda, tournament: currentTournament }).catch(console.error);
 
-    if (!isSimulation) {
-        const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
-        const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🔥`).setFooter({text: '¡Mucha suerte!'});
+    const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
+    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🔥`).setFooter({text: '¡Mucha suerte!'});
 
-        for(const [i, p] of partidos.entries()) {
-            const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
-            p.threadId = threadId;
-            embedAnuncio.addFields({ name: `Enfrentamiento ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
-        }
-        if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
+    for(const [i, p] of partidos.entries()) {
+        const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
+        p.threadId = threadId;
+        embedAnuncio.addFields({ name: `Enfrentamiento ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
     }
+    if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
     
     await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
@@ -286,23 +274,16 @@ async function startNextKnockoutRound(client, guild, tournament, isSimulation = 
     await updateTournamentManagementThread(client, finalTournamentState);
 }
 
-async function handleFinalResult(client, guild, tournament, isSimulation = false) {
+async function handleFinalResult(client, guild, tournament) {
     const final = tournament.structure.eliminatorias.final;
     const [golesA, golesB] = final.resultado.split('-').map(Number);
     const campeon = golesA > golesB ? final.equipoA : final.equipoB;
     const finalista = golesA > golesB ? final.equipoB : final.equipoA;
     
-    if (!isSimulation) {
-        const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
-        if(infoChannel) {
-            const embedCampeon = new EmbedBuilder()
-                .setColor('#ffd700')
-                .setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`)
-                .setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`)
-                .setThumbnail('https://thumbs.dreamstime.com/b/la-copa-de-f%C3%BAtbol-oro-recompensa-por-victoria-en-el-campeonato-estadio-campo-verde-dorado-lente-multicolor-fondo-premio-deportivo-272109299.jpg')
-                .setTimestamp();
-            await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
-        }
+    const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
+    if(infoChannel) {
+        const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();
+        await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
     }
     
     if (tournament.config.isPaid) {
@@ -328,9 +309,7 @@ async function handleFinalResult(client, guild, tournament, isSimulation = false
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
 
-    if (!isSimulation) {
-        notifyTwitterResult(client, updatedTournament, 'FINALIZADO', updatedTournament).catch(console.error);
-    }
+    postTournamentUpdate('FINALIZADO', updatedTournament).catch(console.error);
 
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
