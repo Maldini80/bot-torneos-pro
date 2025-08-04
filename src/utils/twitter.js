@@ -44,7 +44,7 @@ const globalCss = `
     justify-content: center;
     text-align: center;
   }
-  h1, h2, th, .team-name, .value {
+  h1, h2, th, .team-name, .value, .label {
     text-transform: uppercase;
   }
   h1 { 
@@ -53,6 +53,7 @@ const globalCss = `
     margin-top: 0;
     margin-bottom: 20px;
     font-weight: 900;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
   }
   h2 {
     color: #e1e8ed;
@@ -85,12 +86,13 @@ const globalCss = `
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 25px;
+    text-align: left;
   }
   table { 
     width: 100%; 
     border-collapse: collapse; 
     margin-bottom: 20px;
-    background-color: #2a2a2a;
+    background-color: rgba(42, 42, 42, 0.8);
     text-align: left;
   }
   th, td { 
@@ -107,7 +109,7 @@ const globalCss = `
     border: 1px solid #333;
     padding: 15px;
     margin-bottom: 15px;
-    background-color: #141414;
+    background-color: rgba(20, 20, 20, 0.8);
     border-radius: 10px;
   }
   .vs {
@@ -140,10 +142,10 @@ async function generateHtmlImage(htmlContent) {
             body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
         });
         const data = await response.json();
-        return data.url;
+        return { success: true, url: data.url };
     } catch (error) {
         console.error("[TWITTER] Error al generar imagen con HCTI:", error);
-        return null;
+        return { success: false, error: 'Fallo en el servicio de generación de imágenes.' };
     }
 }
 
@@ -202,6 +204,7 @@ function generateGroupStartHtml(tournament) {
     
     return `<div class="container">
               <h1>¡ARRANCA LA FASE DE GRUPOS!</h1>
+              <h2>${tournament.nombre}</h2>
               <div class="group-grid">${allGroupsHtml}</div>
             </div>`;
 }
@@ -272,13 +275,13 @@ function generateChampionHtml(tournament) {
 }
 
 // 5. Función principal reestructurada para postear en Twitter y devolver el resultado
-export async function postTournamentUpdate(eventType, data) {
+export async function postTournamentUpdate(eventType, data, forSimulation = false) {
     const settings = await getBotSettings();
-    if (!settings.twitterEnabled) {
+    if (!forSimulation && !settings.twitterEnabled) {
         console.log("[TWITTER] La publicación automática está desactivada globalmente.");
         return { success: false, error: "La publicación automática en Twitter está desactivada." };
     }
-    if (!process.env.TWITTER_API_KEY) {
+    if (!forSimulation && !process.env.TWITTER_API_KEY) {
         console.log("[TWITTER] No se han configurado las claves de API.");
         return { success: false, error: "Las claves de la API de Twitter no están configuradas en el bot." };
     }
@@ -344,8 +347,6 @@ export async function postTournamentUpdate(eventType, data) {
             const tournament = data;
             const finalMatch = tournament.structure.eliminatorias.final;
             if (finalMatch && finalMatch.resultado) {
-                const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
-                const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
                 tweetText = `¡TENEMOS CAMPEÓN! 🏆\n\nFELICIDADES AL EQUIPO "${champion.nombre.toUpperCase()}" POR GANAR EL TORNEO "${tournament.nombre.toUpperCase()}". ¡GRAN ACTUACIÓN!\n\n#VPGLightnings`;
                 htmlContent = generateChampionHtml(tournament);
             } else {
@@ -362,31 +363,36 @@ export async function postTournamentUpdate(eventType, data) {
     }
 
     try {
-        let mediaId = null;
         if (htmlContent) {
-            const imageUrl = await generateHtmlImage(htmlContent);
-            if (!imageUrl) throw new Error("No se pudo generar la URL de la imagen desde HCTI.");
-            
-            const imageResponse = await fetch(imageUrl);
+            const imageResult = await generateHtmlImage(htmlContent);
+            if (!imageResult.success) throw new Error(imageResult.error);
+
+            if (forSimulation) {
+                return { success: true, imageUrl: imageResult.url };
+            }
+
+            const imageResponse = await fetch(imageResult.url);
             const imageBuffer = await imageResponse.arrayBuffer();
-            mediaId = await client.v1.uploadMedia(Buffer.from(imageBuffer), { mimeType: 'image/png' });
+            const mediaId = await client.v1.uploadMedia(Buffer.from(imageBuffer), { mimeType: 'image/png' });
+            
+            const tweetResult = await twitterClient.v2.tweet({ text: tweetText, media: { media_ids: [mediaId] } });
+            if (tweetResult.data && tweetResult.data.id) {
+                const tweetUrl = `https://twitter.com/i/web/status/${tweetResult.data.id}`;
+                console.log(`[TWITTER] ${logMessage}`);
+                return { success: true, url: tweetUrl };
+            }
         }
-
-        const tweetOptions = { text: tweetText };
-        if (mediaId) {
-            tweetOptions.media = { media_ids: [mediaId] };
-        }
-
-        const tweetResult = await twitterClient.v2.tweet(tweetOptions);
         
+        if (forSimulation) return { success: true, imageUrl: null };
+
+        const tweetResult = await twitterClient.v2.tweet({ text: tweetText });
         if (tweetResult.data && tweetResult.data.id) {
             const tweetUrl = `https://twitter.com/i/web/status/${tweetResult.data.id}`;
             console.log(`[TWITTER] ${logMessage}`);
             return { success: true, url: tweetUrl };
-        } else {
-             console.log(`[TWITTER] ${logMessage}`);
-            return { success: true, url: null };
         }
+        
+        return { success: true, url: null };
 
     } catch (e) {
         console.error(`[TWITTER] Error al publicar tweet para el evento ${eventType}:`, e);
