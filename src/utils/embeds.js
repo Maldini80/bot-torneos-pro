@@ -105,11 +105,27 @@ export async function createGlobalAdminPanel(isBusy = false) {
         : `✅ **ESTADO: LISTO**\nTraducción Automática: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}**\nTwitter Automático: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**\nUsa los botones de abajo para gestionar.`
     );
 
-    const globalActionsRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
-        new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Draft').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
-        new ButtonBuilder().setCustomId('admin_manage_drafts_players').setLabel('Gestionar Jugadores/Drafts').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy)
-    );
+   const globalActionsRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
+    new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Draft').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
+    new ButtonBuilder().setCustomId('admin_manage_drafts_players').setLabel('Gestionar Jugadores/Drafts').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy)
+);
+
+// --- FILA DE BOTONES PARA CONFIGURACIÓN DE DRAFTS ---
+const draftSettingsRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+        .setCustomId('admin_config_draft_min_quotas')
+        .setLabel('Config: Mínimos Draft')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('📊')
+        .setDisabled(isBusy),
+    new ButtonBuilder()
+        .setCustomId('admin_config_draft_max_quotas')
+        .setLabel('Config: Máximos Draft')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🧢')
+        .setDisabled(isBusy)
+);
 
         const globalSettingsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -135,7 +151,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
 
-    return { embeds: [embed], components: [globalActionsRow, globalSettingsRow] };
+    return { embeds: [embed], components: [globalActionsRow, draftSettingsRow, globalSettingsRow] };
 }
 
 export function createTournamentManagementPanel(tournament, isBusy = false) {
