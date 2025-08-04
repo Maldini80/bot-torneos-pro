@@ -15,7 +15,7 @@ import { postTournamentUpdate } from '../utils/twitter.js';
  * @param {object} entity El objeto del torneo o draft.
  * @param {object} tweetResult El resultado de la función postTournamentUpdate.
  */
-async function sendTwitterNotification(client, entity, tweetResult) {
+export async function sendTwitterNotification(client, entity, tweetResult) {
     const isDraft = entity.players !== undefined;
     const notificationsThreadId = isDraft ? entity.discordMessageIds.notificationsThreadId : entity.discordMessageIds.managementThreadId;
 
