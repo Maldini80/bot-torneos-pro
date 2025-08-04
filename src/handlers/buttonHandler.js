@@ -56,7 +56,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         .setCustomId(isMin ? 'config_draft_min_modal' : 'config_draft_max_modal')
         .setTitle(isMin ? 'Config: Mínimos por Posición' : 'Config: Máximos por Posición');
     
-    const currentQuotas = isMin ? settings.draftMinQuotas : settings.draftMaxQuotas;
+    const currentQuotas = (isMin ? settings.draftMinQuotas : settings.draftMaxQuotas) || '';
 
     const quotasInput = new TextInputBuilder()
         .setCustomId('quotas_input')
