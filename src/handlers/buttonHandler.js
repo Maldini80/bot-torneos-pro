@@ -136,7 +136,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE NUEVA LÓGICA ---
     if (action === 'admin_invite_replacement_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, teamId, kickedPlayerId] = params;
@@ -169,7 +168,6 @@ export async function handleButton(interaction) {
         await interaction.deferUpdate();
         const [draftShortId, captainId, kickedPlayerId, replacementPlayerId] = params;
 
-        // Solo el jugador invitado puede aceptar
         if (interaction.user.id !== replacementPlayerId) {
             return interaction.followUp({ content: "Esta invitación no es para ti.", flags: [MessageFlags.Ephemeral] });
         }
@@ -199,8 +197,6 @@ export async function handleButton(interaction) {
         });
         return;
     }
-    // --- FIN DE NUEVA LÓGICA ---
-
 
     if (action === 'captain_report_player') {
         const [draftShortId, teamId, playerId] = params;
