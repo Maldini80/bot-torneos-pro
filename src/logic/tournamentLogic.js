@@ -11,20 +11,23 @@ import { postTournamentUpdate } from '../utils/twitter.js';
 
 /**
  * Envía una notificación sobre el estado de una publicación de Twitter al canal de administración.
+ * Lo hace de forma asíncrona para no bloquear otros procesos.
  * @param {import('discord.js').Client} client El cliente de Discord.
  * @param {object} entity El objeto del torneo o draft.
- * @param {object} tweetResult El resultado de la función postTournamentUpdate.
+ * @param {string} eventType El tipo de evento para Twitter.
+ * @param {object} data La data para la función de Twitter.
  */
-export async function sendTwitterNotification(client, entity, tweetResult) {
-    const isDraft = entity.players !== undefined;
-    const notificationsThreadId = isDraft ? entity.discordMessageIds.notificationsThreadId : entity.discordMessageIds.managementThreadId;
-
-    if (!notificationsThreadId) {
-        console.warn(`[TWITTER NOTIFY] No se encontró el hilo de notificación para ${entity.shortId}.`);
-        return;
-    }
-
+async function notifyTwitterResult(client, entity, eventType, data) {
     try {
+        const tweetResult = await postTournamentUpdate(eventType, data);
+        const isDraft = entity.players !== undefined;
+        const notificationsThreadId = isDraft ? entity.discordMessageIds.notificationsThreadId : entity.discordMessageIds.managementThreadId;
+
+        if (!notificationsThreadId) {
+            console.warn(`[TWITTER NOTIFY] No se encontró el hilo de notificación para ${entity.shortId}.`);
+            return;
+        }
+
         const thread = await client.channels.fetch(notificationsThreadId);
         let messageContent;
 
@@ -35,7 +38,7 @@ export async function sendTwitterNotification(client, entity, tweetResult) {
         }
         await thread.send(messageContent);
     } catch (e) {
-        console.error(`[TWITTER NOTIFY] Fallo al enviar el estado de Twitter al hilo de administración ${notificationsThreadId}:`, e);
+        console.error(`[TWITTER NOTIFY] Fallo al procesar la notificación de Twitter para ${entity.shortId}:`, e);
     }
 }
 
@@ -110,8 +113,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     
     const teamPlayers = draft.players.filter(p => p.captainId === captainId);
     if (teamPlayers.length === 11) {
-        const tweetResult = await postTournamentUpdate('ROSTER_COMPLETE', { captain, players: teamPlayers, draft });
-        await sendTwitterNotification(client, draft, tweetResult);
+        notifyTwitterResult(client, draft, 'ROSTER_COMPLETE', { captain, players: teamPlayers, draft }).catch(console.error);
     }
 }
 
@@ -162,8 +164,7 @@ export async function approveDraftCaptain(client, draft, captainData) {
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
 
-    const tweetResult = await postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft });
-    await sendTwitterNotification(client, updatedDraft, tweetResult);
+    notifyTwitterResult(client, updatedDraft, 'NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft }).catch(console.error);
 }
 
 export async function kickPlayerFromDraft(client, draft, userIdToKick) {
@@ -809,8 +810,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
         console.log(`[CREATE] Panel de gestión enviado para ${shortId}.`);
 
-        const tweetResult = await postTournamentUpdate('INSCRIPCION_ABIERTA', newTournament);
-        await sendTwitterNotification(client, newTournament, tweetResult);
+        // Corrección: Llamar a la notificación de forma no bloqueante.
+        notifyTwitterResult(client, newTournament, 'INSCRIPCION_ABIERTA', newTournament).catch(console.error);
         
         await setBotBusy(false);
         return { success: true, tournament: newTournament };
@@ -883,8 +884,7 @@ export async function startGroupStage(client, guild, tournament) {
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
         
-        // This event type doesn't exist in twitter.js, but keeping the call structure is harmless
-        postTournamentUpdate('GROUP_STAGE_START', finalTournamentState).catch(console.error);
+        notifyTwitterResult(client, finalTournamentState, 'GROUP_STAGE_START', finalTournamentState).catch(console.error);
 
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
