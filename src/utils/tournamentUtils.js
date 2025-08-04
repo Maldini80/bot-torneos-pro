@@ -15,7 +15,6 @@ export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
 }
 
 export async function inviteUserToMatchThread(interaction, team) {
-    // Se responde a la interacción ANTES de cualquier operación asíncrona
     await interaction.deferReply({ flags: ['Ephemeral'] });
 
     if (!team.coCaptainId) {
