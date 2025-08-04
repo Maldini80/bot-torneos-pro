@@ -144,9 +144,7 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'create_draft_paid_modal') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.reply({ content: '⏳ Creando el draft de pago...', flags: [MessageFlags.Ephemeral] });
-        // --- FIN DE LA MODIFICACIÓN ---
         const [name] = params;
         const entryFee = parseFloat(interaction.fields.getTextInputValue('draft_entry_fee'));
         const prizeCampeon = parseFloat(interaction.fields.getTextInputValue('draft_prize_campeon'));
@@ -171,9 +169,7 @@ export async function handleModal(interaction) {
     }
     
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
-        // --- FIN DE LA MODIFICACIÓN ---
         
         const isRegisteringAsCaptain = action.includes('captain');
         let draftShortId, position, primaryPosition, secondaryPosition, teamStatus, streamPlatform;
@@ -341,20 +337,20 @@ export async function handleModal(interaction) {
             config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
             config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
         }
-        try {
-            await createNewTournament(client, guild, nombre, shortId, config);
+        
+        const result = await createNewTournament(client, guild, nombre, shortId, config);
+
+        if (result.success) {
             await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
-        } catch (error) {
-            console.error("Error capturado por el handler al crear el torneo:", error);
-            await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo. Revisa los logs.` });
+        } else {
+            console.error("Error capturado por el handler al crear el torneo:", result.message);
+            await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo: ${result.message}` });
         }
         return;
     }
 
     if (action === 'edit_tournament_modal') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.reply({ content: '⏳ Actualizando configuración...', flags: [MessageFlags.Ephemeral] });
-        // --- FIN DE LA MODIFICACIÓN ---
         const [tournamentShortId] = params;
         const newConfig = {
             prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
@@ -388,9 +384,7 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'inscripcion_modal' || action === 'reserva_modal') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
-        // --- FIN DE LA MODIFICACIÓN ---
         const [tournamentShortId, streamPlatform] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     
@@ -475,9 +469,7 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'payment_confirm_modal') {
-        // --- INICIO DE LA MODIFICACIÓN ---
         await interaction.reply({ content: '⏳ Notificando tu pago...', flags: [MessageFlags.Ephemeral] });
-        // --- FIN DE LA MODIFICACIÓN ---
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('❌ Este torneo ya no existe.');
