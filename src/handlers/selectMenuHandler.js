@@ -359,7 +359,7 @@ if (action === 'draft_pick_by_position') {
     const selectedPosition = interaction.values[0];
 
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-    const availablePlayers = draft.players.filter(p => !p.captainId);
+    const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
     
     // 1. Buscamos jugadores con esa POSICIÓN PRIMARIA
     let playersToShow = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
