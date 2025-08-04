@@ -21,7 +21,7 @@ export async function handleButton(interaction) {
     const guild = interaction.guild;
     const db = getDb();
     
-    const [action, ...params] customId.split(':');
+    const [action, ...params] = customId.split(':');
 
     // Función de ayuda para verificar permisos
     const isArbitroOrAdmin = () => {
@@ -269,10 +269,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'register_draft_captain') {
-        await interaction.reply({
-            content: 'Consultando estado del draft...',
-            flags: [MessageFlags.Ephemeral]
-        });
+        await interaction.reply({ content: 'Consultando estado del draft...', flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) return interaction.editReply({ content: 'Error: No se encontró este draft.' });
@@ -743,6 +740,7 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'rules_accept') {
+        await interaction.deferUpdate();
         const [currentStepStr, originalAction, entityId] = params;
         const currentStep = parseInt(currentStepStr);
         
@@ -757,7 +755,7 @@ export async function handleButton(interaction) {
                     new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${entityId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
                 );
         
-                await interaction.update({
+                await interaction.editReply({
                     content: 'Has aceptado las normas. Por favor, selecciona tu plataforma de transmisión principal.',
                     components: [platformButtons],
                     embeds: []
@@ -771,7 +769,7 @@ export async function handleButton(interaction) {
                     .setPlaceholder('Paso 1: Selecciona tu posición PRIMARIA')
                     .addOptions(positionOptions);
     
-                await interaction.update({
+                await interaction.editReply({
                     content: 'Has aceptado las normas. Ahora, por favor, selecciona tu posición primaria.',
                     components: [new ActionRowBuilder().addComponents(primaryPosMenu)],
                     embeds: []
@@ -779,7 +777,7 @@ export async function handleButton(interaction) {
             }
         } else {
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
-            await interaction.update(nextStepContent);
+            await interaction.editReply(nextStepContent);
         }
         return;
     }
