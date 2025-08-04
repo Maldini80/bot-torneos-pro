@@ -1044,15 +1044,42 @@ export async function notifyCastersOfNewTeam(client, tournament, teamData) {
     }
 }
 
+// ESTE ES EL CÓDIGO NUEVO QUE DEBES PEGAR
 export async function endTournament(client, tournament) {
     await setBotBusy(true);
     try {
         const db = getDb();
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
+        
         await updateTournamentManagementThread(client, finalTournamentState);
-        await cleanupTournament(client, finalTournamentState);
-    } catch (error) { console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
+        await cleanupTournament(client, finalTournamentState); // Limpia los canales del torneo
+
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Comprobar si este torneo vino de un draft
+        if (finalTournamentState.shortId.startsWith('draft-')) {
+            console.log(`[DRAFT CLEANUP] Torneo de draft detectado. Iniciando limpieza del draft asociado...`);
+            const draftShortId = finalTournamentState.shortId.replace('draft-', '');
+            const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+            if (draft) {
+                // Llama a la nueva función para borrar los canales de equipo
+                await cleanupDraftTeamChannels(client, finalTournamentState);
+
+                // Llama a la función existente para borrar el resto del draft (canal principal, hilos, etc.)
+                await fullCleanupDraft(client, draft);
+
+                // Borra el draft de la base de datos
+                await db.collection('drafts').deleteOne({ _id: draft._id });
+                console.log(`[DRAFT CLEANUP] El draft ${draftShortId} y todos sus recursos han sido eliminados.`);
+            } else {
+                console.warn(`[DRAFT CLEANUP] Se intentó limpiar el draft ${draftShortId}, pero no se encontró en la base de datos.`);
+            }
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+
+    } catch (error) { 
+        console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
     }
@@ -1069,6 +1096,33 @@ async function cleanupTournament(client, tournament) {
     for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) { await deleteResourceSafe(threadId); }
     try { const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS); await globalChannel.messages.delete(discordMessageIds.statusMessageId);
     } catch(e) { if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); }
+}
+// NUEVA FUNCIÓN para limpiar los canales de equipo de un draft
+async function cleanupDraftTeamChannels(client, tournament) {
+    console.log(`[CLEANUP] Iniciando limpieza de canales de equipo para el torneo-draft ${tournament.shortId}`);
+    try {
+        const guild = await client.guilds.fetch(tournament.guildId);
+        const teams = Object.values(tournament.teams.aprobados);
+
+        for (const team of teams) {
+            const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
+            const textChannelName = `💬-${teamNameFormatted}`;
+            const voiceChannelName = `🔊 ${team.nombre}`;
+
+            const textChannel = guild.channels.cache.find(c => c.name === textChannelName);
+            if (textChannel) {
+                await textChannel.delete(`Limpieza del torneo-draft ${tournament.shortId}`).catch(e => console.warn(`No se pudo borrar el canal de texto ${textChannel.name}: ${e.message}`));
+            }
+
+            const voiceChannel = guild.channels.cache.find(c => c.name === voiceChannelName);
+            if (voiceChannel) {
+                await voiceChannel.delete(`Limpieza del torneo-draft ${tournament.shortId}`).catch(e => console.warn(`No se pudo borrar el canal de voz ${voiceChannel.name}: ${e.message}`));
+            }
+        }
+        console.log(`[CLEANUP] Finalizada la limpieza de canales de equipo para ${tournament.shortId}`);
+    } catch (error) {
+        console.error(`[CLEANUP] Error crítico al limpiar los canales de equipo del draft:`, error);
+    }
 }
 
 export async function forceResetAllTournaments(client) {
