@@ -556,7 +556,6 @@ export async function handleSelectMenu(interaction) {
         return;
     }
     
-    // --- INICIO DE LA CORRECCIÓN ---
     if (action === 'admin_promote_from_waitlist') {
         await interaction.deferUpdate();
         const [tournamentShortId] = params;
@@ -591,7 +590,6 @@ export async function handleSelectMenu(interaction) {
         }
         return;
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     if (action === 'admin_create_format') {
         const formatId = interaction.values[0];
