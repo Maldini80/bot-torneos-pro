@@ -48,6 +48,28 @@ export async function handleButton(interaction) {
         });
         return;
     }
+    // --- NUEVO CÓDIGO PARA LOS BOTONES DE CONFIGURACIÓN DE DRAFT ---
+if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft_max_quotas') {
+    const settings = await getBotSettings();
+    const isMin = action === 'admin_config_draft_min_quotas';
+    const modal = new ModalBuilder()
+        .setCustomId(isMin ? 'config_draft_min_modal' : 'config_draft_max_modal')
+        .setTitle(isMin ? 'Config: Mínimos por Posición' : 'Config: Máximos por Posición');
+    
+    const currentQuotas = isMin ? settings.draftMinQuotas : settings.draftMaxQuotas;
+
+    const quotasInput = new TextInputBuilder()
+        .setCustomId('quotas_input')
+        .setLabel("Formato: POS:num,POS:num (ej: GK:1,DFC:2)")
+        .setStyle(TextInputStyle.Paragraph)
+        .setValue(currentQuotas)
+        .setRequired(true);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(quotasInput));
+    await interaction.showModal(modal);
+    return;
+}
+// --- FIN DEL NUEVO CÓDIGO ---
 
     if (action === 'captain_manage_roster_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
