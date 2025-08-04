@@ -597,7 +597,7 @@ export async function handleButton(interaction) {
         content: `**Turno de ${updatedDraft.captains.find(c => c.userId === currentCaptainId).teamName}**\nPor favor, elige la posición del jugador que quieres seleccionar.`, 
         components: [new ActionRowBuilder().addComponents(positionMenu)], 
         flags: [MessageFlags.Ephemeral],
-        fetchReply: true
+        withResponse: true
     });
     // --- FIN DE LA MODIFICACIÓN ---
 
