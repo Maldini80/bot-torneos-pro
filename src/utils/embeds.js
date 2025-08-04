@@ -98,7 +98,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación y Gestión Global')
-        .setFooter({ text: 'Bot de Torneos v3.2.1' });
+        .setFooter({ text: 'Bot de Torneos v3.2.0' });
 
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
@@ -124,12 +124,6 @@ export async function createGlobalAdminPanel(isBusy = false) {
             .setStyle(twitterEnabled ? ButtonStyle.Secondary : ButtonStyle.Success)
             .setEmoji('🐦')
             .setDisabled(isBusy),
-        new ButtonBuilder()
-            .setCustomId('admin_update_channel_status')
-            .setLabel('Cambiar Icono Canal')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('🚦')
-            .setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
 
@@ -153,7 +147,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     const isGroupStage = tournament.status === 'fase_de_grupos';
     const hasEnoughTeamsForDraw = Object.keys(tournament.teams.aprobados).length >= 2;
     const hasCaptains = Object.keys(tournament.teams.aprobados).length > 0;
-    const isDraftTournament = tournament.shortId.startsWith('draft-');
 
     if (isBeforeDraw) {
         row1.addComponents(
@@ -193,26 +186,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setDisabled(isBusy || !hasCaptains)
     );
 
-    if (isDraftTournament) {
-        row3.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`admin_end_tournament_and_draft:${tournament.shortId}`)
-                .setLabel('Finalizar Torneo y Draft')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('🗑️')
-                .setDisabled(isBusy)
-        );
-    } else {
-        row3.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`admin_end_tournament:${tournament.shortId}`)
-                .setLabel('Finalizar Torneo')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('🛑')
-                .setDisabled(isBusy)
-        );
-    }
-
+    row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
 
     const components = [];
     if (row1.components.length > 0) components.push(row1);
@@ -405,12 +379,8 @@ export function createDraftMainInterface(draft) {
             .sort((a, b) => DRAFT_POSITION_ORDER.indexOf(a.primaryPosition) - DRAFT_POSITION_ORDER.indexOf(b.primaryPosition))
             .map(p => `• ${p.psnId} (${p.primaryPosition})`)
             .join('\n');
-        
-        // --- INICIO DE LA CORRECCIÓN: MOSTRAR POSICIÓN DEL CAPITÁN ---
-        const captainPlayerInfo = draft.players.find(p => p.userId === captain.userId);
-        const captainPosition = captainPlayerInfo ? captainPlayerInfo.primaryPosition : 'N/A';
-        const teamString = `**👑 E-${captain.teamName}**\n(Cap: ${captain.psnId} - ${captainPosition})\n${teamPlayers.length > 0 ? sortedPlayerList : '*Sin Jugadores*'}`;
-        // --- FIN DE LA CORRECCIÓN ---
+
+        const teamString = `**👑 E-${captain.teamName}**\n(Cap: ${captain.psnId})\n${teamPlayers.length > 0 ? sortedPlayerList : '*Vacío*'}`;
         teamFields[index % 3].push(teamString);
     });
 
@@ -485,7 +455,6 @@ export function createCaptainControlPanel(draft) {
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`captain_pick_start:${draft.shortId}`).setLabel('Elegir Jugador').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(isPicking),
-            new ButtonBuilder().setCustomId(`captain_manage_roster_start:${draft.shortId}`).setLabel('Gestionar Plantilla').setStyle(ButtonStyle.Primary).setEmoji('📋'),
             new ButtonBuilder().setCustomId(`captain_cancel_pick:${draft.shortId}:${currentCaptainId}`).setLabel('Cancelar mi Selección').setStyle(ButtonStyle.Danger).setDisabled(!isPicking)
         );
         return { embeds: [embed], components: [row] };
@@ -515,14 +484,8 @@ export function createCaptainControlPanel(draft) {
 export function createTeamRosterManagementEmbed(team, players, draftShortId) {
     const embed = new EmbedBuilder()
         .setColor('#1abc9c')
-        .setTitle(`Gestión de Plantilla: ${team.teamName || team.nombre}`);
-    
-    if (!players || players.length === 0) {
-        embed.setDescription('Este equipo aún no tiene jugadores en su plantilla.');
-        return { embeds: [embed], components: [], flags: [MessageFlags.Ephemeral] };
-    }
-
-    embed.setDescription('Selecciona un jugador de la lista para ver sus detalles y gestionarlo.');
+        .setTitle(`Gestión de Plantilla: ${team.teamName || team.nombre}`)
+        .setDescription('Selecciona un jugador de la lista para ver sus detalles y gestionarlo.');
 
     const playerOptions = players.map(p => ({
         label: p.psnId,
@@ -549,8 +512,8 @@ export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin
         .setTitle(`${player.isCaptain ? '👑' : '👤'} ${player.psnId}`)
         .addFields(
             { name: 'Discord', value: `<@${player.userId}>`, inline: true },
-            { name: 'Posición Primaria', value: DRAFT_POSITIONS[player.primaryPosition] || 'N/A', inline: true },
-            { name: 'Posición Secundaria', value: player.secondaryPosition === 'NONE' ? 'Ninguna' : (DRAFT_POSITIONS[player.secondaryPosition] || 'N/A'), inline: true },
+            { name: 'Posición Primaria', value: DRAFT_POSITIONS[player.primaryPosition], inline: true },
+            { name: 'Posición Secundaria', value: player.secondaryPosition === 'NONE' ? 'Ninguna' : DRAFT_POSITIONS[player.secondaryPosition], inline: true },
             { name: 'Twitter', value: player.twitter ? `[@${player.twitter}](https://twitter.com/${player.twitter})` : 'No proporcionado', inline: true },
             { name: 'Strikes Actuales', value: `\`${playerRecord.strikes}\``, inline: true }
         );
