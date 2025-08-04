@@ -33,9 +33,7 @@ export function getDb() {
 const defaultBotSettings = {
     _id: 'global_config', // Usamos un ID fijo para tener siempre un único documento de configuración
     translationEnabled: true,
-    // --- INICIO DE LA MODIFICACIÓN ---
     twitterEnabled: true,
-    // --- FIN DE LA MODIFICACIÓN ---
 };
 
 /**
