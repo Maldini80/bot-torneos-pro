@@ -286,7 +286,7 @@ async function handleFinalResult(client, guild, tournament) {
             .setColor('#ffd700')
             .setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`)
             .setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`)
-            .setThumbnail('https://i.imgur.com/r62z5eZ.png') // <-- URL DE LA IMAGEN DE CAMPEÓN ACTUALIZADA
+            .setThumbnail('https://thumbs.dreamstime.com/b/la-copa-de-f%C3%BAtbol-oro-recompensa-por-victoria-en-el-campeonato-estadio-campo-verde-dorado-lente-multicolor-fondo-premio-deportivo-272109299.jpg')
             .setTimestamp();
         await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
     }
