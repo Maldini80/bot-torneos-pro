@@ -147,6 +147,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     const isGroupStage = tournament.status === 'fase_de_grupos';
     const hasEnoughTeamsForDraw = Object.keys(tournament.teams.aprobados).length >= 2;
     const hasCaptains = Object.keys(tournament.teams.aprobados).length > 0;
+    const isDraftTournament = tournament.shortId.startsWith('draft-');
 
     if (isBeforeDraw) {
         row1.addComponents(
@@ -186,7 +187,29 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setDisabled(isBusy || !hasCaptains)
     );
 
-    row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
+    // Lógica para añadir los botones de finalización
+    if (isDraftTournament) {
+        // Si es un torneo de draft, mostramos el botón combinado
+        row3.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_end_tournament_and_draft:${tournament.shortId}`)
+                .setLabel('Finalizar Torneo y Draft')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🛑')
+                .setDisabled(isBusy)
+        );
+    } else {
+        // Si es un torneo normal, mostramos el botón simple
+        row3.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_end_tournament:${tournament.shortId}`)
+                .setLabel('Finalizar Torneo')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🛑')
+                .setDisabled(isBusy)
+        );
+    }
+
 
     const components = [];
     if (row1.components.length > 0) components.push(row1);
