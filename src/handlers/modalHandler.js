@@ -8,6 +8,13 @@ import { updateTournamentManagementThread, updateDraftManagementPanel } from '..
 import { createDraftStatusEmbed } from '../utils/embeds.js';
 
 export async function handleModal(interaction) {
+ // --- VARIABLES MOVIDAS AL PRINCIPIO ---
+    const customId = interaction.customId;
+    const client = interaction.client;
+    const guild = interaction.guild;
+    const db = getDb();
+    const [action, ...params] = customId.split(':');
+    // --- FIN DE LAS VARIABLES MOVIDAS ---
     // --- CÓDIGO NUEVO PARA GUARDAR LA CONFIGURACIÓN DEL DRAFT ---
 if (customId.startsWith('config_draft_')) {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -26,11 +33,7 @@ if (customId.startsWith('config_draft_')) {
     return;
 }
 // --- FIN DEL CÓDIGO NUEVO ---
-    const customId = interaction.customId;
-    const client = interaction.client;
-    const guild = interaction.guild;
-    const db = getDb();
-    const [action, ...params] = customId.split(':');
+    
 
     if (action === 'report_player_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
