@@ -21,7 +21,7 @@ export async function notifyTwitterResult(client, entity, eventType, data) {
     try {
         const tweetResult = await postTournamentUpdate(eventType, data);
         if (!tweetResult) return;
-
+        
         const notificationsThreadId = entity.discordMessageIds.notificationsThreadId;
 
         if (!notificationsThreadId) {
@@ -810,11 +810,12 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
         console.log(`[CREATE] Panel de gestión enviado para ${shortId}.`);
-
-        notifyTwitterResult(client, newTournament, 'INSCRIPCION_ABIERTA', newTournament).catch(console.error);
+        
+        const finalTournament = await db.collection('tournaments').findOne({ shortId });
+        notifyTwitterResult(client, finalTournament, 'INSCRIPCION_ABIERTA', finalTournament).catch(console.error);
         
         await setBotBusy(false);
-        return { success: true, tournament: newTournament };
+        return { success: true, tournament: finalTournament };
 
     } catch (error) {
         console.error(`[CREATE] OCURRIÓ UN ERROR CRÍTICO INESPERADO en createNewTournament:`, error);
