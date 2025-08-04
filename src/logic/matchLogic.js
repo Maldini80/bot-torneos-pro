@@ -157,9 +157,7 @@ async function checkForGroupStageAdvancement(client, guild, tournament, isSimula
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
     if (allFinished) {
         console.log(`[ADVANCEMENT] Fase de grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
-        if (isSimulation) {
-            postSimulationUpdateToDiscord(client, tournament, 'GROUP_STAGE_END', tournament).catch(console.error);
-        } else {
+        if (!isSimulation) {
             notifyTwitterResult(client, tournament, 'GROUP_STAGE_END', tournament).catch(console.error);
         }
         await startNextKnockoutRound(client, guild, tournament, isSimulation);
@@ -184,9 +182,7 @@ async function checkForKnockoutAdvancement(client, guild, tournament, isSimulati
     if (allFinished) {
         console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
         const data = { matches: partidosRonda, stage: rondaActual, tournament };
-        if (isSimulation) {
-            postSimulationUpdateToDiscord(client, tournament, 'KNOCKOUT_ROUND_COMPLETE', data).catch(console.error);
-        } else {
+        if (!isSimulation) {
             notifyTwitterResult(client, tournament, 'KNOCKOUT_ROUND_COMPLETE', data).catch(console.error);
         }
         await startNextKnockoutRound(client, guild, tournament, isSimulation);
@@ -268,9 +264,7 @@ async function startNextKnockoutRound(client, guild, tournament, isSimulation = 
     }
     
     const data = { matches: partidos, stage: siguienteRonda, tournament: currentTournament };
-    if (isSimulation) {
-        postSimulationUpdateToDiscord(client, currentTournament, 'KNOCKOUT_MATCHUPS_CREATED', data).catch(console.error);
-    } else {
+    if (!isSimulation) {
         notifyTwitterResult(client, currentTournament, 'KNOCKOUT_MATCHUPS_CREATED', data).catch(console.error);
     }
 
@@ -334,9 +328,7 @@ async function handleFinalResult(client, guild, tournament, isSimulation = false
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
 
-    if (isSimulation) {
-        postSimulationUpdateToDiscord(client, updatedTournament, 'FINALIZADO', updatedTournament).catch(console.error);
-    } else {
+    if (!isSimulation) {
         notifyTwitterResult(client, updatedTournament, 'FINALIZADO', updatedTournament).catch(console.error);
     }
 
