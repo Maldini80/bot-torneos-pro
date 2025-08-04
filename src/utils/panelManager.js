@@ -22,8 +22,10 @@ async function fetchGlobalCreationPanel(client) {
 export async function updateAdminPanel(client) {
     const msg = await fetchGlobalCreationPanel(client);
     if (!msg) return;
-    // La creación del panel ahora es asíncrona
+    // --- INICIO DE LA CORRECCIÓN ---
+    // La creación del panel ahora es asíncrona para leer la config de la DB
     const panelContent = await createGlobalAdminPanel(isBotBusy);
+    // --- FIN DE LA CORRECCIÓN ---
     try {
         await msg.edit(panelContent);
     } catch (error) {
@@ -62,9 +64,6 @@ export async function updateAllManagementPanels(client, busyState) {
     }
 }
 
-
-// --- INICIO DE LA MODIFICACIÓN ---
-
 /**
  * NUEVO: Actualiza el panel de gestión de un draft específico.
  */
@@ -99,8 +98,6 @@ export async function updateAllDraftManagementPanels(client, busyState) {
         await updateDraftManagementPanel(client, draft, busyState);
     }
 }
-
-// --- FIN DE LA MODIFICACIÓN ---
 
 
 export async function setChannelIcon(client, icon) {
