@@ -22,7 +22,6 @@ export async function setBotBusy(status) {
     isBotBusy = status;
     await updateAdminPanel(client);
     await updateAllManagementPanels(client, status);
-    // NUEVO: Actualizar también los paneles de gestión de drafts
     await updateAllDraftManagementPanels(client, status);
 }
 
@@ -69,7 +68,6 @@ client.on(Events.InteractionCreate, async interaction => {
         else if (interaction.isModalSubmit()) await handleModal(interaction);
         else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) await handleSelectMenu(interaction);
     } catch (error) {
-        // --- INICIO DE LA CORRECCIÓN ---
         console.error('[ERROR DE INTERACCIÓN]', error);
 
         let userMessage = '❌ Hubo un error desconocido al procesar tu solicitud.';
@@ -77,8 +75,6 @@ client.on(Events.InteractionCreate, async interaction => {
         if (error.code === 10062 || error.code === 40060) {
             // Error 10062: Unknown interaction (interacción caducada).
             // Error 40060: Interaction has already been acknowledged.
-            userMessage = '⏳ Esta interacción ha caducado o ya ha sido respondida. Por favor, inténtalo de nuevo.';
-            // No es necesario notificar al usuario, ya que la interacción está muerta.
             return;
         } else if (error.code === 50013) {
             // Error 50013: Missing Permissions
@@ -96,12 +92,10 @@ client.on(Events.InteractionCreate, async interaction => {
                 await interaction.reply(errorMessage);
             }
         } catch (e) {
-            // Evitar bucles de error si incluso el mensaje de error falla.
             if (e.code !== 10062 && e.code !== 40060) {
                  console.error("Error al enviar el mensaje de error de la interacción:", e.message);
             }
         }
-        // --- FIN DE LA CORRECCIÓN ---
     }
 });
 
