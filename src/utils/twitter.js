@@ -15,7 +15,7 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// 2. CSS Global para todas las imágenes (Estilo VPG ProDiarios)
+// 2. CSS Global para todas las imágenes (Estilo VPG ProDiarios con logo)
 const globalCss = `
   body { 
     font-family: 'Montserrat', sans-serif; 
@@ -40,6 +40,14 @@ const globalCss = `
     font-weight: 900;
     color: rgba(255, 255, 255, 0.03);
     transform: rotate(-20deg);
+  }
+  .logo {
+    position: absolute;
+    top: 25px;
+    right: 25px;
+    width: 120px;
+    height: auto;
+    opacity: 0.9;
   }
   h1 { 
     color: #C70000; 
@@ -142,10 +150,13 @@ async function generateHtmlImage(htmlContent) {
     }
 }
 
-// 4. Generadores de HTML para cada tipo de anuncio
+// 4. Generadores de HTML para cada tipo de anuncio (con logo integrado)
+const LOGO_IMG_TAG = '<img src="https://i.imgur.com/r62z5eZ.png" class="logo" alt="VPG Logo" />';
+
 function generateTournamentAnnouncementHtml(tournament) {
     return `
       <div class="container">
+        ${LOGO_IMG_TAG}
         <h1>¡Inscripciones Abiertas!</h1>
         <h2>${tournament.nombre}</h2>
         <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
@@ -157,6 +168,7 @@ function generateNewCaptainHtml(data) {
     const { captainData, draft } = data;
     return `
       <div class="container">
+        ${LOGO_IMG_TAG}
         <h1>Nuevo Capitán Aprobado</h1>
         <h2>Draft: ${draft.name}</h2>
         <p><span class="label">Equipo:</span> <span class="value">${captainData.teamName}</span></p>
@@ -172,6 +184,7 @@ function generateFullRosterHtml(data) {
         .join('');
     return `
       <div class="container">
+        ${LOGO_IMG_TAG}
         <h1>Plantilla Completa</h1>
         <h2>${captain.teamName} (Draft: ${draft.name})</h2>
         <p><span class="label">Capitán:</span> <span class="value">${captain.psnId}</span></p>
@@ -199,7 +212,11 @@ function generateGroupTablesHtml(tournament) {
         allGroupsHtml += tableHtml;
     }
     
-    return `<div class="container"><h1>Clasificación Fase de Grupos</h1><div class="group-grid">${allGroupsHtml}</div></div>`;
+    return `<div class="container">
+              ${LOGO_IMG_TAG}
+              <h1>Clasificación Fase de Grupos</h1>
+              <div class="group-grid">${allGroupsHtml}</div>
+            </div>`;
 }
 
 function generateKnockoutStageHtml(data) {
@@ -223,22 +240,23 @@ function generateKnockoutStageHtml(data) {
     });
     return `
         <div class="container">
+            ${LOGO_IMG_TAG}
             <h1>${title}</h1>
             <h2>${tournament.nombre}</h2>
             ${matchupsHtml}
         </div>`;
 }
 
-// 5. Función principal reestructurada para postear en Twitter
+// 5. Función principal reestructurada para postear en Twitter y devolver el resultado
 export async function postTournamentUpdate(eventType, data) {
     const settings = await getBotSettings();
     if (!settings.twitterEnabled) {
         console.log("[TWITTER] La publicación automática está desactivada globalmente.");
-        return;
+        return { success: false, error: "La publicación automática en Twitter está desactivada." };
     }
     if (!process.env.TWITTER_API_KEY) {
         console.log("[TWITTER] No se han configurado las claves de API.");
-        return;
+        return { success: false, error: "Las claves de la API de Twitter no están configuradas en el bot." };
     }
 
     let tweetText = "";
@@ -249,28 +267,28 @@ export async function postTournamentUpdate(eventType, data) {
         case 'INSCRIPCION_ABIERTA': {
             const tournament = data;
             const format = tournament.config.format;
-            tweetText = `¡Inscripciones abiertas para el torneo "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Apúntate en nuestro Discord! 👇\n${DISCORD_INVITE_LINK}\n\n#eSports`;
+            tweetText = `¡Inscripciones abiertas para el torneo "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Apúntate en nuestro Discord! 👇\n${DISCORD_INVITE_LINK}\n\n#VPGLightnings`;
             htmlContent = generateTournamentAnnouncementHtml(tournament);
             logMessage = `Tweet de apertura de inscripciones publicado para ${tournament.nombre}`;
             break;
         }
         case 'NEW_CAPTAIN_APPROVED': {
             const { captainData, draft } = data;
-            tweetText = `¡Damos la bienvenida al draft "${draft.name}" al equipo "${captainData.teamName}", liderado por ${captainData.psnId}! 캡틴을 환영합니다!\n\n#eSports #Draft`;
+            tweetText = `¡Damos la bienvenida al draft "${draft.name}" al equipo "${captainData.teamName}", liderado por ${captainData.psnId}! 캡틴을 환영합니다!\n\n#VPGLightnings`;
             htmlContent = generateNewCaptainHtml(data);
             logMessage = `Tweet de nuevo capitán publicado para ${captainData.teamName}`;
             break;
         }
         case 'ROSTER_COMPLETE': {
             const { captain, draft } = data;
-            tweetText = `¡Plantilla completa! 🔥 El equipo "${captain.teamName}", capitaneado por ${captain.psnId}, ha completado sus 11 jugadores para el draft "${draft.name}".\n\n#eSports #Draft`;
+            tweetText = `¡Plantilla completa! 🔥 El equipo "${captain.teamName}", capitaneado por ${captain.psnId}, ha completado sus 11 jugadores para el draft "${draft.name}".\n\n#VPGLightnings`;
             htmlContent = generateFullRosterHtml(data);
             logMessage = `Tweet de plantilla completa publicado para ${captain.teamName}`;
             break;
         }
         case 'GROUP_STAGE_END': {
             const tournament = data;
-            tweetText = `¡Finaliza la fase de grupos del torneo "${tournament.nombre}"! 🔥\n\nAquí están las clasificaciones finales. ¡Enhorabuena a los clasificados!\n\n#eSports`;
+            tweetText = `¡Finaliza la fase de grupos del torneo "${tournament.nombre}"! 🔥\n\nAquí están las clasificaciones finales. ¡Enhorabuena a los clasificados!\n\n#VPGLightnings`;
             htmlContent = generateGroupTablesHtml(tournament);
             logMessage = `Tweet de fin de fase de grupos publicado para ${tournament.nombre}`;
             break;
@@ -278,7 +296,7 @@ export async function postTournamentUpdate(eventType, data) {
         case 'KNOCKOUT_MATCHUPS_CREATED': {
             const { stage, tournament } = data;
             const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
-            tweetText = `¡Arrancan los ${stageName} del torneo "${tournament.nombre}"! 💥\n\nEstos son los enfrentamientos. ¡Que gane el mejor!\n\n#eSports`;
+            tweetText = `¡Arrancan los ${stageName} del torneo "${tournament.nombre}"! 💥\n\nEstos son los enfrentamientos. ¡Que gane el mejor!\n\n#VPGLightnings`;
             htmlContent = generateKnockoutStageHtml(data);
             logMessage = `Tweet de cruces de ${stageName} publicado para ${tournament.nombre}`;
             break;
@@ -286,7 +304,7 @@ export async function postTournamentUpdate(eventType, data) {
         case 'KNOCKOUT_ROUND_COMPLETE': {
             const { stage, tournament, matches } = data;
             const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
-            tweetText = `¡Resultados finales de ${stageName} en el torneo "${tournament.nombre}"!\n\nAsí quedan los marcadores de esta ronda. ¡Los ganadores avanzan!\n\n#eSports`;
+            tweetText = `¡Resultados finales de ${stageName} en el torneo "${tournament.nombre}"!\n\nAsí quedan los marcadores de esta ronda. ¡Los ganadores avanzan!\n\n#VPGLightnings`;
             htmlContent = generateKnockoutStageHtml({ matches, stage, tournament });
             logMessage = `Tweet de resultados de ${stageName} publicado para ${tournament.nombre}`;
             break;
@@ -297,7 +315,7 @@ export async function postTournamentUpdate(eventType, data) {
             if (finalMatch && finalMatch.resultado) {
                 const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
                 const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-                tweetText = `¡Tenemos un campeón! 🏆\n\nFelicidades al equipo "${champion.nombre}" por ganar el torneo "${tournament.nombre}". ¡Gran actuación! #eSports #Campeones`;
+                tweetText = `¡Tenemos un campeón! 🏆\n\nFelicidades al equipo "${champion.nombre}" por ganar el torneo "${tournament.nombre}". ¡Gran actuación! #VPGLightnings`;
             } else {
                 tweetText = `El torneo "${tournament.nombre}" ha finalizado. ¡Gracias a todos por participar!`;
             }
@@ -307,19 +325,40 @@ export async function postTournamentUpdate(eventType, data) {
     }
 
     try {
+        let mediaId = null;
         if (htmlContent) {
             const imageUrl = await generateHtmlImage(htmlContent);
-            if (!imageUrl) throw new Error("No se pudo obtener la URL de la imagen.");
+            if (!imageUrl) throw new Error("No se pudo generar la URL de la imagen desde HCTI.");
+            
             const imageResponse = await fetch(imageUrl);
             const imageBuffer = await imageResponse.arrayBuffer();
-            const mediaId = await client.v1.uploadMedia(Buffer.from(imageBuffer), { mimeType: 'image/png' });
-            await twitterClient.v2.tweet({ text: tweetText, media: { media_ids: [mediaId] } });
-            console.log(`[TWITTER] ${logMessage} (con imagen)`);
-        } else if (tweetText) {
-            await twitterClient.v2.tweet(tweetText);
-            console.log(`[TWITTER] ${logMessage} (solo texto)`);
+            mediaId = await client.v1.uploadMedia(Buffer.from(imageBuffer), { mimeType: 'image/png' });
         }
+
+        const tweetOptions = { text: tweetText };
+        if (mediaId) {
+            tweetOptions.media = { media_ids: [mediaId] };
+        }
+
+        const tweetResult = await twitterClient.v2.tweet(tweetOptions);
+        
+        if (tweetResult.data && tweetResult.data.id) {
+            const tweetUrl = `https://twitter.com/i/web/status/${tweetResult.data.id}`;
+            console.log(`[TWITTER] ${logMessage} (con imagen)`);
+            return { success: true, url: tweetUrl };
+        } else {
+            console.log(`[TWITTER] ${logMessage} (solo texto)`);
+            return { success: true, url: null };
+        }
+
     } catch (e) {
         console.error(`[TWITTER] Error al publicar tweet para el evento ${eventType}:`, e);
+        let errorMessage = 'Error desconocido al intentar publicar.';
+        if (e.code === 429 || (e.data && e.data.title === 'Too Many Requests')) {
+            errorMessage = 'Límite de tweets alcanzado. La API de Twitter bloqueó la publicación temporalmente.';
+        } else if (e.message) {
+            errorMessage = e.message;
+        }
+        return { success: false, error: errorMessage };
     }
 }
