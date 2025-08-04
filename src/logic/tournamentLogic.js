@@ -132,6 +132,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
+    // --- INICIO DE LA CORRECCIÓN ---
     try {
         const draftChannel = await client.channels.fetch(draft.discordChannelId);
         const pickNumber = draft.selection.currentPick;
@@ -141,6 +142,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         
         const announcementMsg = await draftChannel.send({ embeds: [embed] });
 
+        // Auto-borrado del mensaje después de 60 segundos
         setTimeout(() => {
             announcementMsg.delete().catch(e => {
                 if (e.code !== 10008) console.error("Error al auto-borrar mensaje de pick:", e);
@@ -150,6 +152,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     } catch (e) {
         console.warn(`No se pudo anunciar el pick en el canal del draft ${draft.shortId}`);
     }
+    // --- FIN DE LA CORRECCIÓN ---
 
     if (/^\d+$/.test(selectedPlayerId)) {
         try {
@@ -642,13 +645,15 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         newDraft.discordMessageIds.notificationsThreadId = notificationsThread.id;
 
         await db.collection('drafts').insertOne(newDraft);
-
+        
+        // --- INICIO DE LA CORRECCIÓN ---
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
                 await managementThread.members.add(member.id).catch(() => {});
                 await notificationsThread.members.add(member.id).catch(() => {});
             }
         }
+        // --- FIN DE LA CORRECCIÓN ---
         
         await managementThread.send(createDraftManagementPanel(newDraft, true));
 
@@ -853,12 +858,14 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         
         await db.collection('tournaments').insertOne(newTournament);
         
+        // --- INICIO DE LA CORRECCIÓN ---
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
                 await managementThread.members.add(member.id).catch(()=>{});
                 await notificationsThread.members.add(member.id).catch(()=>{});
             }
         }
+        // --- FIN DE LA CORRECCIÓN ---
         if (casterRole) {
             for (const member of casterRole.members.values()) {
                  await casterThread.members.add(member.id).catch(()=>{});
@@ -946,8 +953,6 @@ export async function startGroupStage(client, guild, tournament, isSimulation = 
         
         if (!isSimulation) {
             notifyTwitterResult(client, finalTournamentState, 'GROUP_STAGE_START', finalTournamentState).catch(console.error);
-        } else {
-            postSimulationUpdateToDiscord(client, finalTournamentState, 'GROUP_STAGE_START', finalTournamentState).catch(console.error);
         }
 
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
@@ -1606,6 +1611,7 @@ export async function endTournamentAndDraft(client, tournament) {
             const teamNames = Object.values(tournament.teams.aprobados).map(t => t.nombre);
             const teamChannelsCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
             
+            // --- INICIO DE LA CORRECCIÓN ---
             if (teamChannelsCategory) {
                 for (const teamName of teamNames) {
                     const textChannelName = `💬-${teamName.replace(/\s+/g, '-').toLowerCase()}`;
@@ -1618,6 +1624,7 @@ export async function endTournamentAndDraft(client, tournament) {
                     if (voiceChannel) await voiceChannel.delete('Finalización de torneo de draft.').catch(e => console.warn(`No se pudo borrar el canal de voz ${voiceChannel.name}: ${e.message}`));
                 }
             }
+            // --- FIN DE LA CORRECCIÓN ---
         }
         
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
