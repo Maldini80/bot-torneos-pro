@@ -11,7 +11,7 @@ async function fetchGlobalCreationPanel(client) {
         if (!channel) return null;
         
         const messages = await channel.messages.fetch({ limit: 50 });
-        const panel = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Panel de Creación'));
+        const panel = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.startsWith('Panel de Creación'));
         return panel;
     } catch (e) {
         console.error("Error al buscar el panel de creación global:", e.message);
@@ -38,9 +38,11 @@ export async function updateTournamentManagementThread(client, tournament, busyS
     try {
         const thread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId);
         const messages = await thread.messages.fetch({ limit: 20 });
-        const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Gestión del Torneo:'));
+        const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.startsWith('Gestión del Torneo:'));
+        
         const latestTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
         if (!latestTournamentState) return;
+        
         if (panelMessage) {
             const panelContent = createTournamentManagementPanel(latestTournamentState, busyState);
             await panelMessage.edit(panelContent);
@@ -71,9 +73,11 @@ export async function updateDraftManagementPanel(client, draft, busyState = isBo
     try {
         const thread = await client.channels.fetch(draft.discordMessageIds.managementThreadId);
         const messages = await thread.messages.fetch({ limit: 20 });
-        const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Gestión del Draft:'));
+        const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.startsWith('Gestión del Draft:'));
+        
         const latestDraftState = await getDb().collection('drafts').findOne({ _id: draft._id });
         if (!latestDraftState) return;
+        
         if (panelMessage) {
             const panelContent = createDraftManagementPanel(latestDraftState, busyState);
             await panelMessage.edit(panelContent);
