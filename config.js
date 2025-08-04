@@ -9,8 +9,8 @@ export const TEAM_CHANNELS_CATEGORY_ID = '1392406963463262209';
 export const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 
 // IDs de Roles globales del servidor
-export const ADMIN_ROLE_ID = 'ID_DE_TU_ROL_DE_ADMIN'; // Reemplaza esto si es necesario
 export const ARBITRO_ROLE_ID = '1393505777443930183';
+export const ADMIN_ROLE_ID = ARBITRO_ROLE_ID; // Se asigna el rol de árbitro como administrador
 export const PARTICIPANTE_ROLE_ID = '1394321301748977684';
 export const CASTER_ROLE_ID = '1394815380614283286'; // ROL para los Caster
 
