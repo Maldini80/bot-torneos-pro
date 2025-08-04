@@ -8,6 +8,24 @@ import { updateTournamentManagementThread, updateDraftManagementPanel } from '..
 import { createDraftStatusEmbed } from '../utils/embeds.js';
 
 export async function handleModal(interaction) {
+    // --- CÓDIGO NUEVO PARA GUARDAR LA CONFIGURACIÓN DEL DRAFT ---
+if (customId.startsWith('config_draft_')) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const quotas = interaction.fields.getTextInputValue('quotas_input');
+    const isMin = customId.includes('min');
+    
+    // Aquí podrías añadir una validación para asegurar que el formato es correcto
+    
+    if (isMin) {
+        await updateBotSettings({ draftMinQuotas: quotas });
+        await interaction.editReply({ content: '✅ Se han actualizado las cuotas MÍNIMAS para iniciar un draft.' });
+    } else {
+        await updateBotSettings({ draftMaxQuotas: quotas });
+        await interaction.editReply({ content: '✅ Se han actualizado las cuotas MÁXIMAS de jugadores por equipo.' });
+    }
+    return;
+}
+// --- FIN DEL CÓDIGO NUEVO ---
     const customId = interaction.customId;
     const client = interaction.client;
     const guild = interaction.guild;
