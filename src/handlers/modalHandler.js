@@ -14,8 +14,18 @@ export async function handleModal(interaction) {
     const db = getDb();
     const [action, ...params] = customId.split(':');
 
+    // Deferral preventivo para la mayoría de las acciones modales
+    try {
+        if (!interaction.deferred && !interaction.replied) {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        }
+    } catch (e) {
+        if (e.code === 10062) return;
+        console.error(`Error al hacer defer en modal ${action}:`, e);
+        return;
+    }
+
     if (action === 'report_player_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, teamId, playerId] = params;
         const reason = interaction.fields.getTextInputValue('reason_input');
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -31,7 +41,6 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'captain_dm_player_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [playerId] = params;
         const messageContent = interaction.fields.getTextInputValue('message_content');
         
@@ -63,26 +72,24 @@ export async function handleModal(interaction) {
                 { label: 'De Pago', value: 'pago' }
             ]);
 
-        await interaction.reply({
+        await interaction.editReply({
             content: `Has nombrado al draft como "${name}". Ahora, selecciona su tipo:`,
             components: [new ActionRowBuilder().addComponents(typeMenu)],
-            flags: [MessageFlags.Ephemeral]
         });
         return;
     }
 
     if (action === 'add_draft_test_players_modal') {
-        await interaction.reply({ content: '✅ Orden recibida. Añadiendo participantes de prueba...', flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
 
         if (isNaN(amount) || amount <= 0) {
-            return interaction.followUp({ content: '❌ La cantidad debe ser un número mayor que cero.', flags: [MessageFlags.Ephemeral] });
+            return interaction.editReply({ content: '❌ La cantidad debe ser un número mayor que cero.' });
         }
 
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) {
-            return interaction.followUp({ content: '❌ No se encontró el draft.', flags: [MessageFlags.Ephemeral] });
+            return interaction.editReply({ content: '❌ No se encontró el draft.' });
         }
         
         const amountToAdd = amount;
@@ -144,7 +151,6 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'create_draft_paid_modal') {
-        await interaction.reply({ content: '⏳ Creando el draft de pago...', flags: [MessageFlags.Ephemeral] });
         const [name] = params;
         const entryFee = parseFloat(interaction.fields.getTextInputValue('draft_entry_fee'));
         const prizeCampeon = parseFloat(interaction.fields.getTextInputValue('draft_prize_campeon'));
@@ -169,12 +175,9 @@ export async function handleModal(interaction) {
     }
     
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
-        await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
-        
-        const isRegisteringAsCaptain = action.includes('captain');
         let draftShortId, position, primaryPosition, secondaryPosition, teamStatus, streamPlatform;
     
-        if (isRegisteringAsCaptain) {
+        if (action.includes('captain')) {
             [draftShortId, position, streamPlatform] = params;
         } else {
             [draftShortId, primaryPosition, secondaryPosition, teamStatus] = params;
@@ -199,7 +202,7 @@ export async function handleModal(interaction) {
         const psnId = interaction.fields.getTextInputValue('psn_id_input');
         const twitter = interaction.fields.getTextInputValue('twitter_input');
 
-        if (isRegisteringAsCaptain) {
+        if (action.includes('captain')) {
             const totalCaptains = draft.captains.length + (draft.pendingCaptains ? Object.keys(draft.pendingCaptains).length : 0);
             if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
             
@@ -235,7 +238,7 @@ export async function handleModal(interaction) {
                 await interaction.editReply('❌ No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.');
             }
         } else {
-            if (isRegisteringAsCaptain) {
+            if (action.includes('captain')) {
                 await db.collection('drafts').updateOne(
                     { _id: draft._id },
                     { $set: { [`pendingCaptains.${userId}`]: captainData } }
@@ -275,7 +278,6 @@ export async function handleModal(interaction) {
     }
     
     if(action === 'draft_payment_confirm_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
@@ -310,10 +312,11 @@ export async function handleModal(interaction) {
     if (action === 'admin_force_reset_modal') {
         const confirmation = interaction.fields.getTextInputValue('confirmation_text');
         if (confirmation !== 'CONFIRMAR RESET') {
-            return interaction.reply({ content: '❌ El texto de confirmación no coincide. El reseteo ha sido cancelado.', flags: [MessageFlags.Ephemeral] });
+            return interaction.editReply({ content: '❌ El texto de confirmación no coincide. El reseteo ha sido cancelado.' });
         }
-        await interaction.reply({ content: '⏳ **CONFIRMADO.** Iniciando reseteo forzoso...', flags: [MessageFlags.Ephemeral] });
+        
         try {
+            await interaction.editReply({ content: '⏳ **CONFIRMADO.** Iniciando reseteo forzoso...' });
             await forceResetAllTournaments(client);
             await interaction.followUp({ content: '✅ **RESETEO COMPLETO.**', flags: [MessageFlags.Ephemeral] });
         } catch (error) {
@@ -324,8 +327,6 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'create_tournament') {
-        await interaction.reply({ content: '⏳ Creando el torneo, por favor espera...', flags: [MessageFlags.Ephemeral] });
-        
         const [formatId, type] = params;
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -350,7 +351,6 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'edit_tournament_modal') {
-        await interaction.reply({ content: '⏳ Actualizando configuración...', flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const newConfig = {
             prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
@@ -370,7 +370,6 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'edit_payment_details_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const newConfig = {
             isPaid: true,
@@ -384,7 +383,6 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'inscripcion_modal' || action === 'reserva_modal') {
-        await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, streamPlatform] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     
@@ -469,7 +467,6 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'payment_confirm_modal') {
-        await interaction.reply({ content: '⏳ Notificando tu pago...', flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('❌ Este torneo ya no existe.');
@@ -487,7 +484,6 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'add_test_teams_modal') {
-        await interaction.reply({ content: '✅ Orden recibida. Añadiendo equipos de prueba en segundo plano...', flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
         if (isNaN(amount) || amount <= 0) return;
@@ -510,7 +506,6 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'report_result_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const { partido } = findMatch(tournament, matchId);
@@ -543,7 +538,6 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'admin_force_result_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
@@ -559,7 +553,6 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'invite_cocaptain_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
