@@ -16,20 +16,21 @@ export async function handleCommand(interaction) {
         if (interaction.channel.id !== CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT) {
             return interaction.reply({ content: `Este comando solo puede usarse en el canal <#${CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT}>.`, flags: [MessageFlags.Ephemeral] });
         }
-
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
-        const oldPanels = await interaction.channel.messages.fetch({ limit: 50 });
-        const messagesToDelete = oldPanels.filter(m => m.author.id === interaction.client.user.id && m.embeds[0]?.title.startsWith('Panel de Creación'));
-        if (messagesToDelete.size > 0) {
-            try {
+        // --- INICIO DE LA CORRECCIÓN: DEFERRAL INMEDIATO ---
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // --- FIN DE LA CORRECCIÓN ---
+        
+        try {
+            const oldPanels = await interaction.channel.messages.fetch({ limit: 50 });
+            const messagesToDelete = oldPanels.filter(m => m.author.id === interaction.client.user.id && m.embeds[0]?.title.startsWith('Panel de Creación'));
+            if (messagesToDelete.size > 0) {
                 await interaction.channel.bulkDelete(messagesToDelete);
-            } catch (e) {
-                console.warn("No se pudieron borrar los paneles antiguos, puede que sean demasiado viejos.");
             }
+        } catch (e) {
+            console.warn("No se pudieron borrar los paneles antiguos, puede que sean demasiado viejos o no existan.");
         }
         
-        // Esta es la línea que modificamos para usar 'await'
         const panelContent = await createGlobalAdminPanel();
         
         await interaction.channel.send(panelContent);
@@ -63,9 +64,9 @@ export async function handleCommand(interaction) {
             return interaction.reply({ content: 'Este comando es solo para administradores.', flags: [MessageFlags.Ephemeral] });
         }
 
-        try {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
+        try {
             const uploadButton = new ButtonBuilder()
                 .setLabel('Prueba de altura perks')
                 .setURL('https://streamable.com')
@@ -76,7 +77,7 @@ export async function handleCommand(interaction) {
 
             const thread = await interaction.channel.threads.create({
                 name: '🧪-test-subida',
-                autoArchiveDuration: 10080, // Cambiado a 1 semana para que no desaparezca
+                autoArchiveDuration: 10080,
                 reason: 'Hilo de prueba para la subida de vídeos.'
             });
 
