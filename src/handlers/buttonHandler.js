@@ -560,41 +560,50 @@ export async function handleButton(interaction) {
         return;
     }
 
-    if (action === 'captain_pick_start') {
-        const [draftShortId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+  if (action === 'captain_pick_start') {
+    const [draftShortId] = params;
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-        const currentCaptainId = draft.selection.order[draft.selection.turn];
-        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+    const currentCaptainId = draft.selection.order[draft.selection.turn];
+    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-        if (interaction.user.id !== currentCaptainId && !isAdmin) {
-            return interaction.reply({ content: 'No es tu turno de elegir o no tienes permiso.', flags: [MessageFlags.Ephemeral] });
-        }
-        
-        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.isPicking": true } });
-        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await updateCaptainControlPanel(client, updatedDraft);
-
-        const searchTypeMenu = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-                .setCustomId(`draft_pick_search_type:${draftShortId}:${currentCaptainId}`)
-                .setPlaceholder('Buscar jugador por...')
-                .addOptions([
-                    { label: 'Posición Primaria', value: 'primary', emoji: '⭐' },
-                    { label: 'Posición Secundaria', value: 'secondary', emoji: '🔹' }
-                ])
-        );
-
-        const response = await interaction.reply({ 
-            content: `**Turno de ${updatedDraft.captains.find(c => c.userId === currentCaptainId).teamName}**\nPor favor, elige cómo quieres buscar al jugador.`, 
-            components: [searchTypeMenu], 
-            flags: [MessageFlags.Ephemeral],
-            fetchReply: true
-        });
-
-        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.activeInteractionId": response.id } });
-        return;
+    if (interaction.user.id !== currentCaptainId && !isAdmin) {
+        return interaction.reply({ content: 'No es tu turno de elegir o no tienes permiso.', flags: [MessageFlags.Ephemeral] });
     }
+    
+    await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.isPicking": true } });
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateCaptainControlPanel(client, updatedDraft);
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Ahora, en lugar de preguntar 'cómo buscar', directamente mostramos las posiciones a cubrir.
+    const availablePlayers = draft.players.filter(p => !p.captainId);
+    const availablePositions = new Set(availablePlayers.flatMap(p => [p.primaryPosition, p.secondaryPosition]));
+    
+    const positionOptions = Object.entries(DRAFT_POSITIONS)
+        .filter(([key]) => availablePositions.has(key))
+        .map(([key, value]) => ({ label: value, value: key }));
+
+    if (positionOptions.length === 0) {
+        return interaction.reply({ content: 'No hay jugadores disponibles para seleccionar.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    const positionMenu = new StringSelectMenuBuilder()
+        .setCustomId(`draft_pick_by_position:${draftShortId}:${currentCaptainId}`)
+        .setPlaceholder('Elige la posición que quieres cubrir')
+        .addOptions(positionOptions);
+    
+    const response = await interaction.reply({ 
+        content: `**Turno de ${updatedDraft.captains.find(c => c.userId === currentCaptainId).teamName}**\nPor favor, elige la posición del jugador que quieres seleccionar.`, 
+        components: [new ActionRowBuilder().addComponents(positionMenu)], 
+        flags: [MessageFlags.Ephemeral],
+        fetchReply: true
+    });
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.activeInteractionId": response.id } });
+    return;
+}
 
     if (action === 'captain_cancel_pick') {
         await interaction.deferUpdate();
