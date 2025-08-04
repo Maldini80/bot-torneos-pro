@@ -10,6 +10,39 @@ import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, Butto
 import { postTournamentUpdate } from '../utils/twitter.js';
 
 /**
+ * Publica una actualización de simulación (imagen) en el hilo de administración de Discord.
+ * @param {import('discord.js').Client} client El cliente de Discord.
+ * @param {object} entity El objeto del torneo o draft.
+ * @param {string} eventType El tipo de evento para generar la imagen.
+ * @param {object} data La data para la función de Twitter.
+ */
+export async function postSimulationUpdateToDiscord(client, entity, eventType, data) {
+    try {
+        const result = await postTournamentUpdate(eventType, data, true); // El 'true' indica que es para una simulación
+        if (!result || !result.imageUrl) return;
+
+        const managementThreadId = entity.discordMessageIds.managementThreadId;
+        if (!managementThreadId) return;
+
+        const thread = await client.channels.fetch(managementThreadId);
+        
+        let messageContent = `[SIMULACIÓN] Actualización del evento: **${eventType}**`;
+        
+        const embed = new EmbedBuilder()
+            .setTitle(`Informe de Simulación: ${eventType}`)
+            .setImage(result.imageUrl)
+            .setColor('#3498db')
+            .setFooter({ text: 'Esta imagen se ha generado localmente y no se ha publicado en Twitter.' });
+
+        await thread.send({ content: messageContent, embeds: [embed] });
+
+    } catch(e) {
+        console.error(`[SIMULATION NOTIFY] Fallo al postear la imagen de simulación en el hilo de admin:`, e);
+    }
+}
+
+
+/**
  * Envía una notificación sobre el estado de una publicación de Twitter al canal de administración.
  * Lo hace de forma asíncrona para no bloquear otros procesos.
  * @param {import('discord.js').Client} client El cliente de Discord.
@@ -746,7 +779,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             matchesChannel = await guild.channels.create({ name: `⚽-${shortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
             chatChannel = await guild.channels.create({ name: `💬-${shortId}-chat`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
             createdResources.channels.push(infoChannel.id, matchesChannel.id, chatChannel.id);
-            console.log(`[CREATE] Canales principales creados para ${shortId}.`);
         } catch (error) {
             console.error(`[CREATE] ERROR AL CREAR CANALES PRINCIPALES:`, error);
             await cleanupFailedCreation(client, createdResources);
@@ -768,8 +800,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const classificationMsg = await infoChannel.send(createClassificationEmbed(newTournament));
         const calendarMsg = await infoChannel.send(createCalendarEmbed(newTournament));
         newTournament.discordMessageIds = { ...newTournament.discordMessageIds, statusMessageId: statusMsg.id, classificationMessageId: classificationMsg.id, calendarMessageId: calendarMsg.id };
-        console.log(`[CREATE] Mensajes de estado e info enviados para ${shortId}.`);
-
+        
         let managementThread, notificationsThread, casterThread;
         try {
             const managementParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
@@ -786,7 +817,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             casterThread = await casterParentChannel.threads.create({ name: `Casters - ${name.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
             createdResources.threads.push(casterThread.id);
             newTournament.discordMessageIds.casterThreadId = casterThread.id;
-            console.log(`[CREATE] Hilos privados creados para ${shortId}.`);
         } catch (error) {
             console.error(`[CREATE] ERROR AL CREAR HILOS PRIVADOS:`, error);
             await cleanupFailedCreation(client, createdResources);
@@ -794,8 +824,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         }
         
         await db.collection('tournaments').insertOne(newTournament);
-        console.log(`[CREATE] Torneo ${shortId} insertado en la base de datos.`);
-
+        
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
                 await managementThread.members.add(member.id).catch(()=>{});
@@ -809,7 +838,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         }
         
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
-        console.log(`[CREATE] Panel de gestión enviado para ${shortId}.`);
         
         const finalTournament = await db.collection('tournaments').findOne({ shortId });
         notifyTwitterResult(client, finalTournament, 'INSCRIPCION_ABIERTA', finalTournament).catch(console.error);
@@ -845,7 +873,7 @@ async function cleanupFailedCreation(client, resources) {
     console.log("[CLEANUP] Limpieza completada.");
 }
 
-export async function startGroupStage(client, guild, tournament) {
+export async function startGroupStage(client, guild, tournament, isSimulation = false) {
     await setBotBusy(true);
     try {
         const db = getDb();
@@ -876,8 +904,11 @@ export async function startGroupStage(client, guild, tournament) {
         currentTournament.structure.calendario = calendario;
         for (const nombreGrupo in calendario) {
             for (const partido of calendario[nombreGrupo].filter(p => p.jornada === 1)) {
-                const threadId = await createMatchThread(client, guild, partido, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
-                partido.threadId = threadId; partido.status = 'en_curso';
+                if (!isSimulation) {
+                    const threadId = await createMatchThread(client, guild, partido, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
+                    partido.threadId = threadId; 
+                }
+                partido.status = 'en_curso';
             }
         }
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
@@ -885,7 +916,11 @@ export async function startGroupStage(client, guild, tournament) {
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
         
-        notifyTwitterResult(client, finalTournamentState, 'GROUP_STAGE_START', finalTournamentState).catch(console.error);
+        if (!isSimulation) {
+            notifyTwitterResult(client, finalTournamentState, 'GROUP_STAGE_START', finalTournamentState).catch(console.error);
+        } else {
+            postSimulationUpdateToDiscord(client, finalTournamentState, 'GROUP_STAGE_START', finalTournamentState).catch(console.error);
+        }
 
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
@@ -1550,7 +1585,7 @@ export async function endTournamentAndDraft(client, tournament) {
             const teamChannelsCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
             if (teamChannelsCategory) {
                 for (const channel of teamChannelsCategory.children.cache.values()) {
-                    const cleanChannelName = channel.name.replace(/^[💬🔊]-/g, '');
+                    const cleanChannelName = channel.name.replace(/^[💬🔊]\s/g, '').replace(/\s+/g, '-').toLowerCase();
                     if (teamNames.includes(cleanChannelName)) {
                         await channel.delete('Finalización de torneo de draft.').catch(e => console.warn(`No se pudo borrar el canal de equipo ${channel.name}: ${e.message}`));
                     }
