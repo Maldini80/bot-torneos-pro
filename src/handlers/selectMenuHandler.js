@@ -20,18 +20,8 @@ export async function handleSelectMenu(interaction) {
         return interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(ADMIN_ROLE_ID);
     };
 
-    // Deferral preventivo para todas las interacciones de menú
-    try {
-        if (!interaction.deferred && !interaction.replied) {
-            await interaction.deferUpdate();
-        }
-    } catch (e) {
-        if (e.code === 10062) return;
-        console.error(`Error al hacer defer en select menu ${action}:`, e);
-        return;
-    }
-
     if (action === 'admin_select_draft_to_manage_players') {
+        await interaction.deferUpdate();
         const draftShortId = interaction.values[0];
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -62,6 +52,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_select_team_to_manage') {
+        await interaction.deferUpdate();
         const [draftShortId] = params;
         const teamId = interaction.values[0];
 
@@ -75,6 +66,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_select_player_from_roster') {
+        await interaction.deferUpdate();
         const [draftShortId, teamId] = params;
         const selectedPlayerId = interaction.values[0];
 
@@ -87,6 +79,7 @@ export async function handleSelectMenu(interaction) {
     }
     
     if (action === 'captain_invite_replacement_select') {
+        await interaction.deferUpdate();
         const [draftShortId, teamId, kickedPlayerId] = params;
         const replacementPlayerId = interaction.values[0];
         
@@ -102,6 +95,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_create_tournament_format') {
+        await interaction.deferUpdate();
         const [draftShortId] = params;
         const selectedFormatId = interaction.values[0];
 
@@ -140,6 +134,7 @@ export async function handleSelectMenu(interaction) {
         const type = interaction.values[0];
 
         if (type === 'gratis') {
+            await interaction.deferUpdate();
             const isPaid = false;
             const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             const config = { isPaid, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 };
@@ -188,6 +183,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_kick_participant_draft_select') {
+        await interaction.deferUpdate();
         const [draftShortId] = params;
         const userIdToKick = interaction.values[0];
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -199,6 +195,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_kick_participant_page_select') {
+        await interaction.deferUpdate();
         const [draftShortId] = params;
         const page = parseInt(interaction.values[0].replace('page_', ''));
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -247,6 +244,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_register_captain_pos_select') {
+        await interaction.deferUpdate();
         const [draftShortId] = params;
         const position = interaction.values[0];
 
@@ -263,6 +261,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_register_player_pos_select_primary') {
+        await interaction.deferUpdate();
         const [draftShortId] = params;
         const primaryPosition = interaction.values[0];
 
@@ -291,6 +290,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_register_player_pos_select_secondary') {
+        await interaction.deferUpdate();
         const [draftShortId, primaryPosition] = params;
         const secondaryPosition = interaction.values[0];
         
@@ -341,6 +341,7 @@ export async function handleSelectMenu(interaction) {
     }
     
     if (action === 'draft_pick_position') {
+        await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
         const selectedPosition = interaction.values[0];
         
@@ -351,7 +352,6 @@ export async function handleSelectMenu(interaction) {
         let playersInPosition = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
         let searchMode = 'Primaria';
 
-        // Si no hay en primaria, buscar en secundaria
         if (playersInPosition.length === 0) {
             playersInPosition = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
             searchMode = 'Secundaria';
@@ -385,6 +385,7 @@ export async function handleSelectMenu(interaction) {
     }
     
     if (action === 'draft_pick_player') {
+        await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
         if (interaction.user.id !== captainId && !isArbitroOrAdmin()) {
             return interaction.followUp({ content: 'No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
@@ -415,6 +416,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_set_channel_icon') {
+        await interaction.deferUpdate();
         const selectedIcon = interaction.values[0];
         
         await setChannelIcon(client, selectedIcon);
@@ -424,6 +426,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_assign_cocap_team_select') {
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const selectedCaptainId = interaction.values[0];
 
@@ -443,6 +446,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_assign_cocap_user_select') {
+        await interaction.deferUpdate();
         const [tournamentShortId, captainId] = params;
         const coCaptainId = interaction.values[0];
 
@@ -480,6 +484,7 @@ export async function handleSelectMenu(interaction) {
     }
     
     if (action === 'admin_promote_from_waitlist') {
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const captainIdToPromote = interaction.values[0];
 
@@ -514,6 +519,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_create_format') {
+        await interaction.deferUpdate();
         const formatId = interaction.values[0];
         const typeMenu = new StringSelectMenuBuilder()
             .setCustomId(`admin_create_type:${formatId}`)
@@ -521,8 +527,10 @@ export async function handleSelectMenu(interaction) {
             .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
         
         await interaction.editReply({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
-
-    } else if (action === 'admin_create_type') {
+        return;
+    } 
+    
+    if (action === 'admin_create_type') {
         const [formatId] = params;
         const type = interaction.values[0];
         const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}`).setTitle('Finalizar Creación de Torneo');
@@ -545,15 +553,21 @@ export async function handleSelectMenu(interaction) {
             );
         }
         await interaction.showModal(modal);
-
-    } else if (action === 'admin_change_format_select') {
+        return;
+    } 
+    
+    if (action === 'admin_change_format_select') {
+        await interaction.deferUpdate();
+        
         const [tournamentShortId] = params;
         const newFormatId = interaction.values[0];
         await updateTournamentConfig(interaction.client, tournamentShortId, { formatId: newFormatId });
 
         await interaction.editReply({ content: `✅ Formato actualizado a: **${TOURNAMENT_FORMATS[newFormatId].label}**.`, components: [] });
-
-    } else if (action === 'admin_change_type_select') {
+        return;
+    } 
+    
+    if (action === 'admin_change_type_select') {
         const [tournamentShortId] = params;
         const newType = interaction.values[0];
 
@@ -565,10 +579,15 @@ export async function handleSelectMenu(interaction) {
             modal.addComponents( new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput) );
             await interaction.showModal(modal);
         } else {
+            await interaction.deferUpdate();
             await updateTournamentConfig(interaction.client, tournamentShortId, { isPaid: false, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 });
             await interaction.editReply({ content: `✅ Torneo actualizado a: **Gratuito**.`, components: [] });
         }
-    } else if (action === 'invite_cocaptain_select') {
+        return;
+    } 
+    
+    if (action === 'invite_cocaptain_select') {
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
@@ -613,5 +632,6 @@ export async function handleSelectMenu(interaction) {
             console.error(error);
             await interaction.editReply({ content: '❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.', components: [] });
         }
+        return;
     }
 }
