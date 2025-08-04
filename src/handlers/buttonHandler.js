@@ -7,7 +7,7 @@ import {
     addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
     approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft,
     approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
-    forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement
+    forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement, endTournamentAndDraft
 } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
@@ -1131,6 +1131,21 @@ export async function handleButton(interaction) {
         await endTournament(client, tournament);
         return;
     }
+
+    if (action === 'admin_end_tournament_and_draft') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
+        
+        await interaction.editReply({ content: `⏳ **Recibido.** Iniciando la finalización completa del torneo y su draft asociado. Este proceso es irreversible y puede tardar unos minutos.` });
+        
+        const result = await endTournamentAndDraft(client, tournament);
+        
+        await interaction.followUp({ content: result.message, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
     if (action === 'admin_notify_changes') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
