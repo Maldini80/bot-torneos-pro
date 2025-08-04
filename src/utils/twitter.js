@@ -34,6 +34,9 @@ const globalCss = `
     overflow: hidden;
     height: 100%;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
    .container::before {
     content: 'VPG';
@@ -290,10 +293,10 @@ export async function postTournamentUpdate(eventType, data) {
             logMessage = `Tweet de plantilla completa para ${captain.teamName}`;
             break;
         }
-        case 'GROUP_STAGE_START': { // Evento que estaba fallando
+        case 'GROUP_STAGE_START': {
              const tournament = data;
              tweetText = `¡Arranca la fase de grupos del torneo "${tournament.nombre}"! 🔥\n\n¡Mucha suerte a todos los equipos!\n\n#VPGLightnings`;
-             htmlContent = null; // No generamos imagen para este, es un tweet simple
+             htmlContent = null;
              logMessage = `Tweet de inicio de fase de grupos para ${tournament.nombre}`;
              break;
         }
@@ -330,11 +333,12 @@ export async function postTournamentUpdate(eventType, data) {
             } else {
                 tweetText = `El torneo "${tournament.nombre}" ha finalizado. ¡Gracias a todos por participar!`;
             }
+            htmlContent = null;
             logMessage = `Tweet de finalización para ${tournament.nombre}`;
             break;
         }
         default: {
-            // Si el eventType no es reconocido, no hacemos nada.
+            console.warn(`[TWITTER] Evento no reconocido: ${eventType}`);
             return null;
         }
     }
@@ -371,10 +375,10 @@ export async function postTournamentUpdate(eventType, data) {
         let errorMessage = 'Error desconocido al intentar publicar.';
         if (e.code === 429 || (e.data && e.data.title === 'Too Many Requests')) {
             errorMessage = 'Límite de tweets alcanzado. La API de Twitter bloqueó la publicación temporalmente.';
+        } else if (e.errors && e.errors.length > 0 && e.errors[0].message) {
+            errorMessage = e.errors[0].message;
         } else if (e.message) {
             errorMessage = e.message;
-        } else if (e.errors && e.errors.length > 0) {
-            errorMessage = e.errors[0].message;
         }
         return { success: false, error: errorMessage };
     }
