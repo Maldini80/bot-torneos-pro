@@ -132,14 +132,23 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    // --- INICIO DE LA CORRECCIÓN: ANUNCIO PÚBLICO ---
+    // --- INICIO DE LA CORRECCIÓN: ANUNCIO PÚBLICO CON AUTODESTRUCCIÓN ---
     try {
         const draftChannel = await client.channels.fetch(draft.discordChannelId);
         const pickNumber = draft.selection.currentPick;
         const embed = new EmbedBuilder()
             .setColor('#3498db')
             .setDescription(`**Pick #${pickNumber}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}** (<@${player.userId}>).`);
-        await draftChannel.send({ embeds: [embed] });
+        
+        const announcementMsg = await draftChannel.send({ embeds: [embed] });
+
+        // Borrar el mensaje después de 1 minuto (60000 ms)
+        setTimeout(() => {
+            announcementMsg.delete().catch(e => {
+                if (e.code !== 10008) console.error("Error al auto-borrar mensaje de pick:", e);
+            });
+        }, 60000);
+
     } catch (e) {
         console.warn(`No se pudo anunciar el pick en el canal del draft ${draft.shortId}`);
     }
@@ -511,8 +520,17 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             }
         }
         
-        for (const member of arbitroRole.members.values()) { await managementThread.members.add(member.id).catch(()=>{}); await notificationsThread.members.add(member.id).catch(()=>{}); }
-        if (casterRole) { for (const member of casterRole.members.values()) { await casterThread.members.add(member.id).catch(()=>{}); } }
+        if (arbitroRole) {
+            for (const member of arbitroRole.members.values()) { 
+                await managementThread.members.add(member.id).catch(()=>{}); 
+                await notificationsThread.members.add(member.id).catch(()=>{}); 
+            }
+        }
+        if (casterRole) { 
+            for (const member of casterRole.members.values()) { 
+                await casterThread.members.add(member.id).catch(()=>{}); 
+            } 
+        }
         
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
@@ -1580,11 +1598,6 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
 }
 
 
-/**
- * NUEVO: Orquesta la finalización y limpieza de un torneo Y su draft asociado.
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {object} tournament El objeto del torneo a finalizar.
- */
 export async function endTournamentAndDraft(client, tournament) {
     await setBotBusy(true);
     try {
@@ -1592,19 +1605,25 @@ export async function endTournamentAndDraft(client, tournament) {
         const guild = await client.guilds.fetch(tournament.guildId);
         console.log(`[FINISH-COMBO] Iniciando finalización combinada para torneo ${tournament.shortId}`);
 
-        // Limpieza de canales de equipo del draft
+        // --- INICIO DE LA CORRECCIÓN: BORRADO DE CANALES DE EQUIPO ---
         if (tournament.shortId.startsWith('draft-')) {
-            const teamNames = Object.values(tournament.teams.aprobados).map(t => t.nombre.replace(/\s+/g, '-').toLowerCase());
+            const teamNames = Object.values(tournament.teams.aprobados).map(t => t.nombre);
             const teamChannelsCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
+            
             if (teamChannelsCategory) {
-                for (const channel of teamChannelsCategory.children.cache.values()) {
-                    const cleanChannelName = channel.name.replace(/^[💬🔊]\s/g, '').replace(/\s+/g, '-').toLowerCase();
-                    if (teamNames.includes(cleanChannelName)) {
-                        await channel.delete('Finalización de torneo de draft.').catch(e => console.warn(`No se pudo borrar el canal de equipo ${channel.name}: ${e.message}`));
-                    }
+                for (const teamName of teamNames) {
+                    const textChannelName = `💬-${teamName.replace(/\s+/g, '-').toLowerCase()}`;
+                    const voiceChannelName = `🔊 ${teamName}`;
+                    
+                    const textChannel = teamChannelsCategory.children.cache.find(c => c.name === textChannelName);
+                    const voiceChannel = teamChannelsCategory.children.cache.find(c => c.name === voiceChannelName);
+
+                    if (textChannel) await textChannel.delete('Finalización de torneo de draft.').catch(e => console.warn(`No se pudo borrar el canal de texto ${textChannel.name}: ${e.message}`));
+                    if (voiceChannel) await voiceChannel.delete('Finalización de torneo de draft.').catch(e => console.warn(`No se pudo borrar el canal de voz ${voiceChannel.name}: ${e.message}`));
                 }
             }
         }
+        // --- FIN DE LA CORRECCIÓN ---
         
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
         await _cleanupTournament(client, tournament);
