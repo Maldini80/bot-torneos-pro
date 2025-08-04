@@ -55,16 +55,41 @@ export async function updateDraftMainInterface(client, draftShortId) {
 
 export async function handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId) {
     const db = getDb();
-    await db.collection('drafts').updateOne(
-        { shortId: draftShortId, "players.userId": selectedPlayerId },
-        { $set: { "players.$.captainId": captainId } }
-    );
-
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    if (/^\d+$/.test(selectedPlayerId)) { // Comprobar si es un usuario real
+    // --- INICIO DE LA COMPROBACIÓN DE MÁXIMOS ---
+    const settings = await getBotSettings();
+    const maxQuotas = Object.fromEntries(
+        settings.draftMaxQuotas.split(',').map(q => q.split(':'))
+    );
+
+    const teamPlayers = draft.players.filter(p => p.captainId === captainId);
+    
+    const checkPosition = (pos) => {
+        if (maxQuotas[pos]) {
+            const max = parseInt(maxQuotas[pos]);
+            const currentCount = teamPlayers.filter(p => p.primaryPosition === pos || p.secondaryPosition === pos).length;
+            if (currentCount >= max) {
+                throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${pos}.`);
+            }
+        }
+    };
+
+    // Comprobamos tanto la posición primaria como la secundaria del jugador a elegir
+    checkPosition(player.primaryPosition);
+    if (player.secondaryPosition && player.secondaryPosition !== 'NONE') {
+        checkPosition(player.secondaryPosition);
+    }
+    // --- FIN DE LA COMPROBACIÓN DE MÁXIMOS ---
+
+    await db.collection('drafts').updateOne(
+        { shortId: draftShortId, "players.userId": selectedPlayerId },
+        { $set: { "players.$.captainId": captainId } }
+    );
+    
+    if (/^\d+$/.test(selectedPlayerId)) {
         try {
             const playerUser = await client.users.fetch(selectedPlayerId);
             const embed = new EmbedBuilder()
@@ -77,9 +102,9 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         }
     }
     
-    const teamPlayers = draft.players.filter(p => p.captainId === captainId);
-    if (teamPlayers.length === 11) {
-        postTournamentUpdate('ROSTER_COMPLETE', { captain, players: teamPlayers, draft }).catch(console.error);
+    const updatedTeamPlayers = [...teamPlayers, player];
+    if (updatedTeamPlayers.length === 11) {
+        postTournamentUpdate('ROSTER_COMPLETE', { captain, players: updatedTeamPlayers, draft }).catch(console.error);
     }
 }
 
@@ -87,18 +112,18 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
 export async function approveDraftCaptain(client, draft, captainData) {
     const db = getDb();
 
-   const captainAsPlayer = {
-    userId: captainData.userId,
-    userName: captainData.userName,
-    psnId: captainData.psnId,
-    eafcTeamName: captainData.eafcTeamName,
-    twitter: captainData.twitter,
-    primaryPosition: captainData.position,
-    secondaryPosition: captainData.position,
-    currentTeam: captainData.teamName,
-    isCaptain: true,
-    captainId: captainData.userId // <--- CORRECCIÓN APLICADA
-};
+    const captainAsPlayer = {
+        userId: captainData.userId,
+        userName: captainData.userName,
+        psnId: captainData.psnId,
+        eafcTeamName: captainData.eafcTeamName,
+        twitter: captainData.twitter,
+        primaryPosition: captainData.position,
+        secondaryPosition: captainData.position,
+        currentTeam: captainData.teamName,
+        isCaptain: true,
+        captainId: captainData.userId
+    };
 
     await db.collection('drafts').updateOne(
         { _id: draft._id },
@@ -114,13 +139,21 @@ export async function approveDraftCaptain(client, draft, captainData) {
     if (/^\d+$/.test(captainData.userId)) {
         try {
             const user = await client.users.fetch(captainData.userId);
+            
+            // --- INICIO DE LA NOTIFICACIÓN DE MÁXIMOS ---
+            const settings = await getBotSettings();
+            const maxQuotasText = settings.draftMaxQuotas.split(',').join('\n').replace(/:/g, ': ');
+            
             const embed = new EmbedBuilder()
                 .setColor('#2ecc71')
                 .setTitle(`✅ Aprobado para el Draft: ${draft.name}`)
                 .setDescription(
                     `¡Enhorabuena! Tu solicitud para ser capitán del equipo **${captainData.teamName}** ha sido **aprobada**.\n\n` +
-                    `Ya apareces en la lista oficial de capitanes y jugadores.`
+                    `Ya apareces en la lista oficial. **IMPORTANTE:** Durante el draft, deberás respetar los siguientes límites de jugadores por posición:\n\n` +
+                    "```\n" + maxQuotasText + "\n```"
                 );
+            // --- FIN DE LA NOTIFICACIÓN DE MÁXIMOS ---
+
             await user.send({ embeds: [embed] });
         } catch (e) { console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message); }
     }
@@ -132,7 +165,6 @@ export async function approveDraftCaptain(client, draft, captainData) {
 
     postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft }).catch(console.error);
 }
-
 export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     const db = getDb();
     const isCaptain = draft.captains.some(c => c.userId === userIdToKick);
@@ -573,27 +605,41 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        const positionQuotas = { GK: 1, DFC: 2, CARR: 2, MCD: 2, 'MV/MCO': 2, DC: 2 };
+        // --- INICIO DE LA COMPROBACIÓN DE MÍNIMOS ---
+        const settings = await getBotSettings();
+        const minQuotas = Object.fromEntries(
+            settings.draftMinQuotas.split(',').map(q => q.split(':'))
+        );
+
         const positionCounts = {};
-        Object.keys(positionQuotas).forEach(p => positionCounts[p] = 0);
+        Object.keys(minQuotas).forEach(p => positionCounts[p] = 0);
+
         const allPlayers = draft.players;
         for (const player of allPlayers) {
-            const positions = new Set([player.primaryPosition, player.secondaryPosition]);
-            for (const pos of positions) {
-                if (positionCounts[pos] !== undefined) {
-                    positionCounts[pos]++;
+            // Contamos la posición primaria
+            if (positionCounts[player.primaryPosition] !== undefined) {
+                positionCounts[player.primaryPosition]++;
+            }
+            // Contamos la posición secundaria si es diferente y existe
+            if (player.secondaryPosition && player.secondaryPosition !== 'NONE' && player.secondaryPosition !== player.primaryPosition) {
+                 if (positionCounts[player.secondaryPosition] !== undefined) {
+                    positionCounts[player.secondaryPosition]++;
                 }
             }
         }
+
         const missingPositions = [];
-        for (const pos in positionQuotas) {
-            if (positionCounts[pos] < positionQuotas[pos]) {
-                missingPositions.push(`${pos} (faltan ${positionQuotas[pos] - positionCounts[pos]})`);
+        for (const pos in minQuotas) {
+            const required = parseInt(minQuotas[pos]);
+            const current = positionCounts[pos] || 0;
+            if (current < required) {
+                missingPositions.push(`${pos} (necesarios: ${required}, disponibles: ${current})`);
             }
         }
         if (missingPositions.length > 0) {
-            throw new Error(`No se cumplen las cuotas mínimas de jugadores. Faltan: ${missingPositions.join(', ')}.`);
+            throw new Error(`No se cumplen las cuotas mínimas. Faltan jugadores para: ${missingPositions.join(', ')}.`);
         }
+        // --- FIN DE LA COMPROBACIÓN DE MÍNIMOS ---
 
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
