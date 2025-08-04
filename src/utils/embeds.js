@@ -1,5 +1,5 @@
 // src/utils/embeds.js
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect-menu-Builder, MessageFlags } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
 import { getBotSettings, getDb } from '../../database.js';
 
@@ -511,8 +511,16 @@ export function createCaptainControlPanel(draft) {
 export function createTeamRosterManagementEmbed(team, players, draftShortId) {
     const embed = new EmbedBuilder()
         .setColor('#1abc9c')
-        .setTitle(`Gestión de Plantilla: ${team.teamName || team.nombre}`)
-        .setDescription('Selecciona un jugador de la lista para ver sus detalles y gestionarlo.');
+        .setTitle(`Gestión de Plantilla: ${team.teamName || team.nombre}`);
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    if (!players || players.length === 0) {
+        embed.setDescription('Este equipo aún no tiene jugadores en su plantilla.');
+        return { embeds: [embed], components: [], flags: [MessageFlags.Ephemeral] };
+    }
+    // --- FIN DE LA CORRECCIÓN ---
+
+    embed.setDescription('Selecciona un jugador de la lista para ver sus detalles y gestionarlo.');
 
     const playerOptions = players.map(p => ({
         label: p.psnId,
