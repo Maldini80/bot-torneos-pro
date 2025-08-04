@@ -39,7 +39,7 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     partido.resultado = resultString;
     partido.status = 'finalizado';
 
-    // Siempre actualizamos el nombre del hilo, incluso en simulación
+    // CORRECCIÓN: Se actualiza el nombre del hilo siempre, incluso en simulación.
     await updateMatchThreadName(client, partido);
     
     if (fase === 'grupos') {
