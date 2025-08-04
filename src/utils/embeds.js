@@ -111,7 +111,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
         new ButtonBuilder().setCustomId('admin_manage_drafts_players').setLabel('Gestionar Jugadores/Drafts').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy)
     );
 
-    const globalSettingsRow = new ActionRowBuilder().addComponents(
+        const globalSettingsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('admin_toggle_translation')
             .setLabel(translationEnabled ? 'Desactivar Traducción' : 'Activar Traducción')
@@ -124,6 +124,14 @@ export async function createGlobalAdminPanel(isBusy = false) {
             .setStyle(twitterEnabled ? ButtonStyle.Secondary : ButtonStyle.Success)
             .setEmoji('🐦')
             .setDisabled(isBusy),
+        // --- BOTÓN RESTAURADO ---
+        new ButtonBuilder()
+            .setCustomId('admin_update_channel_status')
+            .setLabel('Cambiar Icono Canal')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🎨')
+            .setDisabled(isBusy),
+        // --- FIN DEL BOTÓN RESTAURADO ---
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
 
