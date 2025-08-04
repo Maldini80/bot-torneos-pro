@@ -14,17 +14,15 @@ export async function handleModal(interaction) {
     const db = getDb();
     const [action, ...params] = customId.split(':');
 
-    // --- INICIO DE LA CORRECCIÓN: DEFERRAL PREVENTIVO ---
     try {
         if (!interaction.deferred && !interaction.replied) {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         }
     } catch (e) {
-        if (e.code === 10062) return; // La interacción ya expiró, no hacer nada.
+        if (e.code === 10062) return;
         console.error(`Error al hacer defer en modal ${action}:`, e);
         return;
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     if (action === 'report_player_modal') {
         const [draftShortId, teamId, playerId] = params;
@@ -73,7 +71,6 @@ export async function handleModal(interaction) {
                 { label: 'De Pago', value: 'pago' }
             ]);
 
-        // Usamos editReply porque ya hemos hecho defer
         await interaction.editReply({
             content: `Has nombrado al draft como "${name}". Ahora, selecciona su tipo:`,
             components: [new ActionRowBuilder().addComponents(typeMenu)],
