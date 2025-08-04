@@ -806,8 +806,26 @@ export async function handleButton(interaction) {
         return;
     }
 
-    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
+      const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
     if (modalActions.includes(action)) {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Primero, comprobamos los permisos si la acción es forzar resultado
+        if (action === 'admin_modify_result_start') {
+            // Comprobamos si el usuario tiene permiso de Administrador
+            const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+            // Comprobamos si el usuario tiene el rol de Árbitro
+            const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+
+            // Si NO es Administrador Y TAMPOCO es Árbitro, le denegamos el acceso.
+            if (!isAdmin && !isReferee) {
+                return interaction.reply({
+                    content: '❌ No tienes permiso para usar esta función. Requiere ser Administrador o Árbitro.',
+                    flags: [MessageFlags.Ephemeral]
+                });
+            }
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+
         const [p1, p2] = params;
         
         const tournamentShortId = action.includes('report') || action.includes('admin_modify_result') ? p2 : p1;
