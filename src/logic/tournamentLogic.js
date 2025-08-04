@@ -132,6 +132,19 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
+    // --- INICIO DE LA CORRECCIÓN: ANUNCIO PÚBLICO ---
+    try {
+        const draftChannel = await client.channels.fetch(draft.discordChannelId);
+        const pickNumber = draft.selection.currentPick;
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setDescription(`**Pick #${pickNumber}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}** (<@${player.userId}>).`);
+        await draftChannel.send({ embeds: [embed] });
+    } catch (e) {
+        console.warn(`No se pudo anunciar el pick en el canal del draft ${draft.shortId}`);
+    }
+    // --- FIN DE LA CORRECCIÓN ---
+
     if (/^\d+$/.test(selectedPlayerId)) { // Comprobar si es un usuario real
         try {
             const playerUser = await client.users.fetch(selectedPlayerId);
