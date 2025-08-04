@@ -98,7 +98,7 @@ export async function createGlobalAdminPanel(isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
         .setTitle('Panel de Creación y Gestión Global')
-        .setFooter({ text: 'Bot de Torneos v3.2.0' });
+        .setFooter({ text: 'Bot de Torneos v3.2.1' });
 
     embed.setDescription(isBusy
         ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
@@ -123,6 +123,12 @@ export async function createGlobalAdminPanel(isBusy = false) {
             .setLabel(twitterEnabled ? 'Desactivar Twitter' : 'Activar Twitter')
             .setStyle(twitterEnabled ? ButtonStyle.Secondary : ButtonStyle.Success)
             .setEmoji('🐦')
+            .setDisabled(isBusy),
+        new ButtonBuilder()
+            .setCustomId('admin_update_channel_status')
+            .setLabel('Cambiar Icono Canal')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🚦')
             .setDisabled(isBusy),
         new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
     );
@@ -475,6 +481,7 @@ export function createCaptainControlPanel(draft) {
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`captain_pick_start:${draft.shortId}`).setLabel('Elegir Jugador').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(isPicking),
+            new ButtonBuilder().setCustomId(`captain_manage_roster_start:${draft.shortId}`).setLabel('Gestionar Plantilla').setStyle(ButtonStyle.Primary).setEmoji('📋'),
             new ButtonBuilder().setCustomId(`captain_cancel_pick:${draft.shortId}:${currentCaptainId}`).setLabel('Cancelar mi Selección').setStyle(ButtonStyle.Danger).setDisabled(!isPicking)
         );
         return { embeds: [embed], components: [row] };
