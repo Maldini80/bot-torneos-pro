@@ -14,13 +14,13 @@ export async function handleModal(interaction) {
     const db = getDb();
     const [action, ...params] = customId.split(':');
 
-    // Deferral preventivo para la mayoría de las acciones modales
+    // Deferral preventivo para todas las acciones modales
     try {
         if (!interaction.deferred && !interaction.replied) {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         }
     } catch (e) {
-        if (e.code === 10062) return;
+        if (e.code === 10062) return; // La interacción ya expiró, no hacer nada.
         console.error(`Error al hacer defer en modal ${action}:`, e);
         return;
     }
@@ -72,6 +72,7 @@ export async function handleModal(interaction) {
                 { label: 'De Pago', value: 'pago' }
             ]);
 
+        // Usamos editReply porque ya hemos hecho defer
         await interaction.editReply({
             content: `Has nombrado al draft como "${name}". Ahora, selecciona su tipo:`,
             components: [new ActionRowBuilder().addComponents(typeMenu)],
