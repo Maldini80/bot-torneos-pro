@@ -144,7 +144,9 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'create_draft_paid_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // --- INICIO DE LA MODIFICACIÓN ---
+        await interaction.reply({ content: '⏳ Creando el draft de pago...', flags: [MessageFlags.Ephemeral] });
+        // --- FIN DE LA MODIFICACIÓN ---
         const [name] = params;
         const entryFee = parseFloat(interaction.fields.getTextInputValue('draft_entry_fee'));
         const prizeCampeon = parseFloat(interaction.fields.getTextInputValue('draft_prize_campeon'));
@@ -169,7 +171,9 @@ export async function handleModal(interaction) {
     }
     
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // --- INICIO DE LA MODIFICACIÓN ---
+        await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
+        // --- FIN DE LA MODIFICACIÓN ---
         
         const isRegisteringAsCaptain = action.includes('captain');
         let draftShortId, position, primaryPosition, secondaryPosition, teamStatus, streamPlatform;
@@ -323,9 +327,7 @@ export async function handleModal(interaction) {
         return;
     }
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     if (action === 'create_tournament') {
-        // Se reemplaza deferReply por un reply inmediato
         await interaction.reply({ content: '⏳ Creando el torneo, por favor espera...', flags: [MessageFlags.Ephemeral] });
         
         const [formatId, type] = params;
@@ -341,7 +343,6 @@ export async function handleModal(interaction) {
         }
         try {
             await createNewTournament(client, guild, nombre, shortId, config);
-            // Se usa editReply para actualizar el mensaje de espera
             await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
         } catch (error) {
             console.error("Error capturado por el handler al crear el torneo:", error);
@@ -349,10 +350,11 @@ export async function handleModal(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'edit_tournament_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // --- INICIO DE LA MODIFICACIÓN ---
+        await interaction.reply({ content: '⏳ Actualizando configuración...', flags: [MessageFlags.Ephemeral] });
+        // --- FIN DE LA MODIFICACIÓN ---
         const [tournamentShortId] = params;
         const newConfig = {
             prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
@@ -370,6 +372,7 @@ export async function handleModal(interaction) {
         }
         return;
     }
+
     if (action === 'edit_payment_details_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -383,8 +386,11 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: `✅ Torneo actualizado a: **De Pago**.`, components: [] });
         return;
     }
+
     if (action === 'inscripcion_modal' || action === 'reserva_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // --- INICIO DE LA MODIFICACIÓN ---
+        await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
+        // --- FIN DE LA MODIFICACIÓN ---
         const [tournamentShortId, streamPlatform] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     
@@ -469,7 +475,9 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'payment_confirm_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // --- INICIO DE LA MODIFICACIÓN ---
+        await interaction.reply({ content: '⏳ Notificando tu pago...', flags: [MessageFlags.Ephemeral] });
+        // --- FIN DE LA MODIFICACIÓN ---
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('❌ Este torneo ya no existe.');
