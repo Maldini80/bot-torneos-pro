@@ -9,16 +9,9 @@ import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 
-/**
- * Publica una actualización de simulación (imagen) en el hilo de administración de Discord.
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {object} entity El objeto del torneo o draft.
- * @param {string} eventType El tipo de evento para generar la imagen.
- * @param {object} data La data para la función de Twitter.
- */
 export async function postSimulationUpdateToDiscord(client, entity, eventType, data) {
     try {
-        const result = await postTournamentUpdate(eventType, data, true); // El 'true' indica que es para una simulación
+        const result = await postTournamentUpdate(eventType, data, true);
         if (!result || !result.imageUrl) return;
 
         const managementThreadId = entity.discordMessageIds.managementThreadId;
@@ -42,14 +35,6 @@ export async function postSimulationUpdateToDiscord(client, entity, eventType, d
 }
 
 
-/**
- * Envía una notificación sobre el estado de una publicación de Twitter al canal de administración.
- * Lo hace de forma asíncrona para no bloquear otros procesos.
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {object} entity El objeto del torneo o draft.
- * @param {string} eventType El tipo de evento para Twitter.
- * @param {object} data La data para la función de Twitter.
- */
 export async function notifyTwitterResult(client, entity, eventType, data) {
     try {
         const tweetResult = await postTournamentUpdate(eventType, data);
@@ -77,11 +62,6 @@ export async function notifyTwitterResult(client, entity, eventType, data) {
 }
 
 
-/**
- * Actualiza los embeds principales de la interfaz de un draft (jugadores, equipos, orden).
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {string} draftShortId El ID corto del draft a actualizar.
- */
 export async function updateDraftMainInterface(client, draftShortId) {
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -115,7 +95,7 @@ export async function updateDraftMainInterface(client, draftShortId) {
         }
 
     } catch (error) {
-        if (error.code !== 10003 && error.code !== 10008) { // Canal o mensaje no encontrado
+        if (error.code !== 10003 && error.code !== 10008) {
             console.error(`[Interface Update] Error al actualizar la interfaz principal para el draft ${draftShortId}:`, error);
         }
     }
@@ -132,7 +112,6 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    // --- INICIO DE LA CORRECCIÓN ---
     try {
         const draftChannel = await client.channels.fetch(draft.discordChannelId);
         const pickNumber = draft.selection.currentPick;
@@ -142,7 +121,6 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         
         const announcementMsg = await draftChannel.send({ embeds: [embed] });
 
-        // Auto-borrado del mensaje después de 60 segundos
         setTimeout(() => {
             announcementMsg.delete().catch(e => {
                 if (e.code !== 10008) console.error("Error al auto-borrar mensaje de pick:", e);
@@ -152,7 +130,6 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     } catch (e) {
         console.warn(`No se pudo anunciar el pick en el canal del draft ${draft.shortId}`);
     }
-    // --- FIN DE LA CORRECCIÓN ---
 
     if (/^\d+$/.test(selectedPlayerId)) {
         try {
@@ -520,7 +497,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             }
         }
         
-        if (arbitroRole) {
+        if (arbitroRole) { 
             for (const member of arbitroRole.members.values()) { 
                 await managementThread.members.add(member.id).catch(()=>{}); 
                 await notificationsThread.members.add(member.id).catch(()=>{}); 
@@ -645,15 +622,13 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         newDraft.discordMessageIds.notificationsThreadId = notificationsThread.id;
 
         await db.collection('drafts').insertOne(newDraft);
-        
-        // --- INICIO DE LA CORRECCIÓN ---
+
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
                 await managementThread.members.add(member.id).catch(() => {});
                 await notificationsThread.members.add(member.id).catch(() => {});
             }
         }
-        // --- FIN DE LA CORRECCIÓN ---
         
         await managementThread.send(createDraftManagementPanel(newDraft, true));
 
@@ -858,14 +833,12 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         
         await db.collection('tournaments').insertOne(newTournament);
         
-        // --- INICIO DE LA CORRECCIÓN ---
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
                 await managementThread.members.add(member.id).catch(()=>{});
                 await notificationsThread.members.add(member.id).catch(()=>{});
             }
         }
-        // --- FIN DE LA CORRECCIÓN ---
         if (casterRole) {
             for (const member of casterRole.members.values()) {
                  await casterThread.members.add(member.id).catch(()=>{});
@@ -1611,7 +1584,6 @@ export async function endTournamentAndDraft(client, tournament) {
             const teamNames = Object.values(tournament.teams.aprobados).map(t => t.nombre);
             const teamChannelsCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
             
-            // --- INICIO DE LA CORRECCIÓN ---
             if (teamChannelsCategory) {
                 for (const teamName of teamNames) {
                     const textChannelName = `💬-${teamName.replace(/\s+/g, '-').toLowerCase()}`;
@@ -1624,7 +1596,6 @@ export async function endTournamentAndDraft(client, tournament) {
                     if (voiceChannel) await voiceChannel.delete('Finalización de torneo de draft.').catch(e => console.warn(`No se pudo borrar el canal de voz ${voiceChannel.name}: ${e.message}`));
                 }
             }
-            // --- FIN DE LA CORRECCIÓN ---
         }
         
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
