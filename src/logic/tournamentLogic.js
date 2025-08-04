@@ -20,10 +20,9 @@ import { postTournamentUpdate } from '../utils/twitter.js';
 export async function notifyTwitterResult(client, entity, eventType, data) {
     try {
         const tweetResult = await postTournamentUpdate(eventType, data);
-        if (!tweetResult) return; // Si la función de twitter no devuelve nada (ej. está desactivado)
-        
-        const isDraft = entity.players !== undefined;
-        const notificationsThreadId = isDraft ? entity.discordMessageIds.notificationsThreadId : entity.discordMessageIds.managementThreadId;
+        if (!tweetResult) return;
+
+        const notificationsThreadId = entity.discordMessageIds.notificationsThreadId;
 
         if (!notificationsThreadId) {
             console.warn(`[TWITTER NOTIFY] No se encontró el hilo de notificación para ${entity.shortId}.`);
@@ -812,7 +811,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
         console.log(`[CREATE] Panel de gestión enviado para ${shortId}.`);
 
-        // Corrección: Llamar a la notificación de forma no bloqueante.
         notifyTwitterResult(client, newTournament, 'INSCRIPCION_ABIERTA', newTournament).catch(console.error);
         
         await setBotBusy(false);
@@ -1088,7 +1086,7 @@ async function _cleanupTournament(client, tournament) {
             const resource = await client.channels.fetch(resourceId).catch(() => null);
             if (resource) await resource.delete();
         } catch (err) {
-            if (err.code !== 10003) { // 10003 = Unknown Channel, it was already deleted.
+            if (err.code !== 10003) { 
                 console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`);
             }
         }
@@ -1541,14 +1539,27 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
 export async function endTournamentAndDraft(client, tournament) {
     await setBotBusy(true);
     try {
+        const db = getDb();
+        const guild = await client.guilds.fetch(tournament.guildId);
         console.log(`[FINISH-COMBO] Iniciando finalización combinada para torneo ${tournament.shortId}`);
 
-        // 1. Finalizar el torneo (limpieza de canales y actualización de BD)
-        const db = getDb();
+        // Limpieza de canales de equipo del draft
+        if (tournament.shortId.startsWith('draft-')) {
+            const teamNames = Object.values(tournament.teams.aprobados).map(t => t.nombre.replace(/\s+/g, '-').toLowerCase());
+            const teamChannelsCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
+            if (teamChannelsCategory) {
+                for (const channel of teamChannelsCategory.children.cache.values()) {
+                    const cleanChannelName = channel.name.replace(/^[💬🔊]-/g, '');
+                    if (teamNames.includes(cleanChannelName)) {
+                        await channel.delete('Finalización de torneo de draft.').catch(e => console.warn(`No se pudo borrar el canal de equipo ${channel.name}: ${e.message}`));
+                    }
+                }
+            }
+        }
+        
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
         await _cleanupTournament(client, tournament);
 
-        // 2. Extraer el ID del draft y finalizarlo
         if (tournament.shortId.startsWith('draft-')) {
             const draftShortId = tournament.shortId.replace('draft-', '');
             const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
