@@ -352,129 +352,53 @@ if (action === 'draft_register_captain_pos_select') {
 }
 // --- FIN DEL CÓDIGO NUEVO ---
 
-    if (action === 'draft_pick_search_type') {
-        await interaction.deferUpdate();
-        const [draftShortId, captainId] = params;
-        const searchType = interaction.values[0];
-        
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const availablePlayers = draft.players.filter(p => !p.captainId);
-        
-        const positions = new Set();
-        availablePlayers.forEach(player => {
-            const pos = searchType === 'primary' ? player.primaryPosition : player.secondaryPosition;
-            if (pos && pos !== 'NONE') {
-                positions.add(pos);
-            }
+   // --- NUEVA LÓGICA INTELIGENTE PARA LA SELECCIÓN ---
+if (action === 'draft_pick_by_position') {
+    await interaction.deferUpdate();
+    const [draftShortId, captainId] = params;
+    const selectedPosition = interaction.values[0];
+
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const availablePlayers = draft.players.filter(p => !p.captainId);
+    
+    // 1. Buscamos jugadores con esa POSICIÓN PRIMARIA
+    let playersToShow = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
+    let searchMode = 'Primaria';
+
+    // 2. Si no hay, buscamos en la POSICIÓN SECUNDARIA
+    if (playersToShow.length === 0) {
+        playersToShow = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
+        searchMode = 'Secundaria';
+    }
+
+    // 3. Si sigue sin haber, informamos al capitán
+    if (playersToShow.length === 0) {
+        return interaction.editReply({
+            content: `No hay jugadores disponibles para la posición ${DRAFT_POSITIONS[selectedPosition]}. Por favor, cancela y elige otra posición.`,
+            components: []
         });
-
-        if (positions.size === 0) {
-            return interaction.editReply({ content: 'No hay jugadores con posiciones que coincidan con tu búsqueda.', components: [] });
-        }
-
-        const positionMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_pick_position:${draftShortId}:${captainId}:${searchType}`)
-            .setPlaceholder('Paso 2: Elige la posición')
-            .addOptions(
-                [...positions].map(pos => ({
-                    label: DRAFT_POSITIONS[pos] || pos.toUpperCase(),
-                    value: pos,
-                }))
-            );
-
-        await interaction.editReply({ components: [new ActionRowBuilder().addComponents(positionMenu)], content: "Ahora, elige la posición del jugador que buscas:" });
-        return;
     }
     
-    if (action === 'draft_pick_position') {
-        await interaction.deferUpdate();
-        const [draftShortId, captainId, searchType] = params;
-        const selectedPosition = interaction.values[0];
-        
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const availablePlayers = draft.players.filter(p => !p.captainId);
+    playersToShow.sort((a,b) => a.psnId.localeCompare(b.psnId));
 
-        const playersInPosition = availablePlayers.filter(player => {
-            const pos = searchType === 'primary' ? player.primaryPosition : player.secondaryPosition;
-            return pos === selectedPosition;
-        }).sort((a,b) => a.psnId.localeCompare(b.psnId));
-
-        if (playersInPosition.length === 0) {
-             return interaction.editReply({ content: 'No quedan jugadores en esa posición.', components: [] });
-        }
-        
-        const pageSize = 25;
-        if (playersInPosition.length > pageSize) {
-            const pageCount = Math.ceil(playersInPosition.length / pageSize);
-            const pageOptions = [];
-            for (let i = 0; i < pageCount; i++) {
-                const start = i * pageSize + 1;
-                const end = Math.min((i + 1) * pageSize, playersInPosition.length);
-                pageOptions.push({ label: `Página ${i + 1} (${start}-${end})`, value: `page_${i}` });
-            }
-            const pageMenu = new StringSelectMenuBuilder()
-                .setCustomId(`draft_pick_player_page:${draftShortId}:${captainId}:${searchType}:${selectedPosition}`)
-                .setPlaceholder('Selecciona una página de jugadores')
-                .addOptions(pageOptions);
-            
-            await interaction.editReply({ 
-                content: `Hay demasiados jugadores en **${DRAFT_POSITIONS[selectedPosition]}**. Por favor, selecciona una página:`, 
-                components: [new ActionRowBuilder().addComponents(pageMenu)] 
-            });
-
-        } else {
-            const playerMenu = new StringSelectMenuBuilder()
-                .setCustomId(`draft_pick_player:${draftShortId}:${captainId}`)
-                .setPlaceholder('Paso 3: ¡Elige al jugador!')
-                .addOptions(
-                    playersInPosition.map(player => ({
-                        label: player.psnId,
-                        description: `Discord: ${player.userName}`,
-                        value: player.userId,
-                    }))
-                );
-            
-            await interaction.editReply({ 
-                content: `Jugadores disponibles en **${DRAFT_POSITIONS[selectedPosition]}**:`, 
-                components: [new ActionRowBuilder().addComponents(playerMenu)] 
-            });
-        }
-        return;
-    }
+    const playerMenu = new StringSelectMenuBuilder()
+        .setCustomId(`draft_pick_player:${draftShortId}:${captainId}`)
+        .setPlaceholder('Paso 2: ¡Elige al jugador!')
+        .addOptions(
+            playersToShow.slice(0, 25).map(player => ({ // Maneja hasta 25 jugadores, puedes añadir paginación si es necesario
+                label: player.psnId,
+                description: `Discord: ${player.userName}`,
+                value: player.userId,
+            }))
+        );
     
-    if (action === 'draft_pick_player_page') {
-        await interaction.deferUpdate();
-        const [draftShortId, captainId, searchType, selectedPosition] = params;
-        const page = parseInt(interaction.values[0].replace('page_', ''));
-
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const availablePlayers = draft.players.filter(p => !p.captainId);
-        const playersInPosition = availablePlayers.filter(player => {
-            const pos = searchType === 'primary' ? player.primaryPosition : player.secondaryPosition;
-            return pos === selectedPosition;
-        }).sort((a,b) => a.psnId.localeCompare(b.psnId));
-
-        const pageSize = 25;
-        const startIndex = page * pageSize;
-        const playersOnPage = playersInPosition.slice(startIndex, startIndex + pageSize);
-
-        const playerMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_pick_player:${draftShortId}:${captainId}`)
-            .setPlaceholder(`Jugadores de la Página ${page + 1}`)
-            .addOptions(
-                playersOnPage.map(player => ({
-                    label: player.psnId,
-                    description: `Discord: ${player.userName}`,
-                    value: player.userId,
-                }))
-            );
-
-        await interaction.editReply({
-            content: `Jugadores disponibles en **${DRAFT_POSITIONS[selectedPosition]}** (Página ${page + 1}):`,
-            components: [interaction.message.components[0], new ActionRowBuilder().addComponents(playerMenu)]
-        });
-        return;
-    }
+    await interaction.editReply({ 
+        content: `Mostrando jugadores para **${DRAFT_POSITIONS[selectedPosition]}** (encontrados por posición **${searchMode}**):`, 
+        components: [new ActionRowBuilder().addComponents(playerMenu)] 
+    });
+    return;
+}
+// --- FIN DE LA NUEVA LÓGICA ---
     
     if (action === 'draft_pick_player') {
         await interaction.deferUpdate();
