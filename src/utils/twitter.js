@@ -347,6 +347,10 @@ export async function postTournamentUpdate(eventType, data, forSimulation = fals
             const tournament = data;
             const finalMatch = tournament.structure.eliminatorias.final;
             if (finalMatch && finalMatch.resultado) {
+                // --- INICIO DE LA CORRECCIÓN ---
+                const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
+                const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
+                // --- FIN DE LA CORRECCIÓN ---
                 tweetText = `¡TENEMOS CAMPEÓN! 🏆\n\nFELICIDADES AL EQUIPO "${champion.nombre.toUpperCase()}" POR GANAR EL TORNEO "${tournament.nombre.toUpperCase()}". ¡GRAN ACTUACIÓN!\n\n#VPGLightnings`;
                 htmlContent = generateChampionHtml(tournament);
             } else {
