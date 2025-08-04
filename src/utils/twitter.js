@@ -29,52 +29,42 @@ const globalCss = `
   .container { 
     padding: 40px; 
     border: 3px solid #C70000;
-    background: #1D1D1D;
+    background-color: rgba(29, 29, 29, 0.9);
+    background-image: url(https://www.rektv.es/wp-content/uploads/2022/11/Recurso-10.png);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 450px;
     position: relative;
     overflow: hidden;
     height: 100%;
+    width: 100%;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    text-align: center;
   }
-   .container::before {
-    content: 'VPG';
-    position: absolute;
-    top: -50px;
-    left: -50px;
-    font-size: 200px;
-    font-weight: 900;
-    color: rgba(255, 255, 255, 0.03);
-    transform: rotate(-20deg);
-  }
-  .logo {
-    position: absolute;
-    top: 25px;
-    right: 25px;
-    width: 120px;
-    height: auto;
-    opacity: 0.9;
+  h1, h2, th, .team-name, .value {
+    text-transform: uppercase;
   }
   h1 { 
     color: #C70000; 
-    font-size: 48px; 
+    font-size: 64px; 
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     font-weight: 900;
-    text-transform: uppercase;
   }
   h2 {
     color: #e1e8ed;
-    font-size: 32px;
+    font-size: 38px;
     margin-bottom: 25px;
     border-bottom: 2px solid #333;
     padding-bottom: 10px;
     font-weight: 700;
   }
   p { 
-    font-size: 22px; 
-    margin-bottom: 10px; 
+    font-size: 24px; 
+    margin-bottom: 15px; 
   }
   .label { 
     color: #8899a6; 
@@ -89,6 +79,7 @@ const globalCss = `
     grid-template-columns: 1fr 1fr;
     gap: 12px 25px;
     font-size: 20px;
+    text-align: left;
   }
   .group-grid {
     display: grid;
@@ -100,38 +91,37 @@ const globalCss = `
     border-collapse: collapse; 
     margin-bottom: 20px;
     background-color: #2a2a2a;
+    text-align: left;
   }
   th, td { 
     padding: 12px 15px; 
-    text-align: left; 
     border-bottom: 1px solid #38444d; 
     font-size: 18px;
   }
   th { 
     color: #C70000; 
     font-weight: 700;
-    text-transform: uppercase;
   }
   .matchup-box {
     text-align: center;
     border: 1px solid #333;
-    padding: 20px;
+    padding: 15px;
     margin-bottom: 15px;
     background-color: #141414;
     border-radius: 10px;
   }
   .vs {
     color: #C70000;
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 900;
-    margin: 10px 0;
+    margin: 8px 0;
   }
   .team-name {
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 700;
   }
    .result {
-    font-size: 36px;
+    font-size: 32px;
     font-weight: 900;
     color: #C70000;
     margin: 5px 0;
@@ -157,17 +147,14 @@ async function generateHtmlImage(htmlContent) {
     }
 }
 
-// 4. Generadores de HTML para cada tipo de anuncio (con logo integrado)
-const LOGO_IMG_TAG = '<img src="https://www.rektv.es/wp-content/uploads/2022/11/Recurso-10.png" class="logo" alt="VPG Logo" />';
-
+// 4. Generadores de HTML para cada tipo de anuncio
 function generateTournamentAnnouncementHtml(tournament) {
     return `
       <div class="container">
-        ${LOGO_IMG_TAG}
-        <h1>¡Inscripciones Abiertas!</h1>
+        <h1>¡INSCRIPCIONES ABIERTAS!</h1>
         <h2>${tournament.nombre}</h2>
-        <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
-        <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
+        <p><span class="label">FORMATO:</span> <span class="value">${tournament.config.format.label}</span></p>
+        <p><span class="label">TIPO:</span> <span class="value">${tournament.config.isPaid ? 'DE PAGO' : 'GRATUITO'}</span></p>
       </div>`;
 }
 
@@ -175,11 +162,10 @@ function generateNewCaptainHtml(data) {
     const { captainData, draft } = data;
     return `
       <div class="container">
-        ${LOGO_IMG_TAG}
-        <h1>Nuevo Capitán Aprobado</h1>
-        <h2>Draft: ${draft.name}</h2>
-        <p><span class="label">Equipo:</span> <span class="value">${captainData.teamName}</span></p>
-        <p><span class="label">Capitán (PSN ID):</span> <span class="value">${captainData.psnId}</span></p>
+        <h1>NUEVO CAPITÁN APROBADO</h1>
+        <h2>DRAFT: ${draft.name}</h2>
+        <p><span class="label">EQUIPO:</span> <span class="value">${captainData.teamName}</span></p>
+        <p><span class="label">CAPITÁN (PSN ID):</span> <span class="value">${captainData.psnId}</span></p>
       </div>`;
 }
 
@@ -191,14 +177,33 @@ function generateFullRosterHtml(data) {
         .join('');
     return `
       <div class="container">
-        ${LOGO_IMG_TAG}
-        <h1>Plantilla Completa</h1>
-        <h2>${captain.teamName} (Draft: ${draft.name})</h2>
-        <p><span class="label">Capitán:</span> <span class="value">${captain.psnId}</span></p>
+        <h1>PLANTILLA COMPLETA</h1>
+        <h2>${captain.teamName} (DRAFT: ${draft.name})</h2>
+        <p><span class="label">CAPITÁN:</span> <span class="value">${captain.psnId}</span></p>
         <div class="roster-grid">
             ${playerItems}
         </div>
       </div>`;
+}
+
+function generateGroupStartHtml(tournament) {
+    let allGroupsHtml = '';
+    const sortedGroupNames = Object.keys(tournament.structure.grupos).sort();
+
+    for (const groupName of sortedGroupNames) {
+        const group = tournament.structure.grupos[groupName];
+        let tableHtml = `<div><h2>${groupName}</h2>`;
+        group.equipos.forEach(team => {
+            tableHtml += `<p class="value">${team.nombre}</p>`;
+        });
+        tableHtml += '</div>';
+        allGroupsHtml += tableHtml;
+    }
+    
+    return `<div class="container">
+              <h1>¡ARRANCA LA FASE DE GRUPOS!</h1>
+              <div class="group-grid">${allGroupsHtml}</div>
+            </div>`;
 }
 
 function generateGroupTablesHtml(tournament) {
@@ -207,7 +212,7 @@ function generateGroupTablesHtml(tournament) {
 
     for (const groupName of sortedGroupNames) {
         const group = tournament.structure.grupos[groupName];
-        let tableHtml = `<div><h2>${groupName}</h2><table><tr><th>Equipo</th><th>Pts</th><th>PJ</th><th>DG</th></tr>`;
+        let tableHtml = `<div><h2>${groupName}</h2><table><tr><th>EQUIPO</th><th>PTS</th><th>PJ</th><th>DG</th></tr>`;
         const sortedTeams = [...group.equipos].sort((a, b) => {
             if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
             return b.stats.dg - a.stats.dg;
@@ -220,8 +225,8 @@ function generateGroupTablesHtml(tournament) {
     }
     
     return `<div class="container">
-              ${LOGO_IMG_TAG}
-              <h1>Clasificación Fase de Grupos</h1>
+              <h1>CLASIFICACIÓN FASE DE GRUPOS</h1>
+              <h2>${tournament.nombre}</h2>
               <div class="group-grid">${allGroupsHtml}</div>
             </div>`;
 }
@@ -230,7 +235,7 @@ function generateKnockoutStageHtml(data) {
     const { matches, stage, tournament } = data;
     const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
     const hasResults = matches.some(m => m.resultado);
-    const title = hasResults ? `${stageName} - Resultados` : `${stageName} - Cruces`;
+    const title = hasResults ? `${stageName} - RESULTADOS` : `${stageName} - CRUCES`;
     
     let matchupsHtml = '';
     matches.forEach(match => {
@@ -247,11 +252,23 @@ function generateKnockoutStageHtml(data) {
     });
     return `
         <div class="container">
-            ${LOGO_IMG_TAG}
             <h1>${title}</h1>
             <h2>${tournament.nombre}</h2>
             ${matchupsHtml}
         </div>`;
+}
+
+function generateChampionHtml(tournament) {
+    const finalMatch = tournament.structure.eliminatorias.final;
+    const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
+    const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
+    
+    return `
+      <div class="container">
+        <h1>¡TENEMOS CAMPEÓN!</h1>
+        <h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2>
+        <p><span class="label">TORNEO:</span> <span class="value">${tournament.nombre}</span></p>
+      </div>`;
 }
 
 // 5. Función principal reestructurada para postear en Twitter y devolver el resultado
@@ -274,35 +291,35 @@ export async function postTournamentUpdate(eventType, data) {
         case 'INSCRIPCION_ABIERTA': {
             const tournament = data;
             const format = tournament.config.format;
-            tweetText = `¡Inscripciones abiertas para el torneo "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Apúntate en nuestro Discord! 👇\n${DISCORD_INVITE_LINK}\n\n#VPGLightnings`;
+            tweetText = `¡INSCRIPCIONES ABIERTAS PARA EL TORNEO "${tournament.nombre.toUpperCase()}"! 🏆\n\nFORMATO: ${format.label.toUpperCase()}\nTIPO: ${tournament.config.isPaid ? 'DE PAGO' : 'GRATUITO'}\n\n¡APÚNTATE EN NUESTRO DISCORD! 👇\n${DISCORD_INVITE_LINK}\n\n#VPGLightnings`;
             htmlContent = generateTournamentAnnouncementHtml(tournament);
             logMessage = `Tweet de apertura de inscripciones para ${tournament.nombre}`;
             break;
         }
         case 'NEW_CAPTAIN_APPROVED': {
             const { captainData, draft } = data;
-            tweetText = `¡Damos la bienvenida al draft "${draft.name}" al equipo "${captainData.teamName}", liderado por ${captainData.psnId}!\n\n#VPGLightnings`;
+            tweetText = `¡DAMOS LA BIENVENIDA AL DRAFT "${draft.name.toUpperCase()}" AL EQUIPO "${captainData.teamName.toUpperCase()}", LIDERADO POR ${captainData.psnId}!\n\n#VPGLightnings`;
             htmlContent = generateNewCaptainHtml(data);
             logMessage = `Tweet de nuevo capitán para ${captainData.teamName}`;
             break;
         }
         case 'ROSTER_COMPLETE': {
             const { captain, draft } = data;
-            tweetText = `¡Plantilla completa! 🔥 El equipo "${captain.teamName}", capitaneado por ${captain.psnId}, ha completado sus 11 jugadores para el draft "${draft.name}".\n\n#VPGLightnings`;
+            tweetText = `¡PLANTILLA COMPLETA! 🔥 EL EQUIPO "${captain.teamName.toUpperCase()}", CAPITANEADO POR ${captain.psnId}, HA COMPLETADO SUS 11 JUGADORES PARA EL DRAFT "${draft.name.toUpperCase()}".\n\n#VPGLightnings`;
             htmlContent = generateFullRosterHtml(data);
             logMessage = `Tweet de plantilla completa para ${captain.teamName}`;
             break;
         }
         case 'GROUP_STAGE_START': {
              const tournament = data;
-             tweetText = `¡Arranca la fase de grupos del torneo "${tournament.nombre}"! 🔥\n\n¡Mucha suerte a todos los equipos!\n\n#VPGLightnings`;
-             htmlContent = null;
+             tweetText = `¡ARRANCA LA FASE DE GRUPOS DEL TORNEO "${tournament.nombre.toUpperCase()}"! 🔥\n\n¡MUCHA SUERTE A TODOS LOS EQUIPOS!\n\n#VPGLightnings`;
+             htmlContent = generateGroupStartHtml(tournament);
              logMessage = `Tweet de inicio de fase de grupos para ${tournament.nombre}`;
              break;
         }
         case 'GROUP_STAGE_END': {
             const tournament = data;
-            tweetText = `¡Finaliza la fase de grupos del torneo "${tournament.nombre}"! 🔥\n\nAquí están las clasificaciones finales. ¡Enhorabuena a los clasificados!\n\n#VPGLightnings`;
+            tweetText = `¡FINALIZA LA FASE DE GRUPOS DEL TORNEO "${tournament.nombre.toUpperCase()}"! 🔥\n\nESTAS SON LAS CLASIFICACIONES FINALES. ¡ENHORABUENA A LOS CLASIFICADOS!\n\n#VPGLightnings`;
             htmlContent = generateGroupTablesHtml(tournament);
             logMessage = `Tweet de fin de fase de grupos para ${tournament.nombre}`;
             break;
@@ -310,7 +327,7 @@ export async function postTournamentUpdate(eventType, data) {
         case 'KNOCKOUT_MATCHUPS_CREATED': {
             const { stage, tournament } = data;
             const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
-            tweetText = `¡Arrancan los ${stageName} del torneo "${tournament.nombre}"! 💥\n\nEstos son los enfrentamientos. ¡Que gane el mejor!\n\n#VPGLightnings`;
+            tweetText = `¡ARRANCAN LOS ${stageName.toUpperCase()} DEL TORNEO "${tournament.nombre.toUpperCase()}"! 💥\n\nESTOS SON LOS ENFRENTAMIENTOS. ¡QUE GANE EL MEJOR!\n\n#VPGLightnings`;
             htmlContent = generateKnockoutStageHtml(data);
             logMessage = `Tweet de cruces de ${stageName} para ${tournament.nombre}`;
             break;
@@ -318,7 +335,7 @@ export async function postTournamentUpdate(eventType, data) {
         case 'KNOCKOUT_ROUND_COMPLETE': {
             const { stage, tournament, matches } = data;
             const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
-            tweetText = `¡Resultados finales de ${stageName} en el torneo "${tournament.nombre}"!\n\nAsí quedan los marcadores de esta ronda. ¡Los ganadores avanzan!\n\n#VPGLightnings`;
+            tweetText = `¡RESULTADOS FINALES DE ${stageName.toUpperCase()} EN EL TORNEO "${tournament.nombre.toUpperCase()}"!\n\nASÍ QUEDAN LOS MARCADORES DE ESTA RONDA. ¡LOS GANADORES AVANZAN!\n\n#VPGLightnings`;
             htmlContent = generateKnockoutStageHtml({ matches, stage, tournament });
             logMessage = `Tweet de resultados de ${stageName} para ${tournament.nombre}`;
             break;
@@ -329,11 +346,12 @@ export async function postTournamentUpdate(eventType, data) {
             if (finalMatch && finalMatch.resultado) {
                 const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
                 const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-                tweetText = `¡Tenemos un campeón! 🏆\n\nFelicidades al equipo "${champion.nombre}" por ganar el torneo "${tournament.nombre}". ¡Gran actuación!\n\n#VPGLightnings`;
+                tweetText = `¡TENEMOS CAMPEÓN! 🏆\n\nFELICIDADES AL EQUIPO "${champion.nombre.toUpperCase()}" POR GANAR EL TORNEO "${tournament.nombre.toUpperCase()}". ¡GRAN ACTUACIÓN!\n\n#VPGLightnings`;
+                htmlContent = generateChampionHtml(tournament);
             } else {
-                tweetText = `El torneo "${tournament.nombre}" ha finalizado. ¡Gracias a todos por participar!`;
+                tweetText = `EL TORNEO "${tournament.nombre.toUpperCase()}" HA FINALIZADO. ¡GRACIAS A TODOS POR PARTICIPAR!`;
+                htmlContent = null;
             }
-            htmlContent = null;
             logMessage = `Tweet de finalización para ${tournament.nombre}`;
             break;
         }
