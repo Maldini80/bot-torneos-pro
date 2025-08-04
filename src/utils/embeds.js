@@ -187,19 +187,16 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setDisabled(isBusy || !hasCaptains)
     );
 
-    // Lógica para añadir los botones de finalización
     if (isDraftTournament) {
-        // Si es un torneo de draft, mostramos el botón combinado
         row3.addComponents(
             new ButtonBuilder()
                 .setCustomId(`admin_end_tournament_and_draft:${tournament.shortId}`)
                 .setLabel('Finalizar Torneo y Draft')
                 .setStyle(ButtonStyle.Danger)
-                .setEmoji('🛑')
+                .setEmoji('🗑️')
                 .setDisabled(isBusy)
         );
     } else {
-        // Si es un torneo normal, mostramos el botón simple
         row3.addComponents(
             new ButtonBuilder()
                 .setCustomId(`admin_end_tournament:${tournament.shortId}`)
