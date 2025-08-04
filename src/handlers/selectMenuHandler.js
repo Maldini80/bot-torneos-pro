@@ -14,7 +14,6 @@ export async function handleSelectMenu(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-    // Función de ayuda para verificar permisos
     const isArbitroOrAdmin = () => {
         if (!interaction.member) return false;
         return interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(ADMIN_ROLE_ID);
@@ -146,7 +145,7 @@ export async function handleSelectMenu(interaction) {
                 console.error("Error capturado por el handler al crear el draft:", error);
                 await interaction.editReply({ content: `❌ Ocurrió un error: ${error.message}`, components: [] });
             }
-        } else { // type === 'pago'
+        } else {
             const modal = new ModalBuilder()
                 .setCustomId(`create_draft_paid_modal:${name}`)
                 .setTitle(`Crear Draft de Pago: ${name}`);
@@ -348,7 +347,6 @@ export async function handleSelectMenu(interaction) {
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
 
-        // Búsqueda Primaria
         let playersInPosition = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
         let searchMode = 'Primaria';
 
