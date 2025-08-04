@@ -23,6 +23,8 @@ const globalCss = `
     color: #ffffff;
     margin: 0;
     padding: 0;
+    width: 1024px;
+    height: 512px;
   }
   .container { 
     padding: 40px; 
@@ -30,6 +32,8 @@ const globalCss = `
     background: #1D1D1D;
     position: relative;
     overflow: hidden;
+    height: 100%;
+    box-sizing: border-box;
   }
    .container::before {
     content: 'VPG';
@@ -269,28 +273,35 @@ export async function postTournamentUpdate(eventType, data) {
             const format = tournament.config.format;
             tweetText = `¡Inscripciones abiertas para el torneo "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Apúntate en nuestro Discord! 👇\n${DISCORD_INVITE_LINK}\n\n#VPGLightnings`;
             htmlContent = generateTournamentAnnouncementHtml(tournament);
-            logMessage = `Tweet de apertura de inscripciones publicado para ${tournament.nombre}`;
+            logMessage = `Tweet de apertura de inscripciones para ${tournament.nombre}`;
             break;
         }
         case 'NEW_CAPTAIN_APPROVED': {
             const { captainData, draft } = data;
-            tweetText = `¡Damos la bienvenida al draft "${draft.name}" al equipo "${captainData.teamName}", liderado por ${captainData.psnId}! 캡틴을 환영합니다!\n\n#VPGLightnings`;
+            tweetText = `¡Damos la bienvenida al draft "${draft.name}" al equipo "${captainData.teamName}", liderado por ${captainData.psnId}!\n\n#VPGLightnings`;
             htmlContent = generateNewCaptainHtml(data);
-            logMessage = `Tweet de nuevo capitán publicado para ${captainData.teamName}`;
+            logMessage = `Tweet de nuevo capitán para ${captainData.teamName}`;
             break;
         }
         case 'ROSTER_COMPLETE': {
             const { captain, draft } = data;
             tweetText = `¡Plantilla completa! 🔥 El equipo "${captain.teamName}", capitaneado por ${captain.psnId}, ha completado sus 11 jugadores para el draft "${draft.name}".\n\n#VPGLightnings`;
             htmlContent = generateFullRosterHtml(data);
-            logMessage = `Tweet de plantilla completa publicado para ${captain.teamName}`;
+            logMessage = `Tweet de plantilla completa para ${captain.teamName}`;
             break;
+        }
+        case 'GROUP_STAGE_START': { // Evento que estaba fallando
+             const tournament = data;
+             tweetText = `¡Arranca la fase de grupos del torneo "${tournament.nombre}"! 🔥\n\n¡Mucha suerte a todos los equipos!\n\n#VPGLightnings`;
+             htmlContent = null; // No generamos imagen para este, es un tweet simple
+             logMessage = `Tweet de inicio de fase de grupos para ${tournament.nombre}`;
+             break;
         }
         case 'GROUP_STAGE_END': {
             const tournament = data;
             tweetText = `¡Finaliza la fase de grupos del torneo "${tournament.nombre}"! 🔥\n\nAquí están las clasificaciones finales. ¡Enhorabuena a los clasificados!\n\n#VPGLightnings`;
             htmlContent = generateGroupTablesHtml(tournament);
-            logMessage = `Tweet de fin de fase de grupos publicado para ${tournament.nombre}`;
+            logMessage = `Tweet de fin de fase de grupos para ${tournament.nombre}`;
             break;
         }
         case 'KNOCKOUT_MATCHUPS_CREATED': {
@@ -298,7 +309,7 @@ export async function postTournamentUpdate(eventType, data) {
             const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
             tweetText = `¡Arrancan los ${stageName} del torneo "${tournament.nombre}"! 💥\n\nEstos son los enfrentamientos. ¡Que gane el mejor!\n\n#VPGLightnings`;
             htmlContent = generateKnockoutStageHtml(data);
-            logMessage = `Tweet de cruces de ${stageName} publicado para ${tournament.nombre}`;
+            logMessage = `Tweet de cruces de ${stageName} para ${tournament.nombre}`;
             break;
         }
         case 'KNOCKOUT_ROUND_COMPLETE': {
@@ -306,7 +317,7 @@ export async function postTournamentUpdate(eventType, data) {
             const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
             tweetText = `¡Resultados finales de ${stageName} en el torneo "${tournament.nombre}"!\n\nAsí quedan los marcadores de esta ronda. ¡Los ganadores avanzan!\n\n#VPGLightnings`;
             htmlContent = generateKnockoutStageHtml({ matches, stage, tournament });
-            logMessage = `Tweet de resultados de ${stageName} publicado para ${tournament.nombre}`;
+            logMessage = `Tweet de resultados de ${stageName} para ${tournament.nombre}`;
             break;
         }
         case 'FINALIZADO': {
@@ -315,12 +326,16 @@ export async function postTournamentUpdate(eventType, data) {
             if (finalMatch && finalMatch.resultado) {
                 const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
                 const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-                tweetText = `¡Tenemos un campeón! 🏆\n\nFelicidades al equipo "${champion.nombre}" por ganar el torneo "${tournament.nombre}". ¡Gran actuación! #VPGLightnings`;
+                tweetText = `¡Tenemos un campeón! 🏆\n\nFelicidades al equipo "${champion.nombre}" por ganar el torneo "${tournament.nombre}". ¡Gran actuación!\n\n#VPGLightnings`;
             } else {
                 tweetText = `El torneo "${tournament.nombre}" ha finalizado. ¡Gracias a todos por participar!`;
             }
-            logMessage = `Tweet de finalización publicado para ${tournament.nombre}`;
+            logMessage = `Tweet de finalización para ${tournament.nombre}`;
             break;
+        }
+        default: {
+            // Si el eventType no es reconocido, no hacemos nada.
+            return null;
         }
     }
 
@@ -344,10 +359,10 @@ export async function postTournamentUpdate(eventType, data) {
         
         if (tweetResult.data && tweetResult.data.id) {
             const tweetUrl = `https://twitter.com/i/web/status/${tweetResult.data.id}`;
-            console.log(`[TWITTER] ${logMessage} (con imagen)`);
+            console.log(`[TWITTER] ${logMessage}`);
             return { success: true, url: tweetUrl };
         } else {
-            console.log(`[TWITTER] ${logMessage} (solo texto)`);
+             console.log(`[TWITTER] ${logMessage}`);
             return { success: true, url: null };
         }
 
@@ -358,6 +373,8 @@ export async function postTournamentUpdate(eventType, data) {
             errorMessage = 'Límite de tweets alcanzado. La API de Twitter bloqueó la publicación temporalmente.';
         } else if (e.message) {
             errorMessage = e.message;
+        } else if (e.errors && e.errors.length > 0) {
+            errorMessage = e.errors[0].message;
         }
         return { success: false, error: errorMessage };
     }
