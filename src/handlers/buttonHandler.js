@@ -49,6 +49,7 @@ export async function handleButton(interaction) {
         return;
     }
     // --- NUEVO CÓDIGO PARA LOS BOTONES DE CONFIGURACIÓN DE DRAFT ---
+// --- CÓDIGO MEJORADO PARA LOS BOTONES DE CONFIGURACIÓN DE DRAFT ---
 if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft_max_quotas') {
     const settings = await getBotSettings();
     const isMin = action === 'admin_config_draft_min_quotas';
@@ -56,19 +57,26 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         .setCustomId(isMin ? 'config_draft_min_modal' : 'config_draft_max_modal')
         .setTitle(isMin ? 'Config: Mínimos por Posición' : 'Config: Máximos por Posición');
     
-    const currentQuotas = (isMin ? settings.draftMinQuotas : settings.draftMaxQuotas) || '';
+    // Buscamos las cuotas guardadas
+    let valueForForm = isMin ? settings.draftMinQuotas : settings.draftMaxQuotas;
+
+    // Si no hay nada guardado, creamos la plantilla por defecto
+    if (!valueForForm) {
+        valueForForm = Object.keys(DRAFT_POSITIONS).map(pos => `${pos}:`).join(',');
+    }
 
     const quotasInput = new TextInputBuilder()
         .setCustomId('quotas_input')
-        .setLabel("Formato: POS:num,POS:num (ej: GK:1,DFC:2)")
+        .setLabel("Formato: POS:Num,POS:Num (Ej: GK:1,DFC:2)")
         .setStyle(TextInputStyle.Paragraph)
-        .setValue(currentQuotas)
+        .setValue(valueForForm) // Usamos el valor guardado o la plantilla
         .setRequired(true);
 
     modal.addComponents(new ActionRowBuilder().addComponents(quotasInput));
     await interaction.showModal(modal);
     return;
 }
+// --- FIN DEL CÓDIGO MEJORADO ---
 // --- FIN DEL NUEVO CÓDIGO ---
 
     if (action === 'captain_manage_roster_start') {
