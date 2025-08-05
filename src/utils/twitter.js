@@ -344,8 +344,10 @@ export async function postTournamentUpdate(eventType, data) {
         
         await twitterClient.v2.tweet({ text: tweetText, media: { media_ids: [mediaId] } });
         console.log(`[TWITTER] ${logMessage} (con imagen)`);
+        return { success: true };
         
     } catch (e) {
         console.error(`[TWITTER] Error al publicar tweet para el evento ${eventType}:`, e);
+       return { success: false, error: e };
     }
 }
