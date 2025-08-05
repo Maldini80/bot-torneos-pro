@@ -662,24 +662,37 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         return;
     }
 
-    if (action === 'draft_confirm_pick') {
-        const [draftShortId, captainId, selectedPlayerId] = params;
-        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+   if (action === 'draft_confirm_pick') {
+    const [draftShortId, captainId, selectedPlayerId] = params;
+    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-        if (interaction.user.id !== captainId && !isAdmin) {
-            return interaction.reply({ content: 'No puedes confirmar este pick.', flags: [MessageFlags.Ephemeral] });
-        }
+    if (interaction.user.id !== captainId && !isAdmin) {
+        return interaction.reply({ content: 'No puedes confirmar este pick.', flags: [MessageFlags.Ephemeral] });
+    }
 
-        await interaction.update({
-            content: '✅ Pick confirmado. Procesando siguiente turno...',
-            embeds: [],
-            components: []
-        });
+    await interaction.update({
+        content: '✅ Pick confirmado. Procesando siguiente turno...',
+        embeds: [],
+        components: []
+    });
 
+    // --- INICIO DE LA MODIFICACIÓN ---
+    try {
+        // Intentamos procesar el fichaje y avanzar el turno
         await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
         await advanceDraftTurn(client, draftShortId);
-        return;
+    } catch (error) {
+        // Si algo falla (ej. se supera el máximo), capturamos el error
+        console.error(`Error de regla de negocio en el pick: ${error.message}`);
+        // Y le mostramos el mensaje de error específico al capitán
+        await interaction.followUp({
+            content: `❌ **No se pudo completar el fichaje:** ${error.message}`,
+            flags: [MessageFlags.Ephemeral]
+        });
     }
+    // --- FIN DE LA MODIFICACIÓN ---
+    return;
+}
 
     if (action === 'draft_undo_pick') {
         const [draftShortId, captainId] = params;
