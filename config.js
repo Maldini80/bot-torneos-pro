@@ -103,4 +103,4 @@ export const TOURNAMENT_STATUS_ICONS = {
 };
 
 // Enlace al PDF de las normas del torneo
-export const PDF_RULES_URL = 'https://cdn.discordapp.com/attachments/1396998137859543240/1398204787622936606/Normas_de_los_partidos_y_guia_de_como_reportar_.pdf?ex=6884832e&is=688331ae&hm=ba0c2c2c775d50c581904ce15d86b29c088877a9a14bae1ba83fde927d4755db&';
+export const PDF_RULES_URL = 'https://archive.org/details/normas-de-los-partidos-y-guia-de-como-reportar';
