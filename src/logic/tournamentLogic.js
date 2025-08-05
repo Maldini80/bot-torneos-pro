@@ -835,7 +835,35 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
         console.log(`[CREATE] Panel de gestión enviado para ${shortId}.`);
 
-        postTournamentUpdate('INSCRIPCION_ABIERTA', newTournament).catch(console.error);
+            // --- INICIO DE LA MODIFICACIÓN: Tarea de Twitter en segundo plano ---
+    // No usamos 'await' para que el bot pueda continuar sin esperar a Twitter.
+    (async () => {
+        // Obtenemos los ajustes para ver si Twitter está activado
+        const settings = await getBotSettings();
+        if (!settings.twitterEnabled) {
+            // Si está desactivado, no hacemos nada y no se notifica.
+            return;
+        }
+
+        // Buscamos el hilo de notificaciones para enviar los mensajes de estado
+        const notificationsThread = await client.channels.fetch(newTournament.discordMessageIds.notificationsThreadId).catch(() => null);
+        if (!notificationsThread) return;
+
+        // Enviamos el primer mensaje: "Intentando..."
+        const statusMessage = await notificationsThread.send('⏳ Intentando generar el tweet de anuncio...');
+
+        // Llamamos a la función de Twitter y esperamos su resultado (éxito o fallo)
+        const result = await postTournamentUpdate('INSCRIPCION_ABIERTA', newTournament);
+
+        // Editamos el mensaje anterior según el resultado
+        if (result && result.success) {
+            await statusMessage.edit('✅ Tweet de anuncio generado con éxito.');
+        } else {
+            await statusMessage.edit('❌ Hubo un error al intentar generar el tweet de anuncio.');
+            console.error("Fallo en postTournamentUpdate:", result?.error);
+        }
+    })();
+    // --- FIN DE LA MODIFICACIÓN ---
         
         await setBotBusy(false);
         return { success: true, tournament: newTournament };
