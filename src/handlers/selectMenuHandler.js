@@ -605,4 +605,34 @@ if (action === 'draft_pick_by_position') {
             await interaction.editReply({ content: '❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.', components: [] });
         }
     }
+    // --- CÓDIGO AÑADIDO PARA APROBAR DESDE LA LISTA DE RESERVA ---
+if (action === 'admin_promote_from_waitlist') {
+    await interaction.deferUpdate();
+    const [tournamentShortId] = params;
+    const captainIdToPromote = interaction.values[0];
+
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) {
+        return interaction.followUp({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    const teamData = tournament.teams.reserva[captainIdToPromote];
+    if (!teamData) {
+        return interaction.followUp({ content: 'Error: Este equipo ya no está en la lista de reserva.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    try {
+        // Usamos la misma función que para aprobar a un equipo normal
+        await approveTeam(client, tournament, teamData);
+        await interaction.editReply({ 
+            content: `✅ El equipo **${teamData.nombre}** ha sido aprobado y movido de la reserva al torneo.`,
+            components: [] // Limpiamos el menú desplegable
+        });
+    } catch (error) {
+        console.error("Error al promover equipo desde la reserva:", error);
+        await interaction.followUp({ content: `❌ Hubo un error al aprobar al equipo: ${error.message}`, flags: [MessageFlags.Ephemeral] });
+    }
+    return;
+}
+// --- FIN DEL CÓDIGO AÑADIDO ---
 }
