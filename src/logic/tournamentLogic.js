@@ -206,7 +206,6 @@ export async function approveDraftCaptain(client, draft, captainData) {
 
     postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft }).catch(console.error);
 }
-// --- FIN DEL CÓDIGO PEGADO ---
 export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     const db = getDb();
     const isCaptain = draft.captains.some(c => c.userId === userIdToKick);
