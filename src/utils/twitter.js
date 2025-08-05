@@ -29,7 +29,6 @@ const globalCss = `
     color: #ffffff;
     margin: 0;
     padding: 0;
-    /* --- CAMBIO CLAVE: Definimos el tamaño de la imagen --- */
     width: 1024px;
     height: 512px;
   }
@@ -43,7 +42,6 @@ const globalCss = `
     border: 3px solid #C70000;
     position: relative;
     overflow: hidden;
-    /* Usamos Flexbox para centrar el contenido, como en tu versión original */
     height: 100%;
     width: 100%;
     box-sizing: border-box;
@@ -83,7 +81,6 @@ const globalCss = `
   .result { font-size: 32px; font-weight: 900; color: #C70000; margin: 5px 0; }
 `;
 
-// --- FUNCIÓN DE GENERACIÓN DE IMAGEN MEJORADA ---
 async function generateHtmlImage(htmlContent) {
     try {
         const response = await fetch('https://hcti.io/v1/image', {
@@ -95,12 +92,11 @@ async function generateHtmlImage(htmlContent) {
             body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
         });
         const data = await response.json();
-        // Comprobamos si HCTI devolvió una URL válida
         if (data.url) {
             return { success: true, url: data.url };
         } else {
             console.error("[TWITTER] HCTI no devolvió una URL. Respuesta:", data);
-            return { success: false, error: 'El servicio de imágenes no devolvió una URL.' };
+            return { success: false, error: data.error || 'El servicio de imágenes no devolvió una URL.' };
         }
     } catch (error) {
         console.error("[TWITTER] Error de red al contactar con HCTI:", error);
@@ -108,7 +104,6 @@ async function generateHtmlImage(htmlContent) {
     }
 }
 
-// --- GENERADORES DE HTML (HE AÑADIDO EL QUE FALTABA) ---
 function generateTournamentAnnouncementHtml(tournament) {
     return `
       <div class="container">
@@ -118,7 +113,6 @@ function generateTournamentAnnouncementHtml(tournament) {
         <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
       </div>`;
 }
-// (Aquí irían los otros generadores de HTML como generateNewCaptainHtml, etc., que ya tienes)
 
 function generateGroupStartHtml(tournament) {
     let allGroupsHtml = '';
@@ -133,36 +127,6 @@ function generateGroupStartHtml(tournament) {
     return `<div class="container"><h1>¡Arranca la Fase de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
 }
 
-function generateGroupTablesHtml(tournament) {
-    let allGroupsHtml = '';
-    const sortedGroupNames = Object.keys(tournament.structure.grupos).sort();
-    for (const groupName of sortedGroupNames) {
-        const group = tournament.structure.grupos[groupName];
-        let tableHtml = `<div><h2>${groupName}</h2><table><tr><th>Equipo</th><th>Pts</th><th>PJ</th><th>DG</th></tr>`;
-        const sortedTeams = [...group.equipos].sort((a, b) => {
-            if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
-            return b.stats.dg - a.stats.dg;
-        });
-        sortedTeams.forEach(team => { tableHtml += `<tr><td>${team.nombre}</td><td>${team.stats.pts}</td><td>${team.stats.pj}</td><td>${team.stats.dg > 0 ? '+' : ''}${team.stats.dg}</td></tr>`;});
-        tableHtml += '</table></div>';
-        allGroupsHtml += tableHtml;
-    }
-    return `<div class="container"><h1>Clasificación Fase de Grupos</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
-}
-
-function generateKnockoutStageHtml(data) {
-    const { matches, stage, tournament } = data;
-    const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
-    const hasResults = matches.some(m => m.resultado);
-    const title = hasResults ? `${stageName} - Resultados` : `${stageName} - Cruces`;
-    let matchupsHtml = '';
-    matches.forEach(match => {
-        const centerContent = match.resultado ? `<div class="result">${match.resultado}</div>` : `<div class="vs">vs</div>`;
-        matchupsHtml += `<div class="matchup-box"><div class="team-name">${match.equipoA.nombre}</div>${centerContent}<div class="team-name">${match.equipoB.nombre}</div></div>`;
-    });
-    return `<div class="container"><h1>${title}</h1><h2>${tournament.nombre}</h2>${matchupsHtml}</div>`;
-}
-
 function generateChampionHtml(tournament) {
     const finalMatch = tournament.structure.eliminatorias.final;
     const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
@@ -170,7 +134,7 @@ function generateChampionHtml(tournament) {
     return `<div class="container"><h1>¡Tenemos Campeón!</h1><h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2><p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p></div>`;
 }
 
-// --- FUNCIÓN PRINCIPAL DE TWITTER MEJORADA ---
+// --- FUNCIÓN PRINCIPAL DE TWITTER COMPLETA Y CORREGIDA ---
 export async function postTournamentUpdate(eventType, data) {
     const settings = await getBotSettings();
     if (!settings.twitterEnabled) {
@@ -216,42 +180,37 @@ export async function postTournamentUpdate(eventType, data) {
             logMessage = `Tweet de finalización para ${tournament.nombre}`;
             break;
         }
-        // ... (Aquí irían los otros 'case' para los demás eventos)
         default: {
             console.warn(`[TWITTER] Evento no reconocido para tuitear: ${eventType}`);
             return { success: false, error: "Evento no reconocido" };
         }
     }
 
+    // --- BLOQUE TRY/CATCH CORREGIDO ---
     try {
-       try {
-    if (!htmlContent) { // Si el evento es solo de texto
-        await twitterClient.v2.tweet({ text: tweetText });
-        console.log(`[TWITTER] ${logMessage} (solo texto)`);
-        return { success: true };
-    }
+        if (!htmlContent) { // Si el evento es solo de texto
+            await twitterClient.v2.tweet({ text: tweetText });
+            console.log(`[TWITTER] ${logMessage} (solo texto)`);
+            return { success: true };
+        }
 
-    // Intenta generar la imagen
-    const imageResult = await generateHtmlImage(htmlContent);
+        const imageResult = await generateHtmlImage(htmlContent);
 
-    if (imageResult.success) {
-        // Si tiene éxito, publica con imagen
-        const imageResponse = await fetch(imageResult.url);
-        const imageBuffer = await imageResponse.arrayBuffer();
-        const mediaId = await client.v1.uploadMedia(Buffer.from(imageBuffer), { mimeType: 'image/png' });
-        await twitterClient.v2.tweet({ text: tweetText, media: { media_ids: [mediaId] } });
-        console.log(`[TWITTER] ${logMessage} (con imagen)`);
-        return { success: true };
-    } else {
-        // Si la imagen falla (límite excedido, etc.), publica solo el texto
-        console.warn(`[TWITTER_WARN] Fallo al generar imagen: ${imageResult.error}. Publicando solo texto como fallback.`);
-        await twitterClient.v2.tweet({ text: tweetText });
-        console.log(`[TWITTER] ${logMessage} (solo texto - fallback)`);
-        // Devolvemos 'success: true' porque el anuncio principal (el texto) sí se publicó.
-        return { success: true };
+        if (imageResult.success) {
+            const imageResponse = await fetch(imageResult.url);
+            const imageBuffer = await imageResponse.arrayBuffer();
+            const mediaId = await client.v1.uploadMedia(Buffer.from(imageBuffer), { mimeType: 'image/png' });
+            await twitterClient.v2.tweet({ text: tweetText, media: { media_ids: [mediaId] } });
+            console.log(`[TWITTER] ${logMessage} (con imagen)`);
+            return { success: true };
+        } else {
+            console.warn(`[TWITTER_WARN] Fallo al generar imagen: ${imageResult.error}. Publicando solo texto como fallback.`);
+            await twitterClient.v2.tweet({ text: tweetText });
+            console.log(`[TWITTER] ${logMessage} (solo texto - fallback)`);
+            return { success: true };
+        }
+    } catch (e) {
+        console.error(`[TWITTER] Error CRÍTICO al publicar tweet para ${eventType}:`, e);
+        return { success: false, error: e.message };
     }
-} catch (e) {
-    console.error(`[TWITTER] Error CRÍTICO al publicar tweet para ${eventType}:`, e);
-    return { success: false, error: e.message };
-}
 }
