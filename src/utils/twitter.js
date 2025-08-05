@@ -224,27 +224,34 @@ export async function postTournamentUpdate(eventType, data) {
     }
 
     try {
-        if (!htmlContent) { // Si el evento no genera imagen
-            await twitterClient.v2.tweet({ text: tweetText });
-            console.log(`[TWITTER] ${logMessage} (solo texto)`);
-            return { success: true };
-        }
+       try {
+    if (!htmlContent) { // Si el evento es solo de texto
+        await twitterClient.v2.tweet({ text: tweetText });
+        console.log(`[TWITTER] ${logMessage} (solo texto)`);
+        return { success: true };
+    }
 
-        const imageResult = await generateHtmlImage(htmlContent);
-        if (!imageResult.success) {
-            throw new Error(imageResult.error);
-        }
+    // Intenta generar la imagen
+    const imageResult = await generateHtmlImage(htmlContent);
 
+    if (imageResult.success) {
+        // Si tiene éxito, publica con imagen
         const imageResponse = await fetch(imageResult.url);
         const imageBuffer = await imageResponse.arrayBuffer();
         const mediaId = await client.v1.uploadMedia(Buffer.from(imageBuffer), { mimeType: 'image/png' });
-        
         await twitterClient.v2.tweet({ text: tweetText, media: { media_ids: [mediaId] } });
         console.log(`[TWITTER] ${logMessage} (con imagen)`);
         return { success: true };
-
-    } catch (e) {
-        console.error(`[TWITTER] Error al publicar tweet para el evento ${eventType}:`, e);
-        return { success: false, error: e.message };
+    } else {
+        // Si la imagen falla (límite excedido, etc.), publica solo el texto
+        console.warn(`[TWITTER_WARN] Fallo al generar imagen: ${imageResult.error}. Publicando solo texto como fallback.`);
+        await twitterClient.v2.tweet({ text: tweetText });
+        console.log(`[TWITTER] ${logMessage} (solo texto - fallback)`);
+        // Devolvemos 'success: true' porque el anuncio principal (el texto) sí se publicó.
+        return { success: true };
     }
+} catch (e) {
+    console.error(`[TWITTER] Error CRÍTICO al publicar tweet para ${eventType}:`, e);
+    return { success: false, error: e.message };
+}
 }
