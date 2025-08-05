@@ -853,7 +853,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const statusMessage = await notificationsThread.send('⏳ Intentando generar el tweet de anuncio...');
 
         // Llamamos a la función de Twitter y esperamos su resultado (éxito o fallo)
-        const result = await postTournamentUpdate('INSCRIPCION_ABIERTA', newTournament);
+        const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
+        const result = await postTournamentUpdate('INSCRIPCION_ABIERTA', finalTournament);
 
         // Editamos el mensaje anterior según el resultado
         if (result && result.success) {
