@@ -59,30 +59,30 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    // --- INICIO DE LA COMPROBACIÓN DE MÁXIMOS ---
-    const settings = await getBotSettings();
-    const maxQuotas = Object.fromEntries(
-        settings.draftMaxQuotas.split(',').map(q => q.split(':'))
-    );
+   // --- INICIO DE LA COMPROBACIÓN DE MÁXIMOS (POR POSICIÓN PRIMARIA) ---
+const settings = await getBotSettings();
+const maxQuotas = Object.fromEntries(
+    settings.draftMaxQuotas.split(',').map(q => q.split(':'))
+);
 
-    const teamPlayers = draft.players.filter(p => p.captainId === captainId);
+const teamPlayers = draft.players.filter(p => p.captainId === captainId);
+
+// Identificamos la posición PRIMARIA del jugador que se intenta fichar
+const primaryPosOfNewPlayer = player.primaryPosition;
+
+// Comprobamos si hay una regla de máximo para esa posición
+if (maxQuotas[primaryPosOfNewPlayer]) {
+    const max = parseInt(maxQuotas[primaryPosOfNewPlayer]);
     
-    const checkPosition = (pos) => {
-        if (maxQuotas[pos]) {
-            const max = parseInt(maxQuotas[pos]);
-            const currentCount = teamPlayers.filter(p => p.primaryPosition === pos || p.secondaryPosition === pos).length;
-            if (currentCount >= max) {
-                throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${pos}.`);
-            }
-        }
-    };
-
-    // Comprobamos tanto la posición primaria como la secundaria del jugador a elegir
-    checkPosition(player.primaryPosition);
-    if (player.secondaryPosition && player.secondaryPosition !== 'NONE') {
-        checkPosition(player.secondaryPosition);
+    // Contamos cuántos jugadores en el equipo ya tienen esa como su posición PRIMARIA
+    const currentCount = teamPlayers.filter(p => p.primaryPosition === primaryPosOfNewPlayer).length;
+    
+    // Si el número actual ya es igual o mayor al máximo, bloqueamos el fichaje
+    if (currentCount >= max) {
+        throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición primaria ${primaryPosOfNewPlayer}.`);
     }
-    // --- FIN DE LA COMPROBACIÓN DE MÁXIMOS ---
+}
+// --- FIN DE LA COMPROBACIÓN DE MÁXIMOS ---
 
     await db.collection('drafts').updateOne(
         { shortId: draftShortId, "players.userId": selectedPlayerId },
