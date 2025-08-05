@@ -148,7 +148,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     if (updatedTeamPlayers.length === 11) {
         postTournamentUpdate('ROSTER_COMPLETE', { captain, players: updatedTeamPlayers, draft }).catch(console.error);
     }
-}
+
 
 
 export async function approveDraftCaptain(client, draft, captainData) {
