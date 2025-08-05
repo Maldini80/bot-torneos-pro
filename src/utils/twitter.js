@@ -270,6 +270,7 @@ export async function postTournamentUpdate(eventType, data) {
             const format = tournament.config.format;
             tweetText = `¡Inscripciones abiertas para "${tournament.nombre}"! 🏆\n\nFormato: ${format.label}\nTipo: ${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}\n\n¡Únete y compite! 👇\n${DISCORD_INVITE_LINK}\n\n${GLOBAL_HASHTAG}`;
             htmlContent = generateTournamentAnnouncementHtml(tournament);
+            console.log("[DEBUG_HTML] Contenido enviado a HCTI:", htmlContent);
             logMessage = `Tweet de apertura de inscripciones publicado para ${tournament.nombre}`;
             break;
         }
