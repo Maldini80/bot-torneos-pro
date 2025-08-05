@@ -59,27 +59,69 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-   // --- INICIO DE LA COMPROBACIÓN DE MÁXIMOS (POR POSICIÓN PRIMARIA) ---
-const settings = await getBotSettings();
-const maxQuotas = Object.fromEntries(
-    settings.draftMaxQuotas.split(',').map(q => q.split(':'))
-);
+    // --- Lógica de comprobación de máximos (ya la tienes) ---
+    const settings = await getBotSettings();
+    const maxQuotas = Object.fromEntries(
+        settings.draftMaxQuotas.split(',').map(q => q.split(':'))
+    );
+    const teamPlayers = draft.players.filter(p => p.captainId === captainId);
+    const primaryPosOfNewPlayer = player.primaryPosition;
+    if (maxQuotas[primaryPosOfNewPlayer]) {
+        const max = parseInt(maxQuotas[primaryPosOfNewPlayer]);
+        const currentCount = teamPlayers.filter(p => p.primaryPosition === primaryPosOfNewPlayer).length;
+        if (currentCount >= max) {
+            throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición primaria ${primaryPosOfNewPlayer}.`);
+        }
+    }
+    // --- FIN de la comprobación ---
 
-const teamPlayers = draft.players.filter(p => p.captainId === captainId);
-
-// Identificamos la posición PRIMARIA del jugador que se intenta fichar
-const primaryPosOfNewPlayer = player.primaryPosition;
-
-// Comprobamos si hay una regla de máximo para esa posición
-if (maxQuotas[primaryPosOfNewPlayer]) {
-    const max = parseInt(maxQuotas[primaryPosOfNewPlayer]);
+    await db.collection('drafts').updateOne(
+        { shortId: draftShortId, "players.userId": selectedPlayerId },
+        { $set: { "players.$.captainId": captainId } }
+    );
     
-    // Contamos cuántos jugadores en el equipo ya tienen esa como su posición PRIMARIA
-    const currentCount = teamPlayers.filter(p => p.primaryPosition === primaryPosOfNewPlayer).length;
+    // --- INICIO DE LA MODIFICACIÓN: NOTIFICACIONES ---
     
-    // Si el número actual ya es igual o mayor al máximo, bloqueamos el fichaje
-    if (currentCount >= max) {
-        throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición primaria ${primaryPosOfNewPlayer}.`);
+    // 1. Notificar al jugador por MD
+    if (/^\d+$/.test(selectedPlayerId)) {
+        try {
+            const playerUser = await client.users.fetch(selectedPlayerId);
+            const embed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle(`¡Has sido seleccionado en el Draft!`)
+                .setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
+            await playerUser.send({ embeds: [embed] });
+        } catch (e) {
+            console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`);
+        }
+    }
+
+    // 2. Anunciar públicamente en el canal del draft
+    try {
+        const draftChannel = await client.channels.fetch(draft.discordChannelId);
+        const announcementEmbed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setDescription(`**Pick #${draft.selection.currentPick}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}**`);
+
+        const announcementMessage = await draftChannel.send({ embeds: [announcementEmbed] });
+
+        // 3. Borrar el anuncio después de 60 segundos
+        setTimeout(() => {
+            announcementMessage.delete().catch(err => {
+                if (err.code !== 10008) { // Ignorar error si el mensaje ya fue borrado
+                    console.error("Error al intentar borrar el mensaje de anuncio de pick:", err);
+                }
+            });
+        }, 60000); // 60000 milisegundos = 60 segundos
+
+    } catch (e) {
+        console.error("No se pudo enviar o programar el borrado del anuncio de pick:", e);
+    }
+    // --- FIN DE LA MODIFICACIÓN ---
+    
+    const updatedTeamPlayers = [...teamPlayers, player];
+    if (updatedTeamPlayers.length === 11) {
+        postTournamentUpdate('ROSTER_COMPLETE', { captain, players: updatedTeamPlayers, draft }).catch(console.error);
     }
 }
 // --- FIN DE LA COMPROBACIÓN DE MÁXIMOS ---
