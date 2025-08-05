@@ -151,6 +151,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
 
 
 
+// --- ESTE ES EL CÓDIGO NUEVO Y CORRECTO QUE DEBES PEGAR ---
 export async function approveDraftCaptain(client, draft, captainData) {
     const db = getDb();
 
@@ -182,7 +183,6 @@ export async function approveDraftCaptain(client, draft, captainData) {
         try {
             const user = await client.users.fetch(captainData.userId);
             
-            // --- INICIO DE LA NOTIFICACIÓN DE MÁXIMOS ---
             const settings = await getBotSettings();
             const maxQuotasText = settings.draftMaxQuotas.split(',').join('\n').replace(/:/g, ': ');
             
@@ -194,7 +194,6 @@ export async function approveDraftCaptain(client, draft, captainData) {
                     `Ya apareces en la lista oficial. **IMPORTANTE:** Durante el draft, deberás respetar los siguientes límites de jugadores por posición:\n\n` +
                     "```\n" + maxQuotasText + "\n```"
                 );
-            // --- FIN DE LA NOTIFICACIÓN DE MÁXIMOS ---
 
             await user.send({ embeds: [embed] });
         } catch (e) { console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message); }
@@ -207,6 +206,7 @@ export async function approveDraftCaptain(client, draft, captainData) {
 
     postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft }).catch(console.error);
 }
+// --- FIN DEL CÓDIGO PEGADO ---
 export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     const db = getDb();
     const isCaptain = draft.captains.some(c => c.userId === userIdToKick);
