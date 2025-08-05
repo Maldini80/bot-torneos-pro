@@ -25,110 +25,72 @@ const twitterClient = client.readWrite;
 // --- INICIO DE MODIFICACIONES CSS ---
 
 // 2. CSS Global Modificado
+// CSS Definitivo con Logo de Fondo Específico
 const globalCss = `
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+  /* Importamos la fuente de Google Fonts */
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
   body { 
-    /* Usamos la nueva fuente 'Orbitron' */
-    font-family: 'Orbitron', sans-serif; 
-    background-color: #f0f0f0; /* Fondo claro para que el logo negro se vea */
-    color: #141414; /* Texto oscuro para contraste */
+    font-family: 'Montserrat', sans-serif; 
     margin: 0;
     padding: 0;
-    /* Todo el texto en mayúsculas */
     text-transform: uppercase;
   }
   .container { 
     padding: 40px; 
-    border: 4px solid #000000;
-    background: rgba(255, 255, 255, 0.85); /* Fondo blanco semitransparente */
+    /* Usamos un fondo oscuro sólido como base segura */
+    background-color: #141414;
+    /* Añadimos TU imagen de fondo desde la URL */
+    background-image: url('https://www.rektv.es/wp-content/uploads/2022/11/Recurso-10.png');
+    /* Configuramos cómo se muestra el fondo */
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: contain; /* Asegura que el logo se vea completo */
+    
+    border: 4px solid #C70000;
+    color: #ffffff;
     position: relative;
     overflow: hidden;
-    /* Añadimos la imagen de fondo */
-    background-image: url('${LOGO_URL_BACKGROUND}');
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
   }
+  /* Estilos para los textos */
   h1 { 
     color: #C70000; 
-    font-size: 52px; 
-    margin-top: 0;
-    margin-bottom: 20px;
+    font-size: 48px; 
+    margin: 0 0 15px 0;
     font-weight: 900;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    /* Añadimos una sombra sutil para que se lea mejor sobre el fondo */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
   }
   h2 {
-    color: #333333;
-    font-size: 36px;
+    color: #e1e8ed;
+    font-size: 32px;
     margin-bottom: 25px;
-    border-bottom: 3px solid #ddd;
+    border-bottom: 2px solid #333;
     padding-bottom: 10px;
     font-weight: 700;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
   }
   p { 
-    font-size: 24px; 
-    margin-bottom: 15px; 
+    font-size: 22px; 
+    margin-bottom: 10px; 
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
   }
   .label { 
-    color: #555; 
+    color: #aaaaaa; 
     font-weight: 400; 
   }
-  .value { 
-    color: #000000; 
+  .value, .team-name { 
+    color: #ffffff; 
     font-weight: 700; 
   }
-  .roster-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px 30px;
-    font-size: 22px;
-  }
-  .group-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-  }
-  table { 
-    width: 100%; 
-    border-collapse: collapse; 
-    margin-bottom: 20px;
-    background-color: rgba(255, 255, 255, 0.6);
-  }
-  th, td { 
-    padding: 14px 18px; 
-    text-align: left; 
-    border-bottom: 1px solid #ccc; 
-    font-size: 20px;
-  }
-  th { 
-    color: #C70000; 
-    font-weight: 700;
-  }
-  .matchup-box {
-    text-align: center;
-    border: 2px solid #ccc;
-    padding: 25px;
-    margin-bottom: 20px;
-    background-color: rgba(255, 255, 255, 0.7);
-    border-radius: 10px;
-  }
-  .vs {
-    color: #C70000;
-    font-size: 32px;
-    font-weight: 900;
-    margin: 12px 0;
-  }
-  .team-name {
-    font-size: 34px;
-    font-weight: 700;
-  }
-   .result {
-    font-size: 40px;
-    font-weight: 900;
-    color: #C70000;
-    margin: 8px 0;
-  }
+  /* Estilos para las tablas y cajas de enfrentamientos */
+  .group-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+  table { width: 100%; border-collapse: collapse; background-color: rgba(42, 42, 42, 0.8); /* Fondo de tabla semi-transparente */ }
+  th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #38444d; font-size: 18px; }
+  th { color: #C70000; font-weight: 700; }
+  .matchup-box { text-align: center; border: 1px solid #333; padding: 20px; margin-bottom: 15px; background-color: rgba(20, 20, 20, 0.8); border-radius: 10px; }
+  .vs { color: #C70000; font-size: 28px; font-weight: 900; margin: 10px 0; }
+  .result { font-size: 36px; font-weight: 900; color: #C70000; margin: 5px 0; }
 `;
 // --- FIN DE MODIFICACIONES CSS ---
 
