@@ -8,7 +8,7 @@ import { getBotSettings } from '../../database.js';
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
 // Usamos la URL de Imgur que sabemos que funciona
-const LOGO_URL_BACKGROUND = 'https://i.imgur.com/GZQLl0g.png';
+const LOGO_URL_BACKGROUND = 'https://www.rektv.es/wp-content/uploads/2022/11/Recurso-10.png';
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
