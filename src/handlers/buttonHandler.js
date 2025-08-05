@@ -864,13 +864,22 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         return;
     }
 
-    if (action === 'invite_to_thread') {
+        if (action === 'invite_to_thread') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
+        // 1. Se obtiene la información más reciente del torneo.
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const { partido } = findMatch(tournament, matchId);
         
-        const team = partido.equipoA.capitanId === interaction.user.id ? partido.equipoA : partido.equipoB;
+        // 2. Se busca la información del equipo directamente desde la fuente principal ("teams.aprobados")
+        //    en lugar de la copia del partido.
+        const team = tournament.teams.aprobados[interaction.user.id];
+
+        // 3. Si por alguna razón el equipo no se encuentra, se da un error.
+        if (!team) {
+            return interaction.editReply({ content: 'Error: No se encontró tu equipo en este torneo.' });
+        }
+
+        // 4. Se llama a la misma función de antes, pero ahora "team" contiene la información actualizada.
         await inviteUserToMatchThread(interaction, team);
         return;
     }
