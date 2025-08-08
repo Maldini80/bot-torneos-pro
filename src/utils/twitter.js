@@ -233,6 +233,39 @@ function generateRosterCompleteHtml(data) {
             </div>
         </div>`;
 }
+// --- FUNCIÓN TOTALMENTE NUEVA PARA LOS RESULTADOS ---
+function generateKnockoutResultsHtml(data) {
+    const { matches, stage, tournament } = data;
+    let resultsHtml = '';
+
+    const stageTitles = {
+        octavos: 'Resultados de Octavos',
+        cuartos: 'Resultados de Cuartos',
+        semifinales: 'Resultados de Semifinales'
+    };
+
+    matches.forEach(match => {
+        const [scoreA, scoreB] = match.resultado.split('-').map(Number);
+        const winner = scoreA > scoreB ? match.equipoA : match.equipoB;
+        const loser = scoreA > scoreB ? match.equipoB : match.equipoA;
+        const winnerScore = scoreA > scoreB ? scoreA : scoreB;
+        const loserScore = scoreA > scoreB ? scoreB : scoreA;
+
+        resultsHtml += `
+            <div class="matchup-box">
+                <div class="team-name" style="color: #ffffff; font-weight: 900;">${winner.nombre}</div>
+                <div class="result">${winnerScore} - ${loserScore}</div>
+                <div class="team-name" style="color: #8899a6; text-decoration: line-through;">${loser.nombre}</div>
+            </div>`;
+    });
+
+    return `
+        <div class="container">
+            <h1>${stageTitles[stage] || `Resultados de ${stage}`}</h1>
+            <h2>${tournament.nombre}</h2>
+            <div>${resultsHtml}</div>
+        </div>`;
+}
 // --- FUNCIÓN PRINCIPAL DE TWITTER (VERSIÓN FINAL) ---
 export async function postTournamentUpdate(eventType, data) {
     const settings = await getBotSettings();
@@ -277,6 +310,15 @@ export async function postTournamentUpdate(eventType, data) {
             tweetText = `¡TENEMOS LOS CRUCES DE ${stageName.toUpperCase()}!\n\nEstos son los enfrentamientos del torneo "${tournament.nombre.toUpperCase()}". ¡Que gane el mejor! ⚔️\n\n${GLOBAL_HASHTAG}`;
             htmlContent = generateKnockoutMatchupsHtml(data);
             logMessage = `Tweet de cruces de ${stageName} para ${tournament.nombre}`;
+            break;
+        }
+        // --- EVENTO NUEVO PARA RESULTADOS DE RONDA ---
+        case 'KNOCKOUT_ROUND_COMPLETE': {
+            const { stage, tournament } = data;
+            const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
+            tweetText = `¡RESULTADOS FINALES DE ${stageName.toUpperCase()}!\n\nEstos son los marcadores de la última ronda del torneo "${tournament.nombre.toUpperCase()}". ¡Enhorabuena a los ganadores! 👏\n\n${GLOBAL_HASHTAG}`;
+            htmlContent = generateKnockoutResultsHtml(data);
+            logMessage = `Tweet de resultados de ${stageName} para ${tournament.nombre}`;
             break;
         }
         case 'NEW_CAPTAIN_APPROVED': {
