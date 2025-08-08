@@ -133,6 +133,80 @@ function generateChampionHtml(tournament) {
     const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
     return `<div class="container"><h1>¡Tenemos Campeón!</h1><h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2><p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p></div>`;
 }
+// --- NUEVAS FUNCIONES DE HTML ---
+
+function generateGroupEndHtml(tournament) {
+    let allGroupsHtml = '';
+    const sortedGroupNames = Object.keys(tournament.structure.grupos).sort();
+
+    // Función para ordenar equipos, igual que en el bot
+    const sortTeams = (a, b) => {
+        if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
+        if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
+        if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
+        return 0;
+    };
+
+    for (const groupName of sortedGroupNames) {
+        const group = tournament.structure.grupos[groupName];
+        const sortedTeams = [...group.equipos].sort(sortTeams);
+        
+        let tableHtml = `<div><h2>${groupName}</h2><table>`;
+        tableHtml += `<tr><th>EQUIPO</th><th>PTS</th><th>DG</th></tr>`;
+        sortedTeams.forEach(team => {
+            tableHtml += `<tr><td>${team.nombre}</td><td>${team.stats.pts}</td><td>${team.stats.dg}</td></tr>`;
+        });
+        tableHtml += '</table></div>';
+        allGroupsHtml += tableHtml;
+    }
+
+    return `<div class="container"><h1>¡Clasificación Final de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
+}
+
+function generateKnockoutMatchupsHtml(data) {
+    const { matches, stage, tournament } = data;
+    let matchupsHtml = '';
+
+    matches.forEach(match => {
+        matchupsHtml += `
+            <div class="matchup-box">
+                <div class="team-name">${match.equipoA.nombre}</div>
+                <div class="vs">VS</div>
+                <div class="team-name">${match.equipoB.nombre}</div>
+            </div>`;
+    });
+
+    const stageTitles = {
+        octavos: '¡Tenemos los cruces de Octavos!',
+        cuartos: '¡Arrancan los Cuartos de Final!',
+        semifinales: '¡Definidas las Semifinales!',
+        final: '¡Esta es la Gran Final!'
+    };
+
+    return `
+        <div class="container">
+            <h1>${stageTitles[stage] || `Cruces de ${stage}`}</h1>
+            <h2>${tournament.nombre}</h2>
+            <div>${matchupsHtml}</div>
+        </div>`;
+}
+
+function generateNewCaptainHtml(data) {
+    const { captainData, draft } = data;
+    return `
+      <div class="container">
+        <h1>¡Nuevo Capitán en el Draft!</h1>
+        <h2>${draft.name}</h2>
+        <div class="matchup-box" style="background-color: transparent; border: none;">
+            <p class="label">Equipo</p>
+            <div class="team-name">${captainData.teamName}</div>
+            <p class="label" style="margin-top: 20px;">Capitán</p>
+            <div class="team-name" style="color: #e1e8ed;">${captainData.psnId}</div>
+        </div>
+      </div>`;
+}
+
+// --- FIN DE NUEVAS FUNCIONES ---
 
 // --- FUNCIÓN PRINCIPAL DE TWITTER COMPLETA Y CORREGIDA ---
 export async function postTournamentUpdate(eventType, data) {
