@@ -133,13 +133,12 @@ function generateChampionHtml(tournament) {
     const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
     return `<div class="container"><h1>¡Tenemos Campeón!</h1><h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2><p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p></div>`;
 }
-// --- NUEVAS FUNCIONES DE HTML ---
+// --- NUEVAS FUNCIONES DE HTML (VERSIÓN FINAL) ---
 
 function generateGroupEndHtml(tournament) {
     let allGroupsHtml = '';
     const sortedGroupNames = Object.keys(tournament.structure.grupos).sort();
 
-    // Función para ordenar equipos, igual que en el bot
     const sortTeams = (a, b) => {
         if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
         if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
@@ -193,6 +192,9 @@ function generateKnockoutMatchupsHtml(data) {
 
 function generateNewCaptainHtml(data) {
     const { captainData, draft } = data;
+    // --- INICIO DE MODIFICACIÓN: Usar Twitter si existe ---
+    const captainIdentifier = captainData.twitter ? `@${captainData.twitter}` : captainData.psnId;
+    // --- FIN DE MODIFICACIÓN ---
     return `
       <div class="container">
         <h1>¡Nuevo Capitán en el Draft!</h1>
@@ -201,13 +203,37 @@ function generateNewCaptainHtml(data) {
             <p class="label">Equipo</p>
             <div class="team-name">${captainData.teamName}</div>
             <p class="label" style="margin-top: 20px;">Capitán</p>
-            <div class="team-name" style="color: #e1e8ed;">${captainData.psnId}</div>
+            <div class="team-name" style="color: #e1e8ed;">${captainIdentifier}</div>
         </div>
       </div>`;
 }
 
-// --- FIN DE NUEVAS FUNCIONES ---
-// --- FUNCIÓN PRINCIPAL DE TWITTER COMPLETA Y CORREGIDA ---
+// --- FUNCIÓN TOTALMENTE NUEVA PARA LA PLANTILLA ---
+function generateRosterCompleteHtml(data) {
+    const { captain, players, draft } = data;
+    
+    // El capitán ya está en la lista de jugadores, lo separamos para destacarlo
+    const captainPlayer = players.find(p => p.isCaptain);
+    // El resto de jugadores seleccionados
+    const selectedPlayers = players.filter(p => !p.isCaptain).sort((a, b) => a.psnId.localeCompare(b.psnId));
+
+    let playerListHtml = '<ul style="list-style: none; padding: 0; text-align: center; columns: 2;">';
+    selectedPlayers.forEach(player => {
+        playerListHtml += `<li style="font-size: 20px; margin-bottom: 8px;">${player.psnId}</li>`;
+    });
+    playerListHtml += '</ul>';
+
+    return `
+        <div class="container">
+            <h1>¡Plantilla Completa!</h1>
+            <h2 style="color: #e1e8ed;">${captain.teamName}</h2>
+            <p class="label">Capitán: <span class="value">${captainPlayer.psnId}</span></p>
+            <div style="margin-top: 20px;">
+                ${playerListHtml}
+            </div>
+        </div>`;
+}
+// --- FUNCIÓN PRINCIPAL DE TWITTER (VERSIÓN FINAL) ---
 export async function postTournamentUpdate(eventType, data) {
     const settings = await getBotSettings();
     if (!settings.twitterEnabled) {
@@ -238,7 +264,6 @@ export async function postTournamentUpdate(eventType, data) {
              logMessage = `Tweet de inicio de fase de grupos para ${tournament.nombre}`;
              break;
         }
-        // --- INICIO DE NUEVO CÓDIGO ---
         case 'GROUP_STAGE_END': {
             const tournament = data;
             tweetText = `¡FASE DE GRUPOS FINALIZADA!\n\nAsí quedan las tablas del torneo "${tournament.nombre.toUpperCase()}". ¡Enhorabuena a los clasificados! 🔥\n\n${GLOBAL_HASHTAG}`;
@@ -256,12 +281,22 @@ export async function postTournamentUpdate(eventType, data) {
         }
         case 'NEW_CAPTAIN_APPROVED': {
             const { captainData, draft } = data;
-            tweetText = `¡Nuevo equipo en el Draft "${draft.name.toUpperCase()}"! 🔥\n\nLe damos la bienvenida a "${captainData.teamName.toUpperCase()}" con su capitán ${captainData.psnId}.\n\n¡Inscríbete! 👇\n${DISCORD_INVITE_LINK}\n\n${GLOBAL_HASHTAG}`;
+            // --- INICIO DE MODIFICACIÓN: Lógica del mention ---
+            const captainMention = captainData.twitter ? `@${captainData.twitter}` : captainData.psnId;
+            // --- FIN DE MODIFICACIÓN ---
+            tweetText = `¡Nuevo equipo en el Draft "${draft.name.toUpperCase()}"! 🔥\n\nLe damos la bienvenida a "${captainData.teamName.toUpperCase()}" con su capitán ${captainMention}.\n\n¡Inscríbete! 👇\n${DISCORD_INVITE_LINK}\n\n${GLOBAL_HASHTAG}`;
             htmlContent = generateNewCaptainHtml(data);
             logMessage = `Tweet de nuevo capitán ${captainData.teamName} para el draft ${draft.name}`;
             break;
         }
-        // --- FIN DE NUEVO CÓDIGO ---
+        // --- EVENTO TOTALMENTE NUEVO ---
+        case 'ROSTER_COMPLETE': {
+            const { captain, draft } = data;
+            tweetText = `¡PLANTILLA COMPLETA! ✅\n\nEl equipo "${captain.teamName.toUpperCase()}" ha completado su roster para el Draft "${draft.name.toUpperCase()}".\n\n¡Mucha suerte en la competición! 🍀\n\n${GLOBAL_HASHTAG}`;
+            htmlContent = generateRosterCompleteHtml(data);
+            logMessage = `Tweet de plantilla completa para el equipo ${captain.teamName}`;
+            break;
+        }
         case 'FINALIZADO': {
             const tournament = data;
             const finalMatch = tournament.structure.eliminatorias.final;
@@ -278,15 +313,14 @@ export async function postTournamentUpdate(eventType, data) {
             break;
         }
         default: {
-            // Ya no veremos los errores, pero es bueno mantener esto por si se añade un evento nuevo.
             console.warn(`[TWITTER] Evento no reconocido para tuitear: ${eventType}`);
             return { success: false, error: "Evento no reconocido" };
         }
     }
 
-    // --- BLOQUE TRY/CATCH CORREGIDO ---
+    // --- BLOQUE TRY/CATCH (Sin cambios, pero se incluye para que reemplaces la función entera) ---
     try {
-        if (!htmlContent) { // Si el evento es solo de texto
+        if (!htmlContent) {
             await twitterClient.v2.tweet({ text: tweetText });
             console.log(`[TWITTER] ${logMessage} (solo texto)`);
             return { success: true };
