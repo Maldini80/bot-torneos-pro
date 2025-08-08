@@ -207,7 +207,6 @@ function generateNewCaptainHtml(data) {
 }
 
 // --- FIN DE NUEVAS FUNCIONES ---
-
 // --- FUNCIÓN PRINCIPAL DE TWITTER COMPLETA Y CORREGIDA ---
 export async function postTournamentUpdate(eventType, data) {
     const settings = await getBotSettings();
@@ -239,6 +238,30 @@ export async function postTournamentUpdate(eventType, data) {
              logMessage = `Tweet de inicio de fase de grupos para ${tournament.nombre}`;
              break;
         }
+        // --- INICIO DE NUEVO CÓDIGO ---
+        case 'GROUP_STAGE_END': {
+            const tournament = data;
+            tweetText = `¡FASE DE GRUPOS FINALIZADA!\n\nAsí quedan las tablas del torneo "${tournament.nombre.toUpperCase()}". ¡Enhorabuena a los clasificados! 🔥\n\n${GLOBAL_HASHTAG}`;
+            htmlContent = generateGroupEndHtml(tournament);
+            logMessage = `Tweet de clasificación final de grupos para ${tournament.nombre}`;
+            break;
+        }
+        case 'KNOCKOUT_MATCHUPS_CREATED': {
+            const { stage, tournament } = data;
+            const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
+            tweetText = `¡TENEMOS LOS CRUCES DE ${stageName.toUpperCase()}!\n\nEstos son los enfrentamientos del torneo "${tournament.nombre.toUpperCase()}". ¡Que gane el mejor! ⚔️\n\n${GLOBAL_HASHTAG}`;
+            htmlContent = generateKnockoutMatchupsHtml(data);
+            logMessage = `Tweet de cruces de ${stageName} para ${tournament.nombre}`;
+            break;
+        }
+        case 'NEW_CAPTAIN_APPROVED': {
+            const { captainData, draft } = data;
+            tweetText = `¡Nuevo equipo en el Draft "${draft.name.toUpperCase()}"! 🔥\n\nLe damos la bienvenida a "${captainData.teamName.toUpperCase()}" con su capitán ${captainData.psnId}.\n\n¡Inscríbete! 👇\n${DISCORD_INVITE_LINK}\n\n${GLOBAL_HASHTAG}`;
+            htmlContent = generateNewCaptainHtml(data);
+            logMessage = `Tweet de nuevo capitán ${captainData.teamName} para el draft ${draft.name}`;
+            break;
+        }
+        // --- FIN DE NUEVO CÓDIGO ---
         case 'FINALIZADO': {
             const tournament = data;
             const finalMatch = tournament.structure.eliminatorias.final;
@@ -255,6 +278,7 @@ export async function postTournamentUpdate(eventType, data) {
             break;
         }
         default: {
+            // Ya no veremos los errores, pero es bueno mantener esto por si se añade un evento nuevo.
             console.warn(`[TWITTER] Evento no reconocido para tuitear: ${eventType}`);
             return { success: false, error: "Evento no reconocido" };
         }
