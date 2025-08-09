@@ -7,7 +7,7 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-const CORNER_LOGO_URL = 'https://i.imgur.com/YD3Qu7E.png'; 
+const CORNER_LOGO_URL = 'https://i.imgur.com/YD3Qu7E.png';
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
@@ -18,10 +18,10 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS CORREGIDO Y FINAL ---
+// --- CSS REESCRITO Y SIMPLIFICADO PARA MÁXIMA COMPATIBILIDAD ---
 const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
-
+  
   body { 
     font-family: 'Montserrat', sans-serif; 
     background-color: #141414; 
@@ -32,14 +32,7 @@ const globalCss = `
     height: 512px;
   }
 
-  /* NUEVO: Contenedor principal para el posicionamiento */
-  .image-wrapper {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden; /* Asegura que nada se salga */
-  }
-
+  /* El contenedor ahora es un flexbox vertical */
   .container { 
     padding: 40px; 
     background-color: rgba(29, 29, 29, 0.9);
@@ -48,17 +41,30 @@ const globalCss = `
     width: 100%;
     box-sizing: border-box;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
+    flex-direction: column; /* Apila los elementos verticalmente */
     text-align: center;
   }
 
-  /* Posicionamiento del logo relativo al .image-wrapper */
+  /* Zona principal que ocupa todo el espacio disponible */
+  .main-content {
+    flex-grow: 1; /* Hace que ocupe el espacio sobrante */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Centra el contenido verticalmente */
+  }
+
+  /* Pie de página para el logo */
+  .card-footer {
+    width: 100%;
+    height: 80px; /* Altura fija para el pie de página */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; /* Alinea el logo a la derecha */
+    flex-shrink: 0; /* Evita que se encoja */
+  }
+
   .corner-logo {
-    position: absolute;
-    bottom: 25px; /* Margen inferior */
-    right: 25px;  /* Margen derecho */
-    height: 75px; /* Altura del logo */
+    height: 65px; /* Tamaño del logo */
     width: auto;
     opacity: 0.9;
   }
@@ -79,20 +85,16 @@ const globalCss = `
   .result { font-size: 32px; font-weight: 900; color: #C70000; margin: 5px 0; }
 `;
 
-// HTML del logo que se añadirá al wrapper
-const cornerLogoHtml = `<img src="${CORNER_LOGO_URL}" class="corner-logo">`;
 
 async function generateHtmlImage(htmlContent) {
     try {
-        // Se añade el wrapper a todo el contenido
-        const finalHtml = `<div class="image-wrapper">${htmlContent}${cornerLogoHtml}</div>`;
         const response = await fetch('https://hcti.io/v1/image', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + Buffer.from(process.env.HCTI_API_USER_ID + ':' + process.env.HCTI_API_KEY).toString('base64')
             },
-            body: JSON.stringify({ html: finalHtml, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
+            body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
         });
         const data = await response.json();
         if (data.url) {
@@ -103,18 +105,23 @@ async function generateHtmlImage(htmlContent) {
         }
     } catch (error) {
         console.error("[TWITTER] Error de red al contactar con HCTI:", error);
-        return { success: false, error: 'Fallo al contactar con el servicio de imágenes.' };
+        return { success: false, error: 'Fallo al contactar con el servicio de generación de imágenes.' };
     }
 }
 
-// Todas las funciones ahora solo devuelven el contenido INTERIOR
+// Las funciones ahora devuelven el HTML completo con la nueva estructura
 function generateTournamentAnnouncementHtml(tournament) {
     return `
       <div class="container">
-        <h1>¡Inscripciones Abiertas!</h1>
-        <h2>${tournament.nombre}</h2>
-        <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
-        <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
+        <div class="main-content">
+          <h1>¡Inscripciones Abiertas!</h1>
+          <h2>${tournament.nombre}</h2>
+          <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
+          <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
+        </div>
+        <div class="card-footer">
+          <img src="${CORNER_LOGO_URL}" class="corner-logo">
+        </div>
       </div>`;
 }
 
@@ -128,14 +135,34 @@ function generateGroupStartHtml(tournament) {
         tableHtml += '</div>';
         allGroupsHtml += tableHtml;
     }
-    return `<div class="container"><h1>¡Arranca la Fase de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
+    return `
+      <div class="container">
+        <div class="main-content">
+          <h1>¡Arranca la Fase de Grupos!</h1>
+          <h2>${tournament.nombre}</h2>
+          <div class="group-grid">${allGroupsHtml}</div>
+        </div>
+        <div class="card-footer">
+          <img src="${CORNER_LOGO_URL}" class="corner-logo">
+        </div>
+      </div>`;
 }
 
 function generateChampionHtml(tournament) {
     const finalMatch = tournament.structure.eliminatorias.final;
     const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
     const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-    return `<div class="container"><h1>¡Tenemos Campeón!</h1><h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2><p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p></div>`;
+    return `
+      <div class="container">
+        <div class="main-content">
+          <h1>¡Tenemos Campeón!</h1>
+          <h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2>
+          <p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p>
+        </div>
+        <div class="card-footer">
+          <img src="${CORNER_LOGO_URL}" class="corner-logo">
+        </div>
+      </div>`;
 }
 
 function generateGroupEndHtml(tournament) {
@@ -158,7 +185,17 @@ function generateGroupEndHtml(tournament) {
         tableHtml += '</table></div>';
         allGroupsHtml += tableHtml;
     }
-    return `<div class="container"><h1>¡Clasificación Final de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
+    return `
+      <div class="container">
+        <div class="main-content">
+          <h1>¡Clasificación Final de Grupos!</h1>
+          <h2>${tournament.nombre}</h2>
+          <div class="group-grid">${allGroupsHtml}</div>
+        </div>
+        <div class="card-footer">
+          <img src="${CORNER_LOGO_URL}" class="corner-logo">
+        </div>
+      </div>`;
 }
 
 function generateKnockoutMatchupsHtml(data) {
@@ -174,11 +211,16 @@ function generateKnockoutMatchupsHtml(data) {
     });
     const stageTitles = { octavos: '¡Tenemos los cruces de Octavos!', cuartos: '¡Arrancan los Cuartos de Final!', semifinales: '¡Definidas las Semifinales!', final: '¡Esta es la Gran Final!' };
     return `
-        <div class="container">
-            <h1>${stageTitles[stage] || `Cruces de ${stage}`}</h1>
-            <h2>${tournament.nombre}</h2>
-            <div>${matchupsHtml}</div>
-        </div>`;
+      <div class="container">
+        <div class="main-content">
+          <h1>${stageTitles[stage] || `Cruces de ${stage}`}</h1>
+          <h2>${tournament.nombre}</h2>
+          <div>${matchupsHtml}</div>
+        </div>
+        <div class="card-footer">
+          <img src="${CORNER_LOGO_URL}" class="corner-logo">
+        </div>
+      </div>`;
 }
 
 function generateNewCaptainHtml(data) {
@@ -186,13 +228,18 @@ function generateNewCaptainHtml(data) {
     const captainIdentifier = captainData.twitter ? `@${captainData.twitter}` : captainData.psnId;
     return `
       <div class="container">
-        <h1>¡Nuevo Capitán en el Draft!</h1>
-        <h2>${draft.name}</h2>
-        <div class="matchup-box" style="background-color: transparent; border: none;">
-            <p class="label">Equipo</p>
-            <div class="team-name">${captainData.teamName}</div>
-            <p class="label" style="margin-top: 20px;">Capitán</p>
-            <div class="team-name" style="color: #e1e8ed;">${captainIdentifier}</div>
+        <div class="main-content">
+          <h1>¡Nuevo Capitán en el Draft!</h1>
+          <h2>${draft.name}</h2>
+          <div class="matchup-box" style="background-color: transparent; border: none;">
+              <p class="label">Equipo</p>
+              <div class="team-name">${captainData.teamName}</div>
+              <p class="label" style="margin-top: 20px;">Capitán</p>
+              <div class="team-name" style="color: #e1e8ed;">${captainIdentifier}</div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <img src="${CORNER_LOGO_URL}" class="corner-logo">
         </div>
       </div>`;
 }
@@ -205,12 +252,17 @@ function generateRosterCompleteHtml(data) {
     selectedPlayers.forEach(player => { playerListHtml += `<li style="font-size: 20px; margin-bottom: 8px;">${player.psnId}</li>`; });
     playerListHtml += '</ul>';
     return `
-        <div class="container">
-            <h1>¡Plantilla Completa!</h1>
-            <h2 style="color: #e1e8ed;">${captain.teamName}</h2>
-            <p class="label">Capitán: <span class="value">${captainPlayer.psnId}</span></p>
-            <div style="margin-top: 20px;"> ${playerListHtml} </div>
-        </div>`;
+      <div class="container">
+        <div class="main-content">
+          <h1>¡Plantilla Completa!</h1>
+          <h2 style="color: #e1e8ed;">${captain.teamName}</h2>
+          <p class="label">Capitán: <span class="value">${captainPlayer.psnId}</span></p>
+          <div style="margin-top: 20px;">${playerListHtml}</div>
+        </div>
+        <div class="card-footer">
+          <img src="${CORNER_LOGO_URL}" class="corner-logo">
+        </div>
+      </div>`;
 }
 
 function generateKnockoutResultsHtml(data) {
@@ -231,11 +283,16 @@ function generateKnockoutResultsHtml(data) {
             </div>`;
     });
     return `
-        <div class="container">
-            <h1>${stageTitles[stage] || `Resultados de ${stage}`}</h1>
-            <h2>${tournament.nombre}</h2>
-            <div>${resultsHtml}</div>
-        </div>`;
+      <div class="container">
+        <div class="main-content">
+          <h1>${stageTitles[stage] || `Resultados de ${stage}`}</h1>
+          <h2>${tournament.nombre}</h2>
+          <div>${resultsHtml}</div>
+        </div>
+        <div class="card-footer">
+          <img src="${CORNER_LOGO_URL}" class="corner-logo">
+        </div>
+      </div>`;
 }
 
 export async function postTournamentUpdate(eventType, data) {
