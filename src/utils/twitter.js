@@ -7,6 +7,8 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
+// AÑADIMOS LA URL DE TU IMAGEN DE FONDO
+const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/ubpQBsn.jpeg';
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
@@ -17,7 +19,7 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS VUELTO A LA NORMALIDAD, SIN LOGOS ---
+// --- CSS CON LA NUEVA IMAGEN DE FONDO ---
 const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
@@ -32,7 +34,8 @@ const globalCss = `
   }
   .container { 
     padding: 40px; 
-    background-color: rgba(29, 29, 29, 0.9);
+    /* El color de fondo ahora es una capa semi-transparente sobre la imagen */
+    background-color: rgba(29, 29, 29, 0.85); 
     border: 3px solid #C70000;
     height: 100%;
     width: 100%;
@@ -41,6 +44,12 @@ const globalCss = `
     flex-direction: column;
     justify-content: center;
     text-align: center;
+    
+    /* Propiedades para la imagen de fondo */
+    background-image: url('${BACKGROUND_IMAGE_URL}');
+    background-size: cover; /* Asegura que la imagen cubra todo el espacio */
+    background-position: center; /* Centra la imagen */
+    background-blend-mode: darken; /* Mezcla el color oscuro con la imagen para mejor legibilidad */
   }
   h1, h2, th, .team-name, .value, .label, p {
     text-transform: uppercase;
@@ -50,7 +59,7 @@ const globalCss = `
     font-size: 64px; 
     margin: 0 0 20px 0;
     font-weight: 900;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
   }
   h2 {
     color: #e1e8ed;
@@ -60,7 +69,7 @@ const globalCss = `
     padding-bottom: 10px;
     font-weight: 700;
   }
-  p { font-size: 24px; margin-bottom: 15px; }
+  p { font-size: 24px; margin-bottom: 15px; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
   .label { color: #8899a6; }
   .value { color: #ffffff; font-weight: 700; }
   .group-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; text-align: left; }
