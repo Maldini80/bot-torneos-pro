@@ -7,7 +7,7 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/XRC1WxP.jpeg';
+const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/ubpQBsn.jpeg';
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
@@ -33,6 +33,7 @@ const globalCss = `
   }
   .container { 
     padding: 40px; 
+    background-color: rgba(29, 29, 29, 0.2); /* Opacidad ajustada ligeramente */
     border: 3px solid #C70000;
     height: 100%;
     width: 100%;
@@ -45,6 +46,7 @@ const globalCss = `
     background-image: url('${BACKGROUND_IMAGE_URL}');
     background-size: cover; 
     background-position: center;
+    /* LA LÍNEA PROBLEMÁTICA HA SIDO ELIMINADA DE AQUÍ */
   }
   h1, h2, th, .team-name, .value, .label, p {
     text-transform: uppercase;
