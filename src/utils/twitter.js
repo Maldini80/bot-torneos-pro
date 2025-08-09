@@ -7,10 +7,7 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-// --- INICIO DE LA MODIFICACIÓN ---
-// Ya no usamos el logo de fondo, pero definimos la URL del nuevo logo de esquina
 const CORNER_LOGO_URL = 'https://i.imgur.com/YD3Qu7E.png'; 
-// --- FIN DE LA MODIFICACIÓN ---
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
@@ -21,7 +18,7 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS MODIFICADO ---
+// --- CSS CORREGIDO Y FINAL ---
 const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
@@ -34,12 +31,19 @@ const globalCss = `
     width: 1024px;
     height: 512px;
   }
+
+  /* NUEVO: Contenedor principal para el posicionamiento */
+  .image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Asegura que nada se salga */
+  }
+
   .container { 
     padding: 40px; 
     background-color: rgba(29, 29, 29, 0.9);
     border: 3px solid #C70000;
-    position: relative;
-    overflow: hidden;
     height: 100%;
     width: 100%;
     box-sizing: border-box;
@@ -48,33 +52,20 @@ const globalCss = `
     justify-content: center;
     text-align: center;
   }
-  /* NUEVA REGLA PARA EL LOGO DE ESQUINA */
+
+  /* Posicionamiento del logo relativo al .image-wrapper */
   .corner-logo {
     position: absolute;
-    bottom: 40px;
-    right: 40px;
-    height: 80px; /* Tamaño del logo */
+    bottom: 25px; /* Margen inferior */
+    right: 25px;  /* Margen derecho */
+    height: 75px; /* Altura del logo */
     width: auto;
     opacity: 0.9;
   }
-  h1, h2, th, .team-name, .value, .label, p {
-    text-transform: uppercase;
-  }
-  h1 { 
-    color: #C70000; 
-    font-size: 64px; 
-    margin: 0 0 20px 0;
-    font-weight: 900;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-  }
-  h2 {
-    color: #e1e8ed;
-    font-size: 38px;
-    margin-bottom: 25px;
-    border-bottom: 2px solid #333;
-    padding-bottom: 10px;
-    font-weight: 700;
-  }
+
+  h1, h2, th, .team-name, .value, .label, p { text-transform: uppercase; }
+  h1 { color: #C70000; font-size: 64px; margin: 0 0 20px 0; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+  h2 { color: #e1e8ed; font-size: 38px; margin-bottom: 25px; border-bottom: 2px solid #333; padding-bottom: 10px; font-weight: 700; }
   p { font-size: 24px; margin-bottom: 15px; }
   .label { color: #8899a6; }
   .value { color: #ffffff; font-weight: 700; }
@@ -88,18 +79,20 @@ const globalCss = `
   .result { font-size: 32px; font-weight: 900; color: #C70000; margin: 5px 0; }
 `;
 
-// HTML del logo que se añadirá a todas las imágenes
+// HTML del logo que se añadirá al wrapper
 const cornerLogoHtml = `<img src="${CORNER_LOGO_URL}" class="corner-logo">`;
 
 async function generateHtmlImage(htmlContent) {
     try {
+        // Se añade el wrapper a todo el contenido
+        const finalHtml = `<div class="image-wrapper">${htmlContent}${cornerLogoHtml}</div>`;
         const response = await fetch('https://hcti.io/v1/image', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + Buffer.from(process.env.HCTI_API_USER_ID + ':' + process.env.HCTI_API_KEY).toString('base64')
             },
-            body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
+            body: JSON.stringify({ html: finalHtml, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
         });
         const data = await response.json();
         if (data.url) {
@@ -110,10 +103,11 @@ async function generateHtmlImage(htmlContent) {
         }
     } catch (error) {
         console.error("[TWITTER] Error de red al contactar con HCTI:", error);
-        return { success: false, error: 'Fallo al contactar con el servicio de generación de imágenes.' };
+        return { success: false, error: 'Fallo al contactar con el servicio de imágenes.' };
     }
 }
 
+// Todas las funciones ahora solo devuelven el contenido INTERIOR
 function generateTournamentAnnouncementHtml(tournament) {
     return `
       <div class="container">
@@ -121,7 +115,6 @@ function generateTournamentAnnouncementHtml(tournament) {
         <h2>${tournament.nombre}</h2>
         <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
         <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
-        ${cornerLogoHtml}
       </div>`;
 }
 
@@ -135,31 +128,28 @@ function generateGroupStartHtml(tournament) {
         tableHtml += '</div>';
         allGroupsHtml += tableHtml;
     }
-    return `<div class="container"><h1>¡Arranca la Fase de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div>${cornerLogoHtml}</div>`;
+    return `<div class="container"><h1>¡Arranca la Fase de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
 }
 
 function generateChampionHtml(tournament) {
     const finalMatch = tournament.structure.eliminatorias.final;
     const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
     const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-    return `<div class="container"><h1>¡Tenemos Campeón!</h1><h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2><p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p>${cornerLogoHtml}</div>`;
+    return `<div class="container"><h1>¡Tenemos Campeón!</h1><h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2><p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p></div>`;
 }
 
 function generateGroupEndHtml(tournament) {
     let allGroupsHtml = '';
     const sortedGroupNames = Object.keys(tournament.structure.grupos).sort();
-
     const sortTeams = (a, b) => {
         if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
         if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
         if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
         return 0;
     };
-
     for (const groupName of sortedGroupNames) {
         const group = tournament.structure.grupos[groupName];
         const sortedTeams = [...group.equipos].sort(sortTeams);
-        
         let tableHtml = `<div><h2>${groupName}</h2><table>`;
         tableHtml += `<tr><th>EQUIPO</th><th>PTS</th><th>DG</th></tr>`;
         sortedTeams.forEach(team => {
@@ -168,14 +158,12 @@ function generateGroupEndHtml(tournament) {
         tableHtml += '</table></div>';
         allGroupsHtml += tableHtml;
     }
-
-    return `<div class="container"><h1>¡Clasificación Final de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div>${cornerLogoHtml}</div>`;
+    return `<div class="container"><h1>¡Clasificación Final de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
 }
 
 function generateKnockoutMatchupsHtml(data) {
     const { matches, stage, tournament } = data;
     let matchupsHtml = '';
-
     matches.forEach(match => {
         matchupsHtml += `
             <div class="matchup-box">
@@ -184,20 +172,12 @@ function generateKnockoutMatchupsHtml(data) {
                 <div class="team-name">${match.equipoB.nombre}</div>
             </div>`;
     });
-
-    const stageTitles = {
-        octavos: '¡Tenemos los cruces de Octavos!',
-        cuartos: '¡Arrancan los Cuartos de Final!',
-        semifinales: '¡Definidas las Semifinales!',
-        final: '¡Esta es la Gran Final!'
-    };
-
+    const stageTitles = { octavos: '¡Tenemos los cruces de Octavos!', cuartos: '¡Arrancan los Cuartos de Final!', semifinales: '¡Definidas las Semifinales!', final: '¡Esta es la Gran Final!' };
     return `
         <div class="container">
             <h1>${stageTitles[stage] || `Cruces de ${stage}`}</h1>
             <h2>${tournament.nombre}</h2>
             <div>${matchupsHtml}</div>
-            ${cornerLogoHtml}
         </div>`;
 }
 
@@ -214,7 +194,6 @@ function generateNewCaptainHtml(data) {
             <p class="label" style="margin-top: 20px;">Capitán</p>
             <div class="team-name" style="color: #e1e8ed;">${captainIdentifier}</div>
         </div>
-        ${cornerLogoHtml}
       </div>`;
 }
 
@@ -223,39 +202,27 @@ function generateRosterCompleteHtml(data) {
     const captainPlayer = players.find(p => p.isCaptain);
     const selectedPlayers = players.filter(p => !p.isCaptain).sort((a, b) => a.psnId.localeCompare(b.psnId));
     let playerListHtml = '<ul style="list-style: none; padding: 0; text-align: center; columns: 2;">';
-    selectedPlayers.forEach(player => {
-        playerListHtml += `<li style="font-size: 20px; margin-bottom: 8px;">${player.psnId}</li>`;
-    });
+    selectedPlayers.forEach(player => { playerListHtml += `<li style="font-size: 20px; margin-bottom: 8px;">${player.psnId}</li>`; });
     playerListHtml += '</ul>';
-
     return `
         <div class="container">
             <h1>¡Plantilla Completa!</h1>
             <h2 style="color: #e1e8ed;">${captain.teamName}</h2>
             <p class="label">Capitán: <span class="value">${captainPlayer.psnId}</span></p>
-            <div style="margin-top: 20px;">
-                ${playerListHtml}
-            </div>
-            ${cornerLogoHtml}
+            <div style="margin-top: 20px;"> ${playerListHtml} </div>
         </div>`;
 }
 
 function generateKnockoutResultsHtml(data) {
     const { matches, stage, tournament } = data;
     let resultsHtml = '';
-    const stageTitles = {
-        octavos: 'Resultados de Octavos',
-        cuartos: 'Resultados de Cuartos',
-        semifinales: 'Resultados de Semifinales'
-    };
-
+    const stageTitles = { octavos: 'Resultados de Octavos', cuartos: 'Resultados de Cuartos', semifinales: 'Resultados de Semifinales' };
     matches.forEach(match => {
         const [scoreA, scoreB] = match.resultado.split('-').map(Number);
         const winner = scoreA > scoreB ? match.equipoA : match.equipoB;
         const loser = scoreA > scoreB ? match.equipoB : match.equipoA;
         const winnerScore = scoreA > scoreB ? scoreA : scoreB;
         const loserScore = scoreA > scoreB ? scoreB : scoreA;
-
         resultsHtml += `
             <div class="matchup-box">
                 <div class="team-name" style="color: #ffffff; font-weight: 900;">${winner.nombre}</div>
@@ -263,13 +230,11 @@ function generateKnockoutResultsHtml(data) {
                 <div class="team-name" style="color: #8899a6; text-decoration: line-through;">${loser.nombre}</div>
             </div>`;
     });
-
     return `
         <div class="container">
             <h1>${stageTitles[stage] || `Resultados de ${stage}`}</h1>
             <h2>${tournament.nombre}</h2>
             <div>${resultsHtml}</div>
-            ${cornerLogoHtml}
         </div>`;
 }
 
