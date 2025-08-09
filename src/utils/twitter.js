@@ -7,8 +7,10 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-// Usamos la URL de Imgur que sabemos que funciona
-const LOGO_URL_BACKGROUND = 'https://www.rektv.es/wp-content/uploads/2022/11/Recurso-10.png';
+// --- INICIO DE LA MODIFICACIÓN ---
+// Ya no usamos el logo de fondo, pero definimos la URL del nuevo logo de esquina
+const CORNER_LOGO_URL = 'https://i.imgur.com/YD3Qu7E.png'; 
+// --- FIN DE LA MODIFICACIÓN ---
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
@@ -19,7 +21,7 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS DEFINITIVO Y CORREGIDO ---
+// --- CSS MODIFICADO ---
 const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
@@ -35,10 +37,6 @@ const globalCss = `
   .container { 
     padding: 40px; 
     background-color: rgba(29, 29, 29, 0.9);
-    background-image: url('${LOGO_URL_BACKGROUND}');
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: 450px;
     border: 3px solid #C70000;
     position: relative;
     overflow: hidden;
@@ -49,6 +47,15 @@ const globalCss = `
     flex-direction: column;
     justify-content: center;
     text-align: center;
+  }
+  /* NUEVA REGLA PARA EL LOGO DE ESQUINA */
+  .corner-logo {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    height: 80px; /* Tamaño del logo */
+    width: auto;
+    opacity: 0.9;
   }
   h1, h2, th, .team-name, .value, .label, p {
     text-transform: uppercase;
@@ -81,6 +88,9 @@ const globalCss = `
   .result { font-size: 32px; font-weight: 900; color: #C70000; margin: 5px 0; }
 `;
 
+// HTML del logo que se añadirá a todas las imágenes
+const cornerLogoHtml = `<img src="${CORNER_LOGO_URL}" class="corner-logo">`;
+
 async function generateHtmlImage(htmlContent) {
     try {
         const response = await fetch('https://hcti.io/v1/image', {
@@ -111,6 +121,7 @@ function generateTournamentAnnouncementHtml(tournament) {
         <h2>${tournament.nombre}</h2>
         <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
         <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
+        ${cornerLogoHtml}
       </div>`;
 }
 
@@ -124,16 +135,15 @@ function generateGroupStartHtml(tournament) {
         tableHtml += '</div>';
         allGroupsHtml += tableHtml;
     }
-    return `<div class="container"><h1>¡Arranca la Fase de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
+    return `<div class="container"><h1>¡Arranca la Fase de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div>${cornerLogoHtml}</div>`;
 }
 
 function generateChampionHtml(tournament) {
     const finalMatch = tournament.structure.eliminatorias.final;
     const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
     const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-    return `<div class="container"><h1>¡Tenemos Campeón!</h1><h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2><p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p></div>`;
+    return `<div class="container"><h1>¡Tenemos Campeón!</h1><h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2><p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p>${cornerLogoHtml}</div>`;
 }
-// --- NUEVAS FUNCIONES DE HTML (VERSIÓN FINAL) ---
 
 function generateGroupEndHtml(tournament) {
     let allGroupsHtml = '';
@@ -159,7 +169,7 @@ function generateGroupEndHtml(tournament) {
         allGroupsHtml += tableHtml;
     }
 
-    return `<div class="container"><h1>¡Clasificación Final de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
+    return `<div class="container"><h1>¡Clasificación Final de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div>${cornerLogoHtml}</div>`;
 }
 
 function generateKnockoutMatchupsHtml(data) {
@@ -187,14 +197,13 @@ function generateKnockoutMatchupsHtml(data) {
             <h1>${stageTitles[stage] || `Cruces de ${stage}`}</h1>
             <h2>${tournament.nombre}</h2>
             <div>${matchupsHtml}</div>
+            ${cornerLogoHtml}
         </div>`;
 }
 
 function generateNewCaptainHtml(data) {
     const { captainData, draft } = data;
-    // --- INICIO DE MODIFICACIÓN: Usar Twitter si existe ---
     const captainIdentifier = captainData.twitter ? `@${captainData.twitter}` : captainData.psnId;
-    // --- FIN DE MODIFICACIÓN ---
     return `
       <div class="container">
         <h1>¡Nuevo Capitán en el Draft!</h1>
@@ -205,18 +214,14 @@ function generateNewCaptainHtml(data) {
             <p class="label" style="margin-top: 20px;">Capitán</p>
             <div class="team-name" style="color: #e1e8ed;">${captainIdentifier}</div>
         </div>
+        ${cornerLogoHtml}
       </div>`;
 }
 
-// --- FUNCIÓN TOTALMENTE NUEVA PARA LA PLANTILLA ---
 function generateRosterCompleteHtml(data) {
     const { captain, players, draft } = data;
-    
-    // El capitán ya está en la lista de jugadores, lo separamos para destacarlo
     const captainPlayer = players.find(p => p.isCaptain);
-    // El resto de jugadores seleccionados
     const selectedPlayers = players.filter(p => !p.isCaptain).sort((a, b) => a.psnId.localeCompare(b.psnId));
-
     let playerListHtml = '<ul style="list-style: none; padding: 0; text-align: center; columns: 2;">';
     selectedPlayers.forEach(player => {
         playerListHtml += `<li style="font-size: 20px; margin-bottom: 8px;">${player.psnId}</li>`;
@@ -231,13 +236,13 @@ function generateRosterCompleteHtml(data) {
             <div style="margin-top: 20px;">
                 ${playerListHtml}
             </div>
+            ${cornerLogoHtml}
         </div>`;
 }
-// --- FUNCIÓN TOTALMENTE NUEVA PARA LOS RESULTADOS ---
+
 function generateKnockoutResultsHtml(data) {
     const { matches, stage, tournament } = data;
     let resultsHtml = '';
-
     const stageTitles = {
         octavos: 'Resultados de Octavos',
         cuartos: 'Resultados de Cuartos',
@@ -264,9 +269,10 @@ function generateKnockoutResultsHtml(data) {
             <h1>${stageTitles[stage] || `Resultados de ${stage}`}</h1>
             <h2>${tournament.nombre}</h2>
             <div>${resultsHtml}</div>
+            ${cornerLogoHtml}
         </div>`;
 }
-// --- FUNCIÓN PRINCIPAL DE TWITTER (VERSIÓN FINAL) ---
+
 export async function postTournamentUpdate(eventType, data) {
     const settings = await getBotSettings();
     if (!settings.twitterEnabled) {
@@ -312,7 +318,6 @@ export async function postTournamentUpdate(eventType, data) {
             logMessage = `Tweet de cruces de ${stageName} para ${tournament.nombre}`;
             break;
         }
-        // --- EVENTO NUEVO PARA RESULTADOS DE RONDA ---
         case 'KNOCKOUT_ROUND_COMPLETE': {
             const { stage, tournament } = data;
             const stageName = stage.charAt(0).toUpperCase() + stage.slice(1);
@@ -323,15 +328,12 @@ export async function postTournamentUpdate(eventType, data) {
         }
         case 'NEW_CAPTAIN_APPROVED': {
             const { captainData, draft } = data;
-            // --- INICIO DE MODIFICACIÓN: Lógica del mention ---
             const captainMention = captainData.twitter ? `@${captainData.twitter}` : captainData.psnId;
-            // --- FIN DE MODIFICACIÓN ---
             tweetText = `¡Nuevo equipo en el Draft "${draft.name.toUpperCase()}"! 🔥\n\nLe damos la bienvenida a "${captainData.teamName.toUpperCase()}" con su capitán ${captainMention}.\n\n¡Inscríbete! 👇\n${DISCORD_INVITE_LINK}\n\n${GLOBAL_HASHTAG}`;
             htmlContent = generateNewCaptainHtml(data);
             logMessage = `Tweet de nuevo capitán ${captainData.teamName} para el draft ${draft.name}`;
             break;
         }
-        // --- EVENTO TOTALMENTE NUEVO ---
         case 'ROSTER_COMPLETE': {
             const { captain, draft } = data;
             tweetText = `¡PLANTILLA COMPLETA! ✅\n\nEl equipo "${captain.teamName.toUpperCase()}" ha completado su roster para el Draft "${draft.name.toUpperCase()}".\n\n¡Mucha suerte en la competición! 🍀\n\n${GLOBAL_HASHTAG}`;
@@ -360,7 +362,6 @@ export async function postTournamentUpdate(eventType, data) {
         }
     }
 
-    // --- BLOQUE TRY/CATCH (Sin cambios, pero se incluye para que reemplaces la función entera) ---
     try {
         if (!htmlContent) {
             await twitterClient.v2.tweet({ text: tweetText });
