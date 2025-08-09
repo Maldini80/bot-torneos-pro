@@ -7,7 +7,6 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-// AÑADIMOS LA URL DE TU IMAGEN DE FONDO
 const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/ubpQBsn.jpeg';
 
 const client = new TwitterApi({
@@ -19,7 +18,7 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS CON LA NUEVA IMAGEN DE FONDO ---
+// --- CSS CON LA CORRECCIÓN FINAL ---
 const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
@@ -34,8 +33,7 @@ const globalCss = `
   }
   .container { 
     padding: 40px; 
-    /* El color de fondo ahora es una capa semi-transparente sobre la imagen */
-    background-color: rgba(29, 29, 29, 0.85); 
+    background-color: rgba(29, 29, 29, 0.8); /* Opacidad ajustada ligeramente */
     border: 3px solid #C70000;
     height: 100%;
     width: 100%;
@@ -45,11 +43,10 @@ const globalCss = `
     justify-content: center;
     text-align: center;
     
-    /* Propiedades para la imagen de fondo */
     background-image: url('${BACKGROUND_IMAGE_URL}');
-    background-size: cover; /* Asegura que la imagen cubra todo el espacio */
-    background-position: center; /* Centra la imagen */
-    background-blend-mode: darken; /* Mezcla el color oscuro con la imagen para mejor legibilidad */
+    background-size: cover; 
+    background-position: center;
+    /* LA LÍNEA PROBLEMÁTICA HA SIDO ELIMINADA DE AQUÍ */
   }
   h1, h2, th, .team-name, .value, .label, p {
     text-transform: uppercase;
