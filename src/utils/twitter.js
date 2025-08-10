@@ -7,7 +7,7 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-// Usamos tu URL que sabemos que funciona
+// Tu URL que sabemos que funciona. El bot la usará para descargar la imagen.
 const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/q3qh98T.jpeg';
 
 const client = new TwitterApi({
@@ -19,8 +19,9 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS CON LA SOLUCIÓN DEFINITIVA USANDO UN <img> ---
-const globalCss = `
+// --- CSS MODIFICADO PARA USAR DATOS DE IMAGEN INCRUSTADOS ---
+// Ahora es una función que construye el CSS con la imagen ya convertida
+const getGlobalCss = (imageDataUri) => `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
   body { 
@@ -31,32 +32,26 @@ const globalCss = `
     width: 1024px;
     height: 512px;
   }
-
-  /* El contenedor principal ahora es un punto de referencia para posicionar la imagen */
   .container { 
     border: 3px solid #C70000;
     height: 100%;
     width: 100%;
     box-sizing: border-box;
-    position: relative; /* Clave para posicionar la imagen de fondo */
-    overflow: hidden; /* Evita que la imagen se salga */
+    position: relative;
+    overflow: hidden;
   }
-
-  /* NUEVO: Estilo para la imagen de fondo real */
   .background-image {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Equivalente a background-size: cover */
-    z-index: 1; /* La ponemos en la capa más baja */
+    object-fit: cover;
+    z-index: 1;
   }
-
-  /* NUEVO: El contenido va en una capa superior */
   .content {
     position: relative;
-    z-index: 2; /* Se asegura de que esté por encima de la imagen */
+    z-index: 2;
     padding: 40px;
     height: 100%;
     width: 100%;
@@ -65,9 +60,9 @@ const globalCss = `
     flex-direction: column;
     justify-content: center;
     text-align: center;
-    background-color: rgba(20, 20, 20, 0.7); /* VELO OSCURO PARA LEGIBILIDAD */
+    /* Velo oscuro para asegurar que el texto se lea bien */
+    background-color: rgba(20, 20, 20, 0.75);
   }
-
   h1, h2, th, .team-name, .value, .label, p {
     text-transform: uppercase;
     text-shadow: 2px 2px 5px rgba(0,0,0,0.8);
@@ -99,20 +94,35 @@ const globalCss = `
   .result { font-size: 32px; font-weight: 900; color: #C70000; margin: 5px 0; }
 `;
 
-// --- TODAS LAS FUNCIONES HTML HAN SIDO MODIFICADAS ---
-// --- PARA INCLUIR LA NUEVA ESTRUCTURA DE IMAGEN + CONTENIDO ---
-
+// --- FUNCIÓN DE IMAGEN MODIFICADA PARA DESCARGAR E INCRUSTAR LA IMAGEN ---
 export async function generateHtmlImage(htmlContent) {
     try {
-        const response = await fetch('https://hcti.io/v1/image', {
+        // 1. El bot descarga la imagen de fondo ÉL MISMO.
+        const imageResponse = await fetch(BACKGROUND_IMAGE_URL);
+        if (!imageResponse.ok) {
+            throw new Error(`No se pudo descargar la imagen de fondo. Estado: ${imageResponse.statusText}`);
+        }
+        const imageBuffer = await imageResponse.arrayBuffer();
+        
+        // 2. Convierte la imagen a un formato que se puede incrustar (Base64).
+        const imageBase64 = Buffer.from(imageBuffer).toString('base64');
+        const imageDataUri = `data:image/jpeg;base64,${imageBase64}`;
+        
+        // 3. Modifica el HTML para que use la imagen incrustada.
+        const finalHtml = htmlContent.replace('{{BACKGROUND_PLACEHOLDER}}', imageDataUri);
+        const finalCss = getGlobalCss(imageDataUri); // El CSS se genera aquí.
+
+        // 4. Envía todo a HCTI. HCTI ya no necesita conectarse a ningún sitio externo.
+        const hctiResponse = await fetch('https://hcti.io/v1/image', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + Buffer.from(process.env.HCTI_API_USER_ID + ':' + process.env.HCTI_API_KEY).toString('base64')
             },
-            body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
+            body: JSON.stringify({ html: finalHtml, css: finalCss, google_fonts: "Montserrat:wght@400;700;900" })
         });
-        const data = await response.json();
+
+        const data = await hctiResponse.json();
         if (data.url) {
             return { success: true, url: data.url };
         } else {
@@ -120,15 +130,18 @@ export async function generateHtmlImage(htmlContent) {
             return { success: false, error: data.error || 'El servicio de imágenes no devolvió una URL.' };
         }
     } catch (error) {
-        console.error("[TWITTER] Error de red al contactar con HCTI:", error);
-        return { success: false, error: 'Fallo al contactar con el servicio de generación de imágenes.' };
+        console.error("[TWITTER] Error crítico en generateHtmlImage:", error);
+        return { success: false, error: error.message };
     }
 }
+
+// --- TODAS LAS FUNCIONES HTML HAN SIDO MODIFICADAS ---
+// --- PARA USAR LA NUEVA ESTRUCTURA A PRUEBA DE FALLOS ---
 
 function generateTournamentAnnouncementHtml(tournament) {
     return `
       <div class="container">
-        <img class="background-image" src="${BACKGROUND_IMAGE_URL}" />
+        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
         <div class="content">
             <h1>¡Inscripciones Abiertas!</h1>
             <h2>${tournament.nombre}</h2>
@@ -138,6 +151,8 @@ function generateTournamentAnnouncementHtml(tournament) {
       </div>`;
 }
 
+// ... (El resto de las funciones generate...Html no necesitan cambiar porque el cambio principal está en generateHtmlImage y el CSS)
+// Copia las demás funciones como estaban o usa estas versiones que son idénticas a las anteriores pero ya incluyen el placeholder
 function generateGroupStartHtml(tournament) {
     let allGroupsHtml = '';
     const sortedGroupNames = Object.keys(tournament.structure.grupos).sort();
@@ -150,7 +165,7 @@ function generateGroupStartHtml(tournament) {
     }
     return `
       <div class="container">
-        <img class="background-image" src="${BACKGROUND_IMAGE_URL}" />
+        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
         <div class="content">
             <h1>¡Arranca la Fase de Grupos!</h1>
             <h2>${tournament.nombre}</h2>
@@ -165,7 +180,7 @@ function generateChampionHtml(tournament) {
     const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
     return `
       <div class="container">
-        <img class="background-image" src="${BACKGROUND_IMAGE_URL}" />
+        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
         <div class="content">
             <h1>¡Tenemos Campeón!</h1>
             <h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2>
@@ -200,7 +215,7 @@ function generateGroupEndHtml(tournament) {
 
     return `
       <div class="container">
-        <img class="background-image" src="${BACKGROUND_IMAGE_URL}" />
+        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
         <div class="content">
             <h1>¡Clasificación Final de Grupos!</h1>
             <h2>${tournament.nombre}</h2>
@@ -231,7 +246,7 @@ function generateKnockoutMatchupsHtml(data) {
 
     return `
       <div class="container">
-        <img class="background-image" src="${BACKGROUND_IMAGE_URL}" />
+        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
         <div class="content">
             <h1>${stageTitles[stage] || `Cruces de ${stage}`}</h1>
             <h2>${tournament.nombre}</h2>
@@ -245,7 +260,7 @@ function generateNewCaptainHtml(data) {
     const captainIdentifier = captainData.twitter ? `@${captainData.twitter}` : captainData.psnId;
     return `
       <div class="container">
-        <img class="background-image" src="${BACKGROUND_IMAGE_URL}" />
+        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
         <div class="content">
             <h1>¡Nuevo Capitán en el Draft!</h1>
             <h2>${draft.name}</h2>
@@ -271,7 +286,7 @@ function generateRosterCompleteHtml(data) {
 
     return `
         <div class="container">
-            <img class="background-image" src="${BACKGROUND_IMAGE_URL}" />
+            <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
             <div class="content">
                 <h1>¡Plantilla Completa!</h1>
                 <h2 style="color: #e1e8ed;">${captain.teamName}</h2>
@@ -309,7 +324,7 @@ function generateKnockoutResultsHtml(data) {
 
     return `
       <div class="container">
-        <img class="background-image" src="${BACKGROUND_IMAGE_URL}" />
+        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
         <div class="content">
             <h1>${stageTitles[stage] || `Resultados de ${stage}`}</h1>
             <h2>${tournament.nombre}</h2>
@@ -317,6 +332,7 @@ function generateKnockoutResultsHtml(data) {
         </div>
       </div>`;
 }
+
 
 export async function postTournamentUpdate(eventType, data) {
     const settings = await getBotSettings();
