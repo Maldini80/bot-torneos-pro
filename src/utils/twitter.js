@@ -18,13 +18,12 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS CON LA CORRECCIÓN FINAL ---
+// --- CSS CON LA CORRECCIÓN FINAL Y MEJORAS DE LEGIBILIDAD ---
 const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
   body { 
     font-family: 'Montserrat', sans-serif; 
-    background-color: #141414; 
     color: #ffffff;
     margin: 0;
     padding: 0;
@@ -41,20 +40,22 @@ const globalCss = `
     flex-direction: column;
     justify-content: center;
     text-align: center;
-    background: linear-gradient(rgba(20, 20, 20, 0.85), rgba(20, 20, 20, 0.85)), url('${BACKGROUND_IMAGE_URL}');
+    
+    /* SOLUCIÓN: Aplicamos la imagen de fondo directamente, sin velos */
+    background-image: url('${BACKGROUND_IMAGE_URL}');
     background-size: cover; 
     background-position: center;
-    /* LA LÍNEA PROBLEMÁTICA HA SIDO ELIMINADA DE AQUÍ */
   }
   h1, h2, th, .team-name, .value, .label, p {
     text-transform: uppercase;
+    /* SOLUCIÓN: Sombra de texto para garantizar la legibilidad sobre cualquier fondo */
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.9);
   }
   h1 { 
     color: #C70000; 
     font-size: 64px; 
     margin: 0 0 20px 0;
     font-weight: 900;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
   }
   h2 {
     color: #e1e8ed;
@@ -64,7 +65,7 @@ const globalCss = `
     padding-bottom: 10px;
     font-weight: 700;
   }
-  p { font-size: 24px; margin-bottom: 15px; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+  p { font-size: 24px; margin-bottom: 15px; }
   .label { color: #8899a6; }
   .value { color: #ffffff; font-weight: 700; }
   .group-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; text-align: left; }
