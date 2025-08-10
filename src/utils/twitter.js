@@ -7,8 +7,7 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-// Tu URL que sabemos que funciona. El bot la usará para descargar la imagen.
-const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/q3qh98T.jpeg';
+const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/ubpQBsn.jpeg';
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
@@ -19,13 +18,13 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS MODIFICADO PARA USAR DATOS DE IMAGEN INCRUSTADOS ---
-// Ahora es una función que construye el CSS con la imagen ya convertida
-const getGlobalCss = (imageDataUri) => `
+// --- CSS CON LA CORRECCIÓN FINAL ---
+const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
   body { 
     font-family: 'Montserrat', sans-serif; 
+    background-color: #141414; 
     color: #ffffff;
     margin: 0;
     padding: 0;
@@ -33,26 +32,9 @@ const getGlobalCss = (imageDataUri) => `
     height: 512px;
   }
   .container { 
+    padding: 40px; 
+    background-color: rgba(29, 29, 29, 0.2); /* Opacidad ajustada ligeramente */
     border: 3px solid #C70000;
-    height: 100%;
-    width: 100%;
-    box-sizing: border-box;
-    position: relative;
-    overflow: hidden;
-  }
-  .background-image {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 1;
-  }
-  .content {
-    position: relative;
-    z-index: 2;
-    padding: 40px;
     height: 100%;
     width: 100%;
     box-sizing: border-box;
@@ -60,18 +42,21 @@ const getGlobalCss = (imageDataUri) => `
     flex-direction: column;
     justify-content: center;
     text-align: center;
-    /* Velo oscuro para asegurar que el texto se lea bien */
-    background-color: rgba(20, 20, 20, 0.75);
+    
+    background-image: url('${BACKGROUND_IMAGE_URL}');
+    background-size: cover; 
+    background-position: center;
+    /* LA LÍNEA PROBLEMÁTICA HA SIDO ELIMINADA DE AQUÍ */
   }
   h1, h2, th, .team-name, .value, .label, p {
     text-transform: uppercase;
-    text-shadow: 2px 2px 5px rgba(0,0,0,0.8);
   }
   h1 { 
     color: #C70000; 
     font-size: 64px; 
     margin: 0 0 20px 0;
     font-weight: 900;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
   }
   h2 {
     color: #e1e8ed;
@@ -81,7 +66,7 @@ const getGlobalCss = (imageDataUri) => `
     padding-bottom: 10px;
     font-weight: 700;
   }
-  p { font-size: 24px; margin-bottom: 15px; }
+  p { font-size: 24px; margin-bottom: 15px; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
   .label { color: #8899a6; }
   .value { color: #ffffff; font-weight: 700; }
   .group-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; text-align: left; }
@@ -94,35 +79,17 @@ const getGlobalCss = (imageDataUri) => `
   .result { font-size: 32px; font-weight: 900; color: #C70000; margin: 5px 0; }
 `;
 
-// --- FUNCIÓN DE IMAGEN MODIFICADA PARA DESCARGAR E INCRUSTAR LA IMAGEN ---
-export async function generateHtmlImage(htmlContent) {
+async function generateHtmlImage(htmlContent) {
     try {
-        // 1. El bot descarga la imagen de fondo ÉL MISMO.
-        const imageResponse = await fetch(BACKGROUND_IMAGE_URL);
-        if (!imageResponse.ok) {
-            throw new Error(`No se pudo descargar la imagen de fondo. Estado: ${imageResponse.statusText}`);
-        }
-        const imageBuffer = await imageResponse.arrayBuffer();
-        
-        // 2. Convierte la imagen a un formato que se puede incrustar (Base64).
-        const imageBase64 = Buffer.from(imageBuffer).toString('base64');
-        const imageDataUri = `data:image/jpeg;base64,${imageBase64}`;
-        
-        // 3. Modifica el HTML para que use la imagen incrustada.
-        const finalHtml = htmlContent.replace('{{BACKGROUND_PLACEHOLDER}}', imageDataUri);
-        const finalCss = getGlobalCss(imageDataUri); // El CSS se genera aquí.
-
-        // 4. Envía todo a HCTI. HCTI ya no necesita conectarse a ningún sitio externo.
-        const hctiResponse = await fetch('https://hcti.io/v1/image', {
+        const response = await fetch('https://hcti.io/v1/image', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + Buffer.from(process.env.HCTI_API_USER_ID + ':' + process.env.HCTI_API_KEY).toString('base64')
             },
-            body: JSON.stringify({ html: finalHtml, css: finalCss, google_fonts: "Montserrat:wght@400;700;900" })
+            body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
         });
-
-        const data = await hctiResponse.json();
+        const data = await response.json();
         if (data.url) {
             return { success: true, url: data.url };
         } else {
@@ -130,29 +97,21 @@ export async function generateHtmlImage(htmlContent) {
             return { success: false, error: data.error || 'El servicio de imágenes no devolvió una URL.' };
         }
     } catch (error) {
-        console.error("[TWITTER] Error crítico en generateHtmlImage:", error);
-        return { success: false, error: error.message };
+        console.error("[TWITTER] Error de red al contactar con HCTI:", error);
+        return { success: false, error: 'Fallo al contactar con el servicio de generación de imágenes.' };
     }
 }
-
-// --- TODAS LAS FUNCIONES HTML HAN SIDO MODIFICADAS ---
-// --- PARA USAR LA NUEVA ESTRUCTURA A PRUEBA DE FALLOS ---
 
 function generateTournamentAnnouncementHtml(tournament) {
     return `
       <div class="container">
-        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
-        <div class="content">
-            <h1>¡Inscripciones Abiertas!</h1>
-            <h2>${tournament.nombre}</h2>
-            <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
-            <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
-        </div>
+        <h1>¡Inscripciones Abiertas!</h1>
+        <h2>${tournament.nombre}</h2>
+        <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
+        <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
       </div>`;
 }
 
-// ... (El resto de las funciones generate...Html no necesitan cambiar porque el cambio principal está en generateHtmlImage y el CSS)
-// Copia las demás funciones como estaban o usa estas versiones que son idénticas a las anteriores pero ya incluyen el placeholder
 function generateGroupStartHtml(tournament) {
     let allGroupsHtml = '';
     const sortedGroupNames = Object.keys(tournament.structure.grupos).sort();
@@ -163,30 +122,14 @@ function generateGroupStartHtml(tournament) {
         tableHtml += '</div>';
         allGroupsHtml += tableHtml;
     }
-    return `
-      <div class="container">
-        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
-        <div class="content">
-            <h1>¡Arranca la Fase de Grupos!</h1>
-            <h2>${tournament.nombre}</h2>
-            <div class="group-grid">${allGroupsHtml}</div>
-        </div>
-      </div>`;
+    return `<div class="container"><h1>¡Arranca la Fase de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
 }
 
 function generateChampionHtml(tournament) {
     const finalMatch = tournament.structure.eliminatorias.final;
     const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
     const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-    return `
-      <div class="container">
-        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
-        <div class="content">
-            <h1>¡Tenemos Campeón!</h1>
-            <h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2>
-            <p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p>
-        </div>
-      </div>`;
+    return `<div class="container"><h1>¡Tenemos Campeón!</h1><h2 style="font-size: 52px; color: #ffd700;">${champion.nombre}</h2><p><span class="label">Torneo:</span> <span class="value">${tournament.nombre}</span></p></div>`;
 }
 
 function generateGroupEndHtml(tournament) {
@@ -213,15 +156,7 @@ function generateGroupEndHtml(tournament) {
         allGroupsHtml += tableHtml;
     }
 
-    return `
-      <div class="container">
-        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
-        <div class="content">
-            <h1>¡Clasificación Final de Grupos!</h1>
-            <h2>${tournament.nombre}</h2>
-            <div class="group-grid">${allGroupsHtml}</div>
-        </div>
-      </div>`;
+    return `<div class="container"><h1>¡Clasificación Final de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
 }
 
 function generateKnockoutMatchupsHtml(data) {
@@ -245,14 +180,11 @@ function generateKnockoutMatchupsHtml(data) {
     };
 
     return `
-      <div class="container">
-        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
-        <div class="content">
+        <div class="container">
             <h1>${stageTitles[stage] || `Cruces de ${stage}`}</h1>
             <h2>${tournament.nombre}</h2>
             <div>${matchupsHtml}</div>
-        </div>
-      </div>`;
+        </div>`;
 }
 
 function generateNewCaptainHtml(data) {
@@ -260,16 +192,13 @@ function generateNewCaptainHtml(data) {
     const captainIdentifier = captainData.twitter ? `@${captainData.twitter}` : captainData.psnId;
     return `
       <div class="container">
-        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
-        <div class="content">
-            <h1>¡Nuevo Capitán en el Draft!</h1>
-            <h2>${draft.name}</h2>
-            <div class="matchup-box" style="background-color: transparent; border: none;">
-                <p class="label">Equipo</p>
-                <div class="team-name">${captainData.teamName}</div>
-                <p class="label" style="margin-top: 20px;">Capitán</p>
-                <div class="team-name" style="color: #e1e8ed;">${captainIdentifier}</div>
-            </div>
+        <h1>¡Nuevo Capitán en el Draft!</h1>
+        <h2>${draft.name}</h2>
+        <div class="matchup-box" style="background-color: transparent; border: none;">
+            <p class="label">Equipo</p>
+            <div class="team-name">${captainData.teamName}</div>
+            <p class="label" style="margin-top: 20px;">Capitán</p>
+            <div class="team-name" style="color: #e1e8ed;">${captainIdentifier}</div>
         </div>
       </div>`;
 }
@@ -286,14 +215,11 @@ function generateRosterCompleteHtml(data) {
 
     return `
         <div class="container">
-            <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
-            <div class="content">
-                <h1>¡Plantilla Completa!</h1>
-                <h2 style="color: #e1e8ed;">${captain.teamName}</h2>
-                <p class="label">Capitán: <span class="value">${captainPlayer.psnId}</span></p>
-                <div style="margin-top: 20px;">
-                    ${playerListHtml}
-                </div>
+            <h1>¡Plantilla Completa!</h1>
+            <h2 style="color: #e1e8ed;">${captain.teamName}</h2>
+            <p class="label">Capitán: <span class="value">${captainPlayer.psnId}</span></p>
+            <div style="margin-top: 20px;">
+                ${playerListHtml}
             </div>
         </div>`;
 }
@@ -323,16 +249,12 @@ function generateKnockoutResultsHtml(data) {
     });
 
     return `
-      <div class="container">
-        <img class="background-image" src="{{BACKGROUND_PLACEHOLDER}}" />
-        <div class="content">
+        <div class="container">
             <h1>${stageTitles[stage] || `Resultados de ${stage}`}</h1>
             <h2>${tournament.nombre}</h2>
             <div>${resultsHtml}</div>
-        </div>
-      </div>`;
+        </div>`;
 }
-
 
 export async function postTournamentUpdate(eventType, data) {
     const settings = await getBotSettings();
