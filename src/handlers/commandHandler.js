@@ -4,6 +4,7 @@ import { getDb } from '../../database.js';
 import { createGlobalAdminPanel } from '../utils/embeds.js';
 import { languageRoles, CHANNELS } from '../../config.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
+import { generateHtmlImage } from '../utils/twitter.js';
 
 export async function handleCommand(interaction) {
     const { commandName } = interaction;
@@ -100,4 +101,47 @@ export async function handleCommand(interaction) {
             await interaction.editReply({ content: '❌ No se pudo crear el hilo de prueba.' });
         }
     }
+     if (commandName === 'probar-imagen-twitter') {
+     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+         return interaction.reply({ content: 'Este comando es solo para administradores.', flags: [MessageFlags.Ephemeral] });
+     }
+
+     // Avisamos a Discord que responderemos más tarde, de forma privada
+     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+     // Obtenemos el texto que el admin escribió en el comando
+     const titulo = interaction.options.getString('titulo');
+
+     // Creamos un HTML de prueba usando las mismas clases CSS que ya existen en twitter.js
+     const htmlDePrueba = `
+       <div class="container">
+         <h1>${titulo.toUpperCase()}</h1>
+         <p><span class="label">Esto es una prueba</span> <span class="value">de generación de imagen</span></p>
+         <p><span class="label">El fondo es de Imgur</span> <span class="value">Y el estilo es el mismo</span></p>
+       </div>`;
+
+     try {
+         // Llamamos a la función que genera la imagen
+         const resultadoImagen = await generateHtmlImage(htmlDePrueba);
+
+         if (resultadoImagen.success) {
+             // Si todo sale bien, mostramos la imagen en un Embed
+             const embed = new EmbedBuilder()
+                 .setTitle('✅ Imagen de Prueba Generada')
+                 .setDescription('Así se vería la imagen con el fondo y los estilos aplicados.')
+                 .setImage(resultadoImagen.url)
+                 .setColor('#2ecc71')
+                 .setFooter({ text: 'Esta respuesta es solo visible para ti.' });
+             
+             await interaction.editReply({ embeds: [embed] });
+         } else {
+             // Si HCTI devuelve un error, lo mostramos
+             await interaction.editReply({ content: `❌ Error al generar la imagen: ${resultadoImagen.error}` });
+         }
+     } catch (error) {
+         // Si algo falla de forma crítica, lo registramos y avisamos
+         console.error("Error en el comando /probar-imagen-twitter:", error);
+         await interaction.editReply({ content: '❌ Ocurrió un error crítico al ejecutar el comando.' });
+     }
+ }
 }
