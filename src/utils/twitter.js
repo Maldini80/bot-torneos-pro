@@ -20,10 +20,10 @@ const twitterClient = client.readWrite;
 
 // --- CSS CON LA VERSIÓN FINAL Y 100% FIABLE (SIN IMAGEN DE FONDO) ---
 const globalCss = `
-  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
 
   body { 
-    font-family: 'Montserrat', sans-serif; 
+    font-family: 'Bebas Neue', sans-serif; 
     color: #ffffff;
     margin: 0;
     padding: 0;
@@ -85,7 +85,7 @@ export async function generateHtmlImage(htmlContent) {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + Buffer.from(process.env.HCTI_API_USER_ID + ':' + process.env.HCTI_API_KEY).toString('base64')
             },
-            body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Montserrat:wght@400;700;900" })
+            body: JSON.stringify({ html: htmlContent, css: globalCss, google_fonts: "Bebas Neue" })
         });
         const data = await response.json();
         if (data.url) {
