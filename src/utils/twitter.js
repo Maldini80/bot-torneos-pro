@@ -7,7 +7,7 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/ubpQBsn.jpeg';
+// NO SE USA NINGUNA URL DE IMAGEN DE FONDO PARA GARANTIZAR LA FIABILIDAD
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
@@ -18,13 +18,12 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS CON LA CORRECCIÓN FINAL ---
+// --- CSS CON LA VERSIÓN FINAL Y 100% FIABLE (SIN IMAGEN DE FONDO) ---
 const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
   body { 
     font-family: 'Montserrat', sans-serif; 
-    background-color: #141414; 
     color: #ffffff;
     margin: 0;
     padding: 0;
@@ -33,7 +32,6 @@ const globalCss = `
   }
   .container { 
     padding: 40px; 
-    background-color: rgba(29, 29, 29, 0.2); /* Opacidad ajustada ligeramente */
     border: 3px solid #C70000;
     height: 100%;
     width: 100%;
@@ -43,20 +41,19 @@ const globalCss = `
     justify-content: center;
     text-align: center;
     
-    background-image: url('${BACKGROUND_IMAGE_URL}');
-    background-size: cover; 
-    background-position: center;
-    /* LA LÍNEA PROBLEMÁTICA HA SIDO ELIMINADA DE AQUÍ */
+    /* Fondo de color gris oscuro sólido. Esto nunca falla. */
+    background-color: #1D1D1D; 
   }
   h1, h2, th, .team-name, .value, .label, p {
     text-transform: uppercase;
+    /* Mantenemos la sombra para que el texto destaque */
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.7);
   }
   h1 { 
     color: #C70000; 
     font-size: 64px; 
     margin: 0 0 20px 0;
     font-weight: 900;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
   }
   h2 {
     color: #e1e8ed;
@@ -66,7 +63,7 @@ const globalCss = `
     padding-bottom: 10px;
     font-weight: 700;
   }
-  p { font-size: 24px; margin-bottom: 15px; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+  p { font-size: 24px; margin-bottom: 15px; }
   .label { color: #8899a6; }
   .value { color: #ffffff; font-weight: 700; }
   .group-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; text-align: left; }
@@ -79,7 +76,8 @@ const globalCss = `
   .result { font-size: 32px; font-weight: 900; color: #C70000; margin: 5px 0; }
 `;
 
-async function generateHtmlImage(htmlContent) {
+// La función de generar imagen ahora es más simple, no necesita descargar nada.
+export async function generateHtmlImage(htmlContent) {
     try {
         const response = await fetch('https://hcti.io/v1/image', {
             method: 'POST',
@@ -102,6 +100,7 @@ async function generateHtmlImage(htmlContent) {
     }
 }
 
+// --- FUNCIONES HTML SIMPLIFICADAS (SIN IMAGEN DE FONDO) ---
 function generateTournamentAnnouncementHtml(tournament) {
     return `
       <div class="container">
@@ -135,18 +134,15 @@ function generateChampionHtml(tournament) {
 function generateGroupEndHtml(tournament) {
     let allGroupsHtml = '';
     const sortedGroupNames = Object.keys(tournament.structure.grupos).sort();
-
     const sortTeams = (a, b) => {
         if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
         if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
         if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
         return 0;
     };
-
     for (const groupName of sortedGroupNames) {
         const group = tournament.structure.grupos[groupName];
         const sortedTeams = [...group.equipos].sort(sortTeams);
-        
         let tableHtml = `<div><h2>${groupName}</h2><table>`;
         tableHtml += `<tr><th>EQUIPO</th><th>PTS</th><th>DG</th></tr>`;
         sortedTeams.forEach(team => {
@@ -155,14 +151,12 @@ function generateGroupEndHtml(tournament) {
         tableHtml += '</table></div>';
         allGroupsHtml += tableHtml;
     }
-
     return `<div class="container"><h1>¡Clasificación Final de Grupos!</h1><h2>${tournament.nombre}</h2><div class="group-grid">${allGroupsHtml}</div></div>`;
 }
 
 function generateKnockoutMatchupsHtml(data) {
     const { matches, stage, tournament } = data;
     let matchupsHtml = '';
-
     matches.forEach(match => {
         matchupsHtml += `
             <div class="matchup-box">
@@ -171,20 +165,8 @@ function generateKnockoutMatchupsHtml(data) {
                 <div class="team-name">${match.equipoB.nombre}</div>
             </div>`;
     });
-
-    const stageTitles = {
-        octavos: '¡Tenemos los cruces de Octavos!',
-        cuartos: '¡Arrancan los Cuartos de Final!',
-        semifinales: '¡Definidas las Semifinales!',
-        final: '¡Esta es la Gran Final!'
-    };
-
-    return `
-        <div class="container">
-            <h1>${stageTitles[stage] || `Cruces de ${stage}`}</h1>
-            <h2>${tournament.nombre}</h2>
-            <div>${matchupsHtml}</div>
-        </div>`;
+    const stageTitles = { octavos: '¡Tenemos los cruces de Octavos!', cuartos: '¡Arrancan los Cuartos de Final!', semifinales: '¡Definidas las Semifinales!', final: '¡Esta es la Gran Final!' };
+    return `<div class="container"><h1>${stageTitles[stage] || `Cruces de ${stage}`}</h1><h2>${tournament.nombre}</h2><div>${matchupsHtml}</div></div>`;
 }
 
 function generateNewCaptainHtml(data) {
@@ -208,38 +190,27 @@ function generateRosterCompleteHtml(data) {
     const captainPlayer = players.find(p => p.isCaptain);
     const selectedPlayers = players.filter(p => !p.isCaptain).sort((a, b) => a.psnId.localeCompare(b.psnId));
     let playerListHtml = '<ul style="list-style: none; padding: 0; text-align: center; columns: 2;">';
-    selectedPlayers.forEach(player => {
-        playerListHtml += `<li style="font-size: 20px; margin-bottom: 8px;">${player.psnId}</li>`;
-    });
+    selectedPlayers.forEach(player => { playerListHtml += `<li style="font-size: 20px; margin-bottom: 8px;">${player.psnId}</li>`; });
     playerListHtml += '</ul>';
-
     return `
         <div class="container">
             <h1>¡Plantilla Completa!</h1>
             <h2 style="color: #e1e8ed;">${captain.teamName}</h2>
             <p class="label">Capitán: <span class="value">${captainPlayer.psnId}</span></p>
-            <div style="margin-top: 20px;">
-                ${playerListHtml}
-            </div>
+            <div style="margin-top: 20px;">${playerListHtml}</div>
         </div>`;
 }
 
 function generateKnockoutResultsHtml(data) {
     const { matches, stage, tournament } = data;
     let resultsHtml = '';
-    const stageTitles = {
-        octavos: 'Resultados de Octavos',
-        cuartos: 'Resultados de Cuartos',
-        semifinales: 'Resultados de Semifinales'
-    };
-
+    const stageTitles = { octavos: 'Resultados de Octavos', cuartos: 'Resultados de Cuartos', semifinales: 'Resultados de Semifinales' };
     matches.forEach(match => {
         const [scoreA, scoreB] = match.resultado.split('-').map(Number);
         const winner = scoreA > scoreB ? match.equipoA : match.equipoB;
         const loser = scoreA > scoreB ? match.equipoB : match.equipoA;
         const winnerScore = scoreA > scoreB ? scoreA : scoreB;
         const loserScore = scoreA > scoreB ? scoreB : scoreA;
-
         resultsHtml += `
             <div class="matchup-box">
                 <div class="team-name" style="color: #ffffff; font-weight: 900;">${winner.nombre}</div>
@@ -247,13 +218,7 @@ function generateKnockoutResultsHtml(data) {
                 <div class="team-name" style="color: #8899a6; text-decoration: line-through;">${loser.nombre}</div>
             </div>`;
     });
-
-    return `
-        <div class="container">
-            <h1>${stageTitles[stage] || `Resultados de ${stage}`}</h1>
-            <h2>${tournament.nombre}</h2>
-            <div>${resultsHtml}</div>
-        </div>`;
+    return `<div class="container"><h1>${stageTitles[stage] || `Resultados de ${stage}`}</h1><h2>${tournament.nombre}</h2><div>${resultsHtml}</div></div>`;
 }
 
 export async function postTournamentUpdate(eventType, data) {
