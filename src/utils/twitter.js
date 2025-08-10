@@ -7,7 +7,7 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/https://i.imgur.com/ubpQBsn.jpeg';
+const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/ubpQBsn.jpeg';
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
