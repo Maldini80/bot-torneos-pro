@@ -102,12 +102,18 @@ export async function generateHtmlImage(htmlContent) {
 
 // --- FUNCIONES HTML SIMPLIFICADAS (SIN IMAGEN DE FONDO) ---
 function generateTournamentAnnouncementHtml(tournament) {
+    // Esta línea comprueba si hay una fecha de inicio y crea el HTML para ella
+    const startTimeHtml = tournament.config.startTime
+        ? `<p><span class="label">Inicio:</span> <span class="value">${tournament.config.startTime}</span></p>`
+        : '';
+
     return `
       <div class="container">
         <h1>¡Inscripciones Abiertas!</h1>
         <h2>${tournament.nombre}</h2>
         <p><span class="label">Formato:</span> <span class="value">${tournament.config.format.label}</span></p>
         <p><span class="label">Tipo:</span> <span class="value">${tournament.config.isPaid ? 'De Pago' : 'Gratuito'}</span></p>
+        ${startTimeHtml}
       </div>`;
 }
 
