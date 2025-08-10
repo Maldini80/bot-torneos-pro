@@ -20,6 +20,13 @@ const commands = [
     new SlashCommandBuilder()
         .setName('probar-subida-real')
         .setDescription('Crea un hilo de prueba para el sistema de subida de vídeos.'),
+     new SlashCommandBuilder()
+        .setName('probar-imagen-twitter')
+        .setDescription('Genera una imagen de prueba con el estilo de Twitter.')
+        .addStringOption(option =>
+            option.setName('titulo')
+                .setDescription('El texto principal que aparecerá en la imagen.')
+                .setRequired(true)),
 ].map(command => command.toJSON());
 const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
