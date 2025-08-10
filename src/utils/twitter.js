@@ -7,7 +7,8 @@ import { getBotSettings } from '../../database.js';
 // --- CONFIGURACIÓN GLOBAL ---
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
-const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/q3qh98T.jpeg';
+// SOLUCIÓN 1: URL de la imagen cambiada a un host 100% compatible (postimg.cc)
+const BACKGROUND_IMAGE_URL = 'https://i.postimg.cc/tJ05ScfR/vpg-background.jpg';
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
@@ -18,7 +19,7 @@ const client = new TwitterApi({
 
 const twitterClient = client.readWrite;
 
-// --- CSS CON LA SOLUCIÓN DEFINITIVA A PRUEBA DE CACHÉ ---
+// SOLUCIÓN 2: CSS actualizado para mostrar la imagen sin velo y con sombra de texto para legibilidad
 const globalCss = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
 
@@ -29,11 +30,6 @@ const globalCss = `
     padding: 0;
     width: 1024px;
     height: 512px;
-    
-    /* SOLUCIÓN 1: El fondo se aplica aquí, en la capa principal */
-    background-image: url('${BACKGROUND_IMAGE_URL}?v=${new Date().getTime()}'); /* <-- El truco anti-caché */
-    background-size: cover;
-    background-position: center;
   }
   .container { 
     padding: 40px; 
@@ -46,12 +42,14 @@ const globalCss = `
     justify-content: center;
     text-align: center;
     
-    /* SOLUCIÓN 2: El contenedor ahora es solo una caja transparente */
-    background-color: rgba(0, 0, 0, 0); /* <-- Fondo totalmente transparente */
+    /* Aplicamos la imagen de fondo directamente, sin velos */
+    background-image: url('${BACKGROUND_IMAGE_URL}');
+    background-size: cover; 
+    background-position: center;
   }
   h1, h2, th, .team-name, .value, .label, p {
     text-transform: uppercase;
-    /* Mantenemos la sombra para asegurar la legibilidad */
+    /* Sombra de texto para garantizar la legibilidad sobre cualquier fondo */
     text-shadow: 2px 2px 5px rgba(0,0,0,0.9);
   }
   h1 { 
