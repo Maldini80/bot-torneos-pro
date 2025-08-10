@@ -33,7 +33,6 @@ const globalCss = `
   }
   .container { 
     padding: 40px; 
-    background-color: rgba(29, 29, 29, 0.2); /* Opacidad ajustada ligeramente */
     border: 3px solid #C70000;
     height: 100%;
     width: 100%;
@@ -42,8 +41,7 @@ const globalCss = `
     flex-direction: column;
     justify-content: center;
     text-align: center;
-    
-    background-image: url('${BACKGROUND_IMAGE_URL}');
+    background: linear-gradient(rgba(20, 20, 20, 0.85), rgba(20, 20, 20, 0.85)), url('${BACKGROUND_IMAGE_URL}');
     background-size: cover; 
     background-position: center;
     /* LA LÍNEA PROBLEMÁTICA HA SIDO ELIMINADA DE AQUÍ */
