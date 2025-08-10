@@ -79,7 +79,7 @@ const globalCss = `
   .result { font-size: 32px; font-weight: 900; color: #C70000; margin: 5px 0; }
 `;
 
-async function generateHtmlImage(htmlContent) {
+export async function generateHtmlImage(htmlContent) {
     try {
         const response = await fetch('https://hcti.io/v1/image', {
             method: 'POST',
