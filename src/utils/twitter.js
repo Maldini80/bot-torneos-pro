@@ -8,7 +8,7 @@ import { getBotSettings } from '../../database.js';
 const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
 const GLOBAL_HASHTAG = '#VPGLightnings';
 // SOLUCIÓN 1: URL de la imagen cambiada a un host 100% compatible (postimg.cc)
-const BACKGROUND_IMAGE_URL = 'https://i.postimg.cc/tJ05ScfR/vpg-background.jpg';
+const BACKGROUND_IMAGE_URL = 'https://i.imgur.com/q3qh98T.jpeg';
 
 const client = new TwitterApi({
   appKey: process.env.TWITTER_API_KEY,
