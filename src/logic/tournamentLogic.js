@@ -949,14 +949,54 @@ export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     if (!latestTournament.teams.aprobados) latestTournament.teams.aprobados = {};
-    latestTournament.teams.aprobados[teamData.capitanId] = teamData;
-    if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
-    
-    if (latestTournament.teams.reserva && latestTournament.teams.reserva[teamData.capitanId]) {
-        delete latestTournament.teams.reserva[teamData.capitanId];
+    if (!latestTournament.teams.reserva) latestTournament.teams.reserva = {};
+
+    const maxTeams = latestTournament.config.format.size;
+    const currentApprovedTeamsCount = Object.keys(latestTournament.teams.aprobados).length;
+
+    if (currentApprovedTeamsCount < maxTeams) {
+        // Add to approved teams
+        latestTournament.teams.aprobados[teamData.capitanId] = teamData;
+        if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
+        if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
+        
+        // Notify captain of approval
+        if (/^\d+$/.test(teamData.capitanId)) {
+            try {
+                const user = await client.users.fetch(teamData.capitanId);
+                const embed = new EmbedBuilder()
+                    .setColor('#2ecc71')
+                    .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
+                    .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado** y ya forma parte del torneo.\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved** and is now part of the tournament.`);
+                await user.send({ embeds: [embed] });
+            } catch(e) { 
+                console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la aprobación:`, e); 
+            }
+        }
+
+    } else {
+        // Add to reserve list
+        latestTournament.teams.reserva[teamData.capitanId] = teamData;
+        if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
+        // If a team is moved to reserve, it should not be in approved.
+        if (latestTournament.teams.aprobados[teamData.capitanId]) delete latestTournament.teams.aprobados[teamData.capitanId];
+
+        // Notify captain of being on reserve list
+        if (/^\d+$/.test(teamData.capitanId)) {
+            try {
+                const user = await client.users.fetch(teamData.capitanId);
+                const embed = new EmbedBuilder()
+                    .setColor('#f1c40f')
+                    .setTitle(`⚠️ En Lista de Reserva para ${latestTournament.nombre}`)
+                    .setDescription(`🇪🇸 ¡Hola! Tu equipo **${teamData.nombre}** ha sido añadido a la **lista de reserva** para el torneo **${latestTournament.nombre}**.\nActualmente, el torneo está completo, pero si se libera un espacio, tu equipo será considerado automáticamente.\n\n🇬🇧 Hello! Your team **${teamData.nombre}** has been added to the **reserve list** for the **${latestTournament.nombre}** tournament.\nThe tournament is currently full, but if a spot opens up, your team will be automatically considered.`);
+                await user.send({ embeds: [embed] });
+            } catch(e) { 
+                console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la lista de reserva:`, e); 
+            }
+        }
     }
 
-    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes, 'teams.reserva': latestTournament.teams.reserva }});
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes, 'teams.reserva': latestTournament.teams.reserva }}});
     
     if (/^\d+$/.test(teamData.capitanId)) {
         try {
