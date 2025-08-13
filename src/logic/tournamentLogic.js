@@ -3,7 +3,7 @@ import { getDb, getBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID, TEAM_CHANNELS_CATEGORY_ID } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
 import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed, createCasterInfoEmbed, createDraftStatusEmbed, createDraftManagementPanel, createDraftMainInterface, createCaptainControlPanel } from '../utils/embeds.js';
-import { updateAdminPanel, updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
+import { updateAdminPanel, updateTournamentManagementThread, updateDraftManagementThread } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
@@ -415,7 +415,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
 
         const newTournament = {
             _id: new ObjectId(), shortId: tournamentShortId, guildId: guild.id, nombre: tournamentName, status: 'inscripcion_abierta',
-            config,
+            config, 
             teams: { pendientes: {}, aprobados: approvedTeams, reserva: {}, coCapitanes: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
@@ -470,7 +470,10 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
                 
                 const mentionString = teamMembersIds.map(id => `<@${id}>`).join(' ');
                 await textChannel.send({
-                    content: `### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`
+                    content: `### ¡Bienvenido, equipo ${team.nombre}!
+Este es vuestro canal privado para coordinaros.
+
+**Miembros:** ${mentionString}`
                 });
             }
         }
@@ -551,7 +554,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 prizeCampeon: config.isPaid ? config.prizeCampeon : 0,
                 prizeFinalista: config.isPaid ? config.prizeFinalista : 0,
             },
-            captains: [], pendingCaptains: {}, players: [], pendingPayments: {},
+            captains: [], pendingCaptains: {}, players: [], pendingPayments: {}, 
             selection: { turn: 0, order: [], currentPick: 1, isPicking: false, activeInteractionId: null },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
@@ -583,9 +586,9 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         newDraft.discordMessageIds.managementThreadId = managementThread.id;
         
         const notificationsParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT);
-        const notificationsThread = await notificationsParentChannel.threads.create({ 
-            name: `Avisos Draft - ${name.slice(0, 40)}`, 
-            type: ChannelType.PrivateThread, 
+        const notificationsThread = await notificationsParentChannel.threads.create({
+            name: `Avisos Draft - ${name.slice(0, 40)}`,
+            type: ChannelType.PrivateThread,
             autoArchiveDuration: 10080 
         });
         newDraft.discordMessageIds.notificationsThreadId = notificationsThread.id;
@@ -735,7 +738,7 @@ export async function advanceDraftTurn(client, draftShortId) {
     
     await db.collection('drafts').updateOne(
         { _id: draft._id },
-        { 
+        {
             $set: { "selection.turn": nextTurnIndex, "selection.isPicking": false, "selection.activeInteractionId": null },
             $inc: { "selection.currentPick": 1 },
         }
@@ -880,6 +883,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
 async function cleanupFailedCreation(client, resources) {
     console.log("[CLEANUP] Iniciando limpieza de recursos por creación fallida...");
     const deleteChannel = async (id) => {
+        if (!id) return;
         try {
             const channel = await client.channels.fetch(id).catch(()=>null);
             if (channel) await channel.delete('Limpieza por creación de torneo fallida.');
@@ -969,10 +973,33 @@ export async function approveTeam(client, tournament, teamData) {
                     .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
                     .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado** y ya forma parte del torneo.\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved** and is now part of the tournament.`);
                 await user.send({ embeds: [embed] });
+
+                // Grant chat and matches channel permissions ONLY for approved teams
+                const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
+                const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
+
+                await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
+                await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
+
+                const inviteButtonRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`invite_cocaptain_start:${latestTournament.shortId}`)
+                        .setLabel('Invitar Co-Capitán / Invite Co-Captain')
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji('🤝')
+                );
+
+                await chatChannel.send({
+                    content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
+                    components: [inviteButtonRow]
+                });
+
             } catch(e) { 
-                console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la aprobación:`, e); 
+                console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la aprobación o al dar permisos:`, e); 
             }
         }
+        // Notify casters ONLY for approved teams
+        await notifyCastersOfNewTeam(client, latestTournament, teamData);
 
     } else {
         // Add to reserve list
@@ -998,47 +1025,8 @@ export async function approveTeam(client, tournament, teamData) {
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes, 'teams.reserva': latestTournament.teams.reserva }});
     
-    if (/^\d+$/.test(teamData.capitanId)) {
-        try {
-            const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
-            const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
-
-            await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
-            await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
-
-            const inviteButtonRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`invite_cocaptain_start:${latestTournament.shortId}`)
-                    .setLabel('Invitar Co-Capitán / Invite Co-Captain')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('🤝')
-            );
-
-            await chatChannel.send({
-                content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
-                components: [inviteButtonRow]
-            });
-
-            const user = await client.users.fetch(teamData.capitanId);
-            const embed = new EmbedBuilder()
-                .setColor('#2ecc71')
-                .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
-                .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado**.\n\n` +
-                              `Dirígete al canal <#${chatChannel.id}> para chatear con otros participantes e invitar a tu co-capitán.` +
-                              `\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved**.\n\n` +
-                              `Head over to the <#${chatChannel.id}> channel to chat with other participants and invite your co-captain.`);
-            
-            await user.send({ embeds: [embed] });
-
-        } catch(e) { 
-            console.error(`Error en la aprobación o al dar permisos al capitán ${teamData.capitanId}:`, e); 
-        }
-    }
-    
     const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
     
-    await notifyCastersOfNewTeam(client, updatedTournament, teamData);
-
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
 }
@@ -1049,7 +1037,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
-        { 
+        {
             $set: { 
                 [`teams.aprobados.${captainId}.coCaptainId`]: coCaptainId,
                 [`teams.aprobados.${captainId}.coCaptainTag`]: coCaptainUser.tag
@@ -1138,8 +1126,8 @@ export async function undoGroupStageDraw(client, tournamentShortId) {
         const updateQuery = {
             $set: {
                 status: 'inscripcion_abierta',
-                'structure.grupos': {},
-                'structure.calendario': {},
+                'structure.grupos': {}, 
+                'structure.calendario': {}, 
                 'structure.eliminatorias': { rondaActual: null },
             }
         };
@@ -1216,7 +1204,7 @@ async function cleanupTournament(client, tournament) {
     const { discordChannelIds, discordMessageIds } = tournament;
     const deleteResourceSafe = async (resourceId) => {
         if (!resourceId) return;
-        try { const resource = await client.channels.fetch(resourceId).catch(() => null); if(resource) await resource.delete(); }
+        try { const resource = await client.channels.fetch(resourceId).catch(() => null); if(resource) await resource.delete(); } 
         catch (err) { if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); }
     };
     for (const channelId of Object.values(discordChannelIds)) { await deleteResourceSafe(channelId); }
@@ -1431,9 +1419,9 @@ export async function reportPlayer(client, draft, interactorId, teamId, reported
 
     const updateResult = await records.findOneAndUpdate(
         { userId: reportedPlayerId },
-        { 
+        {
             $inc: { strikes: 1 },
-            $push: { 
+            $push: {
                 history: {
                     strikeId: new ObjectId(),
                     date: new Date(),

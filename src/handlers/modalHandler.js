@@ -85,7 +85,7 @@ if (customId.startsWith('config_draft_')) {
             ]);
 
         await interaction.reply({
-            content: `Has nombrado al draft como "${name}". Ahora, selecciona su tipo:`,
+            content: `Has nombrado al draft como "${name}". Ahora, selecciona su tipo:`, 
             components: [new ActionRowBuilder().addComponents(typeMenu)],
             flags: [MessageFlags.Ephemeral]
         });
@@ -103,7 +103,7 @@ if (customId.startsWith('config_draft_')) {
 
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) {
-            return interaction.followUp({ content: '❌ No se encontró el draft.', flags: [MessageFlags.Ephemeral] });
+            return interaction.followUp({ content: '❌ No se encontró el draft.' });
         }
         
         const amountToAdd = amount;
@@ -120,7 +120,7 @@ if (customId.startsWith('config_draft_')) {
             if (currentCaptainCount < 8) {
                 const teamName = `E-Prueba-${currentCaptainCount + 1}`;
                 const captainData = {
-                    userId: uniqueId, userName: `TestCaptain#${String(i).padStart(4, '0')}`, teamName: teamName,
+                    userId: uniqueId, userName: `TestCaptain#${1000 + i}`, teamName: teamName,
                     streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, eafcTeamName: `EAFC-Test-${currentCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
                 };
                 
@@ -130,15 +130,6 @@ if (customId.startsWith('config_draft_')) {
                 };
                 bulkCaptains.push(captainData);
                 bulkPlayers.push(captainAsPlayerData);
-            } else {
-                const randomPrimaryPos = positions[Math.floor(Math.random() * positions.length)];
-                const randomSecondaryPos = positions[Math.floor(Math.random() * positions.length)];
-                
-                const playerData = {
-                    userId: uniqueId, userName: `TestPlayer#${String(i).padStart(4, '0')}`, psnId: `J-Prueba-${currentPlayerCount - draft.captains.length + 1}`,
-                    twitter: 'test_player', primaryPosition: randomPrimaryPos, secondaryPosition: randomSecondaryPos, currentTeam: 'Libre', isCaptain: false, captainId: null
-                };
-                bulkPlayers.push(playerData);
             }
         }
 
@@ -251,7 +242,9 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
         const pendingData = { playerData, captainData }; 
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
 
-        const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`).setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.\n\n**Pagar a / Pay to:** \`${PAYMENT_CONFIG.PAYPAL_EMAIL}\`\n\nUna vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
+        const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`).setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.\n\n**Pagar a / Pay to:** \
+`${PAYMENT_CONFIG.PAYPAL_EMAIL}\
+\nUna vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
         const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_payment_confirm_start:${draftShortId}`).setLabel('✅ Ya he Pagado / I Have Paid').setStyle(ButtonStyle.Success));
         try {
             await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
@@ -280,11 +273,7 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
                     { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
                     { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
                 );
-            const adminButtons = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-            );
-            
+            const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
             await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
             await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
@@ -322,12 +311,11 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
         const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago de Draft: ${draft.name}`).addFields( 
             { name: 'Jugador', value: interaction.user.tag, inline: true },
             { name: 'Rol', value: role + teamName, inline: true },
-            { name: "PayPal del Jugador", value: `\`${userPaypal}\`` } 
+            { name: "PayPal del Jugador", value: `\
+`${userPaypal}\
+` } 
         );
-        const adminButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`draft_approve_payment:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`draft_reject_payment:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-        );
+        const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_payment:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_payment:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         
         await notificationsChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         await interaction.editReply('✅ ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.');
@@ -470,8 +458,10 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
         }
     
         if (tournament.config.isPaid) {
-            const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${tournament.config.enlacePaypal}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
-            const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournament.shortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
+            const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\
+`${PAYMENT_CONFIG.PAYPAL_EMAIL}\
+` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
+            const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournamentShortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
             try {
                 await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
                 await interaction.editReply({ content: '✅ 🇪🇸 ¡Inscripción recibida! Revisa tus MD para completar el pago.\n🇬🇧 Registration received! Check your DMs to complete the payment.' });
@@ -507,7 +497,9 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const teamData = updatedTournament.teams.pendientes[interaction.user.id];
         if (!teamData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
-        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields( { name: 'Equipo', value: teamData.nombre, inline: true }, { name: 'Capitán', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán", value: `\`${userPaypal}\`` } );
+        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields( { name: 'Equipo', value: teamData.nombre, inline: true }, { name: 'Capitán', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán", value: `\
+`${userPaypal}\
+` } );
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
         await interaction.editReply('✅ 🇪🇸 ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.\n🇬🇧 Thank you! Your payment has been notified. You will receive a notice upon approval.');
@@ -561,7 +553,12 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
                 await interaction.editReply({content: '❌ 🇪🇸 Los resultados reportados no coinciden. Se ha notificado a los árbitros.\n🇬🇧 The reported results do not match. Referees have been notified.'});
                 const thread = interaction.channel;
                 if(thread.isThread()) await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅🔵]-/g, '')}`.slice(0,100));
-                await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> reportó: \`${reportedResult}\`\n- <@${opponentId}> reportó: \`${opponentReport}\`` });
+                await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \
+`${reportedResult}\
+`
+- <@${opponentId}> ha reportado: 
+`${opponentReport}
+` });
             }
         } else {
             await interaction.editReply({content: '✅ 🇪🇸 Tu resultado ha sido enviado. Esperando el reporte de tu oponente.\n🇬🇧 Your result has been submitted. Awaiting your opponent\'s report.'});
@@ -598,8 +595,8 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
         
         const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input').trim();
         
-        if (!/^\d+$/.test(coCaptainId)) {
-            return interaction.editReply({ 
+        if (!/^\\d+$/.test(coCaptainId)) {
+            return interaction.editReply({
                 content: '❌ **Error:** El valor introducido no es una ID de Discord válida. Por favor, introduce únicamente la ID numérica del usuario (ej: 1398287366929776670).',
                 flags: [MessageFlags.Ephemeral]
             });
@@ -622,7 +619,7 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
             const embed = new EmbedBuilder()
                 .setColor('#3498db')
                 .setTitle(`🤝 Invitación de Co-Capitán / Co-Captain Invitation`)
-                .setDescription(`🇪🇸 Has sido invitado por **${interaction.user.tag}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n\n` +
+                .setDescription(`🇪🇸 Has sido invitado por **${interaction.user.tag}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n\n` + 
                               `🇬🇧 You have been invited by **${interaction.user.tag}** to be the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.`);
             
             const row = new ActionRowBuilder().addComponents(
@@ -641,5 +638,37 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
                  await interaction.editReply('❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.');
             }
         }
+    }
+
+    if (action === 'admin_message_reserve_team_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId, captainId] = params;
+        const messageContent = interaction.fields.getTextInputValue('message_content');
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+        }
+
+        const teamData = tournament.teams.reserva[captainId];
+        if (!teamData) {
+            return interaction.editReply({ content: 'Error: Equipo de reserva no encontrado.' });
+        }
+
+        try {
+            const user = await client.users.fetch(captainId);
+            const embed = new EmbedBuilder()
+                .setColor('#3498db')
+                .setTitle(`✉️ Mensaje del Staff sobre el Torneo: ${tournament.nombre}`)
+                .setDescription(messageContent)
+                .setTimestamp();
+            
+            await user.send({ embeds: [embed] });
+            await interaction.editReply({ content: `✅ Mensaje enviado a **${teamData.nombre}** (Capitán: ${teamData.capitanTag}).` });
+        } catch (e) {
+            console.error(`Error al enviar mensaje al capitán ${captainId}:`, e);
+            await interaction.editReply({ content: '❌ No se pudo enviar el mensaje. Es posible que el usuario tenga los MDs bloqueados.' });
+        }
+        return;
     }
 }

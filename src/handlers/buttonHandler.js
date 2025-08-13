@@ -1,7 +1,7 @@
 // src/handlers/buttonHandler.js
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
-import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
-import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
+import { getDb, getBotSettings, updateBotSettings } from('../../database.js');
+import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from('../../config.js');
 import {
     approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister,
     addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
@@ -12,7 +12,7 @@ import {
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed } from '../utils/embeds.js';
-import { setBotBusy } from '../../index.js';
+import { setBotBusy } from('../../index.js');
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 
 export async function handleButton(interaction) {
@@ -188,7 +188,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
             .addOptions(agentOptions.slice(0, 25)); // Discord solo permite 25 opciones por menú
 
         await interaction.editReply({
-            content: `Selecciona un jugador de la lista de agentes libres para invitarlo como reemplazo:`,
+            content: `Selecciona un jugador de la lista de agentes libres para invitarlo como reemplazo`,
             components: [new ActionRowBuilder().addComponents(selectMenu)]
         });
         return;
@@ -267,7 +267,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
             await forceKickPlayer(client, draftShortId, teamId, playerIdToKick);
             await interaction.editReply({ content: '✅ Jugador expulsado del equipo y devuelto a la lista de agentes libres.' });
         } catch (error) {
-            console.error("Error al forzar expulsión de jugador:", error);
+            console.error("Error al forzar expulsión de jugador:', error);
             await interaction.editReply({ content: `❌ Hubo un error: ${error.message}` });
         }
         return;
@@ -304,7 +304,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
             return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
         
-        const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, draftShortId);
+        const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, tournamentShortId);
         await interaction.reply(ruleStepContent);
         return;
     }
@@ -315,7 +315,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft || !draft.pendingCaptains || !draft.pendingCaptains[targetUserId]) {
-            await interaction.followUp({ content: 'Error: Solicitud de capitán no encontrada o ya procesada.', flags: [MessageFlags.Ephemeral] });
+            return interaction.followUp({ content: 'Error: Solicitud de capitán no encontrada o ya procesada.', flags: [MessageFlags.Ephemeral] });
             return;
         }
 
@@ -380,7 +380,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
                 .addOptions(pageOptions);
 
             await interaction.editReply({
-                content: `Hay demasiados participantes para mostrarlos todos. Por favor, selecciona una página:`,
+                content: `Hay demasiados participantes para mostrarlos todos. Por favor, selecciona una página`,
                 components: [new ActionRowBuilder().addComponents(pageMenu)]
             });
 
@@ -437,9 +437,9 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
 
         const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
         originalEmbed.setColor('#e74c3c').setFooter({ text: `Baja rechazada por ${interaction.user.tag}` });
-        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
-        await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
         await interaction.followUp({ content: `❌ Solicitud de baja rechazada.`, flags: [MessageFlags.Ephemeral] });
         return;
@@ -623,8 +623,8 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         .setPlaceholder('Elige la posición que quieres cubrir')
         .addOptions(positionOptions);
     
-    const response = await interaction.reply({ 
-        content: `**Turno de ${updatedDraft.captains.find(c => c.userId === currentCaptainId).teamName}**\nPor favor, elige la posición del jugador que quieres seleccionar.`, 
+    const response = await interaction.reply({
+        content: `**Turno de ${updatedDraft.captains.find(c => c.userId === currentCaptainId).teamName}**\nPor favor, elige la posición del jugador que quieres seleccionar`,
         components: [new ActionRowBuilder().addComponents(positionMenu)], 
         flags: [MessageFlags.Ephemeral],
         withResponse: true
@@ -671,7 +671,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
     }
 
     await interaction.update({
-        content: '✅ Pick confirmado. Procesando siguiente turno...',
+        content: '✅ Pick confirmado. Procesando siguiente turno...', 
         embeds: [],
         components: []
     });
@@ -1093,7 +1093,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         const formatMenu = new StringSelectMenuBuilder().setCustomId(`admin_change_format_select:${tournamentShortId}`).setPlaceholder('Selecciona el nuevo formato').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, value: key })));
         const typeMenu = new StringSelectMenuBuilder().setCustomId(`admin_change_type_select:${tournamentShortId}`).setPlaceholder('Selecciona el nuevo tipo de pago').addOptions([ { label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' } ]);
         await interaction.editReply({ content: `**Editando:** ${tournament.nombre}\nSelecciona el nuevo formato o tipo.`, components: [new ActionRowBuilder().addComponents(formatMenu), new ActionRowBuilder().addComponents(typeMenu)], });
@@ -1317,6 +1317,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
         await interaction.editReply(`✅ Baja del equipo **${team.nombre}** procesada.`);
+        return;
     }
 
     if (action === 'admin_unregister_reject') {
@@ -1331,11 +1332,12 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
 
         const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
         originalEmbed.setColor('#e74c3c').setFooter({ text: `Baja rechazada por ${interaction.user.tag}` });
-        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
-        await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
-        await interaction.editReply(`❌ Solicitud de baja rechazada.`);
+        await interaction.editReply(`❌ Solicitud de baja rechazada.`, flags: [MessageFlags.Ephemeral] });
+        return;
     }
 
     if (action === 'admin_prize_paid') {
@@ -1354,6 +1356,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         
         await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
         await interaction.editReply(`✅ Pago marcado como realizado. Se ha notificado a <@${userId}>.`);
+        return;
     }
 
     if(action === 'admin_manage_waitlist') {
@@ -1375,5 +1378,91 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
             .addOptions(options);
         
         await interaction.editReply({content: 'Selecciona un equipo de la lista de reserva para aprobarlo y añadirlo al torneo:', components: [new ActionRowBuilder().addComponents(selectMenu)]});
+        return;
+    }
+
+    if (action === 'admin_promote_from_waitlist') { // This is a select menu interaction
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const selectedCaptainId = interaction.values[0]; // Get the selected captain ID
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.followUp({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const teamData = tournament.teams.reserva[selectedCaptainId];
+        if (!teamData) {
+            return interaction.followUp({ content: 'Error: Equipo de reserva no encontrado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle(`Gestionar Equipo de Reserva: ${teamData.nombre}`)
+            .setDescription(`Capitán: ${teamData.capitanTag}\nEAFC: ${teamData.eafcTeamName}\nTwitter: ${teamData.twitter || 'N/A'}`);
+
+        const actionRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_promote_reserve_team:${tournamentShortId}:${selectedCaptainId}`)
+                .setLabel('Promover al Torneo')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('⬆️'),
+            new ButtonBuilder()
+                .setCustomId(`admin_message_reserve_team_start:${tournamentShortId}:${selectedCaptainId}`)
+                .setLabel('Enviar Mensaje')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('✉️')
+        );
+
+        await interaction.editReply({
+            content: '¿Qué acción deseas realizar con este equipo de reserva?',
+            embeds: [embed],
+            components: [actionRow]
+        });
+        return;
+    }
+
+    if (action === 'admin_promote_reserve_team') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, captainId] = params;
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.followUp({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const teamData = tournament.teams.reserva[captainId];
+        if (!teamData) {
+            return interaction.followUp({ content: 'Error: Equipo de reserva no encontrado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        // Call the approveTeam function to move the team from reserve to approved
+        await approveTeam(client, tournament, teamData);
+
+        // Disable the buttons on the original message
+        const originalMessage = interaction.message;
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        await originalMessage.edit({ components: [disabledRow] });
+
+        await interaction.followUp({ content: `✅ El equipo **${teamData.nombre}** ha sido promovido al torneo.`, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'admin_message_reserve_team_start') {
+        const [tournamentShortId, captainId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_message_reserve_team_modal:${tournamentShortId}:${captainId}`)
+            .setTitle('Enviar Mensaje a Equipo de Reserva');
+
+        const messageInput = new TextInputBuilder()
+            .setCustomId('message_content')
+            .setLabel("Contenido del Mensaje")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(messageInput));
+        await interaction.showModal(modal);
+        return;
     }
 }
