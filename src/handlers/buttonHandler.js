@@ -48,36 +48,31 @@ export async function handleButton(interaction) {
         });
         return;
     }
-    // --- NUEVO CÓDIGO PARA LOS BOTONES DE CONFIGURACIÓN DE DRAFT ---
-// --- CÓDIGO MEJORADO PARA LOS BOTONES DE CONFIGURACIÓN DE DRAFT ---
-if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft_max_quotas') {
-    const settings = await getBotSettings();
-    const isMin = action === 'admin_config_draft_min_quotas';
-    const modal = new ModalBuilder()
-        .setCustomId(isMin ? 'config_draft_min_modal' : 'config_draft_max_modal')
-        .setTitle(isMin ? 'Config: Mínimos por Posición' : 'Config: Máximos por Posición');
     
-    // Buscamos las cuotas guardadas
-    let valueForForm = isMin ? settings.draftMinQuotas : settings.draftMaxQuotas;
+    if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft_max_quotas') {
+        const settings = await getBotSettings();
+        const isMin = action === 'admin_config_draft_min_quotas';
+        const modal = new ModalBuilder()
+            .setCustomId(isMin ? 'config_draft_min_modal' : 'config_draft_max_modal')
+            .setTitle(isMin ? 'Config: Mínimos por Posición' : 'Config: Máximos por Posición');
+        
+        let valueForForm = isMin ? settings.draftMinQuotas : settings.draftMaxQuotas;
 
-    // Si no hay nada guardado, creamos la plantilla por defecto
-    if (!valueForForm) {
-        valueForForm = Object.keys(DRAFT_POSITIONS).map(pos => `${pos}:`).join(',');
+        if (!valueForForm) {
+            valueForForm = Object.keys(DRAFT_POSITIONS).map(pos => `${pos}:`).join(',');
+        }
+
+        const quotasInput = new TextInputBuilder()
+            .setCustomId('quotas_input')
+            .setLabel("Formato: POS:Num,POS:Num (Ej: GK:1,DFC:2)")
+            .setStyle(TextInputStyle.Paragraph)
+            .setValue(valueForForm) 
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(quotasInput));
+        await interaction.showModal(modal);
+        return;
     }
-
-    const quotasInput = new TextInputBuilder()
-        .setCustomId('quotas_input')
-        .setLabel("Formato: POS:Num,POS:Num (Ej: GK:1,DFC:2)")
-        .setStyle(TextInputStyle.Paragraph)
-        .setValue(valueForForm) // Usamos el valor guardado o la plantilla
-        .setRequired(true);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(quotasInput));
-    await interaction.showModal(modal);
-    return;
-}
-// --- FIN DEL CÓDIGO MEJORADO ---
-// --- FIN DEL NUEVO CÓDIGO ---
 
     if (action === 'captain_manage_roster_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -185,7 +180,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`captain_invite_replacement_select:${draftShortId}:${teamId}:${kickedPlayerId}`)
             .setPlaceholder('Selecciona un agente libre para invitar')
-            .addOptions(agentOptions.slice(0, 25)); // Discord solo permite 25 opciones por menú
+            .addOptions(agentOptions.slice(0, 25));
 
         await interaction.editReply({
             content: `Selecciona un jugador de la lista de agentes libres para invitarlo como reemplazo`,
@@ -604,8 +599,6 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateCaptainControlPanel(client, updatedDraft);
 
-    // --- INICIO DE LA MODIFICACIÓN ---
-    // Ahora, en lugar de preguntar 'cómo buscar', directamente mostramos las posiciones a cubrir.
     const availablePlayers = draft.players.filter(p => !p.captainId);
     const availablePositions = new Set(availablePlayers.flatMap(p => [p.primaryPosition, p.secondaryPosition]));
     
@@ -627,7 +620,6 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         components: [new ActionRowBuilder().addComponents(positionMenu)], 
         flags: [MessageFlags.Ephemeral]
     });
-    // --- FIN DE LA MODIFICACIÓN ---
 
     await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.activeInteractionId": response.id } });
     return;
@@ -674,21 +666,16 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         components: []
     });
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     try {
-        // Intentamos procesar el fichaje y avanzar el turno
         await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
         await advanceDraftTurn(client, draftShortId);
     } catch (error) {
-        // Si algo falla (ej. se supera el máximo), capturamos el error
         console.error(`Error de regla de negocio en el pick: ${error.message}`);
-        // Y le mostramos el mensaje de error específico al capitán
         await interaction.followUp({
             content: `❌ **No se pudo completar el fichaje:** ${error.message}`,
             flags: [MessageFlags.Ephemeral]
         });
     }
-    // --- FIN DE LA MODIFICACIÓN ---
     return;
 }
 
@@ -746,9 +733,7 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         const totalSteps = isCaptainFlow || isTournamentFlow ? 3 : 1;
     
         if (currentStep >= totalSteps) {
-            // --- INICIO DE LA MODIFICACIÓN ---
             if (originalAction.startsWith('register_draft_captain')) {
-                // Para el capitán del draft, primero preguntamos la posición
                 const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
                     label: value, value: key
                 }));
@@ -789,7 +774,6 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
                     embeds: []
                 });
             }
-            // --- FIN DE LA MODIFICACIÓN ---
         } else {
             const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
             await interaction.update(nextStepContent);
@@ -865,34 +849,24 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         if (action === 'invite_to_thread') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
-        // 1. Se obtiene la información más reciente del torneo.
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
-        // 2. Se busca la información del equipo directamente desde la fuente principal ("teams.aprobados")
-        //    en lugar de la copia del partido.
         const team = tournament.teams.aprobados[interaction.user.id];
 
-        // 3. Si por alguna razón el equipo no se encuentra, se da un error.
         if (!team) {
             return interaction.editReply({ content: 'Error: No se encontró tu equipo en este torneo.' });
         }
 
-        // 4. Se llama a la misma función de antes, pero ahora "team" contiene la información actualizada.
         await inviteUserToMatchThread(interaction, team);
         return;
     }
 
       const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
     if (modalActions.includes(action)) {
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Primero, comprobamos los permisos si la acción es forzar resultado
         if (action === 'admin_modify_result_start') {
-            // Comprobamos si el usuario tiene permiso de Administrador
             const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
-            // Comprobamos si el usuario tiene el rol de Árbitro
             const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
 
-            // Si NO es Administrador Y TAMPOCO es Árbitro, le denegamos el acceso.
             if (!isAdmin && !isReferee) {
                 return interaction.reply({
                     content: '❌ No tienes permiso para usar esta función. Requiere ser Administrador o Árbitro.',
@@ -900,7 +874,6 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
                 });
             }
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
         const [p1, p2] = params;
         
@@ -1379,10 +1352,10 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         return;
     }
 
-    if (action === 'admin_promote_from_waitlist') { // This is a select menu interaction
+    if (action === 'admin_promote_from_waitlist') {
         await interaction.deferUpdate();
         const [tournamentShortId] = params;
-        const selectedCaptainId = interaction.values[0]; // Get the selected captain ID
+        const selectedCaptainId = interaction.values[0];
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) {
@@ -1433,11 +1406,9 @@ if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft
         if (!teamData) {
             return interaction.followUp({ content: 'Error: Equipo de reserva no encontrado.', flags: [MessageFlags.Ephemeral] });
         }
-
-        // Call the approveTeam function to move the team from reserve to approved
+        
         await approveTeam(client, tournament, teamData);
 
-        // Disable the buttons on the original message
         const originalMessage = interaction.message;
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
