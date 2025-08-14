@@ -25,7 +25,7 @@ export async function handleButton(interaction) {
 
     if (action === 'admin_manage_drafts_players') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const activeDrafts = await db.collection('drafts').find({ status: { $nin: ['torneo_generado', 'cancelado'] } }).toArray();
+        const activeDrafts = await db.collection('drafts').find({ status: { $nin: ['finalizado', 'torneo_generado', 'cancelado'] } }).toArray();
 
         if (activeDrafts.length === 0) {
             return interaction.editReply({ content: 'No hay drafts activos para gestionar en este momento.' });
