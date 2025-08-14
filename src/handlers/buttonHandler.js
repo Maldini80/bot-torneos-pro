@@ -161,33 +161,59 @@ export async function handleButton(interaction) {
         return;
     }
     
+    // --- INICIO DE LA MODIFICACIÓN: LÓGICA DE PAGINACIÓN PARA 'INVITAR REEMPLAZO' ---
     if (action === 'admin_invite_replacement_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, teamId, kickedPlayerId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-        const freeAgents = draft.players.filter(p => !p.captainId && !p.isCaptain);
+        const freeAgents = draft.players.filter(p => !p.captainId && !p.isCaptain).sort((a, b) => a.psnId.localeCompare(b.psnId));
         if (freeAgents.length === 0) {
             return interaction.editReply({ content: 'No hay agentes libres disponibles para invitar.' });
         }
 
-        const agentOptions = freeAgents.map(p => ({
-            label: p.psnId,
-            description: `Pos: ${p.primaryPosition}`,
-            value: p.userId
-        }));
+        const pageSize = 25;
+        if (freeAgents.length > pageSize) {
+            const pageCount = Math.ceil(freeAgents.length / pageSize);
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const start = i * pageSize + 1;
+                const end = Math.min((i + 1) * pageSize, freeAgents.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (${start}-${end})`,
+                    value: `page_${i}`,
+                });
+            }
 
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`captain_invite_replacement_select:${draftShortId}:${teamId}:${kickedPlayerId}`)
-            .setPlaceholder('Selecciona un agente libre para invitar')
-            .addOptions(agentOptions.slice(0, 25));
+            const pageMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_invite_replacement_page_select:${draftShortId}:${teamId}:${kickedPlayerId}`)
+                .setPlaceholder('Selecciona una página de agentes libres')
+                .addOptions(pageOptions);
 
-        await interaction.editReply({
-            content: `Selecciona un jugador de la lista de agentes libres para invitarlo como reemplazo`,
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
-        });
+            await interaction.editReply({
+                content: `Hay demasiados agentes libres para mostrarlos todos. Por favor, selecciona una página:`,
+                components: [new ActionRowBuilder().addComponents(pageMenu)]
+            });
+        } else {
+            const agentOptions = freeAgents.map(p => ({
+                label: p.psnId,
+                description: `Pos: ${p.primaryPosition}`,
+                value: p.userId
+            }));
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`captain_invite_replacement_select:${draftShortId}:${teamId}:${kickedPlayerId}`)
+                .setPlaceholder('Selecciona un agente libre para invitar')
+                .addOptions(agentOptions);
+
+            await interaction.editReply({
+                content: `Selecciona un jugador de la lista de agentes libres para invitarlo como reemplazo:`,
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+        }
         return;
     }
+    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'draft_accept_replacement') {
         await interaction.deferUpdate();
@@ -349,7 +375,7 @@ export async function handleButton(interaction) {
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     
-        const allParticipants = [...draft.captains, ...draft.players.filter(p => !p.isCaptain)];
+        const allParticipants = [...draft.captains, ...draft.players.filter(p => !p.isCaptain)].sort((a, b) => (a.userName || a.psnId).localeCompare(b.userName || b.psnId));
     
         if (allParticipants.length === 0) {
             return interaction.editReply({ content: 'ℹ️ No hay participantes inscritos para gestionar.' });
@@ -748,7 +774,7 @@ export async function handleButton(interaction) {
                     embeds: []
                 });
 
-            } else if (isTournamentFlow) { // Flujo de torneo normal
+            } else if (isTournamentFlow) {
                 const platformButtons = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${entityId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
                     new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${entityId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
@@ -759,7 +785,7 @@ export async function handleButton(interaction) {
                     components: [platformButtons],
                     embeds: []
                 });
-            } else { // Player flow
+            } else {
                 const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
                     label: value, value: key
                 }));
@@ -803,7 +829,7 @@ export async function handleButton(interaction) {
                 new ActionRowBuilder().addComponents(twitterInput)
             );
     
-        } else { // Tournament Flow
+        } else {
             finalActionId = `inscripcion_modal:${entityId}:${platform}`;
             modal.setTitle('Inscripción de Equipo');
             
