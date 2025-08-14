@@ -242,12 +242,11 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
         const pendingData = { playerData, captainData }; 
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
 
-                const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`).setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.
-
-**Pagar a / Pay to:**
-`${PAYMENT_CONFIG.PAYPAL_EMAIL}`
-
-Una vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
+        const embedDm = new EmbedBuilder()
+            .setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`)
+            .setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.\n\n**Pagar a / Pay to:**\n\`${PAYMENT_CONFIG.PAYPAL_EMAIL}\`\n\nUna vez realizado, pulsa el botón de abajo.`)
+            .setColor('#e67e22');
+            
         const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_payment_confirm_start:${draftShortId}`).setLabel('✅ Ya he Pagado / I Have Paid').setStyle(ButtonStyle.Success));
         try {
             await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
@@ -314,9 +313,7 @@ Una vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
         const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago de Draft: ${draft.name}`).addFields( 
             { name: 'Jugador', value: interaction.user.tag, inline: true },
             { name: 'Rol', value: role + teamName, inline: true },
-            { name: "PayPal del Jugador", value: `\
-`${userPaypal}\
-` } 
+            { name: "PayPal del Jugador", value: `\`${userPaypal}\`` } 
         );
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_payment:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_payment:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         
@@ -461,9 +458,7 @@ Una vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
         }
     
         if (tournament.config.isPaid) {
-            const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\
-`${PAYMENT_CONFIG.PAYPAL_EMAIL}\
-` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
+            const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${PAYMENT_CONFIG.PAYPAL_EMAIL}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
             const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournamentShortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
             try {
                 await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
@@ -500,9 +495,7 @@ Una vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const teamData = updatedTournament.teams.pendientes[interaction.user.id];
         if (!teamData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
-        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields( { name: 'Equipo', value: teamData.nombre, inline: true }, { name: 'Capitán', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán", value: `\
-`${userPaypal}\
-` } );
+        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields( { name: 'Equipo', value: teamData.nombre, inline: true }, { name: 'Capitán', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán", value: `\`${userPaypal}\`` } );
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
         await interaction.editReply('✅ 🇪🇸 ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.\n🇬🇧 Thank you! Your payment has been notified. You will receive a notice upon approval.');
@@ -556,12 +549,7 @@ Una vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
                 await interaction.editReply({content: '❌ 🇪🇸 Los resultados reportados no coinciden. Se ha notificado a los árbitros.\n🇬🇧 The reported results do not match. Referees have been notified.'});
                 const thread = interaction.channel;
                 if(thread.isThread()) await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅🔵]-/g, '')}`.slice(0,100));
-                await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \
-`${reportedResult}\
-`
-- <@${opponentId}> ha reportado: 
-`${opponentReport}
-` });
+                await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentId}> ha reportado: \`${opponentReport}\` `});
             }
         } else {
             await interaction.editReply({content: '✅ 🇪🇸 Tu resultado ha sido enviado. Esperando el reporte de tu oponente.\n🇬🇧 Your result has been submitted. Awaiting your opponent\'s report.'});
@@ -598,7 +586,7 @@ Una vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
         
         const coCaptainId = interaction.fields.getTextInputValue('cocaptain_id_input').trim();
         
-        if (!/^\\d+$/.test(coCaptainId)) {
+        if (!/^\d+$/.test(coCaptainId)) {
             return interaction.editReply({
                 content: '❌ **Error:** El valor introducido no es una ID de Discord válida. Por favor, introduce únicamente la ID numérica del usuario (ej: 1398287366929776670).',
                 flags: [MessageFlags.Ephemeral]
