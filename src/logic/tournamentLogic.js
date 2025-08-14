@@ -1,9 +1,9 @@
-// src/logic/tournamentLogic.js
 import { getDb, getBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID, TEAM_CHANNELS_CATEGORY_ID } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
 import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed, createCasterInfoEmbed, createDraftStatusEmbed, createDraftManagementPanel, createDraftMainInterface, createCaptainControlPanel } from '../utils/embeds.js';
-import { updateAdminPanel, updateTournamentManagementThread, updateDraftManagementThread } from '../utils/panelManager.js';
+// LÍNEA CORREGIDA:
+import { updateAdminPanel, updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
@@ -52,8 +52,6 @@ export async function updateDraftMainInterface(client, draftShortId) {
         }
     }
 }
-
-// --- PEGA ESTE BLOQUE COMPLETO ---
 
 export async function handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId) {
     const db = getDb();
@@ -176,7 +174,6 @@ export async function approveDraftCaptain(client, draft, captainData) {
     postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft }).catch(console.error);
 }
 
-// --- FIN DEL BLOQUE PEGADO ---
 export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     const db = getDb();
     const isCaptain = draft.captains.some(c => c.userId === userIdToKick);
@@ -470,10 +467,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
                 
                 const mentionString = teamMembersIds.map(id => `<@${id}>`).join(' ');
                 await textChannel.send({
-                    content: `### ¡Bienvenido, equipo ${team.nombre}!
-Este es vuestro canal privado para coordinaros.
-
-**Miembros:** ${mentionString}`
+                    content: `### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`
                 });
             }
         }
@@ -620,7 +614,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        // --- INICIO DE LA COMPROBACIÓN DE MÍNIMOS ---
         const settings = await getBotSettings();
         const minQuotas = Object.fromEntries(
             settings.draftMinQuotas.split(',').map(q => q.split(':'))
@@ -631,11 +624,9 @@ export async function startDraftSelection(client, guild, draftShortId) {
 
         const allPlayers = draft.players;
         for (const player of allPlayers) {
-            // Contamos la posición primaria
             if (positionCounts[player.primaryPosition] !== undefined) {
                 positionCounts[player.primaryPosition]++;
             }
-            // Contamos la posición secundaria si es diferente y existe
             if (player.secondaryPosition && player.secondaryPosition !== 'NONE' && player.secondaryPosition !== player.primaryPosition) {
                  if (positionCounts[player.secondaryPosition] !== undefined) {
                     positionCounts[player.secondaryPosition]++;
@@ -654,7 +645,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (missingPositions.length > 0) {
             throw new Error(`No se cumplen las cuotas mínimas. Faltan jugadores para: ${missingPositions.join(', ')}.`);
         }
-        // --- FIN DE LA COMPROBACIÓN DE MÍNIMOS ---
 
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
@@ -838,28 +828,20 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
         console.log(`[CREATE] Panel de gestión enviado para ${shortId}.`);
 
-            // --- INICIO DE LA MODIFICACIÓN: Tarea de Twitter en segundo plano ---
-    // No usamos 'await' para que el bot pueda continuar sin esperar a Twitter.
     (async () => {
-        // Obtenemos los ajustes para ver si Twitter está activado
         const settings = await getBotSettings();
         if (!settings.twitterEnabled) {
-            // Si está desactivado, no hacemos nada y no se notifica.
             return;
         }
 
-        // Buscamos el hilo de notificaciones para enviar los mensajes de estado
         const notificationsThread = await client.channels.fetch(newTournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) return;
 
-        // Enviamos el primer mensaje: "Intentando..."
         const statusMessage = await notificationsThread.send('⏳ Intentando generar el tweet de anuncio...');
 
-        // Llamamos a la función de Twitter y esperamos su resultado (éxito o fallo)
         const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
         const result = await postTournamentUpdate('INSCRIPCION_ABIERTA', finalTournament);
 
-        // Editamos el mensaje anterior según el resultado
         if (result && result.success) {
             await statusMessage.edit('✅ Tweet de anuncio generado con éxito.');
         } else {
@@ -867,7 +849,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             console.error("Fallo en postTournamentUpdate:", result?.error);
         }
     })();
-    // --- FIN DE LA MODIFICACIÓN ---
         
         await setBotBusy(false);
         return { success: true, tournament: newTournament };
@@ -959,12 +940,10 @@ export async function approveTeam(client, tournament, teamData) {
     const currentApprovedTeamsCount = Object.keys(latestTournament.teams.aprobados).length;
 
     if (currentApprovedTeamsCount < maxTeams) {
-        // Add to approved teams
         latestTournament.teams.aprobados[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
         if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
         
-        // Notify captain of approval
         if (/^\d+$/.test(teamData.capitanId)) {
             try {
                 const user = await client.users.fetch(teamData.capitanId);
@@ -974,7 +953,6 @@ export async function approveTeam(client, tournament, teamData) {
                     .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado** y ya forma parte del torneo.\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved** and is now part of the tournament.`);
                 await user.send({ embeds: [embed] });
 
-                // Grant chat and matches channel permissions ONLY for approved teams
                 const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
                 const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
 
@@ -998,17 +976,13 @@ export async function approveTeam(client, tournament, teamData) {
                 console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la aprobación o al dar permisos:`, e); 
             }
         }
-        // Notify casters ONLY for approved teams
         await notifyCastersOfNewTeam(client, latestTournament, teamData);
 
     } else {
-        // Add to reserve list
         latestTournament.teams.reserva[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
-        // If a team is moved to reserve, it should not be in approved.
         if (latestTournament.teams.aprobados[teamData.capitanId]) delete latestTournament.teams.aprobados[teamData.capitanId];
 
-        // Notify captain of being on reserve list
         if (/^\d+$/.test(teamData.capitanId)) {
             try {
                 const user = await client.users.fetch(teamData.capitanId);
@@ -1159,7 +1133,6 @@ export async function notifyCastersOfNewTeam(client, tournament, teamData) {
     }
 }
 
-// ESTE ES EL CÓDIGO NUEVO QUE DEBES PEGAR
 export async function endTournament(client, tournament) {
     await setBotBusy(true);
     try {
@@ -1168,30 +1141,22 @@ export async function endTournament(client, tournament) {
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
         
         await updateTournamentManagementThread(client, finalTournamentState);
-        await cleanupTournament(client, finalTournamentState); // Limpia los canales del torneo
+        await cleanupTournament(client, finalTournamentState);
 
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Comprobar si este torneo vino de un draft
         if (finalTournamentState.shortId.startsWith('draft-')) {
             console.log(`[DRAFT CLEANUP] Torneo de draft detectado. Iniciando limpieza del draft asociado...`);
             const draftShortId = finalTournamentState.shortId.replace('draft-', '');
             const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
             if (draft) {
-                // Llama a la nueva función para borrar los canales de equipo
                 await cleanupDraftTeamChannels(client, finalTournamentState);
-
-                // Llama a la función existente para borrar el resto del draft (canal principal, hilos, etc.)
                 await fullCleanupDraft(client, draft);
-
-                // Borra el draft de la base de datos
                 await db.collection('drafts').deleteOne({ _id: draft._id });
                 console.log(`[DRAFT CLEANUP] El draft ${draftShortId} y todos sus recursos han sido eliminados.`);
             } else {
                 console.warn(`[DRAFT CLEANUP] Se intentó limpiar el draft ${draftShortId}, pero no se encontró en la base de datos.`);
             }
         }
-        // --- FIN DE LA MODIFICACIÓN ---
 
     } catch (error) { 
         console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
@@ -1212,7 +1177,7 @@ async function cleanupTournament(client, tournament) {
     try { const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS); await globalChannel.messages.delete(discordMessageIds.statusMessageId);
     } catch(e) { if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); }
 }
-// NUEVA FUNCIÓN para limpiar los canales de equipo de un draft
+
 async function cleanupDraftTeamChannels(client, tournament) {
     console.log(`[CLEANUP] Iniciando limpieza de canales de equipo para el torneo-draft ${tournament.shortId}`);
     try {
@@ -1607,7 +1572,6 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const replacementPlayer = draft.players.find(p => p.userId === replacementPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    // 1. Quitar al jugador antiguo y añadir al nuevo
     await db.collection('tournaments').updateOne(
         { shortId: `draft-${draft.shortId}` },
         { $pull: { [`teams.aprobados.${captainId}.players`]: { userId: kickedPlayerId } } }
@@ -1617,7 +1581,6 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
         { $push: { [`teams.aprobados.${captainId}.players`]: replacementPlayer } }
     );
 
-    // 2. Otorgar permisos al nuevo y quitarlos al antiguo
     if (/^\d+$/.test(replacementPlayerId) && /^\d+$/.test(kickedPlayerId)) {
         try {
             const teamNameFormatted = captain.teamName.replace(/\s+/g, '-').toLowerCase();
@@ -1637,7 +1600,6 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
         }
     }
 
-    // 3. Notificar al capitán
     if (/^\d+$/.test(captainId)) {
         const captainUser = await client.users.fetch(captainId);
         await captainUser.send(`✅ **${replacementPlayer.psnId}** ha aceptado tu invitación y ha reemplazado al jugador anterior en tu equipo.`);
@@ -1647,3 +1609,13 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
 }
+Pasos Siguientes
+Aplica el cambio: Reemplaza el contenido completo de src/logic/tournamentLogic.js.
+
+Sube a GitHub: Guarda el archivo y sube los cambios a tu repositorio.
+
+Redespliega en Render: Inicia un nuevo despliegue manual en Render.
+
+Estoy seguro de que con este cambio el bot se iniciará correctamente. ¡Pruébalo y me dices
+
+225.9s
