@@ -1,8 +1,8 @@
+// src/logic/tournamentLogic.js
 import { getDb, getBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID, TEAM_CHANNELS_CATEGORY_ID } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
 import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusEmbed, createTournamentManagementPanel, createTeamListEmbed, createCasterInfoEmbed, createDraftStatusEmbed, createDraftManagementPanel, createDraftMainInterface, createCaptainControlPanel } from '../utils/embeds.js';
-// LÍNEA CORREGIDA:
 import { updateAdminPanel, updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
@@ -1609,13 +1609,3 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
 }
-Pasos Siguientes
-Aplica el cambio: Reemplaza el contenido completo de src/logic/tournamentLogic.js.
-
-Sube a GitHub: Guarda el archivo y sube los cambios a tu repositorio.
-
-Redespliega en Render: Inicia un nuevo despliegue manual en Render.
-
-Estoy seguro de que con este cambio el bot se iniciará correctamente. ¡Pruébalo y me dices
-
-225.9s
