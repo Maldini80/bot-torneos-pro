@@ -108,16 +108,16 @@ if (customId.startsWith('config_draft_')) {
         
         const amountToAdd = amount;
 
-        const positions = Object.keys(DRAFT_POSITIONS);
+          const positions = Object.keys(DRAFT_POSITIONS);
         const bulkCaptains = [];
         const bulkPlayers = [];
 
         for (let i = 0; i < amountToAdd; i++) {
             const uniqueId = `test_${Date.now()}_${i}`;
             const currentCaptainCount = draft.captains.length + bulkCaptains.length;
-            const currentPlayerCount = draft.players.length + bulkPlayers.length;
 
             if (currentCaptainCount < 8) {
+                // Lógica existente: Se crea un capitán si hay espacio.
                 const teamName = `E-Prueba-${currentCaptainCount + 1}`;
                 const captainData = {
                     userId: uniqueId, userName: `TestCaptain#${1000 + i}`, teamName: teamName,
@@ -126,10 +126,36 @@ if (customId.startsWith('config_draft_')) {
                 
                 const captainAsPlayerData = {
                     userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
-                    primaryPosition: captainData.position, secondaryPosition: captainData.position, currentTeam: teamName, isCaptain: true, captainId: null
+                    primaryPosition: captainData.position, secondaryPosition: captainData.position, currentTeam: teamName, isCaptain: true, captainId: uniqueId // Se auto-asigna como capitán
                 };
                 bulkCaptains.push(captainData);
                 bulkPlayers.push(captainAsPlayerData);
+            } else {
+                // --- INICIO DE LA LÓGICA NUEVA ---
+                // Si los cupos de capitán están llenos, crea un jugador normal.
+                const currentPlayerCount = draft.players.length + bulkPlayers.length;
+                
+                // Asigna posiciones primarias y secundarias aleatorias para un test más realista
+                const primaryPos = positions[Math.floor(Math.random() * positions.length)];
+                let secondaryPos = positions[Math.floor(Math.random() * positions.length)];
+                if (primaryPos === secondaryPos) { // Asegurarse de que no sean la misma si es posible
+                   secondaryPos = 'NONE';
+                }
+
+                const playerData = {
+                    userId: uniqueId,
+                    userName: `TestPlayer#${2000 + i}`,
+                    psnId: `Jugador-Prueba-${currentPlayerCount + 1}`,
+                    twitter: 'test_player',
+                    primaryPosition: primaryPos,
+                    secondaryPosition: secondaryPos,
+                    currentTeam: 'Libre', // Es un agente libre
+                    isCaptain: false,     // No es capitán
+                    captainId: null       // No tiene equipo asignado
+                };
+                // Solo se añade a la lista de jugadores, no a la de capitanes.
+                bulkPlayers.push(playerData);
+                // --- FIN DE LA LÓGICA NUEVA ---
             }
         }
 
@@ -150,8 +176,9 @@ if (customId.startsWith('config_draft_')) {
         await updatePublicMessages(client, updatedDraft);
         await updateDraftManagementPanel(client, updatedDraft);
         
-        const nonCaptainPlayersAdded = bulkPlayers.filter(p => !p.isCaptain).length;
-        await interaction.editReply({ content: `✅ Se han añadido **${bulkCaptains.length} capitanes** y **${nonCaptainPlayersAdded} jugadores** de prueba.` });
+        // Mensaje final mejorado para ser más claro
+        const nonCaptainPlayersAdded = bulkPlayers.length - bulkCaptains.length;
+        await interaction.editReply({ content: `✅ ¡Operación completada! Se han añadido **${bulkCaptains.length} capitanes** y **${nonCaptainPlayersAdded} jugadores** de prueba.` });
         return;
     }
 
