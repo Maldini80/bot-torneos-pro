@@ -242,9 +242,12 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
         const pendingData = { playerData, captainData }; 
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
 
-        const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`).setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.\n\n**Pagar a / Pay to:** \
-`${PAYMENT_CONFIG.PAYPAL_EMAIL}\
-\nUna vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
+                const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`).setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.
+
+**Pagar a / Pay to:**
+`${PAYMENT_CONFIG.PAYPAL_EMAIL}`
+
+Una vez realizado, pulsa el botón de abajo.`).setColor('#e67e22');
         const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_payment_confirm_start:${draftShortId}`).setLabel('✅ Ya he Pagado / I Have Paid').setStyle(ButtonStyle.Success));
         try {
             await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
