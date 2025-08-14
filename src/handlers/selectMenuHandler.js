@@ -2,7 +2,8 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
-import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer } from '../logic/tournamentLogic.js';
+// LÍNEA CORREGIDA: Se ha añadido "approveTeam" a la lista de importaciones.
+import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 
@@ -20,15 +21,12 @@ export async function handleSelectMenu(interaction) {
         
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Comprobamos si el draft tiene capitanes antes de crear el menú
         if (!draft.captains || draft.captains.length === 0) {
             return interaction.editReply({
                 content: `❌ El draft **${draft.name}** no tiene capitanes aprobados. No hay plantillas para gestionar.`,
                 components: []
             });
         }
-        // --- FIN DE LA CORRECCIÓN ---
 
         const teamOptions = draft.captains.map(c => ({
             label: c.teamName,
@@ -334,25 +332,7 @@ export async function handleSelectMenu(interaction) {
         await interaction.showModal(modal);
         return;
     }
-    // --- CÓDIGO NUEVO QUE VAS A PEGAR ---
-if (action === 'draft_register_captain_pos_select') {
-    const [draftShortId] = params;
-    const position = interaction.values[0];
 
-    const platformButtons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`select_stream_platform:twitch:register_draft_captain:${draftShortId}:${position}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(`select_stream_platform:youtube:register_draft_captain:${draftShortId}:${position}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-    );
-
-    await interaction.update({
-        content: `Has seleccionado **${DRAFT_POSITIONS[position]}**. Ahora, selecciona tu plataforma de transmisión.`,
-        components: [platformButtons]
-    });
-    return;
-}
-// --- FIN DEL CÓDIGO NUEVO ---
-
-   // --- NUEVA LÓGICA INTELIGENTE PARA LA SELECCIÓN ---
 if (action === 'draft_pick_by_position') {
     await interaction.deferUpdate();
     const [draftShortId, captainId] = params;
@@ -361,17 +341,14 @@ if (action === 'draft_pick_by_position') {
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
     
-    // 1. Buscamos jugadores con esa POSICIÓN PRIMARIA
     let playersToShow = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
     let searchMode = 'Primaria';
 
-    // 2. Si no hay, buscamos en la POSICIÓN SECUNDARIA
     if (playersToShow.length === 0) {
         playersToShow = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
         searchMode = 'Secundaria';
     }
 
-    // 3. Si sigue sin haber, informamos al capitán
     if (playersToShow.length === 0) {
         return interaction.editReply({
             content: `No hay jugadores disponibles para la posición ${DRAFT_POSITIONS[selectedPosition]}. Por favor, cancela y elige otra posición.`,
@@ -385,7 +362,7 @@ if (action === 'draft_pick_by_position') {
         .setCustomId(`draft_pick_player:${draftShortId}:${captainId}`)
         .setPlaceholder('Paso 2: ¡Elige al jugador!')
         .addOptions(
-            playersToShow.slice(0, 25).map(player => ({ // Maneja hasta 25 jugadores, puedes añadir paginación si es necesario
+            playersToShow.slice(0, 25).map(player => ({
                 label: player.psnId,
                 description: `Discord: ${player.userName}`,
                 value: player.userId,
@@ -398,7 +375,6 @@ if (action === 'draft_pick_by_position') {
     });
     return;
 }
-// --- FIN DE LA NUEVA LÓGICA ---
     
     if (action === 'draft_pick_player') {
         await interaction.deferUpdate();
@@ -605,34 +581,31 @@ if (action === 'draft_pick_by_position') {
             await interaction.editReply({ content: '❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.', components: [] });
         }
     }
-    // --- CÓDIGO AÑADIDO PARA APROBAR DESDE LA LISTA DE RESERVA ---
-if (action === 'admin_promote_from_waitlist') {
-    await interaction.deferUpdate();
-    const [tournamentShortId] = params;
-    const captainIdToPromote = interaction.values[0];
+    if (action === 'admin_promote_from_waitlist') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const captainIdToPromote = interaction.values[0];
 
-    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-    if (!tournament) {
-        return interaction.followUp({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
-    }
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.followUp({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+        }
 
-    const teamData = tournament.teams.reserva[captainIdToPromote];
-    if (!teamData) {
-        return interaction.followUp({ content: 'Error: Este equipo ya no está en la lista de reserva.', flags: [MessageFlags.Ephemeral] });
-    }
+        const teamData = tournament.teams.reserva[captainIdToPromote];
+        if (!teamData) {
+            return interaction.followUp({ content: 'Error: Este equipo ya no está en la lista de reserva.', flags: [MessageFlags.Ephemeral] });
+        }
 
-    try {
-        // Usamos la misma función que para aprobar a un equipo normal
-        await approveTeam(client, tournament, teamData);
-        await interaction.editReply({ 
-            content: `✅ El equipo **${teamData.nombre}** ha sido aprobado y movido de la reserva al torneo.`,
-            components: [] // Limpiamos el menú desplegable
-        });
-    } catch (error) {
-        console.error("Error al promover equipo desde la reserva:", error);
-        await interaction.followUp({ content: `❌ Hubo un error al aprobar al equipo: ${error.message}`, flags: [MessageFlags.Ephemeral] });
+        try {
+            await approveTeam(client, tournament, teamData);
+            await interaction.editReply({ 
+                content: `✅ El equipo **${teamData.nombre}** ha sido aprobado y movido de la reserva al torneo.`,
+                components: []
+            });
+        } catch (error) {
+            console.error("Error al promover equipo desde la reserva:", error);
+            await interaction.followUp({ content: `❌ Hubo un error al aprobar al equipo: ${error.message}`, flags: [MessageFlags.Ephemeral] });
+        }
+        return;
     }
-    return;
-}
-// --- FIN DEL CÓDIGO AÑADIDO ---
 }
