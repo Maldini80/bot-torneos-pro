@@ -2,7 +2,6 @@
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
-// LÍNEA CORREGIDA: Se ha añadido "approveTeam" a la lista de importaciones.
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam } from '../logic/tournamentLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
@@ -14,6 +13,33 @@ export async function handleSelectMenu(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
+
+    // --- INICIO DE LA LÓGICA AÑADIDA ---
+    if (action === 'draft_pick_search_type') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId] = params;
+        const searchType = interaction.values[0]; // 'primary' o 'secondary'
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
+        
+        const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+            label: value,
+            value: key,
+        }));
+
+        const positionMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_pick_by_position:${draftShortId}:${captainId}:${searchType}`) // Se podría usar el searchType aquí si la lógica cambiara
+            .setPlaceholder(`Elige la POSICIÓN ${searchType === 'primary' ? 'PRIMARIA' : 'SECUNDARIA'} que buscas`)
+            .addOptions(positionOptions);
+        
+        await interaction.editReply({
+            content: `Búsqueda cambiada. Por favor, elige la posición que quieres cubrir.`,
+            components: [new ActionRowBuilder().addComponents(positionMenu)]
+        });
+        return;
+    }
+    // --- FIN DE LA LÓGICA AÑADIDA ---
 
     if (action === 'admin_select_draft_to_manage_players') {
         await interaction.deferUpdate();
