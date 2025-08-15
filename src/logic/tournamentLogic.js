@@ -49,7 +49,7 @@ export async function notifyTournamentVisualizer(tournament) {
         console.error(`[Bot->Visualizer] Error al notificar al visualizador de TORNEO ${tournament.shortId}:`, error.message);
     }
 }
-**
+/**
  * CORREGIDO: Publica la URL del visualizador en el hilo de casters de un torneo.
  * @param {import('discord.js').Client} client El cliente de Discord.
  * @param {object} tournament El objeto del torneo recién creado.
