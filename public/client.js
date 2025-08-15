@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FUNCIÓN PRINCIPAL DE RENDERIZADO ---
     function renderTournamentState(tournament) {
+        // Manejo de la vista de torneo finalizado
         if (tournament.status === 'finalizado') {
             viewSwitcherEl.style.display = 'none';
             const activePane = mainPanelEl.querySelector('.view-pane.active');
@@ -92,8 +93,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Manejo de las vistas normales
         viewSwitcherEl.style.display = 'flex';
-        finishedViewEl.classList.remove('active');
+        if (finishedViewEl.classList.contains('active')) {
+            finishedViewEl.classList.remove('active');
+            document.querySelector('[data-view="classification-view"]').click();
+        }
         if (!mainPanelEl.querySelector('.view-pane.active')) {
             mainPanelEl.querySelector('[data-view="classification-view"]').click();
         }
@@ -116,12 +121,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         teams.forEach(team => {
             const isDraftTeam = team.players && team.players.length > 0;
+            let metaHTML = `<div class="team-meta">
+                <span>👑 Capitán: ${team.capitanTag}</span>`;
+            if (team.coCaptainTag) {
+                metaHTML += `<span>🤝 Co-Capitán: ${team.coCaptainTag}</span>`;
+            }
+            metaHTML += '</div>';
+
             const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@','')}" target="_blank">Twitter</a>` : '';
             const streamLink = team.streamChannel ? `<a href="${team.streamChannel}" target="_blank">Ver Stream</a>` : '';
+            const linksHTML = (twitterLink || streamLink) ? `<div class="team-links">${twitterLink}${streamLink}</div>` : '';
 
             const card = document.createElement('div');
             card.className = `team-card-info ${isDraftTeam ? 'is-draft-team' : ''}`;
-            card.innerHTML = `<h3>${team.nombre}</h3><div class="team-meta">${twitterLink}${streamLink}</div>`;
+            card.innerHTML = `<h3>${team.nombre}</h3>${metaHTML}${linksHTML}`;
             
             if (isDraftTeam) {
                 card.addEventListener('click', () => showRosterModal(team));
@@ -164,7 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
         stages.forEach(stageKey => {
             const matches = tournament.structure.eliminatorias[stageKey];
             if (!matches || (Array.isArray(matches) && matches.length === 0)) return;
-
             const roundMatches = Array.isArray(matches) ? matches : [matches];
             let roundHTML = `<div class="bracket-round"><h3>${stageKey.replace(/_/g, ' ')}</h3>`;
             roundMatches.forEach(match => {
@@ -172,7 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const teamB = match.equipoB?.nombre || 'Por definir';
                 let scoreA = '', scoreB = '';
                 let classA = '', classB = '';
-
                 if (match.resultado) {
                     [scoreA, scoreB] = match.resultado.split('-');
                     if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
@@ -188,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderLiveMatches(tournament) {
         const allMatches = [
             ...Object.values(tournament.structure.calendario).flat(),
-            ...Object.values(tournament.structure.eliminatorias).flat(Infinity) // Aplanado infinito para cualquier profundidad
+            ...Object.values(tournament.structure.eliminatorias).flat(Infinity)
         ].filter(Boolean);
 
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
@@ -197,19 +208,33 @@ document.addEventListener('DOMContentLoaded', () => {
             liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>';
             return;
         }
+
+        const groupedMatches = liveMatches.reduce((acc, match) => {
+            const groupKey = match.nombreGrupo ? `Jornada ${match.jornada}` : match.jornada; // 'semifinales', 'final', etc.
+            if (!acc[groupKey]) {
+                acc[groupKey] = [];
+            }
+            acc[groupKey].push(match);
+            return acc;
+        }, {});
+
         liveMatchesListEl.innerHTML = '';
-        liveMatches.forEach(match => {
-            const teamA = tournament.teams.aprobados[match.equipoA?.capitanId];
-            const teamB = tournament.teams.aprobados[match.equipoB?.capitanId];
-            if (!teamA || !teamB) return;
+        Object.keys(groupedMatches).forEach(groupKey => {
+            let groupHTML = `<div class="live-match-group"><h4>${groupKey}</h4>`;
+            groupedMatches[groupKey].forEach(match => {
+                const teamA = tournament.teams.aprobados[match.equipoA?.capitanId];
+                const teamB = tournament.teams.aprobados[match.equipoB?.capitanId];
+                if (!teamA || !teamB) return;
 
-            let linksHTML = '';
-            if (teamA.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank">Ver a ${teamA.nombre}</a>`;
-            if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank">Ver a ${teamB.nombre}</a>`;
-            if (!linksHTML) linksHTML = '<p>No hay streams disponibles.</p>';
+                let linksHTML = '';
+                if (teamA.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank">Ver a ${teamA.nombre}</a>`;
+                if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank">Ver a ${teamB.nombre}</a>`;
+                if (!linksHTML) linksHTML = '<p>No hay streams disponibles.</p>';
 
-            const cardHTML = `<div class="live-match-card"><div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div><div class="stream-links">${linksHTML}</div></div>`;
-            liveMatchesListEl.innerHTML += cardHTML;
+                groupHTML += `<div class="live-match-card"><div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div><div class="stream-links">${linksHTML}</div></div>`;
+            });
+            groupHTML += '</div>';
+            liveMatchesListEl.innerHTML += groupHTML;
         });
     }
 
@@ -217,9 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalTeamNameEl.textContent = team.nombre;
         modalRosterListEl.innerHTML = '';
         const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
-        const sortedPlayers = [...team.players].sort((a, b) => {
-            return positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition);
-        });
+        const sortedPlayers = [...team.players].sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
         sortedPlayers.forEach(player => {
             const li = document.createElement('li');
             li.textContent = `${player.psnId} (${player.primaryPosition})`;
