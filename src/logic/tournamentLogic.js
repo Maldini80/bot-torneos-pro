@@ -30,14 +30,12 @@ export async function notifyVisualizer(draft) {
 }
 
 /**
- * NUEVO: Notifica al servidor web sobre una actualización del estado de un TORNEO.
+ * CORREGIDO: Notifica al servidor web sobre una actualización del estado de un TORNEO.
  * @param {object} tournament El objeto completo del torneo.
  */
 export async function notifyTournamentVisualizer(tournament) {
-    // La URL base del visualizador (tu Web Service en Render) se leerá de las variables de entorno.
-    if (!process.env.VISUALIZER_BASE_URL) return; 
-    
-    const visualizerUrl = `${process.env.VISUALIZER_BASE_URL}/update-tournament/${tournament.shortId}`;
+    // Apunta al servidor interno que corre junto al bot
+    const visualizerUrl = `http://localhost:${process.env.PORT || 3000}/update-tournament/${tournament.shortId}`;
     try {
         await fetch(visualizerUrl, {
             method: 'POST',
@@ -1261,7 +1259,7 @@ export async function endTournament(client, tournament) {
         const db = getDb();
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
-        
+        await notifyTournamentVisualizer(finalTournamentState);
         await updateTournamentManagementThread(client, finalTournamentState);
         await cleanupTournament(client, finalTournamentState);
 
