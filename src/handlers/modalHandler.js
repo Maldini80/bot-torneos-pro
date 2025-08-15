@@ -549,6 +549,7 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         await updatePublicMessages(client, updatedTournament);
         await updateTournamentManagementThread(client, updatedTournament);
+        await notifyTournamentVisualizer(updatedTournament);
         return;
     }
     if (action === 'report_result_modal') {
