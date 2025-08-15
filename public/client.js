@@ -190,7 +190,7 @@ function initializeTournamentView(tournamentId) {
                         if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
                         else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
                     }
-                    roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><span class="team-name">${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team"><span class="team-name">${teamB}</span><span class="score">${scoreB}</span></div></div>`;
+                    roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><span>${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team"><span>${teamB}</span><span class="score">${scoreB}</span></div></div>`;
                 }
                 roundHTML += '</div>';
             }
@@ -274,7 +274,7 @@ function initializeDraftView(draftId) {
 
     const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
     let hasLoadedInitialData = false;
-    let teamPlayersBefore = []; // Para detectar el nuevo pick
+    let playersBefore = [];
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
@@ -306,22 +306,20 @@ function initializeDraftView(draftId) {
 
     function renderDraftState(draft) {
         if (hasLoadedInitialData) {
-            const currentPickedPlayers = draft.players.filter(p => p.captainId);
-            const newPick = currentPickedPlayers.find(p => !teamPlayersBefore.some(op => op.userId === p.userId));
+            const newPick = draft.players.find(p => p.captainId && !playersBefore.find(op => op.userId === p.userId)?.captainId);
             if (newPick) {
                 const captain = draft.captains.find(c => c.userId === newPick.captainId);
                 showPickAlert(draft.selection.currentPick - 1, newPick, captain);
             }
-            teamPlayersBefore = currentPickedPlayers.map(p => ({userId: p.userId})); // Guardamos solo IDs para comparar
-        } else {
-            teamPlayersBefore = draft.players.filter(p => p.captainId).map(p => ({userId: p.userId}));
         }
+        playersBefore = draft.players.map(p => ({ userId: p.userId, captainId: p.captainId }));
         
         draftNameEl.textContent = draft.name;
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
              roundInfoEl.textContent = 'Selección Finalizada';
              currentTeamEl.textContent = '---';
              currentPickEl.textContent = '---';
+             roundPickOrderEl.innerHTML = '';
         } else if (draft.status === 'seleccion' && draft.captains.length > 0) {
             const numCaptains = draft.captains.length;
             const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
@@ -330,15 +328,25 @@ function initializeDraftView(draftId) {
             const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
             currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
             currentPickEl.textContent = draft.selection.currentPick;
+            renderRoundPickOrder(draft);
         }
 
-        renderRoundPickOrder(draft);
         renderTeams(draft);
         renderAvailablePlayers(draft);
-        
-        // Reactivar filtro después de renderizar
-        const activeFilter = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-        filterTable(activeFilter);
+    }
+    
+    function sortPlayersAdvanced(a, b) {
+        const posIndexA = positionOrder.indexOf(a.primaryPosition);
+        const posIndexB = positionOrder.indexOf(b.primaryPosition);
+        if (posIndexA !== posIndexB) return posIndexA - posIndexB;
+
+        const secPosA = a.secondaryPosition === 'NONE' || !a.secondaryPosition ? 'zzz' : a.secondaryPosition;
+        const secPosB = b.secondaryPosition === 'NONE' || !b.secondaryPosition ? 'zzz' : b.secondaryPosition;
+        const secPosIndexA = positionOrder.indexOf(secPosA);
+        const secPosIndexB = positionOrder.indexOf(secPosB);
+        if (secPosIndexA !== secPosIndexB) return secPosIndexA - secPosIndexB;
+
+        return a.psnId.localeCompare(b.psnId);
     }
 
     function renderTeams(draft) {
@@ -356,15 +364,18 @@ function initializeDraftView(draftId) {
 
     function renderAvailablePlayers(draft) {
         playersTableBodyEl.innerHTML = '';
-        const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
+        const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain).sort(sortPlayersAdvanced);
         availablePlayers.forEach(player => {
             const statusEmoji = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
             const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
             const row = document.createElement('tr');
             row.dataset.posPrimary = player.primaryPosition;
+            row.dataset.posSecondary = secPos;
             row.innerHTML = `<td>${statusEmoji}</td><td>${player.psnId}</td><td>${player.primaryPosition}</td><td>${secPos}</td>`;
             playersTableBodyEl.appendChild(row);
         });
+        const activeFilter = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+        filterTable(activeFilter);
     }
 
     function renderRoundPickOrder(draft) {
@@ -390,7 +401,14 @@ function initializeDraftView(draftId) {
     }
 
     function setupFilters() {
-        positionFiltersEl.innerHTML = '';
+        positionFiltersEl.innerHTML = `
+            <select id="filter-column-select">
+                <option value="primary">Filtrar por Pos. Primaria</option>
+                <option value="secondary">Filtrar por Pos. Secundaria</option>
+            </select>`;
+        const select = document.getElementById('filter-column-select');
+        select.addEventListener('change', () => filterTable(document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos'));
+    
         const allPositions = ['Todos', ...positionOrder];
         allPositions.forEach(pos => {
             const btn = document.createElement('button');
@@ -408,9 +426,11 @@ function initializeDraftView(draftId) {
         const currentFilterBtn = document.querySelector(`#position-filters .filter-btn[data-pos="${position}"]`);
         if (currentFilterBtn) currentFilterBtn.classList.add('active');
         
+        const filterColumn = document.getElementById('filter-column-select').value;
         const rows = playersTableBodyEl.querySelectorAll('tr');
         rows.forEach(row => {
-            if (position === 'Todos' || row.dataset.posPrimary === position) {
+            const rowPos = filterColumn === 'primary' ? row.dataset.posPrimary : row.dataset.posSecondary;
+            if (position === 'Todos' || rowPos === position) {
                 row.style.display = '';
             } else {
                 row.style.display = 'none';
