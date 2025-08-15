@@ -1,10 +1,10 @@
 :root {
-    --primary-color: #C70000;
-    --background-color: #121212;
-    --surface-color: #1e1e1e;
-    --text-color: #e0e0e0;
-    --border-color: #333;
-    --winner-color: #ffd700;
+    --primary-color: #E53935; /* Un rojo más suave y moderno */
+    --background-color: #1a1a1a; /* Un gris un poco más claro que el negro puro */
+    --surface-color: #2c2c2c; /* Las tarjetas y paneles un poco más claros */
+    --text-color: #f0f0f0; /* Un blanco ligeramente más suave */
+    --border-color: #444; /* Bordes un poco más visibles */
+    --winner-color: #ffc107; /* Un amarillo ámbar para los ganadores */
     --font-bebas: 'Bebas Neue', sans-serif;
     --font-roboto: 'Roboto', sans-serif;
 }
