@@ -15,11 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalRosterListEl = document.getElementById('modal-roster-list');
     const closeButton = document.querySelector('.close-button');
     const viewButtons = document.querySelectorAll('.view-btn');
-    const mainViewContentEl = document.getElementById('main-view-content');
-    const finishedViewEl = document.getElementById('finished-view');
-    const championNameEl = document.getElementById('champion-name');
     const mainPanelEl = document.getElementById('main-panel');
     const viewSwitcherEl = document.querySelector('.view-switcher');
+    const finishedViewEl = document.getElementById('finished-view');
+    const championNameEl = document.getElementById('champion-name');
 
     // --- LÓGICA DE WEBSOCKET Y CARGA INICIAL ---
     const urlParams = new URLSearchParams(window.location.search);
@@ -88,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 championNameEl.textContent = "Por determinar";
             }
+            tournamentNameEl.textContent = `${tournament.nombre} (Finalizado)`;
             liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
             return;
         }
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         viewSwitcherEl.style.display = 'flex';
         finishedViewEl.classList.remove('active');
         if (!mainPanelEl.querySelector('.view-pane.active')) {
-            mainPanelEl.querySelector('.view-pane').classList.add('active');
+            mainPanelEl.querySelector('[data-view="classification-view"]').click();
         }
         
         tournamentNameEl.textContent = tournament.nombre;
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         teams.forEach(team => {
             const isDraftTeam = team.players && team.players.length > 0;
-            const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter}" target="_blank">Twitter</a>` : '';
+            const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@','')}" target="_blank">Twitter</a>` : '';
             const streamLink = team.streamChannel ? `<a href="${team.streamChannel}" target="_blank">Ver Stream</a>` : '';
 
             const card = document.createElement('div');
@@ -145,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
                 return b.stats.gf - a.stats.gf;
             });
-
             let tableHTML = `<div class="group-table"><h3>${groupName}</h3><table><thead><tr><th>Equipo</th><th>PJ</th><th>PTS</th><th>GF</th><th>GC</th><th>DG</th></tr></thead><tbody>`;
             sortedTeams.forEach(team => {
                 tableHTML += `<tr><td class="team-name">${team.nombre}</td><td>${team.stats.pj}</td><td>${team.stats.pts}</td><td>${team.stats.gf}</td><td>${team.stats.gc}</td><td>${team.stats.dg > 0 ? '+' : ''}${team.stats.dg}</td></tr>`;
@@ -179,11 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
                     else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
                 }
-
-                roundHTML += `<div class="bracket-match ${classA} ${classB}">
-                    <div class="bracket-team"><span>${teamA}</span><span class="score">${scoreA}</span></div>
-                    <div class="bracket-team"><span>${teamB}</span><span class="score">${scoreB}</span></div>
-                </div>`;
+                roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><span>${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team"><span>${teamB}</span><span class="score">${scoreB}</span></div></div>`;
             });
             roundHTML += '</div>';
             bracketContainerEl.innerHTML += roundHTML;
@@ -193,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderLiveMatches(tournament) {
         const allMatches = [
             ...Object.values(tournament.structure.calendario).flat(),
-            ...Object.values(tournament.structure.eliminatorias).flat().flat()
+            ...Object.values(tournament.structure.eliminatorias).flat(Infinity) // Aplanado infinito para cualquier profundidad
         ].filter(Boolean);
 
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
@@ -202,7 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
             liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>';
             return;
         }
-
         liveMatchesListEl.innerHTML = '';
         liveMatches.forEach(match => {
             const teamA = tournament.teams.aprobados[match.equipoA?.capitanId];
@@ -214,10 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank">Ver a ${teamB.nombre}</a>`;
             if (!linksHTML) linksHTML = '<p>No hay streams disponibles.</p>';
 
-            const cardHTML = `<div class="live-match-card">
-                <div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div>
-                <div class="stream-links">${linksHTML}</div>
-            </div>`;
+            const cardHTML = `<div class="live-match-card"><div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div><div class="stream-links">${linksHTML}</div></div>`;
             liveMatchesListEl.innerHTML += cardHTML;
         });
     }
