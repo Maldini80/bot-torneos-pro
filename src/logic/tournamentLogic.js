@@ -49,33 +49,7 @@ export async function notifyTournamentVisualizer(tournament) {
         console.error(`[Bot->Visualizer] Error al notificar al visualizador de TORNEO ${tournament.shortId}:`, error.message);
     }
 }
-/**
- * CORREGIDO: Publica la URL del visualizador en el hilo de casters de un torneo.
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {object} tournament El objeto del torneo recién creado.
- */
-async function publishVisualizerURL(client, tournament) {
-    // AHORA USA LA VARIABLE CORRECTA: NGROK_STATIC_DOMAIN
-    if (!process.env.NGROK_STATIC_DOMAIN || !tournament.discordMessageIds.casterThreadId) {
-        console.warn(`[Visualizer] No se puede publicar la URL para ${tournament.shortId} por falta de datos.`);
-        return;
-    }
 
-    try {
-        const casterThread = await client.channels.fetch(tournament.discordMessageIds.casterThreadId);
-        const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
-        
-        // CONSTRUYE LA URL USANDO EL DOMINIO DE NGROK
-        const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?tournamentId=${tournament.shortId}`;
-
-        await casterThread.send({
-            content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡Nuevo torneo creado!**\n\nAquí tenéis el enlace para el visualizador en vivo. ¡Añádanlo a su OBS!\n\n**Enlace:** ${visualizerLink}`
-        });
-        console.log(`[Visualizer] URL publicada con éxito para el torneo ${tournament.shortId}`);
-    } catch (error) {
-        console.error(`[Visualizer] Error al publicar la URL para el torneo ${tournament.shortId}:`, error);
-    }
-}
 
 
 /**
@@ -548,10 +522,28 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
+        // --- INICIO DE LA LÓGICA CORREGIDA ---
+        const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
+        if (finalTournament) {
+            await notifyTournamentVisualizer(finalTournament);
+
+            if (process.env.NGROK_STATIC_DOMAIN && finalTournament.discordMessageIds.casterThreadId) {
+                try {
+                    const casterThread = await client.channels.fetch(finalTournament.discordMessageIds.casterThreadId);
+                    const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+                    const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?tournamentId=${finalTournament.shortId}`;
+                    await casterThread.send({
+                        content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡Torneo de Draft generado!**\n\nAquí tenéis el enlace para el visualizador en vivo.\n\n**Enlace:** ${visualizerLink}`
+                    });
+                } catch(e) { console.error(`[Visualizer] Fallo al publicar URL para ${finalTournament.shortId}:`, e); }
+            }
+        }
+        // --- FIN DE LA LÓGICA CORREGIDA ---
+
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
         
-        for (const teamData of Object.values(newTournament.teams.aprobados)) {
-            await notifyCastersOfNewTeam(client, newTournament, teamData);
+        for (const teamData of Object.values(finalTournament.teams.aprobados)) {
+            await notifyCastersOfNewTeam(client, finalTournament, teamData);
         }
         
         const draftChannel = await client.channels.fetch(draft.discordChannelId).catch(() => null);
@@ -562,9 +554,8 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
         await updateCaptainControlPanel(client, finalDraftState);
         await updateDraftManagementPanel(client, finalDraftState);
-        await notifyTournamentVisualizer(newTournament);
-        
-        return newTournament;
+
+        return finalTournament;
 
     } catch (error) {
         console.error('[CREATE TOURNAMENT FROM DRAFT] Error:', error);
@@ -945,33 +936,43 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         }
         
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
-        console.log(`[CREATE] Panel de gestión enviado para ${shortId}.`);
 
-    (async () => {
-        const settings = await getBotSettings();
-        if (!settings.twitterEnabled) {
-            return;
-        }
-
-        const notificationsThread = await client.channels.fetch(newTournament.discordMessageIds.notificationsThreadId).catch(() => null);
-        if (!notificationsThread) return;
-
-        const statusMessage = await notificationsThread.send('⏳ Intentando generar el tweet de anuncio...');
-
+        // --- INICIO DE LA LÓGICA CORREGIDA ---
         const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
-        const result = await postTournamentUpdate('INSCRIPCION_ABIERTA', finalTournament);
+        if (finalTournament) {
+            await notifyTournamentVisualizer(finalTournament);
 
-        if (result && result.success) {
-            await statusMessage.edit('✅ Tweet de anuncio generado con éxito.');
-        } else {
-            await statusMessage.edit('❌ Hubo un error al intentar generar el tweet de anuncio.');
-            console.error("Fallo en postTournamentUpdate:", result?.error);
+            if (process.env.NGROK_STATIC_DOMAIN && finalTournament.discordMessageIds.casterThreadId) {
+                try {
+                    const casterThread = await client.channels.fetch(finalTournament.discordMessageIds.casterThreadId);
+                    const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+                    const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?tournamentId=${finalTournament.shortId}`;
+                    await casterThread.send({
+                        content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡Nuevo torneo creado!**\n\nAquí tenéis el enlace para el visualizador en vivo.\n\n**Enlace:** ${visualizerLink}`
+                    });
+                } catch (e) { console.error(`[Visualizer] Fallo al publicar URL para ${finalTournament.shortId}:`, e); }
+            }
         }
-    })();
+        // --- FIN DE LA LÓGICA CORREGIDA ---
+
+        console.log(`[CREATE] Panel de gestión y URL del visualizador enviados para ${shortId}.`);
+
+        (async () => {
+            const settings = await getBotSettings();
+            if (!settings.twitterEnabled) return;
+            const notificationsThread = await client.channels.fetch(finalTournament.discordMessageIds.notificationsThreadId).catch(() => null);
+            if (!notificationsThread) return;
+            const statusMessage = await notificationsThread.send('⏳ Intentando generar el tweet de anuncio...');
+            const result = await postTournamentUpdate('INSCRIPCION_ABIERTA', finalTournament);
+            if (result && result.success) await statusMessage.edit('✅ Tweet de anuncio generado con éxito.');
+            else {
+                await statusMessage.edit('❌ Hubo un error al intentar generar el tweet de anuncio.');
+                console.error("Fallo en postTournamentUpdate:", result?.error);
+            }
+        })();
         
         await setBotBusy(false);
-        await notifyTournamentVisualizer(newTournament);
-        return { success: true, tournament: newTournament };
+        return { success: true, tournament: finalTournament };
 
     } catch (error) {
         console.error(`[CREATE] OCURRIÓ UN ERROR CRÍTICO INESPERADO en createNewTournament:`, error);
