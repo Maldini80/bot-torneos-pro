@@ -14,7 +14,7 @@ import fetch from 'node-fetch';
  * NUEVO: Notifica al servidor web del visualizador sobre una actualización del estado del draft.
  * @param {object} draft El objeto completo del draft.
  */
-async function notifyVisualizer(draft) {
+export async function notifyVisualizer(draft) {
     // AHORA USA EL PUERTO INTERNO, YA QUE EL BOT Y EL SERVIDOR ESTÁN EN EL MISMO LUGAR
     const visualizerUrl = `http://localhost:${process.env.PORT || 3000}/update-draft/${draft.shortId}`;
     try {
@@ -33,7 +33,7 @@ async function notifyVisualizer(draft) {
  * NUEVO: Notifica al servidor web sobre una actualización del estado de un TORNEO.
  * @param {object} tournament El objeto completo del torneo.
  */
-async function notifyTournamentVisualizer(tournament) {
+export async function notifyTournamentVisualizer(tournament) {
     // La URL base del visualizador (tu Web Service en Render) se leerá de las variables de entorno.
     if (!process.env.VISUALIZER_BASE_URL) return; 
     
