@@ -90,68 +90,75 @@ const ruleEmbeds = [
         )
 ];
 
-export async function createGlobalAdminPanel(isBusy = false) {
+export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
     const settings = await getBotSettings();
     const translationEnabled = settings.translationEnabled;
     const twitterEnabled = settings.twitterEnabled;
 
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
-        .setTitle('Panel de Creación y Gestión Global')
         .setFooter({ text: 'Bot de Torneos v3.2.0' });
 
-    embed.setDescription(isBusy
-        ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
-        : `✅ **ESTADO: LISTO**\nTraducción Automática: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}**\nTwitter Automático: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**\nUsa los botones de abajo para gestionar.`
+    const components = [];
+    const backButtonRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('admin_panel_main').setLabel('<< Volver al Menú Principal').setStyle(ButtonStyle.Secondary).setEmoji('⬅️')
     );
 
-   const globalActionsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
-    new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Draft').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
-    new ButtonBuilder().setCustomId('admin_manage_drafts_players').setLabel('Gestionar Jugadores/Drafts').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy)
-);
+    switch (view) {
+        // --- VISTA DE TORNEOS ---
+        case 'tournaments':
+            embed.setTitle('Gestión de Torneos');
+            const tournamentActionsRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Nuevo Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy)
+            );
+            components.push(tournamentActionsRow, backButtonRow);
+            break;
 
-// --- FILA DE BOTONES PARA CONFIGURACIÓN DE DRAFTS ---
-const draftSettingsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-        .setCustomId('admin_config_draft_min_quotas')
-        .setLabel('Config: Mínimos Draft')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('📊')
-        .setDisabled(isBusy),
-    new ButtonBuilder()
-        .setCustomId('admin_config_draft_max_quotas')
-        .setLabel('Config: Máximos Draft')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🧢')
-        .setDisabled(isBusy)
-);
+        // --- VISTA DE DRAFTS ---
+        case 'drafts':
+            embed.setTitle('Gestión de Drafts');
+            const draftActionsRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Nuevo Draft').setStyle(ButtonStyle.Success).setEmoji('📝').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_manage_drafts_players').setLabel('Gestionar Jugadores/Drafts').setStyle(ButtonStyle.Primary).setEmoji('👥').setDisabled(isBusy)
+            );
+            const draftConfigRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('admin_config_draft_min_quotas').setLabel('Config: Mínimos').setStyle(ButtonStyle.Secondary).setEmoji('📊').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_config_draft_max_quotas').setLabel('Config: Máximos').setStyle(ButtonStyle.Secondary).setEmoji('🧢').setDisabled(isBusy)
+            );
+            components.push(draftActionsRow, draftConfigRow, backButtonRow);
+            break;
 
-        const globalSettingsRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('admin_toggle_translation')
-            .setLabel(translationEnabled ? 'Desactivar Traducción' : 'Activar Traducción')
-            .setStyle(translationEnabled ? ButtonStyle.Secondary : ButtonStyle.Success)
-            .setEmoji(translationEnabled ? '🔇' : '🔊')
-            .setDisabled(isBusy),
-        new ButtonBuilder()
-            .setCustomId('admin_toggle_twitter')
-            .setLabel(twitterEnabled ? 'Desactivar Twitter' : 'Activar Twitter')
-            .setStyle(twitterEnabled ? ButtonStyle.Secondary : ButtonStyle.Success)
-            .setEmoji('🐦')
-            .setDisabled(isBusy),
-        // --- BOTÓN RESTAURADO ---
-        new ButtonBuilder()
-            .setCustomId('admin_update_channel_status')
-            .setLabel('Cambiar Icono Canal')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('🎨')
-            .setDisabled(isBusy),
-        // --- FIN DEL BOTÓN RESTAURADO ---
-        new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
-    );
+        // --- VISTA DE AJUSTES GLOBALES ---
+        case 'settings':
+            embed.setTitle('Ajustes Globales del Bot');
+            const globalSettingsRow1 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('admin_toggle_translation').setLabel(translationEnabled ? 'Desactivar Traducción' : 'Activar Traducción').setStyle(ButtonStyle.Primary).setEmoji(translationEnabled ? '🔇' : '🔊').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_toggle_twitter').setLabel(twitterEnabled ? 'Desactivar Twitter' : 'Activar Twitter').setStyle(ButtonStyle.Primary).setEmoji('🐦').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_update_channel_status').setLabel('Cambiar Icono Canal').setStyle(ButtonStyle.Secondary).setEmoji('🎨').setDisabled(isBusy)
+            );
+            const globalSettingsRow2 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
+            );
+            components.push(globalSettingsRow1, globalSettingsRow2, backButtonRow);
+            break;
 
-    return { embeds: [embed], components: [globalActionsRow, draftSettingsRow, globalSettingsRow] };
+        // --- VISTA PRINCIPAL (POR DEFECTO) ---
+        default:
+            embed.setTitle('Panel de Creación y Gestión Global')
+                 .setDescription(isBusy
+                    ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
+                    : `✅ **ESTADO: LISTO**\nTraducción: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}** | Twitter: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**`
+                 );
+            const mainRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('admin_panel_tournaments').setLabel('Gestionar Torneos').setStyle(ButtonStyle.Success).setEmoji('🏆'),
+                new ButtonBuilder().setCustomId('admin_panel_drafts').setLabel('Gestionar Drafts').setStyle(ButtonStyle.Primary).setEmoji('📝'),
+                new ButtonBuilder().setCustomId('admin_panel_settings').setLabel('Ajustes Globales').setStyle(ButtonStyle.Secondary).setEmoji('⚙️')
+            );
+            components.push(mainRow);
+            break;
+    }
+
+    return { embeds: [embed], components };
 }
 
 export function createTournamentManagementPanel(tournament, isBusy = false) {
