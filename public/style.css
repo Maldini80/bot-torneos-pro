@@ -21,7 +21,7 @@ body {
 #main-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 40px);
+    height: calc(100vh - 70px); /* Ajustado para el footer */
 }
 
 header {
@@ -37,7 +37,14 @@ header {
     margin: 0;
 }
 
-#current-pick-info {
+#status-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+}
+
+#round-info, #current-pick-info {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 1.8em;
     color: #f0f0f0;
@@ -111,6 +118,7 @@ header {
     color: #C70000;
 }
 
+/* --- ESTILOS MEJORADOS PARA JUGADORES DISPONIBLES --- */
 #available-players-container {
     background-color: #1e1e1e;
     border: 1px solid #333;
@@ -133,7 +141,47 @@ header {
     flex-grow: 1;
 }
 
-#players-list .player-item {
+.position-group {
+    margin-bottom: 15px;
+}
+
+.position-group h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4em;
+    color: #C70000;
+    margin: 0 0 5px 0;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #444;
+}
+
+.player-item {
+    display: flex;
+    justify-content: space-between;
     padding: 4px;
     font-size: 0.95em;
+    border-radius: 3px;
+}
+.player-item:nth-child(even) {
+    background-color: #2a2a2a;
+}
+
+.player-sec-pos {
+    color: #888;
+    font-style: italic;
+    margin-left: 10px;
+}
+
+/* --- ESTILO PARA EL FOOTER --- */
+footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #101010;
+    border-top: 2px solid #C70000;
+    padding: 8px;
+    text-align: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2em;
+    color: #aaa;
 }
