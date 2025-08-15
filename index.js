@@ -1,5 +1,6 @@
 // index.js (Versión Limpia para Background Worker)
 import { Client, GatewayIntentBits, Events, MessageFlags, EmbedBuilder } from 'discord.js';
+import { startVisualizerServer } from './visualizerServer.js'; // <-- AÑADIR ESTA LÍNEA
 import 'dotenv/config';
 import { connectDb, getDb } from './database.js';
 import { handleCommand } from './src/handlers/commandHandler.js';
@@ -140,6 +141,7 @@ client.on(Events.MessageDelete, async message => {
 
 async function startBot() {
     await connectDb();
+    startVisualizerServer(); // <-- AÑADIR ESTA LÍNEA
     client.login(process.env.DISCORD_TOKEN);
 }
 
