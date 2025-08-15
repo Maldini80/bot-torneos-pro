@@ -1,133 +1,216 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Referencias a elementos del DOM
+    // --- REFERENCIAS A ELEMENTOS DEL DOM ---
     const loadingEl = document.getElementById('loading');
-    const mainContainerEl = document.getElementById('main-container');
-    const draftNameEl = document.getElementById('draft-name');
-    const roundInfoEl = document.getElementById('round-info');
-    const currentTeamEl = document.getElementById('current-team');
-    const currentPickEl = document.getElementById('current-pick');
-    const teamsContainerEl = document.getElementById('teams-container');
-    const playersListEl = document.getElementById('players-list');
+    const appContainerEl = document.getElementById('app-container');
+    const tournamentNameEl = document.getElementById('tournament-name');
+    const tournamentFormatEl = document.getElementById('tournament-format');
+    const groupsContainerEl = document.getElementById('groups-container');
+    const bracketContainerEl = document.getElementById('bracket-container');
+    const teamListContainerEl = document.getElementById('team-list-container');
+    const liveMatchesListEl = document.getElementById('live-matches-list');
+    const modalEl = document.getElementById('roster-modal');
+    const modalTeamNameEl = document.getElementById('modal-team-name');
+    const modalRosterListEl = document.getElementById('modal-roster-list');
+    const closeButton = document.querySelector('.close-button');
+    const viewButtons = document.querySelectorAll('.view-btn');
 
-    // --- CONFIGURACIÓN DEL ORDEN DE POSICIONES ---
-    const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
-
+    // --- LÓGICA DE WEBSOCKET Y CARGA INICIAL ---
     const urlParams = new URLSearchParams(window.location.search);
-    const draftId = urlParams.get('draftId');
+    const tournamentId = urlParams.get('tournamentId');
 
-    if (!draftId) {
-        loadingEl.textContent = 'Error: No se ha especificado un ID de draft.';
+    if (!tournamentId) {
+        loadingEl.textContent = 'Error: No se ha especificado un ID de torneo.';
         return;
     }
 
-    // --- LÓGICA DE WEBSOCKET (SIN CAMBIOS) ---
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
     socket.onopen = () => console.log('Conectado al servidor de visualización.');
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        if (message.draftId === draftId) {
-            console.log('Recibida actualización del draft:', message.data);
-            renderDraftState(message.data);
+        if (message.type === 'tournament' && message.id === tournamentId) {
+            console.log('Recibida actualización del torneo:', message.data);
+            renderTournamentState(message.data);
         }
     };
 
-    // --- CARGA DE DATOS INICIAL (SIN CAMBIOS) ---
-    fetch(`/draft-data/${draftId}`)
+    fetch(`/tournament-data/${tournamentId}`)
         .then(response => {
-            if (!response.ok) throw new Error('No se encontraron datos. La selección podría no haber comenzado.');
+            if (!response.ok) throw new Error('No se encontraron datos. El torneo podría no existir o no haber comenzado.');
             return response.json();
         })
         .then(data => {
             loadingEl.classList.add('hidden');
-            mainContainerEl.classList.remove('hidden');
-            renderDraftState(data);
+            appContainerEl.classList.remove('hidden');
+            renderTournamentState(data);
         })
         .catch(error => {
             loadingEl.textContent = `Error: ${error.message}`;
-            console.error(error);
         });
 
-    // --- NUEVA FUNCIÓN DE ORDENACIÓN ---
-    function sortPlayers(a, b) {
-        const posA = positionOrder.indexOf(a.primaryPosition);
-        const posB = positionOrder.indexOf(b.primaryPosition);
-        if (posA !== posB) {
-            return posA - posB;
-        }
-        return a.psnId.localeCompare(b.psnId);
+    // --- MANEJO DE EVENTOS (PESTAÑAS Y MODAL) ---
+    viewButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelector('.view-btn.active').classList.remove('active');
+            document.querySelector('.view-pane.active').classList.remove('active');
+            button.classList.add('active');
+            document.getElementById(button.dataset.view).classList.add('active');
+        });
+    });
+
+    closeButton.addEventListener('click', () => modalEl.classList.add('hidden'));
+    window.addEventListener('click', (event) => {
+        if (event.target == modalEl) modalEl.classList.add('hidden');
+    });
+
+    // --- FUNCIÓN PRINCIPAL DE RENDERIZADO ---
+    function renderTournamentState(tournament) {
+        // 1. Renderizar Cabecera
+        tournamentNameEl.textContent = tournament.nombre;
+        tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
+
+        // 2. Renderizar Equipos
+        renderTeams(tournament);
+
+        // 3. Renderizar Clasificación (Fase de Grupos)
+        renderClassification(tournament);
+
+        // 4. Renderizar Eliminatorias (Bracket)
+        renderBracket(tournament);
+
+        // 5. Renderizar Partidos en Directo
+        renderLiveMatches(tournament);
     }
 
-    // --- FUNCIÓN DE RENDERIZADO COMPLETAMENTE NUEVA ---
-    function renderDraftState(draft) {
-        // 1. Actualizar cabecera (con información de ronda)
-        draftNameEl.textContent = draft.name;
-        if (draft.status === 'seleccion' && draft.captains.length > 0) {
-            const numCaptains = draft.captains.length;
-            const totalPicks = 10 * numCaptains; // 10 rondas
-            const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
-            const totalRounds = Math.ceil(totalPicks / numCaptains);
-            
-            roundInfoEl.textContent = `Ronda ${currentRound} de ${totalRounds}`;
-            const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
-            currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
-            currentPickEl.textContent = draft.selection.currentPick;
-        } else {
-            roundInfoEl.textContent = 'Selección Finalizada';
-            currentTeamEl.textContent = '---';
-            currentPickEl.textContent = '---';
+    // --- FUNCIONES AUXILIARES DE RENDERIZADO ---
+    function renderTeams(tournament) {
+        teamListContainerEl.innerHTML = '';
+        const teams = Object.values(tournament.teams.aprobados).sort((a, b) => a.nombre.localeCompare(b.nombre));
+        if (teams.length === 0) {
+            teamListContainerEl.innerHTML = '<p class="placeholder">Aún no hay equipos aprobados.</p>';
+            return;
         }
+        teams.forEach(team => {
+            const isDraftTeam = team.players && team.players.length > 0;
+            const teamEl = document.createElement('div');
+            teamEl.className = `team-list-item ${isDraftTeam ? 'is-draft-team' : ''}`;
+            teamEl.textContent = team.nombre;
+            if (isDraftTeam) {
+                teamEl.addEventListener('click', () => showRosterModal(team));
+            }
+            teamListContainerEl.appendChild(teamEl);
+        });
+    }
 
-        // 2. Renderizar equipos (con jugadores ordenados)
-        teamsContainerEl.innerHTML = '';
-        draft.captains.forEach(captain => {
-            const teamPlayers = draft.players
-                .filter(p => p.captainId === captain.userId)
-                .sort(sortPlayers); // <-- APLICAMOS LA ORDENACIÓN
-
-            let rosterHtml = '';
-            teamPlayers.forEach(player => {
-                rosterHtml += `<li><span class="player-name">${player.psnId}</span> <span class="player-pos">${player.primaryPosition}</span></li>`;
+    function renderClassification(tournament) {
+        const groups = tournament.structure.grupos;
+        if (Object.keys(groups).length === 0) {
+            groupsContainerEl.innerHTML = '<p class="placeholder">La fase de grupos no ha comenzado.</p>';
+            return;
+        }
+        groupsContainerEl.innerHTML = '';
+        const sortedGroupNames = Object.keys(groups).sort();
+        sortedGroupNames.forEach(groupName => {
+            const group = groups[groupName];
+            const sortedTeams = [...group.equipos].sort((a, b) => {
+                if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
+                if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
+                return b.stats.gf - a.stats.gf;
             });
 
-            const teamCard = `
-                <div class="team-card">
-                    <h3 class="team-header">
-                        ${captain.teamName}
-                        <span class="captain-psn">Cap: ${captain.psnId}</span>
-                    </h3>
-                    <ul class="team-roster">${rosterHtml}</ul>
+            let tableHTML = `<div class="group-table"><h3>${groupName}</h3><table>
+                <thead><tr><th>Equipo</th><th>PJ</th><th>PTS</th><th>GF</th><th>GC</th><th>DG</th></tr></thead><tbody>`;
+            sortedTeams.forEach(team => {
+                tableHTML += `<tr>
+                    <td class="team-name">${team.nombre}</td>
+                    <td>${team.stats.pj}</td>
+                    <td>${team.stats.pts}</td>
+                    <td>${team.stats.gf}</td>
+                    <td>${team.stats.gc}</td>
+                    <td>${team.stats.dg > 0 ? '+' : ''}${team.stats.dg}</td>
+                </tr>`;
+            });
+            tableHTML += '</tbody></table></div>';
+            groupsContainerEl.innerHTML += tableHTML;
+        });
+    }
+
+    function renderBracket(tournament) {
+        const stages = tournament.config.format.knockoutStages;
+        if (!stages || tournament.status === 'inscripcion_abierta' || tournament.status === 'fase_de_grupos') {
+            bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
+            return;
+        }
+        bracketContainerEl.innerHTML = '';
+        stages.forEach(stageKey => {
+            const matches = tournament.structure.eliminatorias[stageKey];
+            if (!matches) return;
+
+            const roundMatches = Array.isArray(matches) ? matches : [matches];
+            let roundHTML = `<div class="bracket-round"><h3>${stageKey.replace('_', ' ')}</h3>`;
+            roundMatches.forEach(match => {
+                const teamA = match.equipoA?.nombre || 'Por definir';
+                const teamB = match.equipoB?.nombre || 'Por definir';
+                let scoreA = '', scoreB = '';
+                let classA = '', classB = '';
+
+                if (match.resultado) {
+                    [scoreA, scoreB] = match.resultado.split('-');
+                    if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner';
+                    else classB = 'winner';
+                }
+
+                roundHTML += `<div class="bracket-match">
+                    <div class="bracket-team ${classA}"><span>${teamA}</span><span>${scoreA}</span></div>
+                    <div class="bracket-team ${classB}"><span>${teamB}</span><span>${scoreB}</span></div>
                 </div>`;
-            teamsContainerEl.innerHTML += teamCard;
+            });
+            roundHTML += '</div>';
+            bracketContainerEl.innerHTML += roundHTML;
         });
+    }
 
-        // 3. Renderizar jugadores disponibles (ordenados y agrupados)
-        playersListEl.innerHTML = '';
-        const availablePlayers = draft.players
-            .filter(p => !p.captainId && !p.isCaptain)
-            .sort(sortPlayers); // <-- APLICAMOS LA ORDENACIÓN
-
-        const groupedPlayers = {};
-        availablePlayers.forEach(p => {
-            if (!groupedPlayers[p.primaryPosition]) {
-                groupedPlayers[p.primaryPosition] = [];
-            }
-            groupedPlayers[p.primaryPosition].push(p);
-        });
+    function renderLiveMatches(tournament) {
+        const allMatches = [
+            ...Object.values(tournament.structure.calendario).flat(),
+            ...Object.values(tournament.structure.eliminatorias).flat()
+        ];
+        const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
         
-        positionOrder.forEach(pos => {
-            if (groupedPlayers[pos] && groupedPlayers[pos].length > 0) {
-                let groupHtml = `<div class="position-group"><h3>${pos}</h3>`;
-                groupedPlayers[pos].forEach(player => {
-                    // Añadimos la posición secundaria si existe
-                    const secondaryPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' 
-                        ? `<span class="player-sec-pos">(${player.secondaryPosition})</span>` 
-                        : '';
-                    groupHtml += `<div class="player-item"><span>${player.psnId}</span> ${secondaryPos}</div>`;
-                });
-                groupHtml += `</div>`;
-                playersListEl.innerHTML += groupHtml;
-            }
+        if (liveMatches.length === 0) {
+            liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>';
+            return;
+        }
+
+        liveMatchesListEl.innerHTML = '';
+        liveMatches.forEach(match => {
+            const teamA = tournament.teams.aprobados[match.equipoA.capitanId];
+            const teamB = tournament.teams.aprobados[match.equipoB.capitanId];
+            let linksHTML = '';
+            if (teamA?.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank">Ver a ${teamA.nombre}</a>`;
+            if (teamB?.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank">Ver a ${teamB.nombre}</a>`;
+            if (!linksHTML) linksHTML = '<p>No hay streams disponibles.</p>';
+
+            const cardHTML = `<div class="live-match-card">
+                <div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div>
+                <div class="stream-links">${linksHTML}</div>
+            </div>`;
+            liveMatchesListEl.innerHTML += cardHTML;
         });
+    }
+
+    function showRosterModal(team) {
+        modalTeamNameEl.textContent = team.nombre;
+        modalRosterListEl.innerHTML = '';
+        const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
+        const sortedPlayers = [...team.players].sort((a, b) => {
+            return positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition);
+        });
+        sortedPlayers.forEach(player => {
+            const li = document.createElement('li');
+            li.textContent = `${player.psnId} (${player.primaryPosition})`;
+            modalRosterListEl.appendChild(li);
+        });
+        modalEl.classList.remove('hidden');
     }
 });
