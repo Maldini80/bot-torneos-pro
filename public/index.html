@@ -76,17 +76,35 @@
                 <div id="round-info-draftview"></div>
                 <div id="current-pick-info-draftview">Turno de: <span id="current-team-draftview"></span> | Pick #<span id="current-pick-draftview">0</span></div>
             </div>
+            <div id="round-pick-order"></div>
         </header>
         <div class="content-grid-draftview">
             <div id="teams-container-draftview"></div>
             <div id="available-players-container-draftview">
                 <h2>Jugadores Disponibles</h2>
-                <div id="players-list-draftview"></div>
+                <div id="position-filters"></div>
+                <div class="legend">🛡️ Con Equipo | 🔎 Agente Libre</div>
+                <div class="players-table-container">
+                    <table id="players-table">
+                        <thead>
+                            <tr>
+                                <th>Estado</th>
+                                <th>PSN ID</th>
+                                <th>Pos. Primaria</th>
+                                <th>Pos. Secundaria</th>
+                            </tr>
+                        </thead>
+                        <tbody id="players-table-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
     
-    <!-- FOOTER COMÚN PARA AMBAS VISTAS -->
+    <div id="pick-alert" class="hidden">
+        <div id="pick-alert-content"></div>
+    </div>
+    
     <footer id="common-footer">
         Powered by VPG LIGHTNINGS
     </footer>
