@@ -22,6 +22,14 @@ export async function handleButton(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
+    // --- NUEVA LÓGICA PARA NAVEGACIÓN DEL PANEL DE ADMIN ---
+    if (action.startsWith('admin_panel_')) {
+        await interaction.deferUpdate();
+        const view = action.split('_')[2]; // Extrae 'tournaments', 'drafts', etc.
+        const panelContent = await createGlobalAdminPanel(view);
+        await interaction.editReply(panelContent);
+        return;
+    }
 
     if (action === 'admin_manage_drafts_players') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
