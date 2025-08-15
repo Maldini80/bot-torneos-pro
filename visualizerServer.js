@@ -6,7 +6,8 @@ import { exec } from 'child_process';
 import fetch from 'node-fetch';
 import { platform, arch } from 'os';
 import { createWriteStream } from 'fs';
-import { chmod, existsSync } from 'fs-extra';
+import fs from 'fs-extra';
+const { chmod, existsSync } = fs;
 import { join } from 'path';
 import unzipper from 'unzipper';
 
