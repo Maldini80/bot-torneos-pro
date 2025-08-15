@@ -49,6 +49,32 @@ export async function notifyTournamentVisualizer(tournament) {
         console.error(`[Bot->Visualizer] Error al notificar al visualizador de TORNEO ${tournament.shortId}:`, error.message);
     }
 }
+/**
+ * NUEVO: Publica la URL del visualizador en el hilo de casters de un torneo.
+ * @param {import('discord.js').Client} client El cliente de Discord.
+ * @param {object} tournament El objeto del torneo recién creado.
+ */
+async function publishVisualizerURL(client, tournament) {
+    // La URL base del visualizador se leerá de las variables de entorno.
+    if (!process.env.VISUALIZER_BASE_URL || !tournament.discordMessageIds.casterThreadId) {
+        console.warn(`[Visualizer] No se puede publicar la URL para ${tournament.shortId} por falta de datos.`);
+        return;
+    }
+
+    try {
+        const casterThread = await client.channels.fetch(tournament.discordMessageIds.casterThreadId);
+        const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+        
+        const visualizerLink = `${process.env.VISUALIZER_BASE_URL}/?tournamentId=${tournament.shortId}`;
+
+        await casterThread.send({
+            content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡Nuevo torneo creado!**\n\nAquí tenéis el enlace para el visualizador en vivo. ¡Añádanlo a su OBS!\n\n**Enlace:** ${visualizerLink}`
+        });
+        console.log(`[Visualizer] URL publicada con éxito para el torneo ${tournament.shortId}`);
+    } catch (error) {
+        console.error(`[Visualizer] Error al publicar la URL para el torneo ${tournament.shortId}:`, error);
+    }
+}
 
 /**
  * Actualiza los embeds principales de la interfaz de un draft (jugadores, equipos, orden).
