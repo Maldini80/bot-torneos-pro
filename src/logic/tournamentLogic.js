@@ -34,7 +34,7 @@ export async function notifyVisualizer(draft) {
  * @param {object} tournament El objeto completo del torneo.
  */
 export async function notifyTournamentVisualizer(tournament) {
-    // Apunta al servidor interno que corre junto al bot
+    // Apunta al servidor interno que corre junto al bot, igual que la función del draft.
     const visualizerUrl = `http://localhost:${process.env.PORT || 3000}/update-tournament/${tournament.shortId}`;
     try {
         await fetch(visualizerUrl, {
@@ -48,7 +48,24 @@ export async function notifyTournamentVisualizer(tournament) {
     }
 }
 
-
+/**
+ * Publica la URL del visualizador en el hilo de casters de un torneo.
+ * @param {import('discord.js').Client} client El cliente de Discord.
+ * @param {object} tournament El objeto del torneo recién creado.
+ */
+async function publishVisualizerURL(client, tournament) {
+    if (!process.env.NGROK_STATIC_DOMAIN || !tournament.discordMessageIds.casterThreadId) {
+        return;
+    }
+    try {
+        const casterThread = await client.channels.fetch(tournament.discordMessageIds.casterThreadId);
+        const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+        const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?tournamentId=${tournament.shortId}`;
+        await casterThread.send({
+            content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡Nuevo torneo creado!**\n\nAquí tenéis el enlace para el visualizador en vivo.\n\n**Enlace:** ${visualizerLink}`
+        });
+    } catch (e) { console.error(`[Visualizer] Fallo al publicar URL para ${tournament.shortId}:`, e); }
+}
 
 /**
  * Actualiza los embeds principales de la interfaz de un draft (jugadores, equipos, orden).
@@ -520,23 +537,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
-        const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
-        if (finalTournament) {
-            await notifyTournamentVisualizer(finalTournament);
-
-            if (process.env.NGROK_STATIC_DOMAIN && finalTournament.discordMessageIds.casterThreadId) {
-                try {
-                    const casterThread = await client.channels.fetch(finalTournament.discordMessageIds.casterThreadId);
-                    const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
-                    const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?tournamentId=${finalTournament.shortId}`;
-                    await casterThread.send({
-                        content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡Torneo de Draft generado!**\n\nAquí tenéis el enlace para el visualizador en vivo.\n\n**Enlace:** ${visualizerLink}`
-                    });
-                } catch(e) { console.error(`[Visualizer] Fallo al publicar URL para ${finalTournament.shortId}:`, e); }
-            }
-        }
-        // --- FIN DE LA LÓGICA CORREGIDA ---
+        await publishVisualizerURL(client, finalTournament);
 
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
         
@@ -935,23 +936,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
 
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
-        const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
-        if (finalTournament) {
-            await notifyTournamentVisualizer(finalTournament);
-
-            if (process.env.NGROK_STATIC_DOMAIN && finalTournament.discordMessageIds.casterThreadId) {
-                try {
-                    const casterThread = await client.channels.fetch(finalTournament.discordMessageIds.casterThreadId);
-                    const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
-                    const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?tournamentId=${finalTournament.shortId}`;
-                    await casterThread.send({
-                        content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡Nuevo torneo creado!**\n\nAquí tenéis el enlace para el visualizador en vivo.\n\n**Enlace:** ${visualizerLink}`
-                    });
-                } catch (e) { console.error(`[Visualizer] Fallo al publicar URL para ${finalTournament.shortId}:`, e); }
-            }
-        }
-        // --- FIN DE LA LÓGICA CORREGIDA ---
+        await publishVisualizerURL(client, finalTournament);
 
         console.log(`[CREATE] Panel de gestión y URL del visualizador enviados para ${shortId}.`);
 
