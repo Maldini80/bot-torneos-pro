@@ -38,23 +38,38 @@ export async function startVisualizerServer() {
     });
 
     // Hacemos que el servidor interno escuche en el puerto
-    server.listen(PORT, async () => {
+    server.listen(PORT, () => {
         console.log(`[Visualizer] Servidor interno escuchando en el puerto ${PORT}`);
         
-        // --- LÓGICA DE NGROK ---
+        // --- LÓGICA DE NGROK CON REINTENTOS ---
         if (process.env.NGROK_AUTHTOKEN && process.env.NGROK_STATIC_DOMAIN) {
-            try {
-                // Inicia el túnel ngrok hacia nuestro servidor interno
-                const url = await ngrok.connect({
-                    proto: 'http',
-                    addr: PORT,
-                    authtoken: process.env.NGROK_AUTHTOKEN,
-                    domain: process.env.NGROK_STATIC_DOMAIN,
-                });
-                console.log(`[ngrok] Túnel establecido. El visualizador está disponible públicamente en: ${url}`);
-            } catch (error) {
-                console.error('[ngrok] Error al iniciar el túnel:', error);
-            }
+            let attempts = 0;
+            const maxAttempts = 5;
+
+            const connectToNgrok = async () => {
+                attempts++;
+                try {
+                    const url = await ngrok.connect({
+                        proto: 'http',
+                        addr: PORT,
+                        authtoken: process.env.NGROK_AUTHTOKEN,
+                        domain: process.env.NGROK_STATIC_DOMAIN,
+                    });
+                    console.log(`[ngrok] Túnel establecido con éxito en el intento ${attempts}. El visualizador está en: ${url}`);
+                } catch (error) {
+                    console.error(`[ngrok] Intento ${attempts}: Error al iniciar el túnel:`, error.message);
+                    if (attempts < maxAttempts) {
+                        const delay = 15000; // Espera 15 segundos antes de reintentar
+                        console.log(`[ngrok] Reintentando en ${delay / 1000} segundos...`);
+                        setTimeout(connectToNgrok, delay);
+                    } else {
+                        console.error('[ngrok] Se alcanzó el número máximo de reintentos. El túnel no se pudo establecer.');
+                    }
+                }
+            };
+            
+            connectToNgrok(); // Inicia el primer intento
+
         } else {
             console.warn('[ngrok] No se han proporcionado las variables de entorno NGROK_AUTHTOKEN y NGROK_STATIC_DOMAIN. El visualizador solo será accesible localmente.');
         }
