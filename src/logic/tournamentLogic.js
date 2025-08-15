@@ -1025,6 +1025,7 @@ export async function startGroupStage(client, guild, tournament) {
         await updateTournamentManagementThread(client, finalTournamentState);
         
         postTournamentUpdate('GROUP_STAGE_START', finalTournamentState).catch(console.error);
+        await notifyTournamentVisualizer(finalTournamentState);
 
     } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
