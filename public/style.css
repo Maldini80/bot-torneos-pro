@@ -1,187 +1,306 @@
+/* --- CONFIGURACIÓN GLOBAL Y FUENTES --- */
+:root {
+    --primary-color: #C70000;
+    --background-color: #121212;
+    --surface-color: #1e1e1e;
+    --text-color: #e0e0e0;
+    --border-color: #333;
+    --font-bebas: 'Bebas Neue', sans-serif;
+    --font-roboto: 'Roboto', sans-serif;
+}
+
 body {
-    background-color: #121212;
-    color: #e0e0e0;
-    font-family: 'Roboto', sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-family: var(--font-roboto);
     margin: 0;
     padding: 20px;
     overflow: hidden;
-}
-
-#loading {
-    font-size: 2em;
-    font-family: 'Bebas Neue', sans-serif;
-    text-align: center;
-    margin-top: 40vh;
 }
 
 .hidden {
     display: none !important;
 }
 
-#main-container {
+/* --- CONTENEDOR PRINCIPAL Y CABECERA --- */
+#app-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 70px); /* Ajustado para el footer */
+    height: calc(100vh - 40px);
 }
 
 header {
     text-align: center;
     padding-bottom: 10px;
-    border-bottom: 2px solid #C70000;
+    border-bottom: 2px solid var(--primary-color);
 }
 
-#draft-name {
-    font-family: 'Bebas Neue', sans-serif;
+header h1 {
+    font-family: var(--font-bebas);
     font-size: 3.5em;
-    color: #C70000;
+    color: var(--primary-color);
     margin: 0;
+    text-transform: uppercase;
 }
 
-#status-line {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 20px;
+header p {
+    font-size: 1.1em;
+    color: #aaa;
+    margin: 5px 0 0 0;
 }
 
-#round-info, #current-pick-info {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.8em;
-    color: #f0f0f0;
-}
-
-#current-team {
-    color: #ffd700;
-}
-
-#content-grid {
+/* --- ESTRUCTURA PRINCIPAL (PANELES) --- */
+.main-content {
     display: grid;
     grid-template-columns: 3fr 1fr;
     gap: 20px;
     flex-grow: 1;
     overflow: hidden;
     padding-top: 15px;
+    height: calc(100% - 100px); /* Ajuste para cabecera y footer */
 }
 
-#teams-container {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(2, 1fr);
-    gap: 15px;
-    overflow-y: auto;
-}
-
-.team-card {
-    background-color: #1e1e1e;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 15px;
+main#main-panel {
     display: flex;
     flex-direction: column;
+    background-color: var(--surface-color);
+    border-radius: 8px;
+    padding: 20px;
 }
 
-.team-header {
-    font-family: 'Bebas Neue', sans-serif;
+/* --- PESTAÑAS DE NAVEGACIÓN --- */
+.view-switcher {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.view-btn {
+    font-family: var(--font-bebas);
     font-size: 1.5em;
-    color: #C70000;
-    margin: 0 0 10px 0;
-    border-bottom: 1px solid #444;
-    padding-bottom: 5px;
+    padding: 10px 20px;
+    border: none;
+    background-color: transparent;
+    color: #888;
+    cursor: pointer;
+    transition: color 0.2s, border-bottom 0.2s;
+    border-bottom: 3px solid transparent;
 }
 
-.team-header .captain-psn {
-    font-size: 0.7em;
-    color: #aaa;
-    display: block;
+.view-btn.active {
+    color: var(--primary-color);
+    border-bottom: 3px solid var(--primary-color);
 }
 
-.team-roster {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+.view-pane {
+    display: none;
     flex-grow: 1;
     overflow-y: auto;
 }
-
-.team-roster li {
-    background-color: #2a2a2a;
-    margin-bottom: 5px;
-    padding: 5px 8px;
-    border-radius: 4px;
-    font-size: 0.9em;
-    display: flex;
-    justify-content: space-between;
+.view-pane.active {
+    display: block;
 }
-
-.player-pos {
-    font-weight: bold;
-    color: #C70000;
-}
-
-/* --- ESTILOS MEJORADOS PARA JUGADORES DISPONIBLES --- */
-#available-players-container {
-    background-color: #1e1e1e;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-#available-players-container h2 {
-    font-family: 'Bebas Neue', sans-serif;
+.view-pane h2 {
+    font-family: var(--font-bebas);
     font-size: 2em;
-    margin: 0 0 10px 0;
+    margin-top: 0;
+    color: var(--text-color);
+}
+
+/* --- VISTA DE CLASIFICACIÓN --- */
+#groups-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+}
+.group-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.group-table th, .group-table td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+.group-table th {
+    font-weight: bold;
+}
+.group-table .team-name {
+    font-weight: bold;
+}
+.group-table td:not(:first-child) {
     text-align: center;
 }
 
-#players-list {
+/* --- VISTA DE ELIMINATORIAS (BRACKET) --- */
+#bracket-container {
+    display: flex;
+    gap: 50px;
+    overflow-x: auto;
+}
+.bracket-round {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+.bracket-round h3 {
+    text-align: center;
+    font-family: var(--font-bebas);
+    font-size: 1.8em;
+    margin: 0 0 10px 0;
+}
+.bracket-match {
+    background-color: #2a2a2a;
+    border-radius: 5px;
+    padding: 10px;
+    min-width: 200px;
+}
+.bracket-team {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px;
+}
+.bracket-team.winner {
+    font-weight: bold;
+    color: #ffd700;
+}
+
+/* --- VISTA DE EQUIPOS --- */
+#team-list-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+.team-list-item {
+    background-color: #2a2a2a;
+    padding: 15px;
+    border-radius: 5px;
+    font-weight: bold;
+}
+.team-list-item.is-draft-team {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.team-list-item.is-draft-team:hover {
+    background-color: var(--primary-color);
+}
+
+/* --- BARRA LATERAL DE PARTIDOS EN DIRECTO --- */
+aside#live-match-sidebar {
+    background-color: var(--surface-color);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+aside#live-match-sidebar h2 {
+    font-family: var(--font-bebas);
+    font-size: 2em;
+    margin: 0 0 15px 0;
+    text-align: center;
+}
+#live-matches-list {
     overflow-y: auto;
     flex-grow: 1;
 }
-
-.position-group {
+.live-match-card {
+    background-color: #2a2a2a;
+    border-radius: 5px;
+    padding: 15px;
     margin-bottom: 15px;
 }
-
-.position-group h3 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.4em;
-    color: #C70000;
-    margin: 0 0 5px 0;
-    padding-bottom: 3px;
-    border-bottom: 1px solid #444;
+.live-match-teams {
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 10px;
 }
-
-.player-item {
+.stream-links {
     display: flex;
-    justify-content: space-between;
-    padding: 4px;
-    font-size: 0.95em;
-    border-radius: 3px;
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
 }
-.player-item:nth-child(even) {
-    background-color: #2a2a2a;
+.stream-links a {
+    background-color: var(--primary-color);
+    color: white;
+    text-decoration: none;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+.stream-links a:hover {
+    background-color: #a60000;
 }
 
-.player-sec-pos {
-    color: #888;
-    font-style: italic;
-    margin-left: 10px;
+/* --- MODAL PARA PLANTILLAS (ROSTER) --- */
+#roster-modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.modal-content {
+    background-color: var(--surface-color);
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    width: 80%;
+    max-width: 600px;
+    position: relative;
+}
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    cursor: pointer;
+}
+.close-button:hover, .close-button:focus {
+    color: white;
+}
+.modal-content h3 {
+    font-family: var(--font-bebas);
+    font-size: 2.5em;
+    color: var(--primary-color);
+    margin-top: 0;
+}
+#modal-roster-list {
+    list-style: none;
+    padding: 0;
+    columns: 2; /* Muestra la lista en dos columnas */
+}
+#modal-roster-list li {
+    padding: 5px;
+    font-size: 1.1em;
 }
 
-/* --- ESTILO PARA EL FOOTER --- */
+/* --- FOOTER Y PLACEHOLDERS --- */
 footer {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
     background-color: #101010;
-    border-top: 2px solid #C70000;
+    border-top: 2px solid var(--primary-color);
     padding: 8px;
     text-align: center;
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: var(--font-bebas);
     font-size: 1.2em;
     color: #aaa;
+}
+.placeholder {
+    color: #666;
+    font-style: italic;
+    text-align: center;
+    padding-top: 50px;
 }
