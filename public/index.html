@@ -3,39 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de Draft en Vivo</title>
+    <title>Visualizador de Torneos en Vivo</title>
+    <!-- Se enlaza al nuevo CSS que crearemos después -->
     <link rel="stylesheet" href="style.css">
+    <!-- Se enlazan las fuentes para el diseño profesional -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="loading">Cargando datos del draft...</div>
-    <div id="main-container" class="hidden">
+    <!-- Pantalla de carga inicial -->
+    <div id="loading">Cargando datos del torneo...</div>
+
+    <!-- Contenedor principal de la aplicación, oculto al principio -->
+    <div id="app-container" class="hidden">
+        
         <header>
-            <h1 id="draft-name">Nombre del Draft</h1>
-            <div id="status-line">
-                <div id="round-info">Ronda 1 de 10</div>
-                <div id="current-pick-info">
-                    Turno de: <span id="current-team"></span> | Pick #<span id="current-pick">0</span>
-                </div>
-            </div>
+            <h1 id="tournament-name"><!-- El nombre del torneo irá aquí --></h1>
+            <p id="tournament-format"><!-- El formato del torneo irá aquí --></p>
         </header>
-        <div id="content-grid">
-            <div id="teams-container">
-                <!-- Las plantillas de los equipos se generarán aquí -->
-            </div>
-            <div id="available-players-container">
-                <h2>Jugadores Disponibles</h2>
-                <div id="players-list">
-                    <!-- La lista de jugadores libres se generará aquí -->
+
+        <div class="main-content">
+            
+            <!-- Panel principal con las vistas intercambiables (pestañas) -->
+            <main id="main-panel">
+                <nav class="view-switcher">
+                    <button class="view-btn active" data-view="classification-view">Clasificación</button>
+                    <button class="view-btn" data-view="bracket-view">Eliminatorias</button>
+                    <button class="view-btn" data-view="teams-view">Equipos</button>
+                </nav>
+
+                <!-- Vista de la Clasificación (Fase de Grupos) -->
+                <div id="classification-view" class="view-pane active">
+                    <h2>Fase de Grupos</h2>
+                    <div id="groups-container">
+                        <!-- Las tablas de clasificación se generarán aquí con JavaScript -->
+                        <p class="placeholder">La clasificación aparecerá aquí cuando comience el torneo.</p>
+                    </div>
                 </div>
-            </div>
+
+                <!-- Vista de las Eliminatorias (Bracket) -->
+                <div id="bracket-view" class="view-pane">
+                    <h2>Eliminatorias</h2>
+                    <div id="bracket-container">
+                        <!-- El bracket de eliminatorias se generará aquí con JavaScript -->
+                        <p class="placeholder">El cuadro de eliminatorias aparecerá aquí cuando termine la fase de grupos.</p>
+                    </div>
+                </div>
+
+                <!-- Vista de los Equipos -->
+                <div id="teams-view" class="view-pane">
+                    <h2>Equipos Participantes</h2>
+                    <div id="team-list-container">
+                        <!-- La lista de equipos se generará aquí con JavaScript -->
+                    </div>
+                </div>
+            </main>
+
+            <!-- Barra lateral para Partidos en Directo -->
+            <aside id="live-match-sidebar">
+                <h2>Partidos en Directo</h2>
+                <div id="live-matches-list">
+                    <!-- Los partidos en curso con sus links de stream se generarán aquí -->
+                    <p class="placeholder">No hay partidos en juego en este momento.</p>
+                </div>
+            </aside>
+        </div>
+
+        <footer>
+            Powered by VPG LIGHTNINGS
+        </footer>
+    </div>
+
+    <!-- Ventana Modal para mostrar las plantillas de los equipos de draft -->
+    <div id="roster-modal" class="hidden">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3 id="modal-team-name"></h3>
+            <ul id="modal-roster-list">
+                <!-- La lista de jugadores del equipo irá aquí -->
+            </ul>
         </div>
     </div>
-    <footer>
-        Powered by VPG LIGHTNINGS
-    </footer>
+
+    <!-- Se enlaza al nuevo JavaScript que crearemos después -->
     <script src="client.js"></script>
 </body>
 </html>
