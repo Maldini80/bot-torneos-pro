@@ -5,7 +5,7 @@ import { WebSocketServer } from 'ws';
 import { exec } from 'child_process';
 import fetch from 'node-fetch';
 import { platform, arch } from 'os';
-import { createWriteStream } from 'fs';
+import { createWriteStream, createReadStream } from 'fs';
 import fs from 'fs-extra';
 const { chmod, existsSync } = fs;
 import { join } from 'path';
