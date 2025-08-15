@@ -76,20 +76,6 @@ async function publishVisualizerURL(client, tournament) {
         console.error(`[Visualizer] Error al publicar la URL para el torneo ${tournament.shortId}:`, error);
     }
 }
-
-    try {
-        const casterThread = await client.channels.fetch(tournament.discordMessageIds.casterThreadId);
-        const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
-        
-        const visualizerLink = `${process.env.VISUALIZER_BASE_URL}/?tournamentId=${tournament.shortId}`;
-
-        await casterThread.send({
-            content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡Nuevo torneo creado!**\n\nAquí tenéis el enlace para el visualizador en vivo. ¡Añádanlo a su OBS!\n\n**Enlace:** ${visualizerLink}`
-        });
-        console.log(`[Visualizer] URL publicada con éxito para el torneo ${tournament.shortId}`);
-    } catch (error) {
-        console.error(`[Visualizer] Error al publicar la URL para el torneo ${tournament.shortId}:`, error);
-    }
 }
 
 /**
