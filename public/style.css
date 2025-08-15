@@ -1,1 +1,139 @@
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 20px;
+    overflow: hidden;
+}
 
+#loading {
+    font-size: 2em;
+    font-family: 'Bebas Neue', sans-serif;
+    text-align: center;
+    margin-top: 40vh;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#main-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 40px);
+}
+
+header {
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #C70000;
+}
+
+#draft-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3.5em;
+    color: #C70000;
+    margin: 0;
+}
+
+#current-pick-info {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8em;
+    color: #f0f0f0;
+}
+
+#current-team {
+    color: #ffd700;
+}
+
+#content-grid {
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    gap: 20px;
+    flex-grow: 1;
+    overflow: hidden;
+    padding-top: 15px;
+}
+
+#teams-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 15px;
+    overflow-y: auto;
+}
+
+.team-card {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.team-header {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5em;
+    color: #C70000;
+    margin: 0 0 10px 0;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+}
+
+.team-header .captain-psn {
+    font-size: 0.7em;
+    color: #aaa;
+    display: block;
+}
+
+.team-roster {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.team-roster li {
+    background-color: #2a2a2a;
+    margin-bottom: 5px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    display: flex;
+    justify-content: space-between;
+}
+
+.player-pos {
+    font-weight: bold;
+    color: #C70000;
+}
+
+#available-players-container {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#available-players-container h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2em;
+    margin: 0 0 10px 0;
+    text-align: center;
+}
+
+#players-list {
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+#players-list .player-item {
+    padding: 4px;
+    font-size: 0.95em;
+}
