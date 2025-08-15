@@ -266,6 +266,7 @@ async function startNextKnockoutRound(client, guild, tournament) {
     for(const [i, p] of partidos.entries()) {
         const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
         p.threadId = threadId;
+        p.status = 'en_curso';
         embedAnuncio.addFields({ name: `Enfrentamiento ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
     }
     if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
