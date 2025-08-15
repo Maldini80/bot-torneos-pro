@@ -177,20 +177,28 @@ document.addEventListener('DOMContentLoaded', () => {
         stages.forEach(stageKey => {
             const matches = tournament.structure.eliminatorias[stageKey];
             if (!matches || (Array.isArray(matches) && matches.length === 0)) return;
+
             const roundMatches = Array.isArray(matches) ? matches : [matches];
-            let roundHTML = `<div class="bracket-round"><h3>${stageKey.replace(/_/g, ' ')}</h3>`;
-            roundMatches.forEach(match => {
-                const teamA = match.equipoA?.nombre || 'Por definir';
-                const teamB = match.equipoB?.nombre || 'Por definir';
-                let scoreA = '', scoreB = '';
-                let classA = '', classB = '';
-                if (match.resultado) {
-                    [scoreA, scoreB] = match.resultado.split('-');
-                    if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
-                    else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
+            let roundHTML = `<div class="bracket-round"><div class="bracket-round-title">${stageKey.replace(/_/g, ' ')}</div>`;
+            
+            // Agrupamos los partidos para las líneas conectoras
+            for (let i = 0; i < roundMatches.length; i += 2) {
+                roundHTML += '<div class="match-wrapper">';
+                for (let j = i; j < i + 2 && j < roundMatches.length; j++) {
+                    const match = roundMatches[j];
+                    const teamA = match.equipoA?.nombre || 'Por definir';
+                    const teamB = match.equipoB?.nombre || 'Por definir';
+                    let scoreA = '', scoreB = '';
+                    let classA = '', classB = '';
+                    if (match.resultado) {
+                        [scoreA, scoreB] = match.resultado.split('-');
+                        if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner';
+                        else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner';
+                    }
+                    roundHTML += `<div class="bracket-match"><div class="bracket-team ${classA}"><span class="team-name">${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team ${classB}"><span class="team-name">${teamB}</span><span class="score">${scoreB}</span></div></div>`;
                 }
-                roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><span>${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team"><span>${teamB}</span><span class="score">${scoreB}</span></div></div>`;
-            });
+                roundHTML += '</div>';
+            }
             roundHTML += '</div>';
             bracketContainerEl.innerHTML += roundHTML;
         });
