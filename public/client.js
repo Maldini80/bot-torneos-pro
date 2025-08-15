@@ -34,19 +34,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    let hasLoadedInitialData = false;
+
+    // Conexión WebSocket (la movemos aquí para que se establezca antes)
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const socket = new WebSocket(`${protocol}://${window.location.host}`);
+    socket.onopen = () => console.log('Conectado al servidor de visualización.');
+    
+    socket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        const entityId = message.type === 'tournament' ? tournamentId : draftId;
+
+        if (message.id === entityId) {
+            console.log(`Recibida actualización de ${message.type}:`, message.data);
+            
+            // Si es la primera vez que recibimos datos, quitamos la pantalla de carga
+            if (!hasLoadedInitialData) {
+                loadingEl.classList.add('hidden');
+                appContainerEl.classList.remove('hidden');
+                hasLoadedInitialData = true;
+            }
+
+            if (message.type === 'tournament') {
+                renderTournamentState(message.data);
+            } else if (message.type === 'draft') {
+                // Aquí iría la lógica para renderizar el draft si unificamos la página
+            }
+        }
+    };
+
+    // Intentamos cargar los datos iniciales, pero no mostraremos un error si falla,
+    // simplemente esperaremos la primera actualización por WebSocket.
     fetch(`/tournament-data/${tournamentId}`)
-        .then(response => {
-            if (!response.ok) throw new Error('No se encontraron datos. El torneo podría no existir o no haber comenzado.');
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            loadingEl.classList.add('hidden');
-            appContainerEl.classList.remove('hidden');
-            renderTournamentState(data);
+            if (data && !hasLoadedInitialData) {
+                loadingEl.classList.add('hidden');
+                appContainerEl.classList.remove('hidden');
+                renderTournamentState(data);
+                hasLoadedInitialData = true;
+            }
         })
         .catch(error => {
-            loadingEl.textContent = `Error: ${error.message}`;
-        });
+            // No hacemos nada aquí, la pantalla de carga seguirá visible
+            console.warn('No se pudieron cargar los datos iniciales, esperando WebSocket.');
+        })
 
     // --- MANEJO DE EVENTOS (PESTAÑAS Y MODAL) ---
     viewButtons.forEach(button => {
