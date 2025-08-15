@@ -15,86 +15,53 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalRosterListEl = document.getElementById('modal-roster-list');
     const closeButton = document.querySelector('.close-button');
     const viewButtons = document.querySelectorAll('.view-btn');
+    const mainViewContentEl = document.getElementById('main-view-content');
+    const finishedViewEl = document.getElementById('finished-view');
+    const championNameEl = document.getElementById('champion-name');
+    const mainPanelEl = document.getElementById('main-panel');
+    const viewSwitcherEl = document.querySelector('.view-switcher');
 
-    // --- LÓGICA DE WEBSOCKET Y CARGA INICIAL (VERSIÓN ROBUSTA) ---
+    // --- LÓGICA DE WEBSOCKET Y CARGA INICIAL ---
     const urlParams = new URLSearchParams(window.location.search);
     const tournamentId = urlParams.get('tournamentId');
-    const draftId = urlParams.get('draftId'); // También leemos el draftId
 
-    if (!tournamentId && !draftId) {
-        loadingEl.textContent = 'Error: No se ha especificado un ID de evento en la URL.';
+    if (!tournamentId) {
+        loadingEl.textContent = 'Error: No se ha especificado un ID de torneo.';
         return;
     }
 
     let hasLoadedInitialData = false;
-
-    // 1. Establecemos la conexión WebSocket inmediatamente.
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
-    socket.onopen = () => console.log('Conectado al servidor de visualización.');
-    
-    // 2. Nos quedamos a la escucha de CUALQUIER actualización.
+    socket.onopen = () => console.log('Conectado al servidor.');
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        
-        const isCorrectEvent = (message.type === 'tournament' && message.id === tournamentId) || 
-                               (message.type === 'draft' && message.id === draftId);
-
-        if (isCorrectEvent) {
-            console.log(`Recibida actualización de ${message.type}:`, message.data);
-            
+        if (message.type === 'tournament' && message.id === tournamentId) {
             if (!hasLoadedInitialData) {
                 loadingEl.classList.add('hidden');
-                // Mostramos el contenedor correcto (app para torneo, o uno de draft si lo creamos)
-                appContainerEl.classList.remove('hidden'); 
+                appContainerEl.classList.remove('hidden');
                 hasLoadedInitialData = true;
             }
-            
-            if (message.type === 'tournament') {
-                renderTournamentState(message.data);
-            }
-            // Aquí iría la llamada a renderDraftState(message.data) si tuviéramos esa función
+            renderTournamentState(message.data);
         }
     };
 
-    // 3. Intentamos cargar los datos iniciales.
-    const entityType = tournamentId ? 'tournament' : 'draft';
-    const entityId = tournamentId || draftId;
-    
-    fetch(`/${entityType}-data/${entityId}`)
-        .then(response => {
-            if (!response.ok) {
-                console.warn(`No se encontraron datos iniciales para ${entityType} ${entityId}. Esperando WebSocket.`);
-                return Promise.resolve(null);
-            }
-            return response.json();
-        })
+    fetch(`/tournament-data/${tournamentId}`)
+        .then(response => response.ok ? response.json() : Promise.resolve(null))
         .then(data => {
             if (data && !hasLoadedInitialData) {
                 loadingEl.classList.add('hidden');
                 appContainerEl.classList.remove('hidden');
-                
-                if (entityType === 'tournament') {
-                    renderTournamentState(data);
-                }
-                // Aquí iría la llamada a renderDraftState(data)
-
+                renderTournamentState(data);
                 hasLoadedInitialData = true;
             }
-        })
-        .catch(error => {
-            console.warn('Error al cargar datos iniciales, esperando WebSocket:', error.message);
-        });
+        }).catch(err => console.warn('No se pudieron cargar datos iniciales, esperando WebSocket.'));
 
-    // --- MANEJO DE EVENTOS (PESTAÑAS Y MODAL) ---
+    // --- MANEJO DE EVENTOS ---
     viewButtons.forEach(button => {
         button.addEventListener('click', () => {
-            if (document.querySelector('.view-btn.active')) {
-                document.querySelector('.view-btn.active').classList.remove('active');
-            }
-            if (document.querySelector('.view-pane.active')) {
-                document.querySelector('.view-pane.active').classList.remove('active');
-            }
+            document.querySelector('.view-btn.active')?.classList.remove('active');
+            document.querySelector('.view-pane.active')?.classList.remove('active');
             button.classList.add('active');
             document.getElementById(button.dataset.view).classList.add('active');
         });
@@ -105,22 +72,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.target == modalEl) modalEl.classList.add('hidden');
     });
 
-    // --- FUNCIÓN PRINCIPAL DE RENDERIZADO DE TORNEOS ---
+    // --- FUNCIÓN PRINCIPAL DE RENDERIZADO ---
     function renderTournamentState(tournament) {
-        // 1. Renderizar Cabecera
+        if (tournament.status === 'finalizado') {
+            viewSwitcherEl.style.display = 'none';
+            const activePane = mainPanelEl.querySelector('.view-pane.active');
+            if(activePane) activePane.classList.remove('active');
+            finishedViewEl.classList.add('active');
+
+            const finalMatch = tournament.structure.eliminatorias.final;
+            if (finalMatch && finalMatch.resultado) {
+                const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
+                const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
+                championNameEl.textContent = champion.nombre;
+            } else {
+                championNameEl.textContent = "Por determinar";
+            }
+            liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
+            return;
+        }
+
+        viewSwitcherEl.style.display = 'flex';
+        finishedViewEl.classList.remove('active');
+        if (!mainPanelEl.querySelector('.view-pane.active')) {
+            mainPanelEl.querySelector('.view-pane').classList.add('active');
+        }
+        
         tournamentNameEl.textContent = tournament.nombre;
         tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
-
-        // 2. Renderizar Equipos
         renderTeams(tournament);
-
-        // 3. Renderizar Clasificación (Fase de Grupos)
         renderClassification(tournament);
-
-        // 4. Renderizar Eliminatorias (Bracket)
         renderBracket(tournament);
-
-        // 5. Renderizar Partidos en Directo
         renderLiveMatches(tournament);
     }
 
@@ -134,20 +116,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         teams.forEach(team => {
             const isDraftTeam = team.players && team.players.length > 0;
-            const teamEl = document.createElement('div');
-            teamEl.className = `team-list-item ${isDraftTeam ? 'is-draft-team' : ''}`;
-            teamEl.textContent = team.nombre;
+            const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter}" target="_blank">Twitter</a>` : '';
+            const streamLink = team.streamChannel ? `<a href="${team.streamChannel}" target="_blank">Ver Stream</a>` : '';
+
+            const card = document.createElement('div');
+            card.className = `team-card-info ${isDraftTeam ? 'is-draft-team' : ''}`;
+            card.innerHTML = `<h3>${team.nombre}</h3><div class="team-meta">${twitterLink}${streamLink}</div>`;
+            
             if (isDraftTeam) {
-                teamEl.addEventListener('click', () => showRosterModal(team));
+                card.addEventListener('click', () => showRosterModal(team));
             }
-            teamListContainerEl.appendChild(teamEl);
+            teamListContainerEl.appendChild(card);
         });
     }
 
     function renderClassification(tournament) {
         const groups = tournament.structure.grupos;
         if (Object.keys(groups).length === 0) {
-            groupsContainerEl.innerHTML = '<p class="placeholder">La fase de grupos no ha comenzado.</p>';
+            groupsContainerEl.innerHTML = '<p class="placeholder">El sorteo de grupos no se ha realizado.</p>';
             return;
         }
         groupsContainerEl.innerHTML = '';
@@ -160,17 +146,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return b.stats.gf - a.stats.gf;
             });
 
-            let tableHTML = `<div class="group-table"><h3>${groupName}</h3><table>
-                <thead><tr><th>Equipo</th><th>PJ</th><th>PTS</th><th>GF</th><th>GC</th><th>DG</th></tr></thead><tbody>`;
+            let tableHTML = `<div class="group-table"><h3>${groupName}</h3><table><thead><tr><th>Equipo</th><th>PJ</th><th>PTS</th><th>GF</th><th>GC</th><th>DG</th></tr></thead><tbody>`;
             sortedTeams.forEach(team => {
-                tableHTML += `<tr>
-                    <td class="team-name">${team.nombre}</td>
-                    <td>${team.stats.pj}</td>
-                    <td>${team.stats.pts}</td>
-                    <td>${team.stats.gf}</td>
-                    <td>${team.stats.gc}</td>
-                    <td>${team.stats.dg > 0 ? '+' : ''}${team.stats.dg}</td>
-                </tr>`;
+                tableHTML += `<tr><td class="team-name">${team.nombre}</td><td>${team.stats.pj}</td><td>${team.stats.pts}</td><td>${team.stats.gf}</td><td>${team.stats.gc}</td><td>${team.stats.dg > 0 ? '+' : ''}${team.stats.dg}</td></tr>`;
             });
             tableHTML += '</tbody></table></div>';
             groupsContainerEl.innerHTML += tableHTML;
@@ -179,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderBracket(tournament) {
         const stages = tournament.config.format.knockoutStages;
-        if (!stages || tournament.status === 'inscripcion_abierta' || tournament.status === 'fase_de_grupos') {
+        if (!stages || !tournament.structure.eliminatorias || tournament.status === 'inscripcion_abierta' || tournament.status === 'fase_de_grupos') {
             bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
             return;
         }
@@ -198,13 +176,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (match.resultado) {
                     [scoreA, scoreB] = match.resultado.split('-');
-                    if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner';
-                    else classB = 'winner';
+                    if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
+                    else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
                 }
 
-                roundHTML += `<div class="bracket-match">
-                    <div class="bracket-team ${classA}"><span>${teamA}</span><span>${scoreA}</span></div>
-                    <div class="bracket-team ${classB}"><span>${teamB}</span><span>${scoreB}</span></div>
+                roundHTML += `<div class="bracket-match ${classA} ${classB}">
+                    <div class="bracket-team"><span>${teamA}</span><span class="score">${scoreA}</span></div>
+                    <div class="bracket-team"><span>${teamB}</span><span class="score">${scoreB}</span></div>
                 </div>`;
             });
             roundHTML += '</div>';
@@ -215,8 +193,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderLiveMatches(tournament) {
         const allMatches = [
             ...Object.values(tournament.structure.calendario).flat(),
-            ...Object.values(tournament.structure.eliminatorias).flat()
-        ];
+            ...Object.values(tournament.structure.eliminatorias).flat().flat()
+        ].filter(Boolean);
+
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
         
         if (liveMatches.length === 0) {
@@ -226,11 +205,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         liveMatchesListEl.innerHTML = '';
         liveMatches.forEach(match => {
-            const teamA = tournament.teams.aprobados[match.equipoA.capitanId];
-            const teamB = tournament.teams.aprobados[match.equipoB.capitanId];
+            const teamA = tournament.teams.aprobados[match.equipoA?.capitanId];
+            const teamB = tournament.teams.aprobados[match.equipoB?.capitanId];
+            if (!teamA || !teamB) return;
+
             let linksHTML = '';
-            if (teamA?.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank">Ver a ${teamA.nombre}</a>`;
-            if (teamB?.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank">Ver a ${teamB.nombre}</a>`;
+            if (teamA.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank">Ver a ${teamA.nombre}</a>`;
+            if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank">Ver a ${teamB.nombre}</a>`;
             if (!linksHTML) linksHTML = '<p>No hay streams disponibles.</p>';
 
             const cardHTML = `<div class="live-match-card">
