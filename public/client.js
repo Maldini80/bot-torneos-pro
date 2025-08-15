@@ -1,3 +1,5 @@
+// --- INICIO DEL ARCHIVO client.js ---
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- REFERENCIAS A ELEMENTOS DEL DOM ---
     const loadingEl = document.getElementById('loading');
@@ -14,77 +16,85 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeButton = document.querySelector('.close-button');
     const viewButtons = document.querySelectorAll('.view-btn');
 
-    // --- LÓGICA DE WEBSOCKET Y CARGA INICIAL ---
+    // --- LÓGICA DE WEBSOCKET Y CARGA INICIAL (VERSIÓN ROBUSTA) ---
     const urlParams = new URLSearchParams(window.location.search);
     const tournamentId = urlParams.get('tournamentId');
+    const draftId = urlParams.get('draftId'); // También leemos el draftId
 
-    if (!tournamentId) {
-        loadingEl.textContent = 'Error: No se ha especificado un ID de torneo.';
+    if (!tournamentId && !draftId) {
+        loadingEl.textContent = 'Error: No se ha especificado un ID de evento en la URL.';
         return;
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const socket = new WebSocket(`${protocol}://${window.location.host}`);
-    socket.onopen = () => console.log('Conectado al servidor de visualización.');
-    socket.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        if (message.type === 'tournament' && message.id === tournamentId) {
-            console.log('Recibida actualización del torneo:', message.data);
-            renderTournamentState(message.data);
-        }
-    };
-
     let hasLoadedInitialData = false;
 
-    // Conexión WebSocket (la movemos aquí para que se establezca antes)
+    // 1. Establecemos la conexión WebSocket inmediatamente.
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
     socket.onopen = () => console.log('Conectado al servidor de visualización.');
     
+    // 2. Nos quedamos a la escucha de CUALQUIER actualización.
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        const entityId = message.type === 'tournament' ? tournamentId : draftId;
+        
+        const isCorrectEvent = (message.type === 'tournament' && message.id === tournamentId) || 
+                               (message.type === 'draft' && message.id === draftId);
 
-        if (message.id === entityId) {
+        if (isCorrectEvent) {
             console.log(`Recibida actualización de ${message.type}:`, message.data);
             
-            // Si es la primera vez que recibimos datos, quitamos la pantalla de carga
             if (!hasLoadedInitialData) {
                 loadingEl.classList.add('hidden');
-                appContainerEl.classList.remove('hidden');
+                // Mostramos el contenedor correcto (app para torneo, o uno de draft si lo creamos)
+                appContainerEl.classList.remove('hidden'); 
                 hasLoadedInitialData = true;
             }
-
+            
             if (message.type === 'tournament') {
                 renderTournamentState(message.data);
-            } else if (message.type === 'draft') {
-                // Aquí iría la lógica para renderizar el draft si unificamos la página
             }
+            // Aquí iría la llamada a renderDraftState(message.data) si tuviéramos esa función
         }
     };
 
-    // Intentamos cargar los datos iniciales, pero no mostraremos un error si falla,
-    // simplemente esperaremos la primera actualización por WebSocket.
-    fetch(`/tournament-data/${tournamentId}`)
-        .then(response => response.json())
+    // 3. Intentamos cargar los datos iniciales.
+    const entityType = tournamentId ? 'tournament' : 'draft';
+    const entityId = tournamentId || draftId;
+    
+    fetch(`/${entityType}-data/${entityId}`)
+        .then(response => {
+            if (!response.ok) {
+                console.warn(`No se encontraron datos iniciales para ${entityType} ${entityId}. Esperando WebSocket.`);
+                return Promise.resolve(null);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data && !hasLoadedInitialData) {
                 loadingEl.classList.add('hidden');
                 appContainerEl.classList.remove('hidden');
-                renderTournamentState(data);
+                
+                if (entityType === 'tournament') {
+                    renderTournamentState(data);
+                }
+                // Aquí iría la llamada a renderDraftState(data)
+
                 hasLoadedInitialData = true;
             }
         })
         .catch(error => {
-            // No hacemos nada aquí, la pantalla de carga seguirá visible
-            console.warn('No se pudieron cargar los datos iniciales, esperando WebSocket.');
-        })
+            console.warn('Error al cargar datos iniciales, esperando WebSocket:', error.message);
+        });
 
     // --- MANEJO DE EVENTOS (PESTAÑAS Y MODAL) ---
     viewButtons.forEach(button => {
         button.addEventListener('click', () => {
-            document.querySelector('.view-btn.active').classList.remove('active');
-            document.querySelector('.view-pane.active').classList.remove('active');
+            if (document.querySelector('.view-btn.active')) {
+                document.querySelector('.view-btn.active').classList.remove('active');
+            }
+            if (document.querySelector('.view-pane.active')) {
+                document.querySelector('.view-pane.active').classList.remove('active');
+            }
             button.classList.add('active');
             document.getElementById(button.dataset.view).classList.add('active');
         });
@@ -95,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.target == modalEl) modalEl.classList.add('hidden');
     });
 
-    // --- FUNCIÓN PRINCIPAL DE RENDERIZADO ---
+    // --- FUNCIÓN PRINCIPAL DE RENDERIZADO DE TORNEOS ---
     function renderTournamentState(tournament) {
         // 1. Renderizar Cabecera
         tournamentNameEl.textContent = tournament.nombre;
@@ -176,10 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
         bracketContainerEl.innerHTML = '';
         stages.forEach(stageKey => {
             const matches = tournament.structure.eliminatorias[stageKey];
-            if (!matches) return;
+            if (!matches || (Array.isArray(matches) && matches.length === 0)) return;
 
             const roundMatches = Array.isArray(matches) ? matches : [matches];
-            let roundHTML = `<div class="bracket-round"><h3>${stageKey.replace('_', ' ')}</h3>`;
+            let roundHTML = `<div class="bracket-round"><h3>${stageKey.replace(/_/g, ' ')}</h3>`;
             roundMatches.forEach(match => {
                 const teamA = match.equipoA?.nombre || 'Por definir';
                 const teamB = match.equipoB?.nombre || 'Por definir';
@@ -246,3 +256,5 @@ document.addEventListener('DOMContentLoaded', () => {
         modalEl.classList.remove('hidden');
     }
 });
+
+// --- FIN DEL ARCHIVO client.js ---
