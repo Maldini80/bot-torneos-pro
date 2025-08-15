@@ -872,11 +872,9 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             matchesChannel = await guild.channels.create({ name: `⚽-${shortId}-partidos`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
             chatChannel = await guild.channels.create({ name: `💬-${shortId}-chat`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: participantsAndStaffPermissions });
             createdResources.channels.push(infoChannel.id, matchesChannel.id, chatChannel.id);
-            console.log(`[CREATE] Canales principales creados para ${shortId}.`);
         } catch (error) {
-            console.error(`[CREATE] ERROR AL CREAR CANALES PRINCIPALES:`, error);
             await cleanupFailedCreation(client, createdResources);
-            return { success: false, message: "Fallo al crear los canales base del torneo. ¿La categoría está llena?" };
+            return { success: false, message: "Fallo al crear los canales base del torneo." };
         }
 
         const newTournament = {
@@ -894,7 +892,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const classificationMsg = await infoChannel.send(createClassificationEmbed(newTournament));
         const calendarMsg = await infoChannel.send(createCalendarEmbed(newTournament));
         newTournament.discordMessageIds = { ...newTournament.discordMessageIds, statusMessageId: statusMsg.id, classificationMessageId: classificationMsg.id, calendarMessageId: calendarMsg.id };
-        console.log(`[CREATE] Mensajes de estado e info enviados para ${shortId}.`);
 
         let managementThread, notificationsThread, casterThread;
         try {
@@ -902,25 +899,20 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             managementThread = await managementParentChannel.threads.create({ name: `Gestión - ${name.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
             createdResources.threads.push(managementThread.id);
             newTournament.discordMessageIds.managementThreadId = managementThread.id;
-
             const notificationsParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT);
             notificationsThread = await notificationsParentChannel.threads.create({ name: `Avisos - ${name.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
             createdResources.threads.push(notificationsThread.id);
             newTournament.discordMessageIds.notificationsThreadId = notificationsThread.id;
-
             const casterParentChannel = await client.channels.fetch(CHANNELS.CASTER_HUB_ID);
             casterThread = await casterParentChannel.threads.create({ name: `Casters - ${name.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
             createdResources.threads.push(casterThread.id);
             newTournament.discordMessageIds.casterThreadId = casterThread.id;
-            console.log(`[CREATE] Hilos privados creados para ${shortId}.`);
         } catch (error) {
-            console.error(`[CREATE] ERROR AL CREAR HILOS PRIVADOS:`, error);
             await cleanupFailedCreation(client, createdResources);
             return { success: false, message: "Fallo al crear los hilos de gestión." };
         }
         
         await db.collection('tournaments').insertOne(newTournament);
-        console.log(`[CREATE] Torneo ${shortId} insertado en la base de datos.`);
 
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
@@ -936,13 +928,19 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
 
-        await publishVisualizerURL(client, finalTournament);
-
+        // --- INICIO DE LA LÓGICA CORREGIDA Y FINAL ---
+        const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
+        if (finalTournament) {
+            await notifyTournamentVisualizer(finalTournament);
+            await publishVisualizerURL(client, finalTournament);
+        }
         console.log(`[CREATE] Panel de gestión y URL del visualizador enviados para ${shortId}.`);
+        // --- FIN DE LA LÓGICA ---
 
         (async () => {
             const settings = await getBotSettings();
             if (!settings.twitterEnabled) return;
+            // Usamos finalTournament que sabemos que es el objeto completo
             const notificationsThread = await client.channels.fetch(finalTournament.discordMessageIds.notificationsThreadId).catch(() => null);
             if (!notificationsThread) return;
             const statusMessage = await notificationsThread.send('⏳ Intentando generar el tweet de anuncio...');
@@ -955,7 +953,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         })();
         
         await setBotBusy(false);
-        return { success: true, tournament: finalTournament };
+        return { success: true, tournament: finalTournament }; // Devolvemos el objeto completo
 
     } catch (error) {
         console.error(`[CREATE] OCURRIÓ UN ERROR CRÍTICO INESPERADO en createNewTournament:`, error);
