@@ -141,7 +141,7 @@ client.on(Events.MessageDelete, async message => {
 
 async function startBot() {
     await connectDb();
-    startVisualizerServer(); // <-- AÑADIR ESTA LÍNEA
+    await startVisualizerServer();
     client.login(process.env.DISCORD_TOKEN);
 }
 
