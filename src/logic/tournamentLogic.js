@@ -8,6 +8,26 @@ import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
+import fetch from 'node-fetch';
+
+/**
+ * NUEVO: Notifica al servidor web del visualizador sobre una actualización del estado del draft.
+ * @param {object} draft El objeto completo del draft.
+ */
+async function notifyVisualizer(draft) {
+    // En Render, el bot y el servidor web corren en el mismo contenedor, por lo que 'localhost' funciona.
+    const visualizerUrl = `http://localhost:${process.env.PORT || 3000}/update-draft/${draft.shortId}`;
+    try {
+        await fetch(visualizerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(draft)
+        });
+        console.log(`[Bot->Visualizer] Notificación enviada para el draft ${draft.shortId}`);
+    } catch (error) {
+        console.error(`[Bot->Visualizer] Error al notificar al visualizador para el draft ${draft.shortId}:`, error.message);
+    }
+}
 
 /**
  * Actualiza los embeds principales de la interfaz de un draft (jugadores, equipos, orden).
@@ -272,6 +292,8 @@ async function fullCleanupDraft(client, draft) {
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordChannelId);
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.managementThreadId);
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.notificationsThreadId);
+    await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.casterTextChannelId);
+    await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.warRoomVoiceChannelId);
 
     try {
         const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
@@ -614,26 +636,18 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
+        // ... (La lógica de comprobación de cuotas mínimas se mantiene igual)
         const settings = await getBotSettings();
-        const minQuotas = Object.fromEntries(
-            settings.draftMinQuotas.split(',').map(q => q.split(':'))
-        );
-
+        const minQuotas = Object.fromEntries(settings.draftMinQuotas.split(',').map(q => q.split(':')));
         const positionCounts = {};
         Object.keys(minQuotas).forEach(p => positionCounts[p] = 0);
-
         const allPlayers = draft.players;
         for (const player of allPlayers) {
-            if (positionCounts[player.primaryPosition] !== undefined) {
-                positionCounts[player.primaryPosition]++;
-            }
+            if (positionCounts[player.primaryPosition] !== undefined) positionCounts[player.primaryPosition]++;
             if (player.secondaryPosition && player.secondaryPosition !== 'NONE' && player.secondaryPosition !== player.primaryPosition) {
-                 if (positionCounts[player.secondaryPosition] !== undefined) {
-                    positionCounts[player.secondaryPosition]++;
-                }
+                 if (positionCounts[player.secondaryPosition] !== undefined) positionCounts[player.secondaryPosition]++;
             }
         }
-
         const missingPositions = [];
         for (const pos in minQuotas) {
             const required = parseInt(minQuotas[pos]);
@@ -645,16 +659,60 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (missingPositions.length > 0) {
             throw new Error(`No se cumplen las cuotas mínimas. Faltan jugadores para: ${missingPositions.join(', ')}.`);
         }
-
+        
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [captainIds[i], captainIds[j]] = [captainIds[j], captainIds[i]];
         }
 
+        // --- INICIO DE LA NUEVA LÓGICA ---
+        const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+        const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
+
+        const basePermissions = [
+            { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+            { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+        ];
+        if (casterRole) basePermissions.push({ id: casterRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
+        if (arbitroRole) basePermissions.push({ id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
+
+        // Crear canal de texto para casters
+        const casterTextChannel = await guild.channels.create({
+            name: `🔴-directo-draft-${draft.shortId}`,
+            type: ChannelType.GuildText,
+            parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
+            permissionOverwrites: basePermissions
+        });
+
+        // Crear canal de voz ("War Room")
+        const voicePermissions = [...basePermissions];
+        draft.captains.forEach(c => {
+             if (/^\d+$/.test(c.userId)) {
+                voicePermissions.push({ id: c.userId, allow: [PermissionsBitField.Flags.ViewChannel] });
+             }
+        });
+
+        const warRoomVoiceChannel = await guild.channels.create({
+            name: `🎙️ War Room Draft: ${draft.name}`,
+            type: ChannelType.GuildVoice,
+            parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
+            permissionOverwrites: voicePermissions
+        });
+        // --- FIN DE LA NUEVA LÓGICA ---
+        
         await db.collection('drafts').updateOne(
             { _id: draft._id },
-            { $set: { status: 'seleccion', 'selection.order': captainIds, 'selection.turn': 0, 'selection.currentPick': 1, 'selection.isPicking': false, 'selection.activeInteractionId': null } }
+            { $set: { 
+                status: 'seleccion', 
+                'selection.order': captainIds, 
+                'selection.turn': 0, 
+                'selection.currentPick': 1, 
+                'selection.isPicking': false, 
+                'selection.activeInteractionId': null,
+                'discordMessageIds.casterTextChannelId': casterTextChannel.id, // Guardamos el ID
+                'discordMessageIds.warRoomVoiceChannelId': warRoomVoiceChannel.id // Guardamos el ID
+            }}
         );
         
         draft = await db.collection('drafts').findOne({ _id: draft._id });
@@ -667,6 +725,15 @@ export async function startDraftSelection(client, guild, draftShortId) {
             { _id: draft._id },
             { $set: { 'discordMessageIds.captainControlPanelMessageId': panelMessage.id } }
         );
+
+        // --- MÁS LÓGICA NUEVA ---
+        // Notificar al visualizador y enviar el enlace a los casters
+        await notifyVisualizer(draft);
+        const visualizerLink = `https://${process.env.RENDER_EXTERNAL_URL}/?draftId=${draft.shortId}`;
+        await casterTextChannel.send({
+            content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡El draft "${draft.name}" está a punto de comenzar!**\n\nAquí tenéis el enlace para el visualizador en vivo. ¡Añádanlo a su OBS!\n\n**Enlace:** ${visualizerLink}`
+        });
+        // --- FIN DE LA LÓGICA NUEVA ---
 
         await updateDraftManagementPanel(client, draft);
         await updatePublicMessages(client, draft);
@@ -733,6 +800,11 @@ export async function advanceDraftTurn(client, draftShortId) {
             $inc: { "selection.currentPick": 1 },
         }
     );
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await notifyVisualizer(updatedDraft); // <-- AÑADIR ESTA LÍNEA
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updateCaptainControlPanel(client, updatedDraft);
+}
 
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
