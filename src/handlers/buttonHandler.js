@@ -11,7 +11,7 @@ import {
 } from '../logic/tournamentLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 
