@@ -1,24 +1,26 @@
 // --- INICIO DEL ARCHIVO client.js ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    // --- LÓGICA DE DETECCIÓN DE TIPO DE EVENTO ---
+    // Punto de entrada principal. Detecta el tipo de evento desde la URL.
     const urlParams = new URLSearchParams(window.location.search);
     const tournamentId = urlParams.get('tournamentId');
     const draftId = urlParams.get('draftId');
 
     if (tournamentId) {
+        // Si es un torneo, inicializa la vista de torneo.
         initializeTournamentView(tournamentId);
     } else if (draftId) {
-        // Asignamos los estilos del draft al cuerpo del documento
+        // Si es un draft, aplica estilos específicos y inicializa la vista de draft.
         document.body.classList.add('draft-view-style');
         initializeDraftView(draftId);
     } else {
+        // Si no hay ID, muestra un error.
         document.getElementById('loading').textContent = 'Error: No se ha especificado un ID de evento en la URL.';
     }
 });
 
 // =================================================================
-// --- LÓGICA COMPLETA PARA EL VISUALIZADOR DE TORNEOS ---
+// --- MÓDULO DEL VISUALIZADOR DE TORNEOS ---
 // =================================================================
 function initializeTournamentView(tournamentId) {
     // --- REFERENCIAS A ELEMENTOS DEL DOM (TORNEO) ---
@@ -126,15 +128,12 @@ function initializeTournamentView(tournamentId) {
                 metaHTML += `<span>🤝 Co-Capitán: ${team.coCaptainTag}</span>`;
             }
             metaHTML += '</div>';
-
             const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@','')}" target="_blank">Twitter</a>` : '';
             const streamLink = team.streamChannel ? `<a href="${team.streamChannel}" target="_blank">Ver Stream</a>` : '';
             const linksHTML = (twitterLink || streamLink) ? `<div class="team-links">${twitterLink}${streamLink}</div>` : '';
-
             const card = document.createElement('div');
             card.className = `team-card-info ${isDraftTeam ? 'is-draft-team' : ''}`;
             card.innerHTML = `<h3>${team.nombre}</h3>${metaHTML}${linksHTML}`;
-            
             if (isDraftTeam) {
                 card.addEventListener('click', () => showRosterModal(team));
             }
@@ -188,10 +187,10 @@ function initializeTournamentView(tournamentId) {
                     let classA = '', classB = '';
                     if (match.resultado) {
                         [scoreA, scoreB] = match.resultado.split('-');
-                        if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner';
-                        else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner';
+                        if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
+                        else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
                     }
-                    roundHTML += `<div class="bracket-match"><div class="bracket-team ${classA}"><span class="team-name">${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team ${classB}"><span class="team-name">${teamB}</span><span class="score">${scoreB}</span></div></div>`;
+                    roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><span>${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team"><span>${teamB}</span><span class="score">${scoreB}</span></div></div>`;
                 }
                 roundHTML += '</div>';
             }
@@ -225,7 +224,7 @@ function initializeTournamentView(tournamentId) {
         }, {});
 
         liveMatchesListEl.innerHTML = '';
-        Object.keys(groupedMatches).forEach(groupKey => {
+        Object.keys(groupedMatches).sort().forEach(groupKey => {
             let groupHTML = `<div class="live-match-group"><h4>${groupKey}</h4>`;
             groupedMatches[groupKey].forEach(match => {
                 const teamA = tournament.teams.aprobados[match.equipoA?.capitanId];
@@ -257,10 +256,9 @@ function initializeTournamentView(tournamentId) {
 }
 
 // =================================================================
-// --- LÓGICA COMPLETA PARA EL VISUALIZADOR DE DRAFTS ---
+// --- MÓDULO DEL VISUALIZADOR DE DRAFTS ---
 // =================================================================
 function initializeDraftView(draftId) {
-    // --- REFERENCIAS A ELEMENTOS DEL DOM (DRAFT) ---
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
@@ -309,7 +307,11 @@ function initializeDraftView(draftId) {
     function renderDraftState(draft) {
         draftNameEl.textContent = draft.name;
 
-        if (draft.status === 'seleccion' && draft.captains.length > 0) {
+        if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
+             roundInfoEl.textContent = 'Selección Finalizada';
+             currentTeamEl.textContent = '---';
+             currentPickEl.textContent = '---';
+        } else if (draft.status === 'seleccion' && draft.captains.length > 0) {
             const numCaptains = draft.captains.length;
             const totalPicks = 10 * numCaptains;
             const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
@@ -319,18 +321,14 @@ function initializeDraftView(draftId) {
             const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
             currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
             currentPickEl.textContent = draft.selection.currentPick;
-        } else {
-            roundInfoEl.textContent = 'Selección Finalizada';
-            currentTeamEl.textContent = '---';
-            currentPickEl.textContent = '---';
         }
 
         teamsContainerEl.innerHTML = '';
-        draft.captains.forEach(captain => {
+        draft.captains.sort((a,b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort(sortPlayers);
             let rosterHtml = '';
             teamPlayers.forEach(player => {
-                rosterHtml += `<li><span class="player-name">${player.psnId}</span> <span class="player-pos">${player.primaryPosition}</span></li>`;
+                rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${player.primaryPosition}</span></li>`;
             });
             const teamCard = `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
             teamsContainerEl.innerHTML += teamCard;
@@ -346,7 +344,7 @@ function initializeDraftView(draftId) {
         positionOrder.forEach(pos => {
             if (groupedPlayers[pos] && groupedPlayers[pos].length > 0) {
                 let groupHtml = `<div class="position-group"><h3>${pos}</h3>`;
-                groupedPlayers[pos].forEach(player => {
+                groupedPlayers[pos].sort((a,b) => a.psnId.localeCompare(b.psnId)).forEach(player => {
                     const secondaryPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? `<span class="player-sec-pos">(${player.secondaryPosition})</span>` : '';
                     groupHtml += `<div class="player-item"><span>${player.psnId}</span> ${secondaryPos}</div>`;
                 });
@@ -356,6 +354,5 @@ function initializeDraftView(draftId) {
         });
     }
 }
-
 
 // --- FIN DEL ARCHIVO client.js ---
