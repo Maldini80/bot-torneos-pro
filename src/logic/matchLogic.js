@@ -1,7 +1,8 @@
 // src/logic/matchLogic.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
-import { updatePublicMessages, endTournament } from './tournamentLogic.js';
+import { updatePublicMessages, endTournament, notifyTournamentVisualizer } from './tournamentLogic.js';
+
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
@@ -60,6 +61,7 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
+    await notifyTournamentVisualizer(finalTournamentState);
     
     return partido;
 }
@@ -270,6 +272,7 @@ async function startNextKnockoutRound(client, guild, tournament) {
     
     await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+    await notifyTournamentVisualizer(finalTournamentState);
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
 }
