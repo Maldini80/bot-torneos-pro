@@ -1,1 +1,35 @@
-
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Draft en Vivo</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="loading">Cargando datos del draft...</div>
+    <div id="main-container" class="hidden">
+        <header>
+            <h1 id="draft-name">Nombre del Draft</h1>
+            <div id="current-pick-info">
+                Turno de: <span id="current-team"></span> | Pick #<span id="current-pick">0</span>
+            </div>
+        </header>
+        <div id="content-grid">
+            <div id="teams-container">
+                <!-- Las plantillas de los equipos se generarán aquí -->
+            </div>
+            <div id="available-players-container">
+                <h2>Jugadores Disponibles</h2>
+                <div id="players-list">
+                    <!-- La lista de jugadores libres se generará aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="client.js"></script>
+</body>
+</html>
