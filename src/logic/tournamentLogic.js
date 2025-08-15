@@ -30,6 +30,27 @@ async function notifyVisualizer(draft) {
 }
 
 /**
+ * NUEVO: Notifica al servidor web sobre una actualización del estado de un TORNEO.
+ * @param {object} tournament El objeto completo del torneo.
+ */
+async function notifyTournamentVisualizer(tournament) {
+    // La URL base del visualizador (tu Web Service en Render) se leerá de las variables de entorno.
+    if (!process.env.VISUALIZER_BASE_URL) return; 
+    
+    const visualizerUrl = `${process.env.VISUALIZER_BASE_URL}/update-tournament/${tournament.shortId}`;
+    try {
+        await fetch(visualizerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(tournament)
+        });
+        console.log(`[Bot->Visualizer] Notificación de TORNEO enviada para ${tournament.shortId}`);
+    } catch (error) {
+        console.error(`[Bot->Visualizer] Error al notificar al visualizador de TORNEO ${tournament.shortId}:`, error.message);
+    }
+}
+
+/**
  * Actualiza los embeds principales de la interfaz de un draft (jugadores, equipos, orden).
  * @param {import('discord.js').Client} client El cliente de Discord.
  * @param {string} draftShortId El ID corto del draft a actualizar.
@@ -513,7 +534,8 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
         await updateCaptainControlPanel(client, finalDraftState);
         await updateDraftManagementPanel(client, finalDraftState);
-
+        await notifyTournamentVisualizer(newTournament);
+        
         return newTournament;
 
     } catch (error) {
@@ -920,6 +942,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
     })();
         
         await setBotBusy(false);
+        await notifyTournamentVisualizer(newTournament);
         return { success: true, tournament: newTournament };
 
     } catch (error) {
@@ -1072,6 +1095,7 @@ export async function approveTeam(client, tournament, teamData) {
     
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
