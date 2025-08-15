@@ -1,6 +1,6 @@
 // src/handlers/modalHandler.js
 import { getDb, updateBotSettings } from '../../database.js';
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, reportPlayer } from '../logic/tournamentLogic.js';
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, reportPlayer, notifyTournamentVisualizer } from '../logic/tournamentLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
