@@ -801,13 +801,9 @@ export async function advanceDraftTurn(client, draftShortId) {
             $inc: { "selection.currentPick": 1 },
         }
     );
-    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    await notifyVisualizer(updatedDraft); // <-- AÑADIR ESTA LÍNEA
-    await updateDraftMainInterface(client, updatedDraft.shortId);
-    await updateCaptainControlPanel(client, updatedDraft);
-}
-
-    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    
+   const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await notifyVisualizer(updatedDraft);
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updateCaptainControlPanel(client, updatedDraft);
 }
