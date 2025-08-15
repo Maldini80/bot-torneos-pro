@@ -15,7 +15,7 @@ import fetch from 'node-fetch';
  * @param {object} draft El objeto completo del draft.
  */
 async function notifyVisualizer(draft) {
-    // En Render, el bot y el servidor web corren en el mismo contenedor, por lo que 'localhost' funciona.
+    // AHORA USA EL PUERTO INTERNO, YA QUE EL BOT Y EL SERVIDOR ESTÁN EN EL MISMO LUGAR
     const visualizerUrl = `http://localhost:${process.env.PORT || 3000}/update-draft/${draft.shortId}`;
     try {
         await fetch(visualizerUrl, {
@@ -725,15 +725,16 @@ export async function startDraftSelection(client, guild, draftShortId) {
             { _id: draft._id },
             { $set: { 'discordMessageIds.captainControlPanelMessageId': panelMessage.id } }
         );
-
-        // --- MÁS LÓGICA NUEVA ---
-        // Notificar al visualizador y enviar el enlace a los casters
+        
+       // --- INICIO: LÓGICA PARA NOTIFICAR A CASTERS ---  <-- LO QUE ACABAS DE AÑADIR
+        // Notifica al servidor web y envía el enlace al canal de casters
         await notifyVisualizer(draft);
-        const visualizerLink = `https://${process.env.RENDER_EXTERNAL_URL}/?draftId=${draft.shortId}`;
+        const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?draftId=${draft.shortId}`;
+        
         await casterTextChannel.send({
             content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡El draft "${draft.name}" está a punto de comenzar!**\n\nAquí tenéis el enlace para el visualizador en vivo. ¡Añádanlo a su OBS!\n\n**Enlace:** ${visualizerLink}`
         });
-        // --- FIN DE LA LÓGICA NUEVA ---
+        // --- FIN: LÓGICA PARA NOTIFICAR A CASTERS ---
 
         await updateDraftManagementPanel(client, draft);
         await updatePublicMessages(client, draft);
