@@ -4,28 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visualizador de Torneos en Vivo</title>
-    <!-- Se enlaza al nuevo CSS que crearemos después -->
     <link rel="stylesheet" href="style.css">
-    <!-- Se enlazan las fuentes para el diseño profesional -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Pantalla de carga inicial -->
     <div id="loading">Cargando datos del torneo...</div>
 
-    <!-- Contenedor principal de la aplicación, oculto al principio -->
     <div id="app-container" class="hidden">
-        
         <header>
             <h1 id="tournament-name"><!-- El nombre del torneo irá aquí --></h1>
             <p id="tournament-format"><!-- El formato del torneo irá aquí --></p>
         </header>
 
         <div class="main-content">
-            
-            <!-- Panel principal con las vistas intercambiables (pestañas) -->
             <main id="main-panel">
                 <nav class="view-switcher">
                     <button class="view-btn active" data-view="classification-view">Clasificación</button>
@@ -33,40 +26,42 @@
                     <button class="view-btn" data-view="teams-view">Equipos</button>
                 </nav>
 
-                <!-- Vista de la Clasificación (Fase de Grupos) -->
-                <div id="classification-view" class="view-pane active">
-                    <h2>Fase de Grupos</h2>
-                    <div id="groups-container">
-                        <!-- Las tablas de clasificación se generarán aquí con JavaScript -->
-                        <p class="placeholder">La clasificación aparecerá aquí cuando comience el torneo.</p>
+                <div id="main-view-content">
+                    <!-- Vista de la Clasificación (Fase de Grupos) -->
+                    <div id="classification-view" class="view-pane active">
+                        <h2>Fase de Grupos</h2>
+                        <div id="groups-container"></div>
                     </div>
-                </div>
 
-                <!-- Vista de las Eliminatorias (Bracket) -->
-                <div id="bracket-view" class="view-pane">
-                    <h2>Eliminatorias</h2>
-                    <div id="bracket-container">
-                        <!-- El bracket de eliminatorias se generará aquí con JavaScript -->
-                        <p class="placeholder">El cuadro de eliminatorias aparecerá aquí cuando termine la fase de grupos.</p>
+                    <!-- Vista de las Eliminatorias (Bracket) -->
+                    <div id="bracket-view" class="view-pane">
+                        <h2>Eliminatorias</h2>
+                        <div id="bracket-container"></div>
                     </div>
-                </div>
 
-                <!-- Vista de los Equipos -->
-                <div id="teams-view" class="view-pane">
-                    <h2>Equipos Participantes</h2>
-                    <div id="team-list-container">
-                        <!-- La lista de equipos se generará aquí con JavaScript -->
+                    <!-- Vista de los Equipos -->
+                    <div id="teams-view" class="view-pane">
+                        <h2>Equipos Participantes</h2>
+                        <div id="team-list-container"></div>
+                    </div>
+                    
+                    <!-- NUEVA VISTA PARA TORNEO FINALIZADO -->
+                    <div id="finished-view" class="view-pane">
+                        <div class="finished-content">
+                            <h2 id="finished-title">Torneo Finalizado</h2>
+                            <p>¡Gracias por participar y seguir la retransmisión!</p>
+                            <div class="champion-info">
+                                <h3>🏆 Campeón 🏆</h3>
+                                <p id="champion-name">--</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </main>
 
-            <!-- Barra lateral para Partidos en Directo -->
             <aside id="live-match-sidebar">
                 <h2>Partidos en Directo</h2>
-                <div id="live-matches-list">
-                    <!-- Los partidos en curso con sus links de stream se generarán aquí -->
-                    <p class="placeholder">No hay partidos en juego en este momento.</p>
-                </div>
+                <div id="live-matches-list"></div>
             </aside>
         </div>
 
@@ -75,18 +70,14 @@
         </footer>
     </div>
 
-    <!-- Ventana Modal para mostrar las plantillas de los equipos de draft -->
     <div id="roster-modal" class="hidden">
         <div class="modal-content">
             <span class="close-button">&times;</span>
             <h3 id="modal-team-name"></h3>
-            <ul id="modal-roster-list">
-                <!-- La lista de jugadores del equipo irá aquí -->
-            </ul>
+            <ul id="modal-roster-list"></ul>
         </div>
     </div>
 
-    <!-- Se enlaza al nuevo JavaScript que crearemos después -->
     <script src="client.js"></script>
 </body>
 </html>
