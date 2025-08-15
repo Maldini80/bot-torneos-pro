@@ -190,7 +190,7 @@ function initializeTournamentView(tournamentId) {
                         if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
                         else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
                     }
-                    roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><span>${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team"><span>${teamB}</span><span class="score">${scoreB}</span></div></div>`;
+                    roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><span class="team-name">${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team"><span class="team-name">${teamB}</span><span class="score">${scoreB}</span></div></div>`;
                 }
                 roundHTML += '</div>';
             }
@@ -266,10 +266,15 @@ function initializeDraftView(draftId) {
     const currentTeamEl = document.getElementById('current-team-draftview');
     const currentPickEl = document.getElementById('current-pick-draftview');
     const teamsContainerEl = document.getElementById('teams-container-draftview');
-    const playersListEl = document.getElementById('players-list-draftview');
+    const playersTableBodyEl = document.getElementById('players-table-body');
+    const positionFiltersEl = document.getElementById('position-filters');
+    const roundPickOrderEl = document.getElementById('round-pick-order');
+    const pickAlertEl = document.getElementById('pick-alert');
+    const pickAlertContentEl = document.getElementById('pick-alert-content');
 
     const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
     let hasLoadedInitialData = false;
+    let teamPlayersBefore = []; // Para detectar el nuevo pick
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
@@ -281,6 +286,7 @@ function initializeDraftView(draftId) {
                 loadingEl.classList.add('hidden');
                 draftContainerEl.classList.remove('hidden');
                 hasLoadedInitialData = true;
+                setupFilters();
             }
             renderDraftState(message.data);
         }
@@ -294,38 +300,51 @@ function initializeDraftView(draftId) {
                 draftContainerEl.classList.remove('hidden');
                 renderDraftState(data);
                 hasLoadedInitialData = true;
+                setupFilters();
             }
         }).catch(err => console.warn('No se pudieron cargar datos iniciales de draft, esperando WebSocket.'));
 
-    function sortPlayers(a, b) {
-        const posA = positionOrder.indexOf(a.primaryPosition);
-        const posB = positionOrder.indexOf(b.primaryPosition);
-        if (posA !== posB) return posA - posB;
-        return a.psnId.localeCompare(b.psnId);
-    }
-
     function renderDraftState(draft) {
+        if (hasLoadedInitialData) {
+            const currentPickedPlayers = draft.players.filter(p => p.captainId);
+            const newPick = currentPickedPlayers.find(p => !teamPlayersBefore.some(op => op.userId === p.userId));
+            if (newPick) {
+                const captain = draft.captains.find(c => c.userId === newPick.captainId);
+                showPickAlert(draft.selection.currentPick - 1, newPick, captain);
+            }
+            teamPlayersBefore = currentPickedPlayers.map(p => ({userId: p.userId})); // Guardamos solo IDs para comparar
+        } else {
+            teamPlayersBefore = draft.players.filter(p => p.captainId).map(p => ({userId: p.userId}));
+        }
+        
         draftNameEl.textContent = draft.name;
-
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
              roundInfoEl.textContent = 'Selección Finalizada';
              currentTeamEl.textContent = '---';
              currentPickEl.textContent = '---';
         } else if (draft.status === 'seleccion' && draft.captains.length > 0) {
             const numCaptains = draft.captains.length;
-            const totalPicks = 10 * numCaptains;
             const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
-            const totalRounds = Math.ceil(totalPicks / numCaptains);
-            
+            const totalRounds = 10;
             roundInfoEl.textContent = `Ronda ${currentRound} de ${totalRounds}`;
             const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
             currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
             currentPickEl.textContent = draft.selection.currentPick;
         }
 
+        renderRoundPickOrder(draft);
+        renderTeams(draft);
+        renderAvailablePlayers(draft);
+        
+        // Reactivar filtro después de renderizar
+        const activeFilter = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+        filterTable(activeFilter);
+    }
+
+    function renderTeams(draft) {
         teamsContainerEl.innerHTML = '';
         draft.captains.sort((a,b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
-            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort(sortPlayers);
+            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a,b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
             let rosterHtml = '';
             teamPlayers.forEach(player => {
                 rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${player.primaryPosition}</span></li>`;
@@ -333,25 +352,79 @@ function initializeDraftView(draftId) {
             const teamCard = `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
             teamsContainerEl.innerHTML += teamCard;
         });
+    }
 
-        playersListEl.innerHTML = '';
-        const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain).sort(sortPlayers);
-        const groupedPlayers = {};
-        availablePlayers.forEach(p => {
-            if (!groupedPlayers[p.primaryPosition]) groupedPlayers[p.primaryPosition] = [];
-            groupedPlayers[p.primaryPosition].push(p);
+    function renderAvailablePlayers(draft) {
+        playersTableBodyEl.innerHTML = '';
+        const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
+        availablePlayers.forEach(player => {
+            const statusEmoji = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
+            const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
+            const row = document.createElement('tr');
+            row.dataset.posPrimary = player.primaryPosition;
+            row.innerHTML = `<td>${statusEmoji}</td><td>${player.psnId}</td><td>${player.primaryPosition}</td><td>${secPos}</td>`;
+            playersTableBodyEl.appendChild(row);
         });
-        positionOrder.forEach(pos => {
-            if (groupedPlayers[pos] && groupedPlayers[pos].length > 0) {
-                let groupHtml = `<div class="position-group"><h3>${pos}</h3>`;
-                groupedPlayers[pos].sort((a,b) => a.psnId.localeCompare(b.psnId)).forEach(player => {
-                    const secondaryPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? `<span class="player-sec-pos">(${player.secondaryPosition})</span>` : '';
-                    groupHtml += `<div class="player-item"><span>${player.psnId}</span> ${secondaryPos}</div>`;
-                });
-                groupHtml += `</div>`;
-                playersListEl.innerHTML += groupHtml;
+    }
+
+    function renderRoundPickOrder(draft) {
+        roundPickOrderEl.innerHTML = '';
+        if (draft.status !== 'seleccion') return;
+        const numCaptains = draft.captains.length;
+        if (numCaptains === 0) return;
+        const currentPick = draft.selection.currentPick;
+        const currentRound = Math.floor((currentPick - 1) / numCaptains);
+        const startPickOfRound = currentRound * numCaptains;
+        for (let i = 0; i < numCaptains; i++) {
+            const pickNumber = startPickOfRound + i + 1;
+            const pickIndex = currentRound % 2 === 0 ? i : numCaptains - 1 - i;
+            const captainId = draft.selection.order[pickIndex];
+            const captain = draft.captains.find(c => c.userId === captainId);
+            const item = document.createElement('div');
+            item.className = 'pick-order-item';
+            if (pickNumber < currentPick) item.classList.add('past-pick');
+            if (pickNumber === currentPick) item.classList.add('active-pick');
+            item.innerHTML = `<span>#${pickNumber}</span> ${captain ? captain.teamName : 'N/A'}`;
+            roundPickOrderEl.appendChild(item);
+        }
+    }
+
+    function setupFilters() {
+        positionFiltersEl.innerHTML = '';
+        const allPositions = ['Todos', ...positionOrder];
+        allPositions.forEach(pos => {
+            const btn = document.createElement('button');
+            btn.className = 'filter-btn';
+            btn.dataset.pos = pos;
+            btn.textContent = pos;
+            if (pos === 'Todos') btn.classList.add('active');
+            btn.addEventListener('click', () => filterTable(pos));
+            positionFiltersEl.appendChild(btn);
+        });
+    }
+
+    function filterTable(position) {
+        document.querySelectorAll('#position-filters .filter-btn').forEach(btn => btn.classList.remove('active'));
+        const currentFilterBtn = document.querySelector(`#position-filters .filter-btn[data-pos="${position}"]`);
+        if (currentFilterBtn) currentFilterBtn.classList.add('active');
+        
+        const rows = playersTableBodyEl.querySelectorAll('tr');
+        rows.forEach(row => {
+            if (position === 'Todos' || row.dataset.posPrimary === position) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
             }
         });
+    }
+
+    function showPickAlert(pickNumber, player, captain) {
+        pickAlertContentEl.innerHTML = `<div class="pick-number">PICK #${pickNumber}</div><div class="player-name">${player.psnId}</div><div class="team-name">${captain.teamName}</div>`;
+        pickAlertEl.classList.add('visible');
+        setTimeout(() => {
+            pickAlertEl.classList.remove('visible');
+            setTimeout(() => pickAlertEl.classList.add('hidden'), 300);
+        }, 5000);
     }
 }
 
