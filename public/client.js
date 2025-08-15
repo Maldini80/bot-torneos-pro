@@ -197,10 +197,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderLiveMatches(tournament) {
-        const allMatches = [
-            ...Object.values(tournament.structure.calendario).flat(),
-            ...Object.values(tournament.structure.eliminatorias).flat(Infinity)
-        ].filter(Boolean);
+        // --- LÓGICA CORREGIDA PARA ENCONTRAR TODOS LOS PARTIDOS ---
+        const allMatches = [];
+        // Añadir partidos de fase de grupos
+        if (tournament.structure.calendario) {
+            allMatches.push(...Object.values(tournament.structure.calendario).flat());
+        }
+        // Añadir partidos de eliminatorias
+        if (tournament.structure.eliminatorias) {
+            Object.values(tournament.structure.eliminatorias).forEach(stage => {
+                if (Array.isArray(stage)) {
+                    allMatches.push(...stage);
+                } else if (stage && typeof stage === 'object' && stage.matchId) {
+                    allMatches.push(stage); // Para la final, que no es un array
+                }
+            });
+        }
 
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
         
@@ -209,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- LÓGICA DE AGRUPACIÓN (SIN CAMBIOS) ---
         const groupedMatches = liveMatches.reduce((acc, match) => {
             const groupKey = match.nombreGrupo ? `Jornada ${match.jornada}` : match.jornada; // 'semifinales', 'final', etc.
             if (!acc[groupKey]) {
