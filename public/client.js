@@ -1,15 +1,17 @@
-// client.js
 document.addEventListener('DOMContentLoaded', () => {
+    // Referencias a elementos del DOM
     const loadingEl = document.getElementById('loading');
     const mainContainerEl = document.getElementById('main-container');
-
     const draftNameEl = document.getElementById('draft-name');
+    const roundInfoEl = document.getElementById('round-info');
     const currentTeamEl = document.getElementById('current-team');
     const currentPickEl = document.getElementById('current-pick');
     const teamsContainerEl = document.getElementById('teams-container');
     const playersListEl = document.getElementById('players-list');
 
-    // Extraemos el ID del draft de la URL (ej: /?draftId=mi-draft)
+    // --- CONFIGURACIÓN DEL ORDEN DE POSICIONES ---
+    const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
+
     const urlParams = new URLSearchParams(window.location.search);
     const draftId = urlParams.get('draftId');
 
@@ -18,29 +20,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // 1. Conexión WebSocket
+    // --- LÓGICA DE WEBSOCKET (SIN CAMBIOS) ---
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
-
-    socket.onopen = () => {
-        console.log('Conectado al servidor de visualización.');
-    };
-
+    socket.onopen = () => console.log('Conectado al servidor de visualización.');
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        // Solo actualizamos si el mensaje es para este draft específico
         if (message.draftId === draftId) {
             console.log('Recibida actualización del draft:', message.data);
             renderDraftState(message.data);
         }
     };
 
-    // 2. Carga de datos inicial
+    // --- CARGA DE DATOS INICIAL (SIN CAMBIOS) ---
     fetch(`/draft-data/${draftId}`)
         .then(response => {
-            if (!response.ok) {
-                throw new Error('No se encontraron datos para este draft. La selección podría no haber comenzado.');
-            }
+            if (!response.ok) throw new Error('No se encontraron datos. La selección podría no haber comenzado.');
             return response.json();
         })
         .then(data => {
@@ -53,25 +48,42 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error(error);
         });
 
-    // 3. Función principal para renderizar el estado
+    // --- NUEVA FUNCIÓN DE ORDENACIÓN ---
+    function sortPlayers(a, b) {
+        const posA = positionOrder.indexOf(a.primaryPosition);
+        const posB = positionOrder.indexOf(b.primaryPosition);
+        if (posA !== posB) {
+            return posA - posB;
+        }
+        return a.psnId.localeCompare(b.psnId);
+    }
+
+    // --- FUNCIÓN DE RENDERIZADO COMPLETAMENTE NUEVA ---
     function renderDraftState(draft) {
-        // Actualizar cabecera
+        // 1. Actualizar cabecera (con información de ronda)
         draftNameEl.textContent = draft.name;
-        if (draft.status === 'seleccion') {
+        if (draft.status === 'seleccion' && draft.captains.length > 0) {
+            const numCaptains = draft.captains.length;
+            const totalPicks = 10 * numCaptains; // 10 rondas
+            const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
+            const totalRounds = Math.ceil(totalPicks / numCaptains);
+            
+            roundInfoEl.textContent = `Ronda ${currentRound} de ${totalRounds}`;
             const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
             currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
             currentPickEl.textContent = draft.selection.currentPick;
         } else {
-             currentTeamEl.textContent = 'Finalizado';
-             currentPickEl.textContent = '---';
+            roundInfoEl.textContent = 'Selección Finalizada';
+            currentTeamEl.textContent = '---';
+            currentPickEl.textContent = '---';
         }
 
-        // Renderizar equipos
+        // 2. Renderizar equipos (con jugadores ordenados)
         teamsContainerEl.innerHTML = '';
         draft.captains.forEach(captain => {
             const teamPlayers = draft.players
                 .filter(p => p.captainId === captain.userId)
-                .sort((a, b) => a.primaryPosition.localeCompare(b.primaryPosition) || a.psnId.localeCompare(b.psnId));
+                .sort(sortPlayers); // <-- APLICAMOS LA ORDENACIÓN
 
             let rosterHtml = '';
             teamPlayers.forEach(player => {
@@ -89,12 +101,33 @@ document.addEventListener('DOMContentLoaded', () => {
             teamsContainerEl.innerHTML += teamCard;
         });
 
-        // Renderizar jugadores disponibles
+        // 3. Renderizar jugadores disponibles (ordenados y agrupados)
         playersListEl.innerHTML = '';
-        const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
-        availablePlayers.forEach(player => {
-            const playerItem = `<div class="player-item">${player.psnId} (${player.primaryPosition})</div>`;
-            playersListEl.innerHTML += playerItem;
+        const availablePlayers = draft.players
+            .filter(p => !p.captainId && !p.isCaptain)
+            .sort(sortPlayers); // <-- APLICAMOS LA ORDENACIÓN
+
+        const groupedPlayers = {};
+        availablePlayers.forEach(p => {
+            if (!groupedPlayers[p.primaryPosition]) {
+                groupedPlayers[p.primaryPosition] = [];
+            }
+            groupedPlayers[p.primaryPosition].push(p);
+        });
+        
+        positionOrder.forEach(pos => {
+            if (groupedPlayers[pos] && groupedPlayers[pos].length > 0) {
+                let groupHtml = `<div class="position-group"><h3>${pos}</h3>`;
+                groupedPlayers[pos].forEach(player => {
+                    // Añadimos la posición secundaria si existe
+                    const secondaryPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' 
+                        ? `<span class="player-sec-pos">(${player.secondaryPosition})</span>` 
+                        : '';
+                    groupHtml += `<div class="player-item"><span>${player.psnId}</span> ${secondaryPos}</div>`;
+                });
+                groupHtml += `</div>`;
+                playersListEl.innerHTML += groupHtml;
+            }
         });
     }
 });
