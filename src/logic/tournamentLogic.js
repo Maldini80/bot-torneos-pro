@@ -76,7 +76,7 @@ async function publishVisualizerURL(client, tournament) {
         console.error(`[Visualizer] Error al publicar la URL para el torneo ${tournament.shortId}:`, error);
     }
 }
-}
+
 
 /**
  * Actualiza los embeds principales de la interfaz de un draft (jugadores, equipos, orden).
