@@ -1195,6 +1195,7 @@ export async function kickTeam(client, tournament, captainId) {
 
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
 }
 
 export async function undoGroupStageDraw(client, tournamentShortId) {
@@ -1230,6 +1231,7 @@ export async function undoGroupStageDraw(client, tournamentShortId) {
         const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
         await updatePublicMessages(client, updatedTournament);
         await updateTournamentManagementThread(client, updatedTournament);
+        await notifyTournamentVisualizer(updatedTournament);
 
     } catch (error) {
         console.error(`Error crítico al revertir el sorteo para ${tournamentShortId}:`, error);
@@ -1411,6 +1413,7 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament); 
     await updateTournamentManagementThread(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
 }
 
 export async function addTeamToWaitlist(client, tournament, teamData) {
