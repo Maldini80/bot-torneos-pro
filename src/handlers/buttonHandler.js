@@ -24,10 +24,15 @@ export async function handleButton(interaction) {
     const [action, ...params] = customId.split(':');
     // --- NUEVA LÓGICA PARA NAVEGACIÓN DEL PANEL DE ADMIN ---
     if (action.startsWith('admin_panel_')) {
-        await interaction.deferUpdate();
-        const view = action.split('_')[2]; // Extrae 'tournaments', 'drafts', etc.
-        const panelContent = await createGlobalAdminPanel(view);
-        await interaction.editReply(panelContent);
+        try {
+            const view = action.split('_')[2];
+            const panelContent = await createGlobalAdminPanel(view);
+            await interaction.update(panelContent); // Usamos .update() que es más directo
+        } catch (error) {
+            if (error.code !== 10062) { // Ignoramos el error si la interacción ya expiró
+                console.error("Error al actualizar el panel de admin:", error);
+            }
+        }
         return;
     }
 
