@@ -812,6 +812,7 @@ export function createCasterInfoEmbed(teamData, tournament) {
         .setTimestamp();
 
     return { embeds: [embed] };
+    }
     
     /**
  * NUEVO: Crea el embed de advertencia para capitanes sobre la importancia de su stream.
