@@ -385,7 +385,7 @@ if (action === 'draft_pick_by_position') {
     playersToShow.sort((a,b) => a.psnId.localeCompare(b.psnId));
 
     const playerMenu = new StringSelectMenuBuilder()
-        .setCustomId(`draft_pick_player:${draftShortId}:${captainId}`)
+        .setCustomId(`draft_pick_player:${draftShortId}:${captainId}:${selectedPosition}`)
         .setPlaceholder('Paso 2: ¡Elige al jugador!')
         .addOptions(
             playersToShow.slice(0, 25).map(player => ({
@@ -404,7 +404,7 @@ if (action === 'draft_pick_by_position') {
     
     if (action === 'draft_pick_player') {
         await interaction.deferUpdate();
-        const [draftShortId, captainId] = params;
+        const [draftShortId, captainId, pickedForPosition] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
         if (interaction.user.id !== captainId && !isAdmin) {
             return interaction.followUp({ content: 'No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
@@ -416,7 +416,7 @@ if (action === 'draft_pick_by_position') {
     
         const confirmationRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId(`draft_confirm_pick:${draftShortId}:${captainId}:${selectedPlayerId}`)
+                .setCustomId(`draft_confirm_pick:${draftShortId}:${captainId}:${selectedPlayerId}:${pickedForPosition}`)
                 .setLabel('Confirmar y Finalizar Turno')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('✅'),
