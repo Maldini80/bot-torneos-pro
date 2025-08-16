@@ -60,6 +60,18 @@ async function publishDraftVisualizerURL(client, draft) {
     } catch (e) { console.error(`[Visualizer] Fallo al publicar URL de draft para ${draft.shortId}:`, e); }
 }
 
+async function publishTournamentVisualizerURL(client, tournament) {
+    if (!process.env.NGROK_STATIC_DOMAIN || !tournament.discordMessageIds.casterThreadId) return;
+    try {
+        const casterThread = await client.channels.fetch(tournament.discordMessageIds.casterThreadId);
+        const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+        const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?tournamentId=${tournament.shortId}`;
+        await casterThread.send({
+            content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡El Torneo "${tournament.nombre}" ha comenzado!**\n\nAquí tenéis el enlace para el visualizador en vivo de la competición.\n\n**Enlace:** ${visualizerLink}`
+        });
+    } catch (e) { console.error(`[Visualizer] Fallo al publicar URL de torneo para ${tournament.shortId}:`, e); }
+}
+
 /**
  * Actualiza los embeds principales de la interfaz de un draft (jugadores, equipos, orden).
  * @param {import('discord.js').Client} client El cliente de Discord.
@@ -110,28 +122,35 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    // Lógica de comprobación de máximos
+    // --- INICIO DE LA NUEVA LÓGICA DE VALIDACIÓN ---
     const settings = await getBotSettings();
     const maxQuotas = Object.fromEntries(
         settings.draftMaxQuotas.split(',').map(q => q.split(':'))
     );
     const teamPlayers = draft.players.filter(p => p.captainId === captainId);
-    const primaryPosOfNewPlayer = player.primaryPosition;
-    if (maxQuotas[primaryPosOfNewPlayer]) {
-        const max = parseInt(maxQuotas[primaryPosOfNewPlayer]);
-        const currentCount = teamPlayers.filter(p => p.primaryPosition === primaryPosOfNewPlayer).length;
+
+    // 1. Determinamos la posición que estamos intentando cubrir.
+    const positionToCheck = pickedForPosition; 
+
+    // 2. Verificamos si hay un límite para esta posición.
+    if (maxQuotas[positionToCheck]) {
+        const max = parseInt(maxQuotas[positionToCheck]);
+        
+        // 3. Contamos cuántos jugadores en el equipo ya tienen esta posición como PRIMARIA.
+        const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
+        
+        // 4. Si el conteo actual ya es igual o mayor al máximo, lanzamos un error.
         if (currentCount >= max) {
-            throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición primaria ${primaryPosOfNewPlayer}.`);
+            throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
         }
     }
-
-    // AÑADIMOS EL CAMPO 'pickedForPosition'
+    // --- FIN DE LA NUEVA LÓGICA DE VALIDACIÓN ---
+    
     await db.collection('drafts').updateOne(
         { shortId: draftShortId, "players.userId": selectedPlayerId },
         { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": pickedForPosition } }
     );
     
-    // GUARDAMOS EL ÚLTIMO PICK
     const lastPickInfo = {
         pickNumber: draft.selection.currentPick,
         playerPsnId: player.psnId,
@@ -140,7 +159,6 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     };
     await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
     
-    // Notificaciones y Anuncios
     if (/^\d+$/.test(selectedPlayerId)) {
         try {
             const playerUser = await client.users.fetch(selectedPlayerId);
@@ -159,9 +177,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         const announcementEmbed = new EmbedBuilder()
             .setColor('#3498db')
             .setDescription(`**Pick #${draft.selection.currentPick}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}**`);
-
         const announcementMessage = await draftChannel.send({ embeds: [announcementEmbed] });
-
         setTimeout(() => {
             announcementMessage.delete().catch(err => {
                 if (err.code !== 10008) {
@@ -169,7 +185,6 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
                 }
             });
         }, 60000);
-
     } catch (e) {
         console.error("No se pudo enviar o programar el borrado del anuncio de pick:", e);
     }
@@ -540,10 +555,11 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
-        await publishVisualizerURL(client, finalTournament);
+        await publishTournamentVisualizerURL(client, newTournament);
 
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
         
+        const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
         for (const teamData of Object.values(finalTournament.teams.aprobados)) {
             await notifyCastersOfNewTeam(client, finalTournament, teamData);
         }
@@ -663,13 +679,11 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         
         await managementThread.send(createDraftManagementPanel(newDraft, true));
 
-        // --- INICIO: NOTIFICACIÓN Y PUBLICACIÓN DE URL AL CREAR ---
         const finalDraft = await db.collection('drafts').findOne({ _id: newDraft._id });
         if (finalDraft) {
             await notifyVisualizer(finalDraft);
-            await publishDraftVisualizerURL(client, finalDraft);
+            await publishDraftVisualizerURL(client, finalDraft); 
         }
-        // --- FIN ---
 
     } catch (error) {
         console.error('[CREATE DRAFT] Ocurrió un error al crear el draft:', error);
@@ -687,7 +701,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
         
-        // ... (La lógica de comprobación de cuotas mínimas se mantiene igual)
         const settings = await getBotSettings();
         const minQuotas = Object.fromEntries(settings.draftMinQuotas.split(',').map(q => q.split(':')));
         const positionCounts = {};
@@ -717,7 +730,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
             [captainIds[i], captainIds[j]] = [captainIds[j], captainIds[i]];
         }
 
-        // --- INICIO DE LA NUEVA LÓGICA ---
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
 
@@ -728,7 +740,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (casterRole) basePermissions.push({ id: casterRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
         if (arbitroRole) basePermissions.push({ id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
 
-        // Crear canal de texto para casters
         const casterTextChannel = await guild.channels.create({
             name: `🔴-directo-draft-${draft.shortId}`,
             type: ChannelType.GuildText,
@@ -736,7 +747,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
             permissionOverwrites: basePermissions
         });
 
-        // Crear canal de voz ("War Room")
         const voicePermissions = [...basePermissions];
         draft.captains.forEach(c => {
              if (/^\d+$/.test(c.userId)) {
@@ -750,7 +760,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
             parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
             permissionOverwrites: voicePermissions
         });
-        // --- FIN DE LA NUEVA LÓGICA ---
         
         await db.collection('drafts').updateOne(
             { _id: draft._id },
@@ -761,8 +770,8 @@ export async function startDraftSelection(client, guild, draftShortId) {
                 'selection.currentPick': 1, 
                 'selection.isPicking': false, 
                 'selection.activeInteractionId': null,
-                'discordMessageIds.casterTextChannelId': casterTextChannel.id, // Guardamos el ID
-                'discordMessageIds.warRoomVoiceChannelId': warRoomVoiceChannel.id // Guardamos el ID
+                'discordMessageIds.casterTextChannelId': casterTextChannel.id,
+                'discordMessageIds.warRoomVoiceChannelId': warRoomVoiceChannel.id
             }}
         );
         
@@ -777,15 +786,12 @@ export async function startDraftSelection(client, guild, draftShortId) {
             { $set: { 'discordMessageIds.captainControlPanelMessageId': panelMessage.id } }
         );
         
-       // --- INICIO: LÓGICA PARA NOTIFICAR A CASTERS ---  <-- LO QUE ACABAS DE AÑADIR
-        // Notifica al servidor web y envía el enlace al canal de casters
         await notifyVisualizer(draft);
         const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?draftId=${draft.shortId}`;
         
         await casterTextChannel.send({
             content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡El draft "${draft.name}" está a punto de comenzar!**\n\nAquí tenéis el enlace para el visualizador en vivo. ¡Añádanlo a su OBS!\n\n**Enlace:** ${visualizerLink}`
         });
-        // --- FIN: LÓGICA PARA NOTIFICAR A CASTERS ---
 
         await updateDraftManagementPanel(client, draft);
         await updatePublicMessages(client, draft);
@@ -938,20 +944,17 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         }
         
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
-
-        // --- INICIO DE LA LÓGICA CORREGIDA Y FINAL ---
+        
         const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
         if (finalTournament) {
             await notifyTournamentVisualizer(finalTournament);
-            await publishVisualizerURL(client, finalTournament);
+            await publishTournamentVisualizerURL(client, finalTournament);
         }
         console.log(`[CREATE] Panel de gestión y URL del visualizador enviados para ${shortId}.`);
-        // --- FIN DE LA LÓGICA ---
 
         (async () => {
             const settings = await getBotSettings();
             if (!settings.twitterEnabled) return;
-            // Usamos finalTournament que sabemos que es el objeto completo
             const notificationsThread = await client.channels.fetch(finalTournament.discordMessageIds.notificationsThreadId).catch(() => null);
             if (!notificationsThread) return;
             const statusMessage = await notificationsThread.send('⏳ Intentando generar el tweet de anuncio...');
@@ -964,7 +967,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         })();
         
         await setBotBusy(false);
-        return { success: true, tournament: finalTournament }; // Devolvemos el objeto completo
+        return { success: true, tournament: finalTournament };
 
     } catch (error) {
         console.error(`[CREATE] OCURRIÓ UN ERROR CRÍTICO INESPERADO en createNewTournament:`, error);
@@ -1690,21 +1693,16 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const replacementPlayer = draft.players.find(p => p.userId === replacementPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    // --- LÓGICA CORREGIDA ---
-    // 1. Quitar al jugador anterior del equipo (poniendo su captainId a null)
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": kickedPlayerId },
         { $set: { "players.$.captainId": null } }
     );
 
-    // 2. Asignar el nuevo jugador al equipo (actualizando su captainId)
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": replacementPlayerId },
         { $set: { "players.$.captainId": captainId } }
     );
-    // --- FIN DE LA CORRECCIÓN ---
 
-    // Lógica de notificación (sin cambios, ya era correcta)
     if (/^\d+$/.test(captainId)) {
         const captainUser = await client.users.fetch(captainId);
         await captainUser.send(`✅ **${replacementPlayer.psnId}** ha aceptado tu invitación y ha reemplazado al jugador anterior en tu equipo.`);
@@ -1713,6 +1711,4 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
-
-    // Se eliminó la lógica de permisos de canal, ya que es irrelevante antes de que el torneo se cree.
 }
