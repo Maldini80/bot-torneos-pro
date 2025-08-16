@@ -48,44 +48,8 @@ export async function notifyTournamentVisualizer(tournament) {
     }
 }
 
-/**
- * NUEVO: Publica la URL del visualizador en el canal de casters de un DRAFT.
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {object} draft El objeto del draft recién creado.
- */
 async function publishDraftVisualizerURL(client, draft) {
-    // Si no tiene canal de casters, lo crea. Esto da retrocompatibilidad.
-    if (!process.env.NGROK_STATIC_DOMAIN || !draft.discordMessageIds.casterTextChannelId) {
-        try {
-            console.log(`[Visualizer] El draft ${draft.shortId} no tiene canal de casters. Creando uno...`);
-            const guild = await client.guilds.fetch(draft.guildId);
-            const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
-            const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
-            const basePermissions = [
-                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-            ];
-            if (casterRole) basePermissions.push({ id: casterRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
-            if (arbitroRole) basePermissions.push({ id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
-
-            const casterTextChannel = await guild.channels.create({
-                name: `🔴-directo-draft-${draft.shortId}`,
-                type: ChannelType.GuildText,
-                parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
-                permissionOverwrites: basePermissions
-            });
-            
-            await getDb().collection('drafts').updateOne(
-                { _id: draft._id },
-                { $set: { 'discordMessageIds.casterTextChannelId': casterTextChannel.id } }
-            );
-            draft.discordMessageIds.casterTextChannelId = casterTextChannel.id; // Actualizamos el objeto local
-        } catch (e) {
-            console.error(`[Visualizer] Fallo CRÍTICO al crear canal de casters para draft ${draft.shortId}:`, e);
-            return; // No podemos continuar si falla la creación del canal
-        }
-    }
-
+    if (!process.env.NGROK_STATIC_DOMAIN || !draft.discordMessageIds.casterTextChannelId) return;
     try {
         const casterThread = await client.channels.fetch(draft.discordMessageIds.casterTextChannelId);
         const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
@@ -140,7 +104,7 @@ export async function updateDraftMainInterface(client, draftShortId) {
     }
 }
 
-export async function handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId) {
+export async function handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId, pickedForPosition) {
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     const player = draft.players.find(p => p.userId === selectedPlayerId);
@@ -161,11 +125,10 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         }
     }
 
-    // AÑADIMOS EL CAMPO 'pickedForPosition' - por defecto, es la primaria.
-    // La lógica para elegir la secundaria se manejará en el selectMenuHandler
+    // AÑADIMOS EL CAMPO 'pickedForPosition'
     await db.collection('drafts').updateOne(
         { shortId: draftShortId, "players.userId": selectedPlayerId },
-        { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": player.primaryPosition } }
+        { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": pickedForPosition } }
     );
     
     // GUARDAMOS EL ÚLTIMO PICK
@@ -173,7 +136,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         pickNumber: draft.selection.currentPick,
         playerPsnId: player.psnId,
         captainTeamName: captain.teamName,
-        position: player.primaryPosition // Guardamos la posición con la que fue elegido
+        position: pickedForPosition
     };
     await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
     
@@ -704,8 +667,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         const finalDraft = await db.collection('drafts').findOne({ _id: newDraft._id });
         if (finalDraft) {
             await notifyVisualizer(finalDraft);
-            // La función publishDraft... ya crea el canal si no existe
-            await publishDraftVisualizerURL(client, finalDraft); 
+            await publishDraftVisualizerURL(client, finalDraft);
         }
         // --- FIN ---
 
