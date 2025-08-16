@@ -1690,34 +1690,21 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const replacementPlayer = draft.players.find(p => p.userId === replacementPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    await db.collection('tournaments').updateOne(
-        { shortId: `draft-${draft.shortId}` },
-        { $pull: { [`teams.aprobados.${captainId}.players`]: { userId: kickedPlayerId } } }
-    );
-    await db.collection('tournaments').updateOne(
-        { shortId: `draft-${draft.shortId}` },
-        { $push: { [`teams.aprobados.${captainId}.players`]: replacementPlayer } }
+    // --- LÓGICA CORREGIDA ---
+    // 1. Quitar al jugador anterior del equipo (poniendo su captainId a null)
+    await db.collection('drafts').updateOne(
+        { _id: draft._id, "players.userId": kickedPlayerId },
+        { $set: { "players.$.captainId": null } }
     );
 
-    if (/^\d+$/.test(replacementPlayerId) && /^\d+$/.test(kickedPlayerId)) {
-        try {
-            const teamNameFormatted = captain.teamName.replace(/\s+/g, '-').toLowerCase();
-            const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
-            const voiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${captain.teamName}`);
+    // 2. Asignar el nuevo jugador al equipo (actualizando su captainId)
+    await db.collection('drafts').updateOne(
+        { _id: draft._id, "players.userId": replacementPlayerId },
+        { $set: { "players.$.captainId": captainId } }
+    );
+    // --- FIN DE LA CORRECCIÓN ---
 
-            if (textChannel) {
-                await textChannel.permissionOverwrites.delete(kickedPlayerId, 'Reemplazado en el equipo');
-                await textChannel.permissionOverwrites.edit(replacementPlayerId, { ViewChannel: true });
-            }
-            if (voiceChannel) {
-                await voiceChannel.permissionOverwrites.delete(kickedPlayerId, 'Reemplazado en el equipo');
-                await voiceChannel.permissionOverwrites.edit(replacementPlayerId, { ViewChannel: true });
-            }
-        } catch(e) {
-            console.warn(`Error al gestionar permisos para el reemplazo ${replacementPlayerId}: ${e.message}`);
-        }
-    }
-
+    // Lógica de notificación (sin cambios, ya era correcta)
     if (/^\d+$/.test(captainId)) {
         const captainUser = await client.users.fetch(captainId);
         await captainUser.send(`✅ **${replacementPlayer.psnId}** ha aceptado tu invitación y ha reemplazado al jugador anterior en tu equipo.`);
@@ -1726,4 +1713,6 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
+
+    // Se eliminó la lógica de permisos de canal, ya que es irrelevante antes de que el torneo se cree.
 }
