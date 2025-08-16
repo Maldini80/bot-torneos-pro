@@ -812,4 +812,42 @@ export function createCasterInfoEmbed(teamData, tournament) {
         .setTimestamp();
 
     return { embeds: [embed] };
+    
+    /**
+ * NUEVO: Crea el embed de advertencia para capitanes sobre la importancia de su stream.
+ */
+export function createStreamerWarningEmbed(platform, originalAction, entityId, position = 'NONE') {
+    const embed = new EmbedBuilder()
+        .setColor('#E67E22') // Naranja de advertencia
+        .setTitle('⚠️ ¡ATENCIÓN, CAPITÁN! INSTRUCCIONES IMPORTANTES')
+        .setDescription('**Leer esto es OBLIGATORIO.**')
+        .addFields(
+            {
+                name: '🔴 1. ESCRIBE SOLO TU USUARIO DE STREAM',
+                value: 'Asegúrate de escribir tu nombre de usuario de **' + platform + '** **EXACTAMENTE** como es.'
+            },
+            {
+                name: '🔴 2. EL CANAL QUE VAYA A USAR TU EQUIPO PARA RETRNAMISTIR',
+                value: 'No pongas un canal secundario o uno que no vaya a usar tu equipo.'
+            },
+            {
+                name: '🚫 INCUMPLIMIENTO CONSECUENCIAS',
+                value: 'Proporcionar información incorrecta de forma repetida impedirá tu participación como capitán en futuros torneos. **Esta información es VITAL para los casters y el visualizador en vivo.**'
+            }
+        );
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`streamer_warning_accept:${platform}:${originalAction}:${entityId}:${position}`)
+            .setLabel('Entendido, continuar con la inscripción')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('✅'),
+        new ButtonBuilder()
+            .setCustomId('rules_reject') // Reutilizamos el botón de rechazo
+            .setLabel('Cancelar')
+            .setStyle(ButtonStyle.Danger)
+    );
+    
+    return { embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] };
+}
 }
