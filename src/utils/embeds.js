@@ -823,7 +823,7 @@ export function createStreamerWarningEmbed(platform, originalAction, entityId, p
         .setDescription('**Leer esto es OBLIGATORIO.**')
         .addFields(
             {
-                name: '🔴 1. ESCRIBE SOLO TU USUARIO DE STREAM',
+                name: '🔴 1. ESCRIBE SOLO TU USUARIO DE STREAM Y **NO** LA URL COMPLETA',
                 value: 'Asegúrate de escribir tu nombre de usuario de **' + platform + '** **EXACTAMENTE** como es.'
             },
             {
