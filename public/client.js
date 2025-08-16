@@ -256,7 +256,7 @@ function initializeTournamentView(tournamentId) {
 }
 
 // =================================================================
-// --- MÓDULO DEL VISUALIZADOR DE DRAFTS ---
+// --- MÓDULO DEL VISUALIZADOR DE DRAFTS (VERSIÓN FINAL) ---
 // =================================================================
 function initializeDraftView(draftId) {
     const loadingEl = document.getElementById('loading');
@@ -271,6 +271,9 @@ function initializeDraftView(draftId) {
     const roundPickOrderEl = document.getElementById('round-pick-order');
     const pickAlertEl = document.getElementById('pick-alert');
     const pickAlertContentEl = document.getElementById('pick-alert-content');
+    const draftTypeIndicatorEl = document.getElementById('draft-type-indicator');
+    const lastPickInfoEl = document.getElementById('last-pick-info');
+    const lastPickDetailsEl = document.getElementById('last-pick-details');
 
     const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
     let hasLoadedInitialData = false;
@@ -315,6 +318,14 @@ function initializeDraftView(draftId) {
         playersBefore = draft.players.map(p => ({ userId: p.userId, captainId: p.captainId }));
         
         draftNameEl.textContent = draft.name;
+        draftTypeIndicatorEl.textContent = draft.config.isPaid ? 'Draft de Pago' : 'Draft Gratuito';
+
+        if (draft.selection && draft.selection.lastPick) {
+            lastPickInfoEl.classList.remove('hidden');
+            const lp = draft.selection.lastPick;
+            lastPickDetailsEl.innerHTML = `<span>#${lp.pickNumber}</span> ${lp.playerPsnId} <strong>(${lp.position})</strong> ➞ ${lp.captainTeamName}`;
+        }
+
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
              roundInfoEl.textContent = 'Selección Finalizada';
              currentTeamEl.textContent = '---';
@@ -355,7 +366,8 @@ function initializeDraftView(draftId) {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a,b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
             let rosterHtml = '';
             teamPlayers.forEach(player => {
-                rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${player.primaryPosition}</span></li>`;
+                const positionTag = player.pickedForPosition === player.primaryPosition ? 'P-' : 'S-';
+                rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${positionTag}${player.pickedForPosition}</span></li>`;
             });
             const teamCard = `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
             teamsContainerEl.innerHTML += teamCard;
