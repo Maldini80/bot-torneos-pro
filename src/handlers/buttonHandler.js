@@ -692,7 +692,7 @@ export async function handleButton(interaction) {
     }
 
    if (action === 'draft_confirm_pick') {
-    const [draftShortId, captainId, selectedPlayerId] = params;
+    const [draftShortId, captainId, selectedPlayerId, pickedForPosition] = params;
     const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
     if (interaction.user.id !== captainId && !isAdmin) {
@@ -706,7 +706,7 @@ export async function handleButton(interaction) {
     });
 
     try {
-        await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId);
+        await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId, pickedForPosition);
         await advanceDraftTurn(client, draftShortId);
     } catch (error) {
         console.error(`Error de regla de negocio en el pick: ${error.message}`);
