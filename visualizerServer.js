@@ -84,7 +84,12 @@ function startNgrokTunnel() {
     });
 
     ngrokProcess.stderr.on('data', (data) => {
-        console.error(`[ngrok-stderr] ${data.toString()}`);
+        const errorLog = data.toString();
+        console.error(`[ngrok-stderr] ${errorLog}`);
+        // MENSAJE DE AYUDA MEJORADO
+        if (errorLog.includes('ERR_NGROK_108')) {
+            console.error('[ngrok-manager] DETECTADO ERROR DE SESIÓN: Ya hay otro agente de ngrok corriendo con tu cuenta. Por favor, detenlo desde https://dashboard.ngrok.com/agents y reinicia el servicio.');
+        }
     });
 
     ngrokProcess.on('close', (code) => {
