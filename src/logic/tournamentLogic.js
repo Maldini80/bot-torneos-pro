@@ -608,6 +608,8 @@ export async function createNewDraft(client, guild, name, shortId, config) {
 
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         if (!arbitroRole) throw new Error("El rol de Árbitro no fue encontrado.");
+        // --- LÍNEA AÑADIDA ---
+        const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
 
         const draftChannelPermissions = [
             { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] },
@@ -636,7 +638,10 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 statusMessageId: null, managementThreadId: null,
                 mainInterfacePlayerMessageId: null, mainInterfaceTeamsMessageId: null,
                 turnOrderMessageId: null, notificationsThreadId: null,
-                captainControlPanelMessageId: null
+                captainControlPanelMessageId: null,
+                // --- LÍNEAS AÑADIDAS ---
+                casterTextChannelId: null, 
+                warRoomVoiceChannelId: null 
             }
         };
         
@@ -667,6 +672,23 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             autoArchiveDuration: 10080 
         });
         newDraft.discordMessageIds.notificationsThreadId = notificationsThread.id;
+        
+        // --- BLOQUE DE CÓDIGO AÑADIDO ---
+        const basePermissions = [
+            { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+            { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+        ];
+        if (casterRole) basePermissions.push({ id: casterRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
+        if (arbitroRole) basePermissions.push({ id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
+
+        const casterTextChannel = await guild.channels.create({
+            name: `🔴-directo-draft-${shortId}`,
+            type: ChannelType.GuildText,
+            parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
+            permissionOverwrites: basePermissions
+        });
+        newDraft.discordMessageIds.casterTextChannelId = casterTextChannel.id;
+        // --- FIN DEL BLOQUE AÑADIDO ---
 
         await db.collection('drafts').insertOne(newDraft);
 
@@ -674,8 +696,17 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             for (const member of arbitroRole.members.values()) {
                 await managementThread.members.add(member.id).catch(() => {});
                 await notificationsThread.members.add(member.id).catch(() => {});
+                // --- LÍNEA AÑADIDA ---
+                await casterTextChannel.members.add(member.id).catch(() => {});
             }
         }
+        // --- BLOQUE DE CÓDIGO AÑADIDO ---
+        if (casterRole) {
+             for (const member of casterRole.members.values()) {
+                await casterTextChannel.members.add(member.id).catch(() => {});
+            }
+        }
+        // --- FIN DEL BLOQUE AÑADIDO ---
         
         await managementThread.send(createDraftManagementPanel(newDraft, true));
 
@@ -729,25 +760,17 @@ export async function startDraftSelection(client, guild, draftShortId) {
             const j = Math.floor(Math.random() * (i + 1));
             [captainIds[i], captainIds[j]] = [captainIds[j], captainIds[i]];
         }
-
+        
+        // --- LÓGICA SIMPLIFICADA ---
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
-
-        const basePermissions = [
+        
+        const voicePermissions = [
             { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-            { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+            { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel] }
         ];
-        if (casterRole) basePermissions.push({ id: casterRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
-        if (arbitroRole) basePermissions.push({ id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
-
-        const casterTextChannel = await guild.channels.create({
-            name: `🔴-directo-draft-${draft.shortId}`,
-            type: ChannelType.GuildText,
-            parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
-            permissionOverwrites: basePermissions
-        });
-
-        const voicePermissions = [...basePermissions];
+        if (casterRole) voicePermissions.push({ id: casterRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
+        if (arbitroRole) voicePermissions.push({ id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
         draft.captains.forEach(c => {
              if (/^\d+$/.test(c.userId)) {
                 voicePermissions.push({ id: c.userId, allow: [PermissionsBitField.Flags.ViewChannel] });
@@ -760,6 +783,7 @@ export async function startDraftSelection(client, guild, draftShortId) {
             parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
             permissionOverwrites: voicePermissions
         });
+        // --- FIN DE LA LÓGICA SIMPLIFICADA ---
         
         await db.collection('drafts').updateOne(
             { _id: draft._id },
@@ -770,7 +794,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
                 'selection.currentPick': 1, 
                 'selection.isPicking': false, 
                 'selection.activeInteractionId': null,
-                'discordMessageIds.casterTextChannelId': casterTextChannel.id,
                 'discordMessageIds.warRoomVoiceChannelId': warRoomVoiceChannel.id
             }}
         );
@@ -786,13 +809,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
             { $set: { 'discordMessageIds.captainControlPanelMessageId': panelMessage.id } }
         );
         
-        await notifyVisualizer(draft);
-        const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?draftId=${draft.shortId}`;
-        
-        await casterTextChannel.send({
-            content: `${casterRole ? `<@&${casterRole.id}>` : ''}\n\n**¡El draft "${draft.name}" está a punto de comenzar!**\n\nAquí tenéis el enlace para el visualizador en vivo. ¡Añádanlo a su OBS!\n\n**Enlace:** ${visualizerLink}`
-        });
-
         await updateDraftManagementPanel(client, draft);
         await updatePublicMessages(client, draft);
         await updateDraftMainInterface(client, draft.shortId);
