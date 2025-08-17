@@ -127,7 +127,7 @@ if (customId.startsWith('config_draft_')) {
                 
                 const captainAsPlayerData = {
                     userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
-                    primaryPosition: captainData.position, secondaryPosition: captainData.position, currentTeam: teamName, isCaptain: true, captainId: uniqueId // Se auto-asigna como capitán
+                    primaryPosition: captainData.position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: uniqueId // Se auto-asigna como capitán
                 };
                 bulkCaptains.push(captainData);
                 bulkPlayers.push(captainAsPlayerData);
