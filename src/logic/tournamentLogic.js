@@ -246,6 +246,7 @@ export async function approveDraftCaptain(client, draft, captainData) {
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
 
     postTournamentUpdate('NEW_CAPTAIN_APPROVED', { captainData, draft: updatedDraft }).catch(console.error);
 }
@@ -813,6 +814,7 @@ export async function startDraftSelection(client, guild, draftShortId) {
         await updateDraftManagementPanel(client, draft);
         await updatePublicMessages(client, draft);
         await updateDraftMainInterface(client, draft.shortId);
+        await notifyVisualizer(draft);
 
     } catch (error) {
         console.error("[DRAFT START SELECTION]", error);
