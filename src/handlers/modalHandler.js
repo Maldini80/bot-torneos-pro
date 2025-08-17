@@ -15,6 +15,45 @@ export async function handleModal(interaction) {
     const guild = interaction.guild;
     const db = getDb();
     const [action, ...params] = customId.split(':');
+
+ if (action === 'admin_edit_team_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId, captainId] = params;
+        
+        const newTeamName = interaction.fields.getTextInputValue('team_name_input');
+        const newEafcName = interaction.fields.getTextInputValue('eafc_name_input');
+        const newTwitter = interaction.fields.getTextInputValue('twitter_input');
+        const newStreamUser = interaction.fields.getTextInputValue('stream_user_input');
+        
+        let newStreamChannel = '';
+        if (newStreamUser) {
+            // Asumimos Twitch por defecto, pero podrías añadir un selector si quisieras
+            newStreamChannel = `https://twitch.tv/${newStreamUser}`;
+        }
+
+        // Actualizamos los datos en la base de datos usando la notación de punto
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            {
+                $set: {
+                    [`teams.aprobados.${captainId}.nombre`]: newTeamName,
+                    [`teams.aprobados.${captainId}.eafcTeamName`]: newEafcName,
+                    [`teams.aprobados.${captainId}.twitter`]: newTwitter,
+                    [`teams.aprobados.${captainId}.streamChannel`]: newStreamChannel
+                }
+            }
+        );
+
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        // Notificamos a todos los sistemas
+        await updatePublicMessages(client, updatedTournament);
+        await notifyTournamentVisualizer(updatedTournament);
+
+        await interaction.editReply({ content: `✅ Los datos del equipo **${newTeamName}** han sido actualizados con éxito.` });
+        return;
+    }
+ 
     // --- FIN DE LAS VARIABLES MOVIDAS ---
     // --- CÓDIGO NUEVO PARA GUARDAR LA CONFIGURACIÓN DEL DRAFT ---
 if (customId.startsWith('config_draft_')) {
