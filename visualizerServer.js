@@ -1,4 +1,4 @@
-// visualizerServer.js
+// visualizerServer.js (VERSIÓN CORREGIDA Y ROBUSTA)
 import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
@@ -16,8 +16,33 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3000;
-let draftStates = new Map();
-let tournamentStates = new Map();
+
+// --- INICIO DE LA MODIFICACIÓN CLAVE ---
+// Centralizamos el estado y las funciones para que puedan ser importadas
+const draftStates = new Map();
+const tournamentStates = new Map();
+
+function broadcastUpdate(type, id, data) {
+    const payload = JSON.stringify({ type, id, data });
+    wss.clients.forEach(client => {
+        if (client.readyState === client.OPEN) client.send(payload);
+    });
+}
+
+// Exportamos un objeto que contiene todo lo necesario para gestionar el estado desde fuera
+export const visualizerStateHandler = {
+    updateDraft: (draft) => {
+        draftStates.set(draft.shortId, draft);
+        broadcastUpdate('draft', draft.shortId, draft);
+        console.log(`[Visualizer State] Estado de DRAFT actualizado para: ${draft.shortId}`);
+    },
+    updateTournament: (tournament) => {
+        tournamentStates.set(tournament.shortId, tournament);
+        broadcastUpdate('tournament', tournament.shortId, tournament);
+        console.log(`[Visualizer State] Estado de TORNEO actualizado para: ${tournament.shortId}`);
+    }
+};
+// --- FIN DE LA MODIFICACIÓN CLAVE ---
 
 let ngrokProcess;
 const ngrokPath = join(process.cwd(), platform() === 'win32' ? 'ngrok.exe' : 'ngrok');
@@ -106,33 +131,23 @@ export async function startVisualizerServer() {
     app.use(express.json());
     app.use(express.static('public'));
 
-    // Endpoints para drafts
+    // Endpoints POST (se mantienen por si se usan externamente, pero la lógica interna ya no depende de ellos)
     app.post('/update-draft/:draftId', (req, res) => {
-        const { draftId } = req.params;
-        const draftData = req.body;
-        draftStates.set(draftId, draftData);
-        broadcastUpdate('draft', draftId, draftData);
-        console.log(`[Visualizer] Estado de DRAFT actualizado para: ${draftId}`);
+        visualizerStateHandler.updateDraft(req.body);
+        res.status(200).send({ message: 'Update received' });
+    });
+    app.post('/update-tournament/:tournamentId', (req, res) => {
+        visualizerStateHandler.updateTournament(req.body);
         res.status(200).send({ message: 'Update received' });
     });
 
+    // Endpoints GET para la carga inicial de datos
     app.get('/draft-data/:draftId', (req, res) => {
         const { draftId } = req.params;
         const data = draftStates.get(draftId);
         if (data) res.json(data);
         else res.status(404).send({ error: 'Draft data not found' });
     });
-
-    // Endpoints para torneos
-    app.post('/update-tournament/:tournamentId', (req, res) => {
-        const { tournamentId } = req.params;
-        const tournamentData = req.body;
-        tournamentStates.set(tournamentId, tournamentData);
-        broadcastUpdate('tournament', tournamentId, tournamentData);
-        console.log(`[Visualizer] Estado de TORNEO actualizado para: ${tournamentId}`);
-        res.status(200).send({ message: 'Update received' });
-    });
-
     app.get('/tournament-data/:tournamentId', (req, res) => {
         const { tournamentId } = req.params;
         const data = tournamentStates.get(tournamentId);
@@ -150,13 +165,6 @@ export async function startVisualizerServer() {
         } catch (error) {
             console.error('[ngrok-manager] Fallo crítico en el proceso de inicio de ngrok:', error);
         }
-    });
-}
-
-function broadcastUpdate(type, id, data) {
-    const payload = JSON.stringify({ type, id, data });
-    wss.clients.forEach(client => {
-        if (client.readyState === client.OPEN) client.send(payload);
     });
 }
 
