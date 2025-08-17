@@ -174,6 +174,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     const row2 = new ActionRowBuilder();
     const row3 = new ActionRowBuilder();
 
+
     const isBeforeDraw = tournament.status === 'inscripcion_abierta';
     const isGroupStage = tournament.status === 'fase_de_grupos';
     const hasEnoughTeamsForDraw = Object.keys(tournament.teams.aprobados).length >= 2;
@@ -196,6 +197,14 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     } else {
          row1.addComponents( new ButtonBuilder().setCustomId(`admin_simulate_matches:${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy) );
     }
+
+     row2.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`admin_edit_team_start:${tournament.shortId}`)
+            .setLabel('Editar Equipo')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🔧')
+            .setDisabled(isBusy)
 
     if (isGroupStage) {
         row2.addComponents(
