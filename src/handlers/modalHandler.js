@@ -176,6 +176,7 @@ if (customId.startsWith('config_draft_')) {
         await updateDraftMainInterface(client, updatedDraft.shortId);
         await updatePublicMessages(client, updatedDraft);
         await updateDraftManagementPanel(client, updatedDraft);
+        await notifyVisualizer(updatedDraft);
         
         // Mensaje final mejorado para ser más claro
         const nonCaptainPlayersAdded = bulkPlayers.length - bulkCaptains.length;
