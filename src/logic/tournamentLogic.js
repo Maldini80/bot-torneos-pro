@@ -8,45 +8,30 @@ import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
-import fetch from 'node-fetch';
+// --- INICIO DE LA MODIFICACIÓN CLAVE ---
+// Importamos el manejador de estado directamente desde el servidor web.
+// Esto elimina las llamadas de red 'localhost' que estaban fallando.
+import { visualizerStateHandler } from '../../visualizerServer.js';
 
 /**
- * NUEVO: Notifica al servidor web del visualizador sobre una actualización del estado del draft.
+ * Notifica al servidor web del visualizador sobre una actualización del estado del draft.
  * @param {object} draft El objeto completo del draft.
  */
 export async function notifyVisualizer(draft) {
-    // AHORA USA EL PUERTO INTERNO, YA QUE EL BOT Y EL SERVIDOR ESTÁN EN EL MISMO LUGAR
-    const visualizerUrl = `http://localhost:${process.env.PORT || 3000}/update-draft/${draft.shortId}`;
-    try {
-        await fetch(visualizerUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(draft)
-        });
-        console.log(`[Bot->Visualizer] Notificación enviada para el draft ${draft.shortId}`);
-    } catch (error) {
-        console.error(`[Bot->Visualizer] Error al notificar al visualizador para el draft ${draft.shortId}:`, error.message);
-    }
+    // Llamada directa a la función del manejador de estado. 100% fiable.
+    visualizerStateHandler.updateDraft(draft);
 }
 
 /**
- * CORREGIDO: Notifica al servidor web sobre una actualización del estado de un TORNEO.
+ * Notifica al servidor web sobre una actualización del estado de un TORNEO.
  * @param {object} tournament El objeto completo del torneo.
  */
 export async function notifyTournamentVisualizer(tournament) {
-    // Apunta al servidor interno que corre junto al bot, igual que la función del draft.
-    const visualizerUrl = `http://localhost:${process.env.PORT || 3000}/update-tournament/${tournament.shortId}`;
-    try {
-        await fetch(visualizerUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(tournament)
-        });
-        console.log(`[Bot->Visualizer] Notificación de TORNEO enviada para ${tournament.shortId}`);
-    } catch (error) {
-        console.error(`[Bot->Visualizer] Error al notificar al visualizador de TORNEO ${tournament.shortId}:`, error.message);
-    }
+    // Llamada directa a la función del manejador de estado. 100% fiable.
+    visualizerStateHandler.updateTournament(tournament);
 }
+// --- FIN DE LA MODIFICACIÓN CLAVE ---
+
 
 async function publishDraftVisualizerURL(client, draft) {
     if (!process.env.NGROK_STATIC_DOMAIN || !draft.discordMessageIds.casterTextChannelId) return;
@@ -166,29 +151,22 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    // --- INICIO DE LA NUEVA LÓGICA DE VALIDACIÓN ---
     const settings = await getBotSettings();
     const maxQuotas = Object.fromEntries(
         settings.draftMaxQuotas.split(',').map(q => q.split(':'))
     );
     const teamPlayers = draft.players.filter(p => p.captainId === captainId);
 
-    // 1. Determinamos la posición que estamos intentando cubrir.
     const positionToCheck = pickedForPosition; 
 
-    // 2. Verificamos si hay un límite para esta posición.
     if (maxQuotas[positionToCheck]) {
         const max = parseInt(maxQuotas[positionToCheck]);
-        
-        // 3. Contamos cuántos jugadores en el equipo ya tienen esta posición como PRIMARIA.
         const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
         
-        // 4. Si el conteo actual ya es igual o mayor al máximo, lanzamos un error.
         if (currentCount >= max) {
             throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
         }
     }
-    // --- FIN DE LA NUEVA LÓGICA DE VALIDACIÓN ---
     
     await db.collection('drafts').updateOne(
         { shortId: draftShortId, "players.userId": selectedPlayerId },
@@ -312,6 +290,7 @@ export async function kickPlayerFromDraft(client, draft, userIdToKick) {
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
 }
 
 
@@ -655,7 +634,6 @@ export async function createNewDraft(client, guild, name, shortId, config) {
 
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         if (!arbitroRole) throw new Error("El rol de Árbitro no fue encontrado.");
-        // --- LÍNEA AÑADIDA ---
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
 
         const draftChannelPermissions = [
@@ -686,7 +664,6 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 mainInterfacePlayerMessageId: null, mainInterfaceTeamsMessageId: null,
                 turnOrderMessageId: null, notificationsThreadId: null,
                 captainControlPanelMessageId: null,
-                // --- LÍNEAS AÑADIDAS ---
                 casterTextChannelId: null, 
                 warRoomVoiceChannelId: null 
             }
@@ -720,7 +697,6 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         });
         newDraft.discordMessageIds.notificationsThreadId = notificationsThread.id;
         
-        // --- BLOQUE DE CÓDIGO AÑADIDO ---
         const basePermissions = [
             { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
             { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
@@ -735,26 +711,21 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             permissionOverwrites: basePermissions
         });
         newDraft.discordMessageIds.casterTextChannelId = casterTextChannel.id;
-        // --- FIN DEL BLOQUE AÑADIDO ---
 
         await db.collection('drafts').insertOne(newDraft);
 
-        // --- BLOQUE CORREGIDO ---
-if (arbitroRole) {
-    for (const member of arbitroRole.members.values()) {
-        await managementThread.members.add(member.id).catch(() => {});
-        await notificationsThread.members.add(member.id).catch(() => {});
-        // Se cambia .members.add por .permissionOverwrites.edit
-        await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => {});
-    }
-}
-if (casterRole) {
-     for (const member of casterRole.members.values()) {
-        // Se cambia .members.add por .permissionOverwrites.edit
-        await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => {});
-    }
-}
-// --- FIN DE LA CORRECCIÓN ---
+        if (arbitroRole) {
+            for (const member of arbitroRole.members.values()) {
+                await managementThread.members.add(member.id).catch(() => {});
+                await notificationsThread.members.add(member.id).catch(() => {});
+                await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => {});
+            }
+        }
+        if (casterRole) {
+             for (const member of casterRole.members.values()) {
+                await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => {});
+            }
+        }
         
         await managementThread.send(createDraftManagementPanel(newDraft, true));
 
@@ -809,7 +780,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
             [captainIds[i], captainIds[j]] = [captainIds[j], captainIds[i]];
         }
         
-        // --- LÓGICA SIMPLIFICADA ---
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         
@@ -831,7 +801,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
             parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
             permissionOverwrites: voicePermissions
         });
-        // --- FIN DE LA LÓGICA SIMPLIFICADA ---
         
         await db.collection('drafts').updateOne(
             { _id: draft._id },
