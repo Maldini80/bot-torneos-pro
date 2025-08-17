@@ -413,6 +413,7 @@ export async function simulateDraftPicks(client, draftShortId) {
         await updateDraftManagementPanel(client, finalDraftState);
         await updatePublicMessages(client, finalDraftState);
         await updateCaptainControlPanel(client, finalDraftState);
+        await notifyVisualizer(finalDraftState);
         
         const draftChannel = await client.channels.fetch(finalDraftState.discordChannelId);
         if (draftChannel) {
@@ -561,6 +562,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
         
         const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
+        await notifyTournamentVisualizer(finalTournament);
         for (const teamData of Object.values(finalTournament.teams.aprobados)) {
             await notifyCastersOfNewTeam(client, finalTournament, teamData);
         }
