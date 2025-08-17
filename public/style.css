@@ -1,6 +1,8 @@
 /* --- INICIO DEL ARCHIVO style.css --- */
 
-/* --- CONFIGURACIÓN GLOBAL Y FUENTES --- */
+/* ======================================================= */
+/* ========= CONFIGURACIÓN GLOBAL Y FUENTES ========= */
+/* ======================================================= */
 :root {
     --primary-color: #E53935; /* Un rojo más suave y moderno */
     --background-color: #1a1a1a; /* Un gris un poco más claro que el negro puro */
@@ -36,6 +38,21 @@ header h1 { font-family: var(--font-bebas); font-size: 3.5em; color: var(--prima
 header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
 footer { position: fixed; bottom: 0; left: 0; width: 100%; background-color: #101010; border-top: 2px solid var(--primary-color); padding: 8px; text-align: center; font-family: var(--font-bebas); font-size: 1.2em; color: #aaa; }
 .placeholder { color: #666; font-style: italic; text-align: center; padding-top: 50px; }
+
+/* --- Scrollbar personalizado para temas oscuros --- */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--surface-color);
+}
+::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
 
 /* ======================================================= */
 /* ========= ESTILOS PARA VISUALIZADOR DE TORNEOS ========= */
@@ -97,24 +114,88 @@ aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; ma
 .modal-content h3 { font-family: var(--font-bebas); font-size: 2.5em; color: var(--primary-color); margin-top: 0; }
 #modal-roster-list { list-style: none; padding: 0; columns: 2; }
 
+
 /* ======================================================= */
 /* ========= ESTILOS PARA VISUALIZADOR DE DRAFTS ========= */
 /* ======================================================= */
 .status-line-draftview { display: flex; justify-content: space-between; align-items: center; padding: 5px 20px; font-family: var(--font-bebas); font-size: 1.5em; }
 #current-team-draftview { color: var(--winner-color); }
-.content-grid-draftview { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; flex-grow: 1; overflow: hidden; padding-top: 15px; }
 #round-pick-order { display: flex; justify-content: center; gap: 5px; padding: 10px; flex-wrap: wrap; }
 .pick-order-item { background-color: #2a2a2a; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; }
 .pick-order-item.active-pick { background-color: var(--winner-color); color: #1a1a1a; font-weight: bold; }
 .pick-order-item.past-pick { background-color: #444; color: #888; text-decoration: line-through; }
-#teams-container-draftview { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr); gap: 10px; overflow-y: auto; }
+
+/* --- CORRECCIÓN DEL LAYOUT PRINCIPAL DEL DRAFT --- */
+.content-grid-draftview {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr; /* Columna de equipos más ancha que la central/jugadores */
+    gap: 20px;
+    flex-grow: 1;
+    overflow: hidden;
+    padding-top: 15px;
+    height: calc(100vh - 180px); /* Altura calculada para dejar espacio a header y footer */
+}
+
+#teams-container-draftview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Tarjetas de equipo responsivas */
+    gap: 15px;
+    overflow-y: auto; /* AÑADE EL SCROLL VERTICAL */
+    padding-right: 10px; /* Espacio para la barra de scroll */
+    align-content: start; /* Alinea las tarjetas arriba */
+}
+
+.center-column {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow: hidden;
+}
+
+#last-pick-info {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+#last-pick-info h4 {
+    margin: 0 0 10px 0;
+    font-family: var(--font-bebas);
+    color: var(--primary-color);
+    font-size: 1.4em;
+}
+
+#last-pick-details {
+    margin: 0;
+    font-size: 1.1em;
+}
+
+#last-pick-details strong {
+    color: var(--winner-color);
+}
+
+#available-players-container-draftview {
+    background-color: var(--surface-color);
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-grow: 1; /* Ocupa el espacio restante */
+}
+
+/* --- FIN DE LA CORRECCIÓN DEL LAYOUT --- */
+
 .team-card { background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; }
 .team-header { font-family: var(--font-bebas); font-size: 1.3em; color: var(--primary-color); margin: 0 0 8px 0; border-bottom: 1px solid #444; padding-bottom: 4px; }
 .team-header .captain-psn { font-size: 0.7em; color: #aaa; display: block; }
 .team-roster { list-style: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; font-size: 0.9em; }
 .team-roster li { display: flex; justify-content: space-between; margin-bottom: 4px; padding: 4px 6px; border-radius: 3px; }
 .player-pos { font-weight: bold; color: var(--primary-color); }
-#available-players-container-draftview { background-color: var(--surface-color); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
+
 #available-players-container-draftview h2 { font-family: var(--font-bebas); font-size: 2em; margin: 0 0 10px 0; text-align: center; }
 #position-filters { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
 .filter-btn { background-color: #444; border: 1px solid #555; color: #ccc; padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 0.8em; }
@@ -125,11 +206,10 @@ aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; ma
 #players-table th { text-align: left; padding: 8px; font-family: var(--font-bebas); font-size: 1.2em; color: var(--primary-color); }
 #players-table td { padding: 6px 8px; border-top: 1px solid var(--border-color); font-size: 0.95em; }
 #players-table tbody tr:hover { background-color: #3a3a3a; }
+
 #pick-alert { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
 #pick-alert.visible { opacity: 1; }
 #pick-alert-content { background-color: var(--surface-color); padding: 40px 60px; border-radius: 10px; text-align: center; border: 2px solid var(--winner-color); font-family: var(--font-bebas); }
 #pick-alert-content .pick-number { font-size: 2em; color: #aaa; }
 #pick-alert-content .player-name { font-size: 4em; color: var(--winner-color); }
 #pick-alert-content .team-name { font-size: 2.5em; color: #ccc; }
-
-/* --- FIN DEL ARCHIVO style.css --- */
