@@ -692,21 +692,22 @@ export async function createNewDraft(client, guild, name, shortId, config) {
 
         await db.collection('drafts').insertOne(newDraft);
 
-        if (arbitroRole) {
-            for (const member of arbitroRole.members.values()) {
-                await managementThread.members.add(member.id).catch(() => {});
-                await notificationsThread.members.add(member.id).catch(() => {});
-                // --- LÍNEA AÑADIDA ---
-                await casterTextChannel.members.add(member.id).catch(() => {});
-            }
-        }
-        // --- BLOQUE DE CÓDIGO AÑADIDO ---
-        if (casterRole) {
-             for (const member of casterRole.members.values()) {
-                await casterTextChannel.members.add(member.id).catch(() => {});
-            }
-        }
-        // --- FIN DEL BLOQUE AÑADIDO ---
+        // --- BLOQUE CORREGIDO ---
+if (arbitroRole) {
+    for (const member of arbitroRole.members.values()) {
+        await managementThread.members.add(member.id).catch(() => {});
+        await notificationsThread.members.add(member.id).catch(() => {});
+        // Se cambia .members.add por .permissionOverwrites.edit
+        await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => {});
+    }
+}
+if (casterRole) {
+     for (const member of casterRole.members.values()) {
+        // Se cambia .members.add por .permissionOverwrites.edit
+        await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => {});
+    }
+}
+// --- FIN DE LA CORRECCIÓN ---
         
         await managementThread.send(createDraftManagementPanel(newDraft, true));
 
