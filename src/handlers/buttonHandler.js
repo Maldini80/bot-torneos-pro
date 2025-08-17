@@ -22,6 +22,35 @@ export async function handleButton(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
+    
+  if (action === 'admin_edit_team_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+
+        if (approvedTeams.length === 0) {
+            return interaction.editReply({ content: 'No hay equipos aprobados para editar.' });
+        }
+
+        const teamOptions = approvedTeams.map(team => ({
+            label: team.nombre,
+            description: `Capitán: ${team.capitanTag}`,
+            value: team.capitanId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_edit_team_select:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el equipo que deseas editar')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: 'Por favor, selecciona un equipo de la lista para modificar sus datos:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+    
     // --- NUEVA LÓGICA PARA NAVEGACIÓN DEL PANEL DE ADMIN ---
     if (action.startsWith('admin_panel_')) {
         try {
