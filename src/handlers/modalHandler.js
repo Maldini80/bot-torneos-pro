@@ -314,6 +314,7 @@ if (action === 'register_draft_captain_modal' || action === 'register_draft_play
             const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
             await updateDraftMainInterface(client, updatedDraft.shortId);
             await updatePublicMessages(client, updatedDraft);
+            await notifyVisualizer(updatedDraft);
         }
     }
     return;
