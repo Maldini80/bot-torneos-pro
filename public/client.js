@@ -365,10 +365,20 @@ function initializeDraftView(draftId) {
         draft.captains.sort((a,b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a,b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
             let rosterHtml = '';
-            teamPlayers.forEach(player => {
-                const positionTag = player.pickedForPosition === player.primaryPosition ? 'P-' : 'S-';
-                rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${positionTag}${player.pickedForPosition}</span></li>`;
-            });
+            // --- BLOQUE CORREGIDO Y MEJORADO ---
+teamPlayers.forEach(player => {
+    // Si el jugador es el capitán, siempre muestra su posición primaria.
+    // Si es un jugador elegido, muestra la posición para la que fue elegido (pickedForPosition).
+    const displayPosition = player.isCaptain ? player.primaryPosition : (player.pickedForPosition || player.primaryPosition);
+
+    // El capitán no necesita etiqueta P- o S-. Para los demás, la calculamos.
+    let positionTag = '';
+    if (!player.isCaptain && player.pickedForPosition) {
+        positionTag = player.pickedForPosition === player.primaryPosition ? 'P-' : 'S-';
+    }
+    
+    rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${positionTag}${displayPosition}</span></li>`;
+});
             const teamCard = `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
             teamsContainerEl.innerHTML += teamCard;
         });
