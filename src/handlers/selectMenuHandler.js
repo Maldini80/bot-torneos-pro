@@ -14,6 +14,43 @@ export async function handleSelectMenu(interaction) {
     
     const [action, ...params] = customId.split(':');
 
+    if (action === 'admin_edit_team_select') {
+        const [tournamentShortId] = params;
+        const captainId = interaction.values[0]; // El ID del capitán del equipo seleccionado
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const team = tournament.teams.aprobados[captainId];
+
+        if (!team) {
+            return interaction.reply({ content: 'Error: No se pudo encontrar el equipo seleccionado.', flags: [MessageFlags.Ephemeral] });
+        }
+        
+        // Extraer el nombre de usuario de Twitch/YouTube de la URL completa
+        let streamUsername = '';
+        if (team.streamChannel) {
+            const urlParts = team.streamChannel.split('/');
+            streamUsername = urlParts[urlParts.length - 1];
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_edit_team_modal:${tournamentShortId}:${captainId}`)
+            .setTitle(`Editando: ${team.nombre}`);
+
+        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre del Equipo").setStyle(TextInputStyle.Short).setValue(team.nombre).setRequired(true);
+        const eafcNameInput = new TextInputBuilder().setCustomId('eafc_name_input').setLabel("Nombre en EAFC").setStyle(TextInputStyle.Short).setValue(team.eafcTeamName).setRequired(true);
+        const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Twitter (sin @)").setStyle(TextInputStyle.Short).setValue(team.twitter || '').setRequired(false);
+        const streamInput = new TextInputBuilder().setCustomId('stream_user_input').setLabel("Usuario de Twitch/YouTube").setStyle(TextInputStyle.Short).setValue(streamUsername).setRequired(false);
+        
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(teamNameInput),
+            new ActionRowBuilder().addComponents(eafcNameInput),
+            new ActionRowBuilder().addComponents(twitterInput),
+            new ActionRowBuilder().addComponents(streamInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
     // --- INICIO DE LA LÓGICA AÑADIDA ---
     if (action === 'draft_pick_search_type') {
         await interaction.deferUpdate();
