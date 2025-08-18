@@ -9,12 +9,72 @@ import { updateTournamentManagementThread, updateDraftManagementPanel } from '..
 import { createDraftStatusEmbed } from '../utils/embeds.js';
 
 export async function handleModal(interaction) {
- // --- VARIABLES MOVIDAS AL PRINCIPIO ---
+
+ // ==============================================================================
+    // === NUEVA LÓGICA PARA PROCESAR EL MODAL DE INSCRIPCIÓN CON STREAM ============
+    // ==============================================================================
+
     const customId = interaction.customId;
     const client = interaction.client;
-    const guild = interaction.guild;
     const db = getDb();
     const [action, ...params] = customId.split(':');
+
+    if (action === 'inscripcion_final_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const [tournamentShortId, platform, teamId] = params;
+        const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
+        const streamChannelUrl = platform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect(process.env.DATABASE_URL);
+        }
+        const team = await Team.findById(teamId).lean();
+
+        if (!tournament || !team) {
+            return interaction.editReply({ content: '❌ El torneo o el equipo ya no existen.' });
+        }
+
+        const teamData = {
+            id: team.managerId,
+            nombre: team.name,
+            eafcTeamName: team.name, // Puedes cambiar esto si tienes un campo EAFC en tu modelo Team
+            capitanId: team.managerId,
+            capitanTag: interaction.user.tag,
+            coCaptainId: team.captains.length > 0 ? team.captains[0] : null,
+            coCaptainTag: null,
+            logoUrl: team.logoUrl,
+            twitter: team.twitterHandle,
+            streamChannel: streamChannelUrl,
+            paypal: null,
+            inscritoEn: new Date()
+        };
+
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${teamData.capitanId}`]: teamData } });
+        
+        const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId);
+        
+        const adminEmbed = new EmbedBuilder()
+            .setColor('#3498DB')
+            .setTitle(`🔔 Nueva Inscripción (Equipo Registrado)`)
+            .setThumbnail(teamData.logoUrl)
+            .addFields(
+                { name: 'Equipo', value: teamData.nombre, inline: true },
+                { name: 'Mánager', value: interaction.user.tag, inline: true },
+                { name: 'Canal de Stream', value: `[Ver Canal](${teamData.streamChannel})`, inline: false }
+            );
+        const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${teamData.capitanId}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${teamData.capitanId}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
+        await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
+        
+        await interaction.editReply({ content: `✅ ¡Tu inscripción para **${team.name}** ha sido recibida! Un admin la revisará pronto.` });
+        return; // ¡Importante! Detenemos la ejecución aquí.
+    }
+
+    // ==============================================================================
+    // === FIN DE LA NUEVA LÓGICA ===================================================
+    // ==============================================================================
 
  if (action === 'admin_edit_team_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
