@@ -81,11 +81,14 @@ export async function handleButton(interaction) {
 
     if (action === 'confirm_team_registration') {
         const [tournamentShortId, teamId] = params;
-        const originalAction = `register_team_from_db:${teamId}`;
+        
+        // CORRECCIÓN: Pasamos 'register_team_from_db' como una palabra clave
+        // y el teamId como un parámetro separado para evitar errores de 'split'.
+        const originalAction = 'register_team_from_db'; 
 
         const platformButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
         );
 
         await interaction.update({
@@ -95,7 +98,6 @@ export async function handleButton(interaction) {
         });
         return;
     }
-
 	if (action === 'select_stream_platform') {
         const [platform, originalAction, entityId, position] = params;
         
@@ -113,19 +115,21 @@ export async function handleButton(interaction) {
     }
     
     if (action === 'streamer_warning_accept') {
-        const [platform, originalAction, entityId, position] = params;
+        // CORRECCIÓN: Los parámetros ahora llegan limpios y en orden.
+        const [platform, originalAction, entityId, teamIdOrPosition] = params;
         const modal = new ModalBuilder();
         const usernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
 
         let finalActionId;
 
-        if (originalAction.startsWith('register_team_from_db')) {
-            const teamId = originalAction.split(':')[1];
+        if (originalAction === 'register_team_from_db') {
             const tournamentShortId = entityId;
+            const teamId = teamIdOrPosition; // Ahora el teamId llega correctamente
             finalActionId = `inscripcion_final_modal:${tournamentShortId}:${platform}:${teamId}`;
             modal.setTitle('Finalizar Inscripción (Stream)');
             modal.addComponents(new ActionRowBuilder().addComponents(usernameInput));
         } else if (originalAction.startsWith('register_draft_captain')) {
+            const position = teamIdOrPosition; // En el flujo de draft, aquí llega la posición
             finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}`;
             modal.setTitle('Inscripción como Capitán de Draft');
             const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
@@ -140,7 +144,7 @@ export async function handleButton(interaction) {
                 new ActionRowBuilder().addComponents(twitterInput)
             );
         } else {
-            // Este flujo se mantiene por si en algún momento se permite la inscripción sin ser mánager.
+            // Flujo antiguo (legado)
             finalActionId = `inscripcion_modal:${entityId}:${platform}`;
             modal.setTitle('Inscripción de Equipo');
             const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
@@ -158,7 +162,6 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
-
     if (action === 'admin_edit_team_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
