@@ -1,5 +1,5 @@
 // src/models/availabilityPanel.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 // AÑADIDO: Schema para guardar las peticiones pendientes de desafío por separado.
@@ -37,4 +37,4 @@ const availabilityPanelSchema = new Schema({
 // un panel de cada tipo (SCHEDULED o INSTANT) activo a la vez.
 availabilityPanelSchema.index({ teamId: 1, panelType: 1 }, { unique: true });
 
-module.exports = mongoose.model('AvailabilityPanel', availabilityPanelSchema);
+export default mongoose.model('AvailabilityPanel', availabilityPanelSchema);
