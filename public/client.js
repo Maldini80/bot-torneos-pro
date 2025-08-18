@@ -1,3 +1,4 @@
+// --- INICIO DEL ARCHIVO client.js ---
 // ==========================================================
 // ▼▼▼ DATOS DE PRUEBA PARA EL MODO DEMO ▼▼▼
 // ==========================================================
@@ -46,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA PARA ACTIVAR EL MODO DEMO ---
     if (urlParams.has('demo')) {
         console.log("MODO DEMO ACTIVADO");
-        initializeTournamentView(null); // Pasamos null para que no intente conectar
+        initializeTournamentView(null);
         return; 
     }
     // --- FIN DEL MODO DEMO ---
@@ -89,7 +90,6 @@ function initializeTournamentView(tournamentId) {
         if(loadingEl) loadingEl.classList.add('hidden');
         if(appContainerEl) appContainerEl.classList.remove('hidden');
         renderTournamentState(sampleTournamentData);
-        // Desactivamos el panel de navegación para evitar confusiones en el modo demo
         if(viewSwitcherEl) viewSwitcherEl.style.pointerEvents = 'none';
         return; 
     }
@@ -420,13 +420,11 @@ function initializeDraftView(draftId) {
         const posIndexA = positionOrder.indexOf(a.primaryPosition);
         const posIndexB = positionOrder.indexOf(b.primaryPosition);
         if (posIndexA !== posIndexB) return posIndexA - posIndexB;
-
         const secPosA = a.secondaryPosition === 'NONE' || !a.secondaryPosition ? 'zzz' : a.secondaryPosition;
         const secPosB = b.secondaryPosition === 'NONE' || !b.secondaryPosition ? 'zzz' : b.secondaryPosition;
         const secPosIndexA = positionOrder.indexOf(secPosA);
         const secPosIndexB = positionOrder.indexOf(secPosB);
         if (secPosIndexA !== secPosIndexB) return secPosIndexA - secPosIndexB;
-
         return a.psnId.localeCompare(b.psnId);
     }
 
@@ -482,6 +480,7 @@ function initializeDraftView(draftId) {
     }
 
     function setupFilters() {
+        if (!positionFiltersEl) return;
         positionFiltersEl.innerHTML = `
             <select id="filter-column-select">
                 <option value="primary">Filtrar por Pos. Primaria</option>
@@ -503,11 +502,13 @@ function initializeDraftView(draftId) {
     }
 
     function filterTable(position) {
+        if (!playersTableBodyEl) return;
         document.querySelectorAll('#position-filters .filter-btn').forEach(btn => btn.classList.remove('active'));
         const currentFilterBtn = document.querySelector(`#position-filters .filter-btn[data-pos="${position}"]`);
         if (currentFilterBtn) currentFilterBtn.classList.add('active');
         
-        const filterColumn = document.getElementById('filter-column-select').value;
+        const filterColumnSelect = document.getElementById('filter-column-select');
+        const filterColumn = filterColumnSelect ? filterColumnSelect.value : 'primary';
         const rows = playersTableBodyEl.querySelectorAll('tr');
         rows.forEach(row => {
             const rowPos = filterColumn === 'primary' ? row.dataset.posPrimary : row.dataset.posSecondary;
@@ -520,6 +521,7 @@ function initializeDraftView(draftId) {
     }
 
     function showPickAlert(pickNumber, player, captain) {
+        if (!pickAlertEl || !pickAlertContentEl) return;
         pickAlertContentEl.innerHTML = `<div class="pick-number">PICK #${pickNumber}</div><div class="player-name">${player.psnId}</div><div class="team-name">${captain.teamName}</div>`;
         pickAlertEl.classList.add('visible');
         setTimeout(() => {
