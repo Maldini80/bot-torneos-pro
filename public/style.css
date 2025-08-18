@@ -2,10 +2,12 @@
 
 /* --- CONFIGURACIÓN GLOBAL Y FUENTES --- */
 :root {
-    --primary-red: #D72121;
+    --primary-red: #E02128;
+    --red-gradient: linear-gradient(90deg, #E02128, #A3181E);
     --dark-bg: #101010;
-    --panel-bg: #1A1A1A;
-    --border-color: #333333;
+    --panel-bg: rgba(26, 26, 26, 0.85);
+    --panel-bg-solid: #1A1A1A;
+    --border-color: rgba(255, 255, 255, 0.1);
     --text-light: #FFFFFF;
     --text-medium: #A0A0A0;
     --font-header: 'Russo One', sans-serif;
@@ -14,14 +16,18 @@
 * {
     box-sizing: border-box;
     scrollbar-width: thin;
-    scrollbar-color: var(--primary-red) var(--panel-bg);
+    scrollbar-color: var(--primary-red) var(--panel-bg-solid);
 }
 ::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--panel-bg); }
+::-webkit-scrollbar-track { background: var(--panel-bg-solid); }
 ::-webkit-scrollbar-thumb { background-color: var(--primary-red); border-radius: 4px; }
 
 body {
     background-color: var(--dark-bg);
+    background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://i.imgur.com/nrexwUe.jpeg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     color: var(--text-light);
     font-family: var(--font-body);
     margin: 0;
@@ -31,89 +37,109 @@ body {
 .hidden { display: none !important; }
 
 /* --- CARGADOR --- */
-#loading { text-align: center; padding-top: 25vh; font-family: var(--font-header); }
-.loader { width: 50px; height: 50px; border: 5px solid var(--border-color); border-top-color: var(--primary-red); border-radius: 50%; animation: spin 1s linear infinite; margin: auto; }
+#loading { text-align: center; padding-top: 25vh; font-family: var(--font-header); letter-spacing: 2px; }
+.loader { width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.2); border-top-color: var(--primary-red); border-radius: 50%; animation: spin 1s linear infinite; margin: auto; margin-bottom: 20px;}
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* --- ESTRUCTURA PRINCIPAL --- */
+/* --- ESTRUCTURA PRINCIPAL Y PANELES --- */
 #app-container, #draft-container { display: none; flex-direction: column; height: calc(100vh - 30px); }
 body:not(.draft-view-style) #app-container, body.draft-view-style #draft-container { display: flex; }
 
 .main-header { display: flex; align-items: center; justify-content: center; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; }
-.header-logo { height: 80px; margin-right: 25px; }
-.header-title h1 { font-family: var(--font-header); font-size: 3.5em; margin: 0; color: var(--primary-red); text-transform: uppercase; }
+.header-logo { height: 90px; margin-right: 25px; }
+.header-title h1 { font-family: var(--font-header); font-size: 3.8em; margin: 0; background: var(--red-gradient); -webkit-background-clip: text; color: transparent; text-transform: uppercase; }
 .header-title p { color: var(--text-medium); margin: 0; font-size: 1.1em; }
 
-.main-content { display: grid; grid-template-columns: 1fr 350px; gap: 15px; flex-grow: 1; min-height: 0; }
-.panel { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; display: flex; flex-direction: column; }
-#main-view-content, #live-matches-list, #groups-container, #teams-container-draftview, .players-table-container { overflow-y: auto; flex-grow: 1; } /* SCROLLBARS */
+.main-content { display: grid; grid-template-columns: 1fr 380px; gap: 15px; flex-grow: 1; min-height: 0; }
+.panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    backdrop-filter: blur(5px);
+    border-radius: 6px; padding: 20px;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden; /* Para las animaciones */
+}
+/* --- ANIMACIÓN NEÓN --- */
+.panel::before, .panel::after {
+    content: ''; position: absolute; left: 0; top: 0;
+    background: var(--red-gradient);
+    box-shadow: 0 0 5px var(--primary-red), 0 0 10px var(--primary-red);
+    animation: animate-neon 4s linear infinite;
+}
+.panel::before { width: 100%; height: 2px; }
+.panel::after { width: 2px; height: 100%; }
+@keyframes animate-neon {
+    0% { transform: translateX(-100%) translateY(-100%); }
+    25% { transform: translateX(0) translateY(-100%); }
+    50% { transform: translateX(0) translateY(0); }
+    75% { transform: translateX(-100%) translateY(0); }
+    100% { transform: translateX(-100%) translateY(-100%); }
+}
 
-.pane-title { font-family: var(--font-header); font-size: 1.8em; color: var(--primary-red); margin: 0 0 20px 0; text-align: center; text-transform: uppercase; }
+#main-view-content, #live-matches-list, #groups-container, #teams-container-draftview, .players-table-container { overflow-y: auto; flex-grow: 1; }
 
-/* --- PESTAÑAS DE NAVEGACIÓN --- */
+.pane-title { font-family: var(--font-header); font-size: 1.8em; background: var(--red-gradient); -webkit-background-clip: text; color: transparent; margin: 0 0 20px 0; text-align: center; text-transform: uppercase; }
+
+/* --- NAVEGACIÓN Y PESTAÑAS --- */
 .view-switcher { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
 .view-btn { font-family: var(--font-header); font-size: 1.3em; background: none; border: none; color: var(--text-medium); padding: 10px 20px; cursor: pointer; transition: color 0.2s; border-bottom: 3px solid transparent; }
 .view-btn.active { color: var(--primary-red); border-bottom-color: var(--primary-red); }
 .view-btn:hover { color: var(--text-light); }
-.view-pane { display: none; }
+.view-pane { display: none; animation: fadeIn 0.5s; }
 .view-pane.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* --- PESTAÑA EQUIPOS (TORNEO) --- */
-#team-list-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; }
-.team-card-info { display: flex; align-items: center; gap: 15px; background: #222; padding: 15px; border-radius: 4px; border: 1px solid var(--border-color); }
-.team-card-info .logo-container { flex-shrink: 0; width: 60px; height: 60px; }
+/* --- PESTAÑA EQUIPOS --- */
+#team-list-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 15px; }
+.team-card-info { display: flex; align-items: center; gap: 15px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color); transition: border-color 0.3s; }
+.team-card-info:hover { border-color: var(--primary-red); }
+.team-card-info .logo-container { flex-shrink: 0; width: 70px; height: 70px; }
 .team-card-info .logo-image { width: 100%; height: 100%; object-fit: contain; }
 .team-card-info .team-details { display: flex; flex-direction: column; gap: 8px; }
-.team-card-info h3 { font-family: var(--font-header); font-size: 1.5em; margin: 0; color: var(--text-light); }
+.team-card-info h3 { font-family: var(--font-header); font-size: 1.6em; margin: 0; color: var(--text-light); }
 .team-card-info .team-meta { font-size: 0.9em; color: var(--text-medium); }
 .team-card-info .team-links { display: flex; gap: 10px; margin-top: 5px; }
 .team-card-info .team-links a { background: #333; color: var(--text-light); text-decoration: none; padding: 5px 12px; border-radius: 3px; font-size: 0.8em; transition: background 0.2s; }
 .team-card-info .team-links a:hover { background: var(--primary-red); }
 
-/* --- PESTAÑA CLASIFICACIÓN (TORNEO) --- */
-.group-table table { width: 100%; border-collapse: collapse; }
-.group-table th, .group-table td { padding: 10px; border-bottom: 1px solid var(--border-color); text-align: center; }
-.group-table th { font-family: var(--font-header); color: var(--primary-red); }
-.group-table .team-cell { text-align: left; display: flex; align-items: center; }
-.group-table .logo-container { width: 30px; height: 30px; margin-right: 10px; flex-shrink: 0; }
-.group-table .logo-image { width: 100%; height: 100%; object-fit: contain; }
-
-/* --- PESTAÑA ELIMINATORIAS (TORNEO) --- */
+/* --- CLASIFICACIÓN Y ELIMINATORIAS --- */
+.group-table table, #bracket-container table { width: 100%; border-collapse: collapse; }
+.group-table th, .group-table td, #bracket-container td { padding: 12px; border-bottom: 1px solid var(--border-color); text-align: center; }
+.group-table th, #bracket-container th { font-family: var(--font-header); color: var(--primary-red); }
+.group-table .team-cell, #bracket-container .team-cell { text-align: left; display: flex; align-items: center; }
+.group-table .logo-container, #bracket-container .logo-container { width: 35px; height: 35px; margin-right: 15px; flex-shrink: 0; }
+.group-table .logo-image, #bracket-container .logo-image { width: 100%; height: 100%; object-fit: contain; }
 #bracket-container { display: flex; overflow-x: auto; padding-bottom: 20px; gap: 20px; }
-.bracket-round { min-width: 250px; }
+.bracket-round { min-width: 280px; }
 .bracket-match { border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 15px; }
 .bracket-team { display: flex; align-items: center; justify-content: space-between; padding: 10px; }
-.bracket-team .logo-container { width: 30px; height: 30px; margin-right: 10px; flex-shrink: 0; }
 .winner .team-name { color: var(--primary-red); font-weight: bold; }
 
-/* --- BARRA LATERAL (TORNEO) --- */
-.live-match-card { background: #222; border: 1px solid var(--border-color); border-radius: 4px; padding: 15px; margin-bottom: 10px; }
-.live-match-teams { font-family: var(--font-header); text-align: center; font-size: 1.1em; margin-bottom: 10px; }
-.stream-links a { display: block; background: var(--primary-red); color: var(--text-light); text-decoration: none; padding: 8px; border-radius: 3px; margin-top: 5px; text-align: center; transition: background 0.2s; }
+/* --- PARTIDOS EN DIRECTO --- */
+.live-match-card { background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 4px; padding: 15px; margin-bottom: 10px; }
+.live-match-teams { font-family: var(--font-header); text-align: center; font-size: 1.2em; margin-bottom: 10px; }
+.stream-links a { display: block; background: var(--primary-red); color: var(--text-light); text-decoration: none; padding: 10px; border-radius: 3px; margin-top: 8px; text-align: center; transition: background 0.2s; font-weight: bold; }
 .stream-links a:hover { background: #FF5555; }
 
-/* --- ESTILOS DEL DRAFT --- */
+/* --- ESTILOS DRAFT (INTEGRADOS) --- */
 .status-line-draftview { display: flex; justify-content: space-between; font-family: var(--font-header); font-size: 1em; color: var(--text-medium); width: 100%; }
 .content-grid-draftview { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; flex-grow: 1; min-height: 0; }
 #teams-container-draftview { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; align-content: start; }
-.team-card { background: #222; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; }
+.team-card { background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; }
 .team-header { font-family: var(--font-header); color: var(--primary-red); }
 #players-table th { font-family: var(--font-header); color: var(--primary-red); text-align: left; }
 #players-table td { border-top: 1px solid var(--border-color); padding: 8px; }
-#pick-alert { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; transition: opacity 0.3s; }
-#pick-alert.hidden { opacity: 0; pointer-events: none; }
 
 /* --- VISTA MÓVIL (RESPONSIVE) --- */
-@media (max-width: 900px) {
+@media (max-width: 950px) {
     body { padding: 10px; overflow: auto; }
     #app-container, #draft-container { height: auto; }
     .main-header { flex-direction: column; text-align: center; }
-    .header-logo { height: 60px; margin: 0 0 10px 0; }
+    .header-logo { height: 70px; margin: 0 0 15px 0; }
     .header-title h1 { font-size: 2.5em; }
     .main-content, .content-grid-draftview { grid-template-columns: 1fr; }
     #live-match-sidebar { margin-top: 15px; }
-    #team-list-container { grid-template-columns: 1fr; }
-    #teams-container-draftview { grid-template-columns: 1fr; }
+    #team-list-container, #teams-container-draftview { grid-template-columns: 1fr; }
     .group-table { overflow-x: auto; }
 }
 
