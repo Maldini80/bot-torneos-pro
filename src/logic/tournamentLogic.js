@@ -34,51 +34,61 @@ export async function notifyTournamentVisualizer(tournament) {
 
 
 async function publishDraftVisualizerURL(client, draft) {
-    if (!process.env.NGROK_STATIC_DOMAIN || !draft.discordMessageIds.casterTextChannelId) return;
+    if (!process.env.NGROK_STATIC_DOMAIN) return;
+
     try {
-        const casterChannel = await client.channels.fetch(draft.discordMessageIds.casterTextChannelId);
-        const casterRole = await casterChannel.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
         const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?draftId=${draft.shortId}`;
 
         const embed = new EmbedBuilder()
-            .setColor('#E53935') // Un color rojo temático
+            .setColor('#2ecc71') // Color verde para el embed
             .setTitle('🔴 Visualizador del Draft EN VIVO')
             .setDescription(`¡El visualizador para el draft **${draft.name}** ya está disponible!\n\nUtiliza el botón de abajo para abrirlo en tu navegador. Esta es la URL que debes capturar en tu software de streaming (OBS, Streamlabs, etc.).`)
-            .setImage('https://i.imgur.com/zllCHVT.png') // La imagen que solicitaste
+            .setImage('https://i.imgur.com/kxFTXFg.jpeg') // <-- CAMBIO: Nueva imagen
             .setTimestamp()
             .setFooter({ text: 'VPG Lightnings - Sistema de Drafts' });
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setLabel('Abrir Visualizador del Draft')
-                .setStyle(ButtonStyle.Link)
-                .setURL(visualizerLink) // El botón enlaza directamente a la URL
+                .setStyle(ButtonStyle.Link) // Los botones de enlace en Discord son siempre grises/azules, no se pueden poner verdes.
+                .setURL(visualizerLink)
                 .setEmoji('🔗')
         );
+        
+        // 1. Enviar al canal privado de Casters (como antes)
+        if (draft.discordMessageIds.casterTextChannelId) {
+            const casterChannel = await client.channels.fetch(draft.discordMessageIds.casterTextChannelId);
+            const casterRole = await casterChannel.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+            await casterChannel.send({
+                content: casterRole ? `<@&${casterRole.id}>` : '',
+                embeds: [embed],
+                components: [row]
+            });
+        }
 
-        await casterChannel.send({
-            content: casterRole ? `<@&${casterRole.id}>` : '', // Mantenemos la mención para notificar
-            embeds: [embed],
-            components: [row]
-        });
+        // 2. Enviar al canal público de Información del Draft
+        if (draft.discordChannelId) {
+            const publicInfoChannel = await client.channels.fetch(draft.discordChannelId);
+            await publicInfoChannel.send({
+                embeds: [embed],
+                components: [row]
+            });
+        }
 
     } catch (e) { 
         console.error(`[Visualizer] Fallo al publicar URL de draft para ${draft.shortId}:`, e); 
     }
 }
-
 async function publishTournamentVisualizerURL(client, tournament) {
-    if (!process.env.NGROK_STATIC_DOMAIN || !tournament.discordMessageIds.casterThreadId) return;
+    if (!process.env.NGROK_STATIC_DOMAIN) return;
     try {
-        const casterThread = await client.channels.fetch(tournament.discordMessageIds.casterThreadId);
-        const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
         const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?tournamentId=${tournament.shortId}`;
 
         const embed = new EmbedBuilder()
-            .setColor('#3498db') // Un color azul para diferenciar de los drafts
+            .setColor('#2ecc71') // Color verde para el embed
             .setTitle('🏆 Visualizador del Torneo EN VIVO')
-            .setDescription(`¡El visualizador para el torneo **${tournament.nombre}** ya está disponible!\n\nUtiliza el botón de abajo para abrirlo y capturarlo en tu software de streaming.`)
-            .setImage('https://i.imgur.com/zllCHVT.png') // La misma imagen
+            .setDescription(`¡El visualizador para el torneo **${tournament.nombre}** ya está disponible!\n\nUtiliza el botón de abajo para abrirlo y seguir toda la acción en tiempo real.`)
+            .setImage('https://i.imgur.com/kxFTXFg.jpeg') // <-- CAMBIO: Nueva imagen
             .setTimestamp()
             .setFooter({ text: 'VPG Lightnings - Sistema de Torneos' });
 
@@ -90,11 +100,25 @@ async function publishTournamentVisualizerURL(client, tournament) {
                 .setEmoji('🔗')
         );
 
-        await casterThread.send({
-            content: casterRole ? `<@&${casterRole.id}>` : '',
-            embeds: [embed],
-            components: [row]
-        });
+        // 1. Enviar al hilo privado de Casters (como antes)
+        if (tournament.discordMessageIds.casterThreadId) {
+            const casterThread = await client.channels.fetch(tournament.discordMessageIds.casterThreadId);
+            const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
+            await casterThread.send({
+                content: casterRole ? `<@&${casterRole.id}>` : '',
+                embeds: [embed],
+                components: [row]
+            });
+        }
+        
+        // 2. Enviar al canal público de Información del Torneo
+        if (tournament.discordChannelIds.infoChannelId) {
+            const publicInfoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId);
+            await publicInfoChannel.send({
+                embeds: [embed],
+                components: [row]
+            });
+        }
 
     } catch (e) { 
         console.error(`[Visualizer] Fallo al publicar URL de torneo para ${tournament.shortId}:`, e); 
