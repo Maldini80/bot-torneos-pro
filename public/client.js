@@ -1,7 +1,6 @@
 // ==========================================================
-// ▼▼▼ DATOS DE PRUEBA PARA LOS MODOS DEMO ▼▼▼
+// ▼▼▼ DATOS DE PRUEBA PARA LOS MODOS DEMO (VERSIÓN CORREGIDA) ▼▼▼
 // ==========================================================
-
 const sampleTournamentData = {
     nombre: "TORNEO DE PRUEBA VISUAL",
     config: { format: { label: "8 Equipos (Clásico - Semifinales)", size: 8 } },
@@ -19,11 +18,21 @@ const sampleTournamentData = {
     },
     structure: {
         grupos: {
+            // CORRECCIÓN: Añadido 'logoUrl' a cada equipo aquí
             "Grupo A": { equipos: [ { id: "001", nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png", stats: { pj: 3, pts: 9, gf: 10, gc: 2, dg: 8 } }, { id: "002", nombre: "Vipers AC", logoUrl: "https://i.imgur.com/S3y6uHk.png", stats: { pj: 3, pts: 6, gf: 5, gc: 5, dg: 0 } }, { id: "003", nombre: "Titans United", logoUrl: "https://i.imgur.com/r6yA02A.png", stats: { pj: 3, pts: 3, gf: 4, gc: 8, dg: -4 } }, { id: "004", nombre: "Red Dragons", logoUrl: "https://i.imgur.com/v82aXfH.png", stats: { pj: 3, pts: 0, gf: 3, gc: 7, dg: -4 } } ] },
             "Grupo B": { equipos: [ { id: "005", nombre: "Aqua Marines", logoUrl: "https://i.imgur.com/3Z0aF8S.png", stats: { pj: 3, pts: 7, gf: 6, gc: 2, dg: 4 } }, { id: "006", nombre: "Eclipse Gaming", logoUrl: "https://i.imgur.com/JqkL3G9.png", stats: { pj: 3, pts: 5, gf: 4, gc: 3, dg: 1 } }, { id: "007", nombre: "Atomic Esports", logoUrl: "https://i.imgur.com/U8E6f75.png", stats: { pj: 3, pts: 2, gf: 5, gc: 7, dg: -2 } }, { id: "008", nombre: "Project Phoenix", logoUrl: "https://i.imgur.com/2Y5A7A2.png", stats: { pj: 3, pts: 1, gf: 2, gc: 5, dg: -3 } } ] }
         },
-        calendario: { "Grupo A": [ { jornada: 1, status: 'en_curso', equipoA: { capitanId: "001", nombre: "Thunderbolts FC" }, equipoB: { capitanId: "002", nombre: "Vipers AC" } } ] },
-        eliminatorias: { semifinales: [ { equipoA: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, equipoB: { nombre: "Eclipse Gaming", logoUrl: "https://i.imgur.com/JqkL3G9.png" }, resultado: "2-1" } ], final: { equipoA: { nombre: "Aqua Marines", logoUrl: "https://i.imgur.com/3Z0aF8S.png" }, equipoB: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, resultado: null } },
+        calendario: {
+             "Grupo A": [ { jornada: 1, status: 'en_curso', equipoA: { capitanId: "001", nombre: "Thunderbolts FC" }, equipoB: { capitanId: "002", nombre: "Vipers AC" } } ],
+        },
+        eliminatorias: {
+             // CORRECCIÓN: Añadido 'logoUrl' a cada equipo aquí
+             semifinales: [
+                { equipoA: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, equipoB: { nombre: "Eclipse Gaming", logoUrl: "https://i.imgur.com/JqkL3G9.png" }, resultado: "2-1" }
+            ],
+             final: 
+                { equipoA: { nombre: "Aqua Marines", logoUrl: "https://i.imgur.com/3Z0aF8S.png" }, equipoB: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, resultado: null }
+        },
     },
     status: "semifinales"
 };
@@ -74,9 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`MODO DEMO ACTIVADO: ${demoMode}`);
         if (demoMode === 'draft') {
             document.body.classList.add('draft-view-style');
-            initializeDraftView(null); // Pasamos null para activar el modo demo de draft
-        } else { // Por defecto, o si es ?demo=true o ?demo=tournament
-            initializeTournamentView(null); // Pasamos null para activar el modo demo de torneo
+            initializeDraftView(null);
+        } else {
+            initializeTournamentView(null);
         }
         return; 
     }
@@ -274,7 +283,7 @@ function initializeTournamentView(tournamentId) {
 
     function renderBracket(tournament) {
         if(!bracketContainerEl) return;
-        const stages = ['semifinales', 'final']; // Forzado para el demo, en real usaría tournament.config.format.knockoutStages
+        const stages = ['semifinales', 'final'];
         if (!stages || !tournament.structure.eliminatorias) {
             bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
             return;
@@ -388,7 +397,7 @@ function initializeDraftView(draftId) {
         if(loadingEl) loadingEl.classList.add('hidden');
         if(draftContainerEl) draftContainerEl.classList.remove('hidden');
         renderDraftState(sampleDraftData);
-        setupFilters(); // Asegurarse de que los filtros se creen
+        setupFilters();
         return; 
     }
     // --- FIN LÓGICA DEMO ---
