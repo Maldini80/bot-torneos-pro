@@ -1,12 +1,10 @@
-// --- INICIO DEL ARCHIVO client.js ---
 // ==========================================================
-// ▼▼▼ DATOS DE PRUEBA PARA EL MODO DEMO ▼▼▼
+// ▼▼▼ DATOS DE PRUEBA PARA LOS MODOS DEMO ▼▼▼
 // ==========================================================
+
 const sampleTournamentData = {
     nombre: "TORNEO DE PRUEBA VISUAL",
-    config: {
-        format: { label: "8 Equipos (Clásico - Semifinales)", size: 8 },
-    },
+    config: { format: { label: "8 Equipos (Clásico - Semifinales)", size: 8 } },
     teams: {
         aprobados: {
             "001": { capitanId: "001", nombre: "Thunderbolts FC", capitanTag: "CapitanBolt#1111", coCaptainTag: "CoCapitan#1112", logoUrl: "https://i.imgur.com/gJ33hmJ.png", twitter: "vpg_spain", streamChannel: "https://twitch.tv/example" },
@@ -24,18 +22,44 @@ const sampleTournamentData = {
             "Grupo A": { equipos: [ { id: "001", nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png", stats: { pj: 3, pts: 9, gf: 10, gc: 2, dg: 8 } }, { id: "002", nombre: "Vipers AC", logoUrl: "https://i.imgur.com/S3y6uHk.png", stats: { pj: 3, pts: 6, gf: 5, gc: 5, dg: 0 } }, { id: "003", nombre: "Titans United", logoUrl: "https://i.imgur.com/r6yA02A.png", stats: { pj: 3, pts: 3, gf: 4, gc: 8, dg: -4 } }, { id: "004", nombre: "Red Dragons", logoUrl: "https://i.imgur.com/v82aXfH.png", stats: { pj: 3, pts: 0, gf: 3, gc: 7, dg: -4 } } ] },
             "Grupo B": { equipos: [ { id: "005", nombre: "Aqua Marines", logoUrl: "https://i.imgur.com/3Z0aF8S.png", stats: { pj: 3, pts: 7, gf: 6, gc: 2, dg: 4 } }, { id: "006", nombre: "Eclipse Gaming", logoUrl: "https://i.imgur.com/JqkL3G9.png", stats: { pj: 3, pts: 5, gf: 4, gc: 3, dg: 1 } }, { id: "007", nombre: "Atomic Esports", logoUrl: "https://i.imgur.com/U8E6f75.png", stats: { pj: 3, pts: 2, gf: 5, gc: 7, dg: -2 } }, { id: "008", nombre: "Project Phoenix", logoUrl: "https://i.imgur.com/2Y5A7A2.png", stats: { pj: 3, pts: 1, gf: 2, gc: 5, dg: -3 } } ] }
         },
-        calendario: {
-             "Grupo A": [ { jornada: 1, status: 'en_curso', equipoA: { capitanId: "001", nombre: "Thunderbolts FC" }, equipoB: { capitanId: "002", nombre: "Vipers AC" } } ],
-        },
-        eliminatorias: {
-             semifinales: [
-                { equipoA: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, equipoB: { nombre: "Eclipse Gaming", logoUrl: "https://i.imgur.com/JqkL3G9.png" }, resultado: "2-1" }
-            ],
-             final: 
-                { equipoA: { nombre: "Aqua Marines", logoUrl: "https://i.imgur.com/3Z0aF8S.png" }, equipoB: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, resultado: null }
-        },
+        calendario: { "Grupo A": [ { jornada: 1, status: 'en_curso', equipoA: { capitanId: "001", nombre: "Thunderbolts FC" }, equipoB: { capitanId: "002", nombre: "Vipers AC" } } ] },
+        eliminatorias: { semifinales: [ { equipoA: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, equipoB: { nombre: "Eclipse Gaming", logoUrl: "https://i.imgur.com/JqkL3G9.png" }, resultado: "2-1" } ], final: { equipoA: { nombre: "Aqua Marines", logoUrl: "https://i.imgur.com/3Z0aF8S.png" }, equipoB: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, resultado: null } },
     },
     status: "semifinales"
+};
+
+const sampleDraftData = {
+    name: "DRAFT DE PRUEBA VISUAL",
+    status: "seleccion",
+    captains: [
+        { userId: "c1", teamName: "Neon Knights", psnId: "KnightCapi" },
+        { userId: "c2", teamName: "Cyber Stallions", psnId: "StallionCapi" },
+        { userId: "c3", teamName: "Quantum Quakes", psnId: "QuakeCapi" },
+        { userId: "c4", teamName: "Solar Flares", psnId: "FlareCapi" }
+    ],
+    players: [
+        { userId: "c1", psnId: "KnightCapi", primaryPosition: "MCD", isCaptain: true, captainId: "c1" },
+        { userId: "c2", psnId: "StallionCapi", primaryPosition: "DC", isCaptain: true, captainId: "c2" },
+        { userId: "c3", psnId: "QuakeCapi", primaryPosition: "DFC", isCaptain: true, captainId: "c3" },
+        { userId: "c4", psnId: "FlareCapi", primaryPosition: "MV/MCO", isCaptain: true, captainId: "c4" },
+        { userId: "p1", psnId: "Player_GK_Alpha", primaryPosition: "GK", captainId: "c1", currentTeam: "Equipo" },
+        { userId: "p2", psnId: "Player_DC_Beta", primaryPosition: "DC", captainId: "c2", currentTeam: "Equipo" },
+        { userId: "p3", psnId: "Player_DFC_Gamma", primaryPosition: "DFC", captainId: "c3", currentTeam: "Equipo" },
+        { userId: "p4", psnId: "Player_CARR_Delta", primaryPosition: "CARR", captainId: "c4", currentTeam: "Equipo" },
+        { userId: "p5", psnId: "FreeAgent_GK_1", primaryPosition: "GK", captainId: null, currentTeam: "Libre" },
+        { userId: "p6", psnId: "FreeAgent_GK_2", primaryPosition: "GK", captainId: null, currentTeam: "Libre" },
+        { userId: "p7", psnId: "FreeAgent_DFC_1", primaryPosition: "DFC", captainId: null, currentTeam: "Libre" },
+        { userId: "p8", psnId: "FreeAgent_DFC_2", primaryPosition: "DFC", captainId: null, currentTeam: "Libre" },
+        { userId: "p9", psnId: "FreeAgent_CARR_1", primaryPosition: "CARR", captainId: null, currentTeam: "Libre" },
+        { userId: "p10", psnId: "FreeAgent_MCD_1", primaryPosition: "MCD", captainId: null, currentTeam: "Equipo" },
+        { userId: "p11", psnId: "FreeAgent_MV_1", primaryPosition: "MV/MCO", captainId: null, currentTeam: "Libre" },
+        { userId: "p12", psnId: "FreeAgent_DC_1", primaryPosition: "DC", captainId: null, currentTeam: "Equipo" },
+    ],
+    selection: {
+        currentPick: 5,
+        turn: 0,
+        order: ["c1", "c2", "c3", "c4"]
+    }
 };
 // ==========================================================
 
@@ -43,11 +67,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const tournamentId = urlParams.get('tournamentId');
     const draftId = urlParams.get('draftId');
+    const demoMode = urlParams.get('demo');
 
     // --- LÓGICA PARA ACTIVAR EL MODO DEMO ---
-    if (urlParams.has('demo')) {
-        console.log("MODO DEMO ACTIVADO");
-        initializeTournamentView(null);
+    if (demoMode) {
+        console.log(`MODO DEMO ACTIVADO: ${demoMode}`);
+        if (demoMode === 'draft') {
+            document.body.classList.add('draft-view-style');
+            initializeDraftView(null); // Pasamos null para activar el modo demo de draft
+        } else { // Por defecto, o si es ?demo=true o ?demo=tournament
+            initializeTournamentView(null); // Pasamos null para activar el modo demo de torneo
+        }
         return; 
     }
     // --- FIN DEL MODO DEMO ---
@@ -244,8 +274,8 @@ function initializeTournamentView(tournamentId) {
 
     function renderBracket(tournament) {
         if(!bracketContainerEl) return;
-        const stages = tournament.config.format.knockoutStages;
-        if (!stages || !tournament.structure.eliminatorias || tournament.status === 'inscripcion_abierta' || tournament.status === 'fase_de_grupos') {
+        const stages = ['semifinales', 'final']; // Forzado para el demo, en real usaría tournament.config.format.knockoutStages
+        if (!stages || !tournament.structure.eliminatorias) {
             bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
             return;
         }
@@ -353,6 +383,16 @@ function initializeDraftView(draftId) {
     const pickAlertEl = document.getElementById('pick-alert');
     const pickAlertContentEl = document.getElementById('pick-alert-content');
 
+    // --- LÓGICA PARA CARGAR DATOS DE DEMO ---
+    if (draftId === null) {
+        if(loadingEl) loadingEl.classList.add('hidden');
+        if(draftContainerEl) draftContainerEl.classList.remove('hidden');
+        renderDraftState(sampleDraftData);
+        setupFilters(); // Asegurarse de que los filtros se creen
+        return; 
+    }
+    // --- FIN LÓGICA DEMO ---
+
     const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
     let hasLoadedInitialData = false;
     let playersBefore = [];
@@ -386,6 +426,7 @@ function initializeDraftView(draftId) {
         }).catch(err => console.warn('No se pudieron cargar datos iniciales de draft, esperando WebSocket.'));
 
     function renderDraftState(draft) {
+        if (!draft) return;
         if (hasLoadedInitialData) {
             const newPick = draft.players.find(p => p.captainId && !playersBefore.find(op => op.userId === p.userId)?.captainId);
             if (newPick) {
@@ -395,20 +436,20 @@ function initializeDraftView(draftId) {
         }
         playersBefore = draft.players.map(p => ({ userId: p.userId, captainId: p.captainId }));
         
-        draftNameEl.textContent = draft.name;
+        if(draftNameEl) draftNameEl.textContent = draft.name;
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
-             roundInfoEl.textContent = 'Selección Finalizada';
-             currentTeamEl.textContent = '---';
-             currentPickEl.textContent = '---';
-             roundPickOrderEl.innerHTML = '';
+             if(roundInfoEl) roundInfoEl.textContent = 'Selección Finalizada';
+             if(currentTeamEl) currentTeamEl.textContent = '---';
+             if(currentPickEl) currentPickEl.textContent = '---';
+             if(roundPickOrderEl) roundPickOrderEl.innerHTML = '';
         } else if (draft.status === 'seleccion' && draft.captains.length > 0) {
             const numCaptains = draft.captains.length;
             const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
             const totalRounds = 10;
-            roundInfoEl.textContent = `Ronda ${currentRound} de ${totalRounds}`;
+            if(roundInfoEl) roundInfoEl.textContent = `Ronda ${currentRound} de ${totalRounds}`;
             const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
-            currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
-            currentPickEl.textContent = draft.selection.currentPick;
+            if(currentTeamEl) currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
+            if(currentPickEl) currentPickEl.textContent = draft.selection.currentPick;
             renderRoundPickOrder(draft);
         }
 
@@ -429,6 +470,7 @@ function initializeDraftView(draftId) {
     }
 
     function renderTeams(draft) {
+        if(!teamsContainerEl) return;
         teamsContainerEl.innerHTML = '';
         draft.captains.sort((a,b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a,b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
@@ -442,6 +484,7 @@ function initializeDraftView(draftId) {
     }
 
     function renderAvailablePlayers(draft) {
+        if(!playersTableBodyEl) return;
         playersTableBodyEl.innerHTML = '';
         const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain).sort(sortPlayersAdvanced);
         availablePlayers.forEach(player => {
@@ -458,6 +501,7 @@ function initializeDraftView(draftId) {
     }
 
     function renderRoundPickOrder(draft) {
+        if(!roundPickOrderEl) return;
         roundPickOrderEl.innerHTML = '';
         if (draft.status !== 'seleccion') return;
         const numCaptains = draft.captains.length;
