@@ -6,4 +6,4 @@ const leagueSchema = new mongoose.Schema({
     guildId: { type: String, required: true },
 });
 
-module.exports = mongoose.model('League', leagueSchema);
+export default mongoose.model('League', leagueSchema);
