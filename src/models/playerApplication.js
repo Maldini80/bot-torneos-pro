@@ -1,5 +1,5 @@
 // src/models/playerApplication.js
-
+import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 const playerApplicationSchema = new Schema({
