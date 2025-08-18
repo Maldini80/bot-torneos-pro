@@ -1,20 +1,62 @@
-// --- INICIO DEL ARCHIVO client.js ---
+// ==========================================================
+// ▼▼▼ DATOS DE PRUEBA PARA EL MODO DEMO ▼▼▼
+// ==========================================================
+const sampleTournamentData = {
+    nombre: "TORNEO DE PRUEBA VISUAL",
+    config: {
+        format: { label: "8 Equipos (Clásico - Semifinales)", size: 8 },
+    },
+    teams: {
+        aprobados: {
+            "001": { capitanId: "001", nombre: "Thunderbolts FC", capitanTag: "CapitanBolt#1111", coCaptainTag: "CoCapitan#1112", logoUrl: "https://i.imgur.com/gJ33hmJ.png", twitter: "vpg_spain", streamChannel: "https://twitch.tv/example" },
+            "002": { capitanId: "002", nombre: "Vipers AC", capitanTag: "SnakePlayer#2222", coCaptainTag: "Venom#2223", logoUrl: "https://i.imgur.com/S3y6uHk.png", twitter: "vpg_spain", streamChannel: "https://twitch.tv/example" },
+            "003": { capitanId: "003", nombre: "Titans United", capitanTag: "TitanChief#3333", coCaptainTag: "Giant#3334", logoUrl: "https://i.imgur.com/r6yA02A.png", twitter: "vpg_spain", streamChannel: "https://twitch.tv/example" },
+            "004": { capitanId: "004", nombre: "Red Dragons", capitanTag: "DragonLord#4444", coCaptainTag: "Flame#4445", logoUrl: "https://i.imgur.com/v82aXfH.png", twitter: "vpg_spain", streamChannel: "https://twitch.tv/example" },
+            "005": { capitanId: "005", nombre: "Aqua Marines", capitanTag: "Neptune#5555", coCaptainTag: "Wave#5556", logoUrl: "https://i.imgur.com/3Z0aF8S.png", twitter: "vpg_spain", streamChannel: "https://twitch.tv/example" },
+            "006": { capitanId: "006", nombre: "Eclipse Gaming", capitanTag: "Shadow#6666", coCaptainTag: "Moon#6667", logoUrl: "https://i.imgur.com/JqkL3G9.png", twitter: "vpg_spain", streamChannel: "https://twitch.tv/example" },
+            "007": { capitanId: "007", nombre: "Atomic Esports", capitanTag: "Nuclear#7777", coCaptainTag: "Fallout#7778", logoUrl: "https://i.imgur.com/U8E6f75.png", twitter: "vpg_spain", streamChannel: "https://twitch.tv/example" },
+            "008": { capitanId: "008", nombre: "Project Phoenix", capitanTag: "Ashes#8888", coCaptainTag: "Rebirth#8889", logoUrl: "https://i.imgur.com/2Y5A7A2.png", twitter: "vpg_spain", streamChannel: "https://twitch.tv/example" },
+        }
+    },
+    structure: {
+        grupos: {
+            "Grupo A": { equipos: [ { id: "001", nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png", stats: { pj: 3, pts: 9, gf: 10, gc: 2, dg: 8 } }, { id: "002", nombre: "Vipers AC", logoUrl: "https://i.imgur.com/S3y6uHk.png", stats: { pj: 3, pts: 6, gf: 5, gc: 5, dg: 0 } }, { id: "003", nombre: "Titans United", logoUrl: "https://i.imgur.com/r6yA02A.png", stats: { pj: 3, pts: 3, gf: 4, gc: 8, dg: -4 } }, { id: "004", nombre: "Red Dragons", logoUrl: "https://i.imgur.com/v82aXfH.png", stats: { pj: 3, pts: 0, gf: 3, gc: 7, dg: -4 } } ] },
+            "Grupo B": { equipos: [ { id: "005", nombre: "Aqua Marines", logoUrl: "https://i.imgur.com/3Z0aF8S.png", stats: { pj: 3, pts: 7, gf: 6, gc: 2, dg: 4 } }, { id: "006", nombre: "Eclipse Gaming", logoUrl: "https://i.imgur.com/JqkL3G9.png", stats: { pj: 3, pts: 5, gf: 4, gc: 3, dg: 1 } }, { id: "007", nombre: "Atomic Esports", logoUrl: "https://i.imgur.com/U8E6f75.png", stats: { pj: 3, pts: 2, gf: 5, gc: 7, dg: -2 } }, { id: "008", nombre: "Project Phoenix", logoUrl: "https://i.imgur.com/2Y5A7A2.png", stats: { pj: 3, pts: 1, gf: 2, gc: 5, dg: -3 } } ] }
+        },
+        calendario: {
+             "Grupo A": [ { jornada: 1, status: 'en_curso', equipoA: { capitanId: "001", nombre: "Thunderbolts FC" }, equipoB: { capitanId: "002", nombre: "Vipers AC" } } ],
+        },
+        eliminatorias: {
+             semifinales: [
+                { equipoA: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, equipoB: { nombre: "Eclipse Gaming", logoUrl: "https://i.imgur.com/JqkL3G9.png" }, resultado: "2-1" }
+            ],
+             final: 
+                { equipoA: { nombre: "Aqua Marines", logoUrl: "https://i.imgur.com/3Z0aF8S.png" }, equipoB: { nombre: "Thunderbolts FC", logoUrl: "https://i.imgur.com/gJ33hmJ.png" }, resultado: null }
+        },
+    },
+    status: "semifinales"
+};
+// ==========================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Punto de entrada principal. Detecta el tipo de evento desde la URL.
     const urlParams = new URLSearchParams(window.location.search);
     const tournamentId = urlParams.get('tournamentId');
     const draftId = urlParams.get('draftId');
 
+    // --- LÓGICA PARA ACTIVAR EL MODO DEMO ---
+    if (urlParams.has('demo')) {
+        console.log("MODO DEMO ACTIVADO");
+        initializeTournamentView(null); // Pasamos null para que no intente conectar
+        return; 
+    }
+    // --- FIN DEL MODO DEMO ---
+
     if (tournamentId) {
-        // Si es un torneo, inicializa la vista de torneo.
         initializeTournamentView(tournamentId);
     } else if (draftId) {
-        // Si es un draft, aplica estilos específicos y inicializa la vista de draft.
         document.body.classList.add('draft-view-style');
         initializeDraftView(draftId);
     } else {
-        // Si no hay ID, muestra un error.
         const loadingEl = document.getElementById('loading');
         if(loadingEl) loadingEl.innerHTML = '<p>Error: No se ha especificado un ID de evento en la URL.</p>';
     }
@@ -24,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- MÓDULO DEL VISUALIZADOR DE TORNEOS ---
 // =================================================================
 function initializeTournamentView(tournamentId) {
-    // --- REFERENCIAS A ELEMENTOS DEL DOM (TORNEO) ---
     const loadingEl = document.getElementById('loading');
     const appContainerEl = document.getElementById('app-container');
     const tournamentNameEl = document.getElementById('tournament-name');
@@ -36,13 +77,24 @@ function initializeTournamentView(tournamentId) {
     const modalEl = document.getElementById('roster-modal');
     const modalTeamNameEl = document.getElementById('modal-team-name');
     const modalRosterListEl = document.getElementById('modal-roster-list');
-    const closeButton = document.querySelector('.close-button');
+    const closeButton = modalEl ? modalEl.querySelector('.close-button') : null;
     const viewButtons = document.querySelectorAll('.view-btn');
     const mainPanelEl = document.getElementById('main-panel');
     const viewSwitcherEl = document.querySelector('.view-switcher');
     const finishedViewEl = document.getElementById('finished-view');
     const championNameEl = document.getElementById('champion-name');
 
+    // --- LÓGICA PARA CARGAR DATOS DE DEMO ---
+    if (tournamentId === null) {
+        if(loadingEl) loadingEl.classList.add('hidden');
+        if(appContainerEl) appContainerEl.classList.remove('hidden');
+        renderTournamentState(sampleTournamentData);
+        // Desactivamos el panel de navegación para evitar confusiones en el modo demo
+        if(viewSwitcherEl) viewSwitcherEl.style.pointerEvents = 'none';
+        return; 
+    }
+    // --- FIN LÓGICA DEMO ---
+    
     let hasLoadedInitialData = false;
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
@@ -75,42 +127,49 @@ function initializeTournamentView(tournamentId) {
             document.querySelector('.view-btn.active')?.classList.remove('active');
             document.querySelector('.view-pane.active')?.classList.remove('active');
             button.classList.add('active');
-            document.getElementById(button.dataset.view).classList.add('active');
+            const viewId = button.dataset.view;
+            if (viewId) {
+                document.getElementById(viewId).classList.add('active');
+            }
         });
     });
 
     if (closeButton) {
         closeButton.addEventListener('click', () => modalEl.classList.add('hidden'));
     }
-    window.addEventListener('click', (event) => { if (event.target == modalEl) modalEl.classList.add('hidden'); });
+    window.addEventListener('click', (event) => { if (event.target === modalEl) modalEl.classList.add('hidden'); });
 
     function renderTournamentState(tournament) {
+        if (!tournament) return;
+
         if (tournament.status === 'finalizado') {
-            viewSwitcherEl.style.display = 'none';
-            const activePane = mainPanelEl.querySelector('.view-pane.active');
+            if(viewSwitcherEl) viewSwitcherEl.style.display = 'none';
+            const activePane = mainPanelEl ? mainPanelEl.querySelector('.view-pane.active') : null;
             if(activePane) activePane.classList.remove('active');
-            finishedViewEl.classList.add('active');
+            if(finishedViewEl) finishedViewEl.classList.add('active');
             const finalMatch = tournament.structure.eliminatorias.final;
             if (finalMatch && finalMatch.resultado) {
                 const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
                 const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-                championNameEl.textContent = champion.nombre;
+                if(championNameEl) championNameEl.textContent = champion.nombre;
             } else {
-                championNameEl.textContent = "Por determinar";
+                if(championNameEl) championNameEl.textContent = "Por determinar";
             }
-            tournamentNameEl.textContent = `${tournament.nombre}`;
-            liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
+            if(tournamentNameEl) tournamentNameEl.textContent = `${tournament.nombre}`;
+            if(liveMatchesListEl) liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
             return;
         }
 
-        viewSwitcherEl.style.display = 'flex';
-        finishedViewEl.classList.remove('active');
-        if (!mainPanelEl.querySelector('.view-pane.active')) {
-            mainPanelEl.querySelector('[data-view="classification-view"]').click();
+        if(viewSwitcherEl) viewSwitcherEl.style.display = 'flex';
+        if(finishedViewEl) finishedViewEl.classList.remove('active');
+        if (mainPanelEl && !mainPanelEl.querySelector('.view-pane.active')) {
+            const firstButton = mainPanelEl.querySelector('[data-view="classification-view"]');
+            if (firstButton) firstButton.click();
         }
         
-        tournamentNameEl.textContent = tournament.nombre;
-        tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
+        if(tournamentNameEl) tournamentNameEl.textContent = tournament.nombre;
+        if(tournamentFormatEl) tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
+        
         renderTeams(tournament);
         renderClassification(tournament);
         renderBracket(tournament);
@@ -118,6 +177,7 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderTeams(tournament) {
+        if(!teamListContainerEl) return;
         teamListContainerEl.innerHTML = '';
         const teams = Object.values(tournament.teams.aprobados).sort((a, b) => a.nombre.localeCompare(b.nombre));
         if (teams.length === 0) {
@@ -126,7 +186,6 @@ function initializeTournamentView(tournamentId) {
         }
         teams.forEach(team => {
             const isDraftTeam = team.players && team.players.length > 0;
-            // ESTRUCTURA HTML ACTUALIZADA PARA LA TARJETA DE EQUIPO
             const logoHtml = `<div class="logo-container"><img src="${team.logoUrl || 'https://i.imgur.com/E6obnvO.png'}" alt="${team.nombre} logo" class="logo-image"></div>`;
             
             let metaHTML = `<div class="team-meta"><span>👑 Capitán: ${team.capitanTag}</span>`;
@@ -158,6 +217,7 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderClassification(tournament) {
+        if(!groupsContainerEl) return;
         const groups = tournament.structure.grupos;
         if (Object.keys(groups).length === 0) {
             groupsContainerEl.innerHTML = '<p class="placeholder">El sorteo de grupos no se ha realizado.</p>';
@@ -172,10 +232,8 @@ function initializeTournamentView(tournamentId) {
                 if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
                 return b.stats.gf - a.stats.gf;
             });
-            // TÍTULO DEL GRUPO Y TABLA ACTUALIZADOS
             let tableHTML = `<div class="group-table"><h3>${groupName}</h3><table><thead><tr><th>Equipo</th><th>PJ</th><th>PTS</th><th>GF</th><th>GC</th><th>DG</th></tr></thead><tbody>`;
             sortedTeams.forEach(team => {
-                // CELDA DEL EQUIPO CON LOGO ACTUALIZADA
                 const logoHtml = `<div class="logo-container"><img src="${team.logoUrl || 'https://i.imgur.com/E6obnvO.png'}" alt="${team.nombre} logo" class="logo-image"></div>`;
                 tableHTML += `<tr><td class="team-cell">${logoHtml}<span>${team.nombre}</span></td><td>${team.stats.pj}</td><td>${team.stats.pts}</td><td>${team.stats.gf}</td><td>${team.stats.gc}</td><td>${team.stats.dg > 0 ? '+' : ''}${team.stats.dg}</td></tr>`;
             });
@@ -185,6 +243,7 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderBracket(tournament) {
+        if(!bracketContainerEl) return;
         const stages = tournament.config.format.knockoutStages;
         if (!stages || !tournament.structure.eliminatorias || tournament.status === 'inscripcion_abierta' || tournament.status === 'fase_de_grupos') {
             bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
@@ -202,7 +261,6 @@ function initializeTournamentView(tournamentId) {
                 const teamB = match.equipoB;
                 const teamAName = teamA?.nombre || 'Por definir';
                 const teamBName = teamB?.nombre || 'Por definir';
-                // HTML DEL LOGO ACTUALIZADO
                 const logoA = `<div class="logo-container"><img src="${teamA?.logoUrl || 'https://i.imgur.com/E6obnvO.png'}" class="logo-image" alt="logo"></div>`;
                 const logoB = `<div class="logo-container"><img src="${teamB?.logoUrl || 'https://i.imgur.com/E6obnvO.png'}" class="logo-image" alt="logo"></div>`;
 
@@ -213,7 +271,6 @@ function initializeTournamentView(tournamentId) {
                     if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner';
                     else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner';
                 }
-                // ESTRUCTURA DEL ENFRENTAMIENTO ACTUALIZADA
                 roundHTML += `<div class="bracket-match"><div class="bracket-team ${classA}"><span>${logoA}<span class="team-name">${teamAName}</span></span><span class="score">${scoreA}</span></div><div class="bracket-team ${classB}"><span>${logoB}<span class="team-name">${teamBName}</span></span><span class="score">${scoreB}</span></div></div>`;
             }
             roundHTML += '</div>';
@@ -222,6 +279,7 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderLiveMatches(tournament) {
+        if(!liveMatchesListEl) return;
         const allMatches = [];
         if (tournament.structure.calendario) {
             allMatches.push(...Object.values(tournament.structure.calendario).flat());
@@ -264,6 +322,7 @@ function initializeTournamentView(tournamentId) {
     }
 
     function showRosterModal(team) {
+        if(!modalEl || !modalTeamNameEl || !modalRosterListEl) return;
         modalTeamNameEl.textContent = team.nombre;
         modalRosterListEl.innerHTML = '';
         const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
@@ -469,5 +528,3 @@ function initializeDraftView(draftId) {
         }, 5000);
     }
 }
-
-// --- FIN DEL ARCHIVO client.js ---
