@@ -14,4 +14,4 @@ const freeAgentSchema = new Schema({
     status: { type: String, default: 'ACTIVE', enum: ['ACTIVE', 'INACTIVE'] },
 }, { timestamps: true });
 
-module.exports = mongoose.model('FreeAgent', freeAgentSchema);
+export default mongoose.model('FreeAgent', freeAgentSchema);
