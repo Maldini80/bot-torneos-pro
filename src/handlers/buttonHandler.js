@@ -1,7 +1,15 @@
 // src/handlers/buttonHandler.js
+
+// --- INICIO DE LA MODIFICACIÓN: Importamos Mongoose y los modelos ---
+import mongoose from 'mongoose';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
-import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS } from '../../config.js';
+import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS, PAYMENT_CONFIG } from '../../config.js';
+
+// Importamos los modelos de la base de datos central
+import Team from '../../src/models/team.js'; 
+// --- FIN DE LA MODIFICACIÓN ---
+
 import {
     approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister,
     addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
@@ -22,6 +30,135 @@ export async function handleButton(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
+
+    // ==============================================================================
+    // === NUEVA LÓGICA DE INSCRIPCIÓN INTELIGENTE (REEMPLAZA LA ANTERIOR) ==========
+    // ==============================================================================
+    if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.editReply({ content: 'Error: No se encontró este torneo.' });
+        }
+
+        const managerId = interaction.user.id;
+        
+        const isAlreadyRegistered = tournament.teams.aprobados[managerId] || tournament.teams.pendientes[managerId] || (tournament.teams.reserva && tournament.teams.reserva[managerId]);
+        if (isAlreadyRegistered) {
+            return interaction.editReply({ content: '❌ Ya estás inscrito o en la lista de reserva de este torneo.' });
+        }
+
+        // Conectamos a Mongoose para leer la colección 'teams'
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect(process.env.DATABASE_URL);
+        }
+        
+        const team = await Team.findOne({ managerId: managerId, guildId: interaction.guildId }).lean();
+
+        if (!team) {
+            // Escenario B: El usuario no es mánager
+            return interaction.editReply({
+                content: '❌ **No se encontró un equipo gestionado por ti.**\n\nPara inscribirte en un torneo, primero debes ser el mánager de un equipo registrado usando el bot de gestión principal.'
+            });
+        }
+
+        // Escenario A: El usuario SÍ es mánager
+        const embed = new EmbedBuilder()
+            .setTitle('Confirmación de Inscripción Automática')
+            .setDescription(`Hemos detectado que eres el mánager del equipo **${team.name}**. ¿Deseas inscribirlo en el torneo **${tournament.nombre}** usando sus datos guardados?`)
+            .setThumbnail(team.logoUrl)
+            .setColor('Green')
+            .setFooter({ text: 'No tendrás que rellenar ningún formulario.' });
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`confirm_team_registration:${tournamentShortId}:${team._id}`)
+                .setLabel('✅ Sí, Inscribir mi Equipo')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId('cancel_registration')
+                .setLabel('❌ Cancelar')
+                .setStyle(ButtonStyle.Danger)
+        );
+
+        await interaction.editReply({ embeds: [embed], components: [row] });
+        return;
+    }
+
+    if (action === 'confirm_team_registration') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const [tournamentShortId, teamId] = params;
+        
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect(process.env.DATABASE_URL);
+        }
+        const team = await Team.findById(teamId).lean();
+
+        if (!tournament || !team) {
+            return interaction.editReply({ content: '❌ El torneo o el equipo ya no existen.' });
+        }
+
+        if (team.managerId !== interaction.user.id) {
+            return interaction.editReply({ content: '❌ No tienes permiso para inscribir este equipo.' });
+        }
+
+        const teamData = {
+            id: team.managerId,
+            nombre: team.name,
+            eafcTeamName: team.name,
+            capitanId: team.managerId,
+            capitanTag: interaction.user.tag,
+            coCaptainId: team.captains.length > 0 ? team.captains[0] : null,
+            coCaptainTag: null,
+            logoUrl: team.logoUrl,
+            twitter: team.twitterHandle,
+            streamChannel: null,
+            paypal: null,
+            inscritoEn: new Date()
+        };
+
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${teamData.capitanId}`]: teamData } });
+        
+        const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
+        if (!notificationsThread) {
+            return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
+        }
+
+        if (tournament.config.isPaid) {
+            // Lógica de pago (sin cambios)
+            const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${PAYMENT_CONFIG.PAYPAL_EMAIL}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
+            const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournamentShortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
+            try {
+                await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
+                await interaction.editReply({ content: `✅ ¡Inscripción para **${team.name}** recibida! Revisa tus MD para completar el pago.` });
+            } catch (e) {
+                await interaction.editReply({ content: '❌ No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.' });
+            }
+        } else {
+            // Lógica de aprobación para torneos gratuitos
+            const adminEmbed = new EmbedBuilder()
+                .setColor('#3498DB')
+                .setTitle(`🔔 Nueva Inscripción (Equipo Registrado)`)
+                .setThumbnail(teamData.logoUrl)
+                .addFields( 
+                    { name: 'Equipo', value: teamData.nombre, inline: true }, 
+                    { name: 'Mánager', value: interaction.user.tag, inline: true }
+                );
+            const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${teamData.capitanId}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${teamData.capitanId}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
+            await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
+            await interaction.editReply({ content: `✅ ¡Tu inscripción para **${team.name}** ha sido recibida! Un admin la revisará pronto.` });
+        }
+        return;
+    }
+
+    if (action === 'cancel_registration') {
+        await interaction.update({ content: 'Inscripción cancelada.', embeds: [], components: [] });
+        return;
+    }
     
   if (action === 'admin_edit_team_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
