@@ -7,4 +7,4 @@ const ticketConfigSchema = new mongoose.Schema({
     // Add other config options if needed, e.g., category for tickets
 });
 
-module.exports = mongoose.model('TicketConfig', ticketConfigSchema);
+export default mongoose.model('TicketConfig', ticketConfigSchema);
