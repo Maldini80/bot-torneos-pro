@@ -13,4 +13,4 @@ const teamOfferSchema = new Schema({
     messageId: { type: String, default: null }, 
 }, { timestamps: true });
 
-module.exports = mongoose.model('TeamOffer', teamOfferSchema);
+export default mongoose.model('TeamOffer', teamOfferSchema);
