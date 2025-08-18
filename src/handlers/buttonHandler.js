@@ -55,7 +55,10 @@ export async function handleButton(interaction) {
             await mongoose.connect(process.env.DATABASE_URL);
         }
         
-        const team = await Team.findOne({ managerId: managerId, guildId: interaction.guildId }).lean();
+        const team = await Team.findOne({ 
+    $or: [{ managerId: managerId }, { captains: managerId }], 
+    guildId: interaction.guildId 
+}).lean();
 
         if (!team) {
             // Escenario B: El usuario no es mánager
