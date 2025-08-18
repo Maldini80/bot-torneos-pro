@@ -15,7 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeDraftView(draftId);
     } else {
         // Si no hay ID, muestra un error.
-        document.getElementById('loading').textContent = 'Error: No se ha especificado un ID de evento en la URL.';
+        const loadingEl = document.getElementById('loading');
+        if(loadingEl) loadingEl.innerHTML = '<p>Error: No se ha especificado un ID de evento en la URL.</p>';
     }
 });
 
@@ -95,7 +96,7 @@ function initializeTournamentView(tournamentId) {
             } else {
                 championNameEl.textContent = "Por determinar";
             }
-            tournamentNameEl.textContent = `${tournament.nombre} (Finalizado)`;
+            tournamentNameEl.textContent = `${tournament.nombre}`;
             liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
             return;
         }
@@ -123,6 +124,7 @@ function initializeTournamentView(tournamentId) {
         }
         teams.forEach(team => {
             const isDraftTeam = team.players && team.players.length > 0;
+            const logoHtml = `<div class="logo-container"><img src="${team.logoUrl || 'https://i.imgur.com/E6obnvO.png'}" alt="${team.nombre} logo" class="logo-image"></div>`;
             let metaHTML = `<div class="team-meta"><span>👑 Capitán: ${team.capitanTag}</span>`;
             if (team.coCaptainTag) {
                 metaHTML += `<span>🤝 Co-Capitán: ${team.coCaptainTag}</span>`;
@@ -133,7 +135,7 @@ function initializeTournamentView(tournamentId) {
             const linksHTML = (twitterLink || streamLink) ? `<div class="team-links">${twitterLink}${streamLink}</div>` : '';
             const card = document.createElement('div');
             card.className = `team-card-info ${isDraftTeam ? 'is-draft-team' : ''}`;
-            card.innerHTML = `<h3>${team.nombre}</h3>${metaHTML}${linksHTML}`;
+            card.innerHTML = `${logoHtml}<div class="team-details"><h3>${team.nombre}</h3>${metaHTML}${linksHTML}</div>`;
             if (isDraftTeam) {
                 card.addEventListener('click', () => showRosterModal(team));
             }
@@ -156,9 +158,10 @@ function initializeTournamentView(tournamentId) {
                 if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
                 return b.stats.gf - a.stats.gf;
             });
-            let tableHTML = `<div class="group-table"><h3>${groupName}</h3><table><thead><tr><th>Equipo</th><th>PJ</th><th>PTS</th><th>GF</th><th>GC</th><th>DG</th></tr></thead><tbody>`;
+            let tableHTML = `<div class="group-table neon-container"><h3>${groupName}</h3><table><thead><tr><th>Equipo</th><th>PJ</th><th>PTS</th><th>GF</th><th>GC</th><th>DG</th></tr></thead><tbody>`;
             sortedTeams.forEach(team => {
-                tableHTML += `<tr><td class="team-name">${team.nombre}</td><td>${team.stats.pj}</td><td>${team.stats.pts}</td><td>${team.stats.gf}</td><td>${team.stats.gc}</td><td>${team.stats.dg > 0 ? '+' : ''}${team.stats.dg}</td></tr>`;
+                const logoHtml = `<div class="logo-container"><img src="${team.logoUrl || 'https://i.imgur.com/E6obnvO.png'}" alt="${team.nombre} logo" class="logo-image"></div>`;
+                tableHTML += `<tr><td class="team-cell">${logoHtml}<span>${team.nombre}</span></td><td>${team.stats.pj}</td><td>${team.stats.pts}</td><td>${team.stats.gf}</td><td>${team.stats.gc}</td><td>${team.stats.dg > 0 ? '+' : ''}${team.stats.dg}</td></tr>`;
             });
             tableHTML += '</tbody></table></div>';
             groupsContainerEl.innerHTML += tableHTML;
@@ -177,45 +180,36 @@ function initializeTournamentView(tournamentId) {
             if (!matches || (Array.isArray(matches) && matches.length === 0)) return;
             const roundMatches = Array.isArray(matches) ? matches : [matches];
             let roundHTML = `<div class="bracket-round"><div class="bracket-round-title">${stageKey.replace(/_/g, ' ')}</div>`;
-            for (let i = 0; i < roundMatches.length; i += 2) {
-                roundHTML += '<div class="match-wrapper">';
-                for (let j = i; j < i + 2 && j < roundMatches.length; j++) {
-                    const match = roundMatches[j];
-                    const teamA = match.equipoA?.nombre || 'Por definir';
-                    const teamB = match.equipoB?.nombre || 'Por definir';
-                    let scoreA = '', scoreB = '';
-                    let classA = '', classB = '';
-                    if (match.resultado) {
-                        [scoreA, scoreB] = match.resultado.split('-');
-                        if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
-                        else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
-                    }
-                    roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><span>${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team"><span>${teamB}</span><span class="score">${scoreB}</span></div></div>`;
+            roundMatches.forEach(match => {
+                const teamA = match.equipoA;
+                const teamB = match.equipoB;
+                const teamAName = teamA?.nombre || 'Por definir';
+                const teamBName = teamB?.nombre || 'Por definir';
+                const logoA = `<div class="logo-container"><img src="${teamA?.logoUrl || 'https://i.imgur.com/E6obnvO.png'}" class="logo-image"></div>`;
+                const logoB = `<div class="logo-container"><img src="${teamB?.logoUrl || 'https://i.imgur.com/E6obnvO.png'}" class="logo-image"></div>`;
+                let scoreA = '', scoreB = '';
+                let classA = '', classB = '';
+                if (match.resultado) {
+                    [scoreA, scoreB] = match.resultado.split('-');
+                    if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner';
+                    else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner';
                 }
-                roundHTML += '</div>';
-            }
+                roundHTML += `<div class="bracket-match"><div class="bracket-team ${classA}"><span>${logoA}<span class="team-name">${teamAName}</span></span><span class="score">${scoreA}</span></div><div class="bracket-team ${classB}"><span>${logoB}<span class="team-name">${teamBName}</span></span><span class="score">${scoreB}</span></div></div>`;
+            });
             roundHTML += '</div>';
             bracketContainerEl.innerHTML += roundHTML;
         });
     }
 
     function renderLiveMatches(tournament) {
+        // (Sin cambios en esta función, ya que no muestra logos)
         const allMatches = [];
-        if (tournament.structure.calendario) {
-            allMatches.push(...Object.values(tournament.structure.calendario).flat());
-        }
-        if (tournament.structure.eliminatorias) {
-            Object.values(tournament.structure.eliminatorias).forEach(stage => {
-                if (Array.isArray(stage)) allMatches.push(...stage);
-                else if (stage && typeof stage === 'object' && stage.matchId) allMatches.push(stage);
-            });
-        }
+        if (tournament.structure.calendario) { allMatches.push(...Object.values(tournament.structure.calendario).flat()); }
+        if (tournament.structure.eliminatorias) { Object.values(tournament.structure.eliminatorias).forEach(stage => { if (Array.isArray(stage)) allMatches.push(...stage); else if (stage && typeof stage === 'object' && stage.matchId) allMatches.push(stage); }); }
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
         
-        if (liveMatches.length === 0) {
-            liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>';
-            return;
-        }
+        if (liveMatches.length === 0) { liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>'; return; }
+        
         const groupedMatches = liveMatches.reduce((acc, match) => {
             const groupKey = match.nombreGrupo ? `Jornada ${match.jornada}` : match.jornada;
             if (!acc[groupKey]) acc[groupKey] = [];
@@ -256,7 +250,7 @@ function initializeTournamentView(tournamentId) {
 }
 
 // =================================================================
-// --- MÓDULO DEL VISUALIZADOR DE DRAFTS (VERSIÓN FINAL) ---
+// --- MÓDULO DEL VISUALIZADOR DE DRAFTS ---
 // =================================================================
 function initializeDraftView(draftId) {
     const loadingEl = document.getElementById('loading');
@@ -271,9 +265,6 @@ function initializeDraftView(draftId) {
     const roundPickOrderEl = document.getElementById('round-pick-order');
     const pickAlertEl = document.getElementById('pick-alert');
     const pickAlertContentEl = document.getElementById('pick-alert-content');
-    const draftTypeIndicatorEl = document.getElementById('draft-type-indicator');
-    const lastPickInfoEl = document.getElementById('last-pick-info');
-    const lastPickDetailsEl = document.getElementById('last-pick-details');
 
     const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
     let hasLoadedInitialData = false;
@@ -318,14 +309,6 @@ function initializeDraftView(draftId) {
         playersBefore = draft.players.map(p => ({ userId: p.userId, captainId: p.captainId }));
         
         draftNameEl.textContent = draft.name;
-        draftTypeIndicatorEl.textContent = draft.config.isPaid ? 'Draft de Pago' : 'Draft Gratuito';
-
-        if (draft.selection && draft.selection.lastPick) {
-            lastPickInfoEl.classList.remove('hidden');
-            const lp = draft.selection.lastPick;
-            lastPickDetailsEl.innerHTML = `<span>#${lp.pickNumber}</span> ${lp.playerPsnId} <strong>(${lp.position})</strong> ➞ ${lp.captainTeamName}`;
-        }
-
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
              roundInfoEl.textContent = 'Selección Finalizada';
              currentTeamEl.textContent = '---';
@@ -350,13 +333,6 @@ function initializeDraftView(draftId) {
         const posIndexA = positionOrder.indexOf(a.primaryPosition);
         const posIndexB = positionOrder.indexOf(b.primaryPosition);
         if (posIndexA !== posIndexB) return posIndexA - posIndexB;
-
-        const secPosA = a.secondaryPosition === 'NONE' || !a.secondaryPosition ? 'zzz' : a.secondaryPosition;
-        const secPosB = b.secondaryPosition === 'NONE' || !b.secondaryPosition ? 'zzz' : b.secondaryPosition;
-        const secPosIndexA = positionOrder.indexOf(secPosA);
-        const secPosIndexB = positionOrder.indexOf(secPosB);
-        if (secPosIndexA !== secPosIndexB) return secPosIndexA - secPosIndexB;
-
         return a.psnId.localeCompare(b.psnId);
     }
 
@@ -365,20 +341,9 @@ function initializeDraftView(draftId) {
         draft.captains.sort((a,b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a,b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
             let rosterHtml = '';
-            // --- BLOQUE CORREGIDO Y MEJORADO ---
-teamPlayers.forEach(player => {
-    // Si el jugador es el capitán, siempre muestra su posición primaria.
-    // Si es un jugador elegido, muestra la posición para la que fue elegido (pickedForPosition).
-    const displayPosition = player.isCaptain ? player.primaryPosition : (player.pickedForPosition || player.primaryPosition);
-
-    // El capitán no necesita etiqueta P- o S-. Para los demás, la calculamos.
-    let positionTag = '';
-    if (!player.isCaptain && player.pickedForPosition) {
-        positionTag = player.pickedForPosition === player.primaryPosition ? 'P-' : 'S-';
-    }
-    
-    rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${positionTag}${displayPosition}</span></li>`;
-});
+            teamPlayers.forEach(player => {
+                rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${player.primaryPosition}</span></li>`;
+            });
             const teamCard = `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
             teamsContainerEl.innerHTML += teamCard;
         });
@@ -410,8 +375,8 @@ teamPlayers.forEach(player => {
         const startPickOfRound = currentRound * numCaptains;
         for (let i = 0; i < numCaptains; i++) {
             const pickNumber = startPickOfRound + i + 1;
-            const pickIndex = currentRound % 2 === 0 ? i : numCaptains - 1 - i;
-            const captainId = draft.selection.order[pickIndex];
+            const pickIndexInOrder = currentRound % 2 === 0 ? i : numCaptains - 1 - i;
+            const captainId = draft.selection.order[pickIndexInOrder];
             const captain = draft.captains.find(c => c.userId === captainId);
             const item = document.createElement('div');
             item.className = 'pick-order-item';
@@ -423,11 +388,7 @@ teamPlayers.forEach(player => {
     }
 
     function setupFilters() {
-        positionFiltersEl.innerHTML = `
-            <select id="filter-column-select">
-                <option value="primary">Filtrar por Pos. Primaria</option>
-                <option value="secondary">Filtrar por Pos. Secundaria</option>
-            </select>`;
+        positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
         const select = document.getElementById('filter-column-select');
         select.addEventListener('change', () => filterTable(document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos'));
     
@@ -445,27 +406,23 @@ teamPlayers.forEach(player => {
 
     function filterTable(position) {
         document.querySelectorAll('#position-filters .filter-btn').forEach(btn => btn.classList.remove('active'));
-        const currentFilterBtn = document.querySelector(`#position-filters .filter-btn[data-pos="${position}"]`);
-        if (currentFilterBtn) currentFilterBtn.classList.add('active');
+        document.querySelector(`#position-filters .filter-btn[data-pos="${position}"]`)?.classList.add('active');
         
         const filterColumn = document.getElementById('filter-column-select').value;
         const rows = playersTableBodyEl.querySelectorAll('tr');
         rows.forEach(row => {
             const rowPos = filterColumn === 'primary' ? row.dataset.posPrimary : row.dataset.posSecondary;
-            if (position === 'Todos' || rowPos === position) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
+            row.style.display = (position === 'Todos' || rowPos === position) ? '' : 'none';
         });
     }
 
     function showPickAlert(pickNumber, player, captain) {
         pickAlertContentEl.innerHTML = `<div class="pick-number">PICK #${pickNumber}</div><div class="player-name">${player.psnId}</div><div class="team-name">${captain.teamName}</div>`;
+        pickAlertEl.classList.remove('hidden');
         pickAlertEl.classList.add('visible');
         setTimeout(() => {
             pickAlertEl.classList.remove('visible');
-            setTimeout(() => pickAlertEl.classList.add('hidden'), 300);
+            setTimeout(() => pickAlertEl.classList.add('hidden'), 500);
         }, 5000);
     }
 }
