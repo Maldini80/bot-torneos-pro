@@ -1,15 +1,10 @@
 // src/handlers/buttonHandler.js
 
-// --- INICIO DE LA MODIFICACIÓN: Importamos Mongoose y los modelos ---
 import mongoose from 'mongoose';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS, PAYMENT_CONFIG } from '../../config.js';
-
-// Importamos los modelos de la base de datos central
 import Team from '../../src/models/team.js'; 
-// --- FIN DE LA MODIFICACIÓN ---
-
 import {
     approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister,
     addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
@@ -30,10 +25,7 @@ export async function handleButton(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
-
-    // ==============================================================================
-    // === NUEVA LÓGICA DE INSCRIPCIÓN INTELIGENTE (REEMPLAZA LA ANTERIOR) ==========
-    // ==============================================================================
+    
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -50,27 +42,24 @@ export async function handleButton(interaction) {
             return interaction.editReply({ content: '❌ Ya estás inscrito o en la lista de reserva de este torneo.' });
         }
 
-        // Conectamos a Mongoose para leer la colección 'teams'
         if (mongoose.connection.readyState === 0) {
             await mongoose.connect(process.env.DATABASE_URL);
         }
         
         const team = await Team.findOne({ 
-    $or: [{ managerId: managerId }, { captains: managerId }], 
-    guildId: interaction.guildId 
-}).lean();
+            $or: [{ managerId: managerId }, { captains: managerId }], 
+            guildId: interaction.guildId 
+        }).lean();
 
         if (!team) {
-            // Escenario B: El usuario no es mánager
             return interaction.editReply({
-                content: '❌ **No se encontró un equipo gestionado por ti.**\n\nPara inscribirte en un torneo, primero debes ser el mánager de un equipo registrado usando el bot de gestión principal.'
+                content: '❌ **No se encontró un equipo gestionado por ti.**\n\nPara inscribirte en un torneo, primero debes ser el mánager o capitán de un equipo registrado usando el bot de gestión principal.'
             });
         }
 
-        // Escenario A: El usuario SÍ es mánager
         const embed = new EmbedBuilder()
             .setTitle('Confirmación de Inscripción Automática')
-            .setDescription(`Hemos detectado que eres el mánager del equipo **${team.name}**. ¿Deseas inscribirlo en el torneo **${tournament.nombre}** usando sus datos guardados?`)
+            .setDescription(`Hemos detectado que eres un líder del equipo **${team.name}**. ¿Deseas inscribirlo en el torneo **${tournament.nombre}** usando sus datos guardados?`)
             .setThumbnail(team.logoUrl)
             .setColor('Green')
             .setFooter({ text: 'No tendrás que rellenar ningún formulario.' });
@@ -91,31 +80,75 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'confirm_team_registration') {
-    // Paso 1: Obtenemos los datos del torneo y el equipo, como antes.
-    const [tournamentShortId, teamId] = params;
-    
-    // Paso 2: EN LUGAR de finalizar la inscripción, ahora mostramos la selección de plataforma.
-    // Usamos el teamId para pasarlo al siguiente paso.
-    const originalAction = `register_team_from_db:${teamId}`; // Creamos una acción interna para saber qué hacer después.
+        const [tournamentShortId, teamId] = params;
+        const originalAction = `register_team_from_db:${teamId}`;
 
-    const platformButtons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-    );
+        const platformButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+        );
 
-    await interaction.update({
-        content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
-        embeds: [], // Limpiamos el embed anterior
-        components: [platformButtons]
-    });
-    return;
-}
+        await interaction.update({
+            content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
+            embeds: [],
+            components: [platformButtons]
+        });
+        return;
+    }
+	
     if (action === 'cancel_registration') {
         await interaction.update({ content: 'Inscripción cancelada.', embeds: [], components: [] });
         return;
     }
     
-  if (action === 'admin_edit_team_start') {
+    if (action === 'streamer_warning_accept') {
+        const [platform, originalAction, entityId, position] = params;
+        const modal = new ModalBuilder();
+        const usernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
+
+        let finalActionId;
+
+        if (originalAction.startsWith('register_team_from_db')) {
+            const teamId = originalAction.split(':')[1];
+            const tournamentShortId = entityId;
+            finalActionId = `inscripcion_final_modal:${tournamentShortId}:${platform}:${teamId}`;
+            modal.setTitle('Finalizar Inscripción (Stream)');
+            modal.addComponents(new ActionRowBuilder().addComponents(usernameInput));
+        } else if (originalAction.startsWith('register_draft_captain')) {
+            finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}`;
+            modal.setTitle('Inscripción como Capitán de Draft');
+            const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
+            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
+            const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
+            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(usernameInput),
+                new ActionRowBuilder().addComponents(teamNameInput), 
+                new ActionRowBuilder().addComponents(eafcNameInput),
+                new ActionRowBuilder().addComponents(psnIdInput), 
+                new ActionRowBuilder().addComponents(twitterInput)
+            );
+        } else {
+            // Este flujo se mantiene por si en algún momento se permite la inscripción sin ser mánager.
+            finalActionId = `inscripcion_modal:${entityId}:${platform}`;
+            modal.setTitle('Inscripción de Equipo');
+            const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
+            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
+            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter o el de tu equipo (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(usernameInput),
+                new ActionRowBuilder().addComponents(teamNameInput), 
+                new ActionRowBuilder().addComponents(eafcNameInput), 
+                new ActionRowBuilder().addComponents(twitterInput)
+            );
+        }
+    
+        modal.setCustomId(finalActionId);
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_edit_team_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -143,14 +176,13 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- NUEVA LÓGICA PARA NAVEGACIÓN DEL PANEL DE ADMIN ---
     if (action.startsWith('admin_panel_')) {
         try {
             const view = action.split('_')[2];
             const panelContent = await createGlobalAdminPanel(view);
-            await interaction.update(panelContent); // Usamos .update() que es más directo
+            await interaction.update(panelContent);
         } catch (error) {
-            if (error.code !== 10062) { // Ignoramos el error si la interacción ya expiró
+            if (error.code !== 10062) {
                 console.error("Error al actualizar el panel de admin:", error);
             }
         }
@@ -295,7 +327,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    // --- INICIO DE LA MODIFICACIÓN: LÓGICA DE PAGINACIÓN PARA 'INVITAR REEMPLAZO' ---
     if (action === 'admin_invite_replacement_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, teamId, kickedPlayerId] = params;
@@ -347,7 +378,6 @@ export async function handleButton(interaction) {
         }
         return;
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     if (action === 'draft_accept_replacement') {
         await interaction.deferUpdate();
@@ -744,46 +774,46 @@ export async function handleButton(interaction) {
         return;
     }
 
-  if (action === 'captain_pick_start') {
-    const [draftShortId] = params;
-    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (action === 'captain_pick_start') {
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-    const currentCaptainId = draft.selection.order[draft.selection.turn];
-    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+        const currentCaptainId = draft.selection.order[draft.selection.turn];
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-    if (interaction.user.id !== currentCaptainId && !isAdmin) {
-        return interaction.reply({ content: 'No es tu turno de elegir o no tienes permiso.', flags: [MessageFlags.Ephemeral] });
+        if (interaction.user.id !== currentCaptainId && !isAdmin) {
+            return interaction.reply({ content: 'No es tu turno de elegir o no tienes permiso.', flags: [MessageFlags.Ephemeral] });
+        }
+        
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.isPicking": true } });
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await updateCaptainControlPanel(client, updatedDraft);
+
+        const availablePlayers = draft.players.filter(p => !p.captainId);
+        const availablePositions = new Set(availablePlayers.flatMap(p => [p.primaryPosition, p.secondaryPosition]));
+        
+        const positionOptions = Object.entries(DRAFT_POSITIONS)
+            .filter(([key]) => availablePositions.has(key))
+            .map(([key, value]) => ({ label: value, value: key }));
+
+        if (positionOptions.length === 0) {
+            return interaction.reply({ content: 'No hay jugadores disponibles para seleccionar.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const positionMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_pick_by_position:${draftShortId}:${currentCaptainId}`)
+            .setPlaceholder('Elige la posición que quieres cubrir')
+            .addOptions(positionOptions);
+        
+        const response = await interaction.reply({
+            content: `**Turno de ${updatedDraft.captains.find(c => c.userId === currentCaptainId).teamName}**\nPor favor, elige la posición del jugador que quieres seleccionar`,
+            components: [new ActionRowBuilder().addComponents(positionMenu)], 
+            flags: [MessageFlags.Ephemeral]
+        });
+
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.activeInteractionId": response.id } });
+        return;
     }
-    
-    await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.isPicking": true } });
-    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    await updateCaptainControlPanel(client, updatedDraft);
-
-    const availablePlayers = draft.players.filter(p => !p.captainId);
-    const availablePositions = new Set(availablePlayers.flatMap(p => [p.primaryPosition, p.secondaryPosition]));
-    
-    const positionOptions = Object.entries(DRAFT_POSITIONS)
-        .filter(([key]) => availablePositions.has(key))
-        .map(([key, value]) => ({ label: value, value: key }));
-
-    if (positionOptions.length === 0) {
-        return interaction.reply({ content: 'No hay jugadores disponibles para seleccionar.', flags: [MessageFlags.Ephemeral] });
-    }
-
-    const positionMenu = new StringSelectMenuBuilder()
-        .setCustomId(`draft_pick_by_position:${draftShortId}:${currentCaptainId}`)
-        .setPlaceholder('Elige la posición que quieres cubrir')
-        .addOptions(positionOptions);
-    
-    const response = await interaction.reply({
-        content: `**Turno de ${updatedDraft.captains.find(c => c.userId === currentCaptainId).teamName}**\nPor favor, elige la posición del jugador que quieres seleccionar`,
-        components: [new ActionRowBuilder().addComponents(positionMenu)], 
-        flags: [MessageFlags.Ephemeral]
-    });
-
-    await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.activeInteractionId": response.id } });
-    return;
-}
 
     if (action === 'captain_cancel_pick') {
         await interaction.deferUpdate();
@@ -792,7 +822,7 @@ export async function handleButton(interaction) {
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
         
         if (interaction.user.id !== targetCaptainId && !isAdmin) {
-             return interaction.followUp({ content: 'No puedes cancelar una selección que no es tuya.', flags: [MessageFlags.Ephemeral] });
+            return interaction.followUp({ content: 'No puedes cancelar una selección que no es tuya.', flags: [MessageFlags.Ephemeral] });
         }
 
         if (draft.selection.activeInteractionId) {
@@ -812,32 +842,32 @@ export async function handleButton(interaction) {
         return;
     }
 
-   if (action === 'draft_confirm_pick') {
-    const [draftShortId, captainId, selectedPlayerId, pickedForPosition] = params;
-    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+    if (action === 'draft_confirm_pick') {
+        const [draftShortId, captainId, selectedPlayerId, pickedForPosition] = params;
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-    if (interaction.user.id !== captainId && !isAdmin) {
-        return interaction.reply({ content: 'No puedes confirmar este pick.', flags: [MessageFlags.Ephemeral] });
-    }
+        if (interaction.user.id !== captainId && !isAdmin) {
+            return interaction.reply({ content: 'No puedes confirmar este pick.', flags: [MessageFlags.Ephemeral] });
+        }
 
-    await interaction.update({
-        content: '✅ Pick confirmado. Procesando siguiente turno...', 
-        embeds: [],
-        components: []
-    });
-
-    try {
-        await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId, pickedForPosition);
-        await advanceDraftTurn(client, draftShortId);
-    } catch (error) {
-        console.error(`Error de regla de negocio en el pick: ${error.message}`);
-        await interaction.followUp({
-            content: `❌ **No se pudo completar el fichaje:** ${error.message}`,
-            flags: [MessageFlags.Ephemeral]
+        await interaction.update({
+            content: '✅ Pick confirmado. Procesando siguiente turno...', 
+            embeds: [],
+            components: []
         });
+
+        try {
+            await handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId, pickedForPosition);
+            await advanceDraftTurn(client, draftShortId);
+        } catch (error) {
+            console.error(`Error de regla de negocio en el pick: ${error.message}`);
+            await interaction.followUp({
+                content: `❌ **No se pudo completar el fichaje:** ${error.message}`,
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+        return;
     }
-    return;
-}
 
     if (action === 'draft_undo_pick') {
         const [draftShortId, captainId] = params;
@@ -884,7 +914,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-        if (action === 'rules_accept') {
+    if (action === 'rules_accept') {
         const [currentStepStr, originalAction, entityId] = params;
         const currentStep = parseInt(currentStepStr);
         
@@ -941,62 +971,12 @@ export async function handleButton(interaction) {
         return;
     }
     
-    if (action === 'select_stream_platform') {
-        const [platform, originalAction, entityId, position] = params;
-        const warningContent = createStreamerWarningEmbed(platform, originalAction, entityId, position);
-        await interaction.update(warningContent);
-        return;
-    }
-
-    if (action === 'streamer_warning_accept') {
-    const [platform, originalAction, entityId] = params;
-    const modal = new ModalBuilder();
-    const usernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
-
-    let finalActionId;
-
-    // --- ¡AQUÍ ESTÁ LA NUEVA MAGIA! ---
-    if (originalAction.startsWith('register_team_from_db')) {
-        const teamId = originalAction.split(':')[1];
-        const tournamentShortId = entityId;
-
-        // Creamos un ID de modal que contiene toda la información que necesitamos.
-        finalActionId = `inscripcion_final_modal:${tournamentShortId}:${platform}:${teamId}`;
-        modal.setTitle('Finalizar Inscripción (Stream)');
-        modal.addComponents(new ActionRowBuilder().addComponents(usernameInput));
-
-    } else if (originalAction.startsWith('register_draft_captain')) {
-        // La lógica del draft no cambia y se mantiene como estaba.
-        const [draftShortId, position] = entityId.split(':');
-        finalActionId = `register_draft_captain_modal:${draftShortId}:${position}:${platform}`;
-        modal.setTitle('Inscripción como Capitán de Draft');
-        // ... (resto de campos del modal de draft que ya tenías)
-        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
-        const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
-        const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
-        const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(usernameInput),
-            new ActionRowBuilder().addComponents(teamNameInput), 
-            new ActionRowBuilder().addComponents(eafcNameInput),
-            new ActionRowBuilder().addComponents(psnIdInput), 
-            new ActionRowBuilder().addComponents(twitterInput)
-        );
-    }
-    // ... (cualquier otra lógica que tuvieras, como la inscripción manual, se eliminaría o quedaría como fallback)
-
-    modal.setCustomId(finalActionId);
-    await interaction.showModal(modal);
-    return;
-}
-    
     if (action === 'rules_reject') {
         await interaction.update({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción.', components: [], embeds: [] });
         return;
     }
     
-
-        if (action === 'invite_to_thread') {
+    if (action === 'invite_to_thread') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -1011,7 +991,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-      const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
+    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
     if (modalActions.includes(action)) {
         if (action === 'admin_modify_result_start') {
             const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
