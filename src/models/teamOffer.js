@@ -1,5 +1,5 @@
 // src/models/teamOffer.js
-const mongoose = require('mongoose');
+
 const { Schema } = mongoose;
 
 const teamOfferSchema = new Schema({
