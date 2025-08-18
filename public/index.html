@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador en Vivo | VPG Lightnings</title>
+    <title>Visualizador en Vivo | VPG</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="loading">
         <div class="loader"></div>
-        <p>INICIALIZANDO INTERFAZ...</p>
+        <p>CARGANDO DATOS...</p>
     </div>
 
     <!-- ======================================================= -->
@@ -20,14 +20,14 @@
     <!-- ======================================================= -->
     <div id="app-container" class="hidden">
         <header class="main-header">
-            <img src="https://i.imgur.com/E6obnvO.png" alt="VPG Spain Logo" class="header-logo">
+            <img src="https://i.imgur.com/E6obnvO.png" alt="VPG Logo" class="header-logo">
             <div class="header-title">
                 <h1 id="tournament-name"></h1>
                 <p id="tournament-format"></p>
             </div>
         </header>
         <div class="main-content">
-            <main id="main-panel" class="neon-container">
+            <main id="main-panel" class="panel">
                 <nav class="view-switcher">
                     <button class="view-btn active" data-view="classification-view">Clasificación</button>
                     <button class="view-btn" data-view="bracket-view">Eliminatorias</button>
@@ -49,7 +49,6 @@
                     <div id="finished-view" class="view-pane">
                         <div class="finished-content">
                             <h2 class="pane-title" id="finished-title">Torneo Finalizado</h2>
-                            <p>¡Gracias por participar y seguir la retransmisión!</p>
                             <div class="champion-info">
                                 <h3>🏆 CAMPEÓN 🏆</h3>
                                 <p id="champion-name">--</p>
@@ -58,13 +57,13 @@
                     </div>
                 </div>
             </main>
-            <aside id="live-match-sidebar" class="neon-container">
+            <aside id="live-match-sidebar" class="panel">
                 <h2 class="pane-title">Partidos en Directo</h2>
                 <div id="live-matches-list"></div>
             </aside>
         </div>
         <div id="roster-modal" class="hidden">
-            <div class="modal-content neon-container">
+            <div class="modal-content panel">
                 <span class="close-button">&times;</span>
                 <h3 id="modal-team-name"></h3>
                 <ul id="modal-roster-list"></ul>
@@ -77,10 +76,10 @@
     <!-- ======================================================= -->
     <div id="draft-container" class="hidden">
         <header class="main-header">
-             <img src="https://i.imgur.com/E6obnvO.png" alt="VPG Spain Logo" class="header-logo">
+            <img src="https://i.imgur.com/E6obnvO.png" alt="VPG Logo" class="header-logo">
             <div class="header-title">
-                 <h1 id="draft-name-draftview"></h1>
-                 <div class="status-line-draftview">
+                <h1 id="draft-name-draftview"></h1>
+                <div class="status-line-draftview">
                     <div id="round-info-draftview"></div>
                     <div id="current-pick-info-draftview">Turno de: <span id="current-team-draftview"></span> | Pick #<span id="current-pick-draftview">0</span></div>
                 </div>
@@ -88,8 +87,8 @@
         </header>
         <div id="round-pick-order"></div>
         <div class="content-grid-draftview">
-            <div id="teams-container-draftview"></div>
-            <div id="available-players-container-draftview" class="neon-container">
+            <div id="teams-container-draftview" class="panel"></div>
+            <div id="available-players-container-draftview" class="panel">
                 <h2 class="pane-title">Jugadores Disponibles</h2>
                 <div id="position-filters"></div>
                 <div class="legend">🛡️ Con Equipo | 🔎 Agente Libre</div>
@@ -111,11 +110,10 @@
     </div>
     
     <div id="pick-alert" class="hidden">
-        <div id="pick-alert-content" class="neon-container"></div>
+        <div id="pick-alert-content" class="panel"></div>
     </div>
     
     <footer id="common-footer">
-        <img src="https://i.imgur.com/E6obnvO.png" alt="VPG Spain Logo" class="footer-logo">
         POWERED BY VPG LIGHTNINGS
     </footer>
 
