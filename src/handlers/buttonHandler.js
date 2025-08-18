@@ -1044,22 +1044,6 @@ export async function handleButton(interaction) {
         return;
     }
     
-    if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
-        const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) {
-             return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
-        }
-        const captainId = interaction.user.id;
-        const isAlreadyRegistered = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
-        if (isAlreadyRegistered) {
-            return interaction.reply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.', flags: [MessageFlags.Ephemeral] });
-        }
-        
-        const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, tournamentShortId);
-        await interaction.reply(ruleStepContent);
-        return;
-    }
 
         if (action === 'invite_to_thread') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
