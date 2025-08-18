@@ -1,215 +1,206 @@
 /* --- INICIO DEL ARCHIVO style.css --- */
 
-/* ======================================================= */
-/* ========= CONFIGURACIÓN GLOBAL Y FUENTES ========= */
-/* ======================================================= */
+/* --- CONFIGURACIÓN GLOBAL Y FUENTES --- */
+@keyframes pulse-neon {
+    0%, 100% { box-shadow: 0 0 5px #00f, 0 0 10px #00f, 0 0 15px #00f; }
+    50% { box-shadow: 0 0 10px #f0f, 0 0 20px #f0f, 0 0 30px #f0f; }
+}
+@keyframes text-flicker {
+    0% { opacity: 0.8; }
+    5% { opacity: 1; }
+    10% { opacity: 0.85; }
+    20% { opacity: 1; }
+    30% { opacity: 0.9; }
+    40% { opacity: 1; }
+    100% { opacity: 1; }
+}
+
 :root {
-    --primary-color: #E53935; /* Un rojo más suave y moderno */
-    --background-color: #1a1a1a; /* Un gris un poco más claro que el negro puro */
-    --surface-color: #2c2c2c; /* Las tarjetas y paneles un poco más claros */
-    --text-color: #f0f0f0; /* Un blanco ligeramente más suave */
-    --border-color: #444; /* Bordes un poco más visibles */
-    --winner-color: #ffc107; /* Un amarillo ámbar para los ganadores */
-    --font-bebas: 'Bebas Neue', sans-serif;
-    --font-roboto: 'Roboto', sans-serif;
+    --primary-neon: #00ffff; /* Cian */
+    --secondary-neon: #ff00ff; /* Magenta */
+    --red-neon: #ff1b1b;
+    --background-color: #0d0d1a; /* Azul muy oscuro casi negro */
+    --surface-color: rgba(10, 25, 47, 0.85); /* Azul oscuro translúcido */
+    --text-color: #e6f1ff;
+    --border-color: rgba(0, 255, 255, 0.5); /* Cian translúcido */
+    --winner-color: #ffd700; /* Amarillo dorado */
+    --font-display: 'Orbitron', sans-serif;
+    --font-body: 'Roboto', sans-serif;
 }
 body {
     background-color: var(--background-color);
+    background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Cg fill="%231a2a44" fill-opacity="0.4"%3E%3Crect x="0" y="0" width="100" height="1"/%3E%3Crect x="0" y="0" width="1" height="100"/%3E%3C/g%3E%3C/svg%3E');
     color: var(--text-color);
-    font-family: var(--font-roboto);
+    font-family: var(--font-body);
     margin: 0;
     padding: 20px;
     overflow: hidden;
 }
 .hidden { display: none !important; }
 
+/* --- EFECTOS Y CONTENEDORES --- */
+.neon-text {
+    color: #fff;
+    text-shadow: 0 0 5px var(--primary-neon), 0 0 10px var(--primary-neon), 0 0 20px var(--primary-neon), 0 0 40px var(--red-neon);
+}
+.neon-container {
+    background-color: var(--surface-color);
+    border: 2px solid var(--border-color);
+    backdrop-filter: blur(5px);
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3), inset 0 0 5px rgba(0, 255, 255, 0.2);
+}
+
+/* --- CARGADOR --- */
+#loading { text-align: center; padding-top: 20vh; }
+#loading p { font-family: var(--font-display); font-size: 1.5em; letter-spacing: 3px; animation: text-flicker 3s linear infinite; }
+.loader {
+    width: 60px; height: 60px;
+    border: 5px solid var(--primary-neon);
+    border-top: 5px solid var(--secondary-neon);
+    border-radius: 50%;
+    animation: spin 1.5s linear infinite;
+    margin: 0 auto 20px auto;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
 /* --- ESTRUCTURAS PRINCIPALES --- */
-#app-container, #draft-container {
-    display: none; /* Ocultos por defecto */
-    flex-direction: column;
-    height: calc(100vh - 40px); /* Ajustado para footer */
-}
-body.draft-view-style #draft-container, body:not(.draft-view-style) #app-container {
-    display: flex; /* Mostramos el contenedor correcto */
-}
+#app-container, #draft-container { display: none; flex-direction: column; height: calc(100vh - 40px); }
+body.draft-view-style #draft-container, body:not(.draft-view-style) #app-container { display: flex; }
 
-header { text-align: center; padding-bottom: 10px; border-bottom: 2px solid var(--primary-color); }
-header h1 { font-family: var(--font-bebas); font-size: 3.5em; color: var(--primary-color); margin: 0; text-transform: uppercase; }
-header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
-footer { position: fixed; bottom: 0; left: 0; width: 100%; background-color: #101010; border-top: 2px solid var(--primary-color); padding: 8px; text-align: center; font-family: var(--font-bebas); font-size: 1.2em; color: #aaa; }
-.placeholder { color: #666; font-style: italic; text-align: center; padding-top: 50px; }
-
-/* --- Scrollbar personalizado para temas oscuros --- */
-::-webkit-scrollbar {
-    width: 8px;
+header.main-header {
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    padding-bottom: 10px; border-bottom: 2px solid var(--border-color);
+    text-transform: uppercase;
 }
-::-webkit-scrollbar-track {
-    background: var(--surface-color);
+.header-logo { height: 60px; margin-right: 20px; }
+header.main-header h1 { font-family: var(--font-display); font-size: 3em; margin: 0; animation: text-flicker 4s infinite; }
+header.main-header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
+footer {
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    background-color: #000; border-top: 2px solid var(--border-color);
+    padding: 8px; text-align: center; font-family: var(--font-display);
+    font-size: 1em; color: var(--primary-neon); letter-spacing: 2px;
+    display: flex; align-items: center; justify-content: center;
 }
-::-webkit-scrollbar-thumb {
-    background: #555;
-    border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #777;
-}
+.footer-logo { height: 20px; margin-right: 10px; }
+.placeholder { color: #666; font-style: italic; text-align: center; padding: 50px; }
 
 /* ======================================================= */
 /* ========= ESTILOS PARA VISUALIZADOR DE TORNEOS ========= */
 /* ======================================================= */
 .main-content { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; flex-grow: 1; overflow: hidden; padding-top: 15px; height: calc(100% - 100px); }
-main#main-panel { display: flex; flex-direction: column; background-color: var(--surface-color); border-radius: 8px; padding: 20px; }
+main#main-panel { display: flex; flex-direction: column; padding: 20px; }
 #main-view-content { flex-grow: 1; overflow-y: auto; }
 .view-switcher { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
-.view-btn { font-family: var(--font-bebas); font-size: 1.5em; padding: 10px 20px; border: none; background-color: transparent; color: #888; cursor: pointer; transition: color 0.2s, border-bottom 0.2s; border-bottom: 3px solid transparent; }
-.view-btn.active { color: var(--primary-color); border-bottom: 3px solid var(--primary-color); }
-.view-pane { display: none; }
+.view-btn {
+    font-family: var(--font-display); font-size: 1.5em; padding: 10px 20px;
+    border: none; background-color: transparent; color: #888; cursor: pointer;
+    transition: all 0.3s ease; border-bottom: 3px solid transparent;
+}
+.view-btn:hover { color: var(--secondary-neon); text-shadow: 0 0 5px var(--secondary-neon); }
+.view-btn.active { color: var(--primary-neon); border-bottom: 3px solid var(--primary-neon); text-shadow: 0 0 5px var(--primary-neon); }
+.view-pane { display: none; animation: fadeIn 0.5s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .view-pane.active { display: block; }
-.view-pane h2 { font-family: var(--font-bebas); font-size: 2em; margin-top: 0; color: var(--text-color); }
+.pane-title { font-family: var(--font-display); font-size: 2em; margin: 0 0 20px 0; color: var(--primary-neon); text-align: center; }
+
+/* --- Logos y Equipos --- */
+.logo-container { width: 40px; height: 40px; margin-right: 15px; flex-shrink: 0; }
+.logo-image { width: 100%; height: 100%; object-fit: contain; }
+
 #team-list-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }
-.team-card-info { background-color: #2a2a2a; padding: 15px; border-radius: 5px; border-left: 3px solid transparent; transition: border-left 0.2s; }
-.team-card-info h3 { margin: 0 0 10px 0; font-family: var(--font-bebas); font-size: 1.4em; color: var(--primary-color); }
-.team-card-info .team-meta { display: flex; flex-direction: column; gap: 8px; font-size: 0.9em; color: #ccc;}
-.team-card-info .team-links { margin-top: 10px; display: flex; gap: 10px; }
-.team-card-info .team-links a { color: #3498db; text-decoration: none; background-color: #333; padding: 5px 10px; border-radius: 4px; font-size: 0.9em; }
+.team-card-info {
+    background-color: rgba(10, 25, 47, 0.7);
+    padding: 15px; border-radius: 5px; border-left: 3px solid transparent;
+    transition: all 0.3s ease; display: flex; align-items: center;
+}
+.team-card-info:hover { transform: translateY(-5px); border-left-color: var(--primary-neon); }
 .team-card-info.is-draft-team { cursor: pointer; }
-.team-card-info.is-draft-team:hover { border-left: 3px solid var(--primary-color); }
+.team-card-info .team-details { display: flex; flex-direction: column; }
+.team-card-info h3 { margin: 0 0 10px 0; font-family: var(--font-display); font-size: 1.4em; color: var(--primary-neon); }
+.team-card-info .team-meta, .team-card-info .team-links { font-size: 0.9em; }
+.team-card-info .team-links a {
+    color: var(--primary-neon); text-decoration: none; background-color: #333;
+    padding: 5px 10px; border-radius: 4px; transition: all 0.2s;
+}
+.team-card-info .team-links a:hover { background-color: var(--primary-neon); color: #000; }
+
+/* --- Clasificación --- */
 #groups-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
 .group-table table { width: 100%; border-collapse: collapse; }
-.group-table th, .group-table td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
+.group-table th, .group-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); }
+.group-table th { color: var(--secondary-neon); font-family: var(--font-display); }
 .group-table td:not(:first-child) { text-align: center; }
-#bracket-container { display: flex; overflow-x: auto; padding: 20px; }
-.bracket-round { display: flex; flex-direction: column; justify-content: space-around; flex-shrink: 0; width: 250px; }
-.bracket-round-title { font-family: var(--font-bebas); font-size: 2em; text-align: center; color: var(--text-color); text-transform: capitalize; }
-.match-wrapper { display: flex; flex-direction: column; justify-content: center; flex-grow: 1; position: relative; }
-.bracket-match { background-color: #2a2a2a; border-radius: 3px; margin: 10px 0; }
-.bracket-team { display: flex; justify-content: space-between; padding: 10px; font-size: 1.1em; border-bottom: 1px solid #3a3a3a; }
-.bracket-team:last-child { border-bottom: none; }
-.bracket-team.winner { font-weight: bold; color: var(--winner-color); }
-.team-name { flex-grow: 1; }
-.score { font-weight: bold; }
-.match-wrapper::after { content: ''; position: absolute; right: -25px; top: 50%; height: 2px; width: 25px; background-color: var(--border-color); }
-.bracket-match::before, .bracket-match::after { content: ''; position: absolute; right: -25px; width: 2px; background-color: var(--border-color); }
-.bracket-match::before { top: 0; bottom: 50%; }
-.bracket-match::after { top: 50%; bottom: 0; }
-.bracket-round:last-child .match-wrapper::after, .bracket-round:last-child .bracket-match::before, .bracket-round:last-child .bracket-match::after { display: none; }
-.match-wrapper:first-child .bracket-match::before { display: none; }
-.match-wrapper:last-child .bracket-match::after { display: none; }
-.finished-content { text-align: center; padding-top: 50px; }
-.champion-info { margin-top: 30px; }
-.champion-info h3 { font-size: 3em; color: var(--winner-color); font-family: var(--font-bebas); }
-#champion-name { font-size: 2em; }
-aside#live-match-sidebar { background-color: var(--surface-color); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; }
-aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; margin: 0 0 15px 0; text-align: center; }
-#live-matches-list { overflow-y: auto; flex-grow: 1; }
-.live-match-group { margin-bottom: 20px; }
-.live-match-group h4 { font-family: var(--font-bebas); font-size: 1.3em; color: var(--primary-color); margin: 0 0 10px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; text-transform: capitalize; }
-.live-match-card { background-color: #2a2a2a; border-radius: 5px; padding: 15px; margin-bottom: 10px; }
-.live-match-teams { font-weight: bold; text-align: center; margin-bottom: 10px; }
-.stream-links { display: flex; flex-direction: column; gap: 8px; text-align: center; }
-.stream-links a { background-color: var(--primary-color); color: white; text-decoration: none; padding: 8px; border-radius: 4px; transition: background-color 0.2s; }
-#roster-modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; }
-.modal-content { background-color: var(--surface-color); padding: 20px; border: 1px solid var(--border-color); border-radius: 10px; width: 80%; max-width: 600px; position: relative; }
-.close-button { color: #aaa; font-size: 28px; font-weight: bold; position: absolute; top: 10px; right: 20px; cursor: pointer; }
-.modal-content h3 { font-family: var(--font-bebas); font-size: 2.5em; color: var(--primary-color); margin-top: 0; }
-#modal-roster-list { list-style: none; padding: 0; columns: 2; }
+.group-table .team-cell { display: flex; align-items: center; }
+.group-table .logo-container { width: 25px; height: 25px; margin-right: 10px; }
 
+/* --- Eliminatorias --- */
+#bracket-container { display: flex; overflow-x: auto; padding-bottom: 20px; }
+.bracket-round { display: flex; flex-direction: column; justify-content: space-around; flex-shrink: 0; min-width: 280px; padding: 0 20px; }
+.bracket-round-title { font-family: var(--font-display); font-size: 1.8em; text-align: center; color: var(--text-color); text-transform: capitalize; }
+.bracket-match {
+    background: rgba(0,0,0,0.3); border: 1px solid var(--border-color);
+    border-radius: 5px; margin: 15px 0;
+    transition: all 0.3s;
+}
+.bracket-match:hover { border-color: var(--secondary-neon); transform: scale(1.02); }
+.bracket-team { display: flex; justify-content: space-between; align-items: center; padding: 10px; font-size: 1.1em; }
+.bracket-team span:first-child { display: flex; align-items: center; }
+.bracket-team .logo-container { width: 25px; height: 25px; margin-right: 10px; }
+.winner .team-name, .winner .score { color: var(--winner-color); font-weight: bold; }
+.score { font-weight: bold; }
+
+/* --- Otros Paneles --- */
+.finished-content { text-align: center; padding-top: 50px; }
+#champion-name { font-family: var(--font-display); font-size: 3em; color: var(--winner-color); }
+aside#live-match-sidebar { padding: 20px; display: flex; flex-direction: column; }
+#live-matches-list { overflow-y: auto; flex-grow: 1; }
+.live-match-card {
+    background-color: rgba(10, 25, 47, 0.7); border: 1px solid var(--border-color);
+    border-radius: 5px; padding: 15px; margin-bottom: 10px; text-align: center;
+}
+.live-match-teams { font-family: var(--font-display); font-size: 1.2em; margin-bottom: 10px; }
+.stream-links a {
+    display: block; background-color: var(--red-neon); color: white; text-decoration: none;
+    padding: 8px; border-radius: 4px; transition: background-color 0.2s; margin-top: 5px;
+}
+.stream-links a:hover { background-color: #ff5555; }
+#roster-modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; }
+.modal-content h3 { font-family: var(--font-display); font-size: 2.5em; color: var(--primary-neon); margin-top: 0; }
 
 /* ======================================================= */
 /* ========= ESTILOS PARA VISUALIZADOR DE DRAFTS ========= */
 /* ======================================================= */
-.status-line-draftview { display: flex; justify-content: space-between; align-items: center; padding: 5px 20px; font-family: var(--font-bebas); font-size: 1.5em; }
-#current-team-draftview { color: var(--winner-color); }
-#round-pick-order { display: flex; justify-content: center; gap: 5px; padding: 10px; flex-wrap: wrap; }
-.pick-order-item { background-color: #2a2a2a; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; }
-.pick-order-item.active-pick { background-color: var(--winner-color); color: #1a1a1a; font-weight: bold; }
-.pick-order-item.past-pick { background-color: #444; color: #888; text-decoration: line-through; }
+#draft-container .status-line-draftview { font-family: var(--font-display); }
+.content-grid-draftview { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; flex-grow: 1; overflow: hidden; padding-top: 15px; }
+#teams-container-draftview { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: min-content; gap: 10px; overflow-y: auto; padding-right: 10px; }
+.team-card { background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; }
+.team-header { font-family: var(--font-display); color: var(--primary-neon); }
+.team-roster li { background-color: rgba(0,0,0,0.2); }
+#available-players-container-draftview { padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
+#players-table th { color: var(--secondary-neon); font-family: var(--font-display); }
 
-/* --- CORRECCIÓN DEL LAYOUT PRINCIPAL DEL DRAFT --- */
-.content-grid-draftview {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr; /* Columna de equipos más ancha que la central/jugadores */
-    gap: 20px;
-    flex-grow: 1;
-    overflow: hidden;
-    padding-top: 15px;
-    height: calc(100vh - 180px); /* Altura calculada para dejar espacio a header y footer */
-}
-
-#teams-container-draftview {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Tarjetas de equipo responsivas */
-    gap: 15px;
-    overflow-y: auto; /* AÑADE EL SCROLL VERTICAL */
-    padding-right: 10px; /* Espacio para la barra de scroll */
-    align-content: start; /* Alinea las tarjetas arriba */
-}
-
-.center-column {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    overflow: hidden;
-}
-
-#last-pick-info {
-    background-color: var(--surface-color);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 15px;
-    text-align: center;
-    flex-shrink: 0;
-}
-
-#last-pick-info h4 {
-    margin: 0 0 10px 0;
-    font-family: var(--font-bebas);
-    color: var(--primary-color);
-    font-size: 1.4em;
-}
-
-#last-pick-details {
-    margin: 0;
-    font-size: 1.1em;
-}
-
-#last-pick-details strong {
-    color: var(--winner-color);
-}
-
-#available-players-container-draftview {
-    background-color: var(--surface-color);
-    border-radius: 8px;
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    flex-grow: 1; /* Ocupa el espacio restante */
-}
-
-/* --- FIN DE LA CORRECCIÓN DEL LAYOUT --- */
-
-.team-card { background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; }
-.team-header { font-family: var(--font-bebas); font-size: 1.3em; color: var(--primary-color); margin: 0 0 8px 0; border-bottom: 1px solid #444; padding-bottom: 4px; }
-.team-header .captain-psn { font-size: 0.7em; color: #aaa; display: block; }
-.team-roster { list-style: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; font-size: 0.9em; }
-.team-roster li { display: flex; justify-content: space-between; margin-bottom: 4px; padding: 4px 6px; border-radius: 3px; }
-.player-pos { font-weight: bold; color: var(--primary-color); }
-
-#available-players-container-draftview h2 { font-family: var(--font-bebas); font-size: 2em; margin: 0 0 10px 0; text-align: center; }
-#position-filters { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
-.filter-btn { background-color: #444; border: 1px solid #555; color: #ccc; padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 0.8em; }
-.filter-btn.active { background-color: var(--primary-color); color: white; font-weight: bold; }
-.legend { text-align: center; font-size: 0.8em; color: #888; margin-bottom: 10px; }
-.players-table-container { flex-grow: 1; overflow-y: auto; }
-#players-table { width: 100%; border-collapse: collapse; }
-#players-table th { text-align: left; padding: 8px; font-family: var(--font-bebas); font-size: 1.2em; color: var(--primary-color); }
-#players-table td { padding: 6px 8px; border-top: 1px solid var(--border-color); font-size: 0.95em; }
-#players-table tbody tr:hover { background-color: #3a3a3a; }
-
-#pick-alert { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+/* --- PICK ALERT --- */
+#pick-alert { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
 #pick-alert.visible { opacity: 1; }
-#pick-alert-content { background-color: var(--surface-color); padding: 40px 60px; border-radius: 10px; text-align: center; border: 2px solid var(--winner-color); font-family: var(--font-bebas); }
+#pick-alert-content { padding: 40px 60px; text-align: center; font-family: var(--font-display); }
 #pick-alert-content .pick-number { font-size: 2em; color: #aaa; }
-#pick-alert-content .player-name { font-size: 4em; color: var(--winner-color); }
-#pick-alert-content .team-name { font-size: 2.5em; color: #ccc; }
+#pick-alert-content .player-name { font-size: 4em; color: var(--winner-color); animation: text-flicker 2s infinite; }
+#pick-alert-content .team-name { font-size: 2.5em; color: var(--primary-neon); }
+
+/* ======================================================= */
+/* ========= DISEÑO RESPONSIVO PARA MÓVILES ============== */
+/* ======================================================= */
+@media (max-width: 768px) {
+    body { padding: 10px; }
+    .main-content, .content-grid-draftview { grid-template-columns: 1fr; height: auto; }
+    aside#live-match-sidebar { margin-top: 20px; }
+    #teams-container-draftview { grid-template-columns: 1fr; }
+    header.main-header { flex-direction: column; }
+    .header-logo { margin: 0 0 10px 0; }
+    header.main-header h1 { font-size: 2em; }
+    .view-switcher { justify-content: center; }
+    .view-btn { font-size: 1.2em; padding: 8px 12px; }
+    #groups-container { grid-template-columns: 1fr; }
+}
