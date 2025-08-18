@@ -1,5 +1,5 @@
 // src/models/freeAgent.js
-const mongoose = require('mongoose');
+
 const { Schema } = mongoose;
 
 const freeAgentSchema = new Schema({
