@@ -1,4 +1,4 @@
-
+import mongoose from 'mongoose';
 
 const ticketConfigSchema = new mongoose.Schema({
     guildId: { type: String, required: true, unique: true },
