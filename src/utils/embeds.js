@@ -833,7 +833,7 @@ export function createCasterInfoEmbed(teamData, tournament) {
 /**
  * NUEVO: Crea el embed de advertencia para capitanes sobre la importancia de su stream.
  */
-export function createStreamerWarningEmbed(platform, originalAction, entityId, position = 'NONE') {
+export function createStreamerWarningEmbed(platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
     const embed = new EmbedBuilder()
         .setColor('#E67E22') // Naranja de advertencia
         .setTitle('⚠️ ¡ATENCIÓN, CAPITÁN! INSTRUCCIONES IMPORTANTES')
@@ -859,7 +859,8 @@ export function createStreamerWarningEmbed(platform, originalAction, entityId, p
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`streamer_warning_accept:${platform}:${originalAction}:${entityId}:${position}`)
+            // CORRECCIÓN: El customId ahora pasa los parámetros de forma limpia.
+            .setCustomId(`streamer_warning_accept:${platform}:${originalAction}:${entityId}:${teamIdOrPosition}`)
             .setLabel('Entendido, continuar con la inscripción')
             .setStyle(ButtonStyle.Success)
             .setEmoji('✅'),
