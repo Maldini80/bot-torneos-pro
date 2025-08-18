@@ -14,4 +14,4 @@ const ticketSchema = new mongoose.Schema({
     logMessageId: { type: String, default: null },
 });
 
-module.exports = mongoose.model('Ticket', ticketSchema);
+export default mongoose.model('Ticket', ticketSchema);
