@@ -1,5 +1,5 @@
 // src/models/team.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const teamSchema = new mongoose.Schema({
     name: { type: String, required: true, unique: true },
@@ -15,4 +15,4 @@ const teamSchema = new mongoose.Schema({
     recruitmentOpen: { type: Boolean, default: true } 
 });
 
-module.exports = mongoose.model('Team', teamSchema, 'teams');
+export default mongoose.model('Team', teamSchema, 'teams');
