@@ -12,4 +12,4 @@ const playerApplicationSchema = new Schema({
 // Índice para evitar que un usuario envíe múltiples solicitudes pendientes
 playerApplicationSchema.index({ userId: 1, status: 1 }, { unique: true, partialFilterExpression: { status: 'pending' } });
 
-module.exports = mongoose.model('PlayerApplication', playerApplicationSchema);
+export default mongoose.model('PlayerApplication', playerApplicationSchema);
