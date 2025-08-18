@@ -95,6 +95,17 @@ export async function handleButton(interaction) {
         });
         return;
     }
+
+	if (action === 'select_stream_platform') {
+        const [platform, originalAction, entityId, position] = params;
+        
+        // Esta función crea el embed de advertencia que debería aparecer después
+        const warningContent = createStreamerWarningEmbed(platform, originalAction, entityId, position);
+
+        // Actualizamos la interacción para mostrar la advertencia
+        await interaction.update(warningContent);
+        return;
+    }
 	
     if (action === 'cancel_registration') {
         await interaction.update({ content: 'Inscripción cancelada.', embeds: [], components: [] });
