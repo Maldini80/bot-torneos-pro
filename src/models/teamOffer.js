@@ -1,5 +1,5 @@
 // src/models/teamOffer.js
-
+import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 const teamOfferSchema = new Schema({
