@@ -1,6 +1,5 @@
 // src/models/ticket.js
-
-
+import mongoose from 'mongoose';
 
 const ticketSchema = new mongoose.Schema({
     userId: { type: String, required: true },
