@@ -21,7 +21,6 @@
             <p id="tournament-format"></p>
         </header>
 
-        <!-- NUEVO: Menú desplegable para navegación en móvil -->
         <div class="mobile-view-switcher">
             <select id="mobile-view-select">
                 <option value="classification-view">Clasificación</option>
@@ -33,7 +32,6 @@
 
         <div class="main-content">
             <main id="main-panel">
-                <!-- ACTUALIZADO: Barra de navegación con el nuevo botón "Calendario" -->
                 <nav class="view-switcher">
                     <button class="view-btn active" data-view="classification-view">Clasificación</button>
                     <button class="view-btn" data-view="calendar-view">Calendario</button>
@@ -46,7 +44,6 @@
                         <div id="groups-container"></div>
                     </div>
 
-                    <!-- NUEVO: Panel para la vista de Calendario -->
                     <div id="calendar-view" class="view-pane">
                         <h2>Calendario de Partidos</h2>
                         <div id="calendar-container"></div>
@@ -91,12 +88,13 @@
     <!-- ======================================================= -->
     <div id="draft-container" class="hidden">
         <header>
-            <!-- NUEVO: Elementos para el inicio de sesión del capitán -->
-            <div id="user-session" class="hidden">
-                <span id="user-greeting"></span>
-                <a href="/logout">Cerrar Sesión</a>
+            <div id="auth-controls">
+                <div id="user-session" class="hidden">
+                    <span id="user-greeting"></span>
+                    <a href="/logout">Cerrar Sesión</a>
+                </div>
+                <a href="/login" id="login-btn" class="hidden">Iniciar Sesión como Capitán</a>
             </div>
-            <a href="/login" id="login-btn">Iniciar Sesión como Capitán</a>
             
             <h1 id="draft-name-draftview"></h1>
             <div class="status-line-draftview">
@@ -119,7 +117,7 @@
                                 <th>PSN ID</th>
                                 <th>Pos. Primaria</th>
                                 <th>Pos. Secundaria</th>
-                                <th>Acción</th> <!-- NUEVA COLUMNA -->
+                                <th>Acción</th>
                             </tr>
                         </thead>
                         <tbody id="players-table-body"></tbody>
