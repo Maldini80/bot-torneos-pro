@@ -2,12 +2,12 @@
 
 /* --- CONFIGURACIÓN GLOBAL Y FUENTES --- */
 :root {
-    --primary-color: #E53935; /* Un rojo más suave y moderno */
-    --background-color: #1a1a1a; /* Un gris un poco más claro que el negro puro */
-    --surface-color: #2c2c2c; /* Las tarjetas y paneles un poco más claros */
-    --text-color: #f0f0f0; /* Un blanco ligeramente más suave */
-    --border-color: #444; /* Bordes un poco más visibles */
-    --winner-color: #ffc107; /* Un amarillo ámbar para los ganadores */
+    --primary-color: #E53935;
+    --background-color: #1a1a1a;
+    --surface-color: #2c2c2c;
+    --text-color: #f0f0f0;
+    --border-color: #444;
+    --winner-color: #ffc107;
     --font-bebas: 'Bebas Neue', sans-serif;
     --font-roboto: 'Roboto', sans-serif;
 }
@@ -23,12 +23,12 @@ body {
 
 /* --- ESTRUCTURAS PRINCIPALES --- */
 #app-container, #draft-container {
-    display: none; /* Ocultos por defecto */
+    display: none;
     flex-direction: column;
-    height: calc(100vh - 40px); /* Ajustado para footer */
+    height: calc(100vh - 40px);
 }
 body.draft-view-style #draft-container, body:not(.draft-view-style) #app-container {
-    display: flex; /* Mostramos el contenedor correcto */
+    display: flex;
 }
 
 header { text-align: center; padding-bottom: 10px; border-bottom: 2px solid var(--primary-color); position: relative; }
@@ -62,7 +62,6 @@ main#main-panel { display: flex; flex-direction: column; background-color: var(-
 .group-table th, .group-table td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
 .group-table td:not(:first-child) { text-align: center; }
 
-/* CORREGIDO: Estilos mejorados para el Bracket de Eliminatorias */
 #bracket-container { display: flex; gap: 60px; overflow-x: auto; padding: 20px; align-items: stretch; }
 .bracket-round { display: flex; flex-direction: column; justify-content: space-around; flex-shrink: 0; width: 280px; }
 .bracket-round-title { font-family: var(--font-bebas); font-size: 2em; text-align: center; color: var(--text-color); text-transform: capitalize; margin-bottom: 30px; }
@@ -73,7 +72,6 @@ main#main-panel { display: flex; flex-direction: column; background-color: var(-
 .bracket-team .score { font-weight: bold; font-size: 1.2em; padding-left: 10px; }
 .bracket-match.winner-top .bracket-team:first-child span { color: var(--winner-color); font-weight: bold; }
 .bracket-match.winner-bottom .bracket-team:last-child span { color: var(--winner-color); font-weight: bold; }
-/* FIN de la corrección del Bracket */
 
 .finished-content { text-align: center; padding-top: 50px; }
 .champion-info { margin-top: 30px; }
@@ -97,9 +95,9 @@ aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; ma
 /* ======================================================= */
 /* ========= ESTILOS PARA VISUALIZADOR DE DRAFTS ========= */
 /* ======================================================= */
-/* NUEVO: Estilos para el login de capitán */
-#login-btn { position: absolute; top: 10px; right: 10px; background-color: #5865F2; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; font-size: 0.9em; }
-#user-session { position: absolute; top: 10px; right: 10px; background-color: var(--surface-color); padding: 8px 15px; border-radius: 5px; font-size: 0.9em; }
+#auth-controls { position: absolute; top: 10px; right: 10px; z-index: 10; }
+#login-btn { background-color: #5865F2; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; font-size: 0.9em; }
+#user-session { background-color: var(--surface-color); padding: 8px 15px; border-radius: 5px; font-size: 0.9em; }
 #user-session a { color: #E53935; margin-left: 10px; text-decoration: none; font-weight: bold; }
 
 .status-line-draftview { display: flex; justify-content: space-between; align-items: center; padding: 5px 20px; font-family: var(--font-bebas); font-size: 1.5em; }
@@ -127,7 +125,6 @@ aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; ma
 #players-table th { text-align: left; padding: 8px; font-family: var(--font-bebas); font-size: 1.2em; color: var(--primary-color); }
 #players-table td { padding: 6px 8px; border-top: 1px solid var(--border-color); font-size: 0.95em; }
 #players-table tbody tr:hover { background-color: #3a3a3a; }
-/* NUEVO: Estilo para el botón de elegir jugador */
 .pick-btn { background-color: #2ecc71; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; }
 .pick-btn:disabled { background-color: #555; cursor: not-allowed; }
 
@@ -138,7 +135,7 @@ aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; ma
 #pick-alert-content .player-name { font-size: 4em; color: var(--winner-color); }
 #pick-alert-content .team-name { font-size: 2.5em; color: #ccc; }
 
-/* --- NUEVO: Estilos para la nueva pestaña de Calendario --- */
+/* --- ESTILOS PARA LA NUEVA PESTAÑA DE CALENDARIO --- */
 .calendar-group { margin-bottom: 30px; }
 .calendar-group h3 { font-family: var(--font-bebas); font-size: 1.8em; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
 .calendar-round { margin-top: 15px; }
@@ -149,7 +146,7 @@ aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; ma
 .match-result, .match-vs { font-family: var(--font-bebas); font-size: 1.5em; color: var(--winner-color); margin: 0 20px; }
 .match-vs { color: #888; }
 
-/* --- NUEVO: Estilos para la versión móvil (Responsive) --- */
+/* --- ESTILOS PARA LA VERSIÓN MÓVIL (RESPONSIVE) --- */
 .mobile-view-switcher { display: none; }
 @media (max-width: 768px) {
     body { padding: 10px; overflow: auto; }
@@ -164,5 +161,4 @@ aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; ma
     #available-players-container-draftview { order: 1; }
     header h1 { font-size: 2.5em; }
 }
-
 /* --- FIN DEL ARCHIVO style.css --- */
