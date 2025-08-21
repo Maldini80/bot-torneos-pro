@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO client.js ---
+// --- INICIO DEL ARCHIVO client.js (VERSIÓN COMPLETA Y DEFINITIVA) ---
 
 document.addEventListener('DOMContentLoaded', () => {
     // Punto de entrada principal. Detecta el tipo de evento desde la URL.
@@ -7,10 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const draftId = urlParams.get('draftId');
 
     if (tournamentId) {
-        // Si es un torneo, inicializa la vista de torneo.
+        document.body.classList.remove('draft-view-style');
         initializeTournamentView(tournamentId);
     } else if (draftId) {
-        // Si es un draft, aplica estilos específicos y inicializa la vista de draft.
         document.body.classList.add('draft-view-style');
         initializeDraftView(draftId);
     } else {
@@ -92,6 +91,7 @@ function initializeTournamentView(tournamentId) {
     function renderTournamentState(tournament) {
         if (tournament.status === 'finalizado') {
             viewSwitcherEl.style.display = 'none';
+            document.querySelector('.mobile-view-switcher').style.display = 'none';
             const activePane = mainPanelEl.querySelector('.view-pane.active');
             if(activePane) activePane.classList.remove('active');
             finishedViewEl.classList.add('active');
@@ -322,24 +322,33 @@ function initializeDraftView(draftId) {
 
     const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
     let hasLoadedInitialData = false;
-    let playersBefore = [];
     let currentUser = null;
+    let currentDraftState = null;
+    let lastShownPick = 0;
+
+    setupFilters(); // Llamamos a los filtros una sola vez al inicio
 
     async function checkUserSession() {
-        const response = await fetch('/api/user');
-        const user = await response.json();
-        currentUser = user;
-        const userSessionEl = document.getElementById('user-session');
-        const loginBtn = document.getElementById('login-btn');
-        if (user) {
-            document.getElementById('user-greeting').textContent = `Hola, ${user.username}`;
-            userSessionEl.classList.remove('hidden');
-            loginBtn.classList.add('hidden');
-        } else {
-            userSessionEl.classList.add('hidden');
-            loginBtn.classList.remove('hidden');
-            // Guardamos la URL actual para volver aquí después del login
-            loginBtn.href = `/login?returnTo=${window.location.pathname}${window.location.search}`;
+        try {
+            const response = await fetch('/api/user');
+            const user = await response.json();
+            currentUser = user;
+            const userSessionEl = document.getElementById('user-session');
+            const loginBtn = document.getElementById('login-btn');
+            if (user) {
+                document.getElementById('user-greeting').textContent = `Hola, ${user.username}`;
+                userSessionEl.classList.remove('hidden');
+                loginBtn.classList.add('hidden');
+            } else {
+                userSessionEl.classList.add('hidden');
+                loginBtn.classList.remove('hidden');
+                loginBtn.href = `/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+            }
+            if (currentDraftState) {
+                renderAvailablePlayers(currentDraftState);
+            }
+        } catch (e) {
+            console.error("Error checking user session:", e);
         }
     }
 
@@ -349,14 +358,14 @@ function initializeDraftView(draftId) {
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.type === 'draft' && message.id === draftId) {
+            currentDraftState = message.data;
             if (!hasLoadedInitialData) {
                 loadingEl.classList.add('hidden');
                 draftContainerEl.classList.remove('hidden');
                 hasLoadedInitialData = true;
-                setupFilters();
                 checkUserSession();
             }
-            renderDraftState(message.data);
+            renderDraftState(currentDraftState);
         }
     };
 
@@ -364,24 +373,21 @@ function initializeDraftView(draftId) {
         .then(response => response.ok ? response.json() : Promise.resolve(null))
         .then(data => {
             if (data && !hasLoadedInitialData) {
+                currentDraftState = data;
                 loadingEl.classList.add('hidden');
                 draftContainerEl.classList.remove('hidden');
-                renderDraftState(data);
+                renderDraftState(currentDraftState);
                 hasLoadedInitialData = true;
-                setupFilters();
                 checkUserSession();
             }
         }).catch(err => console.warn('No se pudieron cargar datos iniciales de draft, esperando WebSocket.'));
 
     function renderDraftState(draft) {
-        if (hasLoadedInitialData) {
-            const newPick = draft.players.find(p => p.captainId && !playersBefore.find(op => op.userId === p.userId)?.captainId);
-            if (newPick) {
-                const captain = draft.captains.find(c => c.userId === newPick.captainId);
-                showPickAlert(draft.selection.currentPick - 1, newPick, captain);
-            }
+        if (draft.selection.lastPick && draft.selection.lastPick.pickNumber > lastShownPick) {
+            const { playerPsnId, captainTeamName, pickNumber } = draft.selection.lastPick;
+            showPickAlert(pickNumber, { psnId: playerPsnId }, { teamName: captainTeamName });
+            lastShownPick = pickNumber;
         }
-        playersBefore = draft.players.map(p => ({ userId: p.userId, captainId: p.captainId }));
         
         draftNameEl.textContent = draft.name;
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
@@ -427,7 +433,6 @@ function initializeDraftView(draftId) {
     function renderAvailablePlayers(draft) {
         playersTableBodyEl.innerHTML = '';
         const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain).sort(sortPlayersAdvanced);
-        
         const isMyTurn = currentUser && draft.status === 'seleccion' && draft.selection.order[draft.selection.turn] === currentUser.id;
 
         availablePlayers.forEach(player => {
@@ -436,31 +441,19 @@ function initializeDraftView(draftId) {
             const row = document.createElement('tr');
             row.dataset.posPrimary = player.primaryPosition;
             row.dataset.posSecondary = secPos;
-
-            const actionButton = isMyTurn
-                ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${player.primaryPosition}">Elegir</button>`
-                : '---';
-
+            const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${player.primaryPosition}">Elegir</button>` : '---';
             row.innerHTML = `<td>${statusEmoji}</td><td>${player.psnId}</td><td>${player.primaryPosition}</td><td>${secPos}</td><td>${actionButton}</td>`;
             playersTableBodyEl.appendChild(row);
         });
-        const activeFilter = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-        filterTable(activeFilter);
+        filterTable(document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos');
     }
 
     playersTableBodyEl.addEventListener('click', (event) => {
         if (event.target.classList.contains('pick-btn')) {
             const playerId = event.target.dataset.playerId;
             const position = event.target.dataset.position;
-            
-            const payload = JSON.stringify({
-                type: 'execute_draft_pick',
-                draftId: draftId,
-                playerId: playerId,
-                position: position
-            });
+            const payload = JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position });
             socket.send(payload);
-            
             document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
         }
     });
@@ -488,6 +481,7 @@ function initializeDraftView(draftId) {
     }
 
     function setupFilters() {
+        if (positionFiltersEl.innerHTML !== '') return; // Evita que se vuelva a crear
         positionFiltersEl.innerHTML = `
             <select id="filter-column-select">
                 <option value="primary">Filtrar por Pos. Primaria</option>
@@ -495,7 +489,6 @@ function initializeDraftView(draftId) {
             </select>`;
         const select = document.getElementById('filter-column-select');
         select.addEventListener('change', () => filterTable(document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos'));
-    
         const allPositions = ['Todos', ...positionOrder];
         allPositions.forEach(pos => {
             const btn = document.createElement('button');
@@ -512,7 +505,6 @@ function initializeDraftView(draftId) {
         document.querySelectorAll('#position-filters .filter-btn').forEach(btn => btn.classList.remove('active'));
         const currentFilterBtn = document.querySelector(`#position-filters .filter-btn[data-pos="${position}"]`);
         if (currentFilterBtn) currentFilterBtn.classList.add('active');
-        
         const filterColumn = document.getElementById('filter-column-select').value;
         const rows = playersTableBodyEl.querySelectorAll('tr');
         rows.forEach(row => {
@@ -531,8 +523,8 @@ function initializeDraftView(draftId) {
         pickAlertEl.classList.add('visible');
         setTimeout(() => {
             pickAlertEl.classList.remove('visible');
-            setTimeout(() => pickAlertEl.classList.add('hidden'), 300);
-        }, 5000);
+            setTimeout(() => pickAlertEl.classList.add('hidden'), 5000);
+        }, 300);
     }
 }
 
