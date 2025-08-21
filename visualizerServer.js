@@ -1,24 +1,18 @@
-// visualizerServer.js (VERSIÓN CORREGIDA Y ROBUSTA)
+// visualizerServer.js (VERSIÓN FINAL CON LOGIN)
 import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
-import { exec } from 'child_process';
-import fetch from 'node-fetch';
-import { platform, arch } from 'os';
-import { createWriteStream, createReadStream } from 'fs';
-import fs from 'fs-extra';
-const { chmod, existsSync } = fs;
-import { join } from 'path';
-import unzipper from 'unzipper';
+import session from 'express-session';
+import passport from 'passport';
+import { Strategy as DiscordStrategy } from 'passport-discord';
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ noServer: true }); // Importante: 'noServer'
 
 const PORT = process.env.PORT || 3000;
 
-// --- INICIO DE LA MODIFICACIÓN CLAVE ---
-// Centralizamos el estado y las funciones para que puedan ser importadas
+// --- ESTADO CENTRALIZADO (SIN CAMBIOS) ---
 const draftStates = new Map();
 const tournamentStates = new Map();
 
@@ -29,7 +23,6 @@ function broadcastUpdate(type, id, data) {
     });
 }
 
-// Exportamos un objeto que contiene todo lo necesario para gestionar el estado desde fuera
 export const visualizerStateHandler = {
     updateDraft: (draft) => {
         draftStates.set(draft.shortId, draft);
@@ -42,138 +35,121 @@ export const visualizerStateHandler = {
         console.log(`[Visualizer State] Estado de TORNEO actualizado para: ${tournament.shortId}`);
     }
 };
-// --- FIN DE LA MODIFICACIÓN CLAVE ---
 
-let ngrokProcess;
-const ngrokPath = join(process.cwd(), platform() === 'win32' ? 'ngrok.exe' : 'ngrok');
+// --- INICIO: LÓGICA DE AUTENTICACIÓN Y SESIONES (NUEVO) ---
+const sessionParser = session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: process.env.BASE_URL.startsWith('https') }
+});
+app.use(sessionParser);
 
-// --- INICIO DE LA LÓGICA DE GESTIÓN DE NGROK ---
-async function downloadNgrok() {
-    if (existsSync(ngrokPath)) {
-        console.log('[ngrok-manager] El agente ngrok ya existe.');
-        return;
-    }
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
 
-    const plat = platform();
-    const architecture = arch();
-    let url;
+passport.use(new DiscordStrategy({
+    clientID: process.env.DISCORD_CLIENT_ID,
+    clientSecret: process.env.DISCORD_CLIENT_SECRET,
+    callbackURL: `${process.env.BASE_URL}/callback`,
+    scope: ['identify']
+}, (accessToken, refreshToken, profile, done) => {
+    process.nextTick(() => done(null, profile));
+}));
 
-    if (plat === 'linux' && architecture === 'x64') {
-        url = 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip';
-    } else {
-        console.error(`[ngrok-manager] Plataforma no soportada para descarga automática: ${plat} ${architecture}`);
-        return;
-    }
+app.use(passport.initialize());
+app.use(passport.session());
 
-    console.log(`[ngrok-manager] Descargando el agente ngrok desde ${url}...`);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Error al descargar ngrok: ${response.statusText}`);
-    
-    const zipPath = join(process.cwd(), 'ngrok.zip');
-    const fileStream = createWriteStream(zipPath);
-    await new Promise((resolve, reject) => {
-        response.body.pipe(fileStream);
-        response.body.on('error', reject);
-        fileStream.on('finish', resolve);
+// RUTAS PARA EL LOGIN
+app.get('/login', (req, res, next) => {
+    // Guardamos la página a la que volver después del login
+    req.session.returnTo = req.query.returnTo || '/';
+    passport.authenticate('discord')(req, res, next);
+});
+
+app.get('/callback', passport.authenticate('discord', {
+    failureRedirect: '/'
+}), (req, res) => {
+    // Redirigir a la URL guardada o a la raíz
+    const returnTo = req.session.returnTo || '/';
+    delete req.session.returnTo;
+    res.redirect(returnTo);
+});
+
+app.get('/logout', (req, res) => {
+    req.logout(() => {
+        res.redirect('/');
     });
+});
 
-    await createReadStream(zipPath)
-        .pipe(unzipper.Extract({ path: process.cwd() }))
-        .promise();
-    
-    console.log('[ngrok-manager] Agente ngrok extraído.');
+app.get('/api/user', (req, res) => {
+    res.json(req.user || null);
+});
+// --- FIN: LÓGICA DE AUTENTICACIÓN ---
 
-    if (platform() !== 'win32') {
-        await chmod(ngrokPath, 0o755);
-        console.log('[ngrok-manager] Permisos de ejecución establecidos para ngrok.');
-    }
-}
-
-function startNgrokTunnel() {
-    if (!process.env.NGROK_AUTHTOKEN || !process.env.NGROK_STATIC_DOMAIN) {
-        console.warn('[ngrok-manager] Faltan las variables de entorno de ngrok. El túnel no se iniciará.');
-        return;
-    }
-    
-    console.log('[ngrok-manager] Intentando iniciar el túnel de ngrok...');
-    const command = `${ngrokPath} http ${PORT} --authtoken ${process.env.NGROK_AUTHTOKEN} --domain ${process.env.NGROK_STATIC_DOMAIN} --log=stdout`;
-    
-    ngrokProcess = exec(command);
-
-    ngrokProcess.stdout.on('data', (data) => {
-        const logLine = data.toString();
-        console.log(`[ngrok-stdout] ${logLine}`);
-        if (logLine.includes('started tunnel')) {
-             console.log(`[ngrok-manager] ¡CONFIRMADO! El túnel está online y listo.`);
-        }
-    });
-
-    ngrokProcess.stderr.on('data', (data) => {
-        const errorLog = data.toString();
-        console.error(`[ngrok-stderr] ${errorLog}`);
-        // MENSAJE DE AYUDA MEJORADO
-        if (errorLog.includes('ERR_NGROK_108')) {
-            console.error('[ngrok-manager] DETECTADO ERROR DE SESIÓN: Ya hay otro agente de ngrok corriendo con tu cuenta. Por favor, detenlo desde https://dashboard.ngrok.com/agents y reinicia el servicio.');
-        }
-    });
-
-    ngrokProcess.on('close', (code) => {
-        console.warn(`[ngrok-manager] El proceso de ngrok se ha cerrado inesperadamente con código: ${code}`);
-    });
-
-    ngrokProcess.on('error', (err) => {
-        console.error('[ngrok-manager] Error al ejecutar el proceso de ngrok:', err);
-    });
-}
-// --- FIN DE LA LÓGICA DE GESTIÓN DE NGROK ---
-
-export async function startVisualizerServer() {
+export async function startVisualizerServer(client, advanceDraftTurn, handlePlayerSelectionFromWeb) {
     app.use(express.json());
-    app.use(express.static('public'));
+    app.use(express.static('public')); // Sirve los archivos HTML, CSS y JS
 
-    // Endpoints POST (se mantienen por si se usan externamente, pero la lógica interna ya no depende de ellos)
-    app.post('/update-draft/:draftId', (req, res) => {
-        visualizerStateHandler.updateDraft(req.body);
-        res.status(200).send({ message: 'Update received' });
-    });
-    app.post('/update-tournament/:tournamentId', (req, res) => {
-        visualizerStateHandler.updateTournament(req.body);
-        res.status(200).send({ message: 'Update received' });
-    });
-
-    // Endpoints GET para la carga inicial de datos
+    // Endpoints GET para datos iniciales (sin cambios)
     app.get('/draft-data/:draftId', (req, res) => {
-        const { draftId } = req.params;
-        const data = draftStates.get(draftId);
+        const data = draftStates.get(req.params.draftId);
         if (data) res.json(data);
         else res.status(404).send({ error: 'Draft data not found' });
     });
     app.get('/tournament-data/:tournamentId', (req, res) => {
-        const { tournamentId } = req.params;
-        const data = tournamentStates.get(tournamentId);
+        const data = tournamentStates.get(req.params.tournamentId);
         if (data) res.json(data);
         else res.status(404).send({ error: 'Tournament data not found' });
     });
 
-    wss.on('connection', ws => console.log('[Visualizer] Caster conectado.'));
-    
-    server.listen(PORT, async () => {
-        console.log(`[Visualizer] Servidor interno escuchando en ${PORT}`);
-        try {
-            await downloadNgrok();
-            startNgrokTunnel();
-        } catch (error) {
-            console.error('[ngrok-manager] Fallo crítico en el proceso de inicio de ngrok:', error);
+    // Conexión WebSocket mejorada para usar sesiones
+    server.on('upgrade', (request, socket, head) => {
+        sessionParser(request, {}, () => {
+            wss.handleUpgrade(request, socket, head, (ws) => {
+                if (request.session.passport && request.session.passport.user) {
+                    ws.user = request.session.passport.user;
+                }
+                wss.emit('connection', ws, request);
+            });
+        });
+    });
+
+    wss.on('connection', (ws, req) => {
+        if (ws.user) {
+            console.log(`[Visualizer] Usuario autenticado conectado: ${ws.user.username}`);
+        } else {
+            console.log('[Visualizer] Caster/Espectador conectado.');
         }
+
+        ws.on('message', async (message) => {
+            try {
+                const data = JSON.parse(message);
+
+                if (data.type === 'execute_draft_pick' && ws.user) {
+                    const userId = ws.user.id;
+                    const { draftId, playerId, position } = data;
+                    try {
+                        await handlePlayerSelectionFromWeb(client, draftId, userId, playerId, position);
+                        await advanceDraftTurn(client, draftId);
+                    } catch (error) {
+                        console.error(`[PICK WEB] Fallo en el pick desde la web: ${error.message}`);
+                    }
+                }
+            } catch (e) {
+                console.error('Error procesando mensaje de WebSocket:', e);
+            }
+        });
+    });
+
+    server.listen(PORT, () => {
+        console.log(`[Visualizer] Servidor escuchando en ${PORT}`);
     });
 }
 
 function gracefulShutdown() {
-  console.log('[Shutdown] Recibida señal de apagado. Cerrando el túnel de ngrok...');
-  if (ngrokProcess) {
-    ngrokProcess.kill('SIGINT');
-  }
-  process.exit(0);
+    console.log('[Shutdown] Recibida señal de apagado. El servicio se detendrá.');
+    process.exit(0);
 }
 
 process.on('SIGTERM', gracefulShutdown);
