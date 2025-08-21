@@ -1,4 +1,4 @@
-// visualizerServer.js (VERSIÓN FINAL CON LOGIN)
+// visualizerServer.js (VERSIÓN FINAL CON LOGIN CORREGIDO)
 import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
@@ -8,7 +8,7 @@ import { Strategy as DiscordStrategy } from 'passport-discord';
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ noServer: true }); // Importante: 'noServer'
+const wss = new WebSocketServer({ noServer: true });
 
 const PORT = process.env.PORT || 3000;
 
@@ -36,7 +36,7 @@ export const visualizerStateHandler = {
     }
 };
 
-// --- INICIO: LÓGICA DE AUTENTICACIÓN Y SESIONES (NUEVO) ---
+// --- LÓGICA DE AUTENTICACIÓN Y SESIONES ---
 const sessionParser = session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -60,21 +60,21 @@ passport.use(new DiscordStrategy({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// RUTAS PARA EL LOGIN
+// --- RUTAS DE LOGIN Y CALLBACK (CORREGIDAS) ---
 app.get('/login', (req, res, next) => {
-    // Guardamos la página a la que volver después del login
-    req.session.returnTo = req.query.returnTo || '/';
-    passport.authenticate('discord')(req, res, next);
+    // Codificamos la URL de retorno en el parámetro 'state'
+    const returnTo = Buffer.from(req.query.returnTo || '/').toString('base64');
+    passport.authenticate('discord', { state: returnTo })(req, res, next);
 });
 
 app.get('/callback', passport.authenticate('discord', {
     failureRedirect: '/'
 }), (req, res) => {
-    // Redirigir a la URL guardada o a la raíz
-    const returnTo = req.session.returnTo || '/';
-    delete req.session.returnTo;
-    res.redirect(returnTo);
+    // Decodificamos la URL guardada en 'state' y redirigimos
+    const returnTo = Buffer.from(req.query.state, 'base64').toString('utf8');
+    res.redirect(returnTo || '/');
 });
+// --- FIN DE LAS RUTAS CORREGIDAS ---
 
 app.get('/logout', (req, res) => {
     req.logout(() => {
@@ -85,13 +85,11 @@ app.get('/logout', (req, res) => {
 app.get('/api/user', (req, res) => {
     res.json(req.user || null);
 });
-// --- FIN: LÓGICA DE AUTENTICACIÓN ---
 
 export async function startVisualizerServer(client, advanceDraftTurn, handlePlayerSelectionFromWeb) {
     app.use(express.json());
-    app.use(express.static('public')); // Sirve los archivos HTML, CSS y JS
+    app.use(express.static('public'));
 
-    // Endpoints GET para datos iniciales (sin cambios)
     app.get('/draft-data/:draftId', (req, res) => {
         const data = draftStates.get(req.params.draftId);
         if (data) res.json(data);
@@ -103,7 +101,6 @@ export async function startVisualizerServer(client, advanceDraftTurn, handlePlay
         else res.status(404).send({ error: 'Tournament data not found' });
     });
 
-    // Conexión WebSocket mejorada para usar sesiones
     server.on('upgrade', (request, socket, head) => {
         sessionParser(request, {}, () => {
             wss.handleUpgrade(request, socket, head, (ws) => {
@@ -119,13 +116,12 @@ export async function startVisualizerServer(client, advanceDraftTurn, handlePlay
         if (ws.user) {
             console.log(`[Visualizer] Usuario autenticado conectado: ${ws.user.username}`);
         } else {
-            console.log('[Visualizer] Caster/Espectador conectado.');
+            console.log('[Visualizer] Espectador conectado.');
         }
 
         ws.on('message', async (message) => {
             try {
                 const data = JSON.parse(message);
-
                 if (data.type === 'execute_draft_pick' && ws.user) {
                     const userId = ws.user.id;
                     const { draftId, playerId, position } = data;
