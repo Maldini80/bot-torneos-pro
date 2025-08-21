@@ -427,6 +427,7 @@ function initializeDraftView(draftId) {
     function renderAvailablePlayers(draft) {
         playersTableBodyEl.innerHTML = '';
         const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain).sort(sortPlayersAdvanced);
+        
         const isMyTurn = currentUser && draft.status === 'seleccion' && draft.selection.order[draft.selection.turn] === currentUser.id;
 
         availablePlayers.forEach(player => {
@@ -534,4 +535,5 @@ function initializeDraftView(draftId) {
         }, 5000);
     }
 }
+
 // --- FIN DEL ARCHIVO client.js ---
