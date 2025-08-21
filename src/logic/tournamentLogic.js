@@ -8,54 +8,38 @@ import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
-// --- INICIO DE LA MODIFICACIÓN CLAVE ---
-// Importamos el manejador de estado directamente desde el servidor web.
-// Esto elimina las llamadas de red 'localhost' que estaban fallando.
 import { visualizerStateHandler } from '../../visualizerServer.js';
 
-/**
- * Notifica al servidor web del visualizador sobre una actualización del estado del draft.
- * @param {object} draft El objeto completo del draft.
- */
 export async function notifyVisualizer(draft) {
-    // Llamada directa a la función del manejador de estado. 100% fiable.
     visualizerStateHandler.updateDraft(draft);
 }
 
-/**
- * Notifica al servidor web sobre una actualización del estado de un TORNEO.
- * @param {object} tournament El objeto completo del torneo.
- */
 export async function notifyTournamentVisualizer(tournament) {
-    // Llamada directa a la función del manejador de estado. 100% fiable.
     visualizerStateHandler.updateTournament(tournament);
 }
-// --- FIN DE LA MODIFICACIÓN CLAVE ---
-
 
 async function publishDraftVisualizerURL(client, draft) {
-    if (!process.env.NGROK_STATIC_DOMAIN) return;
+    if (!process.env.BASE_URL) return; // <-- CORREGIDO
 
     try {
-        const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?draftId=${draft.shortId}`;
+        const visualizerLink = `${process.env.BASE_URL}/?draftId=${draft.shortId}`; // <-- CORREGIDO
 
         const embed = new EmbedBuilder()
-            .setColor('#2ecc71') // Color verde para el embed
+            .setColor('#2ecc71')
             .setTitle('🔴 Visualizador del Draft EN VIVO')
             .setDescription(`¡El visualizador para el draft **${draft.name}** ya está disponible!\n\nUtiliza el botón de abajo para abrirlo en tu navegador. Esta es la URL que debes capturar en tu software de streaming (OBS, Streamlabs, etc.).`)
-            .setImage('https://i.imgur.com/kxFTXFg.jpeg') // <-- CAMBIO: Nueva imagen
+            .setImage('https://i.imgur.com/kxFTXFg.jpeg')
             .setTimestamp()
             .setFooter({ text: 'VPG Lightnings - Sistema de Drafts' });
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setLabel('Abrir Visualizador del Draft')
-                .setStyle(ButtonStyle.Link) // Los botones de enlace en Discord son siempre grises/azules, no se pueden poner verdes.
+                .setStyle(ButtonStyle.Link)
                 .setURL(visualizerLink)
                 .setEmoji('🔗')
         );
         
-        // 1. Enviar al canal privado de Casters (como antes)
         if (draft.discordMessageIds.casterTextChannelId) {
             const casterChannel = await client.channels.fetch(draft.discordMessageIds.casterTextChannelId);
             const casterRole = await casterChannel.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
@@ -66,7 +50,6 @@ async function publishDraftVisualizerURL(client, draft) {
             });
         }
 
-        // 2. Enviar al canal público de Información del Draft
         if (draft.discordChannelId) {
             const publicInfoChannel = await client.channels.fetch(draft.discordChannelId);
             await publicInfoChannel.send({
@@ -79,16 +62,17 @@ async function publishDraftVisualizerURL(client, draft) {
         console.error(`[Visualizer] Fallo al publicar URL de draft para ${draft.shortId}:`, e); 
     }
 }
+
 async function publishTournamentVisualizerURL(client, tournament) {
-    if (!process.env.NGROK_STATIC_DOMAIN) return;
+    if (!process.env.BASE_URL) return; // <-- CORREGIDO
     try {
-        const visualizerLink = `https://${process.env.NGROK_STATIC_DOMAIN}/?tournamentId=${tournament.shortId}`;
+        const visualizerLink = `${process.env.BASE_URL}/?tournamentId=${tournament.shortId}`; // <-- CORREGIDO
 
         const embed = new EmbedBuilder()
-            .setColor('#2ecc71') // Color verde para el embed
+            .setColor('#2ecc71')
             .setTitle('🏆 Visualizador del Torneo EN VIVO')
             .setDescription(`¡El visualizador para el torneo **${tournament.nombre}** ya está disponible!\n\nUtiliza el botón de abajo para abrirlo y seguir toda la acción en tiempo real.`)
-            .setImage('https://i.imgur.com/kxFTXFg.jpeg') // <-- CAMBIO: Nueva imagen
+            .setImage('https://i.imgur.com/kxFTXFg.jpeg')
             .setTimestamp()
             .setFooter({ text: 'VPG Lightnings - Sistema de Torneos' });
 
@@ -100,7 +84,6 @@ async function publishTournamentVisualizerURL(client, tournament) {
                 .setEmoji('🔗')
         );
 
-        // 1. Enviar al hilo privado de Casters (como antes)
         if (tournament.discordMessageIds.casterThreadId) {
             const casterThread = await client.channels.fetch(tournament.discordMessageIds.casterThreadId);
             const casterRole = await casterThread.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
@@ -111,7 +94,6 @@ async function publishTournamentVisualizerURL(client, tournament) {
             });
         }
         
-        // 2. Enviar al canal público de Información del Torneo
         if (tournament.discordChannelIds.infoChannelId) {
             const publicInfoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId);
             await publicInfoChannel.send({
@@ -125,11 +107,6 @@ async function publishTournamentVisualizerURL(client, tournament) {
     }
 }
 
-/**
- * Actualiza los embeds principales de la interfaz de un draft (jugadores, equipos, orden).
- * @param {import('discord.js').Client} client El cliente de Discord.
- * @param {string} draftShortId El ID corto del draft a actualizar.
- */
 export async function updateDraftMainInterface(client, draftShortId) {
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -163,7 +140,7 @@ export async function updateDraftMainInterface(client, draftShortId) {
         }
 
     } catch (error) {
-        if (error.code !== 10003 && error.code !== 10008) { // Canal o mensaje no encontrado
+        if (error.code !== 10003 && error.code !== 10008) {
             console.error(`[Interface Update] Error al actualizar la interfaz principal para el draft ${draftShortId}:`, error);
         }
     }
@@ -241,19 +218,15 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
     }
 }
 
-// Pega esta nueva función en tournamentLogic.js
 export async function handlePlayerSelectionFromWeb(client, draftShortId, captainId, selectedPlayerId, pickedForPosition) {
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-    // --- ¡LA COMPROBACIÓN DE SEGURIDAD CLAVE! ---
     const currentCaptainTurnId = draft.selection.order[draft.selection.turn];
     if (currentCaptainTurnId !== captainId) {
         throw new Error('No es el turno de este capitán.');
     }
-    // --- FIN DE LA COMPROBACIÓN ---
 
-    // El resto de la lógica es la misma que ya tenías en 'handlePlayerSelection'
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
