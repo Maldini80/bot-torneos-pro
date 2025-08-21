@@ -1,6 +1,7 @@
 // index.js (Versión Limpia para Background Worker)
 import { Client, GatewayIntentBits, Events, MessageFlags, EmbedBuilder } from 'discord.js';
 import { startVisualizerServer } from './visualizerServer.js'; // <-- AÑADIR ESTA LÍNEA
+import { advanceDraftTurn, handlePlayerSelectionFromWeb } from './src/logic/tournamentLogic.js';
 import 'dotenv/config';
 import { connectDb, getDb } from './database.js';
 import { handleCommand } from './src/handlers/commandHandler.js';
@@ -141,7 +142,7 @@ client.on(Events.MessageDelete, async message => {
 
 async function startBot() {
     await connectDb();
-    await startVisualizerServer();
+    await startVisualizerServer(client, advanceDraftTurn, handlePlayerSelectionFromWeb);
     client.login(process.env.DISCORD_TOKEN);
 }
 
