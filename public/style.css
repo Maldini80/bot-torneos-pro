@@ -1,91 +1,94 @@
-/* --- INICIO DEL ARCHIVO style.css --- */
+/* --- INICIO DEL ARCHIVO style.css (VERSIÓN COMPLETA Y MEJORADA) --- */
 
 /* --- CONFIGURACIÓN GLOBAL Y FUENTES --- */
 :root {
-    --primary-color: #E53935;
-    --background-color: #1a1a1a;
-    --surface-color: #2c2c2c;
-    --text-color: #f0f0f0;
-    --border-color: #444;
+    --primary-color: #e62429; /* Un rojo vibrante */
+    --background-color: #141414;
+    --surface-color: rgba(20, 20, 20, 0.85); /* Superficie semi-transparente */
+    --text-color: #f1f1f1;
+    --border-color: rgba(230, 36, 41, 0.3); /* Borde rojo translúcido */
     --winner-color: #ffc107;
     --font-bebas: 'Bebas Neue', sans-serif;
     --font-roboto: 'Roboto', sans-serif;
 }
 body {
     background-color: var(--background-color);
+    background-image: url('https://i.imgur.com/gKj8q5b.jpg'); /* Fondo futurista oscuro */
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     color: var(--text-color);
     font-family: var(--font-roboto);
     margin: 0;
     padding: 20px;
-    overflow: hidden;
+    backdrop-filter: blur(3px);
 }
 .hidden { display: none !important; }
 
 /* --- ESTRUCTURAS PRINCIPALES --- */
-#app-container, #draft-container {
-    display: none;
-    flex-direction: column;
-    height: calc(100vh - 40px);
-}
-body.draft-view-style #draft-container, body:not(.draft-view-style) #app-container {
-    display: flex;
-}
+#app-container, #draft-container { display: none; flex-direction: column; height: calc(100vh - 40px); }
+body.draft-view-style #draft-container, body:not(.draft-view-style) #app-container { display: flex; }
 
-header { text-align: center; padding-bottom: 10px; border-bottom: 2px solid var(--primary-color); position: relative; }
-header h1 { font-family: var(--font-bebas); font-size: 3.5em; color: var(--primary-color); margin: 0; text-transform: uppercase; }
+header { text-align: center; padding: 10px 0 15px 0; border-bottom: 2px solid var(--primary-color); background-color: rgba(0,0,0,0.5); margin-bottom: 20px; position: relative; }
+header h1 { font-family: var(--font-bebas); font-size: 3.5em; color: var(--primary-color); margin: 0; text-transform: uppercase; text-shadow: 2px 2px 8px rgba(0,0,0,0.7); }
 header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
 footer { position: fixed; bottom: 0; left: 0; width: 100%; background-color: #101010; border-top: 2px solid var(--primary-color); padding: 8px; text-align: center; font-family: var(--font-bebas); font-size: 1.2em; color: #aaa; }
-.placeholder { color: #666; font-style: italic; text-align: center; padding-top: 50px; }
+.placeholder { color: #888; font-style: italic; text-align: center; padding: 50px; font-size: 1.2em; }
 
-/* ======================================================= */
-/* ========= ESTILOS PARA VISUALIZADOR DE TORNEOS ========= */
-/* ======================================================= */
-.main-content { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; flex-grow: 1; overflow: hidden; padding-top: 15px; height: calc(100% - 100px); }
-main#main-panel { display: flex; flex-direction: column; background-color: var(--surface-color); border-radius: 8px; padding: 20px; }
+/* --- PANELES Y CONTENEDORES --- */
+main#main-panel, aside#live-match-sidebar, #available-players-container-draftview, .team-card {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+}
+.main-content { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; flex-grow: 1; overflow: hidden; height: calc(100% - 120px); }
+main#main-panel { display: flex; flex-direction: column; padding: 20px; }
 #main-view-content { flex-grow: 1; overflow-y: auto; }
+.view-pane h2, aside h2, #available-players-container-draftview h2 { font-family: var(--font-bebas); font-size: 2.2em; color: var(--text-color); text-shadow: 1px 1px 5px rgba(0,0,0,0.5); }
+
+/* --- NAVEGACIÓN DE PESTAÑAS --- */
 .view-switcher { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
 .view-btn { font-family: var(--font-bebas); font-size: 1.5em; padding: 10px 20px; border: none; background-color: transparent; color: #888; cursor: pointer; transition: color 0.2s, border-bottom 0.2s; border-bottom: 3px solid transparent; }
 .view-btn.active { color: var(--primary-color); border-bottom: 3px solid var(--primary-color); }
-.view-pane { display: none; }
-.view-pane.active { display: block; }
-.view-pane h2 { font-family: var(--font-bebas); font-size: 2em; margin-top: 0; color: var(--text-color); }
+.view-pane { display: none; } .view-pane.active { display: block; }
+
+/* --- PESTAÑA EQUIPOS --- */
 #team-list-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }
-.team-card-info { background-color: #2a2a2a; padding: 15px; border-radius: 5px; border-left: 3px solid transparent; transition: border-left 0.2s; }
+.team-card-info { background-color: rgba(42, 42, 42, 0.7); padding: 15px; border-radius: 5px; border-left: 3px solid transparent; transition: border-left 0.2s; }
 .team-card-info h3 { margin: 0 0 10px 0; font-family: var(--font-bebas); font-size: 1.4em; color: var(--primary-color); }
-.team-card-info .team-meta { display: flex; flex-direction: column; gap: 8px; font-size: 0.9em; color: #ccc;}
-.team-card-info .team-links { margin-top: 10px; display: flex; gap: 10px; }
-.team-card-info .team-links a { color: #3498db; text-decoration: none; background-color: #333; padding: 5px 10px; border-radius: 4px; font-size: 0.9em; }
-.team-card-info.is-draft-team { cursor: pointer; }
+.team-card-info .team-meta, .team-card-info .team-links { font-size: 0.9em; }
 .team-card-info.is-draft-team:hover { border-left: 3px solid var(--primary-color); }
+
+/* --- PESTAÑA CLASIFICACIÓN --- */
 #groups-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
 .group-table table { width: 100%; border-collapse: collapse; }
 .group-table th, .group-table td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
-.group-table td:not(:first-child) { text-align: center; }
 
+/* --- PESTAÑA ELIMINATORIAS (BRACKET) --- */
 #bracket-container { display: flex; gap: 60px; overflow-x: auto; padding: 20px; align-items: stretch; }
 .bracket-round { display: flex; flex-direction: column; justify-content: space-around; flex-shrink: 0; width: 280px; }
 .bracket-round-title { font-family: var(--font-bebas); font-size: 2em; text-align: center; color: var(--text-color); text-transform: capitalize; margin-bottom: 30px; }
 .match-wrapper { display: flex; flex-direction: column; justify-content: center; flex-grow: 1; }
-.bracket-match { background-color: #2a2a2a; border-radius: 5px; margin-bottom: 40px; border: 1px solid var(--border-color); }
+.bracket-match { background-color: var(--surface-color); border-radius: 5px; margin-bottom: 40px; border: 1px solid var(--border-color); }
 .bracket-team { display: flex; justify-content: space-between; align-items: center; padding: 12px; font-size: 1.1em; border-bottom: 1px solid #3a3a3a; }
 .bracket-team:last-child { border-bottom: none; }
-.bracket-team .score { font-weight: bold; font-size: 1.2em; padding-left: 10px; }
-.bracket-match.winner-top .bracket-team:first-child span { color: var(--winner-color); font-weight: bold; }
-.bracket-match.winner-bottom .bracket-team:last-child span { color: var(--winner-color); font-weight: bold; }
+.bracket-team .score { font-family: var(--font-bebas); font-size: 1.5em; padding-left: 10px; }
+.bracket-match.winner-top .bracket-team:first-child span, .bracket-match.winner-bottom .bracket-team:last-child span { color: var(--winner-color); font-weight: bold; }
 
-.finished-content { text-align: center; padding-top: 50px; }
-.champion-info { margin-top: 30px; }
-.champion-info h3 { font-size: 3em; color: var(--winner-color); font-family: var(--font-bebas); }
-#champion-name { font-size: 2em; }
-aside#live-match-sidebar { background-color: var(--surface-color); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; }
-aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; margin: 0 0 15px 0; text-align: center; }
+/* --- PESTAÑA CALENDARIO --- */
+.calendar-group { margin-bottom: 30px; }
+.calendar-group h3 { font-family: var(--font-bebas); font-size: 1.8em; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+.calendar-match { display: flex; justify-content: space-between; align-items: center; background-color: rgba(42, 42, 42, 0.7); padding: 10px 15px; border-radius: 5px; margin-bottom: 8px; }
+.team-info { flex: 1; font-size: 1.1em; } .team-info.right { text-align: right; }
+.match-result, .match-vs { font-family: var(--font-bebas); font-size: 1.5em; color: var(--winner-color); margin: 0 20px; }
+.match-vs { color: #888; }
+
+/* --- BARRA LATERAL Y MODALES --- */
+aside#live-match-sidebar { padding: 20px; display: flex; flex-direction: column; }
 #live-matches-list { overflow-y: auto; flex-grow: 1; }
-.live-match-group { margin-bottom: 20px; }
-.live-match-group h4 { font-family: var(--font-bebas); font-size: 1.3em; color: var(--primary-color); margin: 0 0 10px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; text-transform: capitalize; }
-.live-match-card { background-color: #2a2a2a; border-radius: 5px; padding: 15px; margin-bottom: 10px; }
-.live-match-teams { font-weight: bold; text-align: center; margin-bottom: 10px; }
-.stream-links { display: flex; flex-direction: column; gap: 8px; text-align: center; }
-.stream-links a { background-color: var(--primary-color); color: white; text-decoration: none; padding: 8px; border-radius: 4px; transition: background-color 0.2s; }
+.live-match-card { background-color: rgba(42, 42, 42, 0.7); border-radius: 5px; padding: 15px; margin-bottom: 10px; }
+.stream-links a { background-color: var(--primary-color); color: white; text-decoration: none; padding: 8px; border-radius: 4px; transition: background-color 0.2s; display: block; }
 #roster-modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; }
 .modal-content { background-color: var(--surface-color); padding: 20px; border: 1px solid var(--border-color); border-radius: 10px; width: 80%; max-width: 600px; position: relative; }
 .close-button { color: #aaa; font-size: 28px; font-weight: bold; position: absolute; top: 10px; right: 20px; cursor: pointer; }
@@ -100,53 +103,24 @@ aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; ma
 #user-session { background-color: var(--surface-color); padding: 8px 15px; border-radius: 5px; font-size: 0.9em; }
 #user-session a { color: #E53935; margin-left: 10px; text-decoration: none; font-weight: bold; }
 
-.status-line-draftview { display: flex; justify-content: space-between; align-items: center; padding: 5px 20px; font-family: var(--font-bebas); font-size: 1.5em; }
-#current-team-draftview { color: var(--winner-color); }
-.content-grid-draftview { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; flex-grow: 1; overflow: hidden; padding-top: 15px; }
-#round-pick-order { display: flex; justify-content: center; gap: 5px; padding: 10px; flex-wrap: wrap; }
-.pick-order-item { background-color: #2a2a2a; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; }
+.content-grid-draftview { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; flex-grow: 1; overflow: hidden; }
+.pick-order-item { background-color: rgba(42, 42, 42, 0.7); padding: 5px 10px; border-radius: 4px; font-size: 0.8em; }
 .pick-order-item.active-pick { background-color: var(--winner-color); color: #1a1a1a; font-weight: bold; }
-.pick-order-item.past-pick { background-color: #444; color: #888; text-decoration: line-through; }
 #teams-container-draftview { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr); gap: 10px; overflow-y: auto; }
-.team-card { background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; }
-.team-header { font-family: var(--font-bebas); font-size: 1.3em; color: var(--primary-color); margin: 0 0 8px 0; border-bottom: 1px solid #444; padding-bottom: 4px; }
-.team-header .captain-psn { font-size: 0.7em; color: #aaa; display: block; }
-.team-roster { list-style: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; font-size: 0.9em; }
-.team-roster li { display: flex; justify-content: space-between; margin-bottom: 4px; padding: 4px 6px; border-radius: 3px; }
-.player-pos { font-weight: bold; color: var(--primary-color); }
-#available-players-container-draftview { background-color: var(--surface-color); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
-#available-players-container-draftview h2 { font-family: var(--font-bebas); font-size: 2em; margin: 0 0 10px 0; text-align: center; }
-#position-filters { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
-.filter-btn { background-color: #444; border: 1px solid #555; color: #ccc; padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 0.8em; }
-.filter-btn.active { background-color: var(--primary-color); color: white; font-weight: bold; }
-.legend { text-align: center; font-size: 0.8em; color: #888; margin-bottom: 10px; }
+.team-header { font-family: var(--font-bebas); font-size: 1.3em; color: var(--primary-color); border-bottom: 1px solid var(--border-color); }
 .players-table-container { flex-grow: 1; overflow-y: auto; }
 #players-table { width: 100%; border-collapse: collapse; }
 #players-table th { text-align: left; padding: 8px; font-family: var(--font-bebas); font-size: 1.2em; color: var(--primary-color); }
 #players-table td { padding: 6px 8px; border-top: 1px solid var(--border-color); font-size: 0.95em; }
-#players-table tbody tr:hover { background-color: #3a3a3a; }
 .pick-btn { background-color: #2ecc71; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; }
 .pick-btn:disabled { background-color: #555; cursor: not-allowed; }
 
 #pick-alert { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
 #pick-alert.visible { opacity: 1; }
 #pick-alert-content { background-color: var(--surface-color); padding: 40px 60px; border-radius: 10px; text-align: center; border: 2px solid var(--winner-color); font-family: var(--font-bebas); }
-#pick-alert-content .pick-number { font-size: 2em; color: #aaa; }
 #pick-alert-content .player-name { font-size: 4em; color: var(--winner-color); }
-#pick-alert-content .team-name { font-size: 2.5em; color: #ccc; }
 
-/* --- ESTILOS PARA LA NUEVA PESTAÑA DE CALENDARIO --- */
-.calendar-group { margin-bottom: 30px; }
-.calendar-group h3 { font-family: var(--font-bebas); font-size: 1.8em; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
-.calendar-round { margin-top: 15px; }
-.calendar-round h4 { font-size: 1.1em; color: #ccc; margin-bottom: 10px; }
-.calendar-match { display: flex; justify-content: space-between; align-items: center; background-color: #2a2a2a; padding: 10px 15px; border-radius: 5px; margin-bottom: 8px; }
-.team-info { flex: 1; font-size: 1.1em; }
-.team-info.right { text-align: right; }
-.match-result, .match-vs { font-family: var(--font-bebas); font-size: 1.5em; color: var(--winner-color); margin: 0 20px; }
-.match-vs { color: #888; }
-
-/* --- ESTILOS PARA LA VERSIÓN MÓVIL (RESPONSIVE) --- */
+/* --- ESTILOS PARA LA VERSIÓN MÓVIL (CORREGIDO Y FINAL) --- */
 .mobile-view-switcher { display: none; }
 @media (max-width: 768px) {
     body { padding: 10px; overflow: auto; }
@@ -160,5 +134,6 @@ aside#live-match-sidebar h2 { font-family: var(--font-bebas); font-size: 2em; ma
     #teams-container-draftview { order: 2; grid-template-columns: 1fr; }
     #available-players-container-draftview { order: 1; }
     header h1 { font-size: 2.5em; }
+    #auth-controls { font-size: 0.8em; } /* Ajustar tamaño de login en móvil */
 }
 /* --- FIN DEL ARCHIVO style.css --- */
