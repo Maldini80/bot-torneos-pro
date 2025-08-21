@@ -3,67 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador en Vivo | VPG</title>
+    <title>Visualizador en Vivo</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="loading">
-        <div class="loader"></div>
-        <p>CARGANDO DATOS...</p>
-    </div>
+    <div id="loading">Cargando datos del evento...</div>
 
     <!-- ======================================================= -->
     <!-- ========= ESTRUCTURA PARA VISUALIZADOR DE TORNEOS ========= -->
     <!-- ======================================================= -->
     <div id="app-container" class="hidden">
-        <header class="main-header">
-            <img src="https://i.imgur.com/E6obnvO.png" alt="VPG Logo" class="header-logo">
-            <div class="header-title">
-                <h1 id="tournament-name"></h1>
-                <p id="tournament-format"></p>
-            </div>
+        <header>
+            <h1 id="tournament-name"></h1>
+            <p id="tournament-format"></p>
         </header>
+
+        <!-- NUEVO: Menú desplegable para navegación en móvil -->
+        <div class="mobile-view-switcher">
+            <select id="mobile-view-select">
+                <option value="classification-view">Clasificación</option>
+                <option value="calendar-view">Calendario</option>
+                <option value="bracket-view">Eliminatorias</option>
+                <option value="teams-view">Equipos</option>
+            </select>
+        </div>
+
         <div class="main-content">
-            <main id="main-panel" class="panel">
+            <main id="main-panel">
+                <!-- ACTUALIZADO: Barra de navegación con el nuevo botón "Calendario" -->
                 <nav class="view-switcher">
                     <button class="view-btn active" data-view="classification-view">Clasificación</button>
+                    <button class="view-btn" data-view="calendar-view">Calendario</button>
                     <button class="view-btn" data-view="bracket-view">Eliminatorias</button>
                     <button class="view-btn" data-view="teams-view">Equipos</button>
                 </nav>
                 <div id="main-view-content">
                     <div id="classification-view" class="view-pane active">
-                        <h2 class="pane-title">Fase de Grupos</h2>
+                        <h2>Fase de Grupos</h2>
                         <div id="groups-container"></div>
                     </div>
+
+                    <!-- NUEVO: Panel para la vista de Calendario -->
+                    <div id="calendar-view" class="view-pane">
+                        <h2>Calendario de Partidos</h2>
+                        <div id="calendar-container"></div>
+                    </div>
+
                     <div id="bracket-view" class="view-pane">
-                        <h2 class="pane-title">Fase Final</h2>
+                        <h2>Eliminatorias</h2>
                         <div id="bracket-container"></div>
                     </div>
                     <div id="teams-view" class="view-pane">
-                        <h2 class="pane-title">Equipos Participantes</h2>
+                        <h2>Equipos Participantes</h2>
                         <div id="team-list-container"></div>
                     </div>
                     <div id="finished-view" class="view-pane">
                         <div class="finished-content">
-                            <h2 class="pane-title" id="finished-title">Torneo Finalizado</h2>
+                            <h2 id="finished-title">Torneo Finalizado</h2>
+                            <p>¡Gracias por participar y seguir la retransmisión!</p>
                             <div class="champion-info">
-                                <h3>🏆 CAMPEÓN 🏆</h3>
+                                <h3>🏆 Campeón 🏆</h3>
                                 <p id="champion-name">--</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </main>
-            <aside id="live-match-sidebar" class="panel">
-                <h2 class="pane-title">Partidos en Directo</h2>
+            <aside id="live-match-sidebar">
+                <h2>Partidos en Directo</h2>
                 <div id="live-matches-list"></div>
             </aside>
         </div>
         <div id="roster-modal" class="hidden">
-            <div class="modal-content panel">
+            <div class="modal-content">
                 <span class="close-button">&times;</span>
                 <h3 id="modal-team-name"></h3>
                 <ul id="modal-roster-list"></ul>
@@ -75,21 +90,25 @@
     <!-- ========= ESTRUCTURA PARA VISUALIZADOR DE DRAFTS ========== -->
     <!-- ======================================================= -->
     <div id="draft-container" class="hidden">
-        <header class="main-header">
-            <img src="https://i.imgur.com/E6obnvO.png" alt="VPG Logo" class="header-logo">
-            <div class="header-title">
-                <h1 id="draft-name-draftview"></h1>
-                <div class="status-line-draftview">
-                    <div id="round-info-draftview"></div>
-                    <div id="current-pick-info-draftview">Turno de: <span id="current-team-draftview"></span> | Pick #<span id="current-pick-draftview">0</span></div>
-                </div>
+        <header>
+            <!-- NUEVO: Elementos para el inicio de sesión del capitán -->
+            <div id="user-session" class="hidden">
+                <span id="user-greeting"></span>
+                <a href="/logout">Cerrar Sesión</a>
             </div>
+            <a href="/login" id="login-btn">Iniciar Sesión como Capitán</a>
+            
+            <h1 id="draft-name-draftview"></h1>
+            <div class="status-line-draftview">
+                <div id="round-info-draftview"></div>
+                <div id="current-pick-info-draftview">Turno de: <span id="current-team-draftview"></span> | Pick #<span id="current-pick-draftview">0</span></div>
+            </div>
+            <div id="round-pick-order"></div>
         </header>
-        <div id="round-pick-order"></div>
         <div class="content-grid-draftview">
-            <div id="teams-container-draftview" class="panel"></div>
-            <div id="available-players-container-draftview" class="panel">
-                <h2 class="pane-title">Jugadores Disponibles</h2>
+            <div id="teams-container-draftview"></div>
+            <div id="available-players-container-draftview">
+                <h2>Jugadores Disponibles</h2>
                 <div id="position-filters"></div>
                 <div class="legend">🛡️ Con Equipo | 🔎 Agente Libre</div>
                 <div class="players-table-container">
@@ -100,6 +119,7 @@
                                 <th>PSN ID</th>
                                 <th>Pos. Primaria</th>
                                 <th>Pos. Secundaria</th>
+                                <th>Acción</th> <!-- NUEVA COLUMNA -->
                             </tr>
                         </thead>
                         <tbody id="players-table-body"></tbody>
@@ -110,11 +130,11 @@
     </div>
     
     <div id="pick-alert" class="hidden">
-        <div id="pick-alert-content" class="panel"></div>
+        <div id="pick-alert-content"></div>
     </div>
     
     <footer id="common-footer">
-        POWERED BY VPG LIGHTNINGS
+        Powered by VPG LIGHTNINGS
     </footer>
 
     <script src="client.js"></script>
