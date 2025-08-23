@@ -1,7 +1,6 @@
 // --- INICIO DEL ARCHIVO client.js (VERSIÓN COMPLETA Y CORREGIDA) ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Punto de entrada principal. Detecta el tipo de evento desde la URL.
     const urlParams = new URLSearchParams(window.location.search);
     const tournamentId = urlParams.get('tournamentId');
     const draftId = urlParams.get('draftId');
@@ -13,18 +12,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('draft-view-style');
         initializeDraftView(draftId);
     } else {
-        // Si no hay ID, muestra un error.
         document.getElementById('loading').textContent = 'Error: No se ha especificado un ID de evento en la URL.';
     }
 });
 
-// =================================================================
-// --- MÓDULO DEL VISUALIZADOR DE TORNEOS ---
-// =================================================================
 function initializeTournamentView(tournamentId) {
-    // El código de esta función no necesita cambios, ya funciona bien.
-    // ... (el código de initializeTournamentView que me pasaste va aquí sin cambios) ...
-    // --- REFERENCIAS A ELEMENTOS DEL DOM (TORNEO) ---
     const loadingEl = document.getElementById('loading');
     const appContainerEl = document.getElementById('app-container');
     const tournamentNameEl = document.getElementById('tournament-name');
@@ -87,10 +79,11 @@ function initializeTournamentView(tournamentId) {
         document.getElementById(viewId).classList.add('active');
     });
 
-    closeButton.addEventListener('click', () => modalEl.classList.add('hidden'));
+    if (closeButton) closeButton.addEventListener('click', () => modalEl.classList.add('hidden'));
     window.addEventListener('click', (event) => { if (event.target == modalEl) modalEl.classList.add('hidden'); });
 
     function renderTournamentState(tournament) {
+        if (!tournament) return;
         if (tournament.status === 'finalizado') {
             viewSwitcherEl.style.display = 'none';
             document.querySelector('.mobile-view-switcher').style.display = 'none';
@@ -204,13 +197,7 @@ function initializeTournamentView(tournamentId) {
                     const teamB = match.equipoB;
                     const result = match.resultado ? `<div class="match-result">${match.resultado}</div>` : '<div class="match-vs">vs</div>';
 
-                    groupHTML += `
-                        <div class="calendar-match">
-                            <div class="team-info left">${teamA.nombre}</div>
-                            ${result}
-                            <div class="team-info right">${teamB.nombre}</div>
-                        </div>
-                    `;
+                    groupHTML += `<div class="calendar-match"><div class="team-info left">${teamA.nombre}</div>${result}<div class="team-info right">${teamB.nombre}</div></div>`;
                 });
                 groupHTML += `</div>`;
             });
@@ -305,11 +292,7 @@ function initializeTournamentView(tournamentId) {
     }
 }
 
-// =================================================================
-// --- MÓDULO DEL VISUALIZADOR DE DRAFTS ---
-// =================================================================
 function initializeDraftView(draftId) {
-    // Referencias al DOM
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
@@ -334,13 +317,11 @@ function initializeDraftView(draftId) {
     async function checkUserSession() {
         try {
             const response = await fetch('/api/user');
-            if (!response.ok) throw new Error('Failed to fetch user session');
-            const user = await response.json();
-            currentUser = user;
+            currentUser = await response.json();
             const userSessionEl = document.getElementById('user-session');
             const loginBtn = document.getElementById('login-btn');
-            if (user) {
-                document.getElementById('user-greeting').textContent = `Hola, ${user.username}`;
+            if (currentUser) {
+                document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
                 userSessionEl.classList.remove('hidden');
                 loginBtn.classList.add('hidden');
             } else {
@@ -349,7 +330,7 @@ function initializeDraftView(draftId) {
                 loginBtn.href = `/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
             }
             if (currentDraftState) {
-                renderAvailablePlayers(currentDraftState); // Volver a renderizar jugadores para mostrar/ocultar botones
+                renderAvailablePlayers(currentDraftState);
             }
         } catch (e) {
             console.error("Error checking user session:", e);
@@ -358,7 +339,6 @@ function initializeDraftView(draftId) {
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
-    
     socket.onopen = () => console.log('Conectado al servidor para Draft.');
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
@@ -388,8 +368,7 @@ function initializeDraftView(draftId) {
         }).catch(err => console.warn('No se pudieron cargar datos iniciales de draft, esperando WebSocket.'));
 
     function renderDraftState(draft) {
-        // SOLUCIÓN 1: LA LÓGICA DE RENDERIZADO ESTÁ SEPARADA, ASÍ QUE EL BUG DEL FILTRO YA ESTÁ PREVENIDO
-        
+        if (!draft) return;
         if (draft.selection.lastPick && draft.selection.lastPick.pickNumber > lastShownPick) {
             const { playerPsnId, captainTeamName, pickNumber } = draft.selection.lastPick;
             showPickAlert(pickNumber, { psnId: playerPsnId }, { teamName: captainTeamName });
@@ -402,7 +381,7 @@ function initializeDraftView(draftId) {
              currentTeamEl.textContent = '---';
              currentPickEl.textContent = '---';
              roundPickOrderEl.innerHTML = '';
-        } else if (draft.status === 'seleccion' && draft.captains.length > 0) {
+        } else if (draft.status === 'seleccion' && draft.captains.length > 0 && draft.selection.order.length > 0) {
             const numCaptains = draft.captains.length;
             const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
             const totalRounds = 10;
@@ -425,31 +404,39 @@ function initializeDraftView(draftId) {
     }
 
     function renderTeams(draft) {
-        teamsContainerEl.innerHTML = '';
-        const teamsGrid = document.createElement('div');
-        teamsGrid.id = 'teams-grid';
-        
+        const teamsGrid = document.getElementById('teams-grid');
+        if (!teamsGrid) {
+            const newGrid = document.createElement('div');
+            newGrid.id = 'teams-grid';
+            teamsContainerEl.appendChild(newGrid);
+        }
+        document.getElementById('teams-grid').innerHTML = '';
+
         draft.captains.sort((a,b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a,b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
+            
             let rosterHtml = '';
             teamPlayers.forEach(player => {
-                rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${player.primaryPosition}</span></li>`;
+                const isCaptainIcon = player.isCaptain ? '👑' : '';
+                rosterHtml += `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${player.primaryPosition}</span></li>`;
             });
-            const teamCard = `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
-            teamsGrid.innerHTML += teamCard;
+
+            const teamCardHTML = `
+                <div class="team-card">
+                    <h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3>
+                    <ul class="team-roster">${rosterHtml}</ul>
+                </div>`;
+            document.getElementById('teams-grid').innerHTML += teamCardHTML;
         });
-        teamsContainerEl.appendChild(teamsGrid);
     }
 
     function renderAvailablePlayers(draft) {
         playersTableBodyEl.innerHTML = '';
         const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain).sort(sortPlayersAdvanced);
-
-        // --- SOLUCIÓN 3: LÓGICA ROBUSTA PARA MOSTRAR BOTONES ---
-        const captainIdInTurn = draft.selection.order ? draft.selection.order[draft.selection.turn] : null;
+        
+        const captainIdInTurn = (draft.selection && draft.selection.order && draft.selection.order.length > 0) ? draft.selection.order[draft.selection.turn] : null;
         let isMyTurn = false;
         if (currentUser && draft.status === 'seleccion' && captainIdInTurn) {
-            // Comparamos como texto para evitar errores de tipo (ej: "123" vs 123)
             if (String(currentUser.id) === String(captainIdInTurn)) {
                 isMyTurn = true;
             }
@@ -475,7 +462,6 @@ function initializeDraftView(draftId) {
             `;
             playersTableBodyEl.appendChild(row);
         });
-        // Aplicar el filtro actual después de renderizar
         filterTable(document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos');
     }
 
@@ -554,8 +540,7 @@ function initializeDraftView(draftId) {
         pickAlertEl.classList.add('visible');
         setTimeout(() => {
             pickAlertEl.classList.remove('visible');
-            setTimeout(() => pickAlertEl.classList.add('hidden'), 500); // Reducido para que no se superponga con el siguiente
+            setTimeout(() => pickAlertEl.classList.add('hidden'), 500);
         }, 4500);
     }
 }
-// --- FIN DEL ARCHIVO client.js ---
