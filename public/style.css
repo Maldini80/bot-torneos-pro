@@ -1,31 +1,27 @@
-/* --- INICIO DEL ARCHIVO style.css (VERSIÓN COMPLETA Y DEFINITIVA) --- */
+/* --- INICIO DEL ARCHIVO style.css (VERSIÓN COMPLETA Y CORREGIDA) --- */
 
 /* --- CONFIGURACIÓN GLOBAL Y FUENTES --- */
 :root {
     --primary-color: #e62429;
     --background-color: #141414;
-    --surface-color: rgba(10, 10, 10, 0.85); /* Superficie más oscura y transparente */
+    --surface-color: rgba(10, 10, 10, 0.85);
     --text-color: #f1f1f1;
     --border-color: rgba(230, 36, 41, 0.3);
     --winner-color: #ffc107;
-    --glow-color: rgba(230, 36, 41, 0.7); /* Color para el neón */
+    --glow-color: rgba(230, 36, 41, 0.7);
     --font-bebas: 'Bebas Neue', sans-serif;
     --font-roboto: 'Roboto', sans-serif;
 }
 
 /* --- EFECTO DE NEÓN ANIMADO --- */
 @keyframes neon-glow {
-    from {
-        box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color), 0 0 15px var(--glow-color);
-    }
-    to {
-        box-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color), 0 0 30px var(--glow-color);
-    }
+    from { box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color); }
+    to { box-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color); }
 }
 
 body {
     background-color: var(--background-color);
-    background-image: url('https://i.imgur.com/nrexwUe.jpeg'); /* TU IMAGEN DE FONDO */
+    background-image: url('https://i.imgur.com/nrexwUe.jpeg');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -60,16 +56,20 @@ footer {
 .placeholder { color: #888; font-style: italic; text-align: center; padding: 50px; font-size: 1.2em; }
 
 /* --- PANELES CON SCROLL CORREGIDO --- */
-main#main-panel, aside#live-match-sidebar, #available-players-container-draftview, .team-card {
+main#main-panel, aside#live-match-sidebar, .team-card,
+#available-players-container-draftview, #teams-container-draftview { /* CORRECCIÓN: #teams-container-draftview también necesita ser flex-column */
     background-color: var(--surface-color);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 0 20px rgba(0,0,0,0.6);
+    display: flex; /* CORRECCIÓN: Usar flexbox para controlar el crecimiento de los hijos */
+    flex-direction: column;
 }
-.main-content { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; flex-grow: 1; overflow: hidden; height: calc(100% - 120px); }
-main#main-panel { display: flex; flex-direction: column; padding: 20px; }
-#main-view-content, #live-matches-list, .players-table-container, #teams-container-draftview {
+.main-content { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; flex-grow: 1; overflow: hidden; height: calc(100% - 150px); /* CORRECCIÓN: Altura calculada para dejar espacio a la cabecera */ }
+main#main-panel { padding: 20px; }
+#main-view-content, #live-matches-list, .players-table-container, #teams-grid { /* CORRECCIÓN: #teams-grid es el contenedor que necesita scroll */
     overflow-y: auto; /* AÑADE BARRAS DE SCROLL CUANDO SEA NECESARIO */
+    flex-grow: 1; /* CORRECCIÓN: Permite que el contenedor de scroll crezca y ocupe el espacio */
 }
 
 /* Scrollbar personalizada */
@@ -111,14 +111,17 @@ main#main-panel { display: flex; flex-direction: column; padding: 20px; }
 #user-session a { color: #E53935; margin-left: 10px; text-decoration: none; font-weight: bold; }
 
 .content-grid-draftview { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; flex-grow: 1; overflow: hidden; }
+#round-pick-order { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; padding: 5px; }
 .pick-order-item { background-color: rgba(42, 42, 42, 0.7); padding: 5px 10px; border-radius: 4px; font-size: 0.8em; }
 .pick-order-item.active-pick { background-color: var(--winner-color); color: #1a1a1a; font-weight: bold; }
-#teams-container-draftview { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr); gap: 10px; }
+#teams-container-draftview { padding: 15px; }
+#teams-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.team-card { padding: 10px; }
 .team-header { font-family: var(--font-bebas); font-size: 1.3em; color: var(--primary-color); border-bottom: 1px solid var(--border-color); }
-#available-players-container-draftview { display: flex; flex-direction: column; padding: 20px; }
-.players-table-container { flex-grow: 1; position: relative; } /* Necesario para el scroll */
+#available-players-container-draftview { padding: 20px; }
+.players-table-container { flex-grow: 1; position: relative; } 
 #players-table { width: 100%; border-collapse: collapse; }
-#players-table thead { position: sticky; top: 0; z-index: 1; } /* Encabezado fijo */
+#players-table thead { position: sticky; top: 0; z-index: 1; }
 #players-table th { text-align: left; padding: 10px 8px; font-family: var(--font-bebas); font-size: 1.2em; color: var(--primary-color); background-color: #1a1a1a; }
 #players-table td { padding: 6px 8px; border-top: 1px solid var(--border-color); font-size: 0.95em; }
 .pick-btn { background-color: #2ecc71; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
@@ -132,18 +135,28 @@ main#main-panel { display: flex; flex-direction: column; padding: 20px; }
 
 /* --- ESTILOS PARA LA VERSIÓN MÓVIL (CORREGIDO Y FINAL) --- */
 .mobile-view-switcher { display: none; }
-@media (max-width: 768px) {
+@media (max-width: 900px) { /* CORRECCIÓN: Aumentamos el punto de ruptura para que se active antes */
     body { padding: 10px; overflow: auto; }
     #app-container, #draft-container { height: auto; }
-    .main-content { grid-template-columns: 1fr; }
+    
+    .main-content, .content-grid-draftview {
+        grid-template-columns: 1fr; /* Una sola columna para todo */
+        height: auto;
+    }
+
+    /* TORNEOS EN MÓVIL */
     #live-match-sidebar { order: -1; margin-bottom: 20px; }
     .view-switcher { display: none; }
     .mobile-view-switcher { display: block; margin: 15px 0; }
-    #mobile-view-select { width: 100%; padding: 12px; background-color: var(--surface-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; font-size: 1.2em; font-family: var(--font-bebas); -webkit-appearance: none; appearance: none; }
-    .content-grid-draftview { grid-template-columns: 1fr; }
-    #teams-container-draftview { order: 2; grid-template-columns: 1fr; }
+    #mobile-view-select { width: 100%; padding: 12px; background-color: var(--surface-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; font-size: 1.2em; font-family: var(--font-bebas); -webkit-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e62429%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: .8em; }
+
+    /* DRAFTS EN MÓVIL */
+    #teams-container-draftview { order: 2; }
+    #teams-grid { grid-template-columns: 1fr; }
     #available-players-container-draftview { order: 1; }
+    
     header h1 { font-size: 2.5em; }
     #auth-controls { font-size: 0.8em; }
+    #position-filters { flex-wrap: wrap; }
 }
 /* --- FIN DEL ARCHIVO style.css --- */
