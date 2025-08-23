@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO client.js (VERSIÓN COMPLETA Y DEFINITIVA) ---
+// --- INICIO DEL ARCHIVO client.js (VERSIÓN COMPLETA Y CORREGIDA) ---
 
 document.addEventListener('DOMContentLoaded', () => {
     // Punto de entrada principal. Detecta el tipo de evento desde la URL.
@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- MÓDULO DEL VISUALIZADOR DE TORNEOS ---
 // =================================================================
 function initializeTournamentView(tournamentId) {
+    // El código de esta función no necesita cambios, ya funciona bien.
+    // ... (el código de initializeTournamentView que me pasaste va aquí sin cambios) ...
     // --- REFERENCIAS A ELEMENTOS DEL DOM (TORNEO) ---
     const loadingEl = document.getElementById('loading');
     const appContainerEl = document.getElementById('app-container');
@@ -307,6 +309,7 @@ function initializeTournamentView(tournamentId) {
 // --- MÓDULO DEL VISUALIZADOR DE DRAFTS ---
 // =================================================================
 function initializeDraftView(draftId) {
+    // Referencias al DOM
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
@@ -326,11 +329,12 @@ function initializeDraftView(draftId) {
     let currentDraftState = null;
     let lastShownPick = 0;
 
-    setupFilters(); // Llamamos a los filtros una sola vez al inicio
+    setupFilters();
 
     async function checkUserSession() {
         try {
             const response = await fetch('/api/user');
+            if (!response.ok) throw new Error('Failed to fetch user session');
             const user = await response.json();
             currentUser = user;
             const userSessionEl = document.getElementById('user-session');
@@ -345,7 +349,7 @@ function initializeDraftView(draftId) {
                 loginBtn.href = `/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
             }
             if (currentDraftState) {
-                renderAvailablePlayers(currentDraftState);
+                renderAvailablePlayers(currentDraftState); // Volver a renderizar jugadores para mostrar/ocultar botones
             }
         } catch (e) {
             console.error("Error checking user session:", e);
@@ -354,6 +358,7 @@ function initializeDraftView(draftId) {
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
+    
     socket.onopen = () => console.log('Conectado al servidor para Draft.');
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
@@ -383,6 +388,8 @@ function initializeDraftView(draftId) {
         }).catch(err => console.warn('No se pudieron cargar datos iniciales de draft, esperando WebSocket.'));
 
     function renderDraftState(draft) {
+        // SOLUCIÓN 1: LA LÓGICA DE RENDERIZADO ESTÁ SEPARADA, ASÍ QUE EL BUG DEL FILTRO YA ESTÁ PREVENIDO
+        
         if (draft.selection.lastPick && draft.selection.lastPick.pickNumber > lastShownPick) {
             const { playerPsnId, captainTeamName, pickNumber } = draft.selection.lastPick;
             showPickAlert(pickNumber, { psnId: playerPsnId }, { teamName: captainTeamName });
@@ -419,6 +426,9 @@ function initializeDraftView(draftId) {
 
     function renderTeams(draft) {
         teamsContainerEl.innerHTML = '';
+        const teamsGrid = document.createElement('div');
+        teamsGrid.id = 'teams-grid';
+        
         draft.captains.sort((a,b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a,b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
             let rosterHtml = '';
@@ -426,25 +436,46 @@ function initializeDraftView(draftId) {
                 rosterHtml += `<li><span class="player-name">${player.psnId}</span><span class="player-pos">${player.primaryPosition}</span></li>`;
             });
             const teamCard = `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
-            teamsContainerEl.innerHTML += teamCard;
+            teamsGrid.innerHTML += teamCard;
         });
+        teamsContainerEl.appendChild(teamsGrid);
     }
 
     function renderAvailablePlayers(draft) {
         playersTableBodyEl.innerHTML = '';
         const availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain).sort(sortPlayersAdvanced);
-        const isMyTurn = currentUser && draft.status === 'seleccion' && draft.selection.order[draft.selection.turn] === currentUser.id;
 
+        // --- SOLUCIÓN 3: LÓGICA ROBUSTA PARA MOSTRAR BOTONES ---
+        const captainIdInTurn = draft.selection.order ? draft.selection.order[draft.selection.turn] : null;
+        let isMyTurn = false;
+        if (currentUser && draft.status === 'seleccion' && captainIdInTurn) {
+            // Comparamos como texto para evitar errores de tipo (ej: "123" vs 123)
+            if (String(currentUser.id) === String(captainIdInTurn)) {
+                isMyTurn = true;
+            }
+        }
+        
         availablePlayers.forEach(player => {
             const statusEmoji = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
             const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
             const row = document.createElement('tr');
             row.dataset.posPrimary = player.primaryPosition;
             row.dataset.posSecondary = secPos;
-            const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${player.primaryPosition}">Elegir</button>` : '---';
-            row.innerHTML = `<td>${statusEmoji}</td><td>${player.psnId}</td><td>${player.primaryPosition}</td><td>${secPos}</td><td>${actionButton}</td>`;
+
+            const actionButton = isMyTurn 
+                ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${player.primaryPosition}">Elegir</button>` 
+                : '---';
+
+            row.innerHTML = `
+                <td class="columna-estado">${statusEmoji}</td>
+                <td>${player.psnId}</td>
+                <td>${player.primaryPosition}</td>
+                <td class="columna-secundaria">${secPos}</td>
+                <td>${actionButton}</td>
+            `;
             playersTableBodyEl.appendChild(row);
         });
+        // Aplicar el filtro actual después de renderizar
         filterTable(document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos');
     }
 
@@ -481,7 +512,7 @@ function initializeDraftView(draftId) {
     }
 
     function setupFilters() {
-        if (positionFiltersEl.innerHTML !== '') return; // Evita que se vuelva a crear
+        if (positionFiltersEl.innerHTML !== '') return;
         positionFiltersEl.innerHTML = `
             <select id="filter-column-select">
                 <option value="primary">Filtrar por Pos. Primaria</option>
@@ -523,9 +554,8 @@ function initializeDraftView(draftId) {
         pickAlertEl.classList.add('visible');
         setTimeout(() => {
             pickAlertEl.classList.remove('visible');
-            setTimeout(() => pickAlertEl.classList.add('hidden'), 5000);
-        }, 300);
+            setTimeout(() => pickAlertEl.classList.add('hidden'), 500); // Reducido para que no se superponga con el siguiente
+        }, 4500);
     }
 }
-
 // --- FIN DEL ARCHIVO client.js ---
