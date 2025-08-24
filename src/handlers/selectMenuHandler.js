@@ -698,4 +698,61 @@ if (action === 'draft_pick_by_position') {
         }
         return;
     }
+     if (action === 'verify_select_platform_manual') {
+        const platform = interaction.values[0];
+        const modal = new ModalBuilder()
+            .setCustomId(`verification_ticket_submit:${platform}`)
+            .setTitle('Verificación - Datos del Jugador');
+        
+        const gameIdInput = new TextInputBuilder()
+            .setCustomId('game_id_input')
+            .setLabel(`Tu ID en ${platform.toUpperCase()}`)
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+            
+        const twitterInput = new TextInputBuilder()
+            .setCustomId('twitter_input')
+            .setLabel("Tu usuario de Twitter (sin @)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(gameIdInput), new ActionRowBuilder().addComponents(twitterInput));
+        return interaction.showModal(modal);
+    }
+
+    if (action === 'reject_verification_reason') {
+        await interaction.deferUpdate();
+        const [channelId] = params;
+        const reason = interaction.values[0];
+        const db = getDb();
+        const ticket = await db.collection('verificationtickets').findOne({ channelId });
+
+        let reasonText = '';
+        if (reason === 'inactivity') {
+            reasonText = 'Tu solicitud de verificación ha sido rechazada debido a inactividad. No has proporcionado las pruebas necesarias en el tiempo establecido.';
+        } else {
+            reasonText = 'Tu solicitud de verificación ha sido rechazada porque las pruebas proporcionadas eran insuficientes o no válidas. Por favor, asegúrate de seguir las instrucciones correctamente si lo intentas de nuevo.';
+        }
+        
+        const user = await client.users.fetch(ticket.userId).catch(() => null);
+        if (user) {
+            try {
+                await user.send(`❌ **Verificación Rechazada**\n\n${reasonText}`);
+            } catch(e) { console.warn(`No se pudo enviar MD de rechazo al usuario ${user.id}`); }
+        }
+
+        await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
+        const channel = await client.channels.fetch(channelId);
+        await channel.send(`❌ Verificación rechazada por <@${interaction.user.id}>. Motivo: ${reason === 'inactivity' ? 'Inactividad' : 'Pruebas insuficientes'}. Este canal se cerrará en 10 segundos.`);
+        
+        const originalMessage = await channel.messages.fetch(interaction.message.reference.messageId);
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        const finalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        finalEmbed.data.fields.find(f => f.name === 'Estado').value = `❌ **Rechazado por:** <@${interaction.user.id}>`;
+        await originalMessage.edit({ embeds: [finalEmbed], components: [disabledRow] });
+        
+        await interaction.editReply({ content: 'Rechazo procesado.', components: [] });
+        setTimeout(() => channel.delete().catch(console.error), 10000);
+    }
 }
