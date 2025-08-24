@@ -1,5 +1,6 @@
 // src/handlers/buttonHandler.js
 
+import { startVerificationWizard, startProfileUpdateWizard, checkVerification, approveProfileUpdate, rejectProfileUpdate, openProfileUpdateThread } from '../logic/verificationLogic.js'; // Crearemos este archivo
 import mongoose from 'mongoose';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
@@ -25,6 +26,39 @@ export async function handleButton(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
+
+	// AÑADE ESTO, preferiblemente cerca del principio
+if (action === 'verify_start') {
+    const isVerified = await checkVerification(interaction.user.id);
+    if (isVerified) {
+        return interaction.reply({ content: 'Tu cuenta ya ha sido verificada.', flags: [MessageFlags.Ephemeral] });
+    }
+    await startVerificationWizard(interaction);
+    return;
+}
+
+if (action === 'update_profile_start') {
+    const isVerified = await checkVerification(interaction.user.id);
+    if (!isVerified) {
+        return interaction.reply({ content: 'Primero debes verificar tu cuenta para poder actualizarla.', flags: [MessageFlags.Ephemeral] });
+    }
+    await startProfileUpdateWizard(interaction);
+    return;
+}
+
+// AÑADE ESTOS PARA LOS BOTONES DE ADMIN
+if (action === 'admin_approve_update') {
+    await approveProfileUpdate(interaction);
+    return;
+}
+if (action === 'admin_reject_update') {
+    await rejectProfileUpdate(interaction);
+    return;
+}
+if (action === 'admin_open_thread') {
+    await openProfileUpdateThread(interaction);
+    return;
+}
     
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -490,6 +524,11 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'register_draft_captain' || action === 'register_draft_player') {
+
+		 const isVerified = await checkVerification(interaction.user.id);
+    if (!isVerified) {
+        return interaction.reply({ content: '❌ Debes verificar tu cuenta primero usando el botón "Verificar Cuenta".', flags: [MessageFlags.Ephemeral] });
+    }
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
