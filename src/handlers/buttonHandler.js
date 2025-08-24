@@ -29,17 +29,80 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
+	  // NUEVO: Botón de inicio que muestra los botones correctos
+    if (action === 'start_verification_or_registration') {
+        const [draftShortId] = params;
+        const isVerified = await checkVerification(interaction.user.id);
+        
+        let row;
+        let content;
+
+        if (!isVerified) {
+            content = 'Para participar, primero debes verificar tu cuenta. Este proceso solo se realiza una vez y sirve para todos los futuros drafts.';
+            row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('verify_start_manual')
+                    .setLabel('✅ Verificar mi Cuenta')
+                    .setStyle(ButtonStyle.Success)
+            );
+        } else {
+            content = 'Tu cuenta ya está verificada. ¿Qué deseas hacer?';
+            const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+            // Comprobamos si el usuario ya está inscrito para no mostrar los botones de inscripción
+            const isAlreadyRegistered = draft.captains.some(c => c.userId === interaction.user.id) || 
+                                      draft.players.some(p => p.userId === interaction.user.id) ||
+                                      (draft.pendingCaptains && draft.pendingCaptains[interaction.user.id]) ||
+                                      (draft.pendingPayments && draft.pendingPayments[interaction.user.id]);
+
+            row = new ActionRowBuilder();
+            if (!isAlreadyRegistered) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`register_draft_player:${draftShortId}`)
+                        .setLabel('👤 Inscribirme como Jugador')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId(`register_draft_captain:${draftShortId}`)
+                        .setLabel('👑 Inscribirme como Capitán')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+            }
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`update_profile_start`)
+                    .setLabel('🔄 Actualizar Perfil Verificado')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+        }
+
+        return interaction.reply({
+            content,
+            components: [row],
+            ephemeral: true
+        });
+    }
+
     // =======================================================
     // --- LÓGICA DE VERIFICACIÓN Y GESTIÓN DE PERFIL ---
     // =======================================================
     
-    if (action === 'verify_start') {
-        const isVerified = await checkVerification(interaction.user.id);
-        if (isVerified) {
-            return interaction.reply({ content: 'Tu cuenta ya ha sido verificada. No necesitas hacer esto de nuevo.', flags: [MessageFlags.Ephemeral] });
-        }
-        await startVerificationWizard(interaction);
-        return;
+    if (action === 'verify_start_manual') {
+        const platformMenu = new StringSelectMenuBuilder()
+            .setCustomId('verify_select_platform_manual')
+            .setPlaceholder('Paso 1: Selecciona tu plataforma principal')
+            .addOptions([
+                { label: '🎮 PlayStation', value: 'psn' },
+                { label: '🟩 Xbox', value: 'xbox' },
+                { label: '💻 PC (Steam)', value: 'steam' },
+                { label: '💻 PC (EA App)', value: 'ea_app' },
+            ]);
+        const row = new ActionRowBuilder().addComponents(platformMenu);
+        return interaction.reply({
+            content: "¡Hola! Vamos a iniciar tu verificación. Este proceso es manual y requiere que envíes una prueba a un administrador.",
+            components: [row],
+            ephemeral: true
+        });
     }
 
     if (action === 'verify_show_modal') {
