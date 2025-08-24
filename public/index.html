@@ -12,15 +12,12 @@
 <body>
     <div id="loading">Cargando datos del evento...</div>
 
-    <!-- ======================================================= -->
     <!-- ========= ESTRUCTURA PARA VISUALIZADOR DE TORNEOS ========= -->
-    <!-- ======================================================= -->
     <div id="app-container" class="hidden">
         <header>
             <h1 id="tournament-name"></h1>
             <p id="tournament-format"></p>
         </header>
-
         <div class="mobile-view-switcher">
             <select id="mobile-view-select">
                 <option value="classification-view">Clasificación</option>
@@ -29,7 +26,6 @@
                 <option value="teams-view">Equipos</option>
             </select>
         </div>
-
         <div class="main-content">
             <main id="main-panel">
                 <nav class="view-switcher">
@@ -43,12 +39,10 @@
                         <h2>Fase de Grupos</h2>
                         <div id="groups-container"></div>
                     </div>
-
                     <div id="calendar-view" class="view-pane">
                         <h2>Calendario de Partidos</h2>
                         <div id="calendar-container"></div>
                     </div>
-
                     <div id="bracket-view" class="view-pane">
                         <h2>Eliminatorias</h2>
                         <div id="bracket-container"></div>
@@ -83,9 +77,7 @@
         </div>
     </div>
 
-    <!-- ======================================================= -->
-    <!-- ========= ESTRUCTURA PARA VISUALIZADOR DE DRAFTS ========== -->
-    <!-- ======================================================= -->
+    <!-- ========= ESTRUCTURA PARA VISUALIZADOR DE DRAFTS ========= -->
     <div id="draft-container" class="hidden">
         <header>
             <div id="auth-controls">
@@ -93,9 +85,7 @@
                     <span id="user-greeting"></span>
                     <a href="/logout">Cerrar Sesión</a>
                 </div>
-                <a href="/login" id="login-btn" class="hidden">Iniciar Sesión como Capitán</a>
             </div>
-            
             <h1 id="draft-name-draftview"></h1>
             <div class="status-line-draftview">
                 <div id="round-info-draftview"></div>
@@ -103,33 +93,47 @@
             </div>
             <div id="round-pick-order"></div>
         </header>
-        <div class="content-grid-draftview">
-            <div id="teams-container-draftview"></div>
-            <div id="available-players-container-draftview">
-                <h2>Jugadores Disponibles</h2>
-                <div id="position-filters"></div>
-                <div class="legend">🛡️ Con Equipo | 🔎 Agente Libre</div>
-                <div class="players-table-container">
-                    <table id="players-table">
-                        <thead>
-                            <tr>
-                                <th>Estado</th>
-                                <th>PSN ID</th>
-                                <th>Pos. Primaria</th>
-                                <th>Pos. Secundaria</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="players-table-body"></tbody>
-                    </table>
+        
+        <nav class="draft-view-switcher">
+            <button class="draft-view-btn active" data-view="draft-live-view">Draft en Vivo</button>
+            <button class="draft-view-btn" data-view="draft-manage-team-view" id="manage-team-tab" style="display: none;">Gestionar Mi Equipo</button>
+        </nav>
+
+        <div id="draft-live-view" class="draft-view-pane active">
+            <div class="content-grid-draftview">
+                <div id="teams-container-draftview">
+                    <div class="legend" style="text-align: center; margin-bottom: 10px; font-style: italic;">* = Fichado por Pos. Secundaria</div>
+                    <div id="teams-grid"></div>
+                </div>
+                <div id="available-players-container-draftview">
+                    <h2>Jugadores Disponibles</h2>
+                    <div id="position-filters"></div>
+                    <div class="legend">🛡️ Con Equipo | 🔎 Agente Libre</div>
+                    <div class="players-table-container">
+                        <table id="players-table">
+                            <thead>
+                                <tr>
+                                    <th>Strikes</th>
+                                    <th>PSN ID</th>
+                                    <th>Pos. Primaria</th>
+                                    <th>Pos. Secundaria</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="players-table-body"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <div id="draft-manage-team-view" class="draft-view-pane">
+            <h2>Gestionar Plantilla: <span id="management-team-name"></span></h2>
+            <div id="roster-management-container"></div>
+        </div>
     </div>
     
-    <div id="pick-alert" class="hidden">
-        <div id="pick-alert-content"></div>
-    </div>
+    <div id="pick-alert" class="hidden"><div id="pick-alert-content"></div></div>
     
     <footer id="common-footer">
         Powered by VPG LIGHTNINGS
