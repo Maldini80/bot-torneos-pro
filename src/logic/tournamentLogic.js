@@ -1,4 +1,6 @@
 // src/logic/tournamentLogic.js
+import { visualizerStateHandler } from '../../visualizerServer.js';
+import { checkVerification } from './verificationLogic.js';
 import { getDb, getBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID, TEAM_CHANNELS_CATEGORY_ID } from '../../config.js';
 import { createMatchObject, createMatchThread } from '../utils/tournamentUtils.js';
@@ -147,77 +149,82 @@ export async function updateDraftMainInterface(client, draftShortId) {
 }
 
 export async function handlePlayerSelection(client, draftShortId, captainId, selectedPlayerId, pickedForPosition) {
-    const db = getDb();
-    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-    const player = draft.players.find(p => p.userId === selectedPlayerId);
-    const captain = draft.captains.find(c => c.userId === captainId);
-
-    const settings = await getBotSettings();
-    const maxQuotas = Object.fromEntries(
-        settings.draftMaxQuotas.split(',').map(q => q.split(':'))
-    );
-    const teamPlayers = draft.players.filter(p => p.captainId === captainId);
-
-    const positionToCheck = pickedForPosition; 
-
-    if (maxQuotas[positionToCheck]) {
-        const max = parseInt(maxQuotas[positionToCheck]);
-        const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
-        
-        if (currentCount >= max) {
-            throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
-        }
-    }
-    
-    await db.collection('drafts').updateOne(
-        { shortId: draftShortId, "players.userId": selectedPlayerId },
-        { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": pickedForPosition } }
-    );
-    
-    const lastPickInfo = {
-        pickNumber: draft.selection.currentPick,
-        playerPsnId: player.psnId,
-        captainTeamName: captain.teamName,
-        position: pickedForPosition
-    };
-    await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
-    
-    if (/^\d+$/.test(selectedPlayerId)) {
-        try {
-            const playerUser = await client.users.fetch(selectedPlayerId);
-            const embed = new EmbedBuilder()
-                .setColor('#2ecc71')
-                .setTitle(`¡Has sido seleccionado en el Draft!`)
-                .setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
-            await playerUser.send({ embeds: [embed] });
-        } catch (e) {
-            console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`);
-        }
-    }
-
     try {
-        const draftChannel = await client.channels.fetch(draft.discordChannelId);
-        const announcementEmbed = new EmbedBuilder()
-            .setColor('#3498db')
-            .setDescription(`**Pick #${draft.selection.currentPick}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}**`);
-        const announcementMessage = await draftChannel.send({ embeds: [announcementEmbed] });
-        setTimeout(() => {
-            announcementMessage.delete().catch(err => {
-                if (err.code !== 10008) {
-                    console.error("Error al intentar borrar el mensaje de anuncio de pick:", err);
-                }
-            });
-        }, 60000);
-    } catch (e) {
-        console.error("No se pudo enviar o programar el borrado del anuncio de pick:", e);
-    }
-    
-    const updatedTeamPlayers = [...teamPlayers, player];
-    if (updatedTeamPlayers.length === 11) {
-        postTournamentUpdate('ROSTER_COMPLETE', { captain, players: updatedTeamPlayers, draft }).catch(console.error);
+        const db = getDb();
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const player = draft.players.find(p => p.userId === selectedPlayerId);
+        const captain = draft.captains.find(c => c.userId === captainId);
+
+        const settings = await getBotSettings();
+        const maxQuotas = Object.fromEntries(
+            settings.draftMaxQuotas.split(',').map(q => q.split(':'))
+        );
+        const teamPlayers = draft.players.filter(p => p.captainId === captainId);
+
+        const positionToCheck = pickedForPosition; 
+
+        if (maxQuotas[positionToCheck]) {
+            const max = parseInt(maxQuotas[positionToCheck]);
+            const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
+            
+            if (currentCount >= max) {
+                throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
+            }
+        }
+        
+        await db.collection('drafts').updateOne(
+            { shortId: draftShortId, "players.userId": selectedPlayerId },
+            { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": pickedForPosition } }
+        );
+        
+        const lastPickInfo = {
+            pickNumber: draft.selection.currentPick,
+            playerPsnId: player.psnId,
+            captainTeamName: captain.teamName,
+            position: pickedForPosition
+        };
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
+        
+        if (/^\d+$/.test(selectedPlayerId)) {
+            try {
+                const playerUser = await client.users.fetch(selectedPlayerId);
+                const embed = new EmbedBuilder()
+                    .setColor('#2ecc71')
+                    .setTitle(`¡Has sido seleccionado en el Draft!`)
+                    .setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
+                await playerUser.send({ embeds: [embed] });
+            } catch (e) {
+                console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`);
+            }
+        }
+
+        try {
+            const draftChannel = await client.channels.fetch(draft.discordChannelId);
+            const announcementEmbed = new EmbedBuilder()
+                .setColor('#3498db')
+                .setDescription(`**Pick #${draft.selection.currentPick}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}**`);
+            const announcementMessage = await draftChannel.send({ embeds: [announcementEmbed] });
+            setTimeout(() => {
+                announcementMessage.delete().catch(err => {
+                    if (err.code !== 10008) {
+                        console.error("Error al intentar borrar el mensaje de anuncio de pick:", err);
+                    }
+                });
+            }, 60000);
+        } catch (e) {
+            console.error("No se pudo enviar o programar el borrado del anuncio de pick:", e);
+        }
+        
+        const updatedTeamPlayers = [...teamPlayers, player];
+        if (updatedTeamPlayers.length === 11) {
+            postTournamentUpdate('ROSTER_COMPLETE', { captain, players: updatedTeamPlayers, draft }).catch(console.error);
+        }
+    } catch (error) {
+        console.error(`[PICK DISCORD] Fallo en el pick del capitán ${captainId}: ${error.message}`);
+        // Volvemos a lanzar el error para que buttonHandler lo capture y pueda mostrar un mensaje claro.
+        throw error;
     }
 }
-
 export async function handlePlayerSelectionFromWeb(client, draftShortId, captainId, selectedPlayerId, pickedForPosition) {
     const db = getDb();
     
@@ -1842,4 +1849,25 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
+}
+export async function reportPlayerFromWeb(client, draftId, captainId, playerId, reason) {
+    try {
+        const draft = await getDb().collection('drafts').findOne({ shortId: draftId });
+        // Pasamos el ID del capitán como interactor y teamId
+        await reportPlayer(client, draft, captainId, captainId, playerId, reason);
+    } catch (error) {
+        console.error(`[STRIKE WEB] Fallo en el strike del capitán ${captainId}: ${error.message}`);
+        visualizerStateHandler.sendToUser(captainId, { type: 'strike_error', message: error.message });
+    }
+}
+
+export async function requestKickFromWeb(client, draftId, captainId, playerId, reason) {
+    const draft = await getDb().collection('drafts').findOne({ shortId: draftId });
+    // La función actual de Discord no usa el 'reason', pero la preparamos para el futuro
+    await requestPlayerKick(client, draft, captainId, playerId);
+}
+
+// Y AÑADE ESTA FUNCIÓN EXTRA PARA PODER USARLA DESDE OTROS ARCHIVOS
+export async function getVerifiedPlayer(userId) {
+    return await checkVerification(userId);
 }
