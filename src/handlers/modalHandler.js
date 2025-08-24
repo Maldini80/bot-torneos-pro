@@ -1,9 +1,10 @@
-// src/handlers/modalHandler.js
+// --- INICIO DEL ARCHIVO modalHandler.js (VERSIÓN FINAL Y COMPLETA) ---
 
 import mongoose from 'mongoose';
 import Team from '../../src/models/team.js';
 import { getDb, updateBotSettings } from '../../database.js';
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, reportPlayer, notifyTournamentVisualizer, notifyVisualizer } from '../logic/tournamentLogic.js';
+import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
@@ -16,6 +17,26 @@ export async function handleModal(interaction) {
     const guild = interaction.guild;
     const db = getDb();
     const [action, ...params] = customId.split(':');
+
+    // =======================================================
+    // --- LÓGICA DE VERIFICACIÓN Y GESTIÓN DE PERFIL ---
+    // =======================================================
+
+    if (action === 'verify_submit_data') {
+        await processVerification(interaction);
+        return;
+    }
+
+    if (action === 'update_profile_submit_new_value') {
+        await processProfileUpdate(interaction);
+        return;
+    }
+
+    // --- FIN DE LA NUEVA LÓGICA ---
+
+    // =======================================================
+    // --- LÓGICA ORIGINAL DEL BOT ---
+    // =======================================================
 
     if (action === 'inscripcion_final_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
