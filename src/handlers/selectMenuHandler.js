@@ -755,4 +755,56 @@ if (action === 'draft_pick_by_position') {
         await interaction.editReply({ content: 'Rechazo procesado.', components: [] });
         setTimeout(() => channel.delete().catch(console.error), 10000);
     }
+    if (action === 'admin_edit_verified_user_select') {
+        await interaction.deferUpdate();
+        const userId = interaction.values[0];
+        const db = getDb();
+
+        const userRecord = await db.collection('verified_users').findOne({ discordId: userId });
+
+        if (!userRecord) {
+            return interaction.editReply({ content: '❌ Este usuario no tiene un perfil verificado en la base de datos.', components: [] });
+        }
+
+        const user = await client.users.fetch(userId);
+
+        const embed = new EmbedBuilder()
+            .setColor('#e67e22')
+            .setTitle(`✏️ Editando Perfil de ${user.tag}`)
+            .setDescription('**Datos Actuales:**')
+            .addFields(
+                { name: 'ID de Juego', value: `\`${userRecord.gameId}\``, inline: true },
+                { name: 'Plataforma', value: `\`${userRecord.platform.toUpperCase()}\``, inline: true },
+                { name: 'Twitter', value: `\`${userRecord.twitter}\``, inline: true }
+            )
+            .setFooter({ text: 'Por favor, selecciona el campo que deseas modificar.' });
+        
+        const fieldMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_edit_verified_field_select:${userId}`)
+            .setPlaceholder('Selecciona el dato a cambiar')
+            .addOptions([
+                { label: 'ID de Juego', value: 'gameId' },
+                { label: 'Twitter', value: 'twitter' }
+            ]);
+        
+        return interaction.editReply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(fieldMenu)] });
+    }
+
+    if (action === 'admin_edit_verified_field_select') {
+        const [userId] = params;
+        const fieldToEdit = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_edit_verified_submit:${userId}:${fieldToEdit}`)
+            .setTitle(`Cambiar ${fieldToEdit === 'gameId' ? 'ID de Juego' : 'Twitter'}`);
+        
+        const newValueInput = new TextInputBuilder()
+            .setCustomId('new_value_input')
+            .setLabel("Nuevo Valor")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+        
+        modal.addComponents(new ActionRowBuilder().addComponents(newValueInput));
+        return interaction.showModal(modal);
+    }
 }
