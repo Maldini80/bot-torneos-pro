@@ -1,5 +1,4 @@
 // src/logic/tournamentLogic.js
-import { visualizerStateHandler } from '../../visualizerServer.js';
 import { checkVerification } from './verificationLogic.js';
 import { getDb, getBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS, ARBITRO_ROLE_ID, TOURNAMENT_CATEGORY_ID, CASTER_ROLE_ID, TEAM_CHANNELS_CATEGORY_ID } from '../../config.js';
