@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO visualizerServer.js (VERSIÓN COMPLETA Y CORREGIDA) ---
+// --- INICIO DEL ARCHIVO visualizerServer.js (VERSIÓN FINAL Y COMPLETA) ---
 
 import express from 'express';
 import http from 'http';
@@ -6,6 +6,8 @@ import { WebSocketServer } from 'ws';
 import session from 'express-session';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
+// IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
+import { advanceDraftTurn, handlePlayerSelectionFromWeb, reportPlayerFromWeb, requestKickFromWeb } from './src/logic/tournamentLogic.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -13,15 +15,8 @@ const wss = new WebSocketServer({ noServer: true });
 
 const PORT = process.env.PORT || 3000;
 
-// =================================================================
-// ---            ✅ LA LÍNEA MÁGICA QUE LO ARREGLA TODO           ---
-// =================================================================
-// Esta línea es CRUCIAL para que las sesiones funcionen en Render.
-// Le dice a la aplicación que confíe en el proxy de Render.
 app.set('trust proxy', 1);
-// =================================================================
 
-// --- ESTADO CENTRALIZADO (SIN CAMBIOS) ---
 const draftStates = new Map();
 const tournamentStates = new Map();
 
@@ -30,6 +25,15 @@ function broadcastUpdate(type, id, data) {
     wss.clients.forEach(client => {
         if (client.readyState === client.OPEN) client.send(payload);
     });
+}
+
+function sendToUser(userId, payload) {
+    const message = JSON.stringify(payload);
+    for (const client of wss.clients) {
+        if (client.user && String(client.user.id) === String(userId) && client.readyState === client.OPEN) {
+            client.send(message);
+        }
+    }
 }
 
 export const visualizerStateHandler = {
@@ -42,10 +46,10 @@ export const visualizerStateHandler = {
         tournamentStates.set(tournament.shortId, tournament);
         broadcastUpdate('tournament', tournament.shortId, tournament);
         console.log(`[Visualizer State] Estado de TORNEO actualizado para: ${tournament.shortId}`);
-    }
+    },
+    sendToUser: sendToUser
 };
 
-// --- LÓGICA DE AUTENTICACIÓN Y SESIONES ---
 const sessionParser = session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -61,7 +65,7 @@ passport.use(new DiscordStrategy({
     clientID: process.env.DISCORD_CLIENT_ID,
     clientSecret: process.env.DISCORD_CLIENT_SECRET,
     callbackURL: `${process.env.BASE_URL}/callback`,
-    scope: ['identify']
+    scope: ['identify', 'connections']
 }, (accessToken, refreshToken, profile, done) => {
     process.nextTick(() => done(null, profile));
 }));
@@ -69,15 +73,12 @@ passport.use(new DiscordStrategy({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// --- RUTAS DE LOGIN Y CALLBACK (SIN CAMBIOS) ---
 app.get('/login', (req, res, next) => {
     const returnTo = Buffer.from(req.query.returnTo || '/').toString('base64');
     passport.authenticate('discord', { state: returnTo })(req, res, next);
 });
 
-app.get('/callback', passport.authenticate('discord', {
-    failureRedirect: '/'
-}), (req, res) => {
+app.get('/callback', passport.authenticate('discord', { failureRedirect: '/' }), (req, res) => {
     const returnTo = Buffer.from(req.query.state, 'base64').toString('utf8');
     res.redirect(returnTo || '/');
 });
@@ -92,8 +93,7 @@ app.get('/api/user', (req, res) => {
     res.json(req.user || null);
 });
 
-// --- EL RESTO DEL SERVIDOR (SIN CAMBIOS) ---
-export async function startVisualizerServer(client, advanceDraftTurn, handlePlayerSelectionFromWeb) {
+export async function startVisualizerServer(client) {
     app.use(express.json());
     app.use(express.static('public'));
 
@@ -102,6 +102,7 @@ export async function startVisualizerServer(client, advanceDraftTurn, handlePlay
         if (data) res.json(data);
         else res.status(404).send({ error: 'Draft data not found' });
     });
+    
     app.get('/tournament-data/:tournamentId', (req, res) => {
         const data = tournamentStates.get(req.params.tournamentId);
         if (data) res.json(data);
@@ -111,7 +112,7 @@ export async function startVisualizerServer(client, advanceDraftTurn, handlePlay
     server.on('upgrade', (request, socket, head) => {
         sessionParser(request, {}, () => {
             wss.handleUpgrade(request, socket, head, (ws) => {
-                if (request.session.passport && request.session.passport.user) {
+                if (request.session.passport?.user) {
                     ws.user = request.session.passport.user;
                 }
                 wss.emit('connection', ws, request);
@@ -120,34 +121,36 @@ export async function startVisualizerServer(client, advanceDraftTurn, handlePlay
     });
 
     wss.on('connection', (ws, req) => {
-        if (ws.user) {
-            console.log(`[Visualizer] Usuario autenticado conectado: ${ws.user.username}`);
-        } else {
-            console.log('[Visualizer] Espectador conectado.');
-        }
+        if (ws.user) console.log(`[Visualizer] Usuario autenticado conectado: ${ws.user.username}`);
+        else console.log('[Visualizer] Espectador conectado.');
 
         ws.on('message', async (message) => {
             try {
                 const data = JSON.parse(message);
-                if (data.type === 'execute_draft_pick' && ws.user) {
-                    const userId = ws.user.id;
-                    const { draftId, playerId, position } = data;
-                    try {
-                        await handlePlayerSelectionFromWeb(client, draftId, userId, playerId, position);
+                if (!ws.user) return;
+
+                const captainId = ws.user.id;
+                const { draftId, playerId, reason, position } = data;
+
+                switch (data.type) {
+                    case 'execute_draft_pick':
+                        await handlePlayerSelectionFromWeb(client, draftId, captainId, playerId, position);
                         await advanceDraftTurn(client, draftId);
-                    } catch (error) {
-                        console.error(`[PICK WEB] Fallo en el pick desde la web: ${error.message}`);
-                    }
+                        break;
+                    
+                    case 'report_player':
+                        await reportPlayerFromWeb(client, draftId, captainId, playerId, reason);
+                        break;
+
+                    case 'request_kick':
+                        await requestKickFromWeb(client, draftId, captainId, playerId, reason);
+                        break;
                 }
-            } catch (e) {
-                console.error('Error procesando mensaje de WebSocket:', e);
-            }
+            } catch (e) { console.error('Error procesando mensaje de WebSocket:', e); }
         });
     });
 
-    server.listen(PORT, () => {
-        console.log(`[Visualizer] Servidor escuchando en ${PORT}`);
-    });
+    server.listen(PORT, () => { console.log(`[Visualizer] Servidor escuchando en ${PORT}`); });
 }
 
 function gracefulShutdown() {
