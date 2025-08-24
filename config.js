@@ -1,5 +1,8 @@
 // config.js
 
+export const VERIFIED_ROLE_ID = '1409041757672570890'; // 👈 Pega aquí el ID de tu nuevo rol
+export const ADMIN_APPROVAL_CHANNEL_ID = '1405086450583732245'; // Canal para solicitudes manuales y de actualización
+
 // ID de la Categoría Principal de Torneos donde se crearán los canales de partidos
 export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
 // NUEVO: ID de la Categoría donde se crearán los canales privados de cada equipo del draft
