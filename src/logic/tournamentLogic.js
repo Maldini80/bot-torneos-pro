@@ -220,53 +220,67 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
 
 export async function handlePlayerSelectionFromWeb(client, draftShortId, captainId, selectedPlayerId, pickedForPosition) {
     const db = getDb();
-    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    
+    try { // --- INICIO DE LA MODIFICACIÓN (AÑADIR TRY) ---
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-    const currentCaptainTurnId = draft.selection.order[draft.selection.turn];
-    if (currentCaptainTurnId !== captainId) {
-        throw new Error('No es el turno de este capitán.');
-    }
-
-    const player = draft.players.find(p => p.userId === selectedPlayerId);
-    const captain = draft.captains.find(c => c.userId === captainId);
-
-    const settings = await getBotSettings();
-    const maxQuotas = Object.fromEntries(
-        settings.draftMaxQuotas.split(',').map(q => q.split(':'))
-    );
-    const teamPlayers = draft.players.filter(p => p.captainId === captainId);
-    const positionToCheck = pickedForPosition;
-
-    if (maxQuotas[positionToCheck]) {
-        const max = parseInt(maxQuotas[positionToCheck]);
-        const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
-        if (currentCount >= max) {
-            throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
+        const currentCaptainTurnId = draft.selection.order[draft.selection.turn];
+        if (currentCaptainTurnId !== captainId) {
+            throw new Error('No es el turno de este capitán.');
         }
-    }
-    
-    await db.collection('drafts').updateOne(
-        { shortId: draftShortId, "players.userId": selectedPlayerId },
-        { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": pickedForPosition } }
-    );
-    
-    const lastPickInfo = { pickNumber: draft.selection.currentPick, playerPsnId: player.psnId, captainTeamName: captain.teamName, position: pickedForPosition };
-    await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
-    
-    if (/^\d+$/.test(selectedPlayerId)) {
-        try {
-            const playerUser = await client.users.fetch(selectedPlayerId);
-            const embed = new EmbedBuilder().setColor('#2ecc71').setTitle(`¡Has sido seleccionado en el Draft!`).setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
-            await playerUser.send({ embeds: [embed] });
-        } catch (e) { console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`); }
-    }
 
-    try {
-        const draftChannel = await client.channels.fetch(draft.discordChannelId);
-        const announcementEmbed = new EmbedBuilder().setColor('#3498db').setDescription(`**Pick #${draft.selection.currentPick}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}**`);
-        const announcementMessage = await draftChannel.send({ embeds: [announcementEmbed] });
-        setTimeout(() => announcementMessage.delete().catch(() => {}), 60000);
-    } catch (e) { console.error("No se pudo enviar el anuncio de pick:", e); }
+        const player = draft.players.find(p => p.userId === selectedPlayerId);
+        const captain = draft.captains.find(c => c.userId === captainId);
+
+        const settings = await getBotSettings();
+        const maxQuotas = Object.fromEntries(
+            settings.draftMaxQuotas.split(',').map(q => q.split(':'))
+        );
+        const teamPlayers = draft.players.filter(p => p.captainId === captainId);
+        
+        // La regla de cuotas se aplica a la posición para la que se ficha
+        const positionToCheck = pickedForPosition;
+
+        if (maxQuotas[positionToCheck]) {
+            const max = parseInt(maxQuotas[positionToCheck]);
+            // Contamos los jugadores ya fichados para esa posición
+            const currentCount = teamPlayers.filter(p => p.pickedForPosition === positionToCheck).length;
+            if (currentCount >= max) {
+                // Lanzamos un error específico que será capturado abajo
+                throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
+            }
+        }
+        
+        await db.collection('drafts').updateOne(
+            { shortId: draftShortId, "players.userId": selectedPlayerId },
+            { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": pickedForPosition } }
+        );
+        
+        const lastPickInfo = { pickNumber: draft.selection.currentPick, playerPsnId: player.psnId, captainTeamName: captain.teamName, position: pickedForPosition };
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
+        
+        if (/^\d+$/.test(selectedPlayerId)) {
+            try {
+                const playerUser = await client.users.fetch(selectedPlayerId);
+                const embed = new EmbedBuilder().setColor('#2ecc71').setTitle(`¡Has sido seleccionado en el Draft!`).setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
+                await playerUser.send({ embeds: [embed] });
+            } catch (e) { console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`); }
+        }
+
+        try {
+            const draftChannel = await client.channels.fetch(draft.discordChannelId);
+            const announcementEmbed = new EmbedBuilder().setColor('#3498db').setDescription(`**Pick #${draft.selection.currentPick}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}**`);
+            const announcementMessage = await draftChannel.send({ embeds: [announcementEmbed] });
+            setTimeout(() => announcementMessage.delete().catch(() => {}), 60000);
+        } catch (e) { console.error("No se pudo enviar el anuncio de pick:", e); }
+
+    } catch (error) { // --- FIN DE LA MODIFICACIÓN (AÑADIR CATCH) ---
+        console.error(`[PICK WEB] Fallo en el pick del capitán ${captainId}: ${error.message}`);
+        // Enviamos el mensaje de error de vuelta al navegador del capitán
+        visualizerStateHandler.sendToUser(captainId, { type: 'pick_error', message: error.message });
+        // Volvemos a lanzar el error para que el servidor sepa que algo falló
+        throw error;
+    }
 }
 
 export async function approveDraftCaptain(client, draft, captainData) {
@@ -297,24 +311,55 @@ export async function approveDraftCaptain(client, draft, captainData) {
     );
 
     if (/^\d+$/.test(captainData.userId)) {
-        try {
-            const user = await client.users.fetch(captainData.userId);
-            
-            const settings = await getBotSettings();
-            const maxQuotasText = settings.draftMaxQuotas.split(',').join('\n').replace(/:/g, ': ');
-            
-            const embed = new EmbedBuilder()
-                .setColor('#2ecc71')
-                .setTitle(`✅ Aprobado para el Draft: ${draft.name}`)
-                .setDescription(
-                    `¡Enhorabuena! Tu solicitud para ser capitán del equipo **${captainData.teamName}** ha sido **aprobada**.\n\n` +
-                    `Ya apareces en la lista oficial. **IMPORTANTE:** Durante el draft, deberás respetar los siguientes límites de jugadores por posición:\n\n` +
-                    "```\n" + maxQuotasText + "\n```"
-                );
+    try {
+        const user = await client.users.fetch(captainData.userId);
+        
+        const settings = await getBotSettings();
+        const maxQuotasText = settings.draftMaxQuotas.split(',').join('\n').replace(/:/g, ': ');
+        
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Creamos el enlace de login y el botón
+        const loginUrl = `${process.env.BASE_URL}/login?returnTo=${encodeURIComponent(`/?draftId=${draft.shortId}`)}`;
+        const loginButtonRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setLabel('Iniciar Sesión en el Visualizador Web')
+                .setStyle(ButtonStyle.Link)
+                .setURL(loginUrl)
+                .setEmoji('🌐')
+        );
 
-            await user.send({ embeds: [embed] });
-        } catch (e) { console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message); }
-    }
+        // Actualizamos el embed con la guía completa
+        const embed = new EmbedBuilder()
+            .setColor('#2ecc71')
+            .setTitle(`👑 ¡Felicidades, Capitán! Has sido aprobado para el Draft "${draft.name}"`)
+            .setDescription(
+                `¡Bienvenido a bordo! Eres oficialmente el capitán del equipo **"${captainData.teamName}"**. Aquí tienes tu guía de referencia:`
+            )
+            .addFields(
+                {
+                    name: "1️⃣ Tu Panel de Control Web (¡MUY IMPORTANTE!)",
+                    value: "Para poder fichar jugadores desde la web (incluso desde el móvil), **debes iniciar sesión una vez** usando tu enlace personal a continuación. Hazlo antes de que empiece el draft."
+                },
+                {
+                    name: "2️⃣ Durante la Fase de Selección",
+                    value: "Cuando sea tu turno, los botones para \"Elegir\" se activarán para ti en la web. La interfaz es inteligente y te mostrará a los especialistas (posición primaria) primero."
+                },
+                {
+                    name: "3️⃣ Reglas de Fichaje (Cuotas)",
+                    value: "Recuerda que debes respetar los límites de jugadores por posición. Si un fichaje falla, la web te avisará con un error. Los límites son:\n```\n" + maxQuotasText + "\n```"
+                },
+                {
+                    name: "4️⃣ Gestión de tu Equipo (Después del Draft)",
+                    value: "Una vez finalizada la selección, podrás acceder a la sección **\"Gestionar Mi Equipo\"** desde la web (estando logueado)."
+                }
+            );
+
+        // Enviamos el embed y el botón
+        await user.send({ embeds: [embed], components: [loginButtonRow] });
+        // --- FIN DE LA MODIFICACIÓN ---
+
+    } catch (e) { console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message); }
+}
     
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
