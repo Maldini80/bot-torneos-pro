@@ -1,8 +1,10 @@
-// src/handlers/selectMenuHandler.js
+// --- INICIO DEL ARCHIVO selectMenuHandler.js (VERSIÓN FINAL Y COMPLETA) ---
+
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam } from '../logic/tournamentLogic.js';
+import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection } from '../logic/verificationLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 
@@ -13,6 +15,31 @@ export async function handleSelectMenu(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
+
+    // =======================================================
+    // --- LÓGICA DE VERIFICACIÓN Y GESTIÓN DE PERFIL ---
+    // =======================================================
+
+    if (action === 'verify_select_platform') {
+        await handlePlatformSelection(interaction);
+        return;
+    }
+
+    if (action === 'verify_select_pc_launcher') {
+        await handlePCLauncherSelection(interaction);
+        return;
+    }
+
+    if (action === 'update_profile_select_field') {
+        await handleProfileUpdateSelection(interaction);
+        return;
+    }
+
+    // --- FIN DE LA NUEVA LÓGICA ---
+
+    // =======================================================
+    // --- LÓGICA ORIGINAL DEL BOT ---
+    // =======================================================
 
     if (action === 'admin_edit_team_select') {
         const [tournamentShortId] = params;
