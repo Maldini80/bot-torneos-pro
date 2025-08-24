@@ -1,17 +1,24 @@
-// --- CONTENIDO COMPLETO PARA src/logic/verificationLogic.js ---
+// --- INICIO DEL ARCHIVO verificationLogic.js (VERSIÓN FINAL Y COMPLETA) ---
 
 import { getDb } from '../../database.js';
-import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField } from 'discord.js';
+import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, MessageFlags } from 'discord.js';
 import { VERIFIED_ROLE_ID, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
 
-// --- FUNCIONES DE VERIFICACIÓN ---
+// =======================================================
+// --- SISTEMA DE VERIFICACIÓN DE CUENTA ---
+// =======================================================
 
+/**
+ * Comprueba si un usuario ya está verificado en la base de datos.
+ */
 export async function checkVerification(userId) {
     const db = getDb();
-    const verification = await db.collection('verified_users').findOne({ discordId: userId });
-    return verification;
+    return await db.collection('verified_users').findOne({ discordId: userId });
 }
 
+/**
+ * Inicia el asistente de verificación para un usuario.
+ */
 export async function startVerificationWizard(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const platformMenu = new StringSelectMenuBuilder()
@@ -29,21 +36,39 @@ export async function startVerificationWizard(interaction) {
     });
 }
 
+/**
+ * Maneja la selección de plataforma del usuario (Consola o PC).
+ */
 export async function handlePlatformSelection(interaction) {
     const platform = interaction.values[0];
     if (platform === 'pc') {
-        const pcMenu = new StringSelectMenuBuilder().setCustomId('verify_select_pc_launcher').setPlaceholder('Selecciona tu lanzador de PC').addOptions([{ label: '🔵 Steam', value: 'steam' }, { label: '🟠 EA App', value: 'ea_app' }]);
+        const pcMenu = new StringSelectMenuBuilder()
+            .setCustomId('verify_select_pc_launcher')
+            .setPlaceholder('Selecciona tu lanzador de PC')
+            .addOptions([ { label: '🔵 Steam', value: 'steam' }, { label: '🟠 EA App', value: 'ea_app' } ]);
         const row = new ActionRowBuilder().addComponents(pcMenu);
-        await interaction.update({ content: "### Asistente de Verificación - Paso 1.5 de 3 (PC)\nEntendido, juegas en PC. ¿A través de qué plataforma principal?", components: [row] });
+        await interaction.update({
+            content: "### Asistente de Verificación - Paso 1.5 de 3 (PC)\nEntendido, juegas en PC. ¿A través de qué plataforma principal?",
+            components: [row]
+        });
     } else {
         const platformName = platform === 'psn' ? 'PlayStation' : 'Xbox';
-        const guideEmbed = new EmbedBuilder().setColor('#5865F2').setTitle(`Guía para Vincular tu Cuenta de ${platformName}`).setDescription("Para una verificación automática, necesitamos que vincules tu cuenta a tu perfil de Discord. Es un proceso seguro gestionado por Discord.\n\n**Pasos a seguir:**\n1. Abre Discord y ve a `Ajustes de Usuario` > `Conexiones`.\n2. Haz clic en el icono de PlayStation o Xbox y sigue las instrucciones.\n3. **¡MUY IMPORTANTE!** Asegúrate de que la opción **`Mostrar en el perfil`** esté **activada**.\n\nUna vez que lo hayas hecho, pulsa el botón de abajo.");
-        const continueButton = new ButtonBuilder().setCustomId(`verify_show_modal:${platform}`).setLabel('✅ Mi cuenta está vinculada y visible').setStyle(ButtonStyle.Success);
+        const guideEmbed = new EmbedBuilder()
+            .setColor('#5865F2')
+            .setTitle(`Guía para Vincular tu Cuenta de ${platformName}`)
+            .setDescription("Para una verificación automática, necesitamos que vincules tu cuenta a tu perfil de Discord. Es un proceso seguro gestionado por Discord.\n\n**Pasos a seguir:**\n1. Abre Discord y ve a `Ajustes de Usuario` > `Conexiones`.\n2. Haz clic en el icono de PlayStation o Xbox y sigue las instrucciones.\n3. **¡MUY IMPORTANTE!** Asegúrate de que la opción **`Mostrar en el perfil`** esté **activada**.\n\nUna vez que lo hayas hecho, pulsa el botón de abajo.");
+        const continueButton = new ButtonBuilder()
+            .setCustomId(`verify_show_modal:${platform}`)
+            .setLabel('✅ Mi cuenta está vinculada y visible')
+            .setStyle(ButtonStyle.Success);
         const row = new ActionRowBuilder().addComponents(continueButton);
         await interaction.update({ content: "### Asistente de Verificación - Paso 2 de 3", embeds: [guideEmbed], components: [row] });
     }
 }
 
+/**
+ * Maneja la selección de lanzador de PC (Steam o EA App).
+ */
 export async function handlePCLauncherSelection(interaction) {
     const launcher = interaction.values[0];
     const guideEmbed = new EmbedBuilder();
@@ -59,6 +84,9 @@ export async function handlePCLauncherSelection(interaction) {
     await interaction.update({ content: `### Asistente de Verificación - Paso 2 de 3 (${launcher.toUpperCase()})`, embeds: [guideEmbed], components: [row] });
 }
 
+/**
+ * Muestra el formulario final para introducir el ID de Juego y Twitter.
+ */
 export async function showVerificationModal(interaction, platform) {
     const platformNames = { psn: 'PSN ID', xbox: 'Xbox Gamertag', steam: 'Perfil de Steam', ea_app: 'EA ID' };
     const modal = new ModalBuilder().setCustomId(`verify_submit_data:${platform}`).setTitle('Verificación - Paso Final');
@@ -68,6 +96,9 @@ export async function showVerificationModal(interaction, platform) {
     await interaction.showModal(modal);
 }
 
+/**
+ * Procesa los datos del formulario, realiza la verificación automática o la envía a la cola manual.
+ */
 export async function processVerification(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const db = getDb();
@@ -85,7 +116,8 @@ export async function processVerification(interaction) {
     if (platform === 'ea_app') {
         const adminChannel = await interaction.guild.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
         const embed = new EmbedBuilder().setColor('#f0ad4e').setTitle('🔎 Solicitud de Verificación Manual (EA App)').setDescription(`**Usuario:** <@${user.id}> (${user.tag})\n**EA ID:** \`${gameId}\`\n**Twitter:** \`${twitter}\``).setFooter({ text: 'Esperando captura de pantalla y aprobación de un admin.' });
-        await adminChannel.send({ embeds: [embed] }); // Aquí los admins podrían tener un botón para aprobar/rechazar
+        // Aquí podrías añadir botones para que los admins aprueben directamente
+        await adminChannel.send({ embeds: [embed] });
         return interaction.editReply('👍 **¡Solicitud Recibida!** Tu inscripción está **pendiente de verificación manual**. Por favor, contacta a un administrador y envíale tu captura de pantalla para completar el proceso.');
     }
     
@@ -119,4 +151,125 @@ export async function processVerification(interaction) {
     }
 }
 
-// (Las funciones de actualización de perfil se omiten por ahora para simplificar, como acordamos)
+// =======================================================
+// --- SISTEMA DE ACTUALIZACIÓN DE PERFIL ---
+// =======================================================
+
+export async function startProfileUpdateWizard(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const fieldMenu = new StringSelectMenuBuilder()
+        .setCustomId('update_profile_select_field')
+        .setPlaceholder('Selecciona el dato que quieres cambiar')
+        .addOptions([
+            { label: '🆔 ID de Juego (PSN/Xbox/EA)', value: 'gameId' },
+            { label: '🐦 Cuenta de Twitter', value: 'twitter' },
+        ]);
+    const row = new ActionRowBuilder().addComponents(fieldMenu);
+    await interaction.editReply({ content: "### Asistente de Actualización de Perfil - Paso 1\n¿Qué dato verificado deseas solicitar cambiar?", components: [row] });
+}
+
+export async function handleProfileUpdateSelection(interaction) {
+    const fieldToUpdate = interaction.values[0];
+    const verificationData = await checkVerification(interaction.user.id);
+    const currentValue = verificationData[fieldToUpdate];
+
+    const modal = new ModalBuilder()
+        .setCustomId(`update_profile_submit_new_value:${fieldToUpdate}`)
+        .setTitle(`Actualizar ${fieldToUpdate === 'gameId' ? 'ID de Juego' : 'Twitter'}`);
+        
+    const newValueInput = new TextInputBuilder()
+        .setCustomId('new_value_input')
+        .setLabel("Nuevo Valor")
+        .setPlaceholder("Escribe aquí el nuevo dato")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+    const reasonInput = new TextInputBuilder()
+        .setCustomId('reason_input')
+        .setLabel("Motivo del Cambio")
+        .setPlaceholder("Ej: Me equivoqué al escribirlo, he cambiado de cuenta, etc.")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true);
+        
+    modal.addComponents(new ActionRowBuilder().addComponents(newValueInput), new ActionRowBuilder().addComponents(reasonInput));
+    await interaction.showModal(modal);
+}
+
+export async function processProfileUpdate(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const [fieldToUpdate] = interaction.customId.split(':');
+    const newValue = interaction.fields.getTextInputValue('new_value_input');
+    const reason = interaction.fields.getTextInputValue('reason_input');
+    const verificationData = await checkVerification(interaction.user.id);
+
+    const adminChannel = await interaction.guild.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
+    const embed = new EmbedBuilder()
+        .setColor('#3498db')
+        .setTitle('🔄 Solicitud de Actualización de Perfil')
+        .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
+        .addFields(
+            { name: 'Usuario', value: `<@${interaction.user.id}>`, inline: true },
+            { name: 'Dato a Cambiar', value: `\`${fieldToUpdate}\``, inline: true },
+            { name: 'Valor Antiguo', value: `\`${verificationData[fieldToUpdate]}\``, inline: false },
+            { name: 'Nuevo Valor', value: `\`${newValue}\``, inline: false },
+            { name: 'Motivo', value: reason }
+        );
+    
+    const needsProof = fieldToUpdate === 'gameId';
+    if (needsProof) {
+        embed.setFooter({ text: 'Este cambio requiere pruebas. Abrir un hilo para que el usuario las aporte.' });
+    }
+    
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`admin_approve_update:${interaction.user.id}:${fieldToUpdate}:${newValue}`).setLabel('Aceptar').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`admin_reject_update:${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId(`admin_open_thread:${interaction.user.id}`).setLabel('Abrir Hilo').setStyle(ButtonStyle.Secondary).setEmoji('💬')
+    );
+
+    await adminChannel.send({ embeds: [embed], components: [row] });
+    await interaction.editReply({ content: '✅ Tu solicitud de cambio ha sido enviada a los administradores para su revisión.' });
+}
+
+export async function approveProfileUpdate(interaction) {
+    const [, userId, field, newValue] = interaction.customId.split(':');
+    const db = getDb();
+    await db.collection('verified_users').updateOne({ discordId: userId }, { $set: { [field]: newValue } });
+    const user = await interaction.client.users.fetch(userId).catch(() => null);
+    if (user) await user.send(`✅ Un administrador ha **aprobado** tu solicitud para cambiar tu \`${field}\`. Tu nuevo valor es ahora \`${newValue}\`.`);
+    
+    const embed = EmbedBuilder.from(interaction.message.embeds[0]).setColor('#2ecc71').setFooter({ text: `Aprobado por ${interaction.user.tag}` });
+    await interaction.message.edit({ embeds: [embed], components: [] });
+    await interaction.reply({ content: 'Cambio aprobado.', ephemeral: true });
+}
+
+export async function rejectProfileUpdate(interaction) {
+    const [, userId] = interaction.customId.split(':');
+    const user = await interaction.client.users.fetch(userId).catch(() => null);
+    if (user) await user.send(`❌ Un administrador ha **rechazado** tu solicitud de cambio de perfil.`);
+    
+    const embed = EmbedBuilder.from(interaction.message.embeds[0]).setColor('#e74c3c').setFooter({ text: `Rechazado por ${interaction.user.tag}` });
+    await interaction.message.edit({ embeds: [embed], components: [] });
+    await interaction.reply({ content: 'Cambio rechazado.', ephemeral: true });
+}
+
+export async function openProfileUpdateThread(interaction) {
+    const [, userId] = interaction.customId.split(':');
+    const user = await interaction.guild.members.fetch(userId);
+    const thread = await interaction.message.startThread({
+        name: `Discusión cambio de perfil - ${user.user.username}`,
+        autoArchiveDuration: 1440, // 24 horas
+    });
+
+    await thread.members.add(userId);
+    await thread.send(`Hola <@${userId}>, un administrador ha abierto este hilo para discutir tu solicitud de cambio de perfil. Si se te han solicitado pruebas (como una captura de pantalla), por favor, súbelas aquí.`);
+
+    const finalActionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(interaction.message.components[0].components[0].data.custom_id).setLabel('Aprobar (en hilo)').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(interaction.message.components[0].components[1].data.custom_id).setLabel('Rechazar (en hilo)').setStyle(ButtonStyle.Danger)
+    );
+    await thread.send({ content: "Acciones para administradores:", components: [finalActionRow] });
+    
+    const goToThreadButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Ir al Hilo de Discusión').setStyle(ButtonStyle.Link).setURL(thread.url));
+    await interaction.message.edit({ components: [goToThreadButton] });
+    await interaction.reply({ content: `Hilo privado creado: ${thread.toString()}`, ephemeral: true });
+}
