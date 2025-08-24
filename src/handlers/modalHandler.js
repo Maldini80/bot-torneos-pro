@@ -10,6 +10,7 @@ import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyl
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { createDraftStatusEmbed } from '../utils/embeds.js';
+const VERIFICATION_TICKET_CATEGORY_ID = '1396814712649551974';
 
 export async function handleModal(interaction) {
     const customId = interaction.customId;
