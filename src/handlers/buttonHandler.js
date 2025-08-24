@@ -1,6 +1,5 @@
-// src/handlers/buttonHandler.js
+// --- INICIO DEL ARCHIVO buttonHandler.js (VERSIÓN FINAL Y COMPLETA) ---
 
-import { startVerificationWizard, startProfileUpdateWizard, checkVerification, approveProfileUpdate, rejectProfileUpdate, openProfileUpdateThread } from '../logic/verificationLogic.js'; // Crearemos este archivo
 import mongoose from 'mongoose';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
@@ -13,6 +12,9 @@ import {
     approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
     forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement
 } from '../logic/tournamentLogic.js';
+import {
+    checkVerification, startVerificationWizard, showVerificationModal, startProfileUpdateWizard, approveProfileUpdate, rejectProfileUpdate, openProfileUpdateThread
+} from '../logic/verificationLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed } from '../utils/embeds.js';
@@ -27,38 +29,47 @@ export async function handleButton(interaction) {
     
     const [action, ...params] = customId.split(':');
 
-	// AÑADE ESTO, preferiblemente cerca del principio
-if (action === 'verify_start') {
-    const isVerified = await checkVerification(interaction.user.id);
-    if (isVerified) {
-        return interaction.reply({ content: 'Tu cuenta ya ha sido verificada.', flags: [MessageFlags.Ephemeral] });
+    // =======================================================
+    // --- LÓGICA DE VERIFICACIÓN Y GESTIÓN DE PERFIL ---
+    // =======================================================
+    
+    if (action === 'verify_start') {
+        const isVerified = await checkVerification(interaction.user.id);
+        if (isVerified) {
+            return interaction.reply({ content: 'Tu cuenta ya ha sido verificada. No necesitas hacer esto de nuevo.', flags: [MessageFlags.Ephemeral] });
+        }
+        await startVerificationWizard(interaction);
+        return;
     }
-    await startVerificationWizard(interaction);
-    return;
-}
 
-if (action === 'update_profile_start') {
-    const isVerified = await checkVerification(interaction.user.id);
-    if (!isVerified) {
-        return interaction.reply({ content: 'Primero debes verificar tu cuenta para poder actualizarla.', flags: [MessageFlags.Ephemeral] });
+    if (action === 'verify_show_modal') {
+        const [platform] = params;
+        await showVerificationModal(interaction, platform);
+        return;
     }
-    await startProfileUpdateWizard(interaction);
-    return;
-}
 
-// AÑADE ESTOS PARA LOS BOTONES DE ADMIN
-if (action === 'admin_approve_update') {
-    await approveProfileUpdate(interaction);
-    return;
-}
-if (action === 'admin_reject_update') {
-    await rejectProfileUpdate(interaction);
-    return;
-}
-if (action === 'admin_open_thread') {
-    await openProfileUpdateThread(interaction);
-    return;
-}
+    if (action === 'update_profile_start') {
+        const isVerified = await checkVerification(interaction.user.id);
+        if (!isVerified) {
+            return interaction.reply({ content: 'Primero debes verificar tu cuenta para poder actualizarla. Usa el botón "Verificar Cuenta".', flags: [MessageFlags.Ephemeral] });
+        }
+        await startProfileUpdateWizard(interaction);
+        return;
+    }
+
+    if (action === 'admin_approve_update' || action === 'admin_reject_update' || action === 'admin_open_thread') {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ content: 'No tienes permiso para realizar esta acción.', flags: [MessageFlags.Ephemeral] });
+        }
+        if (action === 'admin_approve_update') await approveProfileUpdate(interaction);
+        if (action === 'admin_reject_update') await rejectProfileUpdate(interaction);
+        if (action === 'admin_open_thread') await openProfileUpdateThread(interaction);
+        return;
+    }
+    
+    // =======================================================
+    // --- LÓGICA ORIGINAL DEL BOT ---
+    // =======================================================
     
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
