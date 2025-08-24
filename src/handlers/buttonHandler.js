@@ -1691,4 +1691,135 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
+	if (action === 'claim_verification_ticket') {
+        await interaction.deferUpdate();
+        const [channelId] = params;
+        const db = getDb();
+        const ticket = await db.collection('verificationtickets').findOne({ channelId, status: 'pending' });
+
+        if (!ticket) {
+            return interaction.followUp({ content: '❌ Este ticket ya ha sido reclamado o cerrado.', ephemeral: true });
+        }
+
+        await db.collection('verificationtickets').updateOne({ _id: ticket._id }, {
+            $set: {
+                status: 'claimed',
+                claimedBy: interaction.user.id
+            }
+        });
+
+        const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+        originalEmbed.addFields({ name: 'Estado', value: `🟡 **Atendido por:** <@${interaction.user.id}>` });
+
+        const actionButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`approve_verification:${channelId}`)
+                .setLabel('Aprobar Verificación')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('✅'),
+            new ButtonBuilder()
+                .setCustomId(`reject_verification_start:${channelId}`)
+                .setLabel('Rechazar')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('❌')
+        );
+
+        await interaction.message.edit({ embeds: [originalEmbed], components: [actionButtons] });
+    }
+
+    if (action === 'approve_verification') {
+        await interaction.deferUpdate();
+        const [channelId] = params;
+        const db = getDb();
+        const ticket = await db.collection('verificationtickets').findOne({ channelId });
+
+        if (!ticket || ticket.status === 'closed') return;
+        if (ticket.claimedBy !== interaction.user.id) {
+             return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, ephemeral: true });
+        }
+
+        // 1. Guardar en la base de datos de verificados
+        await db.collection('verified_users').updateOne(
+            { discordId: ticket.userId },
+            { 
+                $set: {
+                    discordTag: (await client.users.fetch(ticket.userId)).tag,
+                    gameId: ticket.gameId,
+                    platform: ticket.platform,
+                    twitter: ticket.twitter,
+                    verifiedAt: new Date(),
+                }
+            },
+            { upsert: true }
+        );
+
+        // 2. Asignar rol
+        const guild = await client.guilds.fetch(ticket.guildId);
+        const member = await guild.members.fetch(ticket.userId);
+        const verifiedRole = await guild.roles.fetch(VERIFIED_ROLE_ID);
+        if (member && verifiedRole) {
+            await member.roles.add(verifiedRole);
+        }
+
+        // 3. Notificar al usuario
+        try {
+            await member.send('🎉 **¡Identidad Verificada con Éxito!** 🎉\nTu cuenta ha sido aprobada por un administrador. Ya puedes inscribirte en nuestros drafts.');
+        } catch (e) {
+            console.warn(`No se pudo enviar MD de aprobación al usuario ${ticket.userId}`);
+        }
+
+        // 4. Cerrar ticket
+        await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
+        const channel = await client.channels.fetch(channelId);
+        await channel.send(`✅ Verificación aprobada por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
+        
+        // Desactivar botones en el mensaje original
+        const originalMessage = interaction.message;
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        const finalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        finalEmbed.data.fields.find(f => f.name === 'Estado').value = `✅ **Aprobado por:** <@${interaction.user.id}>`;
+        await originalMessage.edit({ embeds: [finalEmbed], components: [disabledRow] });
+        
+        setTimeout(() => channel.delete().catch(console.error), 10000);
+    }
+
+    if (action === 'reject_verification_start') {
+        const [channelId] = params;
+        const db = getDb();
+        const ticket = await db.collection('verificationtickets').findOne({ channelId });
+
+        if (ticket.claimedBy !== interaction.user.id) {
+             return interaction.reply({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, ephemeral: true });
+        }
+        
+        const reasonMenu = new StringSelectMenuBuilder()
+            .setCustomId(`reject_verification_reason:${channelId}`)
+            .setPlaceholder('Selecciona un motivo para el rechazo')
+            .addOptions([
+                { label: 'Inactividad del usuario', value: 'inactivity', description: 'El usuario no ha respondido o enviado pruebas.' },
+                { label: 'Pruebas insuficientes', value: 'proof', description: 'La captura de pantalla no es válida o no es clara.' }
+            ]);
+        
+        return interaction.reply({
+            content: 'Por favor, selecciona el motivo del rechazo.',
+            components: [new ActionRowBuilder().addComponents(reasonMenu)],
+            ephemeral: true
+        });
+    }
+
+    // --- NUEVO PANEL DE EDICIÓN PARA ADMINS ---
+
+    if (action === 'admin_edit_verified_user_start') {
+        // Esta lógica necesitará un modal y un user select, la añadiremos en los handlers correspondientes.
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId('admin_edit_verified_user_select')
+            .setPlaceholder('Selecciona al usuario que deseas editar');
+        
+        return interaction.reply({
+            content: 'Por favor, selecciona al usuario verificado cuyo perfil quieres modificar.',
+            components: [new ActionRowBuilder().addComponents(userSelect)],
+            ephemeral: true
+        });
+    }
 }
