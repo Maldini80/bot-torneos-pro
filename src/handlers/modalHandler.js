@@ -49,21 +49,23 @@ export async function handleModal(interaction) {
         try {
             const ticketChannel = await guild.channels.create({
                 name: `verificacion-${user.username}`,
-                type: ChannelType.PrivateThread, // O ChannelType.GuildText si prefieres canales en una categoría
-                parent: ADMIN_APPROVAL_CHANNEL_ID, // Se creará como hilo en el canal de admins
+                type: ChannelType.GuildText, // <-- CAMBIO: Ahora es un canal de texto
+                parent: VERIFICATION_TICKET_CATEGORY_ID, // <-- CAMBIO: Lo metemos en tu categoría
                 permissionOverwrites: [
                     {
-                        id: guild.id,
+                        id: guild.id, // Rol @everyone
                         deny: [PermissionsBitField.Flags.ViewChannel],
                     },
                     {
-                        id: user.id,
-                        allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
+                        id: user.id, // El usuario del ticket
+                        allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles],
                     },
-                    // Los roles de Admin y Árbitro heredarán permisos del canal padre
+                    // Asumiendo que los roles de Admin y Árbitro ya tienen permisos para ver esa categoría
                 ],
                 reason: `Ticket de verificación para ${user.tag}`
             });
+
+            // El resto del código para enviar mensajes y guardar en la DB es el mismo...
 
             // 1. Resumen para el staff
             const summaryEmbed = new EmbedBuilder()
@@ -114,8 +116,8 @@ export async function handleModal(interaction) {
             await interaction.editReply({ content: `✅ ¡Perfecto! Hemos creado un canal privado para ti. Por favor, continúa aquí: ${ticketChannel.toString()}` });
 
         } catch (error) {
-            console.error("Error al crear el ticket de verificación:", error);
-            await interaction.editReply({ content: '❌ Hubo un error al crear tu canal de verificación. Por favor, contacta a un administrador.' });
+            console.error("Error al crear el canal de verificación:", error);
+            await interaction.editReply({ content: '❌ Hubo un error al crear tu canal de verificación. Asegúrate de que el bot tiene permisos para gestionar canales en la categoría de tickets.' });
         }
         return;
     }
