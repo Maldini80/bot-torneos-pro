@@ -276,57 +276,29 @@ export function createDraftStatusEmbed(draft) {
         .setFooter({ text: `ID del Draft: ${draft.shortId}` });
 
     if (draft.config.isPaid) {
-        embed.setDescription('**Este es un draft de pago.**');
+        embed.setDescription('**Este es un draft de pago.**\n\nPulsa el botón de abajo para empezar. La verificación de cuenta solo se realiza una vez y sirve para todos los drafts futuros.');
         embed.addFields(
             { name: 'Inscripción / Entry', value: `${draft.config.entryFee}€`, inline: true },
             { name: '🏆 Premio Campeón', value: `${draft.config.prizeCampeon}€`, inline: true },
             { name: '🥈 Premio Subcampeón', value: `${draft.config.prizeFinalista}€`, inline: true }
         );
     } else {
-        embed.setDescription('**Este es un draft gratuito.**');
+        embed.setDescription('**Este es un draft gratuito.**\n\nPulsa el botón de abajo para empezar. La verificación de cuenta solo se realiza una vez y sirve para todos los drafts futuros.');
     }
 
-    const row1 = new ActionRowBuilder();
-    const row2 = new ActionRowBuilder();
+    const row = new ActionRowBuilder();
 
     if (draft.status === 'inscripcion') {
-    // Ponemos todos los botones disponibles. El buttonHandler decidirá quién puede usarlos.
-    row1.addComponents(
-        new ButtonBuilder()
-            .setCustomId(`verify_start:${draft.shortId}`)
-            .setLabel('Verificar Cuenta')
-            .setStyle(ButtonStyle.Success)
-            .setEmoji('✅'),
-        new ButtonBuilder()
-            .setCustomId(`register_draft_player:${draft.shortId}`)
-            .setLabel('Inscribirme como Jugador')
-            .setStyle(ButtonStyle.Primary)
-            .setEmoji('👤'),
-        new ButtonBuilder()
-            .setCustomId(`register_draft_captain:${draft.shortId}`)
-            .setLabel('Inscribirme como Capitán')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('👑')
-    );
-    row2.addComponents(
-        new ButtonBuilder()
-            .setCustomId(`update_profile_start:${draft.shortId}`)
-            .setLabel('Actualizar Perfil Verificado')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('🔄'),
-        new ButtonBuilder()
-            .setCustomId(`darse_baja_draft_start:${draft.shortId}`)
-            .setLabel('Darse de Baja')
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('👋')
-    );
-}
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`start_verification_or_registration:${draft.shortId}`)
+                .setLabel('Inscribirse o Verificar Cuenta')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('▶️')
+        );
+    }
 
-    const components = [];
-    if(row1.components.length > 0) components.push(row1);
-    if(row2.components.length > 0) components.push(row2);
-
-    return { embeds: [embed], components };
+    return { embeds: [embed], components: [row] };
 }
 
 
