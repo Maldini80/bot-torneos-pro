@@ -123,7 +123,8 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
             );
             const draftConfigRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_config_draft_min_quotas').setLabel('Config: Mínimos').setStyle(ButtonStyle.Secondary).setEmoji('📊').setDisabled(isBusy),
-                new ButtonBuilder().setCustomId('admin_config_draft_max_quotas').setLabel('Config: Máximos').setStyle(ButtonStyle.Secondary).setEmoji('🧢').setDisabled(isBusy)
+                new ButtonBuilder().setCustomId('admin_config_draft_max_quotas').setLabel('Config: Máximos').setStyle(ButtonStyle.Secondary).setEmoji('🧢').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_edit_verified_user_start').setLabel('Editar Usuario Verificado').setStyle(ButtonStyle.Danger).setEmoji('✏️')
             );
             components.push(draftActionsRow, draftConfigRow, backButtonRow);
             break;
@@ -300,7 +301,6 @@ export function createDraftStatusEmbed(draft) {
 
     return { embeds: [embed], components: [row] };
 }
-
 
 export function createDraftManagementPanel(draft, isBusy = false) {
     const embed = new EmbedBuilder()
