@@ -290,27 +290,37 @@ export function createDraftStatusEmbed(draft) {
     const row2 = new ActionRowBuilder();
 
     if (draft.status === 'inscripcion') {
-        row1.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`register_draft_captain:${draft.shortId}`)
-                .setLabel('Inscribirme como Capitán')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('👑')
-                .setDisabled(captainCount >= 8),
-            new ButtonBuilder()
-                .setCustomId(`register_draft_player:${draft.shortId}`)
-                .setLabel('Inscribirme como Jugador')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('👤')
-        );
-        row2.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`darse_baja_draft_start:${draft.shortId}`)
-                .setLabel('Darse de Baja')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('👋')
-        );
-    }
+    // Ponemos todos los botones disponibles. El buttonHandler decidirá quién puede usarlos.
+    row1.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`verify_start:${draft.shortId}`)
+            .setLabel('Verificar Cuenta')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('✅'),
+        new ButtonBuilder()
+            .setCustomId(`register_draft_player:${draft.shortId}`)
+            .setLabel('Inscribirme como Jugador')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('👤'),
+        new ButtonBuilder()
+            .setCustomId(`register_draft_captain:${draft.shortId}`)
+            .setLabel('Inscribirme como Capitán')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('👑')
+    );
+    row2.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`update_profile_start:${draft.shortId}`)
+            .setLabel('Actualizar Perfil Verificado')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🔄'),
+        new ButtonBuilder()
+            .setCustomId(`darse_baja_draft_start:${draft.shortId}`)
+            .setLabel('Darse de Baja')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('👋')
+    );
+}
 
     const components = [];
     if(row1.components.length > 0) components.push(row1);
