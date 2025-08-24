@@ -1,4 +1,5 @@
-// visualizerServer.js (VERSIÓN FINAL CON LOGIN CORREGIDO)
+// --- INICIO DEL ARCHIVO visualizerServer.js (VERSIÓN COMPLETA Y CORREGIDA) ---
+
 import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
@@ -11,6 +12,14 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 const PORT = process.env.PORT || 3000;
+
+// =================================================================
+// ---            ✅ LA LÍNEA MÁGICA QUE LO ARREGLA TODO           ---
+// =================================================================
+// Esta línea es CRUCIAL para que las sesiones funcionen en Render.
+// Le dice a la aplicación que confíe en el proxy de Render.
+app.set('trust proxy', 1);
+// =================================================================
 
 // --- ESTADO CENTRALIZADO (SIN CAMBIOS) ---
 const draftStates = new Map();
@@ -60,9 +69,8 @@ passport.use(new DiscordStrategy({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// --- RUTAS DE LOGIN Y CALLBACK (CORREGIDAS) ---
+// --- RUTAS DE LOGIN Y CALLBACK (SIN CAMBIOS) ---
 app.get('/login', (req, res, next) => {
-    // Codificamos la URL de retorno en el parámetro 'state'
     const returnTo = Buffer.from(req.query.returnTo || '/').toString('base64');
     passport.authenticate('discord', { state: returnTo })(req, res, next);
 });
@@ -70,11 +78,9 @@ app.get('/login', (req, res, next) => {
 app.get('/callback', passport.authenticate('discord', {
     failureRedirect: '/'
 }), (req, res) => {
-    // Decodificamos la URL guardada en 'state' y redirigimos
     const returnTo = Buffer.from(req.query.state, 'base64').toString('utf8');
     res.redirect(returnTo || '/');
 });
-// --- FIN DE LAS RUTAS CORREGIDAS ---
 
 app.get('/logout', (req, res) => {
     req.logout(() => {
@@ -86,6 +92,7 @@ app.get('/api/user', (req, res) => {
     res.json(req.user || null);
 });
 
+// --- EL RESTO DEL SERVIDOR (SIN CAMBIOS) ---
 export async function startVisualizerServer(client, advanceDraftTurn, handlePlayerSelectionFromWeb) {
     app.use(express.json());
     app.use(express.static('public'));
