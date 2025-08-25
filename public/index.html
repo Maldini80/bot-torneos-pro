@@ -115,9 +115,10 @@
                                 <tr>
                                     <th>Strikes</th>
                                     <th>PSN ID</th>
-                                    <th>Pos. Primaria</th>
-                                    <th>Pos. Secundaria</th>
-                                    <th>Acción</th>
+                                    <!-- CAMBIO: Añadidas clases para seleccionar con CSS -->
+                                    <th class="col-primary">Pos. Primaria</th>
+                                    <th class="col-secondary">Pos. Secundaria</th>
+                                    <th class="col-action">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="players-table-body"></tbody>
@@ -135,6 +136,9 @@
     
     <div id="pick-alert" class="hidden"><div id="pick-alert-content"></div></div>
     
+    <!-- CAMBIO: Añadido el banner para el último pick -->
+    <div id="last-pick-banner"></div>
+
     <footer id="common-footer">
         Powered by VPG LIGHTNINGS
     </footer>
