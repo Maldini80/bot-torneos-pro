@@ -433,23 +433,36 @@ function initializeDraftView(draftId) {
     }
 
     function renderAvailablePlayers(draft) {
-    console.log('DATOS RECIBIDOS POR RENDER:', draft); 
+    // Línea de depuración que nos ayudó, ahora la dejamos comentada o la puedes borrar.
+    // console.log('DATOS RECIBIDOS POR RENDER:', draft);
+
     playersTableBodyEl.innerHTML = '';
     const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
     const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
+
+    // --- INICIO DE LA CORRECCIÓN DE SEGURIDAD ---
+
+    // BÚSQUEDA SEGURA 1: Comprobamos si el desplegable existe ANTES de intentar usarlo.
+    const filterSelect = document.getElementById('filter-column-select');
+    if (filterSelect) {
+        filterSelect.style.display = isMyTurn ? 'none' : 'inline-block';
+    }
+
+    // BÚSQUEDA SEGURA 2: Corregimos el selector de la leyenda y también comprobamos si existe.
+    const legendEl = document.querySelector('#available-players-container-draftview .legend');
+    if (legendEl) {
+        legendEl.style.display = isMyTurn ? 'none' : 'block';
+    }
+
+    // --- FIN DE LA CORRECCIÓN DE SEGURIDAD ---
+
+    // Esta lógica ya era correcta y se mantiene.
+    let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false);
     
-    // Oculta/muestra el desplegable y la leyenda según sea tu turno o no.
-    document.getElementById('filter-column-select').style.display = isMyTurn ? 'none' : 'inline-block';
-    document.querySelector('.players-table-container .legend').style.display = isMyTurn ? 'none' : 'block';
-    
-    // 1. Obtenemos TODOS los jugadores disponibles, sin pre-filtrar el array.
-    let availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
     availablePlayers.sort(sortPlayersAdvanced);
 
-    // 2. Dibujamos a CADA jugador en la tabla, añadiendo 'data-attributes' para los filtros.
     availablePlayers.forEach(player => {
         const row = document.createElement('tr');
-        // Se añaden los data-attributes para que el filtro visual funcione
         row.dataset.primaryPos = player.primaryPosition;
         row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
 
@@ -468,7 +481,6 @@ function initializeDraftView(draftId) {
         playersTableBodyEl.appendChild(row);
     });
 
-    // 3. Después de dibujar todo, aplicamos el filtro visual.
     applyTableFilters();
 }
     function applyTableFilters() {
