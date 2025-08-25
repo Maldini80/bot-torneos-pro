@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO modalHandler.js (VERSIÓN FINAL Y COMPLETA) ---
+// --- INICIO DEL ARCHIVO modalHandler.js (VERSIÓN FINAL, COMPLETA Y CORREGIDA) ---
 
 import mongoose from 'mongoose';
 import Team from '../../src/models/team.js';
@@ -6,8 +6,8 @@ import { getDb, updateBotSettings } from '../../database.js';
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, reportPlayer, notifyTournamentVisualizer, notifyVisualizer } from '../logic/tournamentLogic.js';
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
-// --- LÍNEA CORREGIDA ---
-import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField } from 'discord.js';
+// --- LÍNEA CORREGIDA Y COMPLETA ---
+import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField, TextInputBuilder, TextInputStyle, ModalBuilder } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { createDraftStatusEmbed } from '../utils/embeds.js';
@@ -25,23 +25,19 @@ export async function handleModal(interaction) {
     // =======================================================
 
      if (action === 'verify_submit_data') {
-        // Esta función ahora está en desuso, la lógica se moverá a un nuevo modal
-        // para el flujo de tickets. Dejamos esto para evitar errores si aún existe.
-        return interaction.reply({ content: 'Esta función ha sido actualizada. Por favor, reinicia el proceso de verificación.', ephemeral: true });
+        return interaction.reply({ content: 'Esta función ha sido actualizada. Por favor, reinicia el proceso de verificación.', flags: [MessageFlags.Ephemeral] });
     }
 
-    // AÑADIMOS LA NUEVA LÓGICA PARA EL MODAL DEL TICKET
+    // --- LÓGICA DE TICKETS DE VERIFICACIÓN (AÑADIDA) ---
     if (action === 'verification_ticket_submit') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         const [platform] = params;
         const gameId = interaction.fields.getTextInputValue('game_id_input').trim();
         const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
         const user = interaction.user;
         const guild = interaction.guild;
-        const db = getDb();
         
-        // Comprobar si ya existe un ticket abierto para este usuario
         const existingTicket = await db.collection('verificationtickets').findOne({ userId: user.id, status: { $in: ['pending', 'claimed'] } });
         if (existingTicket) {
             return interaction.editReply({ content: `❌ Ya tienes un ticket de verificación abierto aquí: <#${existingTicket.channelId}>` });
@@ -53,22 +49,12 @@ export async function handleModal(interaction) {
                 type: ChannelType.GuildText, // <-- ESTO AHORA FUNCIONARÁ
                 parent: VERIFICATION_TICKET_CATEGORY_ID,
                 permissionOverwrites: [
-                    {
-                        id: guild.id, // Rol @everyone
-                        deny: [PermissionsBitField.Flags.ViewChannel],
-                    },
-                    {
-                        id: user.id, // El usuario del ticket
-                        allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles],
-                    },
-                    // Asumiendo que los roles de Admin y Árbitro ya tienen permisos para ver esa categoría
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] },
                 ],
                 reason: `Ticket de verificación para ${user.tag}`
             });
 
-            // El resto del código para enviar mensajes y guardar en la DB es el mismo...
-
-            // 1. Resumen para el staff
             const summaryEmbed = new EmbedBuilder()
                 .setColor('#f1c40f')
                 .setTitle('🔎 Nueva Solicitud de Verificación')
@@ -89,7 +75,6 @@ export async function handleModal(interaction) {
 
             await ticketChannel.send({ embeds: [summaryEmbed], components: [claimButton] });
 
-            // 2. Instrucciones para el usuario
             const uniqueCode = `${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
             
             const instructionsEmbed = new EmbedBuilder()
@@ -100,7 +85,6 @@ export async function handleModal(interaction) {
             
             await ticketChannel.send({ content: `<@${user.id}>`, embeds: [instructionsEmbed] });
 
-            // 3. Guardar en la base de datos
             await db.collection('verificationtickets').insertOne({
                 userId: user.id,
                 guildId: guild.id,
@@ -128,10 +112,8 @@ export async function handleModal(interaction) {
         return;
     }
 
-    // --- FIN DE LA NUEVA LÓGICA ---
-
     // =======================================================
-    // --- LÓGICA ORIGINAL DEL BOT ---
+    // --- LÓGICA ORIGINAL DEL BOT (CON CORRECCIONES DE FLAGS) ---
     // =======================================================
 
     if (action === 'inscripcion_final_modal') {
