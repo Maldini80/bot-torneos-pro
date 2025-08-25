@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeTournamentView(tournamentId) {
-    // --- Esta sección para torneos no necesita cambios ---
     const loadingEl = document.getElementById('loading');
     const appContainerEl = document.getElementById('app-container');
     const tournamentNameEl = document.getElementById('tournament-name');
@@ -133,8 +132,8 @@ function initializeTournamentView(tournamentId) {
                 metaHTML += `<span>🤝 Co-Capitán: ${team.coCaptainTag}</span>`;
             }
             metaHTML += '</div>';
-            const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@','')}" target="_blank">Twitter</a>` : '';
-            const streamLink = team.streamChannel ? `<a href="${team.streamChannel}" target="_blank">Ver Stream</a>` : '';
+            const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@','')}" target="_blank" class="team-link-btn">Twitter</a>` : '';
+            const streamLink = team.streamChannel ? `<a href="${team.streamChannel}" target="_blank" class="team-link-btn">Ver Stream</a>` : '';
             const linksHTML = (twitterLink || streamLink) ? `<div class="team-links">${twitterLink}${streamLink}</div>` : '';
             const card = document.createElement('div');
             card.className = `team-card-info ${isDraftTeam ? 'is-draft-team' : ''}`;
@@ -221,8 +220,13 @@ function initializeTournamentView(tournamentId) {
             const roundMatches = Array.isArray(matches) ? matches : [matches];
             let roundHTML = `<div class="bracket-round"><div class="bracket-round-title">${stageKey.replace(/_/g, ' ')}</div>`;
             roundMatches.forEach(match => {
-                const teamA = match.equipoA?.nombre || 'Por definir';
-                const teamB = match.equipoB?.nombre || 'Por definir';
+                const teamA = match.equipoA;
+                const teamB = match.equipoB;
+                const teamAName = teamA?.nombre || 'Por definir';
+                const teamBName = teamB?.nombre || 'Por definir';
+                const teamALogo = teamA?.logoUrl ? `<img src="${teamA.logoUrl}" class="bracket-team-logo">` : '';
+                const teamBLogo = teamB?.logoUrl ? `<img src="${teamB.logoUrl}" class="bracket-team-logo">` : '';
+                
                 let scoreA = '', scoreB = '';
                 let classA = '', classB = '';
                 if (match.resultado) {
@@ -230,7 +234,16 @@ function initializeTournamentView(tournamentId) {
                     if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
                     else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
                 }
-                roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><span>${teamA}</span><span class="score">${scoreA}</span></div><div class="bracket-team"><span>${teamB}</span><span class="score">${scoreB}</span></div></div>`;
+                roundHTML += `<div class="bracket-match ${classA} ${classB}">
+                                <div class="bracket-team">
+                                    <div class="bracket-team-info">${teamALogo}<span>${teamAName}</span></div>
+                                    <span class="score">${scoreA}</span>
+                                </div>
+                                <div class="bracket-team">
+                                    <div class="bracket-team-info">${teamBLogo}<span>${teamBName}</span></div>
+                                    <span class="score">${scoreB}</span>
+                                </div>
+                             </div>`;
             });
             roundHTML += '</div>';
             bracketContainerEl.innerHTML += roundHTML;
@@ -269,9 +282,9 @@ function initializeTournamentView(tournamentId) {
                 const teamB = tournament.teams.aprobados[match.equipoB?.capitanId];
                 if (!teamA || !teamB) return;
                 let linksHTML = '';
-                if (teamA.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank">Ver a ${teamA.nombre}</a>`;
-                if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank">Ver a ${teamB.nombre}</a>`;
-                if (!linksHTML) linksHTML = '<p>No hay streams disponibles.</p>';
+                if (teamA.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamA.nombre}</a>`;
+                if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamB.nombre}</a>`;
+                if (!linksHTML) linksHTML = '<p style="font-size: 0.9em; color: #888;">No hay streams disponibles.</p>';
                 groupHTML += `<div class="live-match-card"><div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div><div class="stream-links">${linksHTML}</div></div>`;
             });
             groupHTML += '</div>';
@@ -294,7 +307,6 @@ function initializeTournamentView(tournamentId) {
 }
 
 function initializeDraftView(draftId) {
-    // --- Referencias a elementos del DOM (Draft) ---
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
@@ -313,9 +325,7 @@ function initializeDraftView(draftId) {
     let currentUser = null;
     let currentDraftState = null;
     let lastShownPickData = null;
-    let socket; // Hacemos el socket accesible en el scope de la función
-
-    // --- Lógica de Inicialización (Corregida) ---
+    let socket;
 
     async function initialize() {
         await checkUserSession();
@@ -385,11 +395,9 @@ function initializeDraftView(draftId) {
         if (!currentDraftState) return;
         renderHeader(currentDraftState);
         renderTeams(currentDraftState);
-        renderAvailablePlayers(currentDraftState); // Esta es la función clave
+        renderAvailablePlayers(currentDraftState);
         renderTeamManagementView(currentDraftState);
     }
-
-    // --- Funciones de Renderizado (Corregidas) ---
 
     function renderHeader(draft) {
         draftNameEl.textContent = draft.name;
@@ -433,118 +441,99 @@ function initializeDraftView(draftId) {
     }
 
     function renderAvailablePlayers(draft) {
-    // Línea de depuración que nos ayudó, ahora la dejamos comentada o la puedes borrar.
-    // console.log('DATOS RECIBIDOS POR RENDER:', draft);
+        playersTableBodyEl.innerHTML = '';
+        const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
+        const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
 
-    playersTableBodyEl.innerHTML = '';
-    const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
-    const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
-
-    // --- INICIO DE LA CORRECCIÓN DE SEGURIDAD ---
-
-    // BÚSQUEDA SEGURA 1: Comprobamos si el desplegable existe ANTES de intentar usarlo.
-    const filterSelect = document.getElementById('filter-column-select');
-    if (filterSelect) {
-        filterSelect.style.display = isMyTurn ? 'none' : 'inline-block';
-    }
-
-    // BÚSQUEDA SEGURA 2: Corregimos el selector de la leyenda y también comprobamos si existe.
-    const legendEl = document.querySelector('#available-players-container-draftview .legend');
-    if (legendEl) {
-        legendEl.style.display = isMyTurn ? 'none' : 'block';
-    }
-
-    // --- FIN DE LA CORRECCIÓN DE SEGURIDAD ---
-
-    // Esta lógica ya era correcta y se mantiene.
-    let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false);
-    
-    availablePlayers.sort(sortPlayersAdvanced);
-
-    availablePlayers.forEach(player => {
-        const row = document.createElement('tr');
-        row.dataset.primaryPos = player.primaryPosition;
-        row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
-
-        const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
-        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-        const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
-        const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
-        
-        row.innerHTML = `
-            <td data-label="Strikes">${player.strikes || 0}</td>
-            <td data-label="NOMBRE">${statusIcon} ${player.psnId}</td>
-            <td data-label="Pos. Primaria" class="col-primary">${player.primaryPosition}</td>
-            <td data-label="Pos. Secundaria" class="col-secondary">${secPos}</td>
-            <td data-label="Acción" class="col-action">${actionButton}</td>
-        `;
-        playersTableBodyEl.appendChild(row);
-    });
-
-    applyTableFilters();
-}
-    function applyTableFilters() {
-    // 1. Obtiene la configuración de los filtros de la interfaz
-    const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-    const filterColumn = document.getElementById('filter-column-select').value;
-    const rows = playersTableBodyEl.querySelectorAll('tr');
-    const table = document.getElementById('players-table');
-
-    // 2. Comprueba si es el turno del usuario actual
-    const captainIdInTurn = (currentDraftState?.selection?.order?.length > 0) ? currentDraftState.selection.order[currentDraftState.selection.turn] : null;
-    const isMyTurn = currentUser && currentDraftState?.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
-
-    // 3. Resetea las clases de visibilidad de las columnas
-    table.classList.remove('primary-only', 'secondary-only');
-
-    // 4. --- LA CORRECCIÓN CLAVE ---
-    // La decisión sobre qué columnas mostrar se basa en los DATOS originales, no en el HTML.
-    let hasPrimaryMatchesInData = false;
-    if (isMyTurn && activeFilterPos !== 'Todos' && currentDraftState) {
-        // Comprueba en el array de datos si existen jugadores primarios para la posición filtrada
-        hasPrimaryMatchesInData = currentDraftState.players.some(p => 
-            !p.captainId && 
-            !p.isCaptain && 
-            p.primaryPosition === activeFilterPos
-        );
-
-        if (hasPrimaryMatchesInData) {
-            table.classList.add('primary-only'); // Si hay, oculta la columna secundaria
-        } else {
-            table.classList.add('secondary-only'); // Si no hay, oculta la columna primaria
+        const filterSelect = document.getElementById('filter-column-select');
+        if (filterSelect) {
+            filterSelect.style.display = isMyTurn ? 'none' : 'inline-block';
         }
+        const legendEl = document.querySelector('#available-players-container-draftview .legend');
+        if (legendEl) {
+            legendEl.style.display = isMyTurn ? 'none' : 'block';
+        }
+
+        let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false);
+        
+        availablePlayers.sort(sortPlayersAdvanced);
+
+        availablePlayers.forEach(player => {
+            const row = document.createElement('tr');
+            row.dataset.primaryPos = player.primaryPosition;
+            row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
+
+            const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
+            const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+            const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
+            const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
+            
+            row.innerHTML = `
+                <td data-label="Strikes">${player.strikes || 0}</td>
+                <td data-label="NOMBRE">${statusIcon} ${player.psnId}</td>
+                <td data-label="Pos. Primaria" class="col-primary">${player.primaryPosition}</td>
+                <td data-label="Pos. Secundaria" class="col-secondary">${secPos}</td>
+                <td data-label="Acción" class="col-action">${actionButton}</td>
+            `;
+            playersTableBodyEl.appendChild(row);
+        });
+
+        applyTableFilters();
     }
 
-    // 5. Ahora sí, recorre las filas HTML para decidir cuáles mostrar u ocultar
-    rows.forEach(row => {
-        const primaryPos = row.dataset.primaryPos;
-        const secondaryPos = row.dataset.secondaryPos;
-        
-        let isVisible = false;
-        if (activeFilterPos === 'Todos') {
-            isVisible = true; // Si el filtro es "Todos", se ven todas las filas
-        } else {
-            if (isMyTurn) {
-                // Lógica para el capitán: se basa en la decisión del paso 4
-                if (hasPrimaryMatchesInData) {
-                    if (primaryPos === activeFilterPos) isVisible = true;
-                } else {
-                    if (secondaryPos === activeFilterPos) isVisible = true;
-                }
+    function applyTableFilters() {
+        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+        const filterColumn = document.getElementById('filter-column-select').value;
+        const rows = playersTableBodyEl.querySelectorAll('tr');
+        const table = document.getElementById('players-table');
+
+        const captainIdInTurn = (currentDraftState?.selection?.order?.length > 0) ? currentDraftState.selection.order[currentDraftState.selection.turn] : null;
+        const isMyTurn = currentUser && currentDraftState?.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
+
+        table.classList.remove('primary-only', 'secondary-only');
+
+        let hasPrimaryMatchesInData = false;
+        if (isMyTurn && activeFilterPos !== 'Todos' && currentDraftState) {
+            hasPrimaryMatchesInData = currentDraftState.players.some(p => 
+                !p.captainId && 
+                !p.isCaptain && 
+                p.primaryPosition === activeFilterPos
+            );
+
+            if (hasPrimaryMatchesInData) {
+                table.classList.add('primary-only');
             } else {
-                // Lógica para espectadores: usa el desplegable
-                if (filterColumn === 'primary' && primaryPos === activeFilterPos) {
-                    isVisible = true;
-                } else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
-                    isVisible = true;
-                }
+                table.classList.add('secondary-only');
             }
         }
-        
-        row.style.display = isVisible ? '' : 'none';
-    });
-}
-    // --- El resto de las funciones (sin cambios importantes) ---
+
+        rows.forEach(row => {
+            const primaryPos = row.dataset.primaryPos;
+            const secondaryPos = row.dataset.secondaryPos;
+            
+            let isVisible = false;
+            if (activeFilterPos === 'Todos') {
+                isVisible = true;
+            } else {
+                if (isMyTurn) {
+                    if (hasPrimaryMatchesInData) {
+                        if (primaryPos === activeFilterPos) isVisible = true;
+                    } else {
+                        if (secondaryPos === activeFilterPos) isVisible = true;
+                    }
+                } else {
+                    if (filterColumn === 'primary' && primaryPos === activeFilterPos) {
+                        isVisible = true;
+                    } else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
+                        isVisible = true;
+                    }
+                }
+            }
+            
+            row.style.display = isVisible ? '' : 'none';
+        });
+    }
+
     function setupEventListeners() {
         document.querySelectorAll('.draft-view-btn').forEach(btn => btn.addEventListener('click', (e) => {
             document.querySelector('.draft-view-btn.active')?.classList.remove('active');
@@ -563,29 +552,51 @@ function initializeDraftView(draftId) {
                 }
             }
         });
+
+        rosterManagementContainer.addEventListener('click', (event) => {
+            const target = event.target;
+            const playerId = target.dataset.playerId;
+
+            if (target.classList.contains('btn-strike')) {
+                const reason = prompt("Por favor, introduce un motivo breve para el strike (ej: inactividad, toxicidad):");
+                if (reason && reason.trim() !== '') {
+                    socket.send(JSON.stringify({ type: 'report_player', draftId, playerId, reason: reason.trim() }));
+                    target.disabled = true;
+                    target.textContent = 'Reportado';
+                }
+            }
+
+            if (target.classList.contains('btn-kick')) {
+                if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador? Un administrador deberá aprobarlo.`)) {
+                    socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId }));
+                    target.disabled = true;
+                    target.textContent = 'Solicitado';
+                }
+            }
+        });
     }
 
     function setupFilters() {
-    if (positionFiltersEl.innerHTML !== '') return;
-    positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
-    const select = document.getElementById('filter-column-select');
-    select.addEventListener('change', applyTableFilters); // Llamada directa
+        if (positionFiltersEl.innerHTML !== '') return;
+        positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
+        const select = document.getElementById('filter-column-select');
+        select.addEventListener('change', applyTableFilters);
 
-    const allPositions = ['Todos', ...positionOrder];
-    allPositions.forEach(pos => {
-        const btn = document.createElement('button');
-        btn.className = 'filter-btn';
-        btn.dataset.pos = pos;
-        btn.textContent = pos;
-        if (pos === 'Todos') btn.classList.add('active');
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            applyTableFilters(); // Llamada directa
+        const allPositions = [...positionOrder];
+        allPositions.forEach((pos, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'filter-btn';
+            btn.dataset.pos = pos;
+            btn.textContent = pos;
+            if (index === 0) btn.classList.add('active');
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                applyTableFilters();
+            });
+            positionFiltersEl.appendChild(btn);
         });
-        positionFiltersEl.appendChild(btn);
-    });
-}
+    }
     
     function renderTeamManagementView(draft) {
         const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
