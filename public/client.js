@@ -433,6 +433,7 @@ function initializeDraftView(draftId) {
     }
 
     function renderAvailablePlayers(draft) {
+    console.log('DATOS RECIBIDOS POR RENDER:', draft); 
     playersTableBodyEl.innerHTML = '';
     const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
     const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
