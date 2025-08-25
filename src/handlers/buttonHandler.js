@@ -378,6 +378,33 @@ export async function handleButton(interaction) {
         });
         return;
     }
+
+	if (action === 'admin_edit_draft_captain_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        if (!draft.captains || draft.captains.length === 0) {
+            return interaction.editReply({ content: 'No hay capitanes aprobados para editar.' });
+        }
+
+        const captainOptions = draft.captains.map(c => ({
+            label: c.teamName,
+            description: `Cap: ${c.userName}`,
+            value: c.userId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_captain_to_edit:${draftShortId}`)
+            .setPlaceholder('Selecciona el capitán que deseas editar')
+            .addOptions(captainOptions);
+
+        await interaction.editReply({
+            content: 'Por favor, selecciona un capitán de la lista para modificar sus datos:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
     
     if (action === 'admin_config_draft_min_quotas' || action === 'admin_config_draft_max_quotas') {
         const settings = await getBotSettings();
