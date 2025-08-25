@@ -176,20 +176,24 @@ export async function handleModal(interaction) {
         const newTeamName = interaction.fields.getTextInputValue('team_name_input');
         const newEafcName = interaction.fields.getTextInputValue('eafc_name_input');
         const newTwitter = interaction.fields.getTextInputValue('twitter_input');
-        const newStreamChannel = interaction.fields.getTextInputValue('stream_url_input');
-
-await db.collection('tournaments').updateOne(
-    { shortId: tournamentShortId },
-    {
-        $set: {
-            [`teams.aprobados.${captainId}.nombre`]: newTeamName,
-            [`teams.aprobados.${captainId}.eafcTeamName`]: newEafcName,
-            [`teams.aprobados.${captainId}.twitter`]: newTwitter,
-            // Guardamos la URL directamente
-            [`teams.aprobados.${captainId}.streamChannel`]: newStreamChannel 
+        const newStreamUser = interaction.fields.getTextInputValue('stream_user_input');
+        
+        let newStreamChannel = '';
+        if (newStreamUser) {
+            newStreamChannel = `https://twitch.tv/${newStreamUser}`;
         }
-    }
-);
+
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            {
+                $set: {
+                    [`teams.aprobados.${captainId}.nombre`]: newTeamName,
+                    [`teams.aprobados.${captainId}.eafcTeamName`]: newEafcName,
+                    [`teams.aprobados.${captainId}.twitter`]: newTwitter,
+                    [`teams.aprobados.${captainId}.streamChannel`]: newStreamChannel
+                }
+            }
+        );
 
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
