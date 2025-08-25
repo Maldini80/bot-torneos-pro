@@ -94,8 +94,8 @@ export async function handleButton(interaction) {
             .addOptions([
                 { label: '🎮 PlayStation', value: 'psn' },
                 { label: '🟩 Xbox', value: 'xbox' },
-                { label: '💻 PC (Steam)', value: 'steam' },
-                { label: '💻 PC (EA App)', value: 'ea_app' },
+                { label: '🔹 PC (Steam)', value: 'steam' },
+                { label: '🔸 PC (EA App)', value: 'ea_app' },
             ]);
         const row = new ActionRowBuilder().addComponents(platformMenu);
         return interaction.reply({
