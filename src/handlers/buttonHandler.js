@@ -1692,13 +1692,19 @@ export async function handleButton(interaction) {
         return;
     }
 	if (action === 'claim_verification_ticket') {
+        // CORRECCIÓN: Añadida comprobación de permisos
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ content: '❌ No tienes permisos para reclamar tickets.', flags: [MessageFlags.Ephemeral] });
+        }
+        
         await interaction.deferUpdate();
         const [channelId] = params;
         const db = getDb();
         const ticket = await db.collection('verificationtickets').findOne({ channelId, status: 'pending' });
 
         if (!ticket) {
-            return interaction.followUp({ content: '❌ Este ticket ya ha sido reclamado o cerrado.', ephemeral: true });
+            // CORRECCIÓN: ephemeral actualizado a flags
+            return interaction.followUp({ content: '❌ Este ticket ya ha sido reclamado o cerrado.', flags: [MessageFlags.Ephemeral] });
         }
 
         await db.collection('verificationtickets').updateOne({ _id: ticket._id }, {
@@ -1728,6 +1734,11 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'approve_verification') {
+        // CORRECCIÓN: Añadida comprobación de permisos
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ content: '❌ No tienes permisos para aprobar verificaciones.', flags: [MessageFlags.Ephemeral] });
+        }
+
         await interaction.deferUpdate();
         const [channelId] = params;
         const db = getDb();
@@ -1735,7 +1746,8 @@ export async function handleButton(interaction) {
 
         if (!ticket || ticket.status === 'closed') return;
         if (ticket.claimedBy !== interaction.user.id) {
-             return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, ephemeral: true });
+             // CORRECCIÓN: ephemeral actualizado a flags
+             return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
         }
 
         // 1. Guardar en la base de datos de verificados
@@ -1785,12 +1797,18 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'reject_verification_start') {
+        // CORRECCIÓN: Añadida comprobación de permisos
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ content: '❌ No tienes permisos para rechazar verificaciones.', flags: [MessageFlags.Ephemeral] });
+        }
+
         const [channelId] = params;
         const db = getDb();
         const ticket = await db.collection('verificationtickets').findOne({ channelId });
 
         if (ticket.claimedBy !== interaction.user.id) {
-             return interaction.reply({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, ephemeral: true });
+            // CORRECCIÓN: ephemeral actualizado a flags
+             return interaction.reply({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
         }
         
         const reasonMenu = new StringSelectMenuBuilder()
@@ -1801,10 +1819,11 @@ export async function handleButton(interaction) {
                 { label: 'Pruebas insuficientes', value: 'proof', description: 'La captura de pantalla no es válida o no es clara.' }
             ]);
         
+        // CORRECCIÓN: ephemeral actualizado a flags
         return interaction.reply({
             content: 'Por favor, selecciona el motivo del rechazo.',
             components: [new ActionRowBuilder().addComponents(reasonMenu)],
-            ephemeral: true
+            flags: [MessageFlags.Ephemeral]
         });
     }
 
