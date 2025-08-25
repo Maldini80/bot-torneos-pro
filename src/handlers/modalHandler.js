@@ -6,7 +6,8 @@ import { getDb, updateBotSettings } from '../../database.js';
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, reportPlayer, notifyTournamentVisualizer, notifyVisualizer } from '../logic/tournamentLogic.js';
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
-import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
+// --- LÍNEA CORREGIDA ---
+import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField } from 'discord.js';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { createDraftStatusEmbed } from '../utils/embeds.js';
@@ -49,8 +50,8 @@ export async function handleModal(interaction) {
         try {
             const ticketChannel = await guild.channels.create({
                 name: `verificacion-${user.username}`,
-                type: ChannelType.GuildText, // <-- CAMBIO: Ahora es un canal de texto
-                parent: VERIFICATION_TICKET_CATEGORY_ID, // <-- CAMBIO: Lo metemos en tu categoría
+                type: ChannelType.GuildText, // <-- ESTO AHORA FUNCIONARÁ
+                parent: VERIFICATION_TICKET_CATEGORY_ID,
                 permissionOverwrites: [
                     {
                         id: guild.id, // Rol @everyone
