@@ -153,29 +153,41 @@ main#main-panel, aside#live-match-sidebar { background-color: var(--surface-colo
     .draft-view-btn { font-size: 1.2em; padding: 8px 15px; }
 }
 
-/* CAMBIO: Estilos para el banner del último pick */
+/* CAMBIO: Mover el banner a la esquina inferior derecha */
 #last-pick-banner {
     position: fixed;
-    bottom: 50px; /* Justo encima del footer */
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(0, 0, 0, 0.85);
-    border: 2px solid var(--primary-color);
+    bottom: 60px; /* Un poco por encima del footer */
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 1px solid var(--primary-color);
     color: white;
-    padding: 10px 25px;
-    border-radius: 8px;
+    padding: 8px 15px;
+    border-radius: 6px;
     font-family: var(--font-roboto);
-    font-size: 1.2em;
+    font-size: 1em;
     z-index: 1000;
     opacity: 0;
-    transition: opacity 0.5s;
+    transition: opacity 0.5s, transform 0.5s;
+    transform: translateY(20px);
     pointer-events: none;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
+
 #last-pick-banner.visible {
     opacity: 1;
+    transform: translateY(0);
 }
 
 /* CAMBIO: CSS para ocultar columnas de la tabla de jugadores */
+#players-table.primary-only .col-secondary,
+#players-table.primary-only th.col-secondary {
+    display: none;
+}
+#players-table.secondary-only .col-primary,
+#players-table.secondary-only th.col-primary {
+    display: none;
+}
+/* CAMBIO: CSS para ocultar columnas de la tabla de jugadores durante el pick */
 #players-table.primary-only .col-secondary,
 #players-table.primary-only th.col-secondary {
     display: none;
