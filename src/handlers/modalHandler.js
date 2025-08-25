@@ -938,4 +938,42 @@ export async function handleModal(interaction) {
         }
         return;
     }
+
+    if (action === 'admin_edit_draft_captain_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId, captainId] = params;
+        
+        const newTeamName = interaction.fields.getTextInputValue('team_name_input');
+        const newPsnId = interaction.fields.getTextInputValue('psn_id_input');
+        const newStreamUrl = interaction.fields.getTextInputValue('stream_url_input');
+
+        // Actualizamos tanto en la lista de capitanes como en la de jugadores
+        await db.collection('drafts').updateOne(
+            { shortId: draftShortId, "captains.userId": captainId },
+            {
+                $set: {
+                    "captains.$.teamName": newTeamName,
+                    "captains.$.psnId": newPsnId,
+                    "captains.$.streamChannel": newStreamUrl,
+                }
+            }
+        );
+         await db.collection('drafts').updateOne(
+            { shortId: draftShortId, "players.userId": captainId },
+            {
+                $set: {
+                    "players.$.psnId": newPsnId,
+                }
+            }
+        );
+
+        const updatedDraft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        
+        await updateDraftMainInterface(client, updatedDraft.shortId);
+        await updatePublicMessages(client, updatedDraft);
+        await notifyVisualizer(updatedDraft);
+
+        await interaction.editReply({ content: `✅ Los datos del capitán del equipo **${newTeamName}** han sido actualizados.` });
+        return;
+    }
 }
