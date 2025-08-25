@@ -126,6 +126,7 @@ function initializeTournamentView(tournamentId) {
             return;
         }
         teams.forEach(team => {
+            const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-card-logo" alt="Logo de ${team.nombre}">` : '';
             const isDraftTeam = team.players && team.players.length > 0;
             let metaHTML = `<div class="team-meta"><span>👑 Capitán: ${team.capitanTag}</span>`;
             if (team.coCaptainTag) {
@@ -137,7 +138,7 @@ function initializeTournamentView(tournamentId) {
             const linksHTML = (twitterLink || streamLink) ? `<div class="team-links">${twitterLink}${streamLink}</div>` : '';
             const card = document.createElement('div');
             card.className = `team-card-info ${isDraftTeam ? 'is-draft-team' : ''}`;
-            card.innerHTML = `<h3>${team.nombre}</h3>${metaHTML}${linksHTML}`;
+            card.innerHTML = `<h3 class="team-header">${logoHtml} ${team.nombre}</h3>${metaHTML}${linksHTML}`;
             if (isDraftTeam) {
                 card.addEventListener('click', () => showRosterModal(team));
             }
@@ -582,13 +583,16 @@ function initializeDraftView(draftId) {
         const select = document.getElementById('filter-column-select');
         select.addEventListener('change', applyTableFilters);
 
-        const allPositions = [...positionOrder];
-        allPositions.forEach((pos, index) => {
+        // *** LA CORRECCIÓN CLAVE ESTÁ AQUÍ ***
+        // Restauramos el botón "Todos" para que sea el estado por defecto al cargar.
+        const allPositions = ['Todos', ...positionOrder];
+        allPositions.forEach(pos => {
             const btn = document.createElement('button');
             btn.className = 'filter-btn';
             btn.dataset.pos = pos;
             btn.textContent = pos;
-            if (index === 0) btn.classList.add('active');
+            // Hacemos que "Todos" sea el botón activo por defecto.
+            if (pos === 'Todos') btn.classList.add('active');
             btn.addEventListener('click', () => {
                 document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
