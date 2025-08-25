@@ -321,20 +321,24 @@ function initializeDraftView(draftId) {
     async function checkUserSession() {
     try {
         const response = await fetch('/api/user');
-        currentUser = await response.json();
+        currentUser = await response.json(); // Guardamos el usuario en la variable global
         const userSessionEl = document.getElementById('user-session');
+        
         if (currentUser) {
             document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
             userSessionEl.classList.remove('hidden');
         }
-        // --- LÍNEA MOVÍDA AQUÍ ---
-        // Nos aseguramos de renderizar todo DE NUEVO una vez que tenemos la info del usuario.
+        
+        // --- LÍNEA CLAVE ---
+        // Forzamos una renderización completa del estado del draft AHORA que ya sabemos si el usuario está logueado o no.
         if (currentDraftState) {
-            renderAll();
+            renderDraftState(currentDraftState);
         }
-    } catch (e) { console.error("Error al verificar sesión:", e); }
-}
 
+    } catch (e) { 
+        console.error("Error al verificar la sesión del usuario:", e); 
+    }
+}
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
     socket.onopen = () => console.log('Conectado al servidor para Draft.');
@@ -417,24 +421,30 @@ function initializeDraftView(draftId) {
     }
 
     function renderTeams(draft) {
-        const teamsGrid = document.getElementById('teams-grid');
-        if (!teamsGrid) return;
-        teamsGrid.innerHTML = '';
-        draft.captains.sort((a,b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
-            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a,b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
-            let rosterHtml = '';
-            teamPlayers.forEach(player => {
-                const isCaptainIcon = player.isCaptain ? '👑' : '';
-                let positionDisplay = player.pickedForPosition || player.primaryPosition;
-                if (player.pickedForPosition && player.pickedForPosition !== player.primaryPosition) {
-                    positionDisplay += '*';
-                }
-                rosterHtml += `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${positionDisplay}</span></li>`;
-            });
-            const teamCardHTML = `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
-            teamsGrid.innerHTML += teamCardHTML;
+    // Apuntamos al nuevo div que hemos creado en el HTML
+    const teamsGrid = document.getElementById('teams-grid');
+    if (!teamsGrid) return; // Salida segura si el div no existe
+
+    let allTeamsHtml = ''; // Creamos una cadena para todo el HTML
+    draft.captains.sort((a, b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
+        const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
+        let rosterHtml = '';
+        teamPlayers.forEach(player => {
+            // CORRECCIÓN: Añadimos el icono de capitán y la posición correcta
+            const isCaptainIcon = player.isCaptain ? '👑' : '';
+            let positionDisplay = player.pickedForPosition || player.primaryPosition;
+            if (player.pickedForPosition && player.pickedForPosition !== player.primaryPosition) {
+                positionDisplay += '*';
+            }
+            rosterHtml += `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${positionDisplay}</span></li>`;
         });
-    }
+        // Añadimos la tarjeta de este equipo a nuestra cadena
+        allTeamsHtml += `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
+    });
+
+    // Escribimos el HTML en el DOM una sola vez al final
+    teamsGrid.innerHTML = allTeamsHtml;
+}
 
     // CAMBIO: Función `renderAvailablePlayers` actualizada
     function renderAvailablePlayers(draft) {
