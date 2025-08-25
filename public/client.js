@@ -313,31 +313,32 @@ function initializeDraftView(draftId) {
     let hasLoadedInitialData = false;
     let currentUser = null;
     let currentDraftState = null;
-    let lastShownPickData = null; 
+    let lastShownPickData = null; // CAMBIO: Variable para rastrear el último pick mostrado
 
     setupFilters();
     setupEventListeners();
 
     async function checkUserSession() {
-        try {
-            const response = await fetch('/api/user');
-            currentUser = await response.json();
-            const userSessionEl = document.getElementById('user-session');
-            if (currentUser) {
-                document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
-                userSessionEl.classList.remove('hidden');
-            }
-            // --- CORRECCIÓN ---
-            // Nos aseguramos de renderizar todo DE NUEVO una vez que tenemos la info del usuario.
-            if (currentDraftState) {
-                renderAll();
-            }
-        } catch (e) { console.error("Error al verificar sesión:", e); }
-    }
+    try {
+        const response = await fetch('/api/user');
+        currentUser = await response.json();
+        const userSessionEl = document.getElementById('user-session');
+        if (currentUser) {
+            document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
+            userSessionEl.classList.remove('hidden');
+        }
+        // --- LÍNEA MOVÍDA AQUÍ ---
+        // Nos aseguramos de renderizar todo DE NUEVO una vez que tenemos la info del usuario.
+        if (currentDraftState) {
+            renderAll();
+        }
+    } catch (e) { console.error("Error al verificar sesión:", e); }
+}
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
     socket.onopen = () => console.log('Conectado al servidor para Draft.');
+    // CAMBIO: Lógica de `onmessage` actualizada
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.type === 'draft' && message.id === draftId) {
@@ -371,9 +372,10 @@ function initializeDraftView(draftId) {
                 currentDraftState = data;
                 loadingEl.classList.add('hidden');
                 draftContainerEl.classList.remove('hidden');
-                // renderAll(); // <--- CORRECCIÓN: Esta línea se elimina para evitar la condición de carrera
+                renderAll();
                 hasLoadedInitialData = true;
-                checkUserSession(); // checkUserSession se encargará del primer renderizado
+                checkUserSession();
+                // CAMBIO: Añadido filtro por URL
                 const urlParams = new URLSearchParams(window.location.search);
                 const posFilter = urlParams.get('pos');
                 if (posFilter) {
@@ -434,6 +436,7 @@ function initializeDraftView(draftId) {
         });
     }
 
+    // CAMBIO: Función `renderAvailablePlayers` actualizada
     function renderAvailablePlayers(draft) {
         playersTableBodyEl.innerHTML = '';
         const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
@@ -470,11 +473,7 @@ function initializeDraftView(draftId) {
             const row = document.createElement('tr');
             const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
             const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
-            
-            // --- CORRECCIÓN: Se añade el emoji de estado del jugador ---
-            const statusEmoji = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
-            
-            row.innerHTML = `<td data-label="Strikes">${player.strikes || 0}</td><td data-label="PSN ID">${statusEmoji} ${player.psnId}</td><td data-label="Pos. Primaria" class="col-primary">${player.primaryPosition}</td><td data-label="Pos. Secundaria" class="col-secondary">${secPos}</td><td data-label="Acción" class="col-action">${actionButton}</td>`;
+            row.innerHTML = `<td data-label="Strikes">${player.strikes || 0}</td><td data-label="PSN ID">${player.psnId}</td><td data-label="Pos. Primaria" class="col-primary">${player.primaryPosition}</td><td data-label="Pos. Secundaria" class="col-secondary">${secPos}</td><td data-label="Acción" class="col-action">${actionButton}</td>`;
             playersTableBodyEl.appendChild(row);
         });
     }
@@ -595,6 +594,7 @@ function initializeDraftView(draftId) {
         });
     }
 
+    // CAMBIO: Función `showPickAlert` actualizada para manejar el banner
     function showPickAlert(pickNumber, player, captain) {
         // Animación popup
         const pickAlertEl = document.getElementById('pick-alert');
