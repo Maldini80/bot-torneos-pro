@@ -156,6 +156,34 @@ export async function handleSelectMenu(interaction) {
         await interaction.editReply(playerManagementEmbed);
         return;
     }
+
+    if (action === 'admin_select_captain_to_edit') {
+        const [draftShortId] = params;
+        const captainId = interaction.values[0];
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const captain = draft.captains.find(c => c.userId === captainId);
+
+        if (!captain) {
+            return interaction.reply({ content: 'Error: No se pudo encontrar a ese capitán.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_edit_draft_captain_modal:${draftShortId}:${captainId}`)
+            .setTitle(`Editando: ${captain.teamName}`);
+
+        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre del Equipo").setStyle(TextInputStyle.Short).setValue(captain.teamName).setRequired(true);
+        const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("PSN ID / EA ID").setStyle(TextInputStyle.Short).setValue(captain.psnId).setRequired(true);
+        const streamUrlInput = new TextInputBuilder().setCustomId('stream_url_input').setLabel("URL Completa del Stream").setStyle(TextInputStyle.Short).setValue(captain.streamChannel || '').setRequired(false).setPlaceholder('Ej: https://twitch.tv/usuario');
+        
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(teamNameInput),
+            new ActionRowBuilder().addComponents(psnIdInput),
+            new ActionRowBuilder().addComponents(streamUrlInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
     
     if (action === 'captain_invite_replacement_select') {
         await interaction.deferUpdate();
