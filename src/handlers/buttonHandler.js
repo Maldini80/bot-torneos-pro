@@ -160,34 +160,10 @@ export async function handleButton(interaction) {
         }).lean();
 
         if (!team) {
-    // --- INICIO DEL BLOQUE REEMPLAZADO ---
-    const helpEmbed = new EmbedBuilder()
-        .setColor('#e74c3c')
-        .setTitle('❌ No tienes un equipo registrado')
-        .setDescription(
-            "Para poder inscribirte en un torneo, primero debes ser el **Mánager** o **Capitán** de un equipo creado en nuestro sistema.\n\n" +
-            "Por favor, dirígete al canal #🏠・registra-equipo-o-unete y sigue las instrucciones a continuación."
-        )
-        .addFields(
-            {
-                name: 'Si eres Mánager (MG) de un equipo nuevo:',
-                value: '1. Ve al canal de registra-equipo-o-unete.\n' +
-                       '2. Pulsa el botón de acciones de manager.\n' +
-                       '3. Sigue los pasos intuitivos para crear el equipo.'
-            },
-            {
-                name: 'Si eres Capitán (pero no Mánager):',
-                value: '1. Pídele al **Mánager** de tu equipo que lo registre en el canal #🏠・registra-equipo-o-unete .\n' +
-                       '2. Una vez que el equipo esté creado, tu Mánager debe invitarte en su panel de control o tu mismo pedir unirte al equipo en #🏠・registra-equipo-o-unete .\n' +
-                       '3. Una vez dentro del equipo el Manager puede ascenderte a capitán y podrás inscribir al equipo tambien.'
-            }
-        );
-
-    return interaction.editReply({
-        embeds: [helpEmbed]
-    });
-    // --- FIN DEL BLOQUE REEMPLAZADO ---
-}
+            return interaction.editReply({
+                content: '❌ **No se encontró un equipo gestionado por ti.**\n\nPara inscribirte en un torneo, primero debes ser el mánager o capitán de un equipo registrado usando el bot de gestión principal.'
+            });
+        }
 
         const embed = new EmbedBuilder()
             .setTitle('Confirmación de Inscripción Automática')
