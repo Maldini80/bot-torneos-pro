@@ -295,7 +295,13 @@ export function createDraftStatusEmbed(draft) {
                 .setCustomId(`start_verification_or_registration:${draft.shortId}`)
                 .setLabel('Inscribirse o Verificar Cuenta')
                 .setStyle(ButtonStyle.Success)
-                .setEmoji('▶️')
+                .setEmoji('▶️'),
+            // --- BOTÓN AÑADIDO ---
+            new ButtonBuilder()
+                .setCustomId(`darse_baja_draft_start:${draft.shortId}`)
+                .setLabel('Darse de Baja')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('👋')
         );
     }
 
