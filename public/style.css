@@ -138,7 +138,7 @@ main#main-panel, aside#live-match-sidebar { background-color: var(--surface-colo
     #teams-grid { grid-template-columns: 1fr; }
     .view-switcher { display: none; }
     .mobile-view-switcher { display: block; margin: 15px 0; }
-    #mobile-view-select { width: 100%; padding: 12px; background-color: var(--surface-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; font-size: 1.2em; font-family: var(--font-bebas); -webkit-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e62429%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: .8em; }
+    #mobile-view-select { width: 100%; padding: 12px; background-color: var(--surface-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; font-size: 1.2em; font-family: var(--font-bebas); -webkit-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%22%20width%3D%22292.4%22%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e62429%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: .8em; }
     header h1 { font-size: 2.5em; }
     #auth-controls { font-size: 0.8em; }
     #position-filters { flex-wrap: wrap; }
@@ -151,4 +151,36 @@ main#main-panel, aside#live-match-sidebar { background-color: var(--surface-colo
     .pick-btn { padding: 12px; font-size: 1.1em; }
     .player-management-card { grid-template-columns: 1fr; }
     .draft-view-btn { font-size: 1.2em; padding: 8px 15px; }
+}
+
+/* CAMBIO: Estilos para el banner del último pick */
+#last-pick-banner {
+    position: fixed;
+    bottom: 50px; /* Justo encima del footer */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 2px solid var(--primary-color);
+    color: white;
+    padding: 10px 25px;
+    border-radius: 8px;
+    font-family: var(--font-roboto);
+    font-size: 1.2em;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.5s;
+    pointer-events: none;
+}
+#last-pick-banner.visible {
+    opacity: 1;
+}
+
+/* CAMBIO: CSS para ocultar columnas de la tabla de jugadores */
+#players-table.primary-only .col-secondary,
+#players-table.primary-only th.col-secondary {
+    display: none;
+}
+#players-table.secondary-only .col-primary,
+#players-table.secondary-only th.col-primary {
+    display: none;
 }
