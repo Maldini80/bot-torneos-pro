@@ -433,38 +433,60 @@ function initializeDraftView(draftId) {
     }
 
     function renderAvailablePlayers(draft) {
-        playersTableBodyEl.innerHTML = ''; // Limpiamos la tabla antes de re-dibujar
-        
-        // Obtenemos la lista de todos los jugadores que son elegibles (sin equipo y no son capitanes)
-        const allAvailablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
-        
-        const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
-        const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
-        
-        // Construimos las filas para TODOS los jugadores disponibles
-        allAvailablePlayers.forEach(player => {
-            const row = document.createElement('tr');
-            // Añadimos los data-attributes para poder filtrar visualmente después
-            row.dataset.primaryPos = player.primaryPosition;
-            row.dataset.secondaryPos = (player.secondaryPosition && player.secondaryPosition !== 'NONE') ? player.secondaryPosition : '';
+    playersTableBodyEl.innerHTML = '';
+    const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
+    const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
+    
+    // CAMBIO: Ocultar/mostrar el desplegable de filtro según si es tu turno
+    document.getElementById('filter-column-select').style.display = isMyTurn ? 'none' : 'inline-block';
+    document.querySelector('.players-table-container .legend').style.display = isMyTurn ? 'none' : 'block';
+    
+    let availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
+    const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+    
+    const table = document.getElementById('players-table');
+    table.classList.remove('primary-only', 'secondary-only');
 
-            const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
-            const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${player.primaryPosition}">Elegir</button>` : '---';
-            
-            row.innerHTML = `
-                <td data-label="Strikes">${player.strikes || 0}</td>
-                <td data-label="PSN ID">${player.psnId}</td>
-                <td data-label="Pos. Primaria" class="col-primary">${player.primaryPosition}</td>
-                <td data-label="Pos. Secundaria" class="col-secondary">${secPos}</td>
-                <td data-label="Acción" class="col-action">${actionButton}</td>
-            `;
-            playersTableBodyEl.appendChild(row);
-        });
-        
-        // Una vez que TODAS las filas están en el DOM, aplicamos los filtros visuales.
-        applyTableFilters();
+    // CAMBIO: Lógica de filtrado inteligente para el capitán en su turno
+    if (activeFilterPos !== 'Todos') {
+        if (isMyTurn) {
+            // 1. Buscamos primero en la posición primaria
+            let primaryMatches = availablePlayers.filter(p => p.primaryPosition === activeFilterPos);
+            if (primaryMatches.length > 0) {
+                availablePlayers = primaryMatches;
+                table.classList.add('primary-only'); // Ocultamos la columna secundaria
+            } else {
+                // 2. Si no hay, buscamos en la secundaria
+                availablePlayers = availablePlayers.filter(p => p.secondaryPosition === activeFilterPos);
+                table.classList.add('secondary-only'); // Ocultamos la columna primaria
+            }
+        } else {
+            // Lógica de filtro para espectadores
+            const filterColumn = document.getElementById('filter-column-select').value;
+            availablePlayers = availablePlayers.filter(p => (filterColumn === 'primary' ? p.primaryPosition : p.secondaryPosition) === activeFilterPos);
+        }
     }
+    
+    availablePlayers.sort(sortPlayersAdvanced);
 
+    availablePlayers.forEach(player => {
+        const row = document.createElement('tr');
+        const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
+        const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
+        
+        // CAMBIO: Se añade el icono de estado al lado del nombre
+        const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
+        
+        row.innerHTML = `
+            <td data-label="Strikes">${player.strikes || 0}</td>
+            <td data-label="NOMBRE">${statusIcon} ${player.psnId}</td>
+            <td data-label="Pos. Primaria" class="col-primary">${player.primaryPosition}</td>
+            <td data-label="Pos. Secundaria" class="col-secondary">${secPos}</td>
+            <td data-label="Acción" class="col-action">${actionButton}</td>
+        `;
+        playersTableBodyEl.appendChild(row);
+    });
+}
     function applyTableFilters() {
         const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
         const filterColumn = document.getElementById('filter-column-select').value;
