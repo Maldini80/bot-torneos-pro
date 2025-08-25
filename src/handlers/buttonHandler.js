@@ -10,7 +10,7 @@ import {
     addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
     approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft,
     approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
-    forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement
+    forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement, kickPlayerFromDraft
 } from '../logic/tournamentLogic.js';
 import {
     checkVerification, startVerificationWizard, showVerificationModal, startProfileUpdateWizard, approveProfileUpdate, rejectProfileUpdate, openProfileUpdateThread
