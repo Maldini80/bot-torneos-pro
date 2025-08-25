@@ -79,7 +79,7 @@ export async function handleButton(interaction) {
         return interaction.reply({
             content,
             components: [row],
-            ephemeral: true
+            flags: [MessageFlags.Ephemeral]
         });
     }
 
