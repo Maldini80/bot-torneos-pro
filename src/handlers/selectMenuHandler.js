@@ -65,18 +65,13 @@ export async function handleSelectMenu(interaction) {
         const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre del Equipo").setStyle(TextInputStyle.Short).setValue(team.nombre).setRequired(true);
         const eafcNameInput = new TextInputBuilder().setCustomId('eafc_name_input').setLabel("Nombre en EAFC").setStyle(TextInputStyle.Short).setValue(team.eafcTeamName).setRequired(true);
         const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Twitter (sin @)").setStyle(TextInputStyle.Short).setValue(team.twitter || '').setRequired(false);
-        const streamInput = new TextInputBuilder()
-    .setCustomId('stream_url_input') // Cambiamos el ID para mayor claridad
-    .setLabel("URL Completa del Stream (Twitch/YouTube)")
-    .setStyle(TextInputStyle.Short)
-    .setValue(team.streamChannel || '') // Usamos el campo streamChannel directamente
-    .setRequired(false);
+        const streamInput = new TextInputBuilder().setCustomId('stream_user_input').setLabel("Usuario de Twitch/YouTube").setStyle(TextInputStyle.Short).setValue(streamUsername).setRequired(false);
         
         modal.addComponents(
             new ActionRowBuilder().addComponents(teamNameInput),
             new ActionRowBuilder().addComponents(eafcNameInput),
             new ActionRowBuilder().addComponents(twitterInput),
-            new ActionRowBuilder().addComponents(streamInput) // Se añade el nuevo input
+            new ActionRowBuilder().addComponents(streamInput)
         );
 
         await interaction.showModal(modal);
