@@ -323,6 +323,7 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     if (draft.status === 'inscripcion') {
         row1.addComponents(
             new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️'),
+            new ButtonBuilder().setCustomId(`admin_edit_draft_captain_start:${draft.shortId}`).setLabel('Editar Capitán').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
