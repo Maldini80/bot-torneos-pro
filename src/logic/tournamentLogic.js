@@ -398,20 +398,43 @@ export async function kickPlayerFromDraft(client, draft, userIdToKick) {
 
 
 export async function approveUnregisterFromDraft(client, draft, userIdToUnregister) {
+    const player = draft.players.find(p => p.userId === userIdToUnregister);
+    const captainId = player.captainId;
+
     await kickPlayerFromDraft(client, draft, userIdToUnregister);
+    
+    // Notificar al jugador
     if (/^\d+$/.test(userIdToUnregister)) {
         try {
             const user = await client.users.fetch(userIdToUnregister);
             await user.send(`✅ Tu solicitud de baja del draft **${draft.name}** ha sido **aprobada**.`);
-        } catch (e) {
-            console.warn('No se pudo notificar al usuario de la baja de draft aprobada');
-        }
+        } catch (e) { console.warn('No se pudo notificar al usuario de la baja de draft aprobada'); }
+    }
+
+    // Notificar al capitán y darle opción de reemplazar
+    if (captainId && /^\d+$/.test(captainId)) {
+         try {
+            const captainUser = await client.users.fetch(captainId);
+            const embed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle('ℹ️ Jugador Dado de Baja de tu Equipo')
+                .setDescription(`La solicitud de baja de **${player.psnId}** ha sido **aprobada** por un administrador. Tienes una plaza libre en tu plantilla.\n\nPuedes usar el botón de abajo para invitar a un agente libre como reemplazo.`);
+            
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`admin_invite_replacement_start:${draft.shortId}:${captainId}:${userIdToUnregister}`)
+                    .setLabel('Invitar Reemplazo')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🔄')
+            );
+
+            await captainUser.send({ embeds: [embed], components: [row] });
+        } catch(e) { console.warn(`No se pudo notificar al capitán ${captainId} de la baja aprobada.`); }
     }
 }
-
 export async function requestUnregisterFromDraft(client, draft, userId) {
-    const isPlayer = draft.players.some(p => p.userId === userId);
-    if (!isPlayer) {
+    const player = draft.players.find(p => p.userId === userId);
+    if (!player) {
         return { success: false, message: "No estás inscrito en este draft." };
     }
 
@@ -425,13 +448,11 @@ export async function requestUnregisterFromDraft(client, draft, userId) {
         return { success: false, message: "Error interno del bot." };
     }
 
-    const player = draft.players.find(p => p.userId === userId);
-
     const embed = new EmbedBuilder()
         .setColor('#e67e22')
-        .setTitle('👋 Solicitud de Baja de Draft')
-        .setDescription(`El jugador **${player.userName}** (${player.psnId}) solicita darse de baja del draft **${draft.name}**.`)
-        .setFooter({ text: `ID del Jugador: ${userId}`});
+        .setTitle('👋 Solicitud de Baja de Jugador Fichado')
+        .setDescription(`El jugador **${player.userName}** (${player.psnId}) solicita darse de baja del equipo de <@${player.captainId}>.`)
+        .setFooter({ text: `Draft: ${draft.name} | ID del Jugador: ${userId}`});
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`admin_unregister_draft_approve:${draft.shortId}:${userId}`).setLabel('Aprobar Baja').setStyle(ButtonStyle.Success),
@@ -440,9 +461,16 @@ export async function requestUnregisterFromDraft(client, draft, userId) {
 
     await notificationsThread.send({ embeds: [embed], components: [row] });
 
-    return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores." };
-}
+    // Notificar al capitán
+    if (player.captainId && /^\d+$/.test(player.captainId)) {
+        try {
+            const captainUser = await client.users.fetch(player.captainId);
+            await captainUser.send(`⚠️ **Alerta de Plantilla:** El jugador **${player.psnId}** ha solicitado darse de baja de tu equipo. Un administrador revisará la solicitud.`);
+        } catch(e) { console.warn(`No se pudo notificar al capitán ${player.captainId} de la solicitud de baja.`); }
+    }
 
+    return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores. Tu capitán también ha sido notificado." };
+}
 export async function endDraft(client, draft) {
     await setBotBusy(true);
     try {
