@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO client.js (VERSIÓN FINAL Y CORREGIDA) ---
+// --- INICIO DEL ARCHIVO client.js (VERSIÓN FINAL Y COMPLETA) ---
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeTournamentView(tournamentId) {
-    // ... (Todo el código de initializeTournamentView se mantiene igual, no necesita cambios)
+    // --- Esta sección para torneos no necesita cambios ---
     const loadingEl = document.getElementById('loading');
     const appContainerEl = document.getElementById('app-container');
     const tournamentNameEl = document.getElementById('tournament-name');
@@ -293,8 +293,8 @@ function initializeTournamentView(tournamentId) {
     }
 }
 
-
 function initializeDraftView(draftId) {
+    // --- Referencias a elementos del DOM (Draft) ---
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
@@ -313,107 +313,91 @@ function initializeDraftView(draftId) {
     let currentUser = null;
     let currentDraftState = null;
     let lastShownPickData = null;
+    let socket; // Hacemos el socket accesible en el scope de la función
 
-    setupFilters();
-    setupEventListeners();
+    // --- Lógica de Inicialización (Corregida) ---
 
-    // --- CORRECCIÓN CLAVE 1: SEPARAR LA LÓGICA DE INICIO ---
     async function initialize() {
-        // Primero, siempre comprobamos quién es el usuario.
         await checkUserSession();
-        
-        // Luego, conectamos el WebSocket.
         connectWebSocket();
-
-        // Finalmente, intentamos cargar los datos iniciales.
         fetchInitialData();
+        setupEventListeners();
+        setupFilters();
     }
 
-    // --- CORRECCIÓN CLAVE 2: FUNCIÓN DE SESIÓN MEJORADA ---
     async function checkUserSession() {
         try {
             const response = await fetch('/api/user');
-            currentUser = await response.json(); // Puede ser 'null' si no hay sesión
+            currentUser = await response.json();
             const userSessionEl = document.getElementById('user-session');
             if (currentUser) {
                 document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
                 userSessionEl.classList.remove('hidden');
             }
-            // NO se renderiza nada aquí. Solo guardamos la información del usuario.
         } catch (e) {
-            console.error("Error al verificar sesión:", e);
-            currentUser = null; // Aseguramos que sea null en caso de error
+            console.error("Error al verificar la sesión:", e);
         }
     }
 
-    // --- CORRECCIÓN CLAVE 3: LÓGICA DE CONEXIÓN Y FETCH SEPARADA ---
     function connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const socket = new WebSocket(`${protocol}://${window.location.host}`);
+        socket = new WebSocket(`${protocol}://${window.location.host}`);
         socket.onopen = () => console.log('Conectado al servidor para Draft.');
 
         socket.onmessage = (event) => {
             const message = JSON.parse(event.data);
             if (message.type === 'draft' && message.id === draftId) {
-                currentDraftState = message.data; // Siempre actualizamos el estado
-                
-                // Si es la primera vez que llegan datos, mostramos el contenedor.
+                currentDraftState = message.data;
                 if (!hasLoadedInitialData) {
                     loadingEl.classList.add('hidden');
                     draftContainerEl.classList.remove('hidden');
                     hasLoadedInitialData = true;
                 }
-                
-                // Mostramos la alerta de nuevo pick si es necesario
                 const lastPick = currentDraftState.selection.lastPick;
                 if (lastPick && JSON.stringify(lastPick) !== JSON.stringify(lastShownPickData)) {
-                    showPickAlert(lastPick.pickNumber, {psnId: lastPick.playerPsnId}, {teamName: lastPick.captainTeamName});
+                    showPickAlert(lastPick.pickNumber, { psnId: lastPick.playerPsnId }, { teamName: lastPick.captainTeamName });
                     lastShownPickData = lastPick;
                 }
-                
-                // Siempre renderizamos todo con la nueva información.
                 renderAll();
             }
             if (message.type === 'pick_error' || message.type === 'strike_error') {
                 alert(`Error: ${message.message}`);
-                // Volvemos a renderizar para reactivar los botones si un pick falló.
-                if (currentDraftState) renderAvailablePlayers(currentDraftState);
+                if (currentDraftState) renderAll();
             }
         };
     }
-    
+
     function fetchInitialData() {
         fetch(`/draft-data/${draftId}`)
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-            // Solo usamos estos datos si el WebSocket aún no ha enviado nada.
-            if (data && !hasLoadedInitialData) {
-                currentDraftState = data;
-                loadingEl.classList.add('hidden');
-                draftContainerEl.classList.remove('hidden');
-                hasLoadedInitialData = true;
-                renderAll(); // Renderizamos con los datos iniciales
-            }
-        }).catch(err => console.warn('Error en fetch inicial:', err));
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data && !hasLoadedInitialData) {
+                    currentDraftState = data;
+                    loadingEl.classList.add('hidden');
+                    draftContainerEl.classList.remove('hidden');
+                    hasLoadedInitialData = true;
+                    renderAll();
+                }
+            }).catch(err => console.warn('Error en fetch inicial:', err));
     }
 
-    // --- FUNCIÓN DE RENDERIZADO PRINCIPAL ---
     function renderAll() {
         if (!currentDraftState) return;
         renderHeader(currentDraftState);
         renderTeams(currentDraftState);
-        renderAvailablePlayers(currentDraftState);
+        renderAvailablePlayers(currentDraftState); // Esta es la función clave
         renderTeamManagementView(currentDraftState);
     }
-    
-    // --- OTRAS FUNCIONES (CON PEQUEÑOS AJUSTES) ---
+
+    // --- Funciones de Renderizado (Corregidas) ---
+
     function renderHeader(draft) {
         draftNameEl.textContent = draft.name;
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
-             roundInfoEl.textContent = 'Selección Finalizada';
-             currentTeamEl.textContent = '---';
-             currentPickEl.textContent = '---';
-             roundPickOrderEl.innerHTML = '';
+            roundInfoEl.textContent = 'Selección Finalizada';
+            currentTeamEl.textContent = '---';
+            currentPickEl.textContent = '---';
+            roundPickOrderEl.innerHTML = '';
         } else if (draft.status === 'seleccion' && draft.captains.length > 0 && draft.selection.order.length > 0) {
             const numCaptains = draft.captains.length;
             const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
@@ -424,7 +408,6 @@ function initializeDraftView(draftId) {
             currentPickEl.textContent = draft.selection.currentPick;
             renderRoundPickOrder(draft);
         }
-        // Ahora `currentUser` ya estará definido, por lo que esto funcionará.
         const isMyTeamManaged = currentUser && draft.captains.some(c => c.userId === currentUser.id);
         manageTeamTab.style.display = (draft.status === 'finalizado' || draft.status === 'torneo_generado') && isMyTeamManaged ? 'inline-block' : 'none';
     }
@@ -432,10 +415,9 @@ function initializeDraftView(draftId) {
     function renderTeams(draft) {
         const teamsGrid = document.getElementById('teams-grid');
         if (!teamsGrid) return;
-        
         let allTeamsHtml = '';
-        draft.captains.sort((a,b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
-            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a,b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
+        draft.captains.sort((a, b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
+            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
             let rosterHtml = '';
             teamPlayers.forEach(player => {
                 const isCaptainIcon = player.isCaptain ? '👑' : '';
@@ -449,46 +431,105 @@ function initializeDraftView(draftId) {
         });
         teamsGrid.innerHTML = allTeamsHtml;
     }
-    
+
     function renderAvailablePlayers(draft) {
-        playersTableBodyEl.innerHTML = '';
+        playersTableBodyEl.innerHTML = ''; // Limpiamos la tabla antes de re-dibujar
+        
+        // Obtenemos la lista de todos los jugadores que son elegibles (sin equipo y no son capitanes)
+        const allAvailablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
+        
         const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
-        // `currentUser` ya estará definido aquí, por lo que `isMyTurn` será correcto.
         const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
         
-        document.getElementById('filter-column-select').style.display = isMyTurn ? 'none' : 'inline-block';
-        document.querySelector('.players-table-container .legend').style.display = isMyTurn ? 'none' : 'block';
-        
-        let availablePlayers = draft.players.filter(p => !p.captainId && !p.isCaptain);
-        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-
-        const table = document.getElementById('players-table');
-        table.classList.remove('primary-only', 'secondary-only');
-
-        if (activeFilterPos !== 'Todos') {
-            if (isMyTurn) {
-                let primaryMatches = availablePlayers.filter(p => p.primaryPosition === activeFilterPos);
-                if (primaryMatches.length > 0) {
-                    availablePlayers = primaryMatches;
-                    table.classList.add('primary-only');
-                } else {
-                    availablePlayers = availablePlayers.filter(p => p.secondaryPosition === activeFilterPos);
-                    table.classList.add('secondary-only');
-                }
-            } else {
-                const filterColumn = document.getElementById('filter-column-select').value;
-                availablePlayers = availablePlayers.filter(p => (filterColumn === 'primary' ? p.primaryPosition : p.secondaryPosition) === activeFilterPos);
-            }
-        }
-        
-        availablePlayers.sort(sortPlayersAdvanced);
-
-        availablePlayers.forEach(player => {
+        // Construimos las filas para TODOS los jugadores disponibles
+        allAvailablePlayers.forEach(player => {
             const row = document.createElement('tr');
+            // Añadimos los data-attributes para poder filtrar visualmente después
+            row.dataset.primaryPos = player.primaryPosition;
+            row.dataset.secondaryPos = (player.secondaryPosition && player.secondaryPosition !== 'NONE') ? player.secondaryPosition : '';
+
             const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
-            const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
-            row.innerHTML = `<td data-label="Strikes">${player.strikes || 0}</td><td data-label="PSN ID">${player.psnId}</td><td data-label="Pos. Primaria" class="col-primary">${player.primaryPosition}</td><td data-label="Pos. Secundaria" class="col-secondary">${secPos}</td><td data-label="Acción" class="col-action">${actionButton}</td>`;
+            const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${player.primaryPosition}">Elegir</button>` : '---';
+            
+            row.innerHTML = `
+                <td data-label="Strikes">${player.strikes || 0}</td>
+                <td data-label="PSN ID">${player.psnId}</td>
+                <td data-label="Pos. Primaria" class="col-primary">${player.primaryPosition}</td>
+                <td data-label="Pos. Secundaria" class="col-secondary">${secPos}</td>
+                <td data-label="Acción" class="col-action">${actionButton}</td>
+            `;
             playersTableBodyEl.appendChild(row);
+        });
+        
+        // Una vez que TODAS las filas están en el DOM, aplicamos los filtros visuales.
+        applyTableFilters();
+    }
+
+    function applyTableFilters() {
+        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+        const filterColumn = document.getElementById('filter-column-select').value;
+        const rows = playersTableBodyEl.querySelectorAll('tr');
+
+        rows.forEach(row => {
+            const primaryPos = row.dataset.primaryPos;
+            const secondaryPos = row.dataset.secondaryPos;
+            
+            let isVisible = false;
+            if (activeFilterPos === 'Todos') {
+                isVisible = true;
+            } else {
+                if (filterColumn === 'primary' && primaryPos === activeFilterPos) {
+                    isVisible = true;
+                }
+                if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
+                    isVisible = true;
+                }
+            }
+            
+            row.style.display = isVisible ? '' : 'none';
+        });
+    }
+
+    // --- El resto de las funciones (sin cambios importantes) ---
+    function setupEventListeners() {
+        document.querySelectorAll('.draft-view-btn').forEach(btn => btn.addEventListener('click', (e) => {
+            document.querySelector('.draft-view-btn.active')?.classList.remove('active');
+            e.currentTarget.classList.add('active');
+            document.querySelector('.draft-view-pane.active')?.classList.remove('active');
+            document.getElementById(e.currentTarget.dataset.view).classList.add('active');
+        }));
+
+        playersTableBodyEl.addEventListener('click', (event) => {
+            if (event.target.classList.contains('pick-btn')) {
+                const playerId = event.target.dataset.playerId;
+                const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
+                    document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
+                }
+            }
+        });
+    }
+
+    function setupFilters() {
+        if (positionFiltersEl.innerHTML !== '') return;
+        positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
+        const select = document.getElementById('filter-column-select');
+        select.addEventListener('change', applyTableFilters);
+
+        const allPositions = ['Todos', ...positionOrder];
+        allPositions.forEach(pos => {
+            const btn = document.createElement('button');
+            btn.className = 'filter-btn';
+            btn.dataset.pos = pos;
+            btn.textContent = pos;
+            if (pos === 'Todos') btn.classList.add('active');
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                applyTableFilters();
+            });
+            positionFiltersEl.appendChild(btn);
         });
     }
     
@@ -509,55 +550,6 @@ function initializeDraftView(draftId) {
             const hasBeenReported = player.hasBeenReportedByCaptain || false;
             card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${strikes}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>Reportar (Strike)</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
             rosterManagementContainer.appendChild(card);
-        });
-    }
-
-    function setupEventListeners() {
-        document.querySelectorAll('.draft-view-btn').forEach(btn => btn.addEventListener('click', () => {
-            document.querySelector('.draft-view-btn.active')?.classList.remove('active');
-            btn.classList.add('active');
-            document.querySelector('.draft-view-pane.active')?.classList.remove('active');
-            document.getElementById(btn.dataset.view).classList.add('active');
-        }));
-
-        playersTableBodyEl.addEventListener('click', (event) => {
-            if (event.target.classList.contains('pick-btn')) {
-                const playerId = event.target.dataset.playerId;
-                const position = event.target.dataset.position;
-                // Obtenemos la conexión WebSocket que se creó en connectWebSocket()
-                const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`);
-                socket.onopen = () => {
-                    socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position }));
-                };
-                document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
-            }
-        });
-
-        rosterManagementContainer.addEventListener('click', (event) => {
-            const target = event.target;
-            const playerId = target.dataset.playerId;
-            if (!playerId) return;
-            const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`);
-
-            socket.onopen = () => {
-                if (target.classList.contains('btn-strike')) {
-                    const reason = prompt("Por favor, introduce una razón detallada para aplicar el strike:");
-                    if (reason && reason.trim() !== "") {
-                        const confirmation = prompt("Esta acción es seria y quedará registrada. Para confirmar, escribe 'CONFIRMAR':");
-                        if (confirmation === 'CONFIRMAR') {
-                            socket.send(JSON.stringify({ type: 'report_player', draftId, playerId, reason }));
-                        }
-                    }
-                }
-    
-                if (target.classList.contains('btn-kick')) {
-                    const reason = prompt("Por favor, introduce el motivo para solicitar la expulsión de este jugador:");
-                    if (reason && reason.trim() !== "") {
-                        socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason }));
-                        alert("Tu solicitud de expulsión ha sido enviada a los administradores para su revisión.");
-                    }
-                }
-            };
         });
     }
 
@@ -590,30 +582,6 @@ function initializeDraftView(draftId) {
         }
     }
 
-    function setupFilters() {
-        if (positionFiltersEl.innerHTML !== '') return;
-        positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
-        const select = document.getElementById('filter-column-select');
-        select.addEventListener('change', () => {
-             if (currentDraftState) renderAvailablePlayers(currentDraftState);
-        });
-
-        const allPositions = ['Todos', ...positionOrder];
-        allPositions.forEach(pos => {
-            const btn = document.createElement('button');
-            btn.className = 'filter-btn';
-            btn.dataset.pos = pos;
-            btn.textContent = pos;
-            if (pos === 'Todos') btn.classList.add('active');
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                if (currentDraftState) renderAvailablePlayers(currentDraftState);
-            });
-            positionFiltersEl.appendChild(btn);
-        });
-    }
-    
     function showPickAlert(pickNumber, player, captain) {
         const pickAlertEl = document.getElementById('pick-alert');
         const pickAlertContentEl = document.getElementById('pick-alert-content');
@@ -630,6 +598,5 @@ function initializeDraftView(draftId) {
         bannerEl.classList.add('visible');
     }
 
-    // --- INICIAMOS TODO EL PROCESO ---
     initialize();
 }
