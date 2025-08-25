@@ -71,9 +71,31 @@ main#main-panel, aside#live-match-sidebar { background-color: var(--surface-colo
 .bracket-round { display: flex; flex-direction: column; justify-content: space-around; flex-shrink: 0; width: 280px; }
 .bracket-round-title { font-family: var(--font-bebas); font-size: 2em; text-align: center; color: var(--text-color); text-transform: capitalize; margin-bottom: 30px; }
 .bracket-match { background-color: var(--surface-color); border-radius: 5px; margin-bottom: 40px; border: 1px solid var(--border-color); }
-.bracket-team { display: flex; justify-content: space-between; align-items: center; padding: 12px; font-size: 1.1em; border-bottom: 1px solid #3a3a3a; }
-.bracket-team:last-child { border-bottom: none; }
-.bracket-team .score { font-family: var(--font-bebas); font-size: 1.5em; padding-left: 10px; }
+.bracket-team {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    font-size: 1.1em;
+    border-bottom: 1px solid #3a3a3a;
+    gap: 15px;
+}
+.bracket-team:last-child {
+    border-bottom: none;
+}
+.bracket-team span:first-child {
+    flex-grow: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.bracket-team .score {
+    font-family: var(--font-bebas);
+    font-size: 1.5em;
+    font-weight: bold;
+    flex-shrink: 0;
+}
 .bracket-match.winner-top .bracket-team:first-child span, .bracket-match.winner-bottom .bracket-team:last-child span { color: var(--winner-color); font-weight: bold; }
 .calendar-group { margin-bottom: 30px; }
 .calendar-group h3 { font-family: var(--font-bebas); font-size: 1.8em; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
@@ -153,10 +175,9 @@ main#main-panel, aside#live-match-sidebar { background-color: var(--surface-colo
     .draft-view-btn { font-size: 1.2em; padding: 8px 15px; }
 }
 
-/* CAMBIO: Mover el banner a la esquina inferior derecha */
 #last-pick-banner {
     position: fixed;
-    bottom: 60px; /* Un poco por encima del footer */
+    bottom: 60px;
     right: 20px;
     background-color: rgba(0, 0, 0, 0.9);
     border: 1px solid var(--primary-color);
@@ -172,22 +193,11 @@ main#main-panel, aside#live-match-sidebar { background-color: var(--surface-colo
     pointer-events: none;
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
-
 #last-pick-banner.visible {
     opacity: 1;
     transform: translateY(0);
 }
 
-/* CAMBIO: CSS para ocultar columnas de la tabla de jugadores */
-#players-table.primary-only .col-secondary,
-#players-table.primary-only th.col-secondary {
-    display: none;
-}
-#players-table.secondary-only .col-primary,
-#players-table.secondary-only th.col-primary {
-    display: none;
-}
-/* CAMBIO: CSS para ocultar columnas de la tabla de jugadores durante el pick */
 #players-table.primary-only .col-secondary,
 #players-table.primary-only th.col-secondary {
     display: none;
