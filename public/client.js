@@ -319,19 +319,21 @@ function initializeDraftView(draftId) {
     setupEventListeners();
 
     async function checkUserSession() {
-        try {
-            const response = await fetch('/api/user');
-            currentUser = await response.json();
-            const userSessionEl = document.getElementById('user-session');
-            if (currentUser) {
-                document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
-                userSessionEl.classList.remove('hidden');
-            }
-            if (currentDraftState) {
-                renderAll();
-            }
-        } catch (e) { console.error("Error al verificar sesión:", e); }
-    }
+    try {
+        const response = await fetch('/api/user');
+        currentUser = await response.json();
+        const userSessionEl = document.getElementById('user-session');
+        if (currentUser) {
+            document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
+            userSessionEl.classList.remove('hidden');
+        }
+        // --- LÍNEA MOVÍDA AQUÍ ---
+        // Nos aseguramos de renderizar todo DE NUEVO una vez que tenemos la info del usuario.
+        if (currentDraftState) {
+            renderAll();
+        }
+    } catch (e) { console.error("Error al verificar sesión:", e); }
+}
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
