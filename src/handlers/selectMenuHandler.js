@@ -395,21 +395,57 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_register_player_status_select') {
-        const [draftShortId, primaryPosition, secondaryPosition] = params;
-        const teamStatus = interaction.values[0];
+    const [draftShortId, primaryPosition, secondaryPosition] = params;
+    const teamStatus = interaction.values[0];
+    const db = getDb();
+    const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
-        const modal = new ModalBuilder()
-            .setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`)
-            .setTitle('Finalizar Inscripción de Jugador');
+    // Si el usuario está verificado y es agente libre, lo inscribimos directamente.
+    if (verifiedData && teamStatus === 'Libre') {
+        await interaction.deferUpdate(); // Confirmamos la interacción
 
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const playerData = { 
+            userId: interaction.user.id, 
+            userName: interaction.user.tag, 
+            psnId: verifiedData.gameId, // Dato verificado
+            twitter: verifiedData.twitter, // Dato verificado
+            primaryPosition, 
+            secondaryPosition, 
+            currentTeam: 'Libre', 
+            isCaptain: false, 
+            captainId: null 
+        };
+
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+        await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
+        
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await updateDraftMainInterface(client, updatedDraft.shortId);
+        await updatePublicMessages(client, updatedDraft);
+        await notifyVisualizer(updatedDraft);
+        return;
+    }
+
+    // Si no está verificado O si tiene equipo, mostramos un modal.
+    const modal = new ModalBuilder()
+        .setTitle('Finalizar Inscripción de Jugador');
+
+    // Si está verificado pero tiene equipo, solo preguntamos el nombre del equipo.
+    if (verifiedData && teamStatus === 'Con Equipo') {
+        modal.setCustomId(`register_draft_player_team_name_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}`);
+        const currentTeamInput = new TextInputBuilder()
+            .setCustomId('current_team_input')
+            .setLabel("Nombre de tu equipo actual")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
+    } else {
+        // Flujo original para no verificados (como fallback)
+        modal.setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`);
         const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
         const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-        
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(psnIdInput),
-            new ActionRowBuilder().addComponents(twitterInput)
-        );
-
+        modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(twitterInput));
         if (teamStatus === 'Con Equipo') {
             const currentTeamInput = new TextInputBuilder()
                 .setCustomId('current_team_input')
@@ -418,10 +454,11 @@ export async function handleSelectMenu(interaction) {
                 .setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
         }
-
-        await interaction.showModal(modal);
-        return;
     }
+    
+    await interaction.showModal(modal);
+    return;
+}
 
 if (action === 'draft_pick_by_position') {
     await interaction.deferUpdate();
