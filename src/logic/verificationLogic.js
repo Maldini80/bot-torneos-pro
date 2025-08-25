@@ -253,23 +253,53 @@ export async function rejectProfileUpdate(interaction) {
 }
 
 export async function openProfileUpdateThread(interaction) {
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se reemplaza la creación de hilos por la creación de canales privados
+    // para evitar el error de permisos 'Missing Access'.
+    
+    const VERIFICATION_TICKET_CATEGORY_ID = '1396814712649551974'; // ID de la categoría de tickets
     const [, userId] = interaction.customId.split(':');
     const user = await interaction.guild.members.fetch(userId);
-    const thread = await interaction.message.startThread({
-        name: `Discusión cambio de perfil - ${user.user.username}`,
-        autoArchiveDuration: 1440, // 24 horas
-    });
 
-    await thread.members.add(userId);
-    await thread.send(`Hola <@${userId}>, un administrador ha abierto este hilo para discutir tu solicitud de cambio de perfil. Si se te han solicitado pruebas (como una captura de pantalla), por favor, súbelas aquí.`);
+    try {
+        // Crear un canal de texto privado para el usuario y los administradores
+        const channel = await interaction.guild.channels.create({
+            name: `update-${user.user.username}`,
+            type: ChannelType.GuildText,
+            parent: VERIFICATION_TICKET_CATEGORY_ID,
+            permissionOverwrites: [
+                {
+                    id: interaction.guild.id, // @everyone
+                    deny: [PermissionsBitField.Flags.ViewChannel],
+                },
+                {
+                    id: userId, // El usuario que solicita el cambio
+                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles],
+                },
+                // Los roles de administrador/árbitro heredarán los permisos de la categoría
+            ],
+            reason: `Canal para la actualización de perfil de ${user.user.tag}`
+        });
 
-    const finalActionRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(interaction.message.components[0].components[0].data.custom_id).setLabel('Aprobar (en hilo)').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(interaction.message.components[0].components[1].data.custom_id).setLabel('Rechazar (en hilo)').setStyle(ButtonStyle.Danger)
-    );
-    await thread.send({ content: "Acciones para administradores:", components: [finalActionRow] });
-    
-    const goToThreadButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Ir al Hilo de Discusión').setStyle(ButtonStyle.Link).setURL(thread.url));
-    await interaction.message.edit({ components: [goToThreadButton] });
-    await interaction.reply({ content: `Hilo privado creado: ${thread.toString()}`, ephemeral: true });
+        // Enviar instrucciones al nuevo canal
+        await channel.send(`Hola <@${userId}>, un administrador ha abierto este canal para discutir tu solicitud de cambio de perfil. Si se te han solicitado pruebas (como una captura de pantalla), por favor, súbelas aquí.`);
+
+        const finalActionRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(interaction.message.components[0].components[0].data.custom_id).setLabel('Aprobar (en canal)').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(interaction.message.components[0].components[1].data.custom_id).setLabel('Rechazar (en canal)').setStyle(ButtonStyle.Danger)
+        );
+        await channel.send({ content: "Acciones para administradores:", components: [finalActionRow] });
+        
+        // Actualizar el mensaje original en el canal de admins con un enlace al nuevo canal
+        const goToChannelButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Ir al Canal de Discusión').setStyle(ButtonStyle.Link).setURL(channel.url));
+        await interaction.message.edit({ components: [goToChannelButton] });
+
+        // Responder al admin que hizo clic
+        await interaction.reply({ content: `Canal privado creado: ${channel.toString()}`, flags: [MessageFlags.Ephemeral] });
+
+    } catch (error) {
+        console.error("Error al crear el canal de actualización de perfil:", error);
+        await interaction.reply({ content: '❌ Hubo un error al crear el canal. Revisa los permisos de la categoría de tickets.', flags: [MessageFlags.Ephemeral] });
+    }
+    // --- FIN DE LA CORRECCIÓN ---
 }
