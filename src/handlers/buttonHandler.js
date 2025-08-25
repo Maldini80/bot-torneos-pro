@@ -1533,14 +1533,33 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'darse_baja_draft_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [draftShortId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        if (!draft) return interaction.editReply({ content: "Error: Draft no encontrado." });
-    
-        const result = await requestUnregisterFromDraft(client, draft, interaction.user.id);
-        await interaction.editReply({ content: result.message });
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [draftShortId] = params;
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) return interaction.editReply({ content: "Error: Draft no encontrado." });
+
+    // --- LÓGICA MEJORADA ---
+    const playerEntry = draft.players.find(p => p.userId === interaction.user.id);
+    if (!playerEntry) {
+        return interaction.editReply({ content: "No estás inscrito en este draft." });
     }
+
+    // Si la selección está en curso, no se puede dar de baja.
+    if (draft.status === 'seleccion') {
+        return interaction.editReply({ content: "No puedes solicitar la baja mientras la fase de selección está en curso. Por favor, espera a que finalice." });
+    }
+
+    // Si ya fue elegido por un capitán, el proceso es diferente.
+    if (playerEntry.captainId) {
+        // Aquí irá la lógica de solicitar la baja al capitán y admin (implementado en tournamentLogic.js)
+        const result = await requestUnregisterFromDraft(client, draft, interaction.user.id);
+        return interaction.editReply({ content: result.message });
+    } else {
+        // Si es agente libre, se le da de baja directamente.
+        await kickPlayerFromDraft(client, draft, interaction.user.id);
+        return interaction.editReply({ content: "Has sido dado de baja del draft." });
+    }
+}
     
     if (action === 'admin_unregister_approve') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
