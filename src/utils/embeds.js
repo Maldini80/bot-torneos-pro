@@ -239,6 +239,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     return { embeds: [embed], components };
 }
+
 export function createDraftStatusEmbed(draft) {
     const captainCount = draft.captains.length;
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
