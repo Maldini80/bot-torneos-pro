@@ -198,8 +198,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
          row1.addComponents( new ButtonBuilder().setCustomId(`admin_simulate_matches:${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy) );
     }
 
-    // --- BLOQUE CORREGIDO ---
-    // Botón para Editar Equipo (siempre visible si hay capitanes)
     if (hasCaptains) {
         row2.addComponents(
             new ButtonBuilder()
@@ -211,7 +209,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
     
-    // Botón para Deshacer Sorteo (solo en fase de grupos)
     if (isGroupStage) {
         row2.addComponents(
             new ButtonBuilder()
@@ -223,7 +220,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    // Botón para Asignar Co-Capitán (siempre visible si hay capitanes)
     row2.addComponents(
         new ButtonBuilder()
             .setCustomId(`admin_assign_cocaptain_start:${tournament.shortId}`)
@@ -232,10 +228,10 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setEmoji('👥')
             .setDisabled(isBusy || !hasCaptains)
     );
-    // --- FIN DEL BLOQUE CORREGIDO ---
 
     row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
 
+    // --- BLOQUE CORREGIDO PARA EVITAR EL ERROR ---
     const components = [];
     if (row1.components.length > 0) components.push(row1);
     if (row2.components.length > 0) components.push(row2);
@@ -243,7 +239,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     return { embeds: [embed], components };
 }
-
 export function createDraftStatusEmbed(draft) {
     const captainCount = draft.captains.length;
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
