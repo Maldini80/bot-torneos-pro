@@ -471,44 +471,55 @@ function initializeDraftView(draftId) {
     applyTableFilters();
 }
     function applyTableFilters() {
+    // 1. Obtiene la configuración de los filtros de la interfaz
     const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
     const filterColumn = document.getElementById('filter-column-select').value;
     const rows = playersTableBodyEl.querySelectorAll('tr');
+    const table = document.getElementById('players-table');
 
+    // 2. Comprueba si es el turno del usuario actual
     const captainIdInTurn = (currentDraftState?.selection?.order?.length > 0) ? currentDraftState.selection.order[currentDraftState.selection.turn] : null;
     const isMyTurn = currentUser && currentDraftState?.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
 
-    const table = document.getElementById('players-table');
+    // 3. Resetea las clases de visibilidad de las columnas
     table.classList.remove('primary-only', 'secondary-only');
 
-    // Lógica "inteligente" para ocultar columnas durante el turno del capitán
-    let hasPrimaryMatchesInFilter = false;
-    if (isMyTurn && activeFilterPos !== 'Todos') {
-        hasPrimaryMatchesInFilter = Array.from(rows).some(r => r.dataset.primaryPos === activeFilterPos);
-        if (hasPrimaryMatchesInFilter) {
-            table.classList.add('primary-only');
+    // 4. --- LA CORRECCIÓN CLAVE ---
+    // La decisión sobre qué columnas mostrar se basa en los DATOS originales, no en el HTML.
+    let hasPrimaryMatchesInData = false;
+    if (isMyTurn && activeFilterPos !== 'Todos' && currentDraftState) {
+        // Comprueba en el array de datos si existen jugadores primarios para la posición filtrada
+        hasPrimaryMatchesInData = currentDraftState.players.some(p => 
+            !p.captainId && 
+            !p.isCaptain && 
+            p.primaryPosition === activeFilterPos
+        );
+
+        if (hasPrimaryMatchesInData) {
+            table.classList.add('primary-only'); // Si hay, oculta la columna secundaria
         } else {
-            table.classList.add('secondary-only');
+            table.classList.add('secondary-only'); // Si no hay, oculta la columna primaria
         }
     }
 
+    // 5. Ahora sí, recorre las filas HTML para decidir cuáles mostrar u ocultar
     rows.forEach(row => {
         const primaryPos = row.dataset.primaryPos;
         const secondaryPos = row.dataset.secondaryPos;
         
         let isVisible = false;
         if (activeFilterPos === 'Todos') {
-            isVisible = true;
+            isVisible = true; // Si el filtro es "Todos", se ven todas las filas
         } else {
             if (isMyTurn) {
-                // Si hay primarios para el filtro, solo mostramos esos. Si no, mostramos los secundarios.
-                if (hasPrimaryMatchesInFilter) {
+                // Lógica para el capitán: se basa en la decisión del paso 4
+                if (hasPrimaryMatchesInData) {
                     if (primaryPos === activeFilterPos) isVisible = true;
                 } else {
                     if (secondaryPos === activeFilterPos) isVisible = true;
                 }
             } else {
-                // Lógica para espectadores
+                // Lógica para espectadores: usa el desplegable
                 if (filterColumn === 'primary' && primaryPos === activeFilterPos) {
                     isVisible = true;
                 } else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
@@ -520,7 +531,6 @@ function initializeDraftView(draftId) {
         row.style.display = isVisible ? '' : 'none';
     });
 }
-
     // --- El resto de las funciones (sin cambios importantes) ---
     function setupEventListeners() {
         document.querySelectorAll('.draft-view-btn').forEach(btn => btn.addEventListener('click', (e) => {
