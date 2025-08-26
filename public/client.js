@@ -146,6 +146,7 @@ function initializeTournamentView(tournamentId) {
         });
     }
 
+    // *** FUNCIÓN DE CLASIFICACIÓN REDISEÑADA ***
     function renderClassification(tournament) {
         const groups = tournament.structure.grupos;
         if (Object.keys(groups).length === 0) {
@@ -154,6 +155,7 @@ function initializeTournamentView(tournamentId) {
         }
         groupsContainerEl.innerHTML = '';
         const sortedGroupNames = Object.keys(groups).sort();
+        
         sortedGroupNames.forEach(groupName => {
             const group = groups[groupName];
             const sortedTeams = [...group.equipos].sort((a, b) => {
@@ -161,12 +163,28 @@ function initializeTournamentView(tournamentId) {
                 if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
                 return b.stats.gf - a.stats.gf;
             });
-            let tableHTML = `<div class="group-table"><h3>${groupName}</h3><table><thead><tr><th>Equipo</th><th>PJ</th><th>PTS</th><th>GF</th><th>GC</th><th>DG</th></tr></thead><tbody>`;
-            sortedTeams.forEach(team => {
-                tableHTML += `<tr><td class="team-name">${team.nombre}</td><td>${team.stats.pj}</td><td>${team.stats.pts}</td><td>${team.stats.gf}</td><td>${team.stats.gc}</td><td>${team.stats.dg > 0 ? '+' : ''}${team.stats.dg}</td></tr>`;
+
+            let groupHTML = `<div class="group-container"><h3 class="group-title">${groupName}</h3>`;
+            
+            sortedTeams.forEach((team, index) => {
+                const dg = team.stats.dg > 0 ? `+${team.stats.dg}` : team.stats.dg;
+                groupHTML += `
+                    <div class="team-stat-card">
+                        <div class="team-info-classification">
+                            <span class="team-position">${index + 1}</span>
+                            <span class="team-name-classification">${team.nombre}</span>
+                        </div>
+                        <div class="team-stats-grid">
+                            <div class="stat-item"><span class="stat-value">${team.stats.pj}</span><span class="stat-label">PJ</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.pts}</span><span class="stat-label">PTS</span></div>
+                            <div class="stat-item"><span class="stat-value">${dg}</span><span class="stat-label">DG</span></div>
+                        </div>
+                    </div>
+                `;
             });
-            tableHTML += '</tbody></table></div>';
-            groupsContainerEl.innerHTML += tableHTML;
+
+            groupHTML += '</div>';
+            groupsContainerEl.innerHTML += groupHTML;
         });
     }
 
@@ -577,21 +595,19 @@ function initializeDraftView(draftId) {
         });
     }
 
+    // *** FUNCIÓN CORREGIDA PARA RESTAURAR EL BOTÓN "TODOS" ***
     function setupFilters() {
         if (positionFiltersEl.innerHTML !== '') return;
         positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
         const select = document.getElementById('filter-column-select');
         select.addEventListener('change', applyTableFilters);
 
-        // *** LA CORRECCIÓN CLAVE ESTÁ AQUÍ ***
-        // Restauramos el botón "Todos" para que sea el estado por defecto al cargar.
         const allPositions = ['Todos', ...positionOrder];
         allPositions.forEach(pos => {
             const btn = document.createElement('button');
             btn.className = 'filter-btn';
             btn.dataset.pos = pos;
             btn.textContent = pos;
-            // Hacemos que "Todos" sea el botón activo por defecto.
             if (pos === 'Todos') btn.classList.add('active');
             btn.addEventListener('click', () => {
                 document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
