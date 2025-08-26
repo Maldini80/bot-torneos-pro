@@ -561,16 +561,28 @@ function initializeDraftView(draftId) {
             document.getElementById(e.currentTarget.dataset.view).classList.add('active');
         }));
 
-        playersTableBodyEl.addEventListener('click', (event) => {
-            if (event.target.classList.contains('pick-btn')) {
-                const playerId = event.target.dataset.playerId;
-                const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
-                    document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
-                }
-            }
-        });
+        // Bloque de código corregido
+playersTableBodyEl.addEventListener('click', (event) => {
+    if (event.target.classList.contains('pick-btn')) {
+        const playerId = event.target.dataset.playerId;
+        let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
+
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Si el filtro activo es 'Todos', no podemos enviar esa palabra.
+        // En su lugar, buscamos la posición PRIMARIA real del jugador que se está fichando.
+        if (!activeFilterPos || activeFilterPos === 'Todos') {
+            const playerRow = event.target.closest('tr'); // Encuentra la fila del botón
+            activeFilterPos = playerRow.dataset.primaryPos; // Obtiene la posición primaria de la 'etiqueta' de la fila
+        }
+        // --- FIN DE LA CORRECCIÓN ---
+
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            // Ahora 'position' siempre será una posición real (ej: 'DC', 'GK', etc.)
+            socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
+            document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
+        }
+    }
+});
 
         rosterManagementContainer.addEventListener('click', (event) => {
             const target = event.target;
