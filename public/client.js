@@ -126,7 +126,7 @@ function initializeTournamentView(tournamentId) {
             return;
         }
         teams.forEach(team => {
-            const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-card-logo" alt="Logo de ${team.nombre}">` : '';
+            const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-large" alt="Logo de ${team.nombre}">` : '';
             const isDraftTeam = team.players && team.players.length > 0;
             let metaHTML = `<div class="team-meta"><span>Capitán: ${team.capitanTag}</span>`;
             if (team.coCaptainTag) {
@@ -146,10 +146,9 @@ function initializeTournamentView(tournamentId) {
         });
     }
 
-    // *** FUNCIÓN DE CLASIFICACIÓN REDISEÑADA ***
     function renderClassification(tournament) {
         const groups = tournament.structure.grupos;
-        groupsContainerEl.innerHTML = ''; // Limpiar siempre
+        groupsContainerEl.innerHTML = '';
         if (Object.keys(groups).length === 0) {
             groupsContainerEl.innerHTML = '<p class="placeholder">El sorteo de grupos no se ha realizado.</p>';
             return;
@@ -169,10 +168,13 @@ function initializeTournamentView(tournamentId) {
             
             sortedTeams.forEach((team, index) => {
                 const dg = team.stats.dg > 0 ? `+${team.stats.dg}` : team.stats.dg;
+                const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
+                
                 groupHTML += `
                     <div class="team-stat-card">
                         <div class="team-info-classification">
                             <span class="team-position">${index + 1}</span>
+                            ${logoHtml}
                             <span class="team-name-classification">${team.nombre}</span>
                         </div>
                         <div class="team-stats-grid">
@@ -193,7 +195,7 @@ function initializeTournamentView(tournamentId) {
 
     function renderCalendar(tournament) {
         const groups = tournament.structure.calendario;
-        calendarContainerEl.innerHTML = ''; // Limpiar siempre
+        calendarContainerEl.innerHTML = '';
         if (Object.keys(groups).length === 0) {
             calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrará cuando comience el torneo.</p>';
             return;
@@ -218,8 +220,14 @@ function initializeTournamentView(tournamentId) {
                     const teamA = match.equipoA;
                     const teamB = match.equipoB;
                     const result = match.resultado ? `<div class="match-result">${match.resultado}</div>` : '<div class="match-vs">vs</div>';
+                    const teamALogo = teamA.logoUrl ? `<img src="${teamA.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
+                    const teamBLogo = teamB.logoUrl ? `<img src="${teamB.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
 
-                    groupHTML += `<div class="calendar-match"><div class="team-info left">${teamA.nombre}</div>${result}<div class="team-info right">${teamB.nombre}</div></div>`;
+                    groupHTML += `<div class="calendar-match">
+                                    <div class="team-info left"><span>${teamA.nombre}</span>${teamALogo}</div>
+                                    ${result}
+                                    <div class="team-info right">${teamBLogo}<span>${teamB.nombre}</span></div>
+                                  </div>`;
                 });
                 groupHTML += `</div>`;
             });
@@ -231,7 +239,7 @@ function initializeTournamentView(tournamentId) {
 
     function renderBracket(tournament) {
         const stages = tournament.config.format.knockoutStages;
-        bracketContainerEl.innerHTML = ''; // Limpiar siempre
+        bracketContainerEl.innerHTML = '';
         if (!stages || !tournament.structure.eliminatorias || tournament.status === 'inscripcion_abierta' || tournament.status === 'fase_de_grupos') {
             bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
             return;
@@ -247,8 +255,8 @@ function initializeTournamentView(tournamentId) {
                 const teamB = match.equipoB;
                 const teamAName = teamA?.nombre || 'Por definir';
                 const teamBName = teamB?.nombre || 'Por definir';
-                const teamALogo = teamA?.logoUrl ? `<img src="${teamA.logoUrl}" class="bracket-team-logo">` : '';
-                const teamBLogo = teamB?.logoUrl ? `<img src="${teamB.logoUrl}" class="bracket-team-logo">` : '';
+                const teamALogo = teamA?.logoUrl ? `<img src="${teamA.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
+                const teamBLogo = teamB?.logoUrl ? `<img src="${teamB.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
                 
                 let scoreA = '', scoreB = '';
                 let classA = '', classB = '';
@@ -286,7 +294,7 @@ function initializeTournamentView(tournamentId) {
         }
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
         
-        liveMatchesListEl.innerHTML = ''; // Limpiar siempre
+        liveMatchesListEl.innerHTML = '';
         if (liveMatches.length === 0) {
             liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>';
             return;
@@ -331,6 +339,7 @@ function initializeTournamentView(tournamentId) {
 }
 
 function initializeDraftView(draftId) {
+    // ... (El código de initializeDraftView no necesita cambios)
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
