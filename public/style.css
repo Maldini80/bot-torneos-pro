@@ -1,4 +1,4 @@
-/* --- INICIO DEL ARCHIVO style.css (VERSIÓN FINAL CON LOGOS GRANDES Y SCROLL) --- */
+/* --- INICIO DEL ARCHIVO style.css (VERSIÓN FINAL CORREGIDA PARA MÓVILES) --- */
 
 :root {
     --primary-color: #e62429;
@@ -120,7 +120,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     transition: transform 0.2s, box-shadow 0.2s; margin-bottom: 10px;
 }
 .team-stat-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
-.team-info-classification { display: flex; align-items: center; gap: 15px; }
+.team-info-classification { display: flex; align-items: center; gap: 15px; flex-grow: 1; }
 .team-position { font-family: var(--font-bebas); font-size: 1.8em; color: #666; width: 30px; text-align: center; }
 .team-name-classification { font-weight: bold; font-size: 1.1em; }
 .team-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; text-align: center; }
@@ -185,7 +185,6 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 .live-match-teams { font-weight: bold; margin-bottom: 10px; }
 .stream-links { display: flex; gap: 10px; flex-wrap: wrap; }
 
-
 /* === ORDEN DE PICK DEL DRAFT === */
 #round-pick-order {
     display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 10px;
@@ -248,52 +247,161 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 
 /* --- RESPONSIVE --- */
 .mobile-view-switcher { display: none; }
-@media (max-width: 900px) {
-    body { padding: 10px; overflow: auto; }
-    #app-container, #draft-container { height: auto; }
-    .main-content, .content-grid-draftview { grid-template-columns: 1fr; height: auto; }
-    aside#live-match-sidebar, #teams-container-draftview { order: 2; margin-top: 20px; }
-    #available-players-container-draftview { order: 1; }
-    #teams-grid { grid-template-columns: 1fr; }
-    .view-switcher { display: none; }
-    .mobile-view-switcher { display: block; margin: 15px 0; }
-    #mobile-view-select { width: 100%; padding: 12px; background-color: var(--surface-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; font-size: 1.2em; font-family: var(--font-bebas); -webkit-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%22%20width%3D%22292.4%22%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e62429%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: .8em; }
-    header { padding-bottom: 5px; }
-    .header-content { flex-wrap: wrap; }
-    header h1 { font-size: 2.5em; }
-    .header-logo { height: 80px; }
-    footer { position: static; margin-top: 20px; }
-    #auth-controls { font-size: 0.8em; }
-    #position-filters { flex-wrap: wrap; justify-content: center; }
-    #players-table thead { display: none; }
-    #players-table, #players-table tbody, #players-table tr, #players-table td { display: block; width: 100%; }
-    #players-table tr { margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; }
-    #players-table td { display: flex; justify-content: space-between; align-items: center; text-align: right; padding: 10px; border: none; border-bottom: 1px solid #2a2a2a; }
-    #players-table td:last-child { border-bottom: none; }
-    #players-table td:before { content: attr(data-label); font-weight: bold; text-align: left; color: #aaa; padding-right: 10px; }
-    .pick-btn { padding: 12px; font-size: 1.1em; }
-    .player-management-card { grid-template-columns: 1fr; }
-    .draft-view-btn { font-size: 1.2em; padding: 8px 15px; }
 
-    /* Corrección para la tarjeta de estadísticas */
+@media (max-width: 900px) {
+    body {
+        padding: 10px;
+        overflow-y: auto;
+        min-height: 100vh;
+    }
+
+    #app-container, #draft-container {
+        height: auto;
+    }
+
+    /* --- Corrección del Header --- */
+    .header-content {
+        flex-direction: column;
+        gap: 10px;
+    }
+    header h1 {
+        font-size: clamp(1.8em, 8vw, 2.5em);
+        word-break: break-word;
+    }
+    header p {
+        font-size: 1em;
+        word-break: break-word; /* También para subtítulos */
+    }
+    .header-logo {
+        height: 60px;
+    }
+
+    /* --- Corrección de Navegación --- */
+    .view-switcher {
+        display: none !important; /* Esconder la navegación de escritorio con más fuerza */
+    }
+    .mobile-view-switcher {
+        display: block;
+        margin: 15px 0;
+    }
+    #mobile-view-select {
+        width: 100%;
+        padding: 12px;
+        background-color: var(--surface-color);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        font-size: 1.2em;
+        font-family: var(--font-bebas);
+        -webkit-appearance: none;
+        appearance: none;
+        background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e62429%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: .8em;
+    }
+
+    /* --- Corrección del Contenido Principal --- */
+    .main-content, .content-grid-draftview {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    main#main-panel {
+        padding: 15px;
+    }
+    aside#live-match-sidebar, #teams-container-draftview {
+        order: 2;
+        margin-top: 20px;
+    }
+    #available-players-container-draftview {
+        order: 1;
+    }
+    #teams-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* --- Corrección del Footer --- */
+    footer {
+        position: static;
+        margin-top: 20px;
+    }
+    
+    /* --- Corrección para la tarjeta de estadísticas --- */
     .team-stat-card {
         flex-direction: column;
         align-items: flex-start;
-        gap: 15px;
+        gap: 10px;
     }
     .team-stats-grid {
         width: 100%;
-        justify-content: space-between;
+        display: flex;
+        justify-content: space-around;
     }
-    .stat-item { flex: 1; }
-    
-    /* Corrección para calendario */
+    .stat-item {
+        width: auto;
+        flex: 1;
+    }
+
+    /* --- Corrección para calendario y eliminatorias --- */
     .calendar-match {
         flex-direction: column;
         gap: 10px;
+        text-align: center;
     }
     .calendar-match .team-info {
         width: 100%;
         justify-content: center;
+    }
+    .calendar-match .team-info.left, .calendar-match .team-info.right {
+        justify-content: center;
+    }
+    
+    .bracket-round {
+        width: 250px;
+    }
+
+    /* --- Corrección para tabla de jugadores de Draft --- */
+    #players-table thead {
+        display: none;
+    }
+    #players-table, #players-table tbody, #players-table tr, #players-table td {
+        display: block;
+        width: 100%;
+    }
+    #players-table tr {
+        margin-bottom: 15px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    #players-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-align: right;
+        padding: 10px;
+        border: none;
+        border-bottom: 1px solid #2a2a2a;
+    }
+     #players-table td:last-child {
+        border-bottom: none;
+    }
+    #players-table td:before {
+        content: attr(data-label);
+        font-weight: bold;
+        text-align: left;
+        color: #aaa;
+        padding-right: 10px;
+    }
+    .pick-btn {
+        padding: 12px;
+        font-size: 1.1em;
+    }
+    .player-management-card {
+        grid-template-columns: 1fr;
+    }
+    .draft-view-btn {
+        font-size: 1.2em;
+        padding: 8px 15px;
     }
 }
