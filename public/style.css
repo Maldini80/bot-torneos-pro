@@ -1,4 +1,4 @@
-/* --- INICIO DEL ARCHIVO style.css (VERSIÓN FINAL CORREGIDA) --- */
+/* --- INICIO DEL ARCHIVO style.css (VERSIÓN FINAL CON SCROLLBAR CORREGIDO) --- */
 
 :root {
     --primary-color: #e62429;
@@ -17,11 +17,10 @@
     to { box-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color); }
 }
 
-/* --- NUEVAS ANIMACIONES DE BORDE --- */
-@keyframes animate-top { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
-@keyframes animate-right { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }
-@keyframes animate-bottom { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
-@keyframes animate-left { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }
+/* --- ANIMACIONES DE BORDE --- */
+@keyframes animate-top-bottom { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+@keyframes animate-left-right { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }
+
 
 body {
     background-color: var(--background-color);
@@ -46,7 +45,7 @@ header {
     margin-bottom: 20px; position: relative; animation: neon-glow 1.5s infinite alternate; flex-shrink: 0;
 }
 .header-content { display: flex; align-items: center; justify-content: center; gap: 20px; }
-.header-logo { height: 110px; width: auto; } /* --- LOGO MÁS GRANDE --- */
+.header-logo { height: 110px; width: auto; }
 .header-text { text-align: center; }
 header h1 { font-family: var(--font-bebas); font-size: 3.5em; color: var(--primary-color); margin: 0; text-transform: uppercase; text-shadow: 0 0 10px var(--primary-color), 2px 2px 8px rgba(0,0,0,0.7); }
 header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
@@ -73,28 +72,23 @@ footer {
 
 .main-content { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; flex-grow: 1; overflow: hidden; height: calc(100% - 150px); }
 
-/* --- CONTENEDOR CON NUEVA ANIMACIÓN DE BORDES --- */
 .animated-border {
     position: relative;
     background-color: var(--surface-color); border: 1px solid var(--border-color);
     border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.6); padding: 20px;
 }
-.animated-border::before, .animated-border::after {
-    content: ''; position: absolute; background: var(--primary-color);
-    box-shadow: 0 0 5px var(--glow-color);
-}
-/* Top */
-.animated-border::before { top: 0; left: 0; width: 100%; height: 2px; transform-origin: left; animation: animate-top 2s linear infinite; animation-delay: 1s; }
-/* Right */
-.animated-border::after { top: 0; right: 0; width: 2px; height: 100%; transform-origin: top; animation: animate-right 2s linear infinite; animation-delay: 2s; }
-/* Bottom y Left se añaden con Spans si es necesario, o se puede usar un div contenedor extra. Para simplicidad, se animan 2 bordes */
-.animated-border > :first-child { position: relative; z-index: 2; }
+.animated-border .border-line { position: absolute; background: var(--primary-color); box-shadow: 0 0 8px var(--glow-color); }
+.animated-border .border-line.top { top: 0; left: 0; width: 100%; height: 2px; transform-origin: left; animation: animate-top-bottom 3s ease-in-out infinite alternate; animation-delay: 0s; }
+.animated-border .border-line.right { top: 0; right: 0; width: 2px; height: 100%; transform-origin: top; animation: animate-left-right 3s ease-in-out infinite alternate; animation-delay: 1.5s; }
+.animated-border .border-line.bottom { bottom: 0; right: 0; width: 100%; height: 2px; transform-origin: right; animation: animate-top-bottom 3s ease-in-out infinite alternate; animation-delay: 3s; }
+.animated-border .border-line.left { bottom: 0; left: 0; width: 2px; height: 100%; transform-origin: bottom; animation: animate-left-right 3s ease-in-out infinite alternate; animation-delay: 4.5s; }
 
 
-main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: column; }
-#main-view-content, #live-matches-list, #team-list-container, #groups-container, #calendar-container { overflow-y: auto; flex-grow: 1; }
+main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: column; overflow: hidden; /* Esto oculta el overflow del panel principal para que el contenido de dentro lo gestione */ }
+#main-view-content, #live-matches-list, #team-list-container, #groups-container, #calendar-container, #bracket-container { overflow-y: auto; flex-grow: 1; } /* ESTA ES LA REGLA CLAVE QUE DEVUELVE LA BARRA */
+
 .view-pane h2, aside h2 { font-family: var(--font-bebas); font-size: 2.2em; color: var(--text-color); text-shadow: 1px 1px 5px rgba(0,0,0,0.5); }
-.view-switcher { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+.view-switcher { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
 .view-btn { font-family: var(--font-bebas); font-size: 1.5em; padding: 10px 20px; border: none; background-color: transparent; color: #888; cursor: pointer; transition: color 0.2s, border-bottom 0.2s; border-bottom: 3px solid transparent; }
 .view-btn.active { color: var(--primary-color); border-bottom: 3px solid var(--primary-color); }
 .view-pane { display: none; } .view-pane.active { display: block; }
@@ -144,7 +138,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 .bracket-team { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; font-size: 1.1em; border-bottom: 1px solid #3a3a3a; gap: 10px; }
 .bracket-team:last-child { border-bottom: none; }
 .bracket-team-info { display: flex; align-items: center; gap: 10px; flex-grow: 1; overflow: hidden; }
-.bracket-team-logo { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; } /* --- TAMAÑO DE LOGO CORREGIDO --- */
+.bracket-team-logo { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; }
 .bracket-team-info span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bracket-team .score { font-family: var(--font-bebas); font-size: 1.5em; font-weight: bold; flex-shrink: 0; }
 .bracket-match.winner-top .bracket-team:first-child .bracket-team-info span, .bracket-match.winner-bottom .bracket-team:last-child .bracket-team-info span { color: var(--winner-color); font-weight: bold; }
@@ -156,7 +150,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 }
 .team-card-info.is-draft-team { cursor: pointer; }
 .team-card-info h3 { font-family: var(--font-bebas); font-size: 1.8em; color: var(--primary-color); margin: 0 0 10px 0; display: flex; align-items: center; gap: 15px; }
-.team-card-logo { width: 30px; height: 30px; object-fit: contain; } /* --- TAMAÑO DE LOGO CORREGIDO --- */
+.team-card-logo { width: 30px; height: 30px; object-fit: contain; }
 .team-meta span { color: #aaa; margin-right: 20px; }
 .team-meta span::before { content: '👑 '; color: var(--primary-color); }
 .team-meta span + span::before { content: '🤝 '; }
@@ -241,7 +235,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     .mobile-view-switcher { display: block; margin: 15px 0; }
     #mobile-view-select { width: 100%; padding: 12px; background-color: var(--surface-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; font-size: 1.2em; font-family: var(--font-bebas); -webkit-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%22%20width%3D%22292.4%22%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e62429%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: .8em; }
     header h1 { font-size: 2.5em; }
-    .header-logo { height: 80px; } /* --- LOGO MÁS GRANDE (MÓVIL) --- */
+    .header-logo { height: 80px; }
     #auth-controls { font-size: 0.8em; }
     #position-filters { flex-wrap: wrap; }
     #players-table thead { display: none; }
@@ -252,6 +246,6 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     .pick-btn { padding: 12px; font-size: 1.1em; }
     .player-management-card { grid-template-columns: 1fr; }
     .draft-view-btn { font-size: 1.2em; padding: 8px 15px; }
-    .team-stats-grid { gap: 10px; } /* --- ESPACIADO REDUCIDO EN MÓVIL --- */
+    .team-stats-grid { gap: 10px; }
     .stat-item { width: auto; }
 }
