@@ -128,9 +128,9 @@ function initializeTournamentView(tournamentId) {
         teams.forEach(team => {
             const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-card-logo" alt="Logo de ${team.nombre}">` : '';
             const isDraftTeam = team.players && team.players.length > 0;
-            let metaHTML = `<div class="team-meta"><span>👑 Capitán: ${team.capitanTag}</span>`;
+            let metaHTML = `<div class="team-meta"><span>Capitán: ${team.capitanTag}</span>`;
             if (team.coCaptainTag) {
-                metaHTML += `<span>🤝 Co-Capitán: ${team.coCaptainTag}</span>`;
+                metaHTML += `<span>Co-Capitán: ${team.coCaptainTag}</span>`;
             }
             metaHTML += '</div>';
             const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@','')}" target="_blank" class="team-link-btn">Twitter</a>` : '';
@@ -138,7 +138,7 @@ function initializeTournamentView(tournamentId) {
             const linksHTML = (twitterLink || streamLink) ? `<div class="team-links">${twitterLink}${streamLink}</div>` : '';
             const card = document.createElement('div');
             card.className = `team-card-info ${isDraftTeam ? 'is-draft-team' : ''}`;
-            card.innerHTML = `<h3 class="team-header">${logoHtml} ${team.nombre}</h3>${metaHTML}${linksHTML}`;
+            card.innerHTML = `<h3>${logoHtml} ${team.nombre}</h3>${metaHTML}${linksHTML}`;
             if (isDraftTeam) {
                 card.addEventListener('click', () => showRosterModal(team));
             }
@@ -149,11 +149,12 @@ function initializeTournamentView(tournamentId) {
     // *** FUNCIÓN DE CLASIFICACIÓN REDISEÑADA ***
     function renderClassification(tournament) {
         const groups = tournament.structure.grupos;
+        groupsContainerEl.innerHTML = ''; // Limpiar siempre
         if (Object.keys(groups).length === 0) {
             groupsContainerEl.innerHTML = '<p class="placeholder">El sorteo de grupos no se ha realizado.</p>';
             return;
         }
-        groupsContainerEl.innerHTML = '';
+
         const sortedGroupNames = Object.keys(groups).sort();
         
         sortedGroupNames.forEach(groupName => {
@@ -175,8 +176,10 @@ function initializeTournamentView(tournamentId) {
                             <span class="team-name-classification">${team.nombre}</span>
                         </div>
                         <div class="team-stats-grid">
-                            <div class="stat-item"><span class="stat-value">${team.stats.pj}</span><span class="stat-label">PJ</span></div>
                             <div class="stat-item"><span class="stat-value">${team.stats.pts}</span><span class="stat-label">PTS</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.pj}</span><span class="stat-label">PJ</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.gf}</span><span class="stat-label">GF</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.gc}</span><span class="stat-label">GC</span></div>
                             <div class="stat-item"><span class="stat-value">${dg}</span><span class="stat-label">DG</span></div>
                         </div>
                     </div>
@@ -190,12 +193,12 @@ function initializeTournamentView(tournamentId) {
 
     function renderCalendar(tournament) {
         const groups = tournament.structure.calendario;
+        calendarContainerEl.innerHTML = ''; // Limpiar siempre
         if (Object.keys(groups).length === 0) {
             calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrará cuando comience el torneo.</p>';
             return;
         }
 
-        calendarContainerEl.innerHTML = '';
         const sortedGroupNames = Object.keys(groups).sort();
 
         sortedGroupNames.forEach(groupName => {
@@ -228,11 +231,12 @@ function initializeTournamentView(tournamentId) {
 
     function renderBracket(tournament) {
         const stages = tournament.config.format.knockoutStages;
+        bracketContainerEl.innerHTML = ''; // Limpiar siempre
         if (!stages || !tournament.structure.eliminatorias || tournament.status === 'inscripcion_abierta' || tournament.status === 'fase_de_grupos') {
             bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
             return;
         }
-        bracketContainerEl.innerHTML = '';
+        
         stages.forEach(stageKey => {
             const matches = tournament.structure.eliminatorias[stageKey];
             if (!matches || (Array.isArray(matches) && matches.length === 0)) return;
@@ -282,18 +286,19 @@ function initializeTournamentView(tournamentId) {
         }
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
         
+        liveMatchesListEl.innerHTML = ''; // Limpiar siempre
         if (liveMatches.length === 0) {
             liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>';
             return;
         }
+
         const groupedMatches = liveMatches.reduce((acc, match) => {
-            const groupKey = match.nombreGrupo ? `Jornada ${match.jornada}` : match.jornada;
+            const groupKey = match.nombreGrupo ? `${match.nombreGrupo} - Jornada ${match.jornada}` : match.jornada.charAt(0).toUpperCase() + match.jornada.slice(1);
             if (!acc[groupKey]) acc[groupKey] = [];
             acc[groupKey].push(match);
             return acc;
         }, {});
 
-        liveMatchesListEl.innerHTML = '';
         Object.keys(groupedMatches).sort().forEach(groupKey => {
             let groupHTML = `<div class="live-match-group"><h4>${groupKey}</h4>`;
             groupedMatches[groupKey].forEach(match => {
@@ -561,28 +566,22 @@ function initializeDraftView(draftId) {
             document.getElementById(e.currentTarget.dataset.view).classList.add('active');
         }));
 
-        // Bloque de código corregido
-playersTableBodyEl.addEventListener('click', (event) => {
-    if (event.target.classList.contains('pick-btn')) {
-        const playerId = event.target.dataset.playerId;
-        let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
+        playersTableBodyEl.addEventListener('click', (event) => {
+            if (event.target.classList.contains('pick-btn')) {
+                const playerId = event.target.dataset.playerId;
+                let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
 
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Si el filtro activo es 'Todos', no podemos enviar esa palabra.
-        // En su lugar, buscamos la posición PRIMARIA real del jugador que se está fichando.
-        if (!activeFilterPos || activeFilterPos === 'Todos') {
-            const playerRow = event.target.closest('tr'); // Encuentra la fila del botón
-            activeFilterPos = playerRow.dataset.primaryPos; // Obtiene la posición primaria de la 'etiqueta' de la fila
-        }
-        // --- FIN DE LA CORRECCIÓN ---
+                if (!activeFilterPos || activeFilterPos === 'Todos') {
+                    const playerRow = event.target.closest('tr');
+                    activeFilterPos = playerRow.dataset.primaryPos;
+                }
 
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            // Ahora 'position' siempre será una posición real (ej: 'DC', 'GK', etc.)
-            socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
-            document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
-        }
-    }
-});
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
+                    document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
+                }
+            }
+        });
 
         rosterManagementContainer.addEventListener('click', (event) => {
             const target = event.target;
@@ -607,7 +606,6 @@ playersTableBodyEl.addEventListener('click', (event) => {
         });
     }
 
-    // *** FUNCIÓN CORREGIDA PARA RESTAURAR EL BOTÓN "TODOS" ***
     function setupFilters() {
         if (positionFiltersEl.innerHTML !== '') return;
         positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
@@ -667,8 +665,16 @@ playersTableBodyEl.addEventListener('click', (event) => {
         const startPickOfRound = currentRound * numCaptains;
         for (let i = 0; i < numCaptains; i++) {
             const pickNumber = startPickOfRound + i + 1;
-            const pickIndex = currentRound % 2 === 0 ? i : numCaptains - 1 - i;
-            const captainId = draft.selection.order[pickIndex];
+            let pickIndexInOrder;
+
+            // Lógica Snake Draft
+            if ((currentRound + 1) % 2 !== 0) { // Ronda impar (1, 3, 5...)
+                pickIndexInOrder = i;
+            } else { // Ronda par (2, 4, 6...)
+                pickIndexInOrder = numCaptains - 1 - i;
+            }
+
+            const captainId = draft.selection.order[pickIndexInOrder];
             const captain = draft.captains.find(c => c.userId === captainId);
             const item = document.createElement('div');
             item.className = 'pick-order-item';
