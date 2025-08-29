@@ -143,7 +143,7 @@ export async function startVisualizerServer(client) {
                         break;
 
                     case 'request_kick':
-                        await requestKickFromWeb(client, draftId, captainId, playerId, reason);
+                        await requestKickFromWeb(client, draftId, captainId, playerId, reason); // Ya pasamos 'reason'
                         break;
                 }
             } catch (e) { console.error('Error procesando mensaje de WebSocket:', e); }
