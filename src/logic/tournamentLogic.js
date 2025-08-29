@@ -1865,11 +1865,10 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
 }
-export async function reportPlayerFromWeb(client, draftId, captainId, playerId, reason) {
+export async function requestStrikeFromWeb(client, draftId, captainId, playerId, reason) {
     try {
         const draft = await getDb().collection('drafts').findOne({ shortId: draftId });
-        // Pasamos el ID del capitán como interactor y teamId
-        await reportPlayer(client, draft, captainId, captainId, playerId, reason);
+        await requestStrike(client, draft, captainId, captainId, playerId, reason);
     } catch (error) {
         console.error(`[STRIKE WEB] Fallo en el strike del capitán ${captainId}: ${error.message}`);
         visualizerStateHandler.sendToUser(captainId, { type: 'strike_error', message: error.message });
