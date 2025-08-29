@@ -7,7 +7,7 @@ import session from 'express-session';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
-import { advanceDraftTurn, handlePlayerSelectionFromWeb, reportPlayerFromWeb, requestKickFromWeb } from './src/logic/tournamentLogic.js';
+import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb } from './src/logic/tournamentLogic.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -139,7 +139,7 @@ export async function startVisualizerServer(client) {
                         break;
                     
                     case 'report_player':
-                        await reportPlayerFromWeb(client, draftId, captainId, playerId, reason);
+                        await requestStrikeFromWeb(client, draftId, captainId, playerId, reason);
                         break;
 
                     case 'request_kick':
