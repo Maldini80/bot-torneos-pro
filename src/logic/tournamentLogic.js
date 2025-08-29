@@ -1677,7 +1677,7 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
     return { success: true };
 }
 
-export async function requestPlayerKick(client, draft, captainId, playerIdToKick) {
+export async function requestPlayerKick(client, draft, captainId, playerIdToKick, reason = 'No especificado') {
     const db = getDb();
     const notificationsThread = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
     if (!notificationsThread) throw new Error("Canal de notificaciones no encontrado.");
@@ -1691,7 +1691,8 @@ export async function requestPlayerKick(client, draft, captainId, playerIdToKick
         .setDescription(`El capitán **${captain.teamName}** ha solicitado expulsar a **${player.psnId}** de su equipo.`)
         .addFields(
             { name: 'Capitán Solicitante', value: `<@${captainId}>` },
-            { name: 'Jugador a Expulsar', value: `<@${playerIdToKick}>` }
+            { name: 'Jugador a Expulsar', value: `<@${playerIdToKick}>` },
+            { name: 'Motivo', value: reason } // Añade el motivo
         )
         .setFooter({ text: `Draft: ${draft.name}` });
 
