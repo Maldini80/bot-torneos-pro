@@ -211,6 +211,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 
 /* === DRAFT VIEW === */
 .content-grid-draftview { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; flex-grow: 1; overflow: hidden; }
+.mobile-sub-nav { display: none; }
 #mobile-draft-view-switcher { display: none; }
 #teams-container-draftview, #available-players-container-draftview { display: flex; flex-direction: column; overflow: hidden; }
 #teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
@@ -417,11 +418,34 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
         padding: 8px 15px;
     }
     /* AÑADE ESTAS REGLAS NUEVAS */
-    .draft-view-switcher {
-        display: none; /* Oculta los botones grandes en móvil */
+    /* Oculta la navegación de escritorio y muestra la de móvil para el DRAFT */
+    #draft-container .draft-view-switcher { display: none; }
+    #draft-container .mobile-view-switcher { display: block; }
+
+    /* Estilos para la nueva sub-navegación en móvil */
+    .mobile-sub-nav {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
     }
-    #mobile-draft-view-switcher {
-        display: block; /* Muestra nuestro nuevo menú desplegable */
+    .sub-nav-btn {
+        flex-grow: 1;
+        padding: 12px;
+        font-family: var(--font-bebas);
+        font-size: 1.4em;
+        border: 1px solid var(--border-color);
+        background-color: transparent;
+        color: #888;
+        border-radius: 5px;
+        transition: all 0.2s;
+    }
+    .sub-nav-btn.active {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+    #teams-container-draftview {
+        display: none; /* Ocultamos los equipos por defecto en móvil */
     }
     .draft-view-pane {
         overflow-y: visible; /* Permite que el contenido crezca */
