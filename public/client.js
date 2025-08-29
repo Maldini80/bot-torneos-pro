@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO client.js (VERSIÓN FINAL Y UNIFICADA) ---
+// --- INICIO DEL ARCHIVO client.js (VERSIÓN FINAL Y COMPATIBLE) ---
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -69,7 +69,10 @@ function initializeTournamentView(tournamentId) {
                 renderTournamentState(data);
                 hasLoadedInitialData = true;
             }
-        }).catch(err => console.warn('No se pudieron cargar datos iniciales, esperando WebSocket.'));
+        }).catch(err => {
+            console.warn('No se pudieron cargar datos iniciales, esperando WebSocket.', err);
+            loadingEl.textContent = `Error al cargar datos: ${err.message}. Intentando conectar vía WebSocket...`;
+        });
 
     viewButtons.forEach(button => {
         button.addEventListener('click', () => {
@@ -108,6 +111,8 @@ function initializeTournamentView(tournamentId) {
             }
             liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
         } else {
+            document.querySelector('.view-switcher').style.display = 'flex';
+            document.querySelector('.mobile-view-switcher').style.display = 'block';
             if (!mainPanelEl.querySelector('.view-pane.active')) {
                  mainPanelEl.querySelector('[data-view="classification-view"]').click();
             }
@@ -141,8 +146,8 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderClassification(tournament) {
-        const groups = tournament.structure.grupos;
         groupsContainerEl.innerHTML = '';
+        const groups = tournament.structure.grupos;
         if (Object.keys(groups).length === 0) {
             groupsContainerEl.innerHTML = '<p class="placeholder">El sorteo de grupos no se ha realizado.</p>';
             return;
@@ -164,7 +169,7 @@ function initializeTournamentView(tournamentId) {
             groupsContainerEl.innerHTML += groupHTML;
         });
     }
-
+    
     function renderCalendar(tournament) {
         calendarContainerEl.innerHTML = '';
         const groups = tournament.structure.calendario;
@@ -195,7 +200,7 @@ function initializeTournamentView(tournamentId) {
             calendarContainerEl.innerHTML += groupHTML;
         });
     }
-
+    
     function renderBracket(tournament) {
         bracketContainerEl.innerHTML = '';
         const stages = tournament.config.format.knockoutStages;
@@ -516,6 +521,11 @@ function initializeDraftView(draftId) {
 
     function setupFilters() {
         if (positionFiltersEl.querySelector('.filter-btn')) return;
+        
+        // Limpiamos por si acaso
+        positionFiltersEl.innerHTML = '';
+
+        // Creamos el select que no estaba
         const select = document.createElement('select');
         select.id = 'filter-column-select';
         select.innerHTML = `<option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option>`;
