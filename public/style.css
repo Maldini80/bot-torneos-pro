@@ -432,6 +432,19 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
         height: auto;
     }
     /* FIN DE LAS REGLAS A AÑADIR */
+    #pick-alert {
+        padding: 20px;
+    }
+    #pick-alert-content {
+        width: 100%;
+        padding: 20px;
+    }
+    #pick-alert .player-name {
+        font-size: clamp(2em, 10vw, 3em);
+    }
+    #pick-alert .team-name {
+        font-size: clamp(1.5em, 8vw, 2.5em);
+    }
 }
 /* === ESTILOS PARA LA PANTALLA DE CAMPEÓN === */
 #finished-view .finished-content {
