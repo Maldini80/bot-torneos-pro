@@ -496,6 +496,7 @@ export async function handleButton(interaction) {
         return;
     }
     
+    // --- BLOQUE NUEVO Y MEJORADO ---
     if (action === 'admin_approve_kick' || action === 'admin_reject_kick') {
         await interaction.deferUpdate();
         const [draftShortId, captainId, playerIdToKick] = params;
@@ -506,8 +507,22 @@ export async function handleButton(interaction) {
 
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
-        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
-        disabledRow.components.forEach(c => c.setDisabled(true));
+        
+        // --- LÓGICA MEJORADA PARA DESACTIVAR BOTONES ---
+        // Creamos una nueva fila con botones idénticos pero desactivados
+        const disabledRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('approve_kick_disabled')
+                .setLabel('Aprobar Expulsión')
+                .setStyle(ButtonStyle.Success)
+                .setDisabled(true),
+            new ButtonBuilder()
+                .setCustomId('reject_kick_disabled')
+                .setLabel('Rechazar')
+                .setStyle(ButtonStyle.Danger)
+                .setDisabled(true)
+        );
+        // --- FIN DE LA LÓGICA MEJORADA ---
 
         if (wasApproved) {
             originalEmbed.setColor('#2ecc71').setFooter({ text: `Expulsión aprobada por ${interaction.user.tag}` });
@@ -1963,7 +1978,7 @@ export async function handleButton(interaction) {
         
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
-        const disabledRow = ActionRowRowBuilder.from(originalMessage.components[0]);
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
 
         if (wasApproved) {
