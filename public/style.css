@@ -593,21 +593,21 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     background-color: #1d1d1d;
     padding: 4px 8px;
     border-radius: 4px;
-    .desktop-only {
-    display: none;
+    nav.draft-view-switcher.desktop-only {
+    display: none !important;
 }
 
-.mobile-only {
-    display: block;
+nav.draft-view-switcher.mobile-only {
+    display: flex !important;
 }
 
 @media (min-width: 768px) {
-    .mobile-only {
-        display: none;
+    nav.draft-view-switcher.mobile-only {
+        display: none !important;
     }
     
-    .desktop-only {
-        display: block;
+    nav.draft-view-switcher.desktop-only {
+        display: flex !important;
     }
 }
 }
