@@ -593,4 +593,21 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     background-color: #1d1d1d;
     padding: 4px 8px;
     border-radius: 4px;
+    .desktop-only {
+    display: none;
+}
+
+.mobile-only {
+    display: flex;
+}
+
+@media (min-width: 768px) {
+    .mobile-only {
+        display: none;
+    }
+    
+    .desktop-only {
+        display: flex;
+    }
+}
 }
