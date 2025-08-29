@@ -35,14 +35,21 @@
                     </div>
                     
                     <div class="header-right">
-                        <!-- AUTH CONTROLS PARA TORNEOS -->
-                        <div id="auth-controls">
-                            <div id="user-session" class="hidden">
-                                <span id="user-greeting"></span>
-                                <a href="/logout" class="logout-btn">Cerrar Sesión</a>
-                            </div>
-                        </div>
-                    </div>
+    <div id="auth-controls">
+        <div id="user-session" class="hidden">
+            <span id="user-greeting"></span>
+            <a href="/logout" class="logout-btn">Cerrar Sesión</a>
+        </div>
+        <div id="user-session-draft" class="hidden">
+            <span id="user-greeting-draft"></span>
+            <a href="/logout" class="logout-btn">Cerrar Sesión</a>
+        </div>
+        <!-- NUEVO: Botón de login cuando no está logueado -->
+        <div id="login-controls" class="hidden">
+            <a href="/auth/discord" class="login-btn">Entrar como Capitán</a>
+        </div>
+    </div>
+</div>
                 </div>
             </div>
         </header>
@@ -241,15 +248,16 @@
                             <h2 class="section-title">JUGADORES DISPONIBLES</h2>
                         </div>
 
-                        <!-- FILTROS COMPLETOS CON TODOS LOS ELEMENTOS -->
                         <div id="position-filters" class="position-filters">
-                            <!-- ELEMENTO FALTANTE: filter-column-select -->
-                            <select id="filter-column-select" style="display: none;">
-                                <option value="primary">Filtrar por Pos. Primaria</option>
-                                <option value="secondary">Filtrar por Pos. Secundaria</option>
-                            </select>
-                            <!-- Los botones de filtro se crean dinámicamente por client.js -->
-                        </div>
+    <select id="filter-column-select" style="display: none;">
+        <option value="primary">Filtrar por Pos. Primaria</option>
+        <option value="secondary">Filtrar por Pos. Secundaria</option>
+    </select>
+    <!-- NUEVO: Contenedor para filtros de posición específica -->
+    <div id="position-buttons-container">
+        <!-- Los botones GK, DFC, MCD, etc. se crean aquí dinámicamente -->
+    </div>
+</div>
 
                         <div class="players-legend legend">
                             🛡️ Con Equipo | 🔎 Agente Libre
