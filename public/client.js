@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO client.js (VERSIÓN FINAL Y COMPLETA) ---
+// --- INICIO DEL ARCHIVO client.js (VERSIÓN FINAL Y UNIFICADA) ---
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -33,7 +33,6 @@ function initializeTournamentView(tournamentId) {
     const viewButtons = document.querySelectorAll('.view-btn');
     const mobileViewSelect = document.getElementById('mobile-view-select');
     const mainPanelEl = document.getElementById('main-panel');
-    const viewSwitcherEl = document.querySelector('.view-switcher');
     const finishedViewEl = document.getElementById('finished-view');
     const championNameEl = document.getElementById('champion-name');
 
@@ -43,40 +42,30 @@ function initializeTournamentView(tournamentId) {
 
     function connect() {
         socket = new WebSocket(`${protocol}://${window.location.host}`);
-
         socket.onopen = () => console.log('Conectado al servidor para Torneo.');
-
         socket.onmessage = (event) => {
             const message = JSON.parse(event.data);
             if (message.type === 'tournament' && message.id === tournamentId) {
                 if (!hasLoadedInitialData) {
                     loadingEl.classList.add('hidden');
-                    appContainerEl.classList.remove('hidden');
+                    appContainerEl.style.display = 'flex';
                     hasLoadedInitialData = true;
                 }
                 renderTournamentState(message.data);
             }
         };
-
-        socket.onclose = (event) => {
-            console.warn(`Socket cerrado. Razón: ${event.reason}. Intentando reconectar en 3 segundos...`);
-            setTimeout(connect, 3000); // Intenta reconectar después de 3 segundos
-        };
-
-        socket.onerror = (error) => {
-            console.error('Error de WebSocket:', error);
-            socket.close(); // Cierra la conexión para activar el 'onclose' y la reconexión
-        };
+        socket.onclose = () => setTimeout(connect, 3000);
+        socket.onerror = (error) => { console.error('Error de WebSocket:', error); socket.close(); };
     }
 
     connect();
 
     fetch(`/tournament-data/${tournamentId}`)
-        .then(response => response.ok ? response.json() : Promise.resolve(null))
+        .then(response => response.ok ? response.json() : null)
         .then(data => {
             if (data && !hasLoadedInitialData) {
                 loadingEl.classList.add('hidden');
-                appContainerEl.classList.remove('hidden');
+                appContainerEl.style.display = 'flex';
                 renderTournamentState(data);
                 hasLoadedInitialData = true;
             }
@@ -88,63 +77,46 @@ function initializeTournamentView(tournamentId) {
             document.querySelector('.view-pane.active')?.classList.remove('active');
             button.classList.add('active');
             document.getElementById(button.dataset.view).classList.add('active');
+            mobileViewSelect.value = button.dataset.view;
         });
     });
 
     mobileViewSelect.addEventListener('change', (event) => {
         const viewId = event.target.value;
-        document.querySelector('.view-pane.active')?.classList.remove('active');
-        document.getElementById(viewId).classList.add('active');
+        document.querySelector(`.view-btn[data-view="${viewId}"]`).click();
     });
 
     if (closeButton) closeButton.addEventListener('click', () => modalEl.classList.add('hidden'));
-    window.addEventListener('click', (event) => { if (event.target == modalEl) modalEl.classList.add('hidden'); });
+    window.addEventListener('click', (event) => { if (event.target === modalEl) modalEl.classList.add('hidden'); });
 
     function renderTournamentState(tournament) {
         if (!tournament) return;
-        if (tournament.status === 'finalizado') {
-            viewSwitcherEl.style.display = 'none';
-            document.querySelector('.mobile-view-switcher').style.display = 'none';
-            const activePane = mainPanelEl.querySelector('.view-pane.active');
-            if(activePane) activePane.classList.remove('active');
-            finishedViewEl.classList.add('active');
-            const finalMatch = tournament.structure.eliminatorias.final;
-            const championLogoEl = document.getElementById('champion-logo'); // Elemento del logo
-
-            if (finalMatch && finalMatch.resultado) {
-                const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
-                const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-                championNameEl.textContent = champion.nombre;
-                
-                // Actualizamos el logo del campeón
-                if (champion.logoUrl) {
-                    championLogoEl.src = champion.logoUrl;
-                    championLogoEl.style.display = 'block';
-                } else {
-                    championLogoEl.style.display = 'none';
-                }
-
-            } else {
-                championNameEl.textContent = "Por determinar";
-            }
-            tournamentNameEl.textContent = `${tournament.nombre} (Finalizado)`;
-            liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
-            return;
-        }
-
-        viewSwitcherEl.style.display = 'flex';
-        finishedViewEl.classList.remove('active');
-        if (!mainPanelEl.querySelector('.view-pane.active')) {
-            mainPanelEl.querySelector('[data-view="classification-view"]').click();
-        }
         
         tournamentNameEl.textContent = tournament.nombre;
         tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
-        renderTeams(tournament);
-        renderClassification(tournament);
-        renderCalendar(tournament);
-        renderBracket(tournament);
-        renderLiveMatches(tournament);
+
+        if (tournament.status === 'finalizado') {
+            document.querySelector('.view-switcher').style.display = 'none';
+            document.querySelector('.mobile-view-switcher').style.display = 'none';
+            document.querySelector('.view-pane.active')?.classList.remove('active');
+            finishedViewEl.classList.add('active');
+            const finalMatch = tournament.structure.eliminatorias.final;
+            if (finalMatch?.resultado) {
+                const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
+                const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
+                championNameEl.textContent = champion.nombre;
+            }
+            liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
+        } else {
+            if (!mainPanelEl.querySelector('.view-pane.active')) {
+                 mainPanelEl.querySelector('[data-view="classification-view"]').click();
+            }
+            renderTeams(tournament);
+            renderClassification(tournament);
+            renderCalendar(tournament);
+            renderBracket(tournament);
+            renderLiveMatches(tournament);
+        }
     }
 
     function renderTeams(tournament) {
@@ -157,17 +129,10 @@ function initializeTournamentView(tournamentId) {
         teams.forEach(team => {
             const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-large" alt="Logo de ${team.nombre}">` : '';
             const isDraftTeam = team.players && team.players.length > 0;
-            let metaHTML = `<div class="team-meta"><span>Capitán: ${team.capitanTag}</span>`;
-            if (team.coCaptainTag) {
-                metaHTML += `<span>Co-Capitán: ${team.coCaptainTag}</span>`;
-            }
-            metaHTML += '</div>';
-            const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@','')}" target="_blank" class="team-link-btn">Twitter</a>` : '';
-            const streamLink = team.streamChannel ? `<a href="${team.streamChannel}" target="_blank" class="team-link-btn">Ver Stream</a>` : '';
-            const linksHTML = (twitterLink || streamLink) ? `<div class="team-links">${twitterLink}${streamLink}</div>` : '';
+            let metaHTML = `<div class="team-meta"><span>Capitán: ${team.capitanTag}</span></div>`;
             const card = document.createElement('div');
             card.className = `team-card-info ${isDraftTeam ? 'is-draft-team' : ''}`;
-            card.innerHTML = `<h3>${logoHtml} ${team.nombre}</h3>${metaHTML}${linksHTML}`;
+            card.innerHTML = `<h3>${logoHtml} ${team.nombre}</h3>${metaHTML}`;
             if (isDraftTeam) {
                 card.addEventListener('click', () => showRosterModal(team));
             }
@@ -182,57 +147,32 @@ function initializeTournamentView(tournamentId) {
             groupsContainerEl.innerHTML = '<p class="placeholder">El sorteo de grupos no se ha realizado.</p>';
             return;
         }
-
-        const sortedGroupNames = Object.keys(groups).sort();
-        
-        sortedGroupNames.forEach(groupName => {
+        Object.keys(groups).sort().forEach(groupName => {
             const group = groups[groupName];
             const sortedTeams = [...group.equipos].sort((a, b) => {
                 if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
                 if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
                 return b.stats.gf - a.stats.gf;
             });
-
             let groupHTML = `<div class="group-container"><h3 class="group-title">${groupName}</h3>`;
-            
             sortedTeams.forEach((team, index) => {
                 const dg = team.stats.dg > 0 ? `+${team.stats.dg}` : team.stats.dg;
                 const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
-                
-                groupHTML += `
-                    <div class="team-stat-card">
-                        <div class="team-info-classification">
-                            <span class="team-position">${index + 1}</span>
-                            ${logoHtml}
-                            <span class="team-name-classification">${team.nombre}</span>
-                        </div>
-                        <div class="team-stats-grid">
-                            <div class="stat-item"><span class="stat-value">${team.stats.pts}</span><span class="stat-label">PTS</span></div>
-                            <div class="stat-item"><span class="stat-value">${team.stats.pj}</span><span class="stat-label">PJ</span></div>
-                            <div class="stat-item"><span class="stat-value">${team.stats.gf}</span><span class="stat-label">GF</span></div>
-                            <div class="stat-item"><span class="stat-value">${team.stats.gc}</span><span class="stat-label">GC</span></div>
-                            <div class="stat-item"><span class="stat-value">${dg}</span><span class="stat-label">DG</span></div>
-                        </div>
-                    </div>
-                `;
+                groupHTML += `<div class="team-stat-card"><div class="team-info-classification"><span class="team-position">${index + 1}</span>${logoHtml}<span class="team-name-classification">${team.nombre}</span></div><div class="team-stats-grid"><div class="stat-item"><span class="stat-value">${team.stats.pts}</span><span class="stat-label">PTS</span></div><div class="stat-item"><span class="stat-value">${team.stats.pj}</span><span class="stat-label">PJ</span></div><div class="stat-item"><span class="stat-value">${team.stats.gf}</span><span class="stat-label">GF</span></div><div class="stat-item"><span class="stat-value">${team.stats.gc}</span><span class="stat-label">GC</span></div><div class="stat-item"><span class="stat-value">${dg}</span><span class="stat-label">DG</span></div></div></div>`;
             });
-
             groupHTML += '</div>';
             groupsContainerEl.innerHTML += groupHTML;
         });
     }
 
     function renderCalendar(tournament) {
-        const groups = tournament.structure.calendario;
         calendarContainerEl.innerHTML = '';
-        if (Object.keys(groups).length === 0) {
-            calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrará cuando comience el torneo.</p>';
+        const groups = tournament.structure.calendario;
+        if (!groups || Object.keys(groups).length === 0) {
+            calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrará aquí.</p>';
             return;
         }
-
-        const sortedGroupNames = Object.keys(groups).sort();
-
-        sortedGroupNames.forEach(groupName => {
+        Object.keys(groups).sort().forEach(groupName => {
             const matches = groups[groupName];
             const matchesByRound = matches.reduce((acc, match) => {
                 const round = `Jornada ${match.jornada}`;
@@ -240,70 +180,44 @@ function initializeTournamentView(tournamentId) {
                 acc[round].push(match);
                 return acc;
             }, {});
-
             let groupHTML = `<div class="calendar-group"><h3>${groupName}</h3>`;
-
             Object.keys(matchesByRound).sort().forEach(roundName => {
                 groupHTML += `<div class="calendar-round"><h4>${roundName}</h4>`;
                 matchesByRound[roundName].forEach(match => {
-                    const teamA = match.equipoA;
-                    const teamB = match.equipoB;
                     const result = match.resultado ? `<div class="match-result">${match.resultado}</div>` : '<div class="match-vs">vs</div>';
-                    const teamALogo = teamA.logoUrl ? `<img src="${teamA.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
-                    const teamBLogo = teamB.logoUrl ? `<img src="${teamB.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
-
-                    groupHTML += `<div class="calendar-match">
-                                    <div class="team-info left"><span>${teamA.nombre}</span>${teamALogo}</div>
-                                    ${result}
-                                    <div class="team-info right">${teamBLogo}<span>${teamB.nombre}</span></div>
-                                  </div>`;
+                    const logoA = match.equipoA.logoUrl ? `<img src="${match.equipoA.logoUrl}" class="team-logo-small">` : `<div class="team-logo-placeholder"></div>`;
+                    const logoB = match.equipoB.logoUrl ? `<img src="${match.equipoB.logoUrl}" class="team-logo-small">` : `<div class="team-logo-placeholder"></div>`;
+                    groupHTML += `<div class="calendar-match"><div class="team-info left">${logoA}<span>${match.equipoA.nombre}</span></div>${result}<div class="team-info right"><span>${match.equipoB.nombre}</span>${logoB}</div></div>`;
                 });
                 groupHTML += `</div>`;
             });
-
             groupHTML += `</div>`;
             calendarContainerEl.innerHTML += groupHTML;
         });
     }
 
     function renderBracket(tournament) {
-        const stages = tournament.config.format.knockoutStages;
         bracketContainerEl.innerHTML = '';
-        if (!stages || !tournament.structure.eliminatorias || tournament.status === 'inscripcion_abierta' || tournament.status === 'fase_de_grupos') {
+        const stages = tournament.config.format.knockoutStages;
+        if (!stages || !tournament.structure.eliminatorias || stages.every(s => !tournament.structure.eliminatorias[s])) {
             bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
             return;
         }
-        
         stages.forEach(stageKey => {
             const matches = tournament.structure.eliminatorias[stageKey];
             if (!matches || (Array.isArray(matches) && matches.length === 0)) return;
             const roundMatches = Array.isArray(matches) ? matches : [matches];
             let roundHTML = `<div class="bracket-round"><div class="bracket-round-title">${stageKey.replace(/_/g, ' ')}</div>`;
             roundMatches.forEach(match => {
-                const teamA = match.equipoA;
-                const teamB = match.equipoB;
-                const teamAName = teamA?.nombre || 'Por definir';
-                const teamBName = teamB?.nombre || 'Por definir';
-                const teamALogo = teamA?.logoUrl ? `<img src="${teamA.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
-                const teamBLogo = teamB?.logoUrl ? `<img src="${teamB.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
-                
-                let scoreA = '', scoreB = '';
+                let [scoreA, scoreB] = match.resultado ? match.resultado.split('-') : ['', ''];
                 let classA = '', classB = '';
                 if (match.resultado) {
-                    [scoreA, scoreB] = match.resultado.split('-');
                     if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
                     else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
                 }
-                roundHTML += `<div class="bracket-match ${classA} ${classB}">
-                                <div class="bracket-team">
-                                    <div class="bracket-team-info">${teamALogo}<span>${teamAName}</span></div>
-                                    <span class="score">${scoreA}</span>
-                                </div>
-                                <div class="bracket-team">
-                                    <div class="bracket-team-info">${teamBLogo}<span>${teamBName}</span></div>
-                                    <span class="score">${scoreB}</span>
-                                </div>
-                             </div>`;
+                const logoA = match.equipoA?.logoUrl ? `<img src="${match.equipoA.logoUrl}" class="bracket-team-logo">` : `<div class="bracket-team-logo-placeholder"></div>`;
+                const logoB = match.equipoB?.logoUrl ? `<img src="${match.equipoB.logoUrl}" class="bracket-team-logo">` : `<div class="bracket-team-logo-placeholder"></div>`;
+                roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><div class="bracket-team-info">${logoA}<span>${match.equipoA?.nombre || 'Por definir'}</span></div><span class="score">${scoreA}</span></div><div class="bracket-team"><div class="bracket-team-info">${logoB}<span>${match.equipoB?.nombre || 'Por definir'}</span></div><span class="score">${scoreB}</span></div></div>`;
             });
             roundHTML += '</div>';
             bracketContainerEl.innerHTML += roundHTML;
@@ -311,45 +225,22 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderLiveMatches(tournament) {
-        const allMatches = [];
-        if (tournament.structure.calendario) {
-            allMatches.push(...Object.values(tournament.structure.calendario).flat());
-        }
-        if (tournament.structure.eliminatorias) {
-            Object.values(tournament.structure.eliminatorias).forEach(stage => {
-                if (Array.isArray(stage)) allMatches.push(...stage);
-                else if (stage && typeof stage === 'object' && stage.matchId) allMatches.push(stage);
-            });
-        }
+        const allMatches = [ ...Object.values(tournament.structure.calendario).flat(), ...Object.values(tournament.structure.eliminatorias).flat().filter(m => m && m.matchId) ];
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
-        
         liveMatchesListEl.innerHTML = '';
         if (liveMatches.length === 0) {
             liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>';
             return;
         }
-
-        const groupedMatches = liveMatches.reduce((acc, match) => {
-            const groupKey = match.nombreGrupo ? `${match.nombreGrupo} - Jornada ${match.jornada}` : match.jornada.charAt(0).toUpperCase() + match.jornada.slice(1);
-            if (!acc[groupKey]) acc[groupKey] = [];
-            acc[groupKey].push(match);
-            return acc;
-        }, {});
-
-        Object.keys(groupedMatches).sort().forEach(groupKey => {
-            let groupHTML = `<div class="live-match-group"><h4>${groupKey}</h4>`;
-            groupedMatches[groupKey].forEach(match => {
-                const teamA = tournament.teams.aprobados[match.equipoA?.capitanId];
-                const teamB = tournament.teams.aprobados[match.equipoB?.capitanId];
-                if (!teamA || !teamB) return;
-                let linksHTML = '';
-                if (teamA.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamA.nombre}</a>`;
-                if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamB.nombre}</a>`;
-                if (!linksHTML) linksHTML = '<p style="font-size: 0.9em; color: #888;">No hay streams disponibles.</p>';
-                groupHTML += `<div class="live-match-card"><div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div><div class="stream-links">${linksHTML}</div></div>`;
-            });
-            groupHTML += '</div>';
-            liveMatchesListEl.innerHTML += groupHTML;
+        liveMatches.forEach(match => {
+            const teamA = tournament.teams.aprobados[match.equipoA.capitanId];
+            const teamB = tournament.teams.aprobados[match.equipoB.capitanId];
+            if (!teamA || !teamB) return;
+            let linksHTML = '';
+            if (teamA.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamA.nombre}</a>`;
+            if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamB.nombre}</a>`;
+            if (!linksHTML) linksHTML = '<p style="font-size: 0.9em; color: #888;">No hay streams disponibles.</p>';
+            liveMatchesListEl.innerHTML += `<div class="live-match-card"><div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div><div class="stream-links">${linksHTML}</div></div>`;
         });
     }
 
@@ -367,6 +258,7 @@ function initializeTournamentView(tournamentId) {
     }
 }
 
+
 function initializeDraftView(draftId) {
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
@@ -375,7 +267,7 @@ function initializeDraftView(draftId) {
     const currentTeamEl = document.getElementById('current-team-draftview');
     const currentPickEl = document.getElementById('current-pick-draftview');
     const playersTableBodyEl = document.getElementById('players-table-body');
-    const positionButtonsContainerEl = document.getElementById('position-buttons-container');
+    const positionFiltersEl = document.getElementById('position-filters');
     const roundPickOrderEl = document.getElementById('round-pick-order');
     const manageTeamTab = document.getElementById('manage-team-tab');
     const rosterManagementContainer = document.getElementById('roster-management-container');
@@ -402,17 +294,13 @@ function initializeDraftView(draftId) {
             if(response.ok) {
                 currentUser = await response.json();
                 if (currentUser) {
-                    const userGreetingEl = document.getElementById('user-greeting-draft');
-                    const userSessionEl = document.getElementById('user-session-draft');
-                    userGreetingEl.textContent = `Hola, ${currentUser.username}`;
-                    userSessionEl.classList.remove('hidden');
+                    document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
+                    document.getElementById('user-session').classList.remove('hidden');
                 }
             }
-        } catch (e) {
-            console.error("Error al verificar la sesión:", e);
-        }
+        } catch (e) { console.error("Error al verificar la sesión:", e); }
     }
-
+    
     function connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         socket = new WebSocket(`${protocol}://${window.location.host}`);
@@ -424,7 +312,7 @@ function initializeDraftView(draftId) {
                 currentDraftState = message.data;
                 if (!hasLoadedInitialData) {
                     loadingEl.classList.add('hidden');
-                    draftContainerEl.classList.remove('hidden');
+                    draftContainerEl.style.display = 'flex';
                     hasLoadedInitialData = true;
                 }
                 const lastPick = currentDraftState.selection.lastPick;
@@ -448,7 +336,7 @@ function initializeDraftView(draftId) {
                 if (data && !hasLoadedInitialData) {
                     currentDraftState = data;
                     loadingEl.classList.add('hidden');
-                    draftContainerEl.classList.remove('hidden');
+                    draftContainerEl.style.display = 'flex';
                     hasLoadedInitialData = true;
                     renderAll();
                 }
@@ -529,7 +417,7 @@ function initializeDraftView(draftId) {
             row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
 
             const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
-            const activeFilterPos = document.querySelector('#position-buttons-container .filter-btn.active')?.dataset.pos || 'Todos';
+            const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
             const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
             const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
             
@@ -547,8 +435,8 @@ function initializeDraftView(draftId) {
     }
 
     function applyTableFilters() {
-        const activeFilterPos = document.querySelector('#position-buttons-container .filter-btn.active')?.dataset.pos || 'Todos';
-        const filterColumn = document.getElementById('filter-column-select').value;
+        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+        const filterColumn = document.getElementById('filter-column-select')?.value || 'primary';
         const rows = playersTableBodyEl.querySelectorAll('tr');
         const table = document.getElementById('players-table');
 
@@ -559,42 +447,25 @@ function initializeDraftView(draftId) {
 
         let hasPrimaryMatchesInData = false;
         if (isMyTurn && activeFilterPos !== 'Todos' && currentDraftState) {
-            hasPrimaryMatchesInData = currentDraftState.players.some(p => 
-                !p.captainId && 
-                !p.isCaptain && 
-                p.primaryPosition === activeFilterPos
-            );
-
-            if (hasPrimaryMatchesInData) {
-                table.classList.add('primary-only');
-            } else {
-                table.classList.add('secondary-only');
-            }
+            hasPrimaryMatchesInData = currentDraftState.players.some(p => !p.captainId && !p.isCaptain && p.primaryPosition === activeFilterPos);
+            if (hasPrimaryMatchesInData) table.classList.add('primary-only');
+            else table.classList.add('secondary-only');
         }
 
         rows.forEach(row => {
             const primaryPos = row.dataset.primaryPos;
             const secondaryPos = row.dataset.secondaryPos;
-            
             let isVisible = false;
-            if (activeFilterPos === 'Todos') {
-                isVisible = true;
-            } else {
+            if (activeFilterPos === 'Todos') isVisible = true;
+            else {
                 if (isMyTurn) {
-                    if (hasPrimaryMatchesInData) {
-                        if (primaryPos === activeFilterPos) isVisible = true;
-                    } else {
-                        if (secondaryPos === activeFilterPos) isVisible = true;
-                    }
+                    if (hasPrimaryMatchesInData) { if (primaryPos === activeFilterPos) isVisible = true; } 
+                    else { if (secondaryPos === activeFilterPos) isVisible = true; }
                 } else {
-                    if (filterColumn === 'primary' && primaryPos === activeFilterPos) {
-                        isVisible = true;
-                    } else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
-                        isVisible = true;
-                    }
+                    if (filterColumn === 'primary' && primaryPos === activeFilterPos) isVisible = true;
+                    else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) isVisible = true;
                 }
             }
-            
             row.style.display = isVisible ? '' : 'none';
         });
     }
@@ -610,13 +481,10 @@ function initializeDraftView(draftId) {
         playersTableBodyEl.addEventListener('click', (event) => {
             if (event.target.classList.contains('pick-btn')) {
                 const playerId = event.target.dataset.playerId;
-                let activeFilterPos = document.querySelector('#position-buttons-container .filter-btn.active')?.dataset.pos;
-
+                let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
                 if (!activeFilterPos || activeFilterPos === 'Todos') {
-                    const playerRow = event.target.closest('tr');
-                    activeFilterPos = playerRow.dataset.primaryPos;
+                    activeFilterPos = event.target.closest('tr').dataset.primaryPos;
                 }
-
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
                     document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
@@ -624,57 +492,35 @@ function initializeDraftView(draftId) {
             }
         });
         
-        const mobileDraftSelect = document.getElementById('mobile-draft-view-select');
-        if (mobileDraftSelect) {
-            mobileDraftSelect.addEventListener('change', (event) => {
-                const viewId = event.target.value;
-                document.querySelector('.draft-view-pane.active')?.classList.remove('active');
-                const newView = document.getElementById(viewId);
-                if (newView) {
-                    newView.classList.add('active');
-                }
-            });
-        }
-        
         rosterManagementContainer.addEventListener('click', (event) => {
             const target = event.target;
             const playerId = target.dataset.playerId;
-
             if (target.classList.contains('btn-strike')) {
-                const reason = prompt("Por favor, introduce un motivo breve para el strike (ej: inactividad, toxicidad):");
-                if (reason && reason.trim() !== '') {
+                const reason = prompt("Motivo del strike (ej: inactividad, toxicidad):");
+                if (reason?.trim()) {
                     socket.send(JSON.stringify({ type: 'report_player', draftId, playerId, reason: reason.trim() }));
                     target.disabled = true;
                     target.textContent = 'Reportado';
                 }
             }
-
             if (target.classList.contains('btn-kick')) {
-                const reason = prompt("Por favor, introduce un motivo breve para la solicitud de expulsión:");
-                if (reason && reason.trim() !== '') {
+                const reason = prompt("Motivo de la solicitud de expulsión:");
+                if (reason?.trim()) {
                     socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason: reason.trim() }));
                     target.disabled = true;
                     target.textContent = 'Solicitado';
                 }
             }
         });
-        document.querySelectorAll('.sub-nav-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelector('.sub-nav-btn.active')?.classList.remove('active');
-                btn.classList.add('active');
-                document.querySelectorAll('.sub-view-pane').forEach(pane => {
-                    pane.style.display = 'none';
-                });
-                const viewId = btn.dataset.view;
-                document.getElementById(viewId).style.display = 'flex';
-            });
-        });
     }
 
     function setupFilters() {
-        if (positionButtonsContainerEl.innerHTML !== '') return;
-        const select = document.getElementById('filter-column-select');
+        if (positionFiltersEl.querySelector('.filter-btn')) return;
+        const select = document.createElement('select');
+        select.id = 'filter-column-select';
+        select.innerHTML = `<option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option>`;
         select.addEventListener('change', applyTableFilters);
+        positionFiltersEl.appendChild(select);
 
         const allPositions = ['Todos', ...positionOrder];
         allPositions.forEach(pos => {
@@ -684,56 +530,44 @@ function initializeDraftView(draftId) {
             btn.textContent = pos;
             if (pos === 'Todos') btn.classList.add('active');
             btn.addEventListener('click', () => {
-                document.querySelectorAll('#position-buttons-container .filter-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 applyTableFilters();
             });
-            positionButtonsContainerEl.appendChild(btn);
+            positionFiltersEl.appendChild(btn);
         });
     }
     
     function renderTeamManagementView(draft) {
-    const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
-    if (!myCaptainData) {
-        rosterManagementContainer.innerHTML = '<p class="placeholder">No se encontraron datos de tu equipo.</p>';
-        return;
-    }
+        const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
+        if (!myCaptainData) {
+            rosterManagementContainer.innerHTML = '<p class="placeholder">No se encontraron datos de tu equipo.</p>';
+            return;
+        }
+        managementTeamName.textContent = myCaptainData.teamName;
+        rosterManagementContainer.innerHTML = '';
+        const myTeamPlayers = draft.players.filter(p => p.captainId === currentUser.id).sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
 
-    managementTeamName.textContent = myCaptainData.teamName;
-    rosterManagementContainer.innerHTML = '';
-    const myTeamPlayers = draft.players
-        .filter(p => p.captainId === currentUser.id)
-        .sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
-
-    if (draft.status === 'seleccion') {
-        let rosterHtml = '';
-        if (myTeamPlayers.length > 0) {
-            myTeamPlayers.forEach(player => {
+        if (draft.status === 'seleccion') {
+            let rosterHtml = myTeamPlayers.map(player => {
                 const isCaptainIcon = player.isCaptain ? '👑' : '';
-                let positionDisplay = player.pickedForPosition || player.primaryPosition;
-                rosterHtml += `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${positionDisplay}</span></li>`;
-            });
+                return `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${player.pickedForPosition || player.primaryPosition}</span></li>`;
+            }).join('');
+            rosterManagementContainer.innerHTML = `<div class="team-roster-simple"><h2>Plantilla en Progreso</h2><ul>${rosterHtml || '<li>Aún no has seleccionado jugadores.</li>'}</ul></div>`;
         } else {
-            rosterHtml = '<li>Aún no has seleccionado a ningún jugador.</li>';
-        }
-        rosterManagementContainer.innerHTML = `<div class="team-roster-simple"><h2>Plantilla en Progreso</h2><ul>${rosterHtml}</ul></div>`;
-
-    } else {
-        const playersToManage = myTeamPlayers.filter(p => !p.isCaptain);
-        if (playersToManage.length > 0) {
-            playersToManage.forEach(player => {
-                const card = document.createElement('div');
-                card.className = 'player-management-card';
-                const strikes = player.strikes || 0;
-                const hasBeenReported = player.hasBeenReportedByCaptain || false;
-                card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${strikes}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>Reportar (Strike)</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
-                rosterManagementContainer.appendChild(card);
-            });
-        } else {
-             rosterManagementContainer.innerHTML = '<p class="placeholder">Tu plantilla final no tiene jugadores para gestionar.</p>';
+            const playersToManage = myTeamPlayers.filter(p => !p.isCaptain);
+            if (playersToManage.length > 0) {
+                playersToManage.forEach(player => {
+                    const card = document.createElement('div');
+                    card.className = 'player-management-card';
+                    card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${player.strikes || 0}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${player.hasBeenReportedByCaptain ? 'disabled' : ''}>Reportar (Strike)</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
+                    rosterManagementContainer.appendChild(card);
+                });
+            } else {
+                rosterManagementContainer.innerHTML = '<p class="placeholder">Tu plantilla final no tiene jugadores para gestionar.</p>';
+            }
         }
     }
-}
 
     function sortPlayersAdvanced(a, b) {
         const posIndexA = positionOrder.indexOf(a.primaryPosition);
@@ -752,14 +586,7 @@ function initializeDraftView(draftId) {
         const startPickOfRound = currentRound * numCaptains;
         for (let i = 0; i < numCaptains; i++) {
             const pickNumber = startPickOfRound + i + 1;
-            let pickIndexInOrder;
-
-            if ((currentRound + 1) % 2 !== 0) {
-                pickIndexInOrder = i;
-            } else {
-                pickIndexInOrder = numCaptains - 1 - i;
-            }
-
+            let pickIndexInOrder = (currentRound % 2 === 0) ? i : numCaptains - 1 - i;
             const captainId = draft.selection.order[pickIndexInOrder];
             const captain = draft.captains.find(c => c.userId === captainId);
             const item = document.createElement('div');
@@ -783,7 +610,7 @@ function initializeDraftView(draftId) {
         }, 4500);
 
         const bannerEl = document.getElementById('last-pick-banner');
-        bannerEl.innerHTML = `<strong>Último Pick:</strong> ${player.psnId} ➔ ${captain.teamName}`;
+        bannerEl.textContent = `Último Pick: ${player.psnId} ➔ ${captain.teamName}`;
         bannerEl.classList.add('visible');
     }
 
