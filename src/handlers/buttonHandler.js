@@ -481,16 +481,18 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'captain_request_kick') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, teamId, playerIdToKick] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-
-        try {
-            await requestPlayerKick(client, draft, teamId, playerIdToKick);
-            await interaction.editReply({ content: '✅ Tu solicitud para expulsar al jugador ha sido enviada a los administradores para su revisión.' });
-        } catch (error) {
-            await interaction.editReply({ content: `❌ Error: ${error.message}` });
-        }
+        const modal = new ModalBuilder()
+            .setCustomId(`request_kick_modal:${draftShortId}:${teamId}:${playerIdToKick}`)
+            .setTitle('Solicitar Expulsión de Jugador');
+        const reasonInput = new TextInputBuilder()
+            .setCustomId('reason_input')
+            .setLabel("Motivo de la Expulsión")
+            .setPlaceholder("Ej: Inactividad total, toxicidad, etc.")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+        await interaction.showModal(modal);
         return;
     }
     
