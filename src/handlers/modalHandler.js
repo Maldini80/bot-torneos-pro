@@ -43,10 +43,12 @@ export async function handleModal(interaction) {
             return interaction.editReply({ content: `❌ Ya tienes un ticket de verificación abierto aquí: <#${existingTicket.channelId}>` });
         }
 
+        // --- CÓDIGO NUEVO Y MEJORADO ---
         try {
+            // 1. CREA EL CANAL PRIVADO PARA EL USUARIO (esto no cambia)
             const ticketChannel = await guild.channels.create({
                 name: `verificacion-${user.username}`,
-                type: ChannelType.GuildText, // <-- ESTO AHORA FUNCIONARÁ
+                type: ChannelType.GuildText,
                 parent: VERIFICATION_TICKET_CATEGORY_ID,
                 permissionOverwrites: [
                     { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
@@ -55,36 +57,61 @@ export async function handleModal(interaction) {
                 reason: `Ticket de verificación para ${user.tag}`
             });
 
-            const summaryEmbed = new EmbedBuilder()
+            // 2. ENVÍA LA NOTIFICACIÓN AL CANAL DE ADMINS
+            const adminApprovalChannel = await guild.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID).catch(() => null);
+            let adminNotificationMessageId = null; // Variable para guardar el ID del aviso
+
+            if (adminApprovalChannel) {
+                const adminNotificationEmbed = new EmbedBuilder()
+                    .setColor('#f1c40f')
+                    .setTitle('🔎 Nueva Solicitud de Verificación Pendiente')
+                    .setDescription(`El usuario <@${user.id}> ha abierto un ticket.`)
+                    .addFields(
+                        { name: 'Usuario', value: user.tag, inline: true },
+                        { name: 'Plataforma', value: platform.toUpperCase(), inline: true }
+                    );
+
+                const goToChannelButton = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setLabel('Ir al Ticket')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(ticketChannel.url) // Enlace directo al canal
+                );
+                
+                const adminMessage = await adminApprovalChannel.send({ embeds: [adminNotificationEmbed], components: [goToChannelButton] });
+                adminNotificationMessageId = adminMessage.id; // Guardamos el ID del aviso
+            }
+
+            // 3. ENVÍA EL RESUMEN Y LOS BOTONES DE ACCIÓN DENTRO DEL CANAL PRIVADO
+            const summaryEmbedInTicket = new EmbedBuilder()
                 .setColor('#f1c40f')
                 .setTitle('🔎 Nueva Solicitud de Verificación')
                 .addFields(
                     { name: 'Usuario', value: `<@${user.id}> (${user.tag})`, inline: false },
-                    { name: 'Plataforma Seleccionada', value: platform.toUpperCase(), inline: true },
-                    { name: 'ID de Juego Declarado', value: `\`${gameId}\``, inline: true },
-                    { name: 'Twitter Declarado', value: `\`${twitter}\``, inline: true }
+                    { name: 'Plataforma', value: platform.toUpperCase(), inline: true },
+                    { name: 'ID de Juego', value: `\`${gameId}\``, inline: true },
+                    { name: 'Twitter', value: `\`${twitter}\``, inline: true }
                 );
-            
+
             const claimButton = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId(`claim_verification_ticket:${ticketChannel.id}`)
                     .setLabel('Reclamar Ticket')
                     .setStyle(ButtonStyle.Primary)
-                    .setEmoji('🙋')
             );
-
-            await ticketChannel.send({ embeds: [summaryEmbed], components: [claimButton] });
-
-            const uniqueCode = `${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
             
+            await ticketChannel.send({ embeds: [summaryEmbedInTicket], components: [claimButton] });
+
+            // 4. ENVÍA LAS INSTRUCCIONES AL USUARIO (esto no cambia)
+            const uniqueCode = `${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
             const instructionsEmbed = new EmbedBuilder()
                 .setColor('#3498db')
                 .setTitle('¡Bienvenido a tu Canal de Verificación!')
-                .setDescription(`Tu **código de verificación único** es: **\`${uniqueCode}\`**\n\nPor favor, edita la biografía/estado de tu perfil en **${platform.toUpperCase()}** para que contenga este código. Luego, envía una **captura de pantalla completa** en este canal donde se vea claramente tu **ID de Juego** y el **código**.\n\nUn administrador la revisará en breve.`)
-                .setFooter({ text: 'Este proceso solo se realiza una vez.' });
+                .setDescription(`Tu **código de verificación único** es: **\`${uniqueCode}\`**\n\nPor favor, edita la biografía/estado de tu perfil en **${platform.toUpperCase()}** para que contenga este código. Luego, envía una **captura de pantalla completa** en este canal donde se vea claramente tu **ID de Juego** y el **código**.`);
             
             await ticketChannel.send({ content: `<@${user.id}>`, embeds: [instructionsEmbed] });
 
+            // 5. GUARDA TODO EN LA BASE DE DATOS, INCLUYENDO EL ID DEL AVISO
             await db.collection('verificationtickets').insertOne({
                 userId: user.id,
                 guildId: guild.id,
@@ -96,6 +123,7 @@ export async function handleModal(interaction) {
                 status: 'pending',
                 claimedBy: null,
                 createdAt: new Date(),
+                adminNotificationMessageId: adminNotificationMessageId // <-- Campo nuevo y clave
             });
 
             await interaction.editReply({ content: `✅ ¡Perfecto! Hemos creado un canal privado para ti. Por favor, continúa aquí: ${ticketChannel.toString()}` });
