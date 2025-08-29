@@ -538,52 +538,21 @@ export async function handleButton(interaction) {
     if (action === 'admin_invite_replacement_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, teamId, kickedPlayerId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-        const freeAgents = draft.players.filter(p => !p.captainId && !p.isCaptain).sort((a, b) => a.psnId.localeCompare(b.psnId));
-        if (freeAgents.length === 0) {
-            return interaction.editReply({ content: 'No hay agentes libres disponibles para invitar.' });
-        }
+        const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+            label: value,
+            value: key
+        }));
 
-        const pageSize = 25;
-        if (freeAgents.length > pageSize) {
-            const pageCount = Math.ceil(freeAgents.length / pageSize);
-            const pageOptions = [];
-            for (let i = 0; i < pageCount; i++) {
-                const start = i * pageSize + 1;
-                const end = Math.min((i + 1) * pageSize, freeAgents.length);
-                pageOptions.push({
-                    label: `Página ${i + 1} (${start}-${end})`,
-                    value: `page_${i}`,
-                });
-            }
+        const positionMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_replacement_position:${draftShortId}:${teamId}:${kickedPlayerId}`)
+            .setPlaceholder('Paso 1: Selecciona la posición a cubrir')
+            .addOptions(positionOptions);
 
-            const pageMenu = new StringSelectMenuBuilder()
-                .setCustomId(`admin_invite_replacement_page_select:${draftShortId}:${teamId}:${kickedPlayerId}`)
-                .setPlaceholder('Selecciona una página de agentes libres')
-                .addOptions(pageOptions);
-
-            await interaction.editReply({
-                content: `Hay demasiados agentes libres para mostrarlos todos. Por favor, selecciona una página:`,
-                components: [new ActionRowBuilder().addComponents(pageMenu)]
-            });
-        } else {
-            const agentOptions = freeAgents.map(p => ({
-                label: p.psnId,
-                description: `Pos: ${p.primaryPosition}`,
-                value: p.userId
-            }));
-
-            const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId(`captain_invite_replacement_select:${draftShortId}:${teamId}:${kickedPlayerId}`)
-                .setPlaceholder('Selecciona un agente libre para invitar')
-                .addOptions(agentOptions);
-
-            await interaction.editReply({
-                content: `Selecciona un jugador de la lista de agentes libres para invitarlo como reemplazo:`,
-                components: [new ActionRowBuilder().addComponents(selectMenu)]
-            });
-        }
+        await interaction.editReply({
+            content: 'Por favor, selecciona la posición del jugador que deseas buscar como reemplazo:',
+            components: [new ActionRowBuilder().addComponents(positionMenu)]
+        });
         return;
     }
 
