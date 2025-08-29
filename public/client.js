@@ -109,10 +109,21 @@ function initializeTournamentView(tournamentId) {
             if(activePane) activePane.classList.remove('active');
             finishedViewEl.classList.add('active');
             const finalMatch = tournament.structure.eliminatorias.final;
+            const championLogoEl = document.getElementById('champion-logo'); // Elemento del logo
+
             if (finalMatch && finalMatch.resultado) {
                 const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
                 const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
                 championNameEl.textContent = champion.nombre;
+                
+                // Actualizamos el logo del campeón
+                if (champion.logoUrl) {
+                    championLogoEl.src = champion.logoUrl;
+                    championLogoEl.style.display = 'block';
+                } else {
+                    championLogoEl.style.display = 'none';
+                }
+
             } else {
                 championNameEl.textContent = "Por determinar";
             }
