@@ -3,7 +3,8 @@
 import mongoose from 'mongoose';
 import Team from '../../src/models/team.js';
 import { getDb, updateBotSettings } from '../../database.js';
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, reportPlayer, notifyTournamentVisualizer, notifyVisualizer } from '../logic/tournamentLogic.js';
+// --- CÓDIGO MODIFICADO Y CORRECTO ---
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, notifyTournamentVisualizer, notifyVisualizer } from '../logic/tournamentLogic.js';
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 // --- LÍNEA CORREGIDA Y COMPLETA ---
@@ -251,8 +252,8 @@ export async function handleModal(interaction) {
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
         try {
-            await reportPlayer(client, draft, interaction.user.id, teamId, playerId, reason);
-            await interaction.editReply({ content: '✅ Tu reporte ha sido enviado y se ha añadido un strike al jugador.' });
+            await requestStrike(client, draft, interaction.user.id, teamId, playerId, reason);
+            await interaction.editReply({ content: '✅ Tu solicitud de strike ha sido enviada a los administradores.' });
         } catch (error) {
             console.error(error);
             await interaction.editReply({ content: `❌ Error al reportar: ${error.message}` });
