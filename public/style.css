@@ -212,7 +212,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 /* === DRAFT VIEW === */
 .content-grid-draftview { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; flex-grow: 1; overflow: hidden; }
 .mobile-sub-nav { display: none; }
-#mobile-draft-view-switcher { display: none; }
+#mobile-draft-view-switcher { display: none !important; }
 #teams-container-draftview, #available-players-container-draftview { display: flex; flex-direction: column; overflow: hidden; }
 #teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
 .players-table-container, #teams-grid { overflow-y: auto; flex-grow: 1; }
