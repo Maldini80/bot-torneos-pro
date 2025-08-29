@@ -598,7 +598,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 }
 
 .mobile-only {
-    display: flex;
+    display: block;
 }
 
 @media (min-width: 768px) {
@@ -607,7 +607,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     }
     
     .desktop-only {
-        display: flex;
+        display: block;
     }
 }
 }
