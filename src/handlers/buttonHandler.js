@@ -1955,4 +1955,50 @@ export async function handleButton(interaction) {
             ephemeral: true
         });
     }
+	if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
+        await interaction.deferUpdate();
+        const wasApproved = action === 'admin_strike_approve';
+        
+        const originalMessage = interaction.message;
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        const disabledRow = ActionRowRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+
+        if (wasApproved) {
+            const [, draftShortId, reportedId, reporterId, reason] = params;
+            const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+            const reporter = draft.captains.find(c => c.userId === reporterId);
+            const reportedUser = await client.users.fetch(reportedId).catch(() => null);
+
+            await db.collection('player_records').findOneAndUpdate(
+                { userId: reportedId },
+                { $inc: { strikes: 1 } },
+                { upsert: true }
+            );
+
+            if (reportedUser) {
+                const dmEmbed = new EmbedBuilder()
+                    .setColor('#e74c3c')
+                    .setTitle('🚨 Has recibido un Strike')
+                    .setDescription(`Has sido reportado por tu capitán **${reporter.psnId}** en el draft **${draft.name}**.`)
+                    .addFields({ name: 'Motivo del Strike', value: reason.replace(/;/g, ':') })
+                    .setFooter({ text: 'Si crees que es un error, contacta a un árbitro.' });
+                await reportedUser.send({ embeds: [dmEmbed] }).catch(e => console.warn(`No se pudo notificar al jugador ${reportedId} del strike.`));
+            }
+            
+            originalEmbed.setColor('#2ecc71').setFooter({ text: `Strike aprobado por ${interaction.user.tag}` });
+            await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+            await interaction.followUp({ content: '✅ Strike aprobado y jugador notificado.', flags: [MessageFlags.Ephemeral] });
+
+        } else { // Rechazado
+            const [, draftShortId, reporterId] = params;
+            const reporter = await client.users.fetch(reporterId).catch(() => null);
+            if (reporter) await reporter.send('❌ Tu solicitud de strike ha sido rechazada por un administrador.');
+            
+            originalEmbed.setColor('#e74c3c').setFooter({ text: `Solicitud rechazada por ${interaction.user.tag}` });
+            await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+            await interaction.followUp({ content: '❌ Solicitud de strike rechazada.', flags: [MessageFlags.Ephemeral] });
+        }
+        return;
+    }
 }
