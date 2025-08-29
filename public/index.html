@@ -125,13 +125,23 @@
             <button class="draft-view-btn" data-view="draft-manage-team-view" id="manage-team-tab" style="display: none;">Gestionar Mi Equipo</button>
         </nav>
 
+        <!-- CÓDIGO NUEVO Y MEJORADO -->
         <div id="draft-live-view" class="draft-view-pane active">
+
+            <!-- ESTE ES EL NUEVO MENÚ PARA MÓVILES -->
+            <div class="mobile-sub-nav">
+                <button class="sub-nav-btn active" data-view="available-players-container-draftview">Ver Jugadores</button>
+                <button class="sub-nav-btn" data-view="teams-container-draftview">Ver Equipos</button>
+            </div>
+            
             <div class="content-grid-draftview">
-                <div id="teams-container-draftview" class="animated-border">
+                <!-- La clase "sub-view-pane" es la nueva etiqueta que añadimos aquí -->
+                <div id="teams-container-draftview" class="animated-border sub-view-pane">
                     <div class="legend" style="text-align: center; margin-bottom: 10px; font-style: italic;">* = Fichado por Pos. Secundaria</div>
                     <div id="teams-grid"></div>
                 </div>
-                <div id="available-players-container-draftview" class="animated-border">
+                <!-- Y también añadimos la etiqueta "sub-view-pane" aquí -->
+                <div id="available-players-container-draftview" class="animated-border sub-view-pane">
                     <h2>Jugadores Disponibles</h2>
                     <div id="position-filters"></div>
                     <div class="legend">🛡️ Con Equipo | 🔎 Agente Libre</div>
