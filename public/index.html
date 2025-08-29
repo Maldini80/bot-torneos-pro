@@ -22,7 +22,7 @@
 
     <!-- Tournament Container -->
     <div id="app-container" class="hidden">
-        <!-- Tournament Header with Banner Background -->
+        <!-- Tournament Header -->
         <header class="tournament-header">
             <div class="header-banner">
                 <div class="header-content">
@@ -35,6 +35,7 @@
                     </div>
                     
                     <div class="header-right">
+                        <!-- AUTH CONTROLS PARA TORNEOS -->
                         <div id="auth-controls">
                             <div id="user-session" class="hidden">
                                 <span id="user-greeting"></span>
@@ -47,7 +48,7 @@
         </header>
 
         <!-- Mobile Navigation -->
-        <div class="mobile-navigation">
+        <div class="mobile-navigation mobile-view-switcher">
             <select id="mobile-view-select" class="mobile-selector">
                 <option value="classification-view">🏆 Clasificación</option>
                 <option value="teams-view">👥 Equipos</option>
@@ -56,73 +57,74 @@
             </select>
         </div>
 
-        <!-- Desktop Navigation -->
-        <nav class="desktop-navigation">
-            <div class="nav-container">
-                <button class="nav-btn active view-btn" data-view="classification-view">
-                    <span class="nav-icon">🏆</span>
-                    <span class="nav-text">Clasificación</span>
-                </button>
-                <button class="nav-btn view-btn" data-view="teams-view">
-                    <span class="nav-icon">👥</span>
-                    <span class="nav-text">Equipos</span>
-                </button>
-                <button class="nav-btn view-btn" data-view="calendar-view">
-                    <span class="nav-icon">📅</span>
-                    <span class="nav-text">Calendario</span>
-                </button>
-                <button class="nav-btn view-btn" data-view="bracket-view">
-                    <span class="nav-icon">🏅</span>
-                    <span class="nav-text">Eliminatorias</span>
-                </button>
-            </div>
-        </nav>
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Main Panel -->
+            <main id="main-panel" class="content-container">
+                <!-- Desktop Navigation -->
+                <nav class="desktop-navigation view-switcher">
+                    <div class="nav-container">
+                        <button class="nav-btn view-btn active" data-view="classification-view">
+                            <span class="nav-icon">🏆</span>
+                            <span class="nav-text">Clasificación</span>
+                        </button>
+                        <button class="nav-btn view-btn" data-view="teams-view">
+                            <span class="nav-icon">👥</span>
+                            <span class="nav-text">Equipos</span>
+                        </button>
+                        <button class="nav-btn view-btn" data-view="calendar-view">
+                            <span class="nav-icon">📅</span>
+                            <span class="nav-text">Calendario</span>
+                        </button>
+                        <button class="nav-btn view-btn" data-view="bracket-view">
+                            <span class="nav-icon">🏅</span>
+                            <span class="nav-text">Eliminatorias</span>
+                        </button>
+                    </div>
+                </nav>
 
-        <!-- Main Content with Custom Background -->
-        <main class="main-content">
-            <div class="content-container">
                 <!-- Classification View -->
-                <section id="classification-view" class="content-view view-pane active">
+                <div id="classification-view" class="content-view view-pane active">
                     <div class="view-header">
                         <h2 class="view-title">CLASIFICACIÓN GENERAL</h2>
                     </div>
                     <div id="groups-container" class="groups-grid">
-                        <!-- Groups will be loaded here -->
+                        <!-- Groups will be loaded here by client.js -->
                     </div>
-                </section>
+                </div>
 
                 <!-- Teams View -->
-                <section id="teams-view" class="content-view view-pane">
+                <div id="teams-view" class="content-view view-pane">
                     <div class="view-header">
                         <h2 class="view-title">EQUIPOS PARTICIPANTES</h2>
                     </div>
                     <div id="team-list-container" class="teams-grid">
-                        <!-- Teams will be loaded here -->
+                        <!-- Teams will be loaded here by client.js -->
                     </div>
-                </section>
+                </div>
 
                 <!-- Calendar View -->
-                <section id="calendar-view" class="content-view view-pane">
+                <div id="calendar-view" class="content-view view-pane">
                     <div class="view-header">
                         <h2 class="view-title">CALENDARIO DE PARTIDOS</h2>
                     </div>
                     <div id="calendar-container" class="calendar-grid">
-                        <!-- Calendar will be loaded here -->
+                        <!-- Calendar will be loaded here by client.js -->
                     </div>
-                </section>
+                </div>
 
                 <!-- Bracket View -->
-                <section id="bracket-view" class="content-view view-pane">
+                <div id="bracket-view" class="content-view view-pane">
                     <div class="view-header">
                         <h2 class="view-title">ELIMINATORIAS</h2>
                     </div>
                     <div id="bracket-container" class="bracket-wrapper">
-                        <!-- Bracket will be loaded here -->
+                        <!-- Bracket will be loaded here by client.js -->
                     </div>
-                </section>
+                </div>
 
                 <!-- Finished View -->
-                <section id="finished-view" class="content-view view-pane">
+                <div id="finished-view" class="content-view view-pane">
                     <div class="champion-container">
                         <h2 class="champion-title">🏆 TORNEO FINALIZADO 🏆</h2>
                         <div id="champion-card" class="champion-card">
@@ -135,22 +137,22 @@
                             La nueva temporada comienza pronto...
                         </div>
                     </div>
-                </section>
-            </div>
+                </div>
+            </main>
 
             <!-- Live Match Sidebar -->
             <aside id="live-match-sidebar" class="live-sidebar">
                 <h2 class="sidebar-title">🔴 EN VIVO</h2>
                 <div id="live-matches-list" class="live-matches-grid">
-                    <!-- Live matches will be loaded here -->
+                    <!-- Live matches will be loaded here by client.js -->
                 </div>
             </aside>
-        </main>
+        </div>
     </div>
 
     <!-- Draft Container -->
     <div id="draft-container" class="hidden">
-        <!-- Draft Header with Custom Banner -->
+        <!-- Draft Header -->
         <header class="draft-header">
             <div class="draft-banner">
                 <div class="draft-banner-content">
@@ -162,10 +164,11 @@
                         </div>
                     </div>
                     
+                    <!-- AUTH CONTROLS PARA DRAFTS (SEPARADOS) -->
                     <div class="draft-header-right">
-                        <div id="auth-controls">
-                            <div id="user-session" class="hidden">
-                                <span id="user-greeting"></span>
+                        <div id="auth-controls-draft">
+                            <div id="user-session-draft" class="hidden">
+                                <span id="user-greeting-draft"></span>
                                 <a href="/logout" class="logout-btn">Cerrar Sesión</a>
                             </div>
                         </div>
@@ -175,7 +178,7 @@
                 <!-- Draft Status Info -->
                 <div class="draft-status-bar">
                     <div id="round-info-draftview" class="round-info">
-                        Ronda <span id="current-round-draftview">1</span> - Pick <span id="current-pick-number-draftview">1</span>
+                        Ronda <span id="current-round-draftview">1</span> de <span id="current-pick-number-draftview">10</span>
                     </div>
                     <div id="current-pick-info-draftview" class="current-pick-info">
                         Turno de <span id="current-team-draftview">Equipo</span> - Pick <span id="current-pick-draftview">#1</span>
@@ -183,10 +186,10 @@
                 </div>
 
                 <!-- Pick Order Display -->
-                <div id="round-pick-order" class="pick-order-display hidden">
+                <div id="round-pick-order" class="pick-order-display">
                     <h3 class="pick-order-title">ORDEN DE PICKS</h3>
                     <div id="pick-order-list" class="pick-order-list">
-                        <!-- Pick order will be displayed here -->
+                        <!-- Pick order will be displayed here by client.js -->
                     </div>
                 </div>
 
@@ -199,14 +202,6 @@
 
         <!-- Draft Navigation -->
         <div class="draft-navigation">
-            <!-- Mobile Draft Navigation -->
-            <div class="mobile-draft-nav">
-                <select id="mobile-draft-view-select" class="mobile-selector">
-                    <option value="draft-live-view">⚡ Draft en Vivo</option>
-                    <option value="draft-manage-team-view">👥 Gestionar Equipo</option>
-                </select>
-            </div>
-
             <!-- Desktop Draft Navigation -->
             <div class="desktop-draft-nav">
                 <div class="nav-container">
@@ -214,23 +209,11 @@
                         <span class="nav-icon">⚡</span>
                         <span class="nav-text">Draft en Vivo</span>
                     </button>
-                    <button class="draft-nav-btn draft-view-btn" id="manage-team-tab" data-view="draft-manage-team-view">
+                    <button class="draft-nav-btn draft-view-btn" id="manage-team-tab" data-view="draft-manage-team-view" style="display: none;">
                         <span class="nav-icon">👥</span>
                         <span class="nav-text">Gestionar Equipo</span>
                     </button>
                 </div>
-            </div>
-
-            <!-- Mobile Sub Navigation for Draft Live -->
-            <div class="mobile-sub-nav">
-                <button class="sub-nav-btn active" data-view="teams-container-draftview">
-                    <span class="sub-nav-icon">👥</span>
-                    <span class="sub-nav-text">Equipos</span>
-                </button>
-                <button class="sub-nav-btn" data-view="available-players-container-draftview">
-                    <span class="sub-nav-icon">⚡</span>
-                    <span class="sub-nav-text">Jugadores</span>
-                </button>
             </div>
         </div>
 
@@ -240,7 +223,7 @@
             <section id="draft-live-view" class="draft-view-section draft-view-pane active">
                 <div class="draft-content-grid">
                     <!-- Teams Section -->
-                    <div id="teams-container-draftview" class="draft-section teams-section sub-view-pane">
+                    <div id="teams-container-draftview" class="draft-section teams-section">
                         <div class="section-header">
                             <h2 class="section-title">EQUIPOS Y ROSTERS</h2>
                         </div>
@@ -248,22 +231,27 @@
                             * = Fichado por Pos. Secundaria
                         </div>
                         <div id="teams-grid" class="teams-draft-grid">
-                            <!-- Teams will be loaded here -->
+                            <!-- Teams will be loaded here by client.js -->
                         </div>
                     </div>
 
                     <!-- Players Section -->
-                    <div id="available-players-container-draftview" class="draft-section players-section sub-view-pane">
+                    <div id="available-players-container-draftview" class="draft-section players-section">
                         <div class="section-header">
                             <h2 class="section-title">JUGADORES DISPONIBLES</h2>
                         </div>
 
-                        <!-- Position Filters -->
+                        <!-- FILTROS COMPLETOS CON TODOS LOS ELEMENTOS -->
                         <div id="position-filters" class="position-filters">
-                            <!-- Position filters will be created dynamically -->
+                            <!-- ELEMENTO FALTANTE: filter-column-select -->
+                            <select id="filter-column-select" style="display: none;">
+                                <option value="primary">Filtrar por Pos. Primaria</option>
+                                <option value="secondary">Filtrar por Pos. Secundaria</option>
+                            </select>
+                            <!-- Los botones de filtro se crean dinámicamente por client.js -->
                         </div>
 
-                        <div class="players-legend">
+                        <div class="players-legend legend">
                             🛡️ Con Equipo | 🔎 Agente Libre
                         </div>
 
@@ -280,7 +268,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="players-table-body">
-                                    <!-- Players rows will be added here -->
+                                    <!-- Players rows will be added here by client.js -->
                                 </tbody>
                             </table>
                         </div>
@@ -293,7 +281,7 @@
                 <div class="team-management-container">
                     <h2 id="management-team-name" class="management-title">GESTIÓN DE EQUIPO</h2>
                     <div id="roster-management-container" class="roster-management">
-                        <!-- Team management interface will be loaded here -->
+                        <!-- Team management interface will be loaded here by client.js -->
                     </div>
                 </div>
             </section>
@@ -311,7 +299,7 @@
             </div>
             <div class="modal-content">
                 <ul id="modal-roster-list" class="roster-list">
-                    <!-- Roster items will be populated here -->
+                    <!-- Roster items will be populated here by client.js -->
                 </ul>
             </div>
         </div>
@@ -327,11 +315,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Footer -->
-    <footer id="common-footer" class="epic-footer">
-        🏆 VPG LIGHTNINGS 2025 - LA LIGA MÁS ÉPICA DE GAMING 🏆
-    </footer>
 
     <!-- Scripts -->
     <script src="client.js"></script>
