@@ -211,6 +211,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 
 /* === DRAFT VIEW === */
 .content-grid-draftview { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; flex-grow: 1; overflow: hidden; }
+#mobile-draft-view-switcher { display: none; }
 #teams-container-draftview, #available-players-container-draftview { display: flex; flex-direction: column; overflow: hidden; }
 #teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
 .players-table-container, #teams-grid { overflow-y: auto; flex-grow: 1; }
@@ -415,6 +416,22 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
         font-size: 1.2em;
         padding: 8px 15px;
     }
+    /* AÑADE ESTAS REGLAS NUEVAS */
+    .draft-view-switcher {
+        display: none; /* Oculta los botones grandes en móvil */
+    }
+    #mobile-draft-view-switcher {
+        display: block; /* Muestra nuestro nuevo menú desplegable */
+    }
+    .draft-view-pane {
+        overflow-y: visible; /* Permite que el contenido crezca */
+        height: auto;
+    }
+    .players-table-container, #teams-grid {
+        overflow-y: visible; /* Permite que las tablas crezcan */
+        height: auto;
+    }
+    /* FIN DE LAS REGLAS A AÑADIR */
 }
 /* === ESTILOS PARA LA PANTALLA DE CAMPEÓN === */
 #finished-view .finished-content {
@@ -471,4 +488,39 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 @keyframes champion-glow {
     from { box-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
     to { box-shadow: 0 0 30px rgba(255, 193, 7, 0.6); }
+}
+/* === AÑADIR ESTE BLOQUE AL FINAL DEL ARCHIVO === */
+
+/* Estilos para la vista simple de la plantilla durante el draft */
+.team-roster-simple {
+    list-style: none;
+    padding: 0;
+    margin-top: 20px;
+}
+.team-roster-simple h2 {
+    font-family: var(--font-bebas);
+    font-size: 2.2em;
+    color: var(--text-color);
+}
+.team-roster-simple li {
+    background-color: #2a2a2a;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1em;
+    border-left: 4px solid var(--primary-color);
+}
+.team-roster-simple .player-name {
+    font-weight: bold;
+}
+.team-roster-simple .player-pos {
+    color: #aaa;
+    font-family: var(--font-bebas);
+    font-size: 1.2em;
+    background-color: #1d1d1d;
+    padding: 4px 8px;
+    border-radius: 4px;
 }
