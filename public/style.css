@@ -2256,3 +2256,219 @@ body.draft-view-style {
 }
 
 /* === FIN DEL CSS ADICIONAL === */
+/* ========== CSS ADICIONAL PARA CLIENT.JS ========== */
+
+/* === AUTH CONTROLS === */
+.login-btn {
+    background: linear-gradient(135deg, var(--vpg-red), var(--vpg-red-bright));
+    color: var(--vpg-white);
+    padding: 1rem 2rem;
+    border-radius: 25px;
+    text-decoration: none;
+    font-family: var(--font-gaming);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.login-btn:hover {
+    background: linear-gradient(135deg, var(--vpg-red-bright), var(--vpg-red));
+    transform: scale(1.05);
+    box-shadow: var(--shadow-glow-red);
+}
+
+.logout-btn {
+    background: linear-gradient(135deg, var(--vpg-medium), var(--vpg-light));
+    color: var(--vpg-white);
+    padding: 0.8rem 1.5rem;
+    border-radius: 20px;
+    text-decoration: none;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    margin-left: 1rem;
+}
+
+.logout-btn:hover {
+    background: linear-gradient(135deg, var(--vpg-red), var(--vpg-red-bright));
+    transform: translateY(-2px);
+}
+
+#user-greeting {
+    color: var(--vpg-red);
+    font-family: var(--font-gaming);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* === FILTROS DE POSICIÓN === */
+#position-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.position-filter-btn {
+    background: linear-gradient(135deg, var(--vpg-darker), var(--vpg-medium));
+    color: var(--vpg-white);
+    border: var(--border-width) solid var(--vpg-medium);
+    padding: 1rem 1.5rem;
+    border-radius: 25px;
+    font-family: var(--font-gaming);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    min-width: 80px;
+}
+
+.position-filter-btn:hover,
+.position-filter-btn.active {
+    background: linear-gradient(135deg, var(--vpg-red), var(--vpg-red-bright));
+    border-color: var(--vpg-red-bright);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-glow-red);
+}
+
+/* === PARTIDOS EN DIRECTO === */
+.live-match-item {
+    background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(42,42,42,0.95));
+    border: var(--border-width) solid var(--vpg-red);
+    border-radius: var(--border-radius-large);
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    animation: redGlow 5s ease-in-out infinite;
+}
+
+.live-match-teams {
+    color: var(--vpg-white);
+    font-family: var(--font-gaming);
+    font-weight: 700;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+}
+
+.live-stream-button {
+    background: linear-gradient(45deg, #FF1744, #FF6B35);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 25px;
+    font-family: var(--font-gaming);
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.live-stream-button:hover {
+    background: linear-gradient(45deg, #FF6B35, #FF1744);
+    transform: scale(1.1);
+    box-shadow: 0 10px 30px rgba(255, 23, 68, 0.6);
+}
+
+/* === CLASIFICACIÓN === */
+.standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0,0,0,0.9);
+    border: var(--border-width) solid var(--vpg-red);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.standings-table th {
+    background: linear-gradient(135deg, var(--vpg-red), var(--vpg-red-bright));
+    color: var(--vpg-white);
+    padding: 1.5rem 1rem;
+    font-family: var(--font-gaming);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.standings-table td {
+    padding: 1.2rem 1rem;
+    border-bottom: var(--border-width) solid var(--vpg-medium);
+    color: var(--vpg-white);
+    text-align: center;
+    font-weight: 700;
+}
+
+.standings-table tr:hover td {
+    background: var(--vpg-red-glow);
+}
+
+/* Estados de las clasificaciones */
+.qualified {
+    background: linear-gradient(135deg, #4CAF50, #66BB6A) !important;
+}
+
+.eliminated {
+    background: linear-gradient(135deg, #f44336, #ef5350) !important;
+}
+
+.playoff {
+    background: linear-gradient(135deg, #FF9800, #FFB74D) !important;
+}
+
+/* === ELEMENTOS DINÁMICOS PARA CLIENT.JS === */
+.primary-only .col-secondary {
+    display: none !important;
+}
+
+.secondary-only .col-primary {
+    display: none !important;
+}
+
+.pick-order-item.past-pick {
+    opacity: 0.5;
+    background: var(--vpg-medium);
+}
+
+.pick-order-item.active-pick {
+    background: linear-gradient(135deg, var(--vpg-red), var(--vpg-red-bright));
+    color: var(--vpg-white);
+    animation: pulse 2s ease-in-out infinite;
+    box-shadow: var(--shadow-glow-red);
+}
+
+#pick-alert.visible {
+    display: flex !important;
+    animation: bounceIn 0.5s ease;
+}
+
+#last-pick-banner.visible {
+    display: block !important;
+    animation: slideInDown 0.5s ease;
+}
+
+.players-table tr.selected {
+    background: var(--vpg-red-glow) !important;
+    border: var(--border-width) solid var(--vpg-red-bright);
+    transform: scale(1.02);
+}
+
+.players-table tr.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.draft-team-card.active-team {
+    border-color: var(--vpg-red-bright);
+    box-shadow: var(--shadow-glow-strong);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* ========== FIN CSS ADICIONAL ========== */
