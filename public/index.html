@@ -36,6 +36,7 @@
                     
                     <div class="header-right">
                         <div id="auth-controls">
+                            <!-- Contenido para usuarios logueados en torneo se inserta aquí por client.js -->
                             <div id="user-session" class="hidden">
                                 <span id="user-greeting"></span>
                                 <a href="/logout" class="logout-btn">Cerrar Sesión</a>
@@ -163,6 +164,7 @@
                         </div>
                     </div>
                     
+                    <!-- AUTH CONTROLS PARA DRAFTS (CORREGIDO) -->
                     <div class="draft-header-right">
                         <div id="auth-controls-draft">
                             <div id="user-session-draft" class="hidden">
@@ -175,11 +177,9 @@
 
                 <!-- Draft Status Info -->
                 <div class="draft-status-bar">
-                    <div id="round-info-draftview" class="round-info">
-                        Ronda <span id="current-round-draftview">1</span> de <span id="current-pick-number-draftview">10</span>
-                    </div>
+                    <div id="round-info-draftview" class="round-info">--</div>
                     <div id="current-pick-info-draftview" class="current-pick-info">
-                        Turno de <span id="current-team-draftview">Equipo</span> - Pick <span id="current-pick-draftview">#1</span>
+                        Turno de <span id="current-team-draftview">--</span> - Pick <span id="current-pick-draftview">--</span>
                     </div>
                 </div>
 
@@ -195,9 +195,9 @@
             </div>
         </header>
 
-        <!-- Draft Navigation -->
+        <!-- Draft Navigation (AÑADIDO SELECTOR MÓVIL) -->
         <div class="draft-navigation">
-            <div class="mobile-draft-nav">
+             <div class="mobile-draft-nav">
                 <select id="mobile-draft-view-select" class="mobile-selector">
                     <option value="draft-live-view">⚡ Draft en Vivo</option>
                     <option value="draft-manage-team-view">👥 Gestionar Equipo</option>
@@ -241,13 +241,14 @@
                             <h2 class="section-title">JUGADORES DISPONIBLES</h2>
                         </div>
 
-                        <div class="position-filters">
-                            <select id="filter-column-select" style="display: inline-block;">
+                        <!-- DIV DE FILTROS CORREGIDO -->
+                        <div id="position-filters" class="position-filters">
+                            <select id="filter-column-select" style="display: none;">
                                 <option value="primary">Filtrar por Pos. Primaria</option>
                                 <option value="secondary">Filtrar por Pos. Secundaria</option>
                             </select>
                             <div id="position-buttons-container">
-                                <!-- Los botones de posición (GK, DFC...) se insertan aquí dinámicamente -->
+                                <!-- Los botones de posición se crean aquí dinámicamente -->
                             </div>
                         </div>
 
@@ -289,8 +290,6 @@
     </div>
 
     <!-- Modals -->
-    
-    <!-- Roster Modal -->
     <div id="roster-modal" class="modal-overlay hidden">
         <div class="modal-container">
             <div class="modal-header">
@@ -305,7 +304,6 @@
         </div>
     </div>
 
-    <!-- Pick Alert Modal -->
     <div id="pick-alert" class="modal-overlay hidden">
         <div class="alert-container">
             <div id="pick-alert-content" class="alert-content">
@@ -318,30 +316,20 @@
 
     <!-- Scripts -->
     <script src="client.js"></script>
-
-<!-- Script adicional para navegación -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const viewButtons = document.querySelectorAll('.view-btn');
-    viewButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            this.disabled = false;
-            this.style.pointerEvents = 'auto';
-            this.style.opacity = '1';
-        });
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const viewButtons = document.querySelectorAll('.view-btn');
+        const mobileSelect = document.getElementById('mobile-view-select');
+        if (mobileSelect) {
+            mobileSelect.addEventListener('change', function() {
+                const viewId = this.value;
+                const targetButton = document.querySelector(`.view-btn[data-view="${viewId}"]`);
+                if (targetButton) {
+                    targetButton.click();
+                }
+            });
+        }
     });
-    
-    const mobileSelect = document.getElementById('mobile-view-select');
-    if (mobileSelect) {
-        mobileSelect.addEventListener('change', function() {
-            const viewId = this.value;
-            const targetButton = document.querySelector(`.view-btn[data-view="${viewId}"]`);
-            if (targetButton) {
-                targetButton.click();
-            }
-        });
-    }
-});
-</script>
+    </script>
 </body>
 </html>
