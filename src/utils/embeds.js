@@ -577,6 +577,7 @@ export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin
         if (!player.isCaptain) {
              adminRow.addComponents(
                 new ButtonBuilder().setCustomId(`admin_force_kick_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Forzar Expulsión').setStyle(ButtonStyle.Danger),
+                // AÑADE ESTE BOTÓN
                 new ButtonBuilder().setCustomId(`admin_invite_replacement_start:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Invitar Reemplazo').setStyle(ButtonStyle.Primary).setEmoji('🔄')
             );
         }
