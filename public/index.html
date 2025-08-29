@@ -3,402 +3,260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VPG Lightnings - Professional Arena</title>
+    <title>VPG LIGHTNINGS - Liga Profesional Gaming</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" href="https://via.placeholder.com/32x32/DC143C/FFFFFF?text=VPG" type="image/x-icon">
 </head>
 <body>
-    <div id="loading" class="professional-loading">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">INICIANDO VPG ARENA</div>
+    <!-- Loading Screen -->
+    <div id="loading" class="hidden">
+        ⚡ CARGANDO VPG LIGHTNINGS ⚡
     </div>
 
-    <!-- ESTRUCTURA PARA VISUALIZADOR DE TORNEOS -->
-    <div id="app-container" class="hidden">
-        <header class="professional-header">
-            <div class="header-container">
-                <div class="header-brand">
-                    <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Lightnings Logo" class="brand-logo">
-                    <div class="brand-info">
-                        <h1 id="tournament-name" class="tournament-title"></h1>
-                        <p id="tournament-format" class="tournament-subtitle"></p>
-                    </div>
-                </div>
-                <div class="header-status">
-                    <div class="status-indicator live">
-                        <i class="fas fa-circle"></i>
-                        EN VIVO
-                    </div>
-                </div>
+    <!-- Header -->
+    <header>
+        <div class="header-content">
+            <img src="https://via.placeholder.com/80x80/DC143C/FFFFFF?text=VPG" 
+                 alt="VPG Lightnings Logo" 
+                 class="header-logo">
+            
+            <div class="header-text">
+                <h1>VPG LIGHTNINGS</h1>
+                <p>Liga Profesional de Gaming - Temporada 2025</p>
             </div>
-        </header>
-        
-        <nav class="professional-nav">
-            <div class="nav-container">
-                <div class="nav-desktop">
-                    <button class="nav-btn active" data-view="classification-view">
-                        <i class="fas fa-trophy"></i>
-                        <span>Clasificación</span>
-                    </button>
-                    <button class="nav-btn" data-view="calendar-view">
-                        <i class="fas fa-calendar-alt"></i>
-                        <span>Calendario</span>
-                    </button>
-                    <button class="nav-btn" data-view="bracket-view">
-                        <i class="fas fa-sitemap"></i>
-                        <span>Eliminatorias</span>
-                    </button>
-                    <button class="nav-btn" data-view="teams-view">
-                        <i class="fas fa-users"></i>
-                        <span>Equipos</span>
-                    </button>
-                </div>
-                <div class="nav-mobile">
-                    <select id="mobile-view-select" class="mobile-selector">
-                        <option value="classification-view">🏆 Clasificación</option>
-                        <option value="calendar-view">📅 Calendario</option>
-                        <option value="bracket-view">🎯 Eliminatorias</option>
-                        <option value="teams-view">👥 Equipos</option>
-                    </select>
-                </div>
-            </div>
-        </nav>
-        
-        <main class="professional-main">
-            <div class="main-grid">
-                <section class="content-panel">
-                    <!-- CLASIFICACIÓN PROFESIONAL -->
-                    <div id="classification-view" class="view-section active">
-                        <div class="section-header">
-                            <h2 class="section-title">
-                                <i class="fas fa-trophy"></i>
-                                CLASIFICACIÓN GENERAL
-                            </h2>
-                            <div class="section-subtitle">Fase de Grupos</div>
-                        </div>
-                        <div id="groups-container" class="groups-professional"></div>
-                    </div>
-                    
-                    <!-- CALENDARIO PROFESIONAL -->
-                    <div id="calendar-view" class="view-section">
-                        <div class="section-header">
-                            <h2 class="section-title">
-                                <i class="fas fa-calendar-alt"></i>
-                                CALENDARIO DE PARTIDOS
-                            </h2>
-                            <div class="section-subtitle">Próximos encuentros</div>
-                        </div>
-                        <div id="calendar-container" class="calendar-professional"></div>
-                    </div>
-                    
-                    <!-- ELIMINATORIAS PROFESIONAL -->
-                    <div id="bracket-view" class="view-section">
-                        <div class="section-header">
-                            <h2 class="section-title">
-                                <i class="fas fa-sitemap"></i>
-                                ELIMINATORIAS
-                            </h2>
-                            <div class="section-subtitle">Camino hacia la final</div>
-                        </div>
-                        <div id="bracket-container" class="bracket-professional"></div>
-                    </div>
-                    
-                    <!-- EQUIPOS PROFESIONAL -->
-                    <div id="teams-view" class="view-section">
-                        <div class="section-header">
-                            <h2 class="section-title">
-                                <i class="fas fa-users"></i>
-                                EQUIPOS PARTICIPANTES
-                            </h2>
-                            <div class="section-subtitle">Plantillas completas</div>
-                        </div>
-                        <div id="team-list-container" class="teams-professional"></div>
-                    </div>
-                    
-                    <!-- TORNEO FINALIZADO -->
-                    <div id="finished-view" class="view-section">
-                        <div class="champion-celebration">
-                            <div class="celebration-header">
-                                <h2 id="finished-title" class="celebration-title">TORNEO FINALIZADO</h2>
-                            </div>
-                            <div id="champion-card" class="champion-showcase-pro">
-                                <div class="champion-crown">
-                                    <i class="fas fa-crown"></i>
-                                </div>
-                                <div class="champion-logo-container">
-                                    <img id="champion-logo" src="" alt="Logo del Campeón" class="champion-logo-pro">
-                                    <div class="champion-glow"></div>
-                                </div>
-                                <h3 id="champion-name" class="champion-name-pro">--</h3>
-                                <div class="champion-badge">
-                                    <i class="fas fa-medal"></i>
-                                    CAMPEÓN VPG
-                                </div>
-                            </div>
-                            <div class="thanks-section">
-                                <p class="thanks-message-pro">¡Gracias por ser parte de esta increíble competición!</p>
-                                <div class="social-links">
-                                    <a href="#" class="social-btn">
-                                        <i class="fab fa-twitch"></i>
-                                        Twitch
-                                    </a>
-                                    <a href="#" class="social-btn">
-                                        <i class="fab fa-youtube"></i>
-                                        YouTube
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-                
-                <!-- SIDEBAR PROFESIONAL -->
-                <aside class="sidebar-panel">
-                    <div class="sidebar-header">
-                        <h3 class="sidebar-title">
-                            <i class="fas fa-play-circle"></i>
-                            PARTIDOS EN VIVO
-                        </h3>
-                    </div>
-                    <div id="live-matches-list" class="live-matches-professional"></div>
-                </aside>
-            </div>
-        </main>
-        
-        <!-- MODAL PROFESIONAL -->
-        <div id="roster-modal" class="professional-modal hidden">
-            <div class="modal-overlay"></div>
-            <div class="modal-content-pro">
-                <div class="modal-header">
-                    <h3 id="modal-team-name" class="modal-title"></h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <ul id="modal-roster-list" class="roster-list-pro"></ul>
-                </div>
+
+            <!-- Auth Controls -->
+            <div id="auth-controls">
+                <div id="user-session"></div>
             </div>
         </div>
+
+        <!-- Draft Status Line (only visible in draft view) -->
+        <div id="status-line-draftview" class="status-line-draftview hidden">
+            <div id="round-info-draftview">
+                Ronda <span id="current-round-draftview">1</span> - Pick <span id="current-pick-number-draftview">1</span>
+            </div>
+            <div id="current-pick-info-draftview">
+                Turno de <span id="current-team-draftview">Equipo</span> - Pick <span id="current-pick-draftview">#1</span>
+            </div>
+        </div>
+
+        <!-- Last Pick Banner -->
+        <div id="last-pick-banner" class="hidden">
+            🚨 ÚLTIMA PICK DE LA RONDA 🚨
+        </div>
+
+        <!-- Round Pick Order -->
+        <div id="round-pick-order" class="hidden"></div>
+    </header>
+
+    <!-- Mobile View Switcher -->
+    <div class="mobile-view-switcher">
+        <select id="mobile-view-select">
+            <option value="standings">🏆 Clasificación</option>
+            <option value="teams">👥 Equipos</option>
+            <option value="calendar">📅 Calendario</option>
+            <option value="bracket">🏅 Playoffs</option>
+            <option value="draft">⚡ Draft</option>
+        </select>
     </div>
 
-    <!-- ESTRUCTURA PARA VISUALIZADOR DE DRAFTS PROFESIONAL -->
-    <div id="draft-container" class="hidden">
-        <header class="draft-header-pro">
-            <div class="draft-header-container">
-                <div class="draft-brand">
-                    <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Logo" class="draft-logo">
-                    <div class="draft-info">
-                        <h1 id="draft-name-draftview" class="draft-title"></h1>
-                        <div class="draft-status-container">
-                            <div id="auth-controls" class="auth-section">
-                                <div id="user-session" class="hidden">
-                                    <span id="user-greeting" class="user-greeting"></span>
-                                    <a href="/logout" class="logout-btn">
-                                        <i class="fas fa-sign-out-alt"></i>
-                                        Cerrar Sesión
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="draft-status-panel">
-                    <div id="round-info-draftview" class="round-indicator">
-                        <i class="fas fa-stopwatch"></i>
-                        <span>Ronda 1</span>
-                    </div>
-                    <div id="current-pick-info-draftview" class="pick-indicator">
-                        <i class="fas fa-crosshairs"></i>
-                        Turno de: <span id="current-team-draftview" class="current-team">--</span> 
-                        <span class="pick-number">Pick #<span id="current-pick-draftview">0</span></span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- ORDEN DE PICKS PROFESIONAL -->
-            <div id="pick-order-timeline" class="pick-timeline">
-                <div class="timeline-header">
-                    <h4>ORDEN DE SELECCIÓN</h4>
-                </div>
-                <div id="round-pick-order" class="timeline-picks"></div>
-            </div>
-            
-            <!-- ÚLTIMO PICK DESTACADO -->
-            <div id="last-pick-banner" class="last-pick-showcase hidden">
-                <div class="pick-animation">
-                    <i class="fas fa-star"></i>
-                </div>
-                <div id="last-pick-content" class="pick-content">
-                    <!-- Contenido dinámico del último pick -->
-                </div>
-            </div>
-        </header>
-        
-        <nav class="draft-nav-pro">
-            <div class="draft-nav-container">
-                <div class="draft-nav-desktop">
-                    <button class="draft-nav-btn active" data-view="draft-live-view">
-                        <i class="fas fa-eye"></i>
-                        <span>Draft en Vivo</span>
-                    </button>
-                    <button class="draft-nav-btn" data-view="draft-manage-team-view" id="manage-team-tab" style="display: none;">
-                        <i class="fas fa-cogs"></i>
-                        <span>Gestionar Equipo</span>
-                    </button>
-                </div>
-                <div class="draft-nav-mobile">
-                    <select id="mobile-draft-view-select" class="draft-mobile-selector">
-                        <option value="draft-live-view">👁️ Draft en Vivo</option>
-                        <option value="draft-manage-team-view">⚙️ Mi Equipo</option>
-                    </select>
-                </div>
-            </div>
-        </nav>
-
-        <main class="draft-main-pro">
-            <!-- VISTA DE DRAFT EN VIVO -->
-            <div id="draft-live-view" class="draft-view-section active">
-                <div class="draft-controls-mobile">
-                    <button class="draft-toggle-btn active" data-view="available-players-container-draftview">
-                        <i class="fas fa-users"></i>
-                        Jugadores
-                    </button>
-                    <button class="draft-toggle-btn" data-view="teams-container-draftview">
-                        <i class="fas fa-shield-alt"></i>
-                        Equipos
-                    </button>
-                </div>
-                
-                <div class="draft-grid-pro">
-                    <!-- EQUIPOS EN DRAFT -->
-                    <section id="teams-container-draftview" class="draft-teams-panel sub-view-pane">
-                        <div class="panel-header-pro">
-                            <h3 class="panel-title-pro">
-                                <i class="fas fa-shield-alt"></i>
-                                EQUIPOS
-                            </h3>
-                            <div class="panel-legend">
-                                <span class="legend-item">
-                                    <i class="fas fa-star"></i>
-                                    Fichado por Pos. Secundaria
-                                </span>
-                            </div>
-                        </div>
-                        <div id="teams-grid" class="teams-grid-pro"></div>
-                    </section>
-                    
-                    <!-- JUGADORES DISPONIBLES -->
-                    <section id="available-players-container-draftview" class="draft-players-panel sub-view-pane active">
-                        <div class="panel-header-pro">
-                            <h3 class="panel-title-pro">
-                                <i class="fas fa-users"></i>
-                                JUGADORES DISPONIBLES
-                            </h3>
-                            <div id="position-filters" class="filters-pro"></div>
-                            <div class="panel-legend">
-                                <span class="legend-item with-team">
-                                    <i class="fas fa-shield-alt"></i>
-                                    Con Equipo
-                                </span>
-                                <span class="legend-item free-agent">
-                                    <i class="fas fa-user-free"></i>
-                                    Agente Libre
-                                </span>
-                            </div>
-                        </div>
-                        <div class="players-table-pro">
-                            <table id="players-table" class="table-professional">
-                                <thead>
-                                    <tr>
-                                        <th class="col-strikes">
-                                            <i class="fas fa-exclamation-triangle"></i>
-                                            Strikes
-                                        </th>
-                                        <th class="col-name">
-                                            <i class="fas fa-user"></i>
-                                            Jugador
-                                        </th>
-                                        <th class="col-primary">
-                                            <i class="fas fa-star"></i>
-                                            Posición Primaria
-                                        </th>
-                                        <th class="col-secondary">
-                                            <i class="fas fa-star-half-alt"></i>
-                                            Posición Secundaria
-                                        </th>
-                                        <th class="col-action">
-                                            <i class="fas fa-hand-pointer"></i>
-                                            Acción
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody id="players-table-body"></tbody>
-                            </table>
-                        </div>
-                    </section>
-                </div>
-            </div>
-
-            <!-- VISTA DE GESTIÓN DE EQUIPO -->
-            <div id="draft-manage-team-view" class="draft-view-section">
-                <div class="team-management-pro">
-                    <div class="management-header">
-                        <h2 class="management-title">
-                            <i class="fas fa-cogs"></i>
-                            GESTIONAR PLANTILLA: <span id="management-team-name" class="team-name-highlight">--</span>
-                        </h2>
-                    </div>
-                    <div id="roster-management-container" class="roster-management-pro"></div>
-                </div>
-            </div>
-        </main>
+    <!-- Draft View Switcher (Desktop) -->
+    <div class="draft-view-switcher hidden">
+        <button class="draft-view-btn active" data-view="draft-live">
+            <span class="btn-icon">⚡</span>
+            Draft en Vivo
+        </button>
+        <button class="draft-view-btn" data-view="draft-manage-team">
+            <span class="btn-icon">👥</span>
+            Gestionar Equipo
+        </button>
     </div>
-    
-    <!-- ALERTA DE PICK PROFESIONAL -->
-    <div id="pick-alert" class="pick-alert-pro hidden">
-        <div class="alert-overlay"></div>
-        <div class="alert-content-pro">
-            <div class="alert-icon">
-                <i class="fas fa-bolt"></i>
-            </div>
-            <div id="pick-alert-content" class="alert-text"></div>
-            <div class="alert-actions">
-                <button class="alert-btn" onclick="document.getElementById('pick-alert').classList.add('hidden')">
-                    <i class="fas fa-check"></i>
-                    Entendido
+
+    <!-- Mobile Sub Navigation (for draft) -->
+    <div class="mobile-sub-nav hidden">
+        <button class="sub-nav-btn active" data-sub-view="teams-container-draftview">Equipos</button>
+        <button class="sub-nav-btn" data-sub-view="available-players-container-draftview">Jugadores</button>
+    </div>
+
+    <!-- Main Content Container -->
+    <div class="main-content">
+        <!-- Main Panel -->
+        <div id="main-panel">
+            <!-- Desktop View Switcher -->
+            <div class="view-switcher">
+                <button class="view-btn active" data-view="standings">
+                    <span class="btn-icon">🏆</span>
+                    Clasificación
+                </button>
+                <button class="view-btn" data-view="teams">
+                    <span class="btn-icon">👥</span>
+                    Equipos
+                </button>
+                <button class="view-btn" data-view="calendar">
+                    <span class="btn-icon">📅</span>
+                    Calendario
+                </button>
+                <button class="view-btn" data-view="bracket">
+                    <span class="btn-icon">🏅</span>
+                    Playoffs
+                </button>
+                <button class="view-btn" data-view="draft">
+                    <span class="btn-icon">⚡</span>
+                    Draft
                 </button>
             </div>
-        </div>
-    </div>
-    
-    <footer class="professional-footer">
-        <div class="footer-container">
-            <div class="footer-brand">
-                <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Logo" class="footer-logo">
-                <div class="footer-text">
-                    <strong>VPG LIGHTNINGS</strong>
-                    <span>Professional Esports Arena</span>
+
+            <!-- STANDINGS VIEW -->
+            <div id="standings-view" class="view-pane active">
+                <h2>Clasificación General</h2>
+                <div id="groups-container">
+                    <!-- Groups will be dynamically loaded here -->
                 </div>
             </div>
-            <div class="footer-links">
-                <a href="#" class="footer-link">
-                    <i class="fab fa-discord"></i>
-                    Discord
-                </a>
-                <a href="#" class="footer-link">
-                    <i class="fab fa-twitch"></i>
-                    Twitch
-                </a>
-                <a href="#" class="footer-link">
-                    <i class="fab fa-youtube"></i>
-                    YouTube
-                </a>
+
+            <!-- TEAMS VIEW -->
+            <div id="teams-view" class="view-pane">
+                <h2>Equipos Participantes</h2>
+                <div id="team-list-container">
+                    <!-- Teams will be dynamically loaded here -->
+                </div>
+            </div>
+
+            <!-- CALENDAR VIEW -->
+            <div id="calendar-view" class="view-pane">
+                <h2>Calendario de Partidos</h2>
+                <div id="calendar-container">
+                    <!-- Matches will be dynamically loaded here -->
+                </div>
+            </div>
+
+            <!-- BRACKET VIEW -->
+            <div id="bracket-view" class="view-pane">
+                <h2>Playoffs - Eliminatorias</h2>
+                <div id="bracket-container">
+                    <div class="bracket">
+                        <!-- Bracket will be dynamically loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- DRAFT VIEW -->
+            <div id="draft-view" class="view-pane">
+                <!-- Draft Live Sub-View -->
+                <div id="draft-live-view" class="draft-view-pane active">
+                    <div class="content-grid-draftview">
+                        <!-- Teams Container -->
+                        <div id="teams-container-draftview" class="sub-view-pane active">
+                            <h2>Equipos y Rosters</h2>
+                            <div id="teams-grid">
+                                <!-- Draft teams will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Available Players Container -->
+                        <div id="available-players-container-draftview" class="sub-view-pane">
+                            <h2>Jugadores Disponibles</h2>
+                            
+                            <!-- Position Filters -->
+                            <div id="position-filters">
+                                <button class="position-filter-btn active" data-position="ALL">Todos</button>
+                                <button class="position-filter-btn" data-position="TOP">Top</button>
+                                <button class="position-filter-btn" data-position="JUNGLE">Jungle</button>
+                                <button class="position-filter-btn" data-position="MID">Mid</button>
+                                <button class="position-filter-btn" data-position="ADC">ADC</button>
+                                <button class="position-filter-btn" data-position="SUPPORT">Support</button>
+                            </div>
+
+                            <div class="legend">
+                                Haz clic en "Draftear" para seleccionar un jugador
+                            </div>
+
+                            <!-- Players Table -->
+                            <div class="players-table-container">
+                                <table id="players-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Jugador</th>
+                                            <th>Posición</th>
+                                            <th class="col-secondary">Estado</th>
+                                            <th class="col-secondary">Strikes</th>
+                                            <th>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="players-table-body">
+                                        <!-- Players will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Draft Manage Team Sub-View -->
+                <div id="draft-manage-team-view" class="draft-view-pane">
+                    <h2>Gestión de Equipo</h2>
+                    <div id="roster-management-container">
+                        <!-- Team management interface will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- FINISHED VIEW -->
+            <div id="finished-view" class="view-pane">
+                <div class="finished-content">
+                    <h2>🏆 DRAFT COMPLETADO 🏆</h2>
+                    
+                    <div id="champion-card">
+                        <div class="champion-header">CAMPEÓN VPG LIGHTNINGS</div>
+                        <img id="champion-logo" class="champion-logo-img" src="https://via.placeholder.com/180x180/FFD700/000000?text=👑" alt="Campeón">
+                        <div id="champion-name">EQUIPO CAMPEÓN</div>
+                    </div>
+
+                    <div class="thanks-message">
+                        ¡Gracias por participar en VPG Lightnings!<br>
+                        La nueva temporada comienza pronto...
+                    </div>
+                </div>
             </div>
         </div>
+
+        <!-- Live Match Sidebar -->
+        <div id="live-match-sidebar">
+            <h2>🔴 EN VIVO</h2>
+            <div id="live-matches-container">
+                <!-- Live matches will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer id="common-footer">
+        🏆 VPG LIGHTNINGS 2025 - LA LIGA MÁS ÉPICA DE GAMING 🏆
     </footer>
 
+    <!-- MODALS -->
+    
+    <!-- Roster Modal -->
+    <div id="roster-modal" class="hidden">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 id="modal-team-name">Equipo</h2>
+            <ul id="modal-roster-list">
+                <!-- Roster list will be populated here -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- Pick Alert Modal -->
+    <div id="pick-alert" class="hidden">
+        <div id="pick-alert-content">
+            <h2>¡ES TU TURNO!</h2>
+            <p id="pick-alert-message">Es tu momento de draftear</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
     <script src="client.js"></script>
 </body>
 </html>
