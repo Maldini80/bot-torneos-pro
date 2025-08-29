@@ -36,7 +36,68 @@ export async function handleSelectMenu(interaction) {
     }
 
     // --- FIN DE LA NUEVA LÓGICA ---
+    if (action === 'admin_select_replacement_position' || action === 'admin_select_replacement_page') {
+        await interaction.deferUpdate();
+        const [draftShortId, teamId, kickedPlayerId, position, pageStr] = params;
+        const page = action === 'admin_select_replacement_page' ? parseInt(interaction.values[0].replace('page_', '')) : 0;
+        const selectedPosition = action === 'admin_select_replacement_position' ? interaction.values[0] : position;
 
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const freeAgents = draft.players.filter(p => !p.captainId && !p.isCaptain);
+        
+        let candidates = freeAgents.filter(p => p.primaryPosition === selectedPosition);
+        if (candidates.length === 0) {
+            candidates = freeAgents.filter(p => p.secondaryPosition === selectedPosition);
+        }
+
+        if (candidates.length === 0) {
+            return interaction.editReply({
+                content: `No se encontraron agentes libres para la posición **${DRAFT_POSITIONS[selectedPosition]}**.`,
+                components: []
+            });
+        }
+        
+        candidates.sort((a, b) => a.psnId.localeCompare(b.psnId));
+        const pageSize = 25;
+        const pageCount = Math.ceil(candidates.length / pageSize);
+        const startIndex = page * pageSize;
+        const endIndex = startIndex + pageSize;
+        const candidatesPage = candidates.slice(startIndex, endIndex);
+
+        const playerOptions = candidatesPage.map(p => ({
+            label: p.psnId,
+            description: `Pos: ${p.primaryPosition} / ${p.secondaryPosition || 'N/A'}`,
+            value: p.userId
+        }));
+
+        const playerMenu = new StringSelectMenuBuilder()
+            .setCustomId(`captain_invite_replacement_select:${draftShortId}:${teamId}:${kickedPlayerId}`)
+            .setPlaceholder(`Pág. ${page + 1}/${pageCount} - Selecciona un jugador`)
+            .addOptions(playerOptions);
+
+        const components = [new ActionRowBuilder().addComponents(playerMenu)];
+
+        if (pageCount > 1) {
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                pageOptions.push({
+                    label: `Página ${i + 1} de ${pageCount}`,
+                    value: `page_${i}`
+                });
+            }
+            const pageMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_select_replacement_page:${draftShortId}:${teamId}:${kickedPlayerId}:${selectedPosition}`)
+                .setPlaceholder('Cambiar de página')
+                .addOptions(pageOptions);
+            components.unshift(new ActionRowBuilder().addComponents(pageMenu));
+        }
+        
+        await interaction.editReply({
+            content: `Mostrando agentes libres para **${DRAFT_POSITIONS[selectedPosition]}**. Hay un total de ${candidates.length} jugadores.`,
+            components
+        });
+        return;
+    }
     // =======================================================
     // --- LÓGICA ORIGINAL DEL BOT ---
     // =======================================================
