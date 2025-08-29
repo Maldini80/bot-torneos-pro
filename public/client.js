@@ -39,19 +39,37 @@ function initializeTournamentView(tournamentId) {
 
     let hasLoadedInitialData = false;
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const socket = new WebSocket(`${protocol}://${window.location.host}`);
-    socket.onopen = () => console.log('Conectado al servidor para Torneo.');
-    socket.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        if (message.type === 'tournament' && message.id === tournamentId) {
-            if (!hasLoadedInitialData) {
-                loadingEl.classList.add('hidden');
-                appContainerEl.classList.remove('hidden');
-                hasLoadedInitialData = true;
+    let socket;
+
+    function connect() {
+        socket = new WebSocket(`${protocol}://${window.location.host}`);
+
+        socket.onopen = () => console.log('Conectado al servidor para Torneo.');
+
+        socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type === 'tournament' && message.id === tournamentId) {
+                if (!hasLoadedInitialData) {
+                    loadingEl.classList.add('hidden');
+                    appContainerEl.classList.remove('hidden');
+                    hasLoadedInitialData = true;
+                }
+                renderTournamentState(message.data);
             }
-            renderTournamentState(message.data);
-        }
-    };
+        };
+
+        socket.onclose = (event) => {
+            console.warn(`Socket cerrado. Razón: ${event.reason}. Intentando reconectar en 3 segundos...`);
+            setTimeout(connect, 3000); // Intenta reconectar después de 3 segundos
+        };
+
+        socket.onerror = (error) => {
+            console.error('Error de WebSocket:', error);
+            socket.close(); // Cierra la conexión para activar el 'onclose' y la reconexión
+        };
+    }
+
+    connect();
 
     fetch(`/tournament-data/${tournamentId}`)
         .then(response => response.ok ? response.json() : Promise.resolve(null))
