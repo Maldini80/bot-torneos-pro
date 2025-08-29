@@ -479,7 +479,8 @@ function initializeDraftView(draftId) {
             renderRoundPickOrder(draft);
         }
         const isMyTeamManaged = currentUser && draft.captains.some(c => c.userId === currentUser.id);
-        manageTeamTab.style.display = (draft.status === 'finalizado' || draft.status === 'torneo_generado') && isMyTeamManaged ? 'inline-block' : 'none';
+        const isDraftActiveOrFinished = ['seleccion', 'finalizado', 'torneo_generado'].includes(draft.status);
+        manageTeamTab.style.display = isDraftActiveOrFinished && isMyTeamManaged ? 'inline-block' : 'none';
     }
 
     function renderTeams(draft) {
@@ -620,7 +621,21 @@ function initializeDraftView(draftId) {
                 }
             }
         });
-
+        
+        // --- AÑADE ESTE NUEVO BLOQUE COMPLETO ---
+        const mobileDraftSelect = document.getElementById('mobile-draft-view-select');
+        if (mobileDraftSelect) {
+            mobileDraftSelect.addEventListener('change', (event) => {
+                const viewId = event.target.value;
+                document.querySelector('.draft-view-pane.active')?.classList.remove('active');
+                const newView = document.getElementById(viewId);
+                if (newView) {
+                    newView.classList.add('active');
+                }
+            });
+        }
+        // --- FIN DEL BLOQUE A AÑADIR ---
+        
         rosterManagementContainer.addEventListener('click', (event) => {
             const target = event.target;
             const playerId = target.dataset.playerId;
@@ -667,24 +682,49 @@ function initializeDraftView(draftId) {
     }
     
     function renderTeamManagementView(draft) {
-        const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
-        if (!myCaptainData) {
-            rosterManagementContainer.innerHTML = '';
-            return;
-        }
-        managementTeamName.textContent = myCaptainData.teamName;
-        rosterManagementContainer.innerHTML = '';
-        const myTeamPlayers = draft.players.filter(p => p.captainId === currentUser.id && !p.isCaptain);
-
-        myTeamPlayers.forEach(player => {
-            const card = document.createElement('div');
-            card.className = 'player-management-card';
-            const strikes = player.strikes || 0;
-            const hasBeenReported = player.hasBeenReportedByCaptain || false;
-            card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${strikes}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>Reportar (Strike)</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
-            rosterManagementContainer.appendChild(card);
-        });
+    const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
+    if (!myCaptainData) {
+        rosterManagementContainer.innerHTML = '<p class="placeholder">No se encontraron datos de tu equipo.</p>';
+        return;
     }
+
+    managementTeamName.textContent = myCaptainData.teamName;
+    rosterManagementContainer.innerHTML = '';
+    const myTeamPlayers = draft.players
+        .filter(p => p.captainId === currentUser.id)
+        .sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
+
+    // SI EL DRAFT ESTÁ EN CURSO, MOSTRAMOS UNA LISTA SIMPLE
+    if (draft.status === 'seleccion') {
+        let rosterHtml = '';
+        if (myTeamPlayers.length > 0) {
+            myTeamPlayers.forEach(player => {
+                const isCaptainIcon = player.isCaptain ? '👑' : '';
+                let positionDisplay = player.pickedForPosition || player.primaryPosition;
+                rosterHtml += `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${positionDisplay}</span></li>`;
+            });
+        } else {
+            rosterHtml = '<li>Aún no has seleccionado a ningún jugador.</li>';
+        }
+        rosterManagementContainer.innerHTML = `<div class="team-roster-simple"><h2>Plantilla en Progreso</h2><ul>${rosterHtml}</ul></div>`;
+
+    // SI EL DRAFT HA TERMINADO, MOSTRAMOS LA VISTA DE GESTIÓN COMPLETA
+    } else {
+        const playersToManage = myTeamPlayers.filter(p => !p.isCaptain);
+        if (playersToManage.length > 0) {
+            playersToManage.forEach(player => {
+                const card = document.createElement('div');
+                card.className = 'player-management-card';
+                const strikes = player.strikes || 0;
+                const hasBeenReported = player.hasBeenReportedByCaptain || false;
+                card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${strikes}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>Reportar (Strike)</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
+                rosterManagementContainer.appendChild(card);
+            });
+        } else {
+             rosterManagementContainer.innerHTML = '<p class="placeholder">Tu plantilla final no tiene jugadores para gestionar.</p>';
+        }
+    }
+}
 
     function sortPlayersAdvanced(a, b) {
         const posIndexA = positionOrder.indexOf(a.primaryPosition);
