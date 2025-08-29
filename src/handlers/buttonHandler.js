@@ -1833,6 +1833,19 @@ export async function handleButton(interaction) {
         const ticket = await db.collection('verificationtickets').findOne({ channelId });
 
         if (!ticket || ticket.status === 'closed') return;
+        
+		// --- AÑADE ESTE BLOQUE PARA BORRAR LA NOTIFICACIÓN ---
+        if (ticket.adminNotificationMessageId) {
+            try {
+                const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
+                const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
+                await notificationMessage.delete();
+            } catch (error) {
+                console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}. Puede que ya no existiera.`, error.message);
+            }
+        }
+        // --- FIN DEL BLOQUE A AÑADIR ---
+		
         if (ticket.claimedBy !== interaction.user.id) {
              // CORRECCIÓN: ephemeral actualizado a flags
              return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
