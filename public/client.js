@@ -658,6 +658,22 @@ function initializeDraftView(draftId) {
                 }
             }
         });
+        document.querySelectorAll('.sub-nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Gestionar el botón activo
+                document.querySelector('.sub-nav-btn.active')?.classList.remove('active');
+                btn.classList.add('active');
+
+                // Ocultar todas las sub-vistas
+                document.querySelectorAll('.sub-view-pane').forEach(pane => {
+                    pane.style.display = 'none';
+                });
+
+                // Mostrar la vista seleccionada
+                const viewId = btn.dataset.view;
+                document.getElementById(viewId).style.display = 'flex';
+            });
+        });
     }
 
     function setupFilters() {
