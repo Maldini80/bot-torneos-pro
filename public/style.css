@@ -419,8 +419,15 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     }
     /* AÑADE ESTAS REGLAS NUEVAS */
     /* Oculta la navegación de escritorio y muestra la de móvil para el DRAFT */
-    #draft-container .draft-view-switcher { display: none; }
-    #draft-container .mobile-view-switcher { display: block; }
+     /* --- NAVEGACIÓN PRINCIPAL DEL DRAFT --- */
+    /* Oculta los botones grandes de escritorio en la vista móvil */
+    #draft-container > .draft-view-switcher {
+        display: none;
+    }
+    /* Muestra el menú desplegable en la vista móvil */
+    #draft-container > .mobile-view-switcher {
+        display: block;
+    }
 
     /* Estilos para la nueva sub-navegación en móvil */
     .mobile-sub-nav {
