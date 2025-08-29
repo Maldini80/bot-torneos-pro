@@ -315,10 +315,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     }
 
     /* --- Corrección del Contenido Principal --- */
-    .main-content, .content-grid-draftview {
-        grid-template-columns: 1fr;
-        height: auto;
-    }
+    
     main#main-panel {
         padding: 15px;
     }
@@ -419,39 +416,53 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     }
     /* AÑADE ESTAS REGLAS NUEVAS */
     /* --- NAVEGACIÓN PRINCIPAL DEL DRAFT --- */
-    #draft-container > .draft-view-switcher { display: none; }
-    #draft-container > .mobile-view-switcher { display: block; }
+  /* --- DISEÑO PRINCIPAL EN MÓVIL --- */
+.main-content {
+    grid-template-columns: 1fr;
+    height: auto;
+}
+/* Hacemos que la parrilla del draft sea un bloque simple en móvil */
+.content-grid-draftview {
+    display: block;
+    height: auto;
+}
 
-    /* --- SUB-NAVEGACIÓN DENTRO DEL DRAFT EN VIVO (MÓVIL) --- */
-    .mobile-sub-nav {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 15px;
-    }
-    .sub-nav-btn {
-        flex-grow: 1;
-        padding: 12px;
-        font-family: var(--font-bebas);
-        font-size: 1.4em;
-        border: 1px solid var(--border-color);
-        background-color: transparent;
-        color: #888;
-        border-radius: 5px;
-        transition: all 0.2s;
-    }
-    .sub-nav-btn.active {
-        background-color: var(--primary-color);
-        color: white;
-        border-color: var(--primary-color);
-    }
-    /* Oculta los dos paneles en móvil por defecto... */
-    .content-grid-draftview > .sub-view-pane {
-        display: none !important;
-    }
-    /* ... y luego muestra solo el de jugadores al cargar la página */
-    #available-players-container-draftview {
-        display: flex !important;
-    }
+/* --- NAVEGACIÓN PRINCIPAL DEL DRAFT (MÓVIL) --- */
+#draft-container > .draft-view-switcher { display: none; }
+#draft-container > .mobile-view-switcher { display: block; }
+
+/* --- SUB-NAVEGACIÓN DENTRO DEL DRAFT EN VIVO (MÓVIL) --- */
+.mobile-sub-nav {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.sub-nav-btn {
+    flex-grow: 1;
+    padding: 12px;
+    font-family: var(--font-bebas);
+    font-size: 1.4em;
+    border: 1px solid var(--border-color);
+    background-color: transparent;
+    color: #888;
+    border-radius: 5px;
+    transition: all 0.2s;
+}
+.sub-nav-btn.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* LÓGICA DE VISIBILIDAD DE PANELES EN MÓVIL */
+/* Por defecto, el panel de equipos NO se muestra */
+#teams-container-draftview {
+    display: none !important;
+}
+/* Y el de jugadores SÍ se muestra */
+#available-players-container-draftview {
+    display: flex !important;
+}
     .draft-view-pane {
         overflow-y: visible; /* Permite que el contenido crezca */
         height: auto;
