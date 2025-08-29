@@ -3,35 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VPG LIGHTNINGS - Arena Gaming</title>
+    <title>VPG Lightnings - Arena Gaming</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Partículas de fondo -->
-    <div id="particles-background"></div>
+    <!-- Fondo de partículas -->
+    <div class="particles-bg"></div>
     
     <!-- Loading épico -->
     <div id="loading" class="epic-loading">
         <div class="loading-container">
-            <div class="vpg-logo-loading">
-                <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Logo" class="loading-logo">
-                <div class="loading-glow"></div>
+            <div class="vpg-logo-loader">
+                <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Logo">
+                <div class="loader-ring"></div>
             </div>
-            <div class="loading-text">INICIANDO ARENA VPG</div>
+            <div class="loading-text">INICIANDO SISTEMA VPG</div>
             <div class="loading-bar">
                 <div class="loading-progress"></div>
             </div>
         </div>
     </div>
 
-    <!-- ========= ESTRUCTURA PARA VISUALIZADOR DE TORNEOS ========= -->
-    <div id="app-container" class="hidden epic-container">
+    <!-- ESTRUCTURA PARA VISUALIZADOR DE TORNEOS -->
+    <div id="app-container" class="hidden">
         <header class="epic-header">
             <div class="header-content">
-                <div class="header-logo-container">
+                <div class="header-logo-section">
                     <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Lightnings Logo" class="header-logo">
                     <div class="logo-glow"></div>
                 </div>
@@ -39,191 +39,180 @@
                     <h1 id="tournament-name" class="epic-title"></h1>
                     <p id="tournament-format" class="epic-subtitle"></p>
                 </div>
+                <div class="header-effects">
+                    <div class="scan-line"></div>
+                </div>
             </div>
-            <div class="header-scan-line"></div>
         </header>
-
+        
         <div class="mobile-view-switcher epic-mobile-nav">
             <select id="mobile-view-select" class="epic-select">
-                <option value="classification-view">🏆 CLASIFICACIÓN</option>
-                <option value="calendar-view">📅 CALENDARIO</option>
-                <option value="bracket-view">⚔️ ELIMINATORIAS</option>
-                <option value="teams-view">🎮 EQUIPOS</option>
+                <option value="classification-view">⚡ Clasificación</option>
+                <option value="calendar-view">📅 Calendario</option>
+                <option value="bracket-view">🏆 Eliminatorias</option>
+                <option value="teams-view">🛡️ Equipos</option>
             </select>
         </div>
-
+        
         <div class="main-content epic-grid">
             <main id="main-panel" class="epic-panel">
                 <nav class="view-switcher epic-nav">
                     <button class="view-btn epic-btn active" data-view="classification-view">
-                        <span class="btn-icon">🏆</span>
-                        <span class="btn-text">CLASIFICACIÓN</span>
+                        <span class="btn-icon">⚡</span>
+                        <span class="btn-text">Clasificación</span>
                         <div class="btn-glow"></div>
                     </button>
                     <button class="view-btn epic-btn" data-view="calendar-view">
                         <span class="btn-icon">📅</span>
-                        <span class="btn-text">CALENDARIO</span>
+                        <span class="btn-text">Calendario</span>
                         <div class="btn-glow"></div>
                     </button>
                     <button class="view-btn epic-btn" data-view="bracket-view">
-                        <span class="btn-icon">⚔️</span>
-                        <span class="btn-text">ELIMINATORIAS</span>
+                        <span class="btn-icon">🏆</span>
+                        <span class="btn-text">Eliminatorias</span>
                         <div class="btn-glow"></div>
                     </button>
                     <button class="view-btn epic-btn" data-view="teams-view">
-                        <span class="btn-icon">🎮</span>
-                        <span class="btn-text">EQUIPOS</span>
+                        <span class="btn-icon">🛡️</span>
+                        <span class="btn-text">Equipos</span>
                         <div class="btn-glow"></div>
                     </button>
                 </nav>
-
+                
                 <div id="main-view-content" class="epic-content">
                     <div id="classification-view" class="view-pane active">
-                        <h2 class="section-title">🏆 FASE DE GRUPOS</h2>
+                        <h2 class="section-title">FASE DE GRUPOS</h2>
                         <div id="groups-container" class="epic-groups"></div>
                     </div>
-                    
                     <div id="calendar-view" class="view-pane">
-                        <h2 class="section-title">📅 CALENDARIO DE COMBATES</h2>
+                        <h2 class="section-title">CALENDARIO DE PARTIDOS</h2>
                         <div id="calendar-container" class="epic-calendar"></div>
                     </div>
-                    
                     <div id="bracket-view" class="view-pane">
-                        <h2 class="section-title">⚔️ ELIMINATORIAS</h2>
+                        <h2 class="section-title">ELIMINATORIAS</h2>
                         <div id="bracket-container" class="epic-bracket"></div>
                     </div>
-                    
                     <div id="teams-view" class="view-pane">
-                        <h2 class="section-title">🎮 GLADIADORES</h2>
+                        <h2 class="section-title">EQUIPOS PARTICIPANTES</h2>
                         <div id="team-list-container" class="epic-teams"></div>
                     </div>
-                    
                     <div id="finished-view" class="view-pane">
                         <div class="finished-content epic-victory">
-                            <h2 id="finished-title" class="victory-title">🏆 ARENA CONQUISTADA 🏆</h2>
-                            <div id="champion-card" class="champion-throne">
-                                <div class="champion-header">👑 EMPERADOR DE LA ARENA 👑</div>
+                            <h2 id="finished-title" class="victory-title">TORNEO FINALIZADO</h2>
+                            <div id="champion-card" class="champion-showcase">
+                                <div class="champion-header">🏆 CAMPEÓN DEL TORNEO 🏆</div>
                                 <div class="champion-logo-container">
                                     <img id="champion-logo" src="" alt="Logo del Campeón" class="champion-logo-img">
-                                    <div class="champion-crown"></div>
+                                    <div class="champion-aura"></div>
                                 </div>
                                 <h3 id="champion-name" class="champion-name">--</h3>
-                                <div class="victory-effects"></div>
                             </div>
-                            <p class="thanks-message">¡GRACIAS POR PRESENCIAR LA GLORIA!</p>
+                            <p class="thanks-message">¡Gracias por participar y seguir la retransmisión!</p>
                         </div>
                     </div>
                 </div>
             </main>
-
+            
             <aside id="live-match-sidebar" class="epic-sidebar">
-                <h2 class="sidebar-title">🔴 COMBATES EN VIVO</h2>
+                <h2 class="sidebar-title">PARTIDOS EN DIRECTO</h2>
                 <div id="live-matches-list" class="live-matches"></div>
             </aside>
         </div>
-
-        <div id="roster-modal" class="hidden epic-modal">
+        
+        <div id="roster-modal" class="epic-modal hidden">
             <div class="modal-content epic-modal-content">
                 <span class="close-button epic-close">&times;</span>
                 <h3 id="modal-team-name" class="modal-title"></h3>
-                <ul id="modal-roster-list" class="modal-list"></ul>
+                <ul id="modal-roster-list" class="modal-roster"></ul>
             </div>
         </div>
     </div>
 
-    <!-- ========= ESTRUCTURA PARA VISUALIZADOR DE DRAFTS ========= -->
-    <div id="draft-container" class="hidden epic-container">
+    <!-- ESTRUCTURA PARA VISUALIZADOR DE DRAFTS -->
+    <div id="draft-container" class="hidden">
         <header class="epic-header">
             <div class="header-content">
-                <div class="header-logo-container">
+                <div class="header-logo-section">
                     <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Lightnings Logo" class="header-logo">
                     <div class="logo-glow"></div>
                 </div>
                 <div class="header-text">
                     <div id="auth-controls" class="auth-section">
-                        <div id="user-session" class="hidden user-info">
-                            <span id="user-greeting" class="user-name"></span>
-                            <a href="/logout" class="logout-btn">DESCONECTAR</a>
+                        <div id="user-session" class="hidden">
+                            <span id="user-greeting"></span>
+                            <a href="/logout" class="logout-btn">Cerrar Sesión</a>
                         </div>
                     </div>
                     <h1 id="draft-name-draftview" class="epic-title"></h1>
-                    <div class="status-line-draftview epic-status">
+                    <div class="status-line-draftview">
                         <div id="round-info-draftview" class="round-info"></div>
                         <div id="current-pick-info-draftview" class="pick-info">
-                            Turno de: <span id="current-team-draftview" class="current-team"></span> | 
-                            Pick #<span id="current-pick-draftview" class="current-pick">0</span>
+                            Turno de: <span id="current-team-draftview"></span> | Pick #<span id="current-pick-draftview">0</span>
                         </div>
                     </div>
                 </div>
+                <div class="header-effects">
+                    <div class="scan-line"></div>
+                </div>
             </div>
-            
             <div id="last-pick-banner" class="epic-banner"></div>
             <div id="round-pick-order" class="pick-order"></div>
-            <div class="header-scan-line"></div>
         </header>
-
-        <!-- Navegación móvil para drafts -->
+        
         <div class="mobile-view-switcher epic-mobile-nav" id="mobile-draft-view-switcher">
             <select id="mobile-draft-view-select" class="epic-select">
-                <option value="draft-live-view">⚡ DRAFT EN VIVO</option>
-                <option value="draft-manage-team-view">🎮 MI ESCUADRÓN</option>
+                <option value="draft-live-view">🎯 Draft en Vivo</option>
+                <option value="draft-manage-team-view">⚡ Mi Equipo</option>
             </select>
         </div>
-
-        <!-- Navegación desktop para drafts -->
+        
         <nav class="draft-view-switcher epic-draft-nav">
             <button class="draft-view-btn epic-btn active" data-view="draft-live-view">
-                <span class="btn-icon">⚡</span>
-                <span class="btn-text">DRAFT EN VIVO</span>
+                <span class="btn-icon">🎯</span>
+                <span class="btn-text">Draft en Vivo</span>
                 <div class="btn-glow"></div>
             </button>
             <button class="draft-view-btn epic-btn" data-view="draft-manage-team-view" id="manage-team-tab" style="display: none;">
-                <span class="btn-icon">🎮</span>
-                <span class="btn-text">GESTIONAR ESCUADRÓN</span>
+                <span class="btn-icon">⚡</span>
+                <span class="btn-text">Gestionar Mi Equipo</span>
                 <div class="btn-glow"></div>
             </button>
         </nav>
 
         <div id="draft-live-view" class="draft-view-pane active">
-            <!-- Navegación sub-móvil -->
             <div class="mobile-sub-nav epic-sub-nav">
-                <button class="sub-nav-btn epic-sub-btn active" data-view="available-players-container-draftview">
-                    <span class="sub-btn-icon">👥</span>
-                    <span class="sub-btn-text">GLADIADORES</span>
+                <button class="sub-nav-btn epic-mini-btn active" data-view="available-players-container-draftview">
+                    <span>👥 Ver Jugadores</span>
                 </button>
-                <button class="sub-nav-btn epic-sub-btn" data-view="teams-container-draftview">
-                    <span class="sub-btn-icon">🛡️</span>
-                    <span class="sub-btn-text">ESCUADRONES</span>
+                <button class="sub-nav-btn epic-mini-btn" data-view="teams-container-draftview">
+                    <span>🛡️ Ver Equipos</span>
                 </button>
             </div>
             
             <div class="content-grid-draftview epic-draft-grid">
-                <!-- Panel de equipos -->
                 <div id="teams-container-draftview" class="epic-panel sub-view-pane">
                     <div class="panel-header">
-                        <h2 class="panel-title">🛡️ ESCUADRONES EN FORMACIÓN</h2>
-                        <div class="legend epic-legend">* = Fichado por Posición Secundaria</div>
+                        <h3 class="panel-title">EQUIPOS</h3>
+                        <div class="legend epic-legend">* = Fichado por Pos. Secundaria</div>
                     </div>
                     <div id="teams-grid" class="teams-grid"></div>
                 </div>
-
-                <!-- Panel de jugadores disponibles -->
+                
                 <div id="available-players-container-draftview" class="epic-panel sub-view-pane active">
                     <div class="panel-header">
-                        <h2 class="panel-title">👥 GLADIADORES DISPONIBLES</h2>
-                        <div id="position-filters" class="position-filters epic-filters"></div>
-                        <div class="legend epic-legend">🛡️ Con Escuadrón | 🔎 Agente Libre</div>
+                        <h2 class="panel-title">JUGADORES DISPONIBLES</h2>
+                        <div id="position-filters" class="epic-filters"></div>
+                        <div class="legend epic-legend">🛡️ Con Equipo | 🔎 Agente Libre</div>
                     </div>
-                    
                     <div class="players-table-container epic-table-container">
                         <table id="players-table" class="epic-table">
                             <thead>
                                 <tr>
-                                    <th class="col-strikes">⚠️</th>
-                                    <th class="col-name">GLADIADOR</th>
-                                    <th class="col-primary">POSICIÓN PRIMARIA</th>
-                                    <th class="col-secondary">POSICIÓN SECUNDARIA</th>
-                                    <th class="col-action">ACCIÓN</th>
+                                    <th>Strikes</th>
+                                    <th>NOMBRE</th>
+                                    <th class="col-primary">Pos. Primaria</th>
+                                    <th class="col-secondary">Pos. Secundaria</th>
+                                    <th class="col-action">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="players-table-body"></tbody>
@@ -235,30 +224,21 @@
 
         <div id="draft-manage-team-view" class="draft-view-pane">
             <div class="epic-panel">
-                <h2 class="panel-title">🎮 GESTIONAR ESCUADRÓN: <span id="management-team-name" class="team-name-highlight"></span></h2>
-                <div id="roster-management-container" class="roster-management"></div>
+                <h2 class="panel-title">GESTIONAR PLANTILLA: <span id="management-team-name"></span></h2>
+                <div id="roster-management-container" class="roster-container"></div>
             </div>
         </div>
     </div>
     
-    <!-- Alerta de pick -->
-    <div id="pick-alert" class="hidden epic-alert">
-        <div id="pick-alert-content" class="alert-content">
-            <div class="alert-glow"></div>
-        </div>
+    <div id="pick-alert" class="epic-alert hidden">
+        <div id="pick-alert-content" class="alert-content"></div>
     </div>
     
-    <!-- Footer épico -->
     <footer id="common-footer" class="epic-footer">
         <div class="footer-content">
-            <div class="footer-logo">
-                <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Logo" class="footer-logo-img">
-            </div>
-            <div class="footer-text">
-                <span class="footer-powered">POWERED BY</span>
-                <span class="footer-brand">VPG LIGHTNINGS</span>
-            </div>
-            <div class="footer-effects"></div>
+            <span>Powered by</span>
+            <strong>VPG LIGHTNINGS</strong>
+            <div class="footer-glow"></div>
         </div>
     </footer>
 
