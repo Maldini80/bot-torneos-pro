@@ -498,7 +498,7 @@ function initializeDraftView(draftId) {
                 }
                 rosterHtml += `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${positionDisplay}</span></li>`;
             });
-            allTeamsHtml += `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
+            allTeamsHtml += `<div class="team-card"><h3 class="team-header">${captain.teamName} <span class="captain-psn">(Cap: ${captain.psnId})</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
         });
         teamsGrid.innerHTML = allTeamsHtml;
     }
