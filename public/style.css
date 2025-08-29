@@ -3,39 +3,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap');
 
 :root {
-    /* COLORES VPG PROFESIONALES */
     --vpg-red: #DC143C;
     --vpg-red-bright: #FF1744;
     --vpg-red-dark: #B71C1C;
     --vpg-red-glow: rgba(220, 20, 60, 0.4);
-    
     --vpg-black: #000000;
     --vpg-dark: #0a0a0a;
     --vpg-darker: #1a1a1a;
     --vpg-medium: #2a2a2a;
     --vpg-light: #3a3a3a;
     --vpg-white: #ffffff;
-    
-    /* SOMBRAS Y EFECTOS */
     --shadow-main: 0 4px 20px rgba(0, 0, 0, 0.8);
     --shadow-hover: 0 8px 30px rgba(220, 20, 60, 0.3);
     --border-radius: 8px;
     --border-radius-large: 12px;
-    
-    /* FUENTES */
     --font-primary: 'Orbitron', monospace;
     --font-secondary: 'Rajdhani', sans-serif;
 }
 
-/* EFECTOS SUAVES */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideInFromLeft {
-    from { opacity: 0; transform: translateX(-30px); }
-    to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes pulse {
@@ -43,7 +31,6 @@
     50% { transform: scale(1.05); }
 }
 
-/* BASE STYLES */
 * {
     margin: 0;
     padding: 0;
@@ -62,7 +49,6 @@ body {
     display: none !important; 
 }
 
-/* LOADING PROFESIONAL */
 #loading {
     position: fixed;
     top: 50%;
@@ -78,7 +64,6 @@ body {
     text-shadow: 0 0 20px var(--vpg-red-glow);
 }
 
-/* HEADER PROFESIONAL */
 header {
     background: linear-gradient(135deg, var(--vpg-black) 0%, var(--vpg-darker) 100%);
     border-bottom: 3px solid var(--vpg-red);
@@ -137,7 +122,6 @@ header {
     font-weight: 500;
 }
 
-/* ORDEN DE PICKS PROFESIONAL */
 .status-line-draftview {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -175,17 +159,12 @@ header {
     box-shadow: 0 0 20px var(--vpg-red-glow);
 }
 
-#current-team-draftview {
-    color: var(--vpg-white);
-    font-weight: 900;
-}
-
+#current-team-draftview,
 #current-pick-draftview {
     color: var(--vpg-white);
     font-weight: 900;
 }
 
-/* ÚLTIMO PICK DESTACADO */
 #last-pick-banner {
     background: linear-gradient(135deg, var(--vpg-red), var(--vpg-red-bright));
     color: var(--vpg-white);
@@ -214,7 +193,6 @@ header {
     box-shadow: var(--shadow-main);
 }
 
-/* NAVEGACIÓN MÓVIL PROFESIONAL */
 .mobile-view-switcher {
     display: block;
     padding: 1.5rem;
@@ -243,7 +221,6 @@ header {
     box-shadow: 0 0 20px var(--vpg-red-glow);
 }
 
-/* LAYOUT PRINCIPAL */
 .main-content {
     display: flex;
     max-width: 1400px;
@@ -274,7 +251,6 @@ header {
     background: linear-gradient(90deg, transparent, var(--vpg-red-bright), transparent);
 }
 
-/* NAVEGACIÓN DESKTOP PROFESIONAL */
 .view-switcher {
     display: none;
     gap: 1.5rem;
@@ -338,7 +314,15 @@ header {
     font-size: 1.4rem;
 }
 
-/* TÍTULOS DE SECCIÓN ÉPICOS */
+.view-pane {
+    display: none;
+}
+
+.view-pane.active {
+    display: block;
+    animation: fadeIn 0.5s ease;
+}
+
 .view-pane h2 {
     font-family: var(--font-primary);
     font-size: 2.5rem;
@@ -363,7 +347,6 @@ header {
     background: linear-gradient(90deg, transparent, var(--vpg-red-bright), transparent);
 }
 
-/* SIDEBAR PROFESIONAL */
 #live-match-sidebar {
     background: linear-gradient(135deg, var(--vpg-darker), var(--vpg-medium));
     border: 2px solid var(--vpg-red);
@@ -399,8 +382,6 @@ header {
     letter-spacing: 1px;
     text-shadow: 0 0 15px var(--vpg-red-glow);
 }
-
-/* CLASIFICACIÓN PROFESIONAL */
 #groups-container {
     display: grid;
     gap: 3rem;
@@ -446,7 +427,6 @@ header {
     text-shadow: 0 0 15px var(--vpg-red-glow);
 }
 
-/* TABLA DE CLASIFICACIÓN ÉPICA */
 .standings-table {
     width: 100%;
     border-collapse: collapse;
@@ -528,7 +508,6 @@ header {
     border-color: var(--vpg-red-bright);
 }
 
-/* ESTADÍSTICAS DESTACADAS */
 .standings-table .wins {
     color: #4CAF50;
     font-weight: 900;
@@ -554,7 +533,6 @@ header {
     box-shadow: 0 0 15px var(--vpg-red-glow);
 }
 
-/* EQUIPOS PROFESIONALES */
 #team-list-container {
     display: grid;
     gap: 2.5rem;
@@ -691,7 +669,7 @@ header {
     background: linear-gradient(135deg, #CC0000, #FF0000);
     box-shadow: 0 8px 30px rgba(255, 0, 0, 0.4);
 }
-/* CALENDARIO PROFESIONAL */
+
 #calendar-container {
     display: grid;
     gap: 2rem;
@@ -858,7 +836,6 @@ header {
     opacity: 0.7;
 }
 
-/* BRACKET PROFESIONAL */
 #bracket-container {
     overflow-x: auto;
     padding: 2rem;
@@ -978,8 +955,6 @@ header {
     color: var(--vpg-white);
     background: rgba(255, 255, 255, 0.2);
 }
-
-/* DRAFT ESPECÍFICO PROFESIONAL */
 .draft-view-switcher {
     display: none;
     gap: 1.5rem;
@@ -1084,6 +1059,15 @@ header {
 }
 
 .sub-view-pane.active {
+    display: block;
+    animation: fadeIn 0.4s ease;
+}
+
+.draft-view-pane {
+    display: none;
+}
+
+.draft-view-pane.active {
     display: block;
     animation: fadeIn 0.4s ease;
 }
@@ -1245,7 +1229,6 @@ header {
     color: rgba(255, 255, 255, 0.8);
 }
 
-/* JUGADORES DISPONIBLES PROFESIONAL */
 #available-players-container-draftview {
     background: linear-gradient(135deg, var(--vpg-darker), var(--vpg-medium));
     border: 2px solid var(--vpg-red);
@@ -1484,7 +1467,6 @@ header {
     transform: scale(1.2);
 }
 
-/* PARTIDOS EN VIVO PROFESIONAL */
 .live-match-card {
     background: linear-gradient(135deg, var(--vpg-darker), var(--vpg-medium));
     border: 2px solid var(--vpg-red);
@@ -1576,7 +1558,6 @@ header {
     background: linear-gradient(45deg, #FF6B35, #FF1744);
 }
 
-/* MODALES PROFESIONALES */
 #roster-modal {
     position: fixed;
     top: 0;
@@ -1602,7 +1583,7 @@ header {
     overflow-y: auto;
     position: relative;
     box-shadow: var(--shadow-main);
-    animation: slideInFromLeft 0.4s ease;
+    animation: fadeIn 0.4s ease;
 }
 
 .close-button {
@@ -1658,7 +1639,6 @@ header {
     transform: translateX(10px);
 }
 
-/* ALERTAS PROFESIONALES */
 #pick-alert {
     position: fixed;
     top: 0;
@@ -1696,7 +1676,6 @@ header {
     text-shadow: 0 0 20px var(--vpg-red-glow);
 }
 
-/* FINISHED VIEW PROFESIONAL */
 #finished-view {
     text-align: center;
     padding: 4rem;
@@ -1766,7 +1745,6 @@ header {
     font-family: var(--font-secondary);
 }
 
-/* FOOTER PROFESIONAL */
 #common-footer {
     background: linear-gradient(135deg, var(--vpg-black) 0%, var(--vpg-dark) 100%);
     border-top: 3px solid var(--vpg-red);
@@ -1781,7 +1759,6 @@ header {
     text-shadow: 0 0 15px var(--vpg-red-glow);
 }
 
-/* AUTH CONTROLS */
 #auth-controls {
     position: absolute;
     top: 1.5rem;
@@ -1804,25 +1781,6 @@ header {
     text-shadow: 0 0 10px var(--vpg-red-glow);
 }
 
-/* DRAFT VIEW PANES */
-.draft-view-pane {
-    display: none;
-}
-
-.draft-view-pane.active {
-    display: block;
-    animation: fadeIn 0.5s ease;
-}
-
-.view-pane {
-    display: none;
-}
-
-.view-pane.active {
-    display: block;
-    animation: fadeIn 0.5s ease;
-}
-
 #draft-manage-team-view h2 {
     font-family: var(--font-primary);
     color: var(--vpg-red);
@@ -1840,7 +1798,6 @@ header {
     margin: 0 auto;
 }
 
-/* RESPONSIVE DESIGN */
 @media (min-width: 768px) {
     .mobile-view-switcher {
         display: none;
