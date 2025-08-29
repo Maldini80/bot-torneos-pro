@@ -2197,3 +2197,62 @@ body {
         gap: 1rem;
     }
 }
+
+/* Filtros de columnas dinámicos */
+.primary-only .col-secondary {
+    display: none !important;
+}
+
+.secondary-only .col-primary {
+    display: none !important;
+}
+
+/* Estilos específicos para vista draft */
+body.draft-view-style {
+    /* Estilos específicos para draft si necesitas */
+}
+
+/* Estados del orden de picks */
+.pick-order-item.past-pick {
+    opacity: 0.5;
+    background: var(--vpg-medium);
+}
+
+.pick-order-item.active-pick {
+    background: linear-gradient(135deg, var(--vpg-red), var(--vpg-red-bright));
+    color: var(--vpg-white);
+    animation: pulse 2s ease-in-out infinite;
+    box-shadow: var(--shadow-glow-red);
+}
+
+/* Modal y alertas visibles */
+#pick-alert.visible {
+    display: flex !important;
+    animation: bounceIn 0.5s ease;
+}
+
+#last-pick-banner.visible {
+    display: block !important;
+    animation: slideInDown 0.5s ease;
+}
+
+/* Estados de la tabla de jugadores */
+.players-table tr.selected {
+    background: var(--vpg-red-glow) !important;
+    border: var(--border-width) solid var(--vpg-red-bright);
+    transform: scale(1.02);
+}
+
+.players-table tr.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Estados de equipos en draft */
+.draft-team-card.active-team {
+    border-color: var(--vpg-red-bright);
+    box-shadow: var(--shadow-glow-strong);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* === FIN DEL CSS ADICIONAL === */
