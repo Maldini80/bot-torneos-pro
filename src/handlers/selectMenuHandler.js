@@ -787,6 +787,18 @@ if (action === 'draft_pick_by_position') {
         const db = getDb();
         const ticket = await db.collection('verificationtickets').findOne({ channelId });
 
+        // --- AÑADE ESTE BLOQUE PARA BORRAR LA NOTIFICACIÓN ---
+    if (ticket.adminNotificationMessageId) {
+        try {
+            const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
+            const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
+            await notificationMessage.delete();
+        } catch (error) {
+            console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}. Puede que ya no existiera.`, error.message);
+        }
+    }
+    // --- FIN DEL BLOQUE A AÑADIR ---
+
         let reasonText = '';
         if (reason === 'inactivity') {
             reasonText = 'Tu solicitud de verificación ha sido rechazada debido a inactividad. No has proporcionado las pruebas necesarias en el tiempo establecido.';
