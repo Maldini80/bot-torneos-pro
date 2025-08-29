@@ -35,21 +35,13 @@
                     </div>
                     
                     <div class="header-right">
-    <div id="auth-controls">
-        <div id="user-session" class="hidden">
-            <span id="user-greeting"></span>
-            <a href="/logout" class="logout-btn">Cerrar Sesión</a>
-        </div>
-        <div id="user-session-draft" class="hidden">
-            <span id="user-greeting-draft"></span>
-            <a href="/logout" class="logout-btn">Cerrar Sesión</a>
-        </div>
-        <!-- NUEVO: Botón de login cuando no está logueado -->
-        <div id="login-controls" class="hidden">
-            <a href="/auth/discord" class="login-btn">Entrar como Capitán</a>
-        </div>
-    </div>
-</div>
+                        <div id="auth-controls">
+                            <div id="user-session" class="hidden">
+                                <span id="user-greeting"></span>
+                                <a href="/logout" class="logout-btn">Cerrar Sesión</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>
@@ -171,7 +163,6 @@
                         </div>
                     </div>
                     
-                    <!-- AUTH CONTROLS PARA DRAFTS (SEPARADOS) -->
                     <div class="draft-header-right">
                         <div id="auth-controls-draft">
                             <div id="user-session-draft" class="hidden">
@@ -194,22 +185,24 @@
 
                 <!-- Pick Order Display -->
                 <div id="round-pick-order" class="pick-order-display">
-                    <h3 class="pick-order-title">ORDEN DE PICKS</h3>
-                    <div id="pick-order-list" class="pick-order-list">
-                        <!-- Pick order will be displayed here by client.js -->
-                    </div>
+                    <!-- Pick order will be displayed here by client.js -->
                 </div>
 
                 <!-- Last Pick Banner -->
                 <div id="last-pick-banner" class="last-pick-banner hidden">
-                    🚨 ÚLTIMA PICK DE LA RONDA 🚨
+                    <!-- Content injected by client.js -->
                 </div>
             </div>
         </header>
 
         <!-- Draft Navigation -->
         <div class="draft-navigation">
-            <!-- Desktop Draft Navigation -->
+            <div class="mobile-draft-nav">
+                <select id="mobile-draft-view-select" class="mobile-selector">
+                    <option value="draft-live-view">⚡ Draft en Vivo</option>
+                    <option value="draft-manage-team-view">👥 Gestionar Equipo</option>
+                </select>
+            </div>
             <div class="desktop-draft-nav">
                 <div class="nav-container">
                     <button class="draft-nav-btn draft-view-btn active" data-view="draft-live-view">
@@ -248,16 +241,15 @@
                             <h2 class="section-title">JUGADORES DISPONIBLES</h2>
                         </div>
 
-                        <div id="position-filters" class="position-filters">
-    <select id="filter-column-select" style="display: none;">
-        <option value="primary">Filtrar por Pos. Primaria</option>
-        <option value="secondary">Filtrar por Pos. Secundaria</option>
-    </select>
-    <!-- NUEVO: Contenedor para filtros de posición específica -->
-    <div id="position-buttons-container">
-        <!-- Los botones GK, DFC, MCD, etc. se crean aquí dinámicamente -->
-    </div>
-</div>
+                        <div class="position-filters">
+                            <select id="filter-column-select" style="display: inline-block;">
+                                <option value="primary">Filtrar por Pos. Primaria</option>
+                                <option value="secondary">Filtrar por Pos. Secundaria</option>
+                            </select>
+                            <div id="position-buttons-container">
+                                <!-- Los botones de posición (GK, DFC...) se insertan aquí dinámicamente -->
+                            </div>
+                        </div>
 
                         <div class="players-legend legend">
                             🛡️ Con Equipo | 🔎 Agente Libre
@@ -330,25 +322,22 @@
 <!-- Script adicional para navegación -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Fix para navegación después del sorteo
     const viewButtons = document.querySelectorAll('.view-btn');
     viewButtons.forEach(btn => {
         btn.addEventListener('click', function() {
-            // Remover disabled state si existe
             this.disabled = false;
             this.style.pointerEvents = 'auto';
             this.style.opacity = '1';
         });
     });
     
-    // Fix para mobile navigation
     const mobileSelect = document.getElementById('mobile-view-select');
     if (mobileSelect) {
         mobileSelect.addEventListener('change', function() {
-            const targetView = this.value;
-            const viewButton = document.querySelector(`[data-view="${targetView}"]`);
-            if (viewButton) {
-                viewButton.click();
+            const viewId = this.value;
+            const targetButton = document.querySelector(`.view-btn[data-view="${viewId}"]`);
+            if (targetButton) {
+                targetButton.click();
             }
         });
     }
@@ -356,4 +345,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
-
