@@ -59,12 +59,14 @@ export async function handleSelectMenu(interaction) {
     const eafcNameInput = new TextInputBuilder().setCustomId('eafc_name_input').setLabel("Nombre en EAFC").setStyle(TextInputStyle.Short).setValue(team.eafcTeamName).setRequired(true);
     const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Twitter (sin @)").setStyle(TextInputStyle.Short).setValue(team.twitter || '').setRequired(false);
     const streamInput = new TextInputBuilder().setCustomId('stream_url_input').setLabel("URL Completa del Stream").setStyle(TextInputStyle.Short).setValue(team.streamChannel || '').setRequired(false).setPlaceholder('Ej: https://www.twitch.tv/nombre');
-    
+    const logoUrlInput = new TextInputBuilder().setCustomId('logo_url_input').setLabel("URL del Logo (completa)").setStyle(TextInputStyle.Short).setValue(team.logoUrl || '').setRequired(false).setPlaceholder('Ej: https://i.imgur.com/logo.png'); 
+        
     modal.addComponents(
         new ActionRowBuilder().addComponents(teamNameInput),
         new ActionRowBuilder().addComponents(eafcNameInput),
         new ActionRowBuilder().addComponents(twitterInput),
-        new ActionRowBuilder().addComponents(streamInput)
+        new ActionRowBuilder().addComponents(streamInput),
+        new ActionRowBuilder().addComponents(logoUrlInput)
     );
 
     await interaction.showModal(modal);
