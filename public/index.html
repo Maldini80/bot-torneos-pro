@@ -57,16 +57,16 @@
                         <div id="team-list-container"></div>
                     </div>
                     <div id="finished-view" class="view-pane">
-    <div class="finished-content">
-        <h2 id="finished-title">Torneo Finalizado</h2>
-        <div id="champion-card">
-            <div class="champion-header">🏆 CAMPEÓN DEL TORNEO 🏆</div>
-            <img id="champion-logo" src="" alt="Logo del Campeón" class="champion-logo-img">
-            <h3 id="champion-name">--</h3>
-        </div>
-        <p class="thanks-message">¡Gracias por participar y seguir la retransmisión!</p>
-    </div>
-</div>
+                        <div class="finished-content">
+                            <h2 id="finished-title">Torneo Finalizado</h2>
+                            <div id="champion-card">
+                                <div class="champion-header">🏆 CAMPEÓN DEL TORNEO 🏆</div>
+                                <img id="champion-logo" src="" alt="Logo del Campeón" class="champion-logo-img">
+                                <h3 id="champion-name">--</h3>
+                            </div>
+                            <p class="thanks-message">¡Gracias por participar y seguir la retransmisión!</p>
+                        </div>
+                    </div>
                 </div>
             </main>
             <aside id="live-match-sidebar" class="animated-border">
@@ -106,41 +106,29 @@
             <div id="round-pick-order"></div>
         </header>
         
-        <!-- AÑADE ESTE NUEVO BLOQUE COMPLETO -->
         <div class="mobile-view-switcher" id="mobile-draft-view-switcher">
             <select id="mobile-draft-view-select">
                 <option value="draft-live-view">Draft en Vivo</option>
-                <option value="draft-manage-team-view">Mi Equipo</option> <!-- Texto cambiado para ser más claro -->
+                <option value="draft-manage-team-view">Mi Equipo</option>
             </select>
         </div>
-        <!-- FIN DEL BLOQUE A AÑADIR -->
         
-        <nav class="draft-view-switcher mobile-only">
-            <button class="draft-view-btn active" data-view="draft-live-view">Draft en Vivo</button>
-            <button class="draft-view-btn" data-view="draft-manage-team-view" id="manage-team-tab" style="display: none;">Mi Equipo</button> <!-- Texto cambiado -->
-        </nav>
-        
-        <nav class="draft-view-switcher desktop-only">
+        <nav class="draft-view-switcher">
             <button class="draft-view-btn active" data-view="draft-live-view">Draft en Vivo</button>
             <button class="draft-view-btn" data-view="draft-manage-team-view" id="manage-team-tab" style="display: none;">Gestionar Mi Equipo</button>
         </nav>
 
-        <!-- CÓDIGO NUEVO Y MEJORADO -->
         <div id="draft-live-view" class="draft-view-pane active">
-
-            <!-- ESTE ES EL NUEVO MENÚ PARA MÓVILES -->
             <div class="mobile-sub-nav">
                 <button class="sub-nav-btn active" data-view="available-players-container-draftview">Ver Jugadores</button>
                 <button class="sub-nav-btn" data-view="teams-container-draftview">Ver Equipos</button>
             </div>
             
             <div class="content-grid-draftview">
-                <!-- La clase "sub-view-pane" es la nueva etiqueta que añadimos aquí -->
                 <div id="teams-container-draftview" class="animated-border sub-view-pane">
                     <div class="legend" style="text-align: center; margin-bottom: 10px; font-style: italic;">* = Fichado por Pos. Secundaria</div>
                     <div id="teams-grid"></div>
                 </div>
-                <!-- Y también añadimos la etiqueta "sub-view-pane" aquí -->
                 <div id="available-players-container-draftview" class="animated-border sub-view-pane">
                     <h2>Jugadores Disponibles</h2>
                     <div id="position-filters"></div>
