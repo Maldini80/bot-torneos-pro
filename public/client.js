@@ -368,7 +368,6 @@ function initializeTournamentView(tournamentId) {
 }
 
 function initializeDraftView(draftId) {
-    // ... (El código de initializeDraftView no necesita cambios)
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
@@ -376,7 +375,7 @@ function initializeDraftView(draftId) {
     const currentTeamEl = document.getElementById('current-team-draftview');
     const currentPickEl = document.getElementById('current-pick-draftview');
     const playersTableBodyEl = document.getElementById('players-table-body');
-    const positionFiltersEl = document.getElementById('position-filters');
+    const positionButtonsContainerEl = document.getElementById('position-buttons-container');
     const roundPickOrderEl = document.getElementById('round-pick-order');
     const manageTeamTab = document.getElementById('manage-team-tab');
     const rosterManagementContainer = document.getElementById('roster-management-container');
@@ -400,11 +399,14 @@ function initializeDraftView(draftId) {
     async function checkUserSession() {
         try {
             const response = await fetch('/api/user');
-            currentUser = await response.json();
-            const userSessionEl = document.getElementById('user-session');
-            if (currentUser) {
-                document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
-                userSessionEl.classList.remove('hidden');
+            if(response.ok) {
+                currentUser = await response.json();
+                if (currentUser) {
+                    const userGreetingEl = document.getElementById('user-greeting-draft');
+                    const userSessionEl = document.getElementById('user-session-draft');
+                    userGreetingEl.textContent = `Hola, ${currentUser.username}`;
+                    userSessionEl.classList.remove('hidden');
+                }
             }
         } catch (e) {
             console.error("Error al verificar la sesión:", e);
@@ -527,7 +529,7 @@ function initializeDraftView(draftId) {
             row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
 
             const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
-            const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+            const activeFilterPos = document.querySelector('#position-buttons-container .filter-btn.active')?.dataset.pos || 'Todos';
             const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
             const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
             
@@ -545,7 +547,7 @@ function initializeDraftView(draftId) {
     }
 
     function applyTableFilters() {
-        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+        const activeFilterPos = document.querySelector('#position-buttons-container .filter-btn.active')?.dataset.pos || 'Todos';
         const filterColumn = document.getElementById('filter-column-select').value;
         const rows = playersTableBodyEl.querySelectorAll('tr');
         const table = document.getElementById('players-table');
@@ -608,7 +610,7 @@ function initializeDraftView(draftId) {
         playersTableBodyEl.addEventListener('click', (event) => {
             if (event.target.classList.contains('pick-btn')) {
                 const playerId = event.target.dataset.playerId;
-                let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
+                let activeFilterPos = document.querySelector('#position-buttons-container .filter-btn.active')?.dataset.pos;
 
                 if (!activeFilterPos || activeFilterPos === 'Todos') {
                     const playerRow = event.target.closest('tr');
@@ -622,7 +624,6 @@ function initializeDraftView(draftId) {
             }
         });
         
-        // --- AÑADE ESTE NUEVO BLOQUE COMPLETO ---
         const mobileDraftSelect = document.getElementById('mobile-draft-view-select');
         if (mobileDraftSelect) {
             mobileDraftSelect.addEventListener('change', (event) => {
@@ -634,7 +635,6 @@ function initializeDraftView(draftId) {
                 }
             });
         }
-        // --- FIN DEL BLOQUE A AÑADIR ---
         
         rosterManagementContainer.addEventListener('click', (event) => {
             const target = event.target;
@@ -660,16 +660,11 @@ function initializeDraftView(draftId) {
         });
         document.querySelectorAll('.sub-nav-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                // Gestionar el botón activo
                 document.querySelector('.sub-nav-btn.active')?.classList.remove('active');
                 btn.classList.add('active');
-
-                // Ocultar todas las sub-vistas
                 document.querySelectorAll('.sub-view-pane').forEach(pane => {
                     pane.style.display = 'none';
                 });
-
-                // Mostrar la vista seleccionada
                 const viewId = btn.dataset.view;
                 document.getElementById(viewId).style.display = 'flex';
             });
@@ -677,8 +672,7 @@ function initializeDraftView(draftId) {
     }
 
     function setupFilters() {
-        if (positionFiltersEl.innerHTML !== '') return;
-        positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
+        if (positionButtonsContainerEl.innerHTML !== '') return;
         const select = document.getElementById('filter-column-select');
         select.addEventListener('change', applyTableFilters);
 
@@ -690,11 +684,11 @@ function initializeDraftView(draftId) {
             btn.textContent = pos;
             if (pos === 'Todos') btn.classList.add('active');
             btn.addEventListener('click', () => {
-                document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('#position-buttons-container .filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 applyTableFilters();
             });
-            positionFiltersEl.appendChild(btn);
+            positionButtonsContainerEl.appendChild(btn);
         });
     }
     
@@ -711,7 +705,6 @@ function initializeDraftView(draftId) {
         .filter(p => p.captainId === currentUser.id)
         .sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
 
-    // SI EL DRAFT ESTÁ EN CURSO, MOSTRAMOS UNA LISTA SIMPLE
     if (draft.status === 'seleccion') {
         let rosterHtml = '';
         if (myTeamPlayers.length > 0) {
@@ -725,7 +718,6 @@ function initializeDraftView(draftId) {
         }
         rosterManagementContainer.innerHTML = `<div class="team-roster-simple"><h2>Plantilla en Progreso</h2><ul>${rosterHtml}</ul></div>`;
 
-    // SI EL DRAFT HA TERMINADO, MOSTRAMOS LA VISTA DE GESTIÓN COMPLETA
     } else {
         const playersToManage = myTeamPlayers.filter(p => !p.isCaptain);
         if (playersToManage.length > 0) {
@@ -762,10 +754,9 @@ function initializeDraftView(draftId) {
             const pickNumber = startPickOfRound + i + 1;
             let pickIndexInOrder;
 
-            // Lógica Snake Draft
-            if ((currentRound + 1) % 2 !== 0) { // Ronda impar (1, 3, 5...)
+            if ((currentRound + 1) % 2 !== 0) {
                 pickIndexInOrder = i;
-            } else { // Ronda par (2, 4, 6...)
+            } else {
                 pickIndexInOrder = numCaptains - 1 - i;
             }
 
