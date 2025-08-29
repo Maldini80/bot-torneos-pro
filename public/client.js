@@ -650,8 +650,9 @@ function initializeDraftView(draftId) {
             }
 
             if (target.classList.contains('btn-kick')) {
-                if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador? Un administrador deberá aprobarlo.`)) {
-                    socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId }));
+                const reason = prompt("Por favor, introduce un motivo breve para la solicitud de expulsión:");
+                if (reason && reason.trim() !== '') {
+                    socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason: reason.trim() }));
                     target.disabled = true;
                     target.textContent = 'Solicitado';
                 }
