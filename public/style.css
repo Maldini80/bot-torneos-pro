@@ -418,18 +418,11 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
         padding: 8px 15px;
     }
     /* AÑADE ESTAS REGLAS NUEVAS */
-    /* Oculta la navegación de escritorio y muestra la de móvil para el DRAFT */
-     /* --- NAVEGACIÓN PRINCIPAL DEL DRAFT --- */
-    /* Oculta los botones grandes de escritorio en la vista móvil */
-    #draft-container > .draft-view-switcher {
-        display: none;
-    }
-    /* Muestra el menú desplegable en la vista móvil */
-    #draft-container > .mobile-view-switcher {
-        display: block;
-    }
+    /* --- NAVEGACIÓN PRINCIPAL DEL DRAFT --- */
+    #draft-container > .draft-view-switcher { display: none; }
+    #draft-container > .mobile-view-switcher { display: block; }
 
-    /* Estilos para la nueva sub-navegación en móvil */
+    /* --- SUB-NAVEGACIÓN DENTRO DEL DRAFT EN VIVO (MÓVIL) --- */
     .mobile-sub-nav {
         display: flex;
         gap: 10px;
@@ -451,8 +444,13 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
         color: white;
         border-color: var(--primary-color);
     }
-    #teams-container-draftview {
-        display: none; /* Ocultamos los equipos por defecto en móvil */
+    /* Oculta los dos paneles en móvil por defecto... */
+    .content-grid-draftview > .sub-view-pane {
+        display: none !important;
+    }
+    /* ... y luego muestra solo el de jugadores al cargar la página */
+    #available-players-container-draftview {
+        display: flex !important;
     }
     .draft-view-pane {
         overflow-y: visible; /* Permite que el contenido crezca */
