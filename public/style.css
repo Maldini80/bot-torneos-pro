@@ -405,3 +405,59 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
         padding: 8px 15px;
     }
 }
+/* === ESTILOS PARA LA PANTALLA DE CAMPEÓN === */
+#finished-view .finished-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+#champion-card {
+    background: linear-gradient(145deg, #2c2c2c, #1a1a1a);
+    border: 2px solid var(--winner-color);
+    border-radius: 15px;
+    padding: 30px;
+    text-align: center;
+    width: 80%;
+    max-width: 500px;
+    box-shadow: 0 0 20px rgba(255, 193, 7, 0.4), 0 0 40px rgba(255, 193, 7, 0.2);
+    animation: champion-glow 2s infinite alternate;
+}
+
+.champion-header {
+    font-family: var(--font-bebas);
+    font-size: 2em;
+    color: var(--winner-color);
+    margin-bottom: 20px;
+}
+
+#champion-logo {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+    margin-bottom: 20px;
+    border-radius: 50%;
+    background-color: rgba(0,0,0,0.2);
+    padding: 10px;
+    border: 2px solid var(--winner-color);
+}
+
+#champion-card h3 {
+    font-family: var(--font-bebas);
+    font-size: 3.5em;
+    color: white;
+    margin: 0;
+}
+
+.thanks-message {
+    margin-top: 30px;
+    font-style: italic;
+    color: #888;
+}
+
+@keyframes champion-glow {
+    from { box-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
+    to { box-shadow: 0 0 30px rgba(255, 193, 7, 0.6); }
+}
