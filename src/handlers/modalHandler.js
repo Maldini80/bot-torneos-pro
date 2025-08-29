@@ -177,6 +177,7 @@ export async function handleModal(interaction) {
         const newEafcName = interaction.fields.getTextInputValue('eafc_name_input');
         const newTwitter = interaction.fields.getTextInputValue('twitter_input');
         const newStreamChannel = interaction.fields.getTextInputValue('stream_url_input');
+        const newLogoUrl = interaction.fields.getTextInputValue('logo_url_input'); // AÑADE ESTA LÍNEA
 
         await db.collection('tournaments').updateOne(
             { shortId: tournamentShortId },
@@ -185,7 +186,8 @@ export async function handleModal(interaction) {
                     [`teams.aprobados.${captainId}.nombre`]: newTeamName,
                     [`teams.aprobados.${captainId}.eafcTeamName`]: newEafcName,
                     [`teams.aprobados.${captainId}.twitter`]: newTwitter,
-                    [`teams.aprobados.${captainId}.streamChannel`]: newStreamChannel
+                    [`teams.aprobados.${captainId}.streamChannel`]: newStreamChannel,
+                    [`teams.aprobados.${captainId}.logoUrl`]: newLogoUrl // AÑADE ESTA LÍNEA
                 }
             }
         );
