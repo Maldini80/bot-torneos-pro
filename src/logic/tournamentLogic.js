@@ -175,8 +175,8 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
 
         if (maxQuotas[positionToCheck]) {
             const max = parseInt(maxQuotas[positionToCheck]);
+            // Contamos la posición primaria de TODOS los jugadores del equipo (incluido el capitán)
             const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
-            
             if (currentCount >= max) {
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
             }
@@ -260,10 +260,9 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
 
         if (maxQuotas[positionToCheck]) {
             const max = parseInt(maxQuotas[positionToCheck]);
-            // Contamos los jugadores ya fichados para esa posición
-            const currentCount = teamPlayers.filter(p => p.pickedForPosition === positionToCheck).length;
+            // Contamos la posición primaria de TODOS los jugadores del equipo (incluido el capitán)
+            const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
             if (currentCount >= max) {
-                // Lanzamos un error específico que será capturado abajo
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
             }
         }
