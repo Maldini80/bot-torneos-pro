@@ -326,5 +326,34 @@
 
     <!-- Scripts -->
     <script src="client.js"></script>
+
+<!-- Script adicional para navegación -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fix para navegación después del sorteo
+    const viewButtons = document.querySelectorAll('.view-btn');
+    viewButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Remover disabled state si existe
+            this.disabled = false;
+            this.style.pointerEvents = 'auto';
+            this.style.opacity = '1';
+        });
+    });
+    
+    // Fix para mobile navigation
+    const mobileSelect = document.getElementById('mobile-view-select');
+    if (mobileSelect) {
+        mobileSelect.addEventListener('change', function() {
+            const targetView = this.value;
+            const viewButton = document.querySelector(`[data-view="${targetView}"]`);
+            if (viewButton) {
+                viewButton.click();
+            }
+        });
+    }
+});
+</script>
 </body>
 </html>
+
