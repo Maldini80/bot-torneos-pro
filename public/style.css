@@ -428,8 +428,25 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 }
 
 /* --- NAVEGACIÓN PRINCIPAL DEL DRAFT (MÓVIL) --- */
-#draft-container > .draft-view-switcher { display: none; }
-#draft-container > .mobile-view-switcher { display: block; }
+ /* --- NAVEGACIÓN DEL TORNEO (MÓVIL) --- */
+    /* Oculta los botones grandes de escritorio del torneo */
+    #app-container .view-switcher { 
+        display: none !important;
+    }
+    /* Muestra el menú desplegable del torneo */
+    #app-container .mobile-view-switcher { 
+        display: block; 
+    }
+
+    /* --- NAVEGACIÓN DEL DRAFT (MÓVIL) --- */
+    /* Oculta los botones grandes de escritorio del draft */
+    #draft-container .draft-view-switcher { 
+        display: none; 
+    }
+    /* Muestra el menú desplegable del draft */
+    #draft-container .mobile-view-switcher { 
+        display: block; 
+    }
 
 /* --- SUB-NAVEGACIÓN DENTRO DEL DRAFT EN VIVO (MÓVIL) --- */
 .mobile-sub-nav {
