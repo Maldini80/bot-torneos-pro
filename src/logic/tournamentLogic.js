@@ -1745,9 +1745,33 @@ export async function handleKickApproval(client, draft, captainId, playerIdToKic
     const player = /^\d+$/.test(playerIdToKick) ? await client.users.fetch(playerIdToKick).catch(() => null) : null;
     const playerName = draft.players.find(p => p.userId === playerIdToKick)?.psnId || 'el jugador';
 
+    // --- CÓDIGO NUEVO Y MEJORADO ---
     if (wasApproved) {
         await forceKickPlayer(client, draft.shortId, captainId, playerIdToKick);
-        if (captain) await captain.send(`✅ Tu solicitud para expulsar a **${playerName}** ha sido **aprobada** por un administrador.`);
+        
+        // --- INICIO DEL BLOQUE A REEMPLAZAR ---
+        if (captain) {
+            try {
+                const embed = new EmbedBuilder()
+                    .setColor('#2ecc71')
+                    .setTitle('ℹ️ Solicitud de Expulsión Aprobada')
+                    .setDescription(`Tu solicitud para expulsar a **${playerName}** ha sido **aprobada**. Ahora tienes una plaza libre en tu plantilla.\n\nPuedes usar el botón de abajo para que un administrador invite a un agente libre como reemplazo.`);
+                
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`admin_invite_replacement_start:${draft.shortId}:${captainId}:${playerIdToKick}`)
+                        .setLabel('Invitar Reemplazo')
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji('🔄')
+                );
+    
+                await captain.send({ embeds: [embed], components: [row] });
+            } catch(e) {
+                console.warn(`No se pudo notificar al capitán ${captainId} de la expulsión aprobada.`);
+            }
+        }
+        // --- FIN DEL BLOQUE A REEMPLAZAR ---
+
         if (player) await player.send(`🚨 Has sido expulsado del equipo en el draft **${draft.name}** tras una solicitud del capitán aprobada por un admin.`);
         return { success: true, message: "Expulsión aprobada y procesada." };
     } else {
