@@ -12,7 +12,18 @@ import { postTournamentUpdate } from '../utils/twitter.js';
 import { visualizerStateHandler } from '../../visualizerServer.js';
 
 export async function notifyVisualizer(draft) {
-    visualizerStateHandler.updateDraft(draft);
+    // Enriquece los datos del draft con los strikes persistentes
+    const db = getDb();
+    const playerIds = draft.players.map(p => p.userId);
+    const records = await db.collection('player_records').find({ userId: { $in: playerIds } }).toArray();
+    const strikesMap = new Map(records.map(r => [r.userId, r.strikes]));
+
+    const enrichedDraft = JSON.parse(JSON.stringify(draft)); // Copia profunda
+    for (const player of enrichedDraft.players) {
+        player.strikes = strikesMap.get(player.userId) || 0;
+    }
+
+    visualizerStateHandler.updateDraft(enrichedDraft);
 }
 
 export async function notifyTournamentVisualizer(tournament) {
