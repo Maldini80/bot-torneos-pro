@@ -1006,4 +1006,18 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: `✅ Los datos del capitán del equipo **${newTeamName}** han sido actualizados.` });
         return;
     }
+    if (action === 'request_kick_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId, teamId, playerIdToKick] = params;
+        const reason = interaction.fields.getTextInputValue('reason_input');
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        try {
+            await requestPlayerKick(client, draft, teamId, playerIdToKick, reason);
+            await interaction.editReply({ content: '✅ Tu solicitud para expulsar al jugador ha sido enviada a los administradores para su revisión.' });
+        } catch (error) {
+            await interaction.editReply({ content: `❌ Error: ${error.message}` });
+        }
+        return;
+    }
 }
