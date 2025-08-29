@@ -183,7 +183,18 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     margin-bottom: 15px; border-left: 3px solid var(--primary-color);
 }
 .live-match-teams { font-weight: bold; margin-bottom: 10px; }
-.stream-links { display: flex; gap: 10px; flex-wrap: wrap; }
+.stream-links {
+    display: flex;
+    flex-direction: column; /* <-- ESTE ES EL CAMBIO PRINCIPAL */
+    gap: 8px; /* Reducimos un poco el espacio para que se vea mejor en vertical */
+}
+
+/* AÑADIMOS ESTA REGLA para que los botones se vean mejor */
+.stream-links .team-link-btn {
+    width: 100%;
+    box-sizing: border-box; /* Asegura que el padding no desborde el botón */
+    text-align: center;
+}
 
 /* === ORDEN DE PICK DEL DRAFT === */
 #round-pick-order {
