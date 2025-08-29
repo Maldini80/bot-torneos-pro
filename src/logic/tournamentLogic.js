@@ -1650,67 +1650,31 @@ export async function notifyCaptainsOfChanges(client, tournament) {
     return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
 }
 
-export async function reportPlayer(client, draft, interactorId, teamId, reportedPlayerId, reason) {
-    const db = getDb();
-    const records = db.collection('player_records');
+export async function requestStrike(client, draft, interactorId, teamId, reportedPlayerId, reason) {
     const notificationsThread = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
     if (!notificationsThread) throw new Error("No se pudo encontrar el canal de notificaciones del draft.");
-    
-    const captainAsReporter = draft.players.find(p => p.userId === teamId);
+
+    const reporter = draft.captains.find(c => c.userId === interactorId);
     const reported = draft.players.find(p => p.userId === reportedPlayerId);
-    
-    if (!captainAsReporter || !reported) {
-        throw new Error('No se pudo identificar al capitán o al jugador reportado.');
-    }
-
-    const playerRecord = await records.findOne({ userId: reportedPlayerId });
-    if (playerRecord && playerRecord.history && playerRecord.history.some(strike => strike.draftId === draft.shortId && strike.reporterId === captainAsReporter.userId)) {
-        throw new Error('Este capitán ya ha reportado a este jugador en este draft.');
-    }
-
-    const updateResult = await records.findOneAndUpdate(
-        { userId: reportedPlayerId },
-        {
-            $inc: { strikes: 1 },
-            $push: {
-                history: {
-                    strikeId: new ObjectId(),
-                    date: new Date(),
-                    draftId: draft.shortId,
-                    draftName: draft.name,
-                    reporterId: captainAsReporter.userId,
-                    reporterName: captainAsReporter.psnId,
-                    reason,
-                }
-            }
-        },
-        { returnDocument: 'after', upsert: true }
-    );
-    
-    const newStrikeCount = updateResult.value?.strikes || 1;
+    if (!reporter || !reported) throw new Error('No se pudo identificar al capitán o al jugador.');
 
     const embed = new EmbedBuilder()
-        .setColor('#e74c3c')
-        .setTitle('⚠️ Nuevo Strike Reportado')
-        .setDescription(`El capitán **${captainAsReporter.psnId}** ha reportado a **${reported.psnId}**.`)
+        .setColor('#e67e22')
+        .setTitle('⚠️ Solicitud de Strike')
+        .setDescription(`El capitán **${reporter.psnId}** ha solicitado aplicar un strike a **${reported.psnId}**.`)
         .addFields(
-            { name: 'Jugador Reportado', value: `<@${reportedPlayerId}> (${reported.psnId})` },
-            { name: 'Razón del Reporte', value: reason },
-            { name: 'Total de Strikes del Jugador', value: `**${newStrikeCount}**` }
+            { name: 'Jugador Reportado', value: `<@${reportedPlayerId}>` },
+            { name: 'Razón', value: reason }
         )
-        .setFooter({text: `Draft: ${draft.name}`});
+        .setFooter({ text: `Draft: ${draft.name}` });
 
-    await notificationsThread.send({ embeds: [embed] });
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`admin_strike_approve:${draft.shortId}:${reportedPlayerId}:${reporter.userId}:${reason.replace(/:/g, ';')}`).setLabel('Aprobar Strike').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`admin_strike_reject:${draft.shortId}:${reporter.userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+    );
 
-    if (newStrikeCount >= 2) {
-        const alertEmbed = new EmbedBuilder()
-            .setColor('#ff0000')
-            .setTitle('🚨 ALERTA DE STRIKES 🚨')
-            .setDescription(`El jugador <@${reportedPlayerId}> (${reported.psnId}) ha alcanzado **${newStrikeCount} strikes** y está en riesgo de sanción. Se recomienda revisar su caso.`);
-        await notificationsThread.send({ content: `<@&${ARBITRO_ROLE_ID}>`, embeds: [alertEmbed] });
-    }
-
-    return { success: true, newStrikeCount };
+    await notificationsThread.send({ embeds: [embed], components: [row] });
+    return { success: true };
 }
 
 export async function requestPlayerKick(client, draft, captainId, playerIdToKick) {
