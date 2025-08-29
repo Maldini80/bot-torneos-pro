@@ -1779,8 +1779,8 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
+	// --- CÓDIGO NUEVO Y MEJORADO ---
 	if (action === 'claim_verification_ticket') {
-        // CORRECCIÓN: Añadida comprobación de permisos
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             return interaction.reply({ content: '❌ No tienes permisos para reclamar tickets.', flags: [MessageFlags.Ephemeral] });
         }
@@ -1788,13 +1788,17 @@ export async function handleButton(interaction) {
         await interaction.deferUpdate();
         const [channelId] = params;
         const db = getDb();
-        const ticket = await db.collection('verificationtickets').findOne({ channelId, status: 'pending' });
+        const ticket = await db.collection('verificationtickets').findOne({ channelId });
 
-        if (!ticket) {
-            // CORRECCIÓN: ephemeral actualizado a flags
-            return interaction.followUp({ content: '❌ Este ticket ya ha sido reclamado o cerrado.', flags: [MessageFlags.Ephemeral] });
+        // Verificación mejorada: si ya está reclamado, informa quién lo tiene.
+        if (!ticket || ticket.status === 'closed') {
+            return interaction.followUp({ content: '❌ Este ticket ya ha sido cerrado.', flags: [MessageFlags.Ephemeral] });
+        }
+        if (ticket.status === 'claimed') {
+            return interaction.followUp({ content: `🟡 Este ticket ya está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
         }
 
+        // 1. ACTUALIZA EL TICKET EN LA BASE DE DATOS
         await db.collection('verificationtickets').updateOne({ _id: ticket._id }, {
             $set: {
                 status: 'claimed',
@@ -1802,25 +1806,34 @@ export async function handleButton(interaction) {
             }
         });
 
-        const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
-        originalEmbed.addFields({ name: 'Estado', value: `🟡 **Atendido por:** <@${interaction.user.id}>` });
+        // 2. ACTUALIZA EL MENSAJE DENTRO DEL CANAL PRIVADO (como antes)
+        const embedInTicket = EmbedBuilder.from(interaction.message.embeds[0]);
+        embedInTicket.addFields({ name: 'Estado', value: `🟡 **Atendido por:** <@${interaction.user.id}>` });
 
         const actionButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`approve_verification:${channelId}`)
-                .setLabel('Aprobar Verificación')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('✅'),
-            new ButtonBuilder()
-                .setCustomId(`reject_verification_start:${channelId}`)
-                .setLabel('Rechazar')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('❌')
+            new ButtonBuilder().setCustomId(`approve_verification:${channelId}`).setLabel('Aprobar Verificación').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`reject_verification_start:${channelId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
         );
 
-        await interaction.message.edit({ embeds: [originalEmbed], components: [actionButtons] });
-    }
+        await interaction.message.edit({ embeds: [embedInTicket], components: [actionButtons] });
 
+        // 3. ACTUALIZA EL AVISO EN EL CANAL DE ADMINISTRADORES
+        if (ticket.adminNotificationMessageId) {
+            try {
+                const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
+                const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
+                
+                const originalAdminEmbed = notificationMessage.embeds[0];
+                const updatedAdminEmbed = EmbedBuilder.from(originalAdminEmbed)
+                    .setTitle(`🟡 Ticket Atendido por ${interaction.user.tag}`)
+                    .setColor('#f1c40f'); // Color amarillo para indicar "en progreso"
+
+                await notificationMessage.edit({ embeds: [updatedAdminEmbed] });
+            } catch (error) {
+                console.warn(`[CLAIM UPDATE] No se pudo actualizar el mensaje de notificación del ticket ${ticket._id}.`, error.message);
+            }
+        }
+    }
     if (action === 'approve_verification') {
         // CORRECCIÓN: Añadida comprobación de permisos
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
