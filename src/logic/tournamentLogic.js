@@ -1661,7 +1661,8 @@ export async function notifyCaptainsOfChanges(client, tournament) {
 }
 
 export async function requestStrike(client, draft, interactorId, teamId, reportedPlayerId, reason) {
-    const DISPUTE_CATEGORY_ID = '1396814712649551974'; // La categoría que especificaste
+    const DISPUTE_CATEGORY_ID = '1396814712649551974'; // La categoría para los canales de disputa
+    const db = getDb(); // Obtenemos acceso a la base de datos
 
     try {
         const guild = await client.guilds.fetch(draft.guildId);
@@ -1669,8 +1670,7 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
         const reported = draft.players.find(p => p.userId === reportedPlayerId);
         if (!reporter || !reported) throw new Error('No se pudo identificar al capitán o al jugador.');
 
-        // --- INICIO DE LA NUEVA LÓGICA DE CANALES ---
-        // 1. Crear el canal de texto privado
+        // 1. Crear el canal de texto privado para la disputa
         const channelName = `disputa-${reporter.teamName.slice(0, 15)}-${reported.psnId.slice(0, 15)}`;
         const disputeChannel = await guild.channels.create({
             name: channelName.toLowerCase().replace(/\s+/g, '-'),
@@ -1697,7 +1697,7 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
             ],
         });
 
-        // 2. Crear el embed con la información y los botones DENTRO del nuevo canal
+        // 2. Crear el mensaje dentro del nuevo canal
         const embedInChannel = new EmbedBuilder()
             .setColor('#e67e22')
             .setTitle('⚠️ Disputa por Strike')
@@ -1705,21 +1705,20 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
             .addFields({ name: 'Motivo del Capitán', value: reason })
             .setFooter({ text: `Draft: ${draft.name}` });
 
-     const row = new ActionRowBuilder().addComponents(
-    // Hemos quitado el ":${reason.replace...}" del customId
-    new ButtonBuilder().setCustomId(`admin_strike_approve:${draft.shortId}:${reportedPlayerId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Aprobar Strike').setStyle(ButtonStyle.Success),
-
-    // El botón de rechazar no tenía el motivo, pero lo revisamos para asegurarnos
-    new ButtonBuilder().setCustomId(`admin_strike_reject:${draft.shortId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-);
-
+        // 3. Crear los botones con el customId CORTO (sin el motivo)
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_strike_approve:${draft.shortId}:${reportedPlayerId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Aprobar Strike').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`admin_strike_reject:${draft.shortId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+        );
+        
+        // 4. Enviar el mensaje con los botones al canal de disputa
         await disputeChannel.send({
             content: `Atención <@&${ARBITRO_ROLE_ID}>, <@${reporter.userId}>, <@${reportedPlayerId}>. Se ha abierto este canal para resolver una disputa.`,
             embeds: [embedInChannel],
             components: [row]
         });
 
-        // 3. Notificar al jugador por MD con el enlace al canal
+        // 5. Notificar al jugador por MD con el enlace al canal
         const reportedMember = await guild.members.fetch(reportedPlayerId).catch(() => null);
         if (reportedMember) {
             await reportedMember.send({
@@ -1727,8 +1726,19 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
             }).catch(e => console.warn(`No se pudo enviar MD de disputa al jugador ${reportedPlayerId}`));
         }
         
+        // --- LÓGICA DE PERSISTENCIA PARA SOLUCIONAR EL F5 ---
+        // 6. Marcamos al jugador como reportado EN LA BASE DE DATOS
+        await db.collection('drafts').updateOne(
+            { _id: draft._id, "players.userId": reportedPlayerId },
+            { $set: { "players.$.hasBeenReportedByCaptain": true } }
+        );
+
+        // 7. Notificamos al visualizador del cambio para que la web se actualice al instante
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await notifyVisualizer(updatedDraft);
+        // --- FIN DE LA LÓGICA DE PERSISTENCIA ---
+        
         return { success: true };
-        // --- FIN DE LA NUEVA LÓGICA DE CANALES ---
 
     } catch (error) {
         console.error("Error al crear el canal de disputa por strike:", error);
