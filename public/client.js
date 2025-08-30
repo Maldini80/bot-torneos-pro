@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO client.js (VERSIÓN FINAL Y COMPATIBLE) ---
+// --- INICIO DEL ARCHIVO client.js (VERSIÓN FINAL Y COMPLETA) ---
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -33,46 +33,36 @@ function initializeTournamentView(tournamentId) {
     const viewButtons = document.querySelectorAll('.view-btn');
     const mobileViewSelect = document.getElementById('mobile-view-select');
     const mainPanelEl = document.getElementById('main-panel');
+    const viewSwitcherEl = document.querySelector('.view-switcher');
     const finishedViewEl = document.getElementById('finished-view');
     const championNameEl = document.getElementById('champion-name');
 
     let hasLoadedInitialData = false;
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    let socket;
-
-    function connect() {
-        socket = new WebSocket(`${protocol}://${window.location.host}`);
-        socket.onopen = () => console.log('Conectado al servidor para Torneo.');
-        socket.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            if (message.type === 'tournament' && message.id === tournamentId) {
-                if (!hasLoadedInitialData) {
-                    loadingEl.classList.add('hidden');
-                    appContainerEl.style.display = 'flex';
-                    hasLoadedInitialData = true;
-                }
-                renderTournamentState(message.data);
+    const socket = new WebSocket(`${protocol}://${window.location.host}`);
+    socket.onopen = () => console.log('Conectado al servidor para Torneo.');
+    socket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'tournament' && message.id === tournamentId) {
+            if (!hasLoadedInitialData) {
+                loadingEl.classList.add('hidden');
+                appContainerEl.classList.remove('hidden');
+                hasLoadedInitialData = true;
             }
-        };
-        socket.onclose = () => setTimeout(connect, 3000);
-        socket.onerror = (error) => { console.error('Error de WebSocket:', error); socket.close(); };
-    }
-
-    connect();
+            renderTournamentState(message.data);
+        }
+    };
 
     fetch(`/tournament-data/${tournamentId}`)
-        .then(response => response.ok ? response.json() : null)
+        .then(response => response.ok ? response.json() : Promise.resolve(null))
         .then(data => {
             if (data && !hasLoadedInitialData) {
                 loadingEl.classList.add('hidden');
-                appContainerEl.style.display = 'flex';
+                appContainerEl.classList.remove('hidden');
                 renderTournamentState(data);
                 hasLoadedInitialData = true;
             }
-        }).catch(err => {
-            console.warn('No se pudieron cargar datos iniciales, esperando WebSocket.', err);
-            loadingEl.textContent = `Error al cargar datos: ${err.message}. Intentando conectar vía WebSocket...`;
-        });
+        }).catch(err => console.warn('No se pudieron cargar datos iniciales, esperando WebSocket.'));
 
     viewButtons.forEach(button => {
         button.addEventListener('click', () => {
@@ -80,48 +70,52 @@ function initializeTournamentView(tournamentId) {
             document.querySelector('.view-pane.active')?.classList.remove('active');
             button.classList.add('active');
             document.getElementById(button.dataset.view).classList.add('active');
-            mobileViewSelect.value = button.dataset.view;
         });
     });
 
     mobileViewSelect.addEventListener('change', (event) => {
         const viewId = event.target.value;
-        document.querySelector(`.view-btn[data-view="${viewId}"]`).click();
+        document.querySelector('.view-pane.active')?.classList.remove('active');
+        document.getElementById(viewId).classList.add('active');
     });
 
     if (closeButton) closeButton.addEventListener('click', () => modalEl.classList.add('hidden'));
-    window.addEventListener('click', (event) => { if (event.target === modalEl) modalEl.classList.add('hidden'); });
+    window.addEventListener('click', (event) => { if (event.target == modalEl) modalEl.classList.add('hidden'); });
 
     function renderTournamentState(tournament) {
         if (!tournament) return;
-        
-        tournamentNameEl.textContent = tournament.nombre;
-        tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
-
         if (tournament.status === 'finalizado') {
-            document.querySelector('.view-switcher').style.display = 'none';
+            viewSwitcherEl.style.display = 'none';
             document.querySelector('.mobile-view-switcher').style.display = 'none';
-            document.querySelector('.view-pane.active')?.classList.remove('active');
+            const activePane = mainPanelEl.querySelector('.view-pane.active');
+            if(activePane) activePane.classList.remove('active');
             finishedViewEl.classList.add('active');
             const finalMatch = tournament.structure.eliminatorias.final;
-            if (finalMatch?.resultado) {
+            if (finalMatch && finalMatch.resultado) {
                 const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
                 const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
                 championNameEl.textContent = champion.nombre;
+            } else {
+                championNameEl.textContent = "Por determinar";
             }
+            tournamentNameEl.textContent = `${tournament.nombre} (Finalizado)`;
             liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
-        } else {
-            document.querySelector('.view-switcher').style.display = 'flex';
-            document.querySelector('.mobile-view-switcher').style.display = 'block';
-            if (!mainPanelEl.querySelector('.view-pane.active')) {
-                 mainPanelEl.querySelector('[data-view="classification-view"]').click();
-            }
-            renderTeams(tournament);
-            renderClassification(tournament);
-            renderCalendar(tournament);
-            renderBracket(tournament);
-            renderLiveMatches(tournament);
+            return;
         }
+
+        viewSwitcherEl.style.display = 'flex';
+        finishedViewEl.classList.remove('active');
+        if (!mainPanelEl.querySelector('.view-pane.active')) {
+            mainPanelEl.querySelector('[data-view="classification-view"]').click();
+        }
+        
+        tournamentNameEl.textContent = tournament.nombre;
+        tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
+        renderTeams(tournament);
+        renderClassification(tournament);
+        renderCalendar(tournament);
+        renderBracket(tournament);
+        renderLiveMatches(tournament);
     }
 
     function renderTeams(tournament) {
@@ -134,10 +128,17 @@ function initializeTournamentView(tournamentId) {
         teams.forEach(team => {
             const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-large" alt="Logo de ${team.nombre}">` : '';
             const isDraftTeam = team.players && team.players.length > 0;
-            let metaHTML = `<div class="team-meta"><span>Capitán: ${team.capitanTag}</span></div>`;
+            let metaHTML = `<div class="team-meta"><span>Capitán: ${team.capitanTag}</span>`;
+            if (team.coCaptainTag) {
+                metaHTML += `<span>Co-Capitán: ${team.coCaptainTag}</span>`;
+            }
+            metaHTML += '</div>';
+            const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@','')}" target="_blank" class="team-link-btn">Twitter</a>` : '';
+            const streamLink = team.streamChannel ? `<a href="${team.streamChannel}" target="_blank" class="team-link-btn">Ver Stream</a>` : '';
+            const linksHTML = (twitterLink || streamLink) ? `<div class="team-links">${twitterLink}${streamLink}</div>` : '';
             const card = document.createElement('div');
             card.className = `team-card-info ${isDraftTeam ? 'is-draft-team' : ''}`;
-            card.innerHTML = `<h3>${logoHtml} ${team.nombre}</h3>${metaHTML}`;
+            card.innerHTML = `<h3>${logoHtml} ${team.nombre}</h3>${metaHTML}${linksHTML}`;
             if (isDraftTeam) {
                 card.addEventListener('click', () => showRosterModal(team));
             }
@@ -146,38 +147,63 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderClassification(tournament) {
-        groupsContainerEl.innerHTML = '';
         const groups = tournament.structure.grupos;
+        groupsContainerEl.innerHTML = '';
         if (Object.keys(groups).length === 0) {
             groupsContainerEl.innerHTML = '<p class="placeholder">El sorteo de grupos no se ha realizado.</p>';
             return;
         }
-        Object.keys(groups).sort().forEach(groupName => {
+
+        const sortedGroupNames = Object.keys(groups).sort();
+        
+        sortedGroupNames.forEach(groupName => {
             const group = groups[groupName];
             const sortedTeams = [...group.equipos].sort((a, b) => {
                 if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
                 if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
                 return b.stats.gf - a.stats.gf;
             });
+
             let groupHTML = `<div class="group-container"><h3 class="group-title">${groupName}</h3>`;
+            
             sortedTeams.forEach((team, index) => {
                 const dg = team.stats.dg > 0 ? `+${team.stats.dg}` : team.stats.dg;
                 const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
-                groupHTML += `<div class="team-stat-card"><div class="team-info-classification"><span class="team-position">${index + 1}</span>${logoHtml}<span class="team-name-classification">${team.nombre}</span></div><div class="team-stats-grid"><div class="stat-item"><span class="stat-value">${team.stats.pts}</span><span class="stat-label">PTS</span></div><div class="stat-item"><span class="stat-value">${team.stats.pj}</span><span class="stat-label">PJ</span></div><div class="stat-item"><span class="stat-value">${team.stats.gf}</span><span class="stat-label">GF</span></div><div class="stat-item"><span class="stat-value">${team.stats.gc}</span><span class="stat-label">GC</span></div><div class="stat-item"><span class="stat-value">${dg}</span><span class="stat-label">DG</span></div></div></div>`;
+                
+                groupHTML += `
+                    <div class="team-stat-card">
+                        <div class="team-info-classification">
+                            <span class="team-position">${index + 1}</span>
+                            ${logoHtml}
+                            <span class="team-name-classification">${team.nombre}</span>
+                        </div>
+                        <div class="team-stats-grid">
+                            <div class="stat-item"><span class="stat-value">${team.stats.pts}</span><span class="stat-label">PTS</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.pj}</span><span class="stat-label">PJ</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.gf}</span><span class="stat-label">GF</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.gc}</span><span class="stat-label">GC</span></div>
+                            <div class="stat-item"><span class="stat-value">${dg}</span><span class="stat-label">DG</span></div>
+                        </div>
+                    </div>
+                `;
             });
+
             groupHTML += '</div>';
             groupsContainerEl.innerHTML += groupHTML;
         });
     }
-    
+
     function renderCalendar(tournament) {
-        calendarContainerEl.innerHTML = '';
         const groups = tournament.structure.calendario;
-        if (!groups || Object.keys(groups).length === 0) {
-            calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrará aquí.</p>';
+        calendarContainerEl.innerHTML = '';
+        if (Object.keys(groups).length === 0) {
+            calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrará cuando comience el torneo.</p>';
             return;
         }
-        Object.keys(groups).sort().forEach(groupName => {
+
+        const sortedGroupNames = Object.keys(groups).sort();
+
+        sortedGroupNames.forEach(groupName => {
             const matches = groups[groupName];
             const matchesByRound = matches.reduce((acc, match) => {
                 const round = `Jornada ${match.jornada}`;
@@ -185,44 +211,70 @@ function initializeTournamentView(tournamentId) {
                 acc[round].push(match);
                 return acc;
             }, {});
+
             let groupHTML = `<div class="calendar-group"><h3>${groupName}</h3>`;
+
             Object.keys(matchesByRound).sort().forEach(roundName => {
                 groupHTML += `<div class="calendar-round"><h4>${roundName}</h4>`;
                 matchesByRound[roundName].forEach(match => {
+                    const teamA = match.equipoA;
+                    const teamB = match.equipoB;
                     const result = match.resultado ? `<div class="match-result">${match.resultado}</div>` : '<div class="match-vs">vs</div>';
-                    const logoA = match.equipoA.logoUrl ? `<img src="${match.equipoA.logoUrl}" class="team-logo-small">` : `<div class="team-logo-placeholder"></div>`;
-                    const logoB = match.equipoB.logoUrl ? `<img src="${match.equipoB.logoUrl}" class="team-logo-small">` : `<div class="team-logo-placeholder"></div>`;
-                    groupHTML += `<div class="calendar-match"><div class="team-info left">${logoA}<span>${match.equipoA.nombre}</span></div>${result}<div class="team-info right"><span>${match.equipoB.nombre}</span>${logoB}</div></div>`;
+                    const teamALogo = teamA.logoUrl ? `<img src="${teamA.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
+                    const teamBLogo = teamB.logoUrl ? `<img src="${teamB.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
+
+                    groupHTML += `<div class="calendar-match">
+                                    <div class="team-info left"><span>${teamA.nombre}</span>${teamALogo}</div>
+                                    ${result}
+                                    <div class="team-info right">${teamBLogo}<span>${teamB.nombre}</span></div>
+                                  </div>`;
                 });
                 groupHTML += `</div>`;
             });
+
             groupHTML += `</div>`;
             calendarContainerEl.innerHTML += groupHTML;
         });
     }
-    
+
     function renderBracket(tournament) {
-        bracketContainerEl.innerHTML = '';
         const stages = tournament.config.format.knockoutStages;
-        if (!stages || !tournament.structure.eliminatorias || stages.every(s => !tournament.structure.eliminatorias[s])) {
+        bracketContainerEl.innerHTML = '';
+        if (!stages || !tournament.structure.eliminatorias || tournament.status === 'inscripcion_abierta' || tournament.status === 'fase_de_grupos') {
             bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
             return;
         }
+        
         stages.forEach(stageKey => {
             const matches = tournament.structure.eliminatorias[stageKey];
             if (!matches || (Array.isArray(matches) && matches.length === 0)) return;
             const roundMatches = Array.isArray(matches) ? matches : [matches];
             let roundHTML = `<div class="bracket-round"><div class="bracket-round-title">${stageKey.replace(/_/g, ' ')}</div>`;
             roundMatches.forEach(match => {
-                let [scoreA, scoreB] = match.resultado ? match.resultado.split('-') : ['', ''];
+                const teamA = match.equipoA;
+                const teamB = match.equipoB;
+                const teamAName = teamA?.nombre || 'Por definir';
+                const teamBName = teamB?.nombre || 'Por definir';
+                const teamALogo = teamA?.logoUrl ? `<img src="${teamA.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
+                const teamBLogo = teamB?.logoUrl ? `<img src="${teamB.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
+                
+                let scoreA = '', scoreB = '';
                 let classA = '', classB = '';
                 if (match.resultado) {
+                    [scoreA, scoreB] = match.resultado.split('-');
                     if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
                     else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
                 }
-                const logoA = match.equipoA?.logoUrl ? `<img src="${match.equipoA.logoUrl}" class="bracket-team-logo">` : `<div class="bracket-team-logo-placeholder"></div>`;
-                const logoB = match.equipoB?.logoUrl ? `<img src="${match.equipoB.logoUrl}" class="bracket-team-logo">` : `<div class="bracket-team-logo-placeholder"></div>`;
-                roundHTML += `<div class="bracket-match ${classA} ${classB}"><div class="bracket-team"><div class="bracket-team-info">${logoA}<span>${match.equipoA?.nombre || 'Por definir'}</span></div><span class="score">${scoreA}</span></div><div class="bracket-team"><div class="bracket-team-info">${logoB}<span>${match.equipoB?.nombre || 'Por definir'}</span></div><span class="score">${scoreB}</span></div></div>`;
+                roundHTML += `<div class="bracket-match ${classA} ${classB}">
+                                <div class="bracket-team">
+                                    <div class="bracket-team-info">${teamALogo}<span>${teamAName}</span></div>
+                                    <span class="score">${scoreA}</span>
+                                </div>
+                                <div class="bracket-team">
+                                    <div class="bracket-team-info">${teamBLogo}<span>${teamBName}</span></div>
+                                    <span class="score">${scoreB}</span>
+                                </div>
+                             </div>`;
             });
             roundHTML += '</div>';
             bracketContainerEl.innerHTML += roundHTML;
@@ -230,22 +282,45 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderLiveMatches(tournament) {
-        const allMatches = [ ...Object.values(tournament.structure.calendario).flat(), ...Object.values(tournament.structure.eliminatorias).flat().filter(m => m && m.matchId) ];
+        const allMatches = [];
+        if (tournament.structure.calendario) {
+            allMatches.push(...Object.values(tournament.structure.calendario).flat());
+        }
+        if (tournament.structure.eliminatorias) {
+            Object.values(tournament.structure.eliminatorias).forEach(stage => {
+                if (Array.isArray(stage)) allMatches.push(...stage);
+                else if (stage && typeof stage === 'object' && stage.matchId) allMatches.push(stage);
+            });
+        }
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
+        
         liveMatchesListEl.innerHTML = '';
         if (liveMatches.length === 0) {
             liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>';
             return;
         }
-        liveMatches.forEach(match => {
-            const teamA = tournament.teams.aprobados[match.equipoA.capitanId];
-            const teamB = tournament.teams.aprobados[match.equipoB.capitanId];
-            if (!teamA || !teamB) return;
-            let linksHTML = '';
-            if (teamA.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamA.nombre}</a>`;
-            if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamB.nombre}</a>`;
-            if (!linksHTML) linksHTML = '<p style="font-size: 0.9em; color: #888;">No hay streams disponibles.</p>';
-            liveMatchesListEl.innerHTML += `<div class="live-match-card"><div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div><div class="stream-links">${linksHTML}</div></div>`;
+
+        const groupedMatches = liveMatches.reduce((acc, match) => {
+            const groupKey = match.nombreGrupo ? `${match.nombreGrupo} - Jornada ${match.jornada}` : match.jornada.charAt(0).toUpperCase() + match.jornada.slice(1);
+            if (!acc[groupKey]) acc[groupKey] = [];
+            acc[groupKey].push(match);
+            return acc;
+        }, {});
+
+        Object.keys(groupedMatches).sort().forEach(groupKey => {
+            let groupHTML = `<div class="live-match-group"><h4>${groupKey}</h4>`;
+            groupedMatches[groupKey].forEach(match => {
+                const teamA = tournament.teams.aprobados[match.equipoA?.capitanId];
+                const teamB = tournament.teams.aprobados[match.equipoB?.capitanId];
+                if (!teamA || !teamB) return;
+                let linksHTML = '';
+                if (teamA.streamChannel) linksHTML += `<a href="${teamA.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamA.nombre}</a>`;
+                if (teamB.streamChannel) linksHTML += `<a href="${teamB.streamChannel}" target="_blank" class="team-link-btn">Ver a ${teamB.nombre}</a>`;
+                if (!linksHTML) linksHTML = '<p style="font-size: 0.9em; color: #888;">No hay streams disponibles.</p>';
+                groupHTML += `<div class="live-match-card"><div class="live-match-teams">${teamA.nombre} vs ${teamB.nombre}</div><div class="stream-links">${linksHTML}</div></div>`;
+            });
+            groupHTML += '</div>';
+            liveMatchesListEl.innerHTML += groupHTML;
         });
     }
 
@@ -263,8 +338,8 @@ function initializeTournamentView(tournamentId) {
     }
 }
 
-
 function initializeDraftView(draftId) {
+    // ... (El código de initializeDraftView no necesita cambios)
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
@@ -296,16 +371,17 @@ function initializeDraftView(draftId) {
     async function checkUserSession() {
         try {
             const response = await fetch('/api/user');
-            if(response.ok) {
-                currentUser = await response.json();
-                if (currentUser) {
-                    document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
-                    document.getElementById('user-session').classList.remove('hidden');
-                }
+            currentUser = await response.json();
+            const userSessionEl = document.getElementById('user-session');
+            if (currentUser) {
+                document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
+                userSessionEl.classList.remove('hidden');
             }
-        } catch (e) { console.error("Error al verificar la sesión:", e); }
+        } catch (e) {
+            console.error("Error al verificar la sesión:", e);
+        }
     }
-    
+
     function connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         socket = new WebSocket(`${protocol}://${window.location.host}`);
@@ -317,7 +393,7 @@ function initializeDraftView(draftId) {
                 currentDraftState = message.data;
                 if (!hasLoadedInitialData) {
                     loadingEl.classList.add('hidden');
-                    draftContainerEl.style.display = 'flex';
+                    draftContainerEl.classList.remove('hidden');
                     hasLoadedInitialData = true;
                 }
                 const lastPick = currentDraftState.selection.lastPick;
@@ -341,7 +417,7 @@ function initializeDraftView(draftId) {
                 if (data && !hasLoadedInitialData) {
                     currentDraftState = data;
                     loadingEl.classList.add('hidden');
-                    draftContainerEl.style.display = 'flex';
+                    draftContainerEl.classList.remove('hidden');
                     hasLoadedInitialData = true;
                     renderAll();
                 }
@@ -374,8 +450,7 @@ function initializeDraftView(draftId) {
             renderRoundPickOrder(draft);
         }
         const isMyTeamManaged = currentUser && draft.captains.some(c => c.userId === currentUser.id);
-        const isDraftActiveOrFinished = ['seleccion', 'finalizado', 'torneo_generado'].includes(draft.status);
-        manageTeamTab.style.display = isDraftActiveOrFinished && isMyTeamManaged ? 'inline-block' : 'none';
+        manageTeamTab.style.display = (draft.status === 'finalizado' || draft.status === 'torneo_generado') && isMyTeamManaged ? 'inline-block' : 'none';
     }
 
     function renderTeams(draft) {
@@ -393,7 +468,7 @@ function initializeDraftView(draftId) {
                 }
                 rosterHtml += `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${positionDisplay}</span></li>`;
             });
-            allTeamsHtml += `<div class="team-card"><h3 class="team-header">${captain.teamName} <span class="captain-psn">(Cap: ${captain.psnId})</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
+            allTeamsHtml += `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
         });
         teamsGrid.innerHTML = allTeamsHtml;
     }
@@ -441,7 +516,7 @@ function initializeDraftView(draftId) {
 
     function applyTableFilters() {
         const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-        const filterColumn = document.getElementById('filter-column-select')?.value || 'primary';
+        const filterColumn = document.getElementById('filter-column-select').value;
         const rows = playersTableBodyEl.querySelectorAll('tr');
         const table = document.getElementById('players-table');
 
@@ -452,25 +527,42 @@ function initializeDraftView(draftId) {
 
         let hasPrimaryMatchesInData = false;
         if (isMyTurn && activeFilterPos !== 'Todos' && currentDraftState) {
-            hasPrimaryMatchesInData = currentDraftState.players.some(p => !p.captainId && !p.isCaptain && p.primaryPosition === activeFilterPos);
-            if (hasPrimaryMatchesInData) table.classList.add('primary-only');
-            else table.classList.add('secondary-only');
+            hasPrimaryMatchesInData = currentDraftState.players.some(p => 
+                !p.captainId && 
+                !p.isCaptain && 
+                p.primaryPosition === activeFilterPos
+            );
+
+            if (hasPrimaryMatchesInData) {
+                table.classList.add('primary-only');
+            } else {
+                table.classList.add('secondary-only');
+            }
         }
 
         rows.forEach(row => {
             const primaryPos = row.dataset.primaryPos;
             const secondaryPos = row.dataset.secondaryPos;
+            
             let isVisible = false;
-            if (activeFilterPos === 'Todos') isVisible = true;
-            else {
+            if (activeFilterPos === 'Todos') {
+                isVisible = true;
+            } else {
                 if (isMyTurn) {
-                    if (hasPrimaryMatchesInData) { if (primaryPos === activeFilterPos) isVisible = true; } 
-                    else { if (secondaryPos === activeFilterPos) isVisible = true; }
+                    if (hasPrimaryMatchesInData) {
+                        if (primaryPos === activeFilterPos) isVisible = true;
+                    } else {
+                        if (secondaryPos === activeFilterPos) isVisible = true;
+                    }
                 } else {
-                    if (filterColumn === 'primary' && primaryPos === activeFilterPos) isVisible = true;
-                    else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) isVisible = true;
+                    if (filterColumn === 'primary' && primaryPos === activeFilterPos) {
+                        isVisible = true;
+                    } else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
+                        isVisible = true;
+                    }
                 }
             }
+            
             row.style.display = isVisible ? '' : 'none';
         });
     }
@@ -487,31 +579,35 @@ function initializeDraftView(draftId) {
             if (event.target.classList.contains('pick-btn')) {
                 const playerId = event.target.dataset.playerId;
                 let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
+
                 if (!activeFilterPos || activeFilterPos === 'Todos') {
-                    activeFilterPos = event.target.closest('tr').dataset.primaryPos;
+                    const playerRow = event.target.closest('tr');
+                    activeFilterPos = playerRow.dataset.primaryPos;
                 }
+
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
                     document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
                 }
             }
         });
-        
+
         rosterManagementContainer.addEventListener('click', (event) => {
             const target = event.target;
             const playerId = target.dataset.playerId;
+
             if (target.classList.contains('btn-strike')) {
-                const reason = prompt("Motivo del strike (ej: inactividad, toxicidad):");
-                if (reason?.trim()) {
+                const reason = prompt("Por favor, introduce un motivo breve para el strike (ej: inactividad, toxicidad):");
+                if (reason && reason.trim() !== '') {
                     socket.send(JSON.stringify({ type: 'report_player', draftId, playerId, reason: reason.trim() }));
                     target.disabled = true;
                     target.textContent = 'Reportado';
                 }
             }
+
             if (target.classList.contains('btn-kick')) {
-                const reason = prompt("Motivo de la solicitud de expulsión:");
-                if (reason?.trim()) {
-                    socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason: reason.trim() }));
+                if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador? Un administrador deberá aprobarlo.`)) {
+                    socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId }));
                     target.disabled = true;
                     target.textContent = 'Solicitado';
                 }
@@ -520,17 +616,10 @@ function initializeDraftView(draftId) {
     }
 
     function setupFilters() {
-        if (positionFiltersEl.querySelector('.filter-btn')) return;
-        
-        // Limpiamos por si acaso
-        positionFiltersEl.innerHTML = '';
-
-        // Creamos el select que no estaba
-        const select = document.createElement('select');
-        select.id = 'filter-column-select';
-        select.innerHTML = `<option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option>`;
+        if (positionFiltersEl.innerHTML !== '') return;
+        positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
+        const select = document.getElementById('filter-column-select');
         select.addEventListener('change', applyTableFilters);
-        positionFiltersEl.appendChild(select);
 
         const allPositions = ['Todos', ...positionOrder];
         allPositions.forEach(pos => {
@@ -551,32 +640,21 @@ function initializeDraftView(draftId) {
     function renderTeamManagementView(draft) {
         const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
         if (!myCaptainData) {
-            rosterManagementContainer.innerHTML = '<p class="placeholder">No se encontraron datos de tu equipo.</p>';
+            rosterManagementContainer.innerHTML = '';
             return;
         }
         managementTeamName.textContent = myCaptainData.teamName;
         rosterManagementContainer.innerHTML = '';
-        const myTeamPlayers = draft.players.filter(p => p.captainId === currentUser.id).sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
+        const myTeamPlayers = draft.players.filter(p => p.captainId === currentUser.id && !p.isCaptain);
 
-        if (draft.status === 'seleccion') {
-            let rosterHtml = myTeamPlayers.map(player => {
-                const isCaptainIcon = player.isCaptain ? '👑' : '';
-                return `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${player.pickedForPosition || player.primaryPosition}</span></li>`;
-            }).join('');
-            rosterManagementContainer.innerHTML = `<div class="team-roster-simple"><h2>Plantilla en Progreso</h2><ul>${rosterHtml || '<li>Aún no has seleccionado jugadores.</li>'}</ul></div>`;
-        } else {
-            const playersToManage = myTeamPlayers.filter(p => !p.isCaptain);
-            if (playersToManage.length > 0) {
-                playersToManage.forEach(player => {
-                    const card = document.createElement('div');
-                    card.className = 'player-management-card';
-                    card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${player.strikes || 0}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${player.hasBeenReportedByCaptain ? 'disabled' : ''}>Reportar (Strike)</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
-                    rosterManagementContainer.appendChild(card);
-                });
-            } else {
-                rosterManagementContainer.innerHTML = '<p class="placeholder">Tu plantilla final no tiene jugadores para gestionar.</p>';
-            }
-        }
+        myTeamPlayers.forEach(player => {
+            const card = document.createElement('div');
+            card.className = 'player-management-card';
+            const strikes = player.strikes || 0;
+            const hasBeenReported = player.hasBeenReportedByCaptain || false;
+            card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${strikes}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>Reportar (Strike)</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
+            rosterManagementContainer.appendChild(card);
+        });
     }
 
     function sortPlayersAdvanced(a, b) {
@@ -596,7 +674,15 @@ function initializeDraftView(draftId) {
         const startPickOfRound = currentRound * numCaptains;
         for (let i = 0; i < numCaptains; i++) {
             const pickNumber = startPickOfRound + i + 1;
-            let pickIndexInOrder = (currentRound % 2 === 0) ? i : numCaptains - 1 - i;
+            let pickIndexInOrder;
+
+            // Lógica Snake Draft
+            if ((currentRound + 1) % 2 !== 0) { // Ronda impar (1, 3, 5...)
+                pickIndexInOrder = i;
+            } else { // Ronda par (2, 4, 6...)
+                pickIndexInOrder = numCaptains - 1 - i;
+            }
+
             const captainId = draft.selection.order[pickIndexInOrder];
             const captain = draft.captains.find(c => c.userId === captainId);
             const item = document.createElement('div');
@@ -620,7 +706,7 @@ function initializeDraftView(draftId) {
         }, 4500);
 
         const bannerEl = document.getElementById('last-pick-banner');
-        bannerEl.textContent = `Último Pick: ${player.psnId} ➔ ${captain.teamName}`;
+        bannerEl.innerHTML = `<strong>Último Pick:</strong> ${player.psnId} ➔ ${captain.teamName}`;
         bannerEl.classList.add('visible');
     }
 
