@@ -1980,45 +1980,49 @@ if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
     disabledRow.components.forEach(c => c.setDisabled(true));
 
     if (wasApproved) {
-        const [draftShortId, reportedId, reporterId, reason, disputeChannelId] = params;
-        const db = getDb();
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        if (!draft) { /* ... manejo de error ... */ return; }
-        const reporter = draft.captains.find(c => c.userId === reporterId);
-        if (!reporter) { /* ... manejo de error ... */ return; }
+    // 1. La razón ya no está en los params, así que la quitamos de aquí
+    const [draftShortId, reportedId, reporterId, disputeChannelId] = params;
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) { /* ... manejo de error ... */ return; }
+    const reporter = draft.captains.find(c => c.userId === reporterId);
+    if (!reporter) { /* ... manejo de error ... */ return; }
 
-        const reportedUser = await client.users.fetch(reportedId).catch(() => null);
+    // 2. Leemos la razón directamente del embed del mensaje que contiene el botón
+    const reason = interaction.message.embeds[0].fields.find(f => f.name === 'Motivo del Capitán').value;
 
-        await db.collection('player_records').findOneAndUpdate(
-            { userId: reportedId },
-            { $inc: { strikes: 1 } },
-            { upsert: true }
-        );
+    const reportedUser = await client.users.fetch(reportedId).catch(() => null);
 
-        if (reportedUser) {
-            const dmEmbed = new EmbedBuilder()
-                .setColor('#2ecc71')
-                .setTitle('⚖️ Decisión de Reporte: Strike Aplicado')
-                .setDescription(`Tras la revisión, un administrador ha **aprobado** el strike solicitado por tu capitán **${reporter.psnId}** en el draft **${draft.name}**.`)
-                .addFields({ name: 'Motivo del Strike', value: reason.replace(/;/g, ':') });
-            await reportedUser.send({ embeds: [dmEmbed] }).catch(e => console.warn(`No se pudo notificar al jugador ${reportedId} del strike.`));
+    await db.collection('player_records').findOneAndUpdate(
+        { userId: reportedId },
+        { $inc: { strikes: 1 } },
+        { upsert: true }
+    );
+
+    if (reportedUser) {
+        const dmEmbed = new EmbedBuilder()
+            .setColor('#2ecc71')
+            .setTitle('⚖️ Decisión de Reporte: Strike Aplicado')
+            // 3. Usamos la variable 'reason' que acabamos de obtener
+            .setDescription(`Tras la revisión, un administrador ha **aprobado** el strike solicitado por tu capitán **${reporter.psnId}** en el draft **${draft.name}**.`)
+            .addFields({ name: 'Motivo del Strike', value: reason });
+        await reportedUser.send({ embeds: [dmEmbed] }).catch(e => console.warn(`No se pudo notificar al jugador ${reportedId} del strike.`));
+    }
+    
+    originalEmbed.setColor('#2ecc71').setFooter({ text: `Strike aprobado por ${interaction.user.tag}` });
+    await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+    await interaction.followUp({ content: '✅ Strike aprobado y jugador notificado.', flags: [MessageFlags.Ephemeral] });
+
+    if (disputeChannelId) {
+        const channel = await client.channels.fetch(disputeChannelId).catch(() => null);
+        if (channel) {
+            await channel.send('**Disputa finalizada. Strike APROBADO.** Este canal se eliminará en 10 segundos.');
+            setTimeout(() => {
+                channel.delete('Disputa resuelta.').catch(console.error);
+            }, 10000);
         }
-        
-        originalEmbed.setColor('#2ecc71').setFooter({ text: `Strike aprobado por ${interaction.user.tag}` });
-        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-        await interaction.followUp({ content: '✅ Strike aprobado y jugador notificado.', flags: [MessageFlags.Ephemeral] });
-
-        if (disputeChannelId) {
-            const channel = await client.channels.fetch(disputeChannelId).catch(() => null);
-            if (channel) {
-                await channel.send('**Disputa finalizada. Strike APROBADO.** Este canal se eliminará en 10 segundos.');
-                setTimeout(() => {
-                    channel.delete('Disputa resuelta.').catch(console.error);
-                }, 10000);
-            }
-        }
-
-    } else { // Rechazado
+    }
+} else { // Rechazado
         const [draftShortId, reporterId, disputeChannelId] = params;
         const reporter = await client.users.fetch(reporterId).catch(() => null);
         if (reporter) await reporter.send('❌ Un administrador ha **rechazado** tu solicitud de strike tras revisar el caso.');
