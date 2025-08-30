@@ -23,7 +23,8 @@
 
 body {
     background-color: var(--background-color);
-    background-image: url('https://i.imgur.com/nrexwUe.jpeg');
+    /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
+    background-image: url('https://i.imgur.com/mxtcWwu.jpeg');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -40,7 +41,13 @@ body.draft-view-style #draft-container, body:not(.draft-view-style) #app-contain
 
 header {
     text-align: center; padding: 10px 0 15px 0; border-bottom: 2px solid var(--primary-color);
-    background: linear-gradient(to bottom, rgba(0,0,0,0.8), rgba(0,0,0,0.4));
+    /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
+    background: 
+        linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), /* Capa oscura para legibilidad */
+        url('https://i.imgur.com/S8lm70s.jpeg'); /* Tu imagen de fondo */
+    background-size: cover; /* Asegura que la imagen cubra todo el espacio */
+    background-position: center; /* Centra la imagen */
+    
     margin-bottom: 20px; position: relative; animation: neon-glow 1.5s infinite alternate; flex-shrink: 0;
 }
 .header-content { display: flex; align-items: center; justify-content: center; gap: 20px; }
