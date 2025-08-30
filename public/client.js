@@ -502,12 +502,12 @@ function initializeDraftView(draftId) {
             const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
             
             row.innerHTML = `
-                <td data-label="Strikes">${player.strikes || 0}</td>
-                <td data-label="NOMBRE">${statusIcon} ${player.psnId}</td>
-                <td data-label="Pos. Primaria" class="col-primary">${player.primaryPosition}</td>
-                <td data-label="Pos. Secundaria" class="col-secondary">${secPos}</td>
-                <td data-label="Acción" class="col-action">${actionButton}</td>
-            `;
+    <td data-label="Strikes"><span class="player-data">${player.strikes || 0}</span></td>
+    <td data-label="NOMBRE"><span class="player-data">${statusIcon} ${player.psnId}</span></td>
+    <td data-label="Pos. Primaria" class="col-primary"><span class="player-data">${player.primaryPosition}</span></td>
+    <td data-label="Pos. Secundaria" class="col-secondary"><span class="player-data">${secPos}</span></td>
+    <td data-label="Acción" class="col-action"><span class="player-data">${actionButton}</span></td>
+`;
             playersTableBodyEl.appendChild(row);
         });
 
