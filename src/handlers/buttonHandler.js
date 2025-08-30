@@ -1956,9 +1956,21 @@ if (action === 'admin_invite_replacement_start') {
             ephemeral: true
         });
     }
-	// EN: src/handlers/buttonHandler.js
+	// --- REEMPLAZA TU BLOQUE 'admin_strike_approve / reject' CON ESTE ---
 
 if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
+    // --- INICIO DE LA NUEVA LÓGICA DE PERMISOS ---
+    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+    const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+
+    if (!isAdmin && !isReferee) {
+        return interaction.reply({
+            content: '❌ Solo los administradores o árbitros pueden tomar una decisión sobre este reporte.',
+            flags: [MessageFlags.Ephemeral]
+        });
+    }
+    // --- FIN DE LA NUEVA LÓGICA DE PERMISOS ---
+
     await interaction.deferUpdate();
     const wasApproved = action === 'admin_strike_approve';
     
@@ -1969,7 +1981,7 @@ if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
 
     if (wasApproved) {
         const [draftShortId, reportedId, reporterId, reason, disputeChannelId] = params;
-        const db = getDb(); // Asegurarse de tener la db
+        const db = getDb();
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) { /* ... manejo de error ... */ return; }
         const reporter = draft.captains.find(c => c.userId === reporterId);
@@ -1985,7 +1997,7 @@ if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
 
         if (reportedUser) {
             const dmEmbed = new EmbedBuilder()
-                .setColor('#2ecc71') // Cambiado a verde para aprobación
+                .setColor('#2ecc71')
                 .setTitle('⚖️ Decisión de Reporte: Strike Aplicado')
                 .setDescription(`Tras la revisión, un administrador ha **aprobado** el strike solicitado por tu capitán **${reporter.psnId}** en el draft **${draft.name}**.`)
                 .addFields({ name: 'Motivo del Strike', value: reason.replace(/;/g, ':') });
@@ -1996,7 +2008,6 @@ if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
         await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
         await interaction.followUp({ content: '✅ Strike aprobado y jugador notificado.', flags: [MessageFlags.Ephemeral] });
 
-        // --- NUEVO: Eliminar el canal ---
         if (disputeChannelId) {
             const channel = await client.channels.fetch(disputeChannelId).catch(() => null);
             if (channel) {
@@ -2016,7 +2027,6 @@ if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
         await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
         await interaction.followUp({ content: '❌ Solicitud de strike rechazada.', flags: [MessageFlags.Ephemeral] });
 
-        // --- NUEVO: Eliminar el canal ---
         if (disputeChannelId) {
             const channel = await client.channels.fetch(disputeChannelId).catch(() => null);
             if (channel) {
