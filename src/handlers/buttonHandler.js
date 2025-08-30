@@ -490,7 +490,7 @@ export async function handleButton(interaction) {
         .setLabel("Motivo de la Expulsión")
         .setPlaceholder("Ej: Inactividad total, toxicidad, etc.")
         .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true);
+        .setRequired(true)
 		.setMaxLength(500);
     modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
     await interaction.showModal(modal);
@@ -616,7 +616,7 @@ if (action === 'admin_invite_replacement_start') {
             .setLabel("Razón del Strike")
             .setPlaceholder("Ej: Comportamiento tóxico, inactividad, etc.")
             .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true);
+            .setRequired(true)
 		    .setMaxLength(500);
         modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
         await interaction.showModal(modal);
@@ -1609,7 +1609,7 @@ if (action === 'admin_invite_replacement_start') {
             .setLabel("Motivo de tu solicitud de baja")
             .setPlaceholder("Por favor, explica brevemente por qué deseas dejar el equipo.")
             .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true);
+            .setRequired(true)
 		    .setMaxLength(500);
         modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
         await interaction.showModal(modal);
