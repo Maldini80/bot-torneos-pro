@@ -1988,9 +1988,19 @@ export async function requestStrikeFromWeb(client, draftId, captainId, playerId,
 }
 
 export async function requestKickFromWeb(client, draftId, captainId, playerId, reason) {
-    const draft = await getDb().collection('drafts').findOne({ shortId: draftId });
-    // La función actual de Discord no usa el 'reason', pero la preparamos para el futuro
-    await requestPlayerKick(client, draft, captainId, playerId);
+    try {
+        const draft = await getDb().collection('drafts').findOne({ shortId: draftId });
+        if (!draft) {
+            throw new Error(`Draft con ID ${draftId} no encontrado.`);
+        }
+        // Ahora sí le pasamos el 'reason' a la función que crea el aviso
+        await requestPlayerKick(client, draft, captainId, playerId, reason);
+
+    } catch (error) {
+        console.error(`[KICK WEB] Fallo en la solicitud de expulsión del capitán ${captainId}: ${error.message}`);
+        // Enviamos el error de vuelta a la web para que el capitán sepa que algo falló
+        visualizerStateHandler.sendToUser(captainId, { type: 'kick_error', message: error.message });
+    }
 }
 
 // Y AÑADE ESTA FUNCIÓN EXTRA PARA PODER USARLA DESDE OTROS ARCHIVOS
