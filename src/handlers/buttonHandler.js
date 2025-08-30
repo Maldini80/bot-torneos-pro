@@ -535,26 +535,41 @@ export async function handleButton(interaction) {
         return;
     }
     
-    if (action === 'admin_invite_replacement_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [draftShortId, teamId, kickedPlayerId] = params;
+    // --- REEMPLAZA TU BLOQUE 'admin_invite_replacement_start' CON ESTE ---
 
-        const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
-            label: value,
-            value: key
-        }));
-
-        const positionMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_select_replacement_position:${draftShortId}:${teamId}:${kickedPlayerId}`)
-            .setPlaceholder('Paso 1: Selecciona la posición a cubrir')
-            .addOptions(positionOptions);
-
-        await interaction.editReply({
-            content: 'Por favor, selecciona la posición del jugador que deseas buscar como reemplazo:',
-            components: [new ActionRowBuilder().addComponents(positionMenu)]
-        });
-        return;
+if (action === 'admin_invite_replacement_start') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [draftShortId, teamId, kickedPlayerId] = params;
+    
+    // Buscamos el draft para poder contar los jugadores del equipo
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) {
+        return interaction.editReply({ content: 'Error: No se pudo encontrar el draft.' });
     }
+
+    // --- INICIO DE LA LÓGICA DE SEGURIDAD ---
+    const currentTeamPlayers = draft.players.filter(p => p.captainId === teamId);
+    if (currentTeamPlayers.length >= 11) {
+        return interaction.editReply({ content: '❌ Tu plantilla ya está completa (11 jugadores). No puedes invitar a más reemplazos.' });
+    }
+    // --- FIN DE LA LÓGICA DE SEGURIDAD ---
+
+    const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+        label: value,
+        value: key
+    }));
+
+    const positionMenu = new StringSelectMenuBuilder()
+        .setCustomId(`admin_select_replacement_position:${draftShortId}:${teamId}:${kickedPlayerId}`)
+        .setPlaceholder('Paso 1: Selecciona la posición a cubrir')
+        .addOptions(positionOptions);
+
+    await interaction.editReply({
+        content: 'Por favor, selecciona la posición del jugador que deseas buscar como reemplazo:',
+        components: [new ActionRowBuilder().addComponents(positionMenu)]
+    });
+    return;
+}
 
     if (action === 'draft_accept_replacement') {
         await interaction.deferUpdate();
