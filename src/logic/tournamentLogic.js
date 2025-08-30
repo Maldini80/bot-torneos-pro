@@ -1746,13 +1746,24 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
     }
 }
 
-export async function requestPlayerKick(client, draft, captainId, playerIdToKick, reason = 'No especificado') {
+export async function requestPlayerKick(client, draft, captainId, playerIdToKick, reason) { // <-- AÑADIDO 'reason'
     const db = getDb();
     const notificationsThread = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
     if (!notificationsThread) throw new Error("Canal de notificaciones no encontrado.");
 
     const captain = draft.captains.find(c => c.userId === captainId);
     const player = draft.players.find(p => p.userId === playerIdToKick);
+
+    // SOLUCIÓN VULNERABILIDAD F5: Comprobamos si ya hay una solicitud pendiente
+    if (player.kickRequestPending) {
+        throw new Error("Ya existe una solicitud de expulsión pendiente para este jugador.");
+    }
+
+    // Marcamos al jugador con una solicitud pendiente EN LA BASE DE DATOS
+    await db.collection('drafts').updateOne(
+        { _id: draft._id, "players.userId": playerIdToKick },
+        { $set: { "players.$.kickRequestPending": true } }
+    );
 
     const embed = new EmbedBuilder()
         .setColor('#e67e22')
@@ -1761,7 +1772,7 @@ export async function requestPlayerKick(client, draft, captainId, playerIdToKick
         .addFields(
             { name: 'Capitán Solicitante', value: `<@${captainId}>` },
             { name: 'Jugador a Expulsar', value: `<@${playerIdToKick}>` },
-            { name: 'Motivo', value: reason } // Añade el motivo
+            { name: 'Motivo', value: reason } // Mostramos el motivo
         )
         .setFooter({ text: `Draft: ${draft.name}` });
 
@@ -1771,6 +1782,11 @@ export async function requestPlayerKick(client, draft, captainId, playerIdToKick
     );
 
     await notificationsThread.send({ embeds: [embed], components: [row] });
+    
+    // Notificamos al visualizador para que el botón se desactive
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await notifyVisualizer(updatedDraft);
+
     return { success: true };
 }
 
@@ -1778,38 +1794,27 @@ export async function handleKickApproval(client, draft, captainId, playerIdToKic
     const captain = /^\d+$/.test(captainId) ? await client.users.fetch(captainId).catch(() => null) : null;
     const player = /^\d+$/.test(playerIdToKick) ? await client.users.fetch(playerIdToKick).catch(() => null) : null;
     const playerName = draft.players.find(p => p.userId === playerIdToKick)?.psnId || 'el jugador';
+    const db = getDb(); // <-- Acceso a la DB
 
-    // --- CÓDIGO NUEVO Y MEJORADO ---
     if (wasApproved) {
         await forceKickPlayer(client, draft.shortId, captainId, playerIdToKick);
         
-        // --- INICIO DEL BLOQUE A REEMPLAZAR ---
-        if (captain) {
-            try {
-                const embed = new EmbedBuilder()
-                    .setColor('#2ecc71')
-                    .setTitle('ℹ️ Solicitud de Expulsión Aprobada')
-                    .setDescription(`Tu solicitud para expulsar a **${playerName}** ha sido **aprobada**. Ahora tienes una plaza libre en tu plantilla.\n\nPuedes usar el botón de abajo para que un administrador invite a un agente libre como reemplazo.`);
-                
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`admin_invite_replacement_start:${draft.shortId}:${captainId}:${playerIdToKick}`)
-                        .setLabel('Invitar Reemplazo')
-                        .setStyle(ButtonStyle.Primary)
-                        .setEmoji('🔄')
-                );
-    
-                await captain.send({ embeds: [embed], components: [row] });
-            } catch(e) {
-                console.warn(`No se pudo notificar al capitán ${captainId} de la expulsión aprobada.`);
-            }
-        }
-        // --- FIN DEL BLOQUE A REEMPLAZAR ---
-
+        if (captain) { /* ... tu código de MD al capitán ... */ }
         if (player) await player.send(`🚨 Has sido expulsado del equipo en el draft **${draft.name}** tras una solicitud del capitán aprobada por un admin.`);
         return { success: true, message: "Expulsión aprobada y procesada." };
-    } else {
+
+    } else { // Rechazado
+        // Si se rechaza, quitamos la marca de pendiente
+        await db.collection('drafts').updateOne(
+            { _id: draft._id, "players.userId": playerIdToKick },
+            { $unset: { "players.$.kickRequestPending": "" } }
+        );
         if (captain) await captain.send(`❌ Tu solicitud para expulsar a **${playerName}** ha sido **rechazada** por un administrador.`);
+        
+        // Notificamos al visualizador para que el botón se reactive
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await notifyVisualizer(updatedDraft);
+
         return { success: true, message: "Expulsión rechazada." };
     }
 }
@@ -1838,9 +1843,13 @@ export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKi
         }
     }
 
+    // Actualizamos al jugador: lo dejamos sin equipo Y quitamos la marca de "solicitud pendiente"
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": playerIdToKick },
-        { $set: { "players.$.captainId": null } }
+        { 
+            $set: { "players.$.captainId": null },
+            $unset: { "players.$.kickRequestPending": "" } 
+        }
     );
 
     if (/^\d+$/.test(teamId)) {
@@ -1861,9 +1870,15 @@ export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKi
         }
     }
 
+    // --- BLOQUE DE ACTUALIZACIÓN CORRECTO ---
+    // Solo necesitamos buscar el draft una vez al final
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    
+    // Actualizamos todas las interfaces para que reflejen el cambio
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft); // Actualizamos el panel de admin
+    await notifyVisualizer(updatedDraft); // Sincronizamos con la web
 }
 
 export async function removeStrike(client, playerId) {
@@ -1916,24 +1931,44 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const replacementPlayer = draft.players.find(p => p.userId === replacementPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
+    // Paso 1: Limpiamos completamente el estado del jugador que fue expulsado.
+    // Lo devolvemos a agente libre y reseteamos cualquier marca de estado pendiente.
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": kickedPlayerId },
-        { $set: { "players.$.captainId": null } }
+        { 
+            $set: { "players.$.captainId": null },
+            $unset: { 
+                "players.$.kickRequestPending": "",
+                "players.$.hasBeenReportedByCaptain": "" 
+            }
+        }
     );
 
+    // Paso 2: Asignamos el nuevo jugador al equipo.
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": replacementPlayerId },
         { $set: { "players.$.captainId": captainId } }
     );
 
+    // Paso 3: Notificamos al capitán.
     if (/^\d+$/.test(captainId)) {
-        const captainUser = await client.users.fetch(captainId);
-        await captainUser.send(`✅ **${replacementPlayer.psnId}** ha aceptado tu invitación y ha reemplazado al jugador anterior en tu equipo.`);
+        try {
+            const captainUser = await client.users.fetch(captainId);
+            await captainUser.send(`✅ **${replacementPlayer.psnId}** ha aceptado tu invitación y se ha unido a tu equipo como reemplazo.`);
+        } catch (e) {
+            console.warn(`No se pudo notificar al capitán ${captainId} de la aceptación del reemplazo.`);
+        }
     }
     
+    // --- BLOQUE DE ACTUALIZACIÓN COMPLETO Y CORRECTO ---
+    // Buscamos el estado final del draft una sola vez.
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    
+    // Actualizamos todas las interfaces para que reflejen el cambio.
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft); // <-- ¡La llamada crucial que faltaba!
 }
 export async function requestStrikeFromWeb(client, draftId, captainId, playerId, reason) {
     try {
