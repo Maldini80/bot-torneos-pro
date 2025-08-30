@@ -481,20 +481,20 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'captain_request_kick') {
-        const [draftShortId, teamId, playerIdToKick] = params;
-        const modal = new ModalBuilder()
-            .setCustomId(`request_kick_modal:${draftShortId}:${teamId}:${playerIdToKick}`)
-            .setTitle('Solicitar Expulsión de Jugador');
-        const reasonInput = new TextInputBuilder()
-            .setCustomId('reason_input')
-            .setLabel("Motivo de la Expulsión")
-            .setPlaceholder("Ej: Inactividad total, toxicidad, etc.")
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
-        await interaction.showModal(modal);
-        return;
-    }
+    const [draftShortId, teamId, playerIdToKick] = params;
+    const modal = new ModalBuilder()
+        .setCustomId(`request_kick_modal:${draftShortId}:${teamId}:${playerIdToKick}`)
+        .setTitle('Solicitar Expulsión de Jugador');
+    const reasonInput = new TextInputBuilder()
+        .setCustomId('reason_input')
+        .setLabel("Motivo de la Expulsión")
+        .setPlaceholder("Ej: Inactividad total, toxicidad, etc.")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true);
+    modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+    await interaction.showModal(modal);
+    return;
+}
     
     // --- BLOQUE NUEVO Y MEJORADO ---
     if (action === 'admin_approve_kick' || action === 'admin_reject_kick') {
