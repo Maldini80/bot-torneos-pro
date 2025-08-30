@@ -1588,26 +1588,32 @@ if (action === 'admin_invite_replacement_start') {
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     if (!draft) return interaction.editReply({ content: "Error: Draft no encontrado." });
 
-    // --- LÓGICA MEJORADA ---
     const playerEntry = draft.players.find(p => p.userId === interaction.user.id);
     if (!playerEntry) {
         return interaction.editReply({ content: "No estás inscrito en este draft." });
     }
 
-    // Si la selección está en curso, no se puede dar de baja.
     if (draft.status === 'seleccion') {
         return interaction.editReply({ content: "No puedes solicitar la baja mientras la fase de selección está en curso. Por favor, espera a que finalice." });
     }
 
-    // Si ya fue elegido por un capitán, el proceso es diferente.
+    // SI EL JUGADOR ESTÁ FICHADO, PEDIMOS MOTIVO CON UN MODAL
     if (playerEntry.captainId) {
-        // Aquí irá la lógica de solicitar la baja al capitán y admin (implementado en tournamentLogic.js)
-        const result = await requestUnregisterFromDraft(client, draft, interaction.user.id);
+        const modal = new ModalBuilder()
+            .setCustomId(`unregister_draft_reason_modal:${draftShortId}`)
+            .setTitle('Solicitar Baja de Equipo');
+        const reasonInput = new TextInputBuilder()
+            .setCustomId('reason_input')
+            .setLabel("Motivo de tu solicitud de baja")
+            .setPlaceholder("Por favor, explica brevemente por qué deseas dejar el equipo.")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+        await interaction.showModal(modal);
+
+    } else { // SI ES AGENTE LIBRE, EL PROCESO ES DIRECTO PERO AÚN REQUIERE APROBACIÓN
+        const result = await requestUnregisterFromDraft(client, draft, interaction.user.id, "Agente Libre (no fichado)");
         return interaction.editReply({ content: result.message });
-    } else {
-        // Si es agente libre, se le da de baja directamente.
-        await kickPlayerFromDraft(client, draft, interaction.user.id);
-        return interaction.editReply({ content: "Has sido dado de baja del draft." });
     }
 }
     
