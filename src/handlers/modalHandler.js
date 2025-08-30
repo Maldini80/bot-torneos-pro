@@ -9,7 +9,7 @@ import { processVerification, processProfileUpdate } from '../logic/verification
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 // --- LÍNEA CORREGIDA Y COMPLETA ---
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField, TextInputBuilder, TextInputStyle, ModalBuilder } from 'discord.js';
-import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS } from '../../config.js';
+import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { createDraftStatusEmbed } from '../utils/embeds.js';
 const VERIFICATION_TICKET_CATEGORY_ID = '1396814712649551974';
