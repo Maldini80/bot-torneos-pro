@@ -1661,30 +1661,77 @@ export async function notifyCaptainsOfChanges(client, tournament) {
 }
 
 export async function requestStrike(client, draft, interactorId, teamId, reportedPlayerId, reason) {
-    const notificationsThread = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
-    if (!notificationsThread) throw new Error("No se pudo encontrar el canal de notificaciones del draft.");
+    const DISPUTE_CATEGORY_ID = '1396814712649551974'; // La categoría que especificaste
 
-    const reporter = draft.captains.find(c => c.userId === interactorId);
-    const reported = draft.players.find(p => p.userId === reportedPlayerId);
-    if (!reporter || !reported) throw new Error('No se pudo identificar al capitán o al jugador.');
+    try {
+        const guild = await client.guilds.fetch(draft.guildId);
+        const reporter = draft.captains.find(c => c.userId === interactorId);
+        const reported = draft.players.find(p => p.userId === reportedPlayerId);
+        if (!reporter || !reported) throw new Error('No se pudo identificar al capitán o al jugador.');
 
-    const embed = new EmbedBuilder()
-        .setColor('#e67e22')
-        .setTitle('⚠️ Solicitud de Strike')
-        .setDescription(`El capitán **${reporter.psnId}** ha solicitado aplicar un strike a **${reported.psnId}**.`)
-        .addFields(
-            { name: 'Jugador Reportado', value: `<@${reportedPlayerId}>` },
-            { name: 'Razón', value: reason }
-        )
-        .setFooter({ text: `Draft: ${draft.name}` });
+        // --- INICIO DE LA NUEVA LÓGICA DE CANALES ---
+        // 1. Crear el canal de texto privado
+        const channelName = `disputa-${reporter.teamName.slice(0, 15)}-${reported.psnId.slice(0, 15)}`;
+        const disputeChannel = await guild.channels.create({
+            name: channelName.toLowerCase().replace(/\s+/g, '-'),
+            type: ChannelType.GuildText,
+            parent: DISPUTE_CATEGORY_ID,
+            reason: `Disputa de strike para ${reported.psnId}`,
+            permissionOverwrites: [
+                {
+                    id: guild.id, // @everyone
+                    deny: [PermissionsBitField.Flags.ViewChannel],
+                },
+                {
+                    id: ARBITRO_ROLE_ID, // Rol de Árbitro/Admin
+                    allow: [PermissionsBitField.Flags.ViewChannel],
+                },
+                {
+                    id: reporter.userId, // El capitán que reporta
+                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
+                },
+                {
+                    id: reportedPlayerId, // El jugador reportado
+                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
+                }
+            ],
+        });
 
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`admin_strike_approve:${draft.shortId}:${reportedPlayerId}:${reporter.userId}:${reason.replace(/:/g, ';')}`).setLabel('Aprobar Strike').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`admin_strike_reject:${draft.shortId}:${reporter.userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-    );
+        // 2. Crear el embed con la información y los botones DENTRO del nuevo canal
+        const embedInChannel = new EmbedBuilder()
+            .setColor('#e67e22')
+            .setTitle('⚠️ Disputa por Strike')
+            .setDescription(`El capitán **${reporter.psnId}** (<@${reporter.userId}>) ha reportado al jugador **${reported.psnId}** (<@${reportedPlayerId}>).`)
+            .addFields({ name: 'Motivo del Capitán', value: reason })
+            .setFooter({ text: `Draft: ${draft.name}` });
 
-    await notificationsThread.send({ embeds: [embed], components: [row] });
-    return { success: true };
+        // AÑADIMOS el ID del canal al customId para poder cerrarlo después
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_strike_approve:${draft.shortId}:${reportedPlayerId}:${reporter.userId}:${reason.replace(/:/g, ';')}:${disputeChannel.id}`).setLabel('Aprobar Strike').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`admin_strike_reject:${draft.shortId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+        );
+
+        await disputeChannel.send({
+            content: `Atención <@&${ARBITRO_ROLE_ID}>, <@${reporter.userId}>, <@${reportedPlayerId}>. Se ha abierto este canal para resolver una disputa.`,
+            embeds: [embedInChannel],
+            components: [row]
+        });
+
+        // 3. Notificar al jugador por MD con el enlace al canal
+        const reportedMember = await guild.members.fetch(reportedPlayerId).catch(() => null);
+        if (reportedMember) {
+            await reportedMember.send({
+                content: `🚨 **Has sido reportado en el draft "${draft.name}"** 🚨\n\nTu capitán ha solicitado un strike en tu contra. Tienes la oportunidad de explicar tu versión de los hechos en el siguiente canal privado antes de que un administrador tome una decisión:\n\n${disputeChannel.toString()}`
+            }).catch(e => console.warn(`No se pudo enviar MD de disputa al jugador ${reportedPlayerId}`));
+        }
+        
+        return { success: true };
+        // --- FIN DE LA NUEVA LÓGICA DE CANALES ---
+
+    } catch (error) {
+        console.error("Error al crear el canal de disputa por strike:", error);
+        throw new Error("Hubo un error al crear el canal de disputa. Revisa los permisos de la categoría.");
+    }
 }
 
 export async function requestPlayerKick(client, draft, captainId, playerIdToKick, reason = 'No especificado') {
