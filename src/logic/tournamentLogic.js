@@ -1705,11 +1705,13 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
             .addFields({ name: 'Motivo del Capitán', value: reason })
             .setFooter({ text: `Draft: ${draft.name}` });
 
-        // AÑADIMOS el ID del canal al customId para poder cerrarlo después
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`admin_strike_approve:${draft.shortId}:${reportedPlayerId}:${reporter.userId}:${reason.replace(/:/g, ';')}:${disputeChannel.id}`).setLabel('Aprobar Strike').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`admin_strike_reject:${draft.shortId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-        );
+     const row = new ActionRowBuilder().addComponents(
+    // Hemos quitado el ":${reason.replace...}" del customId
+    new ButtonBuilder().setCustomId(`admin_strike_approve:${draft.shortId}:${reportedPlayerId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Aprobar Strike').setStyle(ButtonStyle.Success),
+
+    // El botón de rechazar no tenía el motivo, pero lo revisamos para asegurarnos
+    new ButtonBuilder().setCustomId(`admin_strike_reject:${draft.shortId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+);
 
         await disputeChannel.send({
             content: `Atención <@&${ARBITRO_ROLE_ID}>, <@${reporter.userId}>, <@${reportedPlayerId}>. Se ha abierto este canal para resolver una disputa.`,
