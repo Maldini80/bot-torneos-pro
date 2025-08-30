@@ -1952,7 +1952,7 @@ export async function handleButton(interaction) {
 
         // --- BLOQUE CORREGIDO Y ROBUSTO ---
 if (wasApproved) {
-    const [, draftShortId, reportedId, reporterId, reason] = params;
+    const [draftShortId, reportedId, reporterId, reason] = params;
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
     // 1. Verificación crucial: ¿Existe el draft?
