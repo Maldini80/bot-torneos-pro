@@ -1950,17 +1950,33 @@ export async function handleButton(interaction) {
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
 
-        // CÓDIGO NUEVO Y CORREGIDO
+        // --- BLOQUE CORREGIDO Y ROBUSTO ---
 if (wasApproved) {
     const [, draftShortId, reportedId, reporterId, reason] = params;
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-    const reporter = draft.captains.find(c => c.userId === reporterId);
-    const reportedUser = await client.users.fetch(reportedId).catch(() => null);
 
-    // Se comprueba si el reporter existe para evitar el error con usuarios de prueba.
-    if (!reporter) {
-        console.warn(`[STRIKE APPROVE] No se encontró al capitán reportador con ID ${reporterId}. Puede ser un usuario de prueba. Saltando notificación.`);
+    // 1. Verificación crucial: ¿Existe el draft?
+    if (!draft) {
+        console.error(`[STRIKE APPROVE] FATAL: No se pudo encontrar el draft con shortId: ${draftShortId}. customId era: ${interaction.customId}`);
+        await interaction.followUp({ content: 'Error crítico: No se pudo encontrar el draft asociado a esta solicitud. La solicitud puede ser demasiado antigua.', flags: [MessageFlags.Ephemeral] });
+        // Desactivamos los botones para evitar más clics
+        originalEmbed.setColor('#e74c3c').setFooter({ text: `Error al procesar. Draft no encontrado.` });
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+        return;
     }
+
+    const reporter = draft.captains.find(c => c.userId === reporterId);
+    
+    // 2. Verificación secundaria: ¿Sigue siendo capitán el reportador?
+    if (!reporter) {
+        console.error(`[STRIKE APPROVE] FATAL: No se encontró al capitán reportador (${reporterId}) en la lista del draft.`);
+        await interaction.followUp({ content: 'Error de consistencia: El capitán que reportó ya no parece ser capitán en este draft.', flags: [MessageFlags.Ephemeral] });
+        originalEmbed.setColor('#e74c3c').setFooter({ text: `Error al procesar. Capitán no encontrado.` });
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+        return;
+    }
+
+    const reportedUser = await client.users.fetch(reportedId).catch(() => null);
 
     await db.collection('player_records').findOneAndUpdate(
         { userId: reportedId },
@@ -1972,8 +1988,7 @@ if (wasApproved) {
         const dmEmbed = new EmbedBuilder()
             .setColor('#e74c3c')
             .setTitle('🚨 Has recibido un Strike')
-            // Se usa un texto alternativo si el capitán es un usuario de prueba.
-            .setDescription(`Has sido reportado por tu capitán **${reporter ? reporter.psnId : 'Staff'}** en el draft **${draft.name}**.`)
+            .setDescription(`Has sido reportado por tu capitán **${reporter.psnId}** en el draft **${draft.name}**.`)
             .addFields({ name: 'Motivo del Strike', value: reason.replace(/;/g, ':') })
             .setFooter({ text: 'Si crees que es un error, contacta a un árbitro.' });
         await reportedUser.send({ embeds: [dmEmbed] }).catch(e => console.warn(`No se pudo notificar al jugador ${reportedId} del strike.`));
