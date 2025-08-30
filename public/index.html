@@ -3,333 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VPG LIGHTNINGS - Liga Profesional Gaming</title>
+    <title>Visualizador en Vivo</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="https://i.imgur.com/9ycmqGH.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loading">
-        <div class="loading-content">
-            <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Logo" class="loading-logo">
-            <div class="loading-text">CARGANDO VPG LIGHTNINGS</div>
-            <div class="loading-spinner"></div>
-        </div>
-    </div>
+    <div id="loading">Cargando datos del evento...</div>
 
-    <!-- Tournament Container -->
+    <!-- ========= ESTRUCTURA PARA VISUALIZADOR DE TORNEOS ========= -->
     <div id="app-container" class="hidden">
-        <!-- Tournament Header -->
-        <header class="tournament-header">
-            <div class="header-banner">
-                <div class="header-content">
-                    <div class="header-left">
-                        <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Logo" class="vpg-logo">
-                        <div class="tournament-info">
-                            <h1 id="tournament-name" class="tournament-title">VPG LIGHTNINGS</h1>
-                            <p id="tournament-format" class="tournament-subtitle">Liga Profesional de Gaming</p>
-                        </div>
-                    </div>
-                    
-                    <div class="header-right">
-                        <div id="auth-controls">
-                            <!-- Contenido para usuarios logueados en torneo se inserta aquí por client.js -->
-                            <div id="user-session" class="hidden">
-                                <span id="user-greeting"></span>
-                                <a href="/logout" class="logout-btn">Cerrar Sesión</a>
-                            </div>
-                        </div>
-                    </div>
+        <header>
+            <div class="header-content">
+                <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Lightnings Logo" class="header-logo">
+                <div class="header-text">
+                    <h1 id="tournament-name"></h1>
+                    <p id="tournament-format"></p>
                 </div>
             </div>
         </header>
-
-        <!-- Mobile Navigation -->
-        <div class="mobile-navigation mobile-view-switcher">
-            <select id="mobile-view-select" class="mobile-selector">
-                <option value="classification-view">🏆 Clasificación</option>
-                <option value="teams-view">👥 Equipos</option>
-                <option value="calendar-view">📅 Calendario</option>
-                <option value="bracket-view">🏅 Eliminatorias</option>
+        <div class="mobile-view-switcher">
+            <select id="mobile-view-select">
+                <option value="classification-view">Clasificación</option>
+                <option value="calendar-view">Calendario</option>
+                <option value="bracket-view">Eliminatorias</option>
+                <option value="teams-view">Equipos</option>
             </select>
         </div>
-
-        <!-- Main Content -->
         <div class="main-content">
-            <!-- Main Panel -->
-            <main id="main-panel" class="content-container">
-                <!-- Desktop Navigation -->
-                <nav class="desktop-navigation view-switcher">
-                    <div class="nav-container">
-                        <button class="nav-btn view-btn active" data-view="classification-view">
-                            <span class="nav-icon">🏆</span>
-                            <span class="nav-text">Clasificación</span>
-                        </button>
-                        <button class="nav-btn view-btn" data-view="teams-view">
-                            <span class="nav-icon">👥</span>
-                            <span class="nav-text">Equipos</span>
-                        </button>
-                        <button class="nav-btn view-btn" data-view="calendar-view">
-                            <span class="nav-icon">📅</span>
-                            <span class="nav-text">Calendario</span>
-                        </button>
-                        <button class="nav-btn view-btn" data-view="bracket-view">
-                            <span class="nav-icon">🏅</span>
-                            <span class="nav-text">Eliminatorias</span>
-                        </button>
-                    </div>
+            <main id="main-panel" class="animated-border">
+                <nav class="view-switcher">
+                    <button class="view-btn active" data-view="classification-view">Clasificación</button>
+                    <button class="view-btn" data-view="calendar-view">Calendario</button>
+                    <button class="view-btn" data-view="bracket-view">Eliminatorias</button>
+                    <button class="view-btn" data-view="teams-view">Equipos</button>
                 </nav>
-
-                <!-- Classification View -->
-                <div id="classification-view" class="content-view view-pane active">
-                    <div class="view-header">
-                        <h2 class="view-title">CLASIFICACIÓN GENERAL</h2>
+                <div id="main-view-content">
+                    <div id="classification-view" class="view-pane active">
+                        <h2>Fase de Grupos</h2>
+                        <div id="groups-container"></div>
                     </div>
-                    <div id="groups-container" class="groups-grid">
-                        <!-- Groups will be loaded here by client.js -->
+                    <div id="calendar-view" class="view-pane">
+                        <h2>Calendario de Partidos</h2>
+                        <div id="calendar-container"></div>
                     </div>
-                </div>
-
-                <!-- Teams View -->
-                <div id="teams-view" class="content-view view-pane">
-                    <div class="view-header">
-                        <h2 class="view-title">EQUIPOS PARTICIPANTES</h2>
+                    <div id="bracket-view" class="view-pane">
+                        <h2>Eliminatorias</h2>
+                        <div id="bracket-container"></div>
                     </div>
-                    <div id="team-list-container" class="teams-grid">
-                        <!-- Teams will be loaded here by client.js -->
+                    <div id="teams-view" class="view-pane">
+                        <h2>Equipos Participantes</h2>
+                        <div id="team-list-container"></div>
                     </div>
-                </div>
-
-                <!-- Calendar View -->
-                <div id="calendar-view" class="content-view view-pane">
-                    <div class="view-header">
-                        <h2 class="view-title">CALENDARIO DE PARTIDOS</h2>
-                    </div>
-                    <div id="calendar-container" class="calendar-grid">
-                        <!-- Calendar will be loaded here by client.js -->
-                    </div>
-                </div>
-
-                <!-- Bracket View -->
-                <div id="bracket-view" class="content-view view-pane">
-                    <div class="view-header">
-                        <h2 class="view-title">ELIMINATORIAS</h2>
-                    </div>
-                    <div id="bracket-container" class="bracket-wrapper">
-                        <!-- Bracket will be loaded here by client.js -->
-                    </div>
-                </div>
-
-                <!-- Finished View -->
-                <div id="finished-view" class="content-view view-pane">
-                    <div class="champion-container">
-                        <h2 class="champion-title">🏆 TORNEO FINALIZADO 🏆</h2>
-                        <div id="champion-card" class="champion-card">
-                            <div class="champion-header">CAMPEÓN VPG LIGHTNINGS</div>
-                            <img id="champion-logo" class="champion-logo" src="" alt="Campeón">
-                            <div id="champion-name" class="champion-name">EQUIPO CAMPEÓN</div>
-                        </div>
-                        <div class="thanks-message">
-                            ¡Gracias por participar en VPG Lightnings!<br>
-                            La nueva temporada comienza pronto...
+                    <div id="finished-view" class="view-pane">
+                        <div class="finished-content">
+                            <h2 id="finished-title">Torneo Finalizado</h2>
+                            <p>¡Gracias por participar y seguir la retransmisión!</p>
+                            <div class="champion-info">
+                                <h3>🏆 Campeón 🏆</h3>
+                                <p id="champion-name">--</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </main>
-
-            <!-- Live Match Sidebar -->
-            <aside id="live-match-sidebar" class="live-sidebar">
-                <h2 class="sidebar-title">🔴 EN VIVO</h2>
-                <div id="live-matches-list" class="live-matches-grid">
-                    <!-- Live matches will be loaded here by client.js -->
-                </div>
+            <aside id="live-match-sidebar" class="animated-border">
+                <h2>Partidos en Directo</h2>
+                <div id="live-matches-list"></div>
             </aside>
         </div>
-    </div>
-
-    <!-- Draft Container -->
-    <div id="draft-container" class="hidden">
-        <!-- Draft Header -->
-        <header class="draft-header">
-            <div class="draft-banner">
-                <div class="draft-banner-content">
-                    <div class="draft-header-left">
-                        <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Logo" class="vpg-logo-draft">
-                        <div class="draft-info">
-                            <h1 id="draft-name-draftview" class="draft-title">VPG LIGHTNINGS DRAFT</h1>
-                            <p class="draft-subtitle">Sistema de Selección de Jugadores</p>
-                        </div>
-                    </div>
-                    
-                    <!-- AUTH CONTROLS PARA DRAFTS (CORREGIDO) -->
-                    <div class="draft-header-right">
-                        <div id="auth-controls-draft">
-                            <div id="user-session-draft" class="hidden">
-                                <span id="user-greeting-draft"></span>
-                                <a href="/logout" class="logout-btn">Cerrar Sesión</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Draft Status Info -->
-                <div class="draft-status-bar">
-                    <div id="round-info-draftview" class="round-info">--</div>
-                    <div id="current-pick-info-draftview" class="current-pick-info">
-                        Turno de <span id="current-team-draftview">--</span> - Pick <span id="current-pick-draftview">--</span>
-                    </div>
-                </div>
-
-                <!-- Pick Order Display -->
-                <div id="round-pick-order" class="pick-order-display">
-                    <!-- Pick order will be displayed here by client.js -->
-                </div>
-
-                <!-- Last Pick Banner -->
-                <div id="last-pick-banner" class="last-pick-banner hidden">
-                    <!-- Content injected by client.js -->
-                </div>
-            </div>
-        </header>
-
-        <!-- Draft Navigation (AÑADIDO SELECTOR MÓVIL) -->
-        <div class="draft-navigation">
-             <div class="mobile-draft-nav">
-                <select id="mobile-draft-view-select" class="mobile-selector">
-                    <option value="draft-live-view">⚡ Draft en Vivo</option>
-                    <option value="draft-manage-team-view">👥 Gestionar Equipo</option>
-                </select>
-            </div>
-            <div class="desktop-draft-nav">
-                <div class="nav-container">
-                    <button class="draft-nav-btn draft-view-btn active" data-view="draft-live-view">
-                        <span class="nav-icon">⚡</span>
-                        <span class="nav-text">Draft en Vivo</span>
-                    </button>
-                    <button class="draft-nav-btn draft-view-btn" id="manage-team-tab" data-view="draft-manage-team-view" style="display: none;">
-                        <span class="nav-icon">👥</span>
-                        <span class="nav-text">Gestionar Equipo</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Draft Main Content -->
-        <main class="draft-main-content">
-            <!-- Draft Live View -->
-            <section id="draft-live-view" class="draft-view-section draft-view-pane active">
-                <div class="draft-content-grid">
-                    <!-- Teams Section -->
-                    <div id="teams-container-draftview" class="draft-section teams-section">
-                        <div class="section-header">
-                            <h2 class="section-title">EQUIPOS Y ROSTERS</h2>
-                        </div>
-                        <div class="legend" style="text-align: center; margin-bottom: 10px; font-style: italic;">
-                            * = Fichado por Pos. Secundaria
-                        </div>
-                        <div id="teams-grid" class="teams-draft-grid">
-                            <!-- Teams will be loaded here by client.js -->
-                        </div>
-                    </div>
-
-                    <!-- Players Section -->
-                    <div id="available-players-container-draftview" class="draft-section players-section">
-                        <div class="section-header">
-                            <h2 class="section-title">JUGADORES DISPONIBLES</h2>
-                        </div>
-
-                        <!-- DIV DE FILTROS CORREGIDO -->
-                        <div id="position-filters" class="position-filters">
-                            <select id="filter-column-select" style="display: none;">
-                                <option value="primary">Filtrar por Pos. Primaria</option>
-                                <option value="secondary">Filtrar por Pos. Secundaria</option>
-                            </select>
-                            <div id="position-buttons-container">
-                                <!-- Los botones de posición se crean aquí dinámicamente -->
-                            </div>
-                        </div>
-
-                        <div class="players-legend legend">
-                            🛡️ Con Equipo | 🔎 Agente Libre
-                        </div>
-
-                        <!-- Players Table -->
-                        <div class="players-table-wrapper">
-                            <table id="players-table" class="players-table">
-                                <thead>
-                                    <tr>
-                                        <th class="col-strikes">Strikes</th>
-                                        <th class="col-player">NOMBRE</th>
-                                        <th class="col-primary">Pos. Primaria</th>
-                                        <th class="col-secondary">Pos. Secundaria</th>
-                                        <th class="col-action">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="players-table-body">
-                                    <!-- Players rows will be added here by client.js -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Draft Team Management View -->
-            <section id="draft-manage-team-view" class="draft-view-section draft-view-pane">
-                <div class="team-management-container">
-                    <h2 id="management-team-name" class="management-title">GESTIÓN DE EQUIPO</h2>
-                    <div id="roster-management-container" class="roster-management">
-                        <!-- Team management interface will be loaded here by client.js -->
-                    </div>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    <!-- Modals -->
-    <div id="roster-modal" class="modal-overlay hidden">
-        <div class="modal-container">
-            <div class="modal-header">
-                <h2 id="modal-team-name" class="modal-title">Roster del Equipo</h2>
-                <button class="modal-close close-button">&times;</button>
-            </div>
+        <div id="roster-modal" class="hidden">
             <div class="modal-content">
-                <ul id="modal-roster-list" class="roster-list">
-                    <!-- Roster items will be populated here by client.js -->
-                </ul>
+                <span class="close-button">&times;</span>
+                <h3 id="modal-team-name"></h3>
+                <ul id="modal-roster-list"></ul>
             </div>
         </div>
     </div>
 
-    <div id="pick-alert" class="modal-overlay hidden">
-        <div class="alert-container">
-            <div id="pick-alert-content" class="alert-content">
-                <h2 class="alert-title">¡NUEVO PICK!</h2>
-                <div id="pick-alert-message" class="alert-message">Selección realizada</div>
-                <button class="alert-close">ENTENDIDO</button>
+    <!-- ========= ESTRUCTURA PARA VISUALIZADOR DE DRAFTS ========= -->
+    <div id="draft-container" class="hidden">
+        <header>
+            <div class="header-content">
+                 <img src="https://i.imgur.com/9ycmqGH.png" alt="VPG Lightnings Logo" class="header-logo">
+                 <div class="header-text">
+                    <div id="auth-controls">
+                        <div id="user-session" class="hidden">
+                            <span id="user-greeting"></span>
+                            <a href="/logout">Cerrar Sesión</a>
+                        </div>
+                    </div>
+                    <h1 id="draft-name-draftview"></h1>
+                    <div class="status-line-draftview">
+                        <div id="round-info-draftview"></div>
+                        <div id="current-pick-info-draftview">Turno de: <span id="current-team-draftview"></span> | Pick #<span id="current-pick-draftview">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div id="last-pick-banner"></div>
+            <div id="round-pick-order"></div>
+        </header>
+        
+        <nav class="draft-view-switcher">
+            <button class="draft-view-btn active" data-view="draft-live-view">Draft en Vivo</button>
+            <button class="draft-view-btn" data-view="draft-manage-team-view" id="manage-team-tab" style="display: none;">Gestionar Mi Equipo</button>
+        </nav>
+
+        <div id="draft-live-view" class="draft-view-pane active">
+            <div class="content-grid-draftview">
+                <div id="teams-container-draftview" class="animated-border">
+                    <div class="legend" style="text-align: center; margin-bottom: 10px; font-style: italic;">* = Fichado por Pos. Secundaria</div>
+                    <div id="teams-grid"></div>
+                </div>
+                <div id="available-players-container-draftview" class="animated-border">
+                    <h2>Jugadores Disponibles</h2>
+                    <div id="position-filters"></div>
+                    <div class="legend">🛡️ Con Equipo | 🔎 Agente Libre</div>
+                    <div class="players-table-container">
+                        <table id="players-table">
+                            <thead>
+                                <tr>
+                                    <th>Strikes</th>
+                                    <th>NOMBRE</th>
+                                    <th class="col-primary">Pos. Primaria</th>
+                                    <th class="col-secondary">Pos. Secundaria</th>
+                                    <th class="col-action">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="players-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Scripts -->
+        <div id="draft-manage-team-view" class="draft-view-pane">
+            <h2>Gestionar Plantilla: <span id="management-team-name"></span></h2>
+            <div id="roster-management-container"></div>
+        </div>
+    </div>
+    
+    <div id="pick-alert" class="hidden"><div id="pick-alert-content"></div></div>
+    
+    <footer id="common-footer">
+        Powered by VPG LIGHTNINGS
+    </footer>
+
     <script src="client.js"></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const viewButtons = document.querySelectorAll('.view-btn');
-        const mobileSelect = document.getElementById('mobile-view-select');
-        if (mobileSelect) {
-            mobileSelect.addEventListener('change', function() {
-                const viewId = this.value;
-                const targetButton = document.querySelector(`.view-btn[data-view="${viewId}"]`);
-                if (targetButton) {
-                    targetButton.click();
-                }
-            });
-        }
-    });
-    </script>
 </body>
 </html>
