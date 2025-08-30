@@ -491,6 +491,7 @@ export async function handleButton(interaction) {
         .setPlaceholder("Ej: Inactividad total, toxicidad, etc.")
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true);
+		.setMaxLength(500);
     modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
     await interaction.showModal(modal);
     return;
@@ -616,6 +617,7 @@ if (action === 'admin_invite_replacement_start') {
             .setPlaceholder("Ej: Comportamiento tóxico, inactividad, etc.")
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true);
+		    .setMaxLength(500);
         modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
         await interaction.showModal(modal);
         return;
@@ -1608,6 +1610,7 @@ if (action === 'admin_invite_replacement_start') {
             .setPlaceholder("Por favor, explica brevemente por qué deseas dejar el equipo.")
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true);
+		    .setMaxLength(500);
         modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
         await interaction.showModal(modal);
 
