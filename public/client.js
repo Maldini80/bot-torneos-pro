@@ -606,12 +606,15 @@ function initializeDraftView(draftId) {
             }
 
             if (target.classList.contains('btn-kick')) {
-                if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador? Un administrador deberá aprobarlo.`)) {
-                    socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId }));
-                    target.disabled = true;
-                    target.textContent = 'Solicitado';
-                }
-            }
+    const reason = prompt("Por favor, introduce un motivo breve para solicitar la expulsión:");
+    if (reason && reason.trim() !== '') {
+        if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador por el motivo "${reason.trim()}"? Un administrador deberá aprobarlo.`)) {
+            socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason: reason.trim() }));
+            target.disabled = true;
+            target.textContent = 'Solicitud Pendiente';
+        }
+    }
+}
         });
     }
 
@@ -652,12 +655,30 @@ function initializeDraftView(draftId) {
         card.className = 'player-management-card';
         const strikes = player.strikes || 0;
         
-        // --- INICIO DE LA LÓGICA MEJORADA ---
+        // Leemos el estado del jugador desde los datos que nos llegan del servidor
         const hasBeenReported = player.hasBeenReportedByCaptain || false;
+        const kickRequestPending = player.kickRequestPending || false;
+        
+        // Decidimos qué texto mostrar en los botones basándonos en el estado
         const reportButtonText = hasBeenReported ? 'Reportado' : 'Reportar (Strike)';
-        // --- FIN DE LA LÓGICA MEJORADA ---
+        const kickButtonText = kickRequestPending ? 'Solicitud Pendiente' : 'Solicitar Expulsión';
 
-        card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${strikes}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>${reportButtonText}</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
+        // Construimos la tarjeta del jugador con los botones y textos correctos
+        card.innerHTML = `
+            <div class="player-management-info">
+                <h3>${player.psnId}</h3>
+                <p>Posición: ${player.primaryPosition}</p>
+                <p>Strikes: <span class="strikes">${strikes}</span></p>
+            </div>
+            <div class="management-actions">
+                <button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>
+                    ${reportButtonText}
+                </button>
+                <button class="btn-kick" data-player-id="${player.userId}" ${kickRequestPending ? 'disabled' : ''}>
+                    ${kickButtonText}
+                </button>
+            </div>
+        `;
         rosterManagementContainer.appendChild(card);
     });
 }
