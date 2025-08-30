@@ -1044,4 +1044,17 @@ if (action === 'admin_edit_strikes_submit') {
         }
         return;
     }
+    if (action === 'unregister_draft_reason_modal') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [draftShortId] = params;
+    const reason = interaction.fields.getTextInputValue('reason_input');
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+    try {
+        const result = await requestUnregisterFromDraft(client, draft, interaction.user.id, reason);
+        return interaction.editReply({ content: result.message });
+    } catch (error) {
+        return interaction.editReply({ content: `❌ Error al procesar la solicitud: ${error.message}` });
+    }
+}
 }
