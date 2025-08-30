@@ -442,7 +442,7 @@ export async function approveUnregisterFromDraft(client, draft, userIdToUnregist
         } catch(e) { console.warn(`No se pudo notificar al capitán ${captainId} de la baja aprobada.`); }
     }
 }
-export async function requestUnregisterFromDraft(client, draft, userId) {
+export async function requestUnregisterFromDraft(client, draft, userId, reason) {
     const player = draft.players.find(p => p.userId === userId);
     if (!player) {
         return { success: false, message: "No estás inscrito en este draft." };
@@ -455,31 +455,38 @@ export async function requestUnregisterFromDraft(client, draft, userId) {
 
     const notificationsThread = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
     if (!notificationsThread) {
-        return { success: false, message: "Error interno del bot." };
+        return { success: false, message: "Error interno del bot al encontrar el canal de notificaciones." };
     }
 
     const embed = new EmbedBuilder()
         .setColor('#e67e22')
-        .setTitle('👋 Solicitud de Baja de Jugador Fichado')
-        .setDescription(`El jugador **${player.userName}** (${player.psnId}) solicita darse de baja del equipo de <@${player.captainId}>.`)
+        .setTitle('👋 Solicitud de Baja de Jugador')
+        .setDescription(`El jugador **${player.userName}** (${player.psnId}) solicita darse de baja del draft.`)
+        .addFields({ name: 'Motivo / Estado', value: reason })
         .setFooter({ text: `Draft: ${draft.name} | ID del Jugador: ${userId}`});
+    
+    // Añadimos el equipo actual solo si el jugador está fichado
+    if (player.captainId) {
+        embed.addFields({ name: 'Equipo Actual', value: `Equipo de <@${player.captainId}>` });
+    }
 
     const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`admin_unregister_draft_approve:${draft.shortId}:${userId}`).setLabel('Aprobar Baja').setStyle(ButtonStyle.Success),
+        // El customId NO incluye el motivo, para evitar el error de 100 caracteres
+        new ButtonBuilder().setCustomId(`admin_unregister_draft_approve:${draft.shortId}:${userId}`).setLabel('Aprobar Baja (Eliminar)').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`admin_unregister_draft_reject:${draft.shortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
     );
 
     await notificationsThread.send({ embeds: [embed], components: [row] });
 
-    // Notificar al capitán
-    if (player.captainId && /^\d+$/.test(player.captainId)) {
+    // Notificamos al capitán solo si el jugador estaba fichado
+    if (player.captainId) {
         try {
             const captainUser = await client.users.fetch(player.captainId);
             await captainUser.send(`⚠️ **Alerta de Plantilla:** El jugador **${player.psnId}** ha solicitado darse de baja de tu equipo. Un administrador revisará la solicitud.`);
         } catch(e) { console.warn(`No se pudo notificar al capitán ${player.captainId} de la solicitud de baja.`); }
     }
 
-    return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores. Tu capitán también ha sido notificado." };
+    return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores para su revisión." };
 }
 export async function endDraft(client, draft) {
     await setBotBusy(true);
