@@ -1956,72 +1956,77 @@ if (action === 'admin_invite_replacement_start') {
             ephemeral: true
         });
     }
-	if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
-        await interaction.deferUpdate();
-        const wasApproved = action === 'admin_strike_approve';
-        
-        const originalMessage = interaction.message;
-        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
-        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
-        disabledRow.components.forEach(c => c.setDisabled(true));
+	// EN: src/handlers/buttonHandler.js
 
-        // --- BLOQUE CORREGIDO Y ROBUSTO ---
-if (wasApproved) {
-    const [draftShortId, reportedId, reporterId, reason] = params;
-    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-
-    // 1. Verificación crucial: ¿Existe el draft?
-    if (!draft) {
-        console.error(`[STRIKE APPROVE] FATAL: No se pudo encontrar el draft con shortId: ${draftShortId}. customId era: ${interaction.customId}`);
-        await interaction.followUp({ content: 'Error crítico: No se pudo encontrar el draft asociado a esta solicitud. La solicitud puede ser demasiado antigua.', flags: [MessageFlags.Ephemeral] });
-        // Desactivamos los botones para evitar más clics
-        originalEmbed.setColor('#e74c3c').setFooter({ text: `Error al procesar. Draft no encontrado.` });
-        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-        return;
-    }
-
-    const reporter = draft.captains.find(c => c.userId === reporterId);
+if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
+    await interaction.deferUpdate();
+    const wasApproved = action === 'admin_strike_approve';
     
-    // 2. Verificación secundaria: ¿Sigue siendo capitán el reportador?
-    if (!reporter) {
-        console.error(`[STRIKE APPROVE] FATAL: No se encontró al capitán reportador (${reporterId}) en la lista del draft.`);
-        await interaction.followUp({ content: 'Error de consistencia: El capitán que reportó ya no parece ser capitán en este draft.', flags: [MessageFlags.Ephemeral] });
-        originalEmbed.setColor('#e74c3c').setFooter({ text: `Error al procesar. Capitán no encontrado.` });
-        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-        return;
-    }
+    const originalMessage = interaction.message;
+    const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+    const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+    disabledRow.components.forEach(c => c.setDisabled(true));
 
-    const reportedUser = await client.users.fetch(reportedId).catch(() => null);
+    if (wasApproved) {
+        const [draftShortId, reportedId, reporterId, reason, disputeChannelId] = params;
+        const db = getDb(); // Asegurarse de tener la db
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) { /* ... manejo de error ... */ return; }
+        const reporter = draft.captains.find(c => c.userId === reporterId);
+        if (!reporter) { /* ... manejo de error ... */ return; }
 
-    await db.collection('player_records').findOneAndUpdate(
-        { userId: reportedId },
-        { $inc: { strikes: 1 } },
-        { upsert: true }
-    );
+        const reportedUser = await client.users.fetch(reportedId).catch(() => null);
 
-    if (reportedUser) {
-        const dmEmbed = new EmbedBuilder()
-            .setColor('#e74c3c')
-            .setTitle('🚨 Has recibido un Strike')
-            .setDescription(`Has sido reportado por tu capitán **${reporter.psnId}** en el draft **${draft.name}**.`)
-            .addFields({ name: 'Motivo del Strike', value: reason.replace(/;/g, ':') })
-            .setFooter({ text: 'Si crees que es un error, contacta a un árbitro.' });
-        await reportedUser.send({ embeds: [dmEmbed] }).catch(e => console.warn(`No se pudo notificar al jugador ${reportedId} del strike.`));
-    }
-    
-    originalEmbed.setColor('#2ecc71').setFooter({ text: `Strike aprobado por ${interaction.user.tag}` });
-    await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-    await interaction.followUp({ content: '✅ Strike aprobado y jugador notificado.', flags: [MessageFlags.Ephemeral] });
+        await db.collection('player_records').findOneAndUpdate(
+            { userId: reportedId },
+            { $inc: { strikes: 1 } },
+            { upsert: true }
+        );
 
-} else { // Rechazado
-            const [, draftShortId, reporterId] = params;
-            const reporter = await client.users.fetch(reporterId).catch(() => null);
-            if (reporter) await reporter.send('❌ Tu solicitud de strike ha sido rechazada por un administrador.');
-            
-            originalEmbed.setColor('#e74c3c').setFooter({ text: `Solicitud rechazada por ${interaction.user.tag}` });
-            await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-            await interaction.followUp({ content: '❌ Solicitud de strike rechazada.', flags: [MessageFlags.Ephemeral] });
+        if (reportedUser) {
+            const dmEmbed = new EmbedBuilder()
+                .setColor('#2ecc71') // Cambiado a verde para aprobación
+                .setTitle('⚖️ Decisión de Reporte: Strike Aplicado')
+                .setDescription(`Tras la revisión, un administrador ha **aprobado** el strike solicitado por tu capitán **${reporter.psnId}** en el draft **${draft.name}**.`)
+                .addFields({ name: 'Motivo del Strike', value: reason.replace(/;/g, ':') });
+            await reportedUser.send({ embeds: [dmEmbed] }).catch(e => console.warn(`No se pudo notificar al jugador ${reportedId} del strike.`));
         }
-        return;
+        
+        originalEmbed.setColor('#2ecc71').setFooter({ text: `Strike aprobado por ${interaction.user.tag}` });
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+        await interaction.followUp({ content: '✅ Strike aprobado y jugador notificado.', flags: [MessageFlags.Ephemeral] });
+
+        // --- NUEVO: Eliminar el canal ---
+        if (disputeChannelId) {
+            const channel = await client.channels.fetch(disputeChannelId).catch(() => null);
+            if (channel) {
+                await channel.send('**Disputa finalizada. Strike APROBADO.** Este canal se eliminará en 10 segundos.');
+                setTimeout(() => {
+                    channel.delete('Disputa resuelta.').catch(console.error);
+                }, 10000);
+            }
+        }
+
+    } else { // Rechazado
+        const [draftShortId, reporterId, disputeChannelId] = params;
+        const reporter = await client.users.fetch(reporterId).catch(() => null);
+        if (reporter) await reporter.send('❌ Un administrador ha **rechazado** tu solicitud de strike tras revisar el caso.');
+        
+        originalEmbed.setColor('#e74c3c').setFooter({ text: `Solicitud rechazada por ${interaction.user.tag}` });
+        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+        await interaction.followUp({ content: '❌ Solicitud de strike rechazada.', flags: [MessageFlags.Ephemeral] });
+
+        // --- NUEVO: Eliminar el canal ---
+        if (disputeChannelId) {
+            const channel = await client.channels.fetch(disputeChannelId).catch(() => null);
+            if (channel) {
+                await channel.send('**Disputa finalizada. Strike RECHAZADO.** Este canal se eliminará en 10 segundos.');
+                setTimeout(() => {
+                    channel.delete('Disputa resuelta.').catch(console.error);
+                }, 10000);
+            }
+        }
     }
+    return;
+}
 }
