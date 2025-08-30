@@ -1007,6 +1007,29 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: `✅ Los datos del capitán del equipo **${newTeamName}** han sido actualizados.` });
         return;
     }
+if (action === 'admin_edit_strikes_submit') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [userId] = params;
+    const newStrikesValue = interaction.fields.getTextInputValue('strikes_input');
+    const newStrikes = parseInt(newStrikesValue);
+
+    // Verificamos que sea un número válido
+    if (isNaN(newStrikes) || newStrikes < 0) {
+        return interaction.editReply({ content: '❌ El valor introducido no es un número válido. Debe ser 0 o mayor.' });
+    }
+
+    // Actualizamos o creamos el registro del jugador
+    await db.collection('player_records').updateOne(
+        { userId: userId },
+        { $set: { strikes: newStrikes } },
+        { upsert: true } // Esto crea el registro si no existe, o lo actualiza si ya existe
+    );
+
+    const user = await client.users.fetch(userId);
+    await interaction.editReply({ content: `✅ Los strikes de **${user.tag}** han sido establecidos en **${newStrikes}**.` });
+    return;
+}
+    
     if (action === 'request_kick_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId, teamId, playerIdToKick] = params;
