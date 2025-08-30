@@ -889,19 +889,17 @@ if (action === 'draft_pick_by_position') {
         setTimeout(() => channel.delete().catch(console.error), 10000);
     }
     if (action === 'admin_edit_verified_user_select') {
-    await interaction.deferUpdate();
+    // Ya no hacemos defer, respondemos directamente.
     const userId = interaction.values[0];
     const db = getDb();
 
-    // 1. Buscamos en la primera base de datos (identidad)
     const userRecord = await db.collection('verified_users').findOne({ discordId: userId });
     if (!userRecord) {
-        return interaction.editReply({ content: '❌ Este usuario no tiene un perfil verificado en la base de datos.', components: [] });
+        return interaction.update({ content: '❌ Este usuario no tiene un perfil verificado en la base de datos.', components: [], embeds: [] });
     }
 
-    // 2. Buscamos en la segunda base de datos (disciplina)
     let playerRecord = await db.collection('player_records').findOne({ userId: userId });
-    const currentStrikes = playerRecord ? playerRecord.strikes : 0; // Si no hay registro, tiene 0 strikes
+    const currentStrikes = playerRecord ? playerRecord.strikes : 0;
 
     const user = await client.users.fetch(userId);
 
@@ -913,22 +911,21 @@ if (action === 'draft_pick_by_position') {
             { name: 'ID de Juego', value: `\`${userRecord.gameId}\``, inline: true },
             { name: 'Plataforma', value: `\`${userRecord.platform.toUpperCase()}\``, inline: true },
             { name: 'Twitter', value: `\`${userRecord.twitter}\``, inline: true },
-            // 3. Añadimos el nuevo campo de strikes al embed
             { name: 'Strikes Actuales', value: `\`${currentStrikes}\``, inline: true }
         )
         .setFooter({ text: 'Por favor, selecciona el campo que deseas modificar.' });
     
-    // 4. Añadimos la nueva opción de "Strikes" al menú
     const fieldMenu = new StringSelectMenuBuilder()
         .setCustomId(`admin_edit_verified_field_select:${userId}`)
         .setPlaceholder('Selecciona el dato a cambiar')
         .addOptions([
             { label: 'ID de Juego', value: 'gameId' },
             { label: 'Twitter', value: 'twitter' },
-            { label: 'Strikes', value: 'strikes' } // <-- ¡NUEVA OPCIÓN!
+            { label: 'Strikes', value: 'strikes' }
         ]);
     
-    return interaction.editReply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(fieldMenu)] });
+    // Usamos interaction.update() porque estamos editando el mensaje original.
+    return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(fieldMenu)], content: '' });
 }
     if (action === 'admin_edit_verified_field_select') {
     const [userId] = params;
