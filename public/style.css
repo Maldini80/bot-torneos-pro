@@ -367,39 +367,50 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
         width: 250px;
     }
 
-    /* --- Corrección para tabla de jugadores de Draft --- */
-    #players-table thead {
-        display: none;
-    }
-    #players-table, #players-table tbody, #players-table tr, #players-table td {
-        display: block;
-        width: 100%;
-    }
-    #players-table tr {
-        margin-bottom: 15px;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        overflow: hidden;
-    }
-    #players-table td {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        text-align: right;
-        padding: 10px;
-        border: none;
-        border-bottom: 1px solid #2a2a2a;
-    }
-     #players-table td:last-child {
-        border-bottom: none;
-    }
-    #players-table td:before {
-        content: attr(data-label);
-        font-weight: bold;
-        text-align: left;
-        color: #aaa;
-        padding-right: 10px;
-    }
+   /* --- NUEVA CORRECCIÓN para tabla móvil con SCROLL HORIZONTAL --- */
+
+.players-table-container {
+    /* La magia sucede aquí: habilitamos el scroll horizontal */
+    overflow-x: auto;
+    /* Un pequeño detalle visual para indicar que se puede hacer scroll */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) #1f1f1f;
+}
+
+#players-table {
+    /* Hacemos que la tabla ocupe un ancho mínimo, 
+       forzando el scroll si la pantalla es más pequeña */
+    min-width: 450px; 
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#players-table thead {
+    /* Mantenemos las cabeceras visibles en la versión con scroll */
+    display: table-header-group;
+}
+
+#players-table tr, #players-table td {
+    /* Reseteamos los estilos de "bloque" para que se comporte como tabla */
+    display: table-row;
+    width: auto;
+}
+
+#players-table td {
+    display: table-cell; /* Volvemos a la normalidad */
+    padding: 8px 10px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.95em;
+    vertical-align: middle;
+}
+
+#players-table td:before {
+    /* Ocultamos las etiquetas "data-label" ya que las cabeceras son visibles */
+    content: "";
+    display: none;
+}
+/* ----------------------------------------------------------------- */
     .pick-btn {
         padding: 12px;
         font-size: 1.1em;
