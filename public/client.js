@@ -638,24 +638,29 @@ function initializeDraftView(draftId) {
     }
     
     function renderTeamManagementView(draft) {
-        const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
-        if (!myCaptainData) {
-            rosterManagementContainer.innerHTML = '';
-            return;
-        }
-        managementTeamName.textContent = myCaptainData.teamName;
+    const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
+    if (!myCaptainData) {
         rosterManagementContainer.innerHTML = '';
-        const myTeamPlayers = draft.players.filter(p => p.captainId === currentUser.id && !p.isCaptain);
-
-        myTeamPlayers.forEach(player => {
-            const card = document.createElement('div');
-            card.className = 'player-management-card';
-            const strikes = player.strikes || 0;
-            const hasBeenReported = player.hasBeenReportedByCaptain || false;
-            card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${strikes}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>Reportar (Strike)</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
-            rosterManagementContainer.appendChild(card);
-        });
+        return;
     }
+    managementTeamName.textContent = myCaptainData.teamName;
+    rosterManagementContainer.innerHTML = '';
+    const myTeamPlayers = draft.players.filter(p => p.captainId === currentUser.id && !p.isCaptain);
+
+    myTeamPlayers.forEach(player => {
+        const card = document.createElement('div');
+        card.className = 'player-management-card';
+        const strikes = player.strikes || 0;
+        
+        // --- INICIO DE LA LÓGICA MEJORADA ---
+        const hasBeenReported = player.hasBeenReportedByCaptain || false;
+        const reportButtonText = hasBeenReported ? 'Reportado' : 'Reportar (Strike)';
+        // --- FIN DE LA LÓGICA MEJORADA ---
+
+        card.innerHTML = `<div class="player-management-info"><h3>${player.psnId}</h3><p>Posición: ${player.primaryPosition}</p><p>Strikes: <span class="strikes">${strikes}</span></p></div><div class="management-actions"><button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>${reportButtonText}</button><button class="btn-kick" data-player-id="${player.userId}">Solicitar Expulsión</button></div>`;
+        rosterManagementContainer.appendChild(card);
+    });
+}
 
     function sortPlayersAdvanced(a, b) {
         const posIndexA = positionOrder.indexOf(a.primaryPosition);
