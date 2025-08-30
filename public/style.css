@@ -411,4 +411,16 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
         font-size: 1.2em;
         padding: 8px 15px;
     }
+    /* --- Corrección para el texto cortado en la tabla móvil --- */
+#players-table td:before {
+    flex-shrink: 0; /* Evita que la etiqueta se encoja */
+    margin-right: 15px; /* Añade un poco de espacio */
+}
+.player-data {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Añade "..." al texto largo */
+    display: block; /* Asegura que ocupe el espacio disponible */
+}
+/* ----------------------------------------------------------- */
 }
