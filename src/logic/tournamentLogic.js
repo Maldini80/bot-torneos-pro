@@ -1206,7 +1206,7 @@ export async function startGroupStage(client, guild, tournament) {
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { status: 'sorteo_en_vivo', 'structure.grupos': grupos } });
         currentTournament = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await notifyTournamentVisualizer(currentTournament);
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Pausa inicial
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         for (let i = 0; i < teams.length; i++) {
             const grupoIndex = Math.floor(i / tamanoGrupo);
@@ -1216,10 +1216,9 @@ export async function startGroupStage(client, guild, tournament) {
 
             await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { 'structure.grupos': currentTournament.structure.grupos } });
             await notifyTournamentVisualizer(await db.collection('tournaments').findOne({ _id: currentTournament._id }));
-            await new Promise(resolve => setTimeout(resolve, 3500)); // Pausa más larga entre bolas
+            await new Promise(resolve => setTimeout(resolve, 3500));
         }
 
-        // --- GENERACIÓN DE CALENDARIO CORREGIDA ---
         const calendario = {};
         const isRoundTrip = currentTournament.config.roundTrip === true;
         for (const nombreGrupo in currentTournament.structure.grupos) {
