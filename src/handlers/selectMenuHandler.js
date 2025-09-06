@@ -1,13 +1,14 @@
 // --- INICIO DEL ARCHIVO selectMenuHandler.js (VERSIÓN FINAL Y COMPLETA) ---
 
 import { getDb } from '../../database.js';
-import { TOURNAMENT_FORMATS, ADMIN_APPROVAL_CHANNEL_ID, DRAFT_POSITIONS } from '../../config.js';
+import { TOURNAMENT_FORMATS, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam, updateDraftMainInterface, updatePublicMessages, notifyVisualizer } from '../logic/tournamentLogic.js';
 import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection } from '../logic/verificationLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 
+// --- REEMPLAZA LA FUNCIÓN handleSelectMenu ENTERA CON ESTE CÓDIGO ---
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
     const client = interaction.client;
@@ -35,7 +36,6 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    // --- FIN DE LA NUEVA LÓGICA ---
     if (action === 'admin_select_replacement_position' || action === 'admin_select_replacement_page') {
         await interaction.deferUpdate();
         const [draftShortId, teamId, kickedPlayerId, position, pageStr] = params;
@@ -98,48 +98,43 @@ export async function handleSelectMenu(interaction) {
         });
         return;
     }
-    // =======================================================
-    // --- LÓGICA ORIGINAL DEL BOT ---
-    // =======================================================
 
     if (action === 'admin_edit_team_select') {
-    const [tournamentShortId] = params;
-    const captainId = interaction.values[0]; // El ID del capitán del equipo seleccionado
-    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-    const team = tournament.teams.aprobados[captainId];
+        const [tournamentShortId] = params;
+        const captainId = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const team = tournament.teams.aprobados[captainId];
 
-    if (!team) {
-        return interaction.reply({ content: 'Error: No se pudo encontrar el equipo seleccionado.', flags: [MessageFlags.Ephemeral] });
+        if (!team) {
+            return interaction.reply({ content: 'Error: No se pudo encontrar el equipo seleccionado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_edit_team_modal:${tournamentShortId}:${captainId}`)
+            .setTitle(`Editando: ${team.nombre}`);
+
+        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre del Equipo").setStyle(TextInputStyle.Short).setValue(team.nombre).setRequired(true);
+        const eafcNameInput = new TextInputBuilder().setCustomId('eafc_name_input').setLabel("Nombre en EAFC").setStyle(TextInputStyle.Short).setValue(team.eafcTeamName).setRequired(true);
+        const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Twitter (sin @)").setStyle(TextInputStyle.Short).setValue(team.twitter || '').setRequired(false);
+        const streamInput = new TextInputBuilder().setCustomId('stream_url_input').setLabel("URL Completa del Stream").setStyle(TextInputStyle.Short).setValue(team.streamChannel || '').setRequired(false).setPlaceholder('Ej: https://www.twitch.tv/nombre');
+        const logoUrlInput = new TextInputBuilder().setCustomId('logo_url_input').setLabel("URL del Logo (completa)").setStyle(TextInputStyle.Short).setValue(team.logoUrl || '').setRequired(false).setPlaceholder('Ej: https://i.imgur.com/logo.png'); 
+            
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(teamNameInput),
+            new ActionRowBuilder().addComponents(eafcNameInput),
+            new ActionRowBuilder().addComponents(twitterInput),
+            new ActionRowBuilder().addComponents(streamInput),
+            new ActionRowBuilder().addComponents(logoUrlInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
     }
 
-    const modal = new ModalBuilder()
-        .setCustomId(`admin_edit_team_modal:${tournamentShortId}:${captainId}`)
-        .setTitle(`Editando: ${team.nombre}`);
-
-    const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre del Equipo").setStyle(TextInputStyle.Short).setValue(team.nombre).setRequired(true);
-    const eafcNameInput = new TextInputBuilder().setCustomId('eafc_name_input').setLabel("Nombre en EAFC").setStyle(TextInputStyle.Short).setValue(team.eafcTeamName).setRequired(true);
-    const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Twitter (sin @)").setStyle(TextInputStyle.Short).setValue(team.twitter || '').setRequired(false);
-    const streamInput = new TextInputBuilder().setCustomId('stream_url_input').setLabel("URL Completa del Stream").setStyle(TextInputStyle.Short).setValue(team.streamChannel || '').setRequired(false).setPlaceholder('Ej: https://www.twitch.tv/nombre');
-    const logoUrlInput = new TextInputBuilder().setCustomId('logo_url_input').setLabel("URL del Logo (completa)").setStyle(TextInputStyle.Short).setValue(team.logoUrl || '').setRequired(false).setPlaceholder('Ej: https://i.imgur.com/logo.png'); 
-        
-    modal.addComponents(
-        new ActionRowBuilder().addComponents(teamNameInput),
-        new ActionRowBuilder().addComponents(eafcNameInput),
-        new ActionRowBuilder().addComponents(twitterInput),
-        new ActionRowBuilder().addComponents(whatsappInput)
-        new ActionRowBuilder().addComponents(streamInput),
-        new ActionRowBuilder().addComponents(logoUrlInput)
-    );
-
-    await interaction.showModal(modal);
-    return;
-}
-
-    // --- INICIO DE LA LÓGICA AÑADIDA ---
     if (action === 'draft_pick_search_type') {
         await interaction.deferUpdate();
         const [draftShortId, captainId] = params;
-        const searchType = interaction.values[0]; // 'primary' o 'secondary'
+        const searchType = interaction.values[0];
 
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
@@ -150,7 +145,7 @@ export async function handleSelectMenu(interaction) {
         }));
 
         const positionMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_pick_by_position:${draftShortId}:${captainId}:${searchType}`) // Se podría usar el searchType aquí si la lógica cambiara
+            .setCustomId(`draft_pick_by_position:${draftShortId}:${captainId}:${searchType}`)
             .setPlaceholder(`Elige la POSICIÓN ${searchType === 'primary' ? 'PRIMARIA' : 'SECUNDARIA'} que buscas`)
             .addOptions(positionOptions);
         
@@ -160,7 +155,6 @@ export async function handleSelectMenu(interaction) {
         });
         return;
     }
-    // --- FIN DE LA LÓGICA AÑADIDA ---
 
     if (action === 'admin_select_draft_to_manage_players') {
         await interaction.deferUpdate();
@@ -480,114 +474,110 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_register_player_status_select') {
-    const [draftShortId, primaryPosition, secondaryPosition] = params;
-    const teamStatus = interaction.values[0];
-    const db = getDb();
-    const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
+        const [draftShortId, primaryPosition, secondaryPosition] = params;
+        const teamStatus = interaction.values[0];
+        const db = getDb();
+        const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
-    // Si el usuario está verificado y es agente libre, lo inscribimos directamente.
-    if (verifiedData && teamStatus === 'Libre') {
-        await interaction.deferUpdate(); // Confirmamos la interacción
+        if (verifiedData && teamStatus === 'Libre') {
+            await interaction.deferUpdate(); 
 
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const playerData = { 
-            userId: interaction.user.id, 
-            userName: interaction.user.tag, 
-            psnId: verifiedData.gameId, // Dato verificado
-            twitter: verifiedData.twitter, // Dato verificado
-            primaryPosition, 
-            secondaryPosition, 
-            currentTeam: 'Libre', 
-            isCaptain: false, 
-            captainId: null 
-        };
+            const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+            const playerData = { 
+                userId: interaction.user.id, 
+                userName: interaction.user.tag, 
+                psnId: verifiedData.gameId, 
+                twitter: verifiedData.twitter, 
+                primaryPosition, 
+                secondaryPosition, 
+                currentTeam: 'Libre', 
+                isCaptain: false, 
+                captainId: null 
+            };
 
-        await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
-        await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
-        
-        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await updateDraftMainInterface(client, updatedDraft.shortId);
-        await updatePublicMessages(client, updatedDraft);
-        await notifyVisualizer(updatedDraft);
-        return;
-    }
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+            await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
+            
+            const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+            await updateDraftMainInterface(client, updatedDraft.shortId);
+            await updatePublicMessages(client, updatedDraft);
+            await notifyVisualizer(updatedDraft);
+            return;
+        }
 
-    // Si no está verificado O si tiene equipo, mostramos un modal.
-    const modal = new ModalBuilder()
-        .setTitle('Finalizar Inscripción de Jugador');
+        const modal = new ModalBuilder()
+            .setTitle('Finalizar Inscripción de Jugador');
 
-    // Si está verificado pero tiene equipo, solo preguntamos el nombre del equipo.
-    if (verifiedData && teamStatus === 'Con Equipo') {
-        modal.setCustomId(`register_draft_player_team_name_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}`);
-        const currentTeamInput = new TextInputBuilder()
-            .setCustomId('current_team_input')
-            .setLabel("Nombre de tu equipo actual")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
-    } else {
-        // Flujo original para no verificados (como fallback)
-        modal.setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`);
-        const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
-        const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(twitterInput));
-        if (teamStatus === 'Con Equipo') {
+        if (verifiedData && teamStatus === 'Con Equipo') {
+            modal.setCustomId(`register_draft_player_team_name_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}`);
             const currentTeamInput = new TextInputBuilder()
                 .setCustomId('current_team_input')
                 .setLabel("Nombre de tu equipo actual")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
+        } else {
+            modal.setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`);
+            const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
+            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(twitterInput));
+            if (teamStatus === 'Con Equipo') {
+                const currentTeamInput = new TextInputBuilder()
+                    .setCustomId('current_team_input')
+                    .setLabel("Nombre de tu equipo actual")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+                modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
+            }
         }
-    }
-    
-    await interaction.showModal(modal);
-    return;
-}
-
-if (action === 'draft_pick_by_position') {
-    await interaction.deferUpdate();
-    const [draftShortId, captainId] = params;
-    const selectedPosition = interaction.values[0];
-
-    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-    const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
-    
-    let playersToShow = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
-    let searchMode = 'Primaria';
-
-    if (playersToShow.length === 0) {
-        playersToShow = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
-        searchMode = 'Secundaria';
+        
+        await interaction.showModal(modal);
+        return;
     }
 
-    if (playersToShow.length === 0) {
-        return interaction.editReply({
-            content: `No hay jugadores disponibles para la posición ${DRAFT_POSITIONS[selectedPosition]}. Por favor, cancela y elige otra posición.`,
-            components: []
+    if (action === 'draft_pick_by_position') {
+        await interaction.deferUpdate();
+        const [draftShortId, captainId] = params;
+        const selectedPosition = interaction.values[0];
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
+        
+        let playersToShow = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
+        let searchMode = 'Primaria';
+
+        if (playersToShow.length === 0) {
+            playersToShow = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
+            searchMode = 'Secundaria';
+        }
+
+        if (playersToShow.length === 0) {
+            return interaction.editReply({
+                content: `No hay jugadores disponibles para la posición ${DRAFT_POSITIONS[selectedPosition]}. Por favor, cancela y elige otra posición.`,
+                components: []
+            });
+        }
+        
+        playersToShow.sort((a,b) => a.psnId.localeCompare(b.psnId));
+
+        const playerMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_pick_player:${draftShortId}:${captainId}:${selectedPosition}`)
+            .setPlaceholder('Paso 2: ¡Elige al jugador!')
+            .addOptions(
+                playersToShow.slice(0, 25).map(player => ({
+                    label: player.psnId,
+                    description: `Discord: ${player.userName}`,
+                    value: player.userId,
+                }))
+            );
+        
+        await interaction.editReply({ 
+            content: `Mostrando jugadores para **${DRAFT_POSITIONS[selectedPosition]}** (encontrados por posición **${searchMode}**):`, 
+            components: [new ActionRowBuilder().addComponents(playerMenu)] 
         });
+        return;
     }
-    
-    playersToShow.sort((a,b) => a.psnId.localeCompare(b.psnId));
-
-    const playerMenu = new StringSelectMenuBuilder()
-        .setCustomId(`draft_pick_player:${draftShortId}:${captainId}:${selectedPosition}`)
-        .setPlaceholder('Paso 2: ¡Elige al jugador!')
-        .addOptions(
-            playersToShow.slice(0, 25).map(player => ({
-                label: player.psnId,
-                description: `Discord: ${player.userName}`,
-                value: player.userId,
-            }))
-        );
-    
-    await interaction.editReply({ 
-        content: `Mostrando jugadores para **${DRAFT_POSITIONS[selectedPosition]}** (encontrados por posición **${searchMode}**):`, 
-        components: [new ActionRowBuilder().addComponents(playerMenu)] 
-    });
-    return;
-}
-    
+        
     if (action === 'draft_pick_player') {
         await interaction.deferUpdate();
         const [draftShortId, captainId, pickedForPosition] = params;
@@ -820,41 +810,41 @@ if (action === 'draft_pick_by_position') {
         }
         return;
     }
-     if (action === 'verify_select_platform_manual') {
-    const platform = interaction.values[0];
-    const modal = new ModalBuilder()
-        .setCustomId(`verification_ticket_submit:${platform}`)
-        .setTitle('Verificación - Datos del Jugador');
-    
-    const gameIdInput = new TextInputBuilder()
-        .setCustomId('game_id_input')
-        .setLabel(`Tu ID en ${platform.toUpperCase()}`)
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+
+    // --- ESTE ES EL BLOQUE CORREGIDO ---
+    if (action === 'verify_select_platform_manual') {
+        const platform = interaction.values[0];
+        const modal = new ModalBuilder()
+            .setCustomId(`verification_ticket_submit:${platform}`)
+            .setTitle('Verificación - Datos del Jugador');
         
-    const twitterInput = new TextInputBuilder()
-        .setCustomId('twitter_input')
-        .setLabel("Tu usuario de Twitter (sin @)")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+        const gameIdInput = new TextInputBuilder()
+            .setCustomId('game_id_input')
+            .setLabel(`Tu ID en ${platform.toUpperCase()}`)
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+            
+        const twitterInput = new TextInputBuilder()
+            .setCustomId('twitter_input')
+            .setLabel("Tu usuario de Twitter (sin @)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-    // AÑADIMOS EL CAMPO DE WHATSAPP
-    const whatsappInput = new TextInputBuilder()
-        .setCustomId('whatsapp_input')
-        .setLabel("Tu WhatsApp (Ej: +34123456789)")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setPlaceholder("Visible solo para admins y capitanes");
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('whatsapp_input')
+            .setLabel("Tu WhatsApp (Ej: +34123456789)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setPlaceholder("Visible solo para admins y capitanes");
 
-    // AÑADIMOS LOS TRES COMPONENTES AL MODAL, SEPARADOS POR COMAS
-    modal.addComponents(
-        new ActionRowBuilder().addComponents(gameIdInput),
-        new ActionRowBuilder().addComponents(twitterInput),
-        new ActionRowBuilder().addComponents(whatsappInput)
-    );
-    
-    return interaction.showModal(modal);
-}
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(gameIdInput),
+            new ActionRowBuilder().addComponents(twitterInput),
+            new ActionRowBuilder().addComponents(whatsappInput)
+        );
+        
+        return interaction.showModal(modal);
+    }
 
     if (action === 'reject_verification_reason') {
         await interaction.deferUpdate();
@@ -863,17 +853,15 @@ if (action === 'draft_pick_by_position') {
         const db = getDb();
         const ticket = await db.collection('verificationtickets').findOne({ channelId });
 
-        // --- AÑADE ESTE BLOQUE PARA BORRAR LA NOTIFICACIÓN ---
-    if (ticket.adminNotificationMessageId) {
-        try {
-            const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
-            const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
-            await notificationMessage.delete();
-        } catch (error) {
-            console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}. Puede que ya no existiera.`, error.message);
+        if (ticket.adminNotificationMessageId) {
+            try {
+                const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
+                const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
+                await notificationMessage.delete();
+            } catch (error) {
+                console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}. Puede que ya no existiera.`, error.message);
+            }
         }
-    }
-    // --- FIN DEL BLOQUE A AÑADIR ---
 
         let reasonText = '';
         if (reason === 'inactivity') {
@@ -904,78 +892,74 @@ if (action === 'draft_pick_by_position') {
         setTimeout(() => channel.delete().catch(console.error), 10000);
     }
     if (action === 'admin_edit_verified_user_select') {
-    // Ya no hacemos defer, respondemos directamente.
-    const userId = interaction.values[0];
-    const db = getDb();
+        const userId = interaction.values[0];
+        const db = getDb();
 
-    const userRecord = await db.collection('verified_users').findOne({ discordId: userId });
-    if (!userRecord) {
-        return interaction.update({ content: '❌ Este usuario no tiene un perfil verificado en la base de datos.', components: [], embeds: [] });
+        const userRecord = await db.collection('verified_users').findOne({ discordId: userId });
+        if (!userRecord) {
+            return interaction.update({ content: '❌ Este usuario no tiene un perfil verificado en la base de datos.', components: [], embeds: [] });
+        }
+
+        let playerRecord = await db.collection('player_records').findOne({ userId: userId });
+        const currentStrikes = playerRecord ? playerRecord.strikes : 0;
+
+        const user = await client.users.fetch(userId);
+
+        const embed = new EmbedBuilder()
+            .setColor('#e67e22')
+            .setTitle(`✏️ Editando Perfil de ${user.tag}`)
+            .setDescription('**Datos Actuales:**')
+            .addFields(
+                { name: 'ID de Juego', value: `\`${userRecord.gameId}\``, inline: true },
+                { name: 'Plataforma', value: `\`${userRecord.platform.toUpperCase()}\``, inline: true },
+                { name: 'Twitter', value: `\`${userRecord.twitter}\``, inline: true },
+                { name: 'Strikes Actuales', value: `\`${currentStrikes}\``, inline: true }
+            )
+            .setFooter({ text: 'Por favor, selecciona el campo que deseas modificar.' });
+        
+        const fieldMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_edit_verified_field_select:${userId}`)
+            .setPlaceholder('Selecciona el dato a cambiar')
+            .addOptions([
+                { label: 'ID de Juego', value: 'gameId' },
+                { label: 'Twitter', value: 'twitter' },
+                { label: 'Strikes', value: 'strikes' }
+            ]);
+        
+        return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(fieldMenu)], content: '' });
     }
-
-    let playerRecord = await db.collection('player_records').findOne({ userId: userId });
-    const currentStrikes = playerRecord ? playerRecord.strikes : 0;
-
-    const user = await client.users.fetch(userId);
-
-    const embed = new EmbedBuilder()
-        .setColor('#e67e22')
-        .setTitle(`✏️ Editando Perfil de ${user.tag}`)
-        .setDescription('**Datos Actuales:**')
-        .addFields(
-            { name: 'ID de Juego', value: `\`${userRecord.gameId}\``, inline: true },
-            { name: 'Plataforma', value: `\`${userRecord.platform.toUpperCase()}\``, inline: true },
-            { name: 'Twitter', value: `\`${userRecord.twitter}\``, inline: true },
-            { name: 'Strikes Actuales', value: `\`${currentStrikes}\``, inline: true }
-        )
-        .setFooter({ text: 'Por favor, selecciona el campo que deseas modificar.' });
-    
-    const fieldMenu = new StringSelectMenuBuilder()
-        .setCustomId(`admin_edit_verified_field_select:${userId}`)
-        .setPlaceholder('Selecciona el dato a cambiar')
-        .addOptions([
-            { label: 'ID de Juego', value: 'gameId' },
-            { label: 'Twitter', value: 'twitter' },
-            { label: 'Strikes', value: 'strikes' }
-        ]);
-    
-    // Usamos interaction.update() porque estamos editando el mensaje original.
-    return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(fieldMenu)], content: '' });
-}
     if (action === 'admin_edit_verified_field_select') {
-    const [userId] = params;
-    const fieldToEdit = interaction.values[0];
+        const [userId] = params;
+        const fieldToEdit = interaction.values[0];
 
-    // Si se edita ID de Juego o Twitter, usamos el modal antiguo
-    if (fieldToEdit === 'gameId' || fieldToEdit === 'twitter') {
-        const modal = new ModalBuilder()
-            .setCustomId(`admin_edit_verified_submit:${userId}:${fieldToEdit}`)
-            .setTitle(`Cambiar ${fieldToEdit === 'gameId' ? 'ID de Juego' : 'Twitter'}`);
-        
-        const newValueInput = new TextInputBuilder()
-            .setCustomId('new_value_input')
-            .setLabel("Nuevo Valor")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-        
-        modal.addComponents(new ActionRowBuilder().addComponents(newValueInput));
-        return interaction.showModal(modal);
+        if (fieldToEdit === 'gameId' || fieldToEdit === 'twitter') {
+            const modal = new ModalBuilder()
+                .setCustomId(`admin_edit_verified_submit:${userId}:${fieldToEdit}`)
+                .setTitle(`Cambiar ${fieldToEdit === 'gameId' ? 'ID de Juego' : 'Twitter'}`);
+            
+            const newValueInput = new TextInputBuilder()
+                .setCustomId('new_value_input')
+                .setLabel("Nuevo Valor")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+            
+            modal.addComponents(new ActionRowBuilder().addComponents(newValueInput));
+            return interaction.showModal(modal);
 
-    // Si se editan los Strikes, usamos un nuevo modal
-    } else if (fieldToEdit === 'strikes') {
-        const modal = new ModalBuilder()
-            .setCustomId(`admin_edit_strikes_submit:${userId}`)
-            .setTitle(`Establecer Strikes`);
-        
-        const strikesInput = new TextInputBuilder()
-            .setCustomId('strikes_input')
-            .setLabel("Nuevo número total de strikes")
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder("Ej: 0, 1, 2...")
-            .setRequired(true);
+        } else if (fieldToEdit === 'strikes') {
+            const modal = new ModalBuilder()
+                .setCustomId(`admin_edit_strikes_submit:${userId}`)
+                .setTitle(`Establecer Strikes`);
+            
+            const strikesInput = new TextInputBuilder()
+                .setCustomId('strikes_input')
+                .setLabel("Nuevo número total de strikes")
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder("Ej: 0, 1, 2...")
+                .setRequired(true);
 
-        modal.addComponents(new ActionRowBuilder().addComponents(strikesInput));
-        return interaction.showModal(modal);
+            modal.addComponents(new ActionRowBuilder().addComponents(strikesInput));
+            return interaction.showModal(modal);
+        }
     }
-}
 }
