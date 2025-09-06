@@ -708,6 +708,23 @@ export async function handleSelectMenu(interaction) {
                 new ActionRowBuilder().addComponents(prizeInputFinalista)
             );
         }
+        if (TOURNAMENT_FORMATS[formatId].roundTrip) { // Solo muestra la opción si el formato lo permite
+    const roundTripMenu = new StringSelectMenuBuilder()
+        .setCustomId('torneo_round_trip')
+        .setPlaceholder('Elige el tipo de liguilla')
+        .addOptions([
+            { label: 'Solo Ida', value: 'false' },
+            { label: 'Ida y Vuelta', value: 'true' }
+        ]);
+    // ¡OJO! Los modales no aceptan menús. Lo cambiaremos a un TextInput
+    const roundTripInput = new TextInputBuilder()
+        .setCustomId('torneo_round_trip')
+        .setLabel("Liguilla (Escribe 'ida' o 'ida y vuelta')")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('ida');
+    modal.addComponents(new ActionRowBuilder().addComponents(roundTripInput));
+}
         await interaction.showModal(modal);
 
     } else if (action === 'admin_change_format_select') {
