@@ -1037,9 +1037,8 @@ if (action === 'draft_pick_by_position') {
     return;
 }
     if (action === 'admin_select_channel_to_update_icon') {
-    const channelId = interaction.values[0]; // El ID del canal seleccionado
+    const channelId = interaction.values[0];
     const statusMenu = new StringSelectMenuBuilder()
-        // Le pasamos el ID del canal al siguiente paso
         .setCustomId(`admin_set_channel_icon:${channelId}`) 
         .setPlaceholder('Paso 2: Selecciona el estado del canal')
         .addOptions([
