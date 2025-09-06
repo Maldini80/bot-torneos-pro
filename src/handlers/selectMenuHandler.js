@@ -982,4 +982,52 @@ if (action === 'draft_pick_by_position') {
         return interaction.showModal(modal);
     }
 }
+    if (action === 'consult_player_data_select') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [draftShortId] = params;
+    const selectedUserId = interaction.values[0];
+
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const user = await client.users.fetch(selectedUserId);
+
+    const verifiedData = await db.collection('verified_users').findOne({ discordId: selectedUserId });
+    const draftPlayerData = draft.players.find(p => p.userId === selectedUserId);
+
+    if (!verifiedData && !draftPlayerData) {
+        return interaction.editReply({ content: `❌ El usuario ${user.tag} no está ni verificado ni inscrito en este draft.` });
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor('#e67e22')
+        .setTitle(`ℹ️ Ficha de Datos: ${user.tag}`)
+        .setThumbnail(user.displayAvatarURL());
+
+    if (verifiedData) {
+        embed.addFields(
+            { name: '📋 Datos de Verificación', value: '\u200B' },
+            { name: 'ID de Juego', value: `\`${verifiedData.gameId}\``, inline: true },
+            { name: 'Plataforma', value: `\`${verifiedData.platform.toUpperCase()}\``, inline: true },
+            { name: 'Twitter', value: `\`${verifiedData.twitter}\``, inline: true },
+            { name: 'WhatsApp', value: `\`${verifiedData.whatsapp || 'No registrado'}\``, inline: true }
+        );
+    } else {
+        embed.addFields({ name: '📋 Datos de Verificación', value: 'El usuario no está verificado.' });
+    }
+
+    if (draftPlayerData) {
+        const captain = draftPlayerData.captainId ? draft.captains.find(c => c.userId === draftPlayerData.captainId) : null;
+        embed.addFields(
+            { name: '📝 Datos del Draft Actual', value: '\u200B' },
+            { name: 'Posición Primaria', value: `\`${draftPlayerData.primaryPosition}\``, inline: true },
+            { name: 'Posición Secundaria', value: `\`${draftPlayerData.secondaryPosition || 'N/A'}\``, inline: true },
+            { name: 'Equipo Actual (Club)', value: `\`${draftPlayerData.currentTeam || 'N/A'}\``, inline: true },
+            { name: 'Fichado por (Draft)', value: captain ? `\`${captain.teamName}\`` : '`Agente Libre`', inline: true }
+        );
+    } else {
+         embed.addFields({ name: '📝 Datos del Draft Actual', value: 'El usuario no está inscrito en este draft.' });
+    }
+
+    await interaction.editReply({ embeds: [embed] });
+    return;
+}
 }
