@@ -599,6 +599,7 @@ export async function simulateDraftPicks(client, draftShortId) {
     }
 }
 
+// --- REEMPLAZA LA FUNCIÓN createTournamentFromDraft ENTERA ---
 export async function createTournamentFromDraft(client, guild, draftShortId, formatId) {
     await setBotBusy(true);
     const db = getDb();
@@ -699,7 +700,11 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
                 const permissions = [
                     { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                     { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-                    ...teamMembersIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
+                    ...teamMembersIds.map(id => ({ id, allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.Connect,
+                        PermissionsBitField.Flags.Speak
+                    ] }))
                 ];
                 
                 const textChannel = await guild.channels.create({
@@ -720,17 +725,6 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
                 await textChannel.send({
                     content: `### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`
                 });
-                const inviteButtonRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-        .setCustomId(`invite_cocaptain_start:${newTournament.shortId}`)
-        .setLabel('Invitar Co-Capitán / Invite Co-Captain')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🤝')
-);
-await textChannel.send({
-    content: `👋 ¡Bienvenido, <@${team.capitanId}>! (${team.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
-    components: [inviteButtonRow]
-});
             }
         }
         
@@ -768,7 +762,6 @@ await textChannel.send({
         await setBotBusy(false);
     }
 }
-
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
     if (/^\d+$/.test(userId)) {
         try {
