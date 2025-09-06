@@ -60,12 +60,14 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             reason: `Partido de torneo: ${tournamentShortId}`
         });
 
+        // --- INICIO DE LA LÓGICA DE MIEMBROS MEJORADA ---
         const addMemberIfReal = async (memberId) => {
             if (memberId && /^\d+$/.test(memberId)) {
                 await thread.members.add(memberId).catch(e => console.warn(`No se pudo añadir al miembro ${memberId} al hilo: ${e.message}`));
             }
         };
 
+        // Añadimos a todos los capitanes y co-capitanes
         await Promise.all([
             addMemberIfReal(partido.equipoA.capitanId),
             addMemberIfReal(partido.equipoB.capitanId),
@@ -73,12 +75,17 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             addMemberIfReal(partido.equipoB.coCaptainId)
         ]);
         
-        let mentions = [];
-        if (partido.equipoA.capitanId && /^\d+$/.test(partido.equipoA.capitanId)) mentions.push(`<@${partido.equipoA.capitanId}>`);
-        if (partido.equipoB.capitanId && /^\d+$/.test(partido.equipoB.capitanId)) mentions.push(`<@${partido.equipoB.capitanId}>`);
-        if (partido.equipoA.coCaptainId && /^\d+$/.test(partido.equipoA.coCaptainId)) mentions.push(`<@${partido.equipoA.coCaptainId}>`);
-        if (partido.equipoB.coCaptainId && /^\d+$/.test(partido.equipoB.coCaptainId)) mentions.push(`<@${partido.equipoB.coCaptainId}>`);
-        const mentionString = mentions.length > 0 ? mentions.join(' y ') : 'Capitanes no encontrados (equipos de prueba).';
+        // Construimos el string de menciones
+        let mentionsA = [];
+        if (partido.equipoA.capitanId && /^\d+$/.test(partido.equipoA.capitanId)) mentionsA.push(`<@${partido.equipoA.capitanId}>`);
+        if (partido.equipoA.coCaptainId && /^\d+$/.test(partido.equipoA.coCaptainId)) mentionsA.push(`<@${partido.equipoA.coCaptainId}>`);
+
+        let mentionsB = [];
+        if (partido.equipoB.capitanId && /^\d+$/.test(partido.equipoB.capitanId)) mentionsB.push(`<@${partido.equipoB.capitanId}>`);
+        if (partido.equipoB.coCaptainId && /^\d+$/.test(partido.equipoB.coCaptainId)) mentionsB.push(`<@${partido.equipoB.coCaptainId}>`);
+
+        const mentionString = (mentionsA.join(' y ') || 'Equipo A') + ' vs ' + (mentionsB.join(' y ') || 'Equipo B');
+        // --- FIN DE LA LÓGICA DE MIEMBROS MEJORADA ---
 
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
             .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*`);
@@ -89,11 +96,7 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
 
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
-            new ButtonBuilder()
-                .setLabel('Prueba de altura perks')
-                .setURL('https://streamable.com')
-                .setStyle(ButtonStyle.Link)
-                .setEmoji('📹')
+            new ButtonBuilder().setLabel('Prueba de altura perks').setURL('https://streamable.com').setStyle(ButtonStyle.Link).setEmoji('📹')
         );
 
         const row2 = new ActionRowBuilder().addComponents(
