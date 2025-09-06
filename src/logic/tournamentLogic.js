@@ -1184,7 +1184,6 @@ async function cleanupFailedCreation(client, resources) {
     console.log("[CLEANUP] Limpieza completada.");
 }
 
-// --- REEMPLAZA LA FUNCIÓN startGroupStage ENTERA ---
 export async function startGroupStage(client, guild, tournament) {
     await setBotBusy(true);
     try {
@@ -1207,7 +1206,7 @@ export async function startGroupStage(client, guild, tournament) {
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { status: 'sorteo_en_vivo', 'structure.grupos': grupos } });
         currentTournament = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await notifyTournamentVisualizer(currentTournament);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Pausa inicial
 
         for (let i = 0; i < teams.length; i++) {
             const grupoIndex = Math.floor(i / tamanoGrupo);
@@ -1217,29 +1216,27 @@ export async function startGroupStage(client, guild, tournament) {
 
             await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { 'structure.grupos': currentTournament.structure.grupos } });
             await notifyTournamentVisualizer(await db.collection('tournaments').findOne({ _id: currentTournament._id }));
-            await new Promise(resolve => setTimeout(resolve, 2500));
+            await new Promise(resolve => setTimeout(resolve, 3500)); // Pausa más larga entre bolas
         }
-        
-        const calendario = {};
-const isRoundTrip = tournament.config.roundTrip === true;
 
-for (const nombreGrupo in grupos) {
-    const equiposGrupo = grupos[nombreGrupo].equipos; calendario[nombreGrupo] = [];
-    if (equiposGrupo.length === 4) {
-        const [t1, t2, t3, t4] = equiposGrupo;
-        // Partidos de ida
-        calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t2), createMatchObject(nombreGrupo, 1, t3, t4));
-        calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t2, t4));
-        calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t4), createMatchObject(nombreGrupo, 3, t2, t3));
-        
-        // Partidos de vuelta si está activado
-        if (isRoundTrip) {
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t2, t1), createMatchObject(nombreGrupo, 4, t4, t3));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t4, t2));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t4, t1), createMatchObject(nombreGrupo, 6, t3, t2));
+        // --- GENERACIÓN DE CALENDARIO CORREGIDA ---
+        const calendario = {};
+        const isRoundTrip = currentTournament.config.roundTrip === true;
+        for (const nombreGrupo in currentTournament.structure.grupos) {
+            const equiposGrupo = currentTournament.structure.grupos[nombreGrupo].equipos; 
+            calendario[nombreGrupo] = [];
+            if (equiposGrupo.length === 4) {
+                const [t1, t2, t3, t4] = equiposGrupo;
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t2), createMatchObject(nombreGrupo, 1, t3, t4));
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t2, t4));
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t4), createMatchObject(nombreGrupo, 3, t2, t3));
+                if (isRoundTrip) {
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t2, t1), createMatchObject(nombreGrupo, 4, t4, t3));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t4, t2));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t4, t1), createMatchObject(nombreGrupo, 6, t3, t2));
+                }
+            }
         }
-    }
-}
         
         currentTournament.status = 'fase_de_grupos';
         currentTournament.structure.calendario = calendario;
@@ -1263,7 +1260,6 @@ for (const nombreGrupo in grupos) {
         await setBotBusy(false); 
     }
 }
-
 export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
