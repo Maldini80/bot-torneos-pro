@@ -647,30 +647,38 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'create_tournament') {
-        await interaction.reply({ content: '⏳ Creando el torneo, por favor espera...', flags: [MessageFlags.Ephemeral] });
-        
-        const [formatId, type] = params;
-        const nombre = interaction.fields.getTextInputValue('torneo_nombre');
-        const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const config = { formatId, isPaid: type === 'pago' };
-        config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
-        if (config.isPaid) {
-            config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
-            config.enlacePaypal = PAYMENT_CONFIG.PAYPAL_EMAIL;
-            config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
-            config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
-        }
-        
-        const result = await createNewTournament(client, guild, nombre, shortId, config);
+    await interaction.reply({ content: '⏳ Creando el torneo, por favor espera...', flags: [MessageFlags.Ephemeral] });
+    
+    const [formatId, type] = params;
+    const nombre = interaction.fields.getTextInputValue('torneo_nombre');
+    const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const config = { formatId, isPaid: type === 'pago' };
+    config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
 
-        if (result.success) {
-            await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
-        } else {
-            console.error("Error capturado por el handler al crear el torneo:", result.message);
-            await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo: ${result.message}` });
-        }
-        return;
+    if (config.isPaid) {
+        config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
+        config.enlacePaypal = PAYMENT_CONFIG.PAYPAL_EMAIL;
+        config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
+        config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
     }
+
+    try {
+        const roundTripValue = interaction.fields.getTextInputValue('torneo_round_trip').toLowerCase();
+        config.roundTrip = roundTripValue.includes('vuelta');
+    } catch (e) {
+        config.roundTrip = false; // Valor por defecto si el campo no existe
+    }
+    
+    const result = await createNewTournament(client, guild, nombre, shortId, config);
+
+    if (result.success) {
+        await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
+    } else {
+        console.error("Error capturado por el handler al crear el torneo:", result.message);
+        await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo: ${result.message}` });
+    }
+    return;
+}
 
     if (action === 'edit_tournament_modal') {
         await interaction.reply({ content: '⏳ Actualizando configuración...', flags: [MessageFlags.Ephemeral] });
