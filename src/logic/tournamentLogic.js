@@ -1045,6 +1045,8 @@ export async function advanceDraftTurn(client, draftShortId) {
     await updateCaptainControlPanel(client, updatedDraft);
 }
 
+// --- REEMPLAZA LA FUNCIÓN createNewTournament ENTERA CON ESTA VERSIÓN ---
+
 export async function createNewTournament(client, guild, name, shortId, config) {
     await setBotBusy(true);
     let createdResources = { channels: [], threads: [], messages: [] };
@@ -1076,7 +1078,19 @@ export async function createNewTournament(client, guild, name, shortId, config) 
 
         const newTournament = {
             _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta',
-            config: { formatId: config.formatId, format, isPaid: config.isPaid, entryFee: config.isPaid ? config.entryFee : 0, prizeCampeon: config.isPaid ? config.prizeCampeon : 0, prizeFinalista: config.isPaid ? config.prizeFinalista : 0, enlacePaypal: config.isPaid ? config.enlacePaypal : null, startTime: config.startTime || null },
+            config: { 
+                formatId: config.formatId, 
+                format, 
+                isPaid: config.isPaid, 
+                // --- INICIO DE LA CORRECCIÓN ---
+                matchType: config.matchType || 'ida', 
+                // --- FIN DE LA CORRECCIÓN ---
+                entryFee: config.isPaid ? config.entryFee : 0, 
+                prizeCampeon: config.isPaid ? config.prizeCampeon : 0, 
+                prizeFinalista: config.isPaid ? config.prizeFinalista : 0, 
+                enlacePaypal: config.isPaid ? config.enlacePaypal : null, 
+                startTime: config.startTime || null 
+            },
             teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
@@ -1156,7 +1170,6 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         return { success: false, message: "Un error crítico ocurrió. Revisa los logs." };
     }
 }
-
 async function cleanupFailedCreation(client, resources) {
     console.log("[CLEANUP] Iniciando limpieza de recursos por creación fallida...");
     const deleteChannel = async (id) => {
