@@ -1306,6 +1306,80 @@ export async function approveTeam(client, tournament, teamData) {
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
+    const db = getDb();
+    const guild = await client.guilds.fetch(tournament.guildId);
+    const coCaptainUser = await client.users.fetch(coCaptainId);
+    const team = tournament.teams.aprobados[captainId];
+    
+    // 1. Actualizamos la base de datos
+    await db.collection('tournaments').updateOne(
+        { _id: tournament._id },
+        {
+            $set: { 
+                [`teams.aprobados.${captainId}.coCaptainId`]: coCaptainId,
+                [`teams.aprobados.${captainId}.coCaptainTag`]: coCaptainUser.tag
+            },
+            $unset: {
+                [`teams.coCapitanes.${captainId}`]: ""
+            }
+        }
+    );
+
+    // 2. Damos permisos en los canales PRINCIPALES y de EQUIPO
+    if (/^\d+$/.test(coCaptainId)) {
+        try {
+            // Canales generales del torneo
+            const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
+            await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
+            const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
+            await matchesChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: false });
+
+            // Canales privados del equipo (si es un torneo de draft)
+            if (team.players && team.players.length > 0) {
+                const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
+                const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
+                const voiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${team.nombre}`);
+                
+                if (textChannel) await textChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true });
+                if (voiceChannel) await voiceChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, Connect: true, Speak: true });
+            }
+
+        } catch (e) {
+            console.error(`No se pudieron dar permisos al co-capitán ${coCaptainId}:`, e);
+        }
+    }
+
+    // 3. Sincronizamos con los hilos de partido YA CREADOS
+    const allMatches = [
+        ...Object.values(tournament.structure.calendario).flat(),
+        ...Object.values(tournament.structure.eliminatorias).flat()
+    ];
+
+    const teamMatchThreads = allMatches
+        .filter(match => match && (match.equipoA.capitanId === captainId || match.equipoB.capitanId === captainId) && match.threadId)
+        .map(match => match.threadId);
+
+    if (teamMatchThreads.length > 0) {
+        for (const threadId of teamMatchThreads) {
+            try {
+                const thread = await client.channels.fetch(threadId);
+                if (thread) {
+                    await thread.members.add(coCaptainId);
+                    await thread.send(`ℹ️ <@${coCaptainId}> ha sido añadido a este hilo como co-capitán.`);
+                }
+            } catch (error) {
+                if (error.code !== 10003) { 
+                    console.warn(`No se pudo añadir al co-capitán ${coCaptainId} al hilo ${threadId}: ${error.message}`);
+                }
+            }
+        }
+    }
+
+    // 4. Actualizamos los mensajes públicos y visualizador
+    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    await updatePublicMessages(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
+}
 
 export async function kickTeam(client, tournament, captainId) {
     const db = getDb();
