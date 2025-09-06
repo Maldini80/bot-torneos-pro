@@ -1201,9 +1201,17 @@ export async function startGroupStage(client, guild, tournament) {
             const equiposGrupo = grupos[nombreGrupo].equipos; calendario[nombreGrupo] = [];
             if (equiposGrupo.length === 4) {
                 const [t1, t2, t3, t4] = equiposGrupo;
+                // Jornadas de IDA (siempre se crean)
                 calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t2), createMatchObject(nombreGrupo, 1, t3, t4));
                 calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t2, t4));
                 calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t4), createMatchObject(nombreGrupo, 3, t2, t3));
+                
+                // --- LÓGICA NUEVA: Jornadas de VUELTA ---
+                if (currentTournament.config.matchType === 'idavuelta') {
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t2, t1), createMatchObject(nombreGrupo, 4, t4, t3));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t4, t2));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t4, t1), createMatchObject(nombreGrupo, 6, t3, t2));
+                }
             }
         }
         currentTournament.structure.calendario = calendario;
