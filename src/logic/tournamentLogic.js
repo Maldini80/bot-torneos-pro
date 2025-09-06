@@ -1557,15 +1557,37 @@ export async function endTournament(client, tournament) {
 
 async function cleanupTournament(client, tournament) {
     const { discordChannelIds, discordMessageIds } = tournament;
+    
     const deleteResourceSafe = async (resourceId) => {
         if (!resourceId) return;
-        try { const resource = await client.channels.fetch(resourceId).catch(() => null); if(resource) await resource.delete(); } 
-        catch (err) { if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); }
+        try { 
+            const resource = await client.channels.fetch(resourceId).catch(() => null); 
+            if(resource) await resource.delete(); 
+        } 
+        catch (err) { 
+            if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); 
+        }
     };
-    for (const channelId of Object.values(discordChannelIds)) { await deleteResourceSafe(channelId); }
-    for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) { await deleteResourceSafe(threadId); }
-    try { const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS); await globalChannel.messages.delete(discordMessageIds.statusMessageId);
-    } catch(e) { if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); }
+
+    for (const channelId of Object.values(discordChannelIds)) { 
+        await deleteResourceSafe(channelId); 
+    }
+    for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) { 
+        await deleteResourceSafe(threadId); 
+    }
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Ahora, también borramos el mensaje de estado del canal público.
+    try { 
+        const globalChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS); 
+        if (discordMessageIds.statusMessageId) {
+            await globalChannel.messages.delete(discordMessageIds.statusMessageId);
+        }
+    } catch(e) { 
+        // Ignoramos el error si el mensaje ya no existe (10008)
+        if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); 
+    }
+    // --- FIN DE LA CORRECCIÓN ---
 }
 
 async function cleanupDraftTeamChannels(client, tournament) {
