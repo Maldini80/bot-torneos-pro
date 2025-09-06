@@ -610,31 +610,6 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             throw new Error('Este draft no ha finalizado o no existe.');
         }
 
-        // --- INICIO DE LA LÓGICA DE REDUCCIÓN DE STRIKES POR BUENA CONDUCTA ---
-        const playersInDraft = draft.players;
-        for (const player of playersInDraft) {
-            const playerRecord = await db.collection('player_records').findOne({ userId: player.userId });
-
-            // Solo actuamos si el jugador tiene 1 o 2 strikes.
-            if (playerRecord && playerRecord.strikes > 0 && playerRecord.strikes < 3) {
-                await db.collection('player_records').updateOne(
-                    { userId: player.userId },
-                    { $inc: { strikes: -1 } } // Reducimos en 1 el número de strikes
-                );
-                
-                // Notificamos al jugador por MD
-                if (/^\d+$/.test(player.userId)) {
-                    try {
-                        const user = await client.users.fetch(player.userId);
-                        await user.send(`✅ **¡Recompensa por buena conducta!**\nHas completado el draft **${draft.name}** sin incidentes. Como recompensa, tu número de strikes se ha reducido en 1. Ahora tienes **${playerRecord.strikes - 1}** strike(s). ¡Gracias por tu deportividad!`);
-                    } catch (e) {
-                        console.warn(`No se pudo notificar al jugador ${player.userId} de la reducción de strikes.`);
-                    }
-                }
-            }
-        }
-        // --- FIN DE LA LÓGICA DE REDUCCIÓN DE STRIKES ---
-
         const approvedTeams = {};
         for (const captain of draft.captains) {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
@@ -1510,6 +1485,40 @@ export async function endTournament(client, tournament) {
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
         await notifyTournamentVisualizer(finalTournamentState);
         await updateTournamentManagementThread(client, finalTournamentState);
+        
+        // --- INICIO DE LA NUEVA LÓGICA DE RECOMPENSAS ---
+        if (finalTournamentState.shortId.startsWith('draft-')) {
+            console.log(`[STRIKE REDUCTION] Torneo de draft finalizado. Revisando jugadores para recompensa...`);
+            const draftShortId = finalTournamentState.shortId.replace('draft-', '');
+            const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+            if (draft && draft.players) {
+                for (const player of draft.players) {
+                    const playerRecord = await db.collection('player_records').findOne({ userId: player.userId });
+
+                    if (playerRecord && playerRecord.strikes > 0 && playerRecord.strikes < 3) {
+                        await db.collection('player_records').updateOne(
+                            { userId: player.userId },
+                            { $inc: { strikes: -1 } }
+                        );
+                        
+                        if (/^\d+$/.test(player.userId)) {
+                            try {
+                                const user = await client.users.fetch(player.userId);
+                                await user.send(`✅ **¡Recompensa por buena conducta!**\nHas completado el ciclo de draft y torneo de **${draft.name}** sin incidentes. Como recompensa, tu número de strikes se ha reducido en 1. Ahora tienes **${playerRecord.strikes - 1}** strike(s). ¡Gracias por tu deportividad!`);
+                                console.log(`[STRIKE REDUCTION] Se redujo 1 strike a ${player.userName}. Nuevo total: ${playerRecord.strikes - 1}`);
+                            } catch (e) {
+                                console.warn(`No se pudo notificar al jugador ${player.userId} de la reducción de strikes.`);
+                            }
+                        }
+                    }
+                }
+            } else {
+                 console.warn(`[STRIKE REDUCTION] No se encontró el draft original ${draftShortId} para aplicar la reducción de strikes.`);
+            }
+        }
+        // --- FIN DE LA NUEVA LÓGICA DE RECOMPENSAS ---
+
         await cleanupTournament(client, finalTournamentState);
 
         if (finalTournamentState.shortId.startsWith('draft-')) {
