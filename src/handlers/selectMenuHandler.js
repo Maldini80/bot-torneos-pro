@@ -126,6 +126,7 @@ export async function handleSelectMenu(interaction) {
         new ActionRowBuilder().addComponents(teamNameInput),
         new ActionRowBuilder().addComponents(eafcNameInput),
         new ActionRowBuilder().addComponents(twitterInput),
+        new ActionRowBuilder().addComponents(whatsappInput)
         new ActionRowBuilder().addComponents(streamInput),
         new ActionRowBuilder().addComponents(logoUrlInput)
     );
@@ -837,6 +838,14 @@ if (action === 'draft_pick_by_position') {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
+        const whatsappInput = new TextInputBuilder()
+    .setCustomId('whatsapp_input')
+    .setLabel("Tu WhatsApp (Ej: +34123456789)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setPlaceholder("Visible solo para admins y capitanes");
+ 
+         
         modal.addComponents(new ActionRowBuilder().addComponents(gameIdInput), new ActionRowBuilder().addComponents(twitterInput));
         return interaction.showModal(modal);
     }
