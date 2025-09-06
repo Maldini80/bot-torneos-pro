@@ -2068,4 +2068,27 @@ if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
     }
     return;
 }
+	if (action === 'consult_player_data_start') {
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const member = interaction.member;
+        
+        const isCaptain = draft.captains.some(c => c.userId === member.id);
+        const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+        const isReferee = member.roles.cache.has(ARBITRO_ROLE_ID);
+
+        if (!isCaptain && !isAdmin && !isReferee) {
+            return interaction.reply({ content: '❌ No tienes permiso para usar esta función.', flags: [MessageFlags.Ephemeral] });
+        }
+        
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId(`consult_player_data_select:${draftShortId}`)
+            .setPlaceholder('Busca y selecciona a un jugador del servidor...');
+            
+        return interaction.reply({
+            content: 'Por favor, selecciona al usuario cuyos datos de draft y verificación deseas consultar.',
+            components: [new ActionRowBuilder().addComponents(userSelectMenu)],
+            flags: [MessageFlags.Ephemeral]
+        });
+    }
 }
