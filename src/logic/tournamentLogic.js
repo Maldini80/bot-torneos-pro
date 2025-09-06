@@ -599,7 +599,6 @@ export async function simulateDraftPicks(client, draftShortId) {
     }
 }
 
-// --- REEMPLAZA LA FUNCIÓN createTournamentFromDraft ENTERA ---
 export async function createTournamentFromDraft(client, guild, draftShortId, formatId) {
     await setBotBusy(true);
     const db = getDb();
@@ -700,11 +699,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
                 const permissions = [
                     { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                     { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-                    ...teamMembersIds.map(id => ({ id, allow: [
-                        PermissionsBitField.Flags.ViewChannel,
-                        PermissionsBitField.Flags.Connect,
-                        PermissionsBitField.Flags.Speak
-                    ] }))
+                    ...teamMembersIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
                 ];
                 
                 const textChannel = await guild.channels.create({
@@ -762,6 +757,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         await setBotBusy(false);
     }
 }
+
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
     if (/^\d+$/.test(userId)) {
         try {
@@ -1190,67 +1186,40 @@ export async function startGroupStage(client, guild, tournament) {
         const db = getDb();
         let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
         if (currentTournament.status !== 'inscripcion_abierta') { return; }
-
+        currentTournament.status = 'fase_de_grupos';
+        const format = currentTournament.config.format;
         let teams = Object.values(currentTournament.teams.aprobados);
         for (let i = teams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[teams[i], teams[j]] = [teams[j], teams[i]]; }
-
-        const format = currentTournament.config.format;
-        const numGrupos = format.groups;
-        const tamanoGrupo = format.size / numGrupos;
-        const grupos = {};
-        for (let i = 0; i < numGrupos; i++) {
-            const nombreGrupo = `Grupo ${String.fromCharCode(65 + i)}`;
-            grupos[nombreGrupo] = { equipos: [] };
-        }
-        
-        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { status: 'sorteo_en_vivo', 'structure.grupos': grupos } });
-        currentTournament = await db.collection('tournaments').findOne({ _id: currentTournament._id });
-        await notifyTournamentVisualizer(currentTournament);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
+        const grupos = {}; const numGrupos = format.groups; const tamanoGrupo = format.size / numGrupos;
         for (let i = 0; i < teams.length; i++) {
-            const grupoIndex = Math.floor(i / tamanoGrupo);
-            const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
+            const grupoIndex = Math.floor(i / tamanoGrupo); const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
+            if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
             teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
-            currentTournament.structure.grupos[nombreGrupo].equipos.push(teams[i]);
-
-            await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { 'structure.grupos': currentTournament.structure.grupos } });
-            await notifyTournamentVisualizer(await db.collection('tournaments').findOne({ _id: currentTournament._id }));
-            await new Promise(resolve => setTimeout(resolve, 3500));
+            grupos[nombreGrupo].equipos.push(teams[i]);
         }
-
+        currentTournament.structure.grupos = grupos;
         const calendario = {};
-        const isRoundTrip = currentTournament.config.roundTrip === true;
-        for (const nombreGrupo in currentTournament.structure.grupos) {
-            const equiposGrupo = currentTournament.structure.grupos[nombreGrupo].equipos; 
-            calendario[nombreGrupo] = [];
+        for (const nombreGrupo in grupos) {
+            const equiposGrupo = grupos[nombreGrupo].equipos; calendario[nombreGrupo] = [];
             if (equiposGrupo.length === 4) {
                 const [t1, t2, t3, t4] = equiposGrupo;
                 calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t2), createMatchObject(nombreGrupo, 1, t3, t4));
                 calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t2, t4));
                 calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t4), createMatchObject(nombreGrupo, 3, t2, t3));
-                if (isRoundTrip) {
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t2, t1), createMatchObject(nombreGrupo, 4, t4, t3));
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t4, t2));
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t4, t1), createMatchObject(nombreGrupo, 6, t3, t2));
-                }
             }
         }
-        
-        currentTournament.status = 'fase_de_grupos';
         currentTournament.structure.calendario = calendario;
-        
         for (const nombreGrupo in calendario) {
             for (const partido of calendario[nombreGrupo].filter(p => p.jornada === 1)) {
                 const threadId = await createMatchThread(client, guild, partido, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
                 partido.threadId = threadId; partido.status = 'en_curso';
             }
         }
-
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
+        
         postTournamentUpdate('GROUP_STAGE_START', finalTournamentState).catch(console.error);
         await notifyTournamentVisualizer(finalTournamentState);
 
@@ -1259,6 +1228,7 @@ export async function startGroupStage(client, guild, tournament) {
         await setBotBusy(false); 
     }
 }
+
 export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
@@ -1338,7 +1308,6 @@ export async function approveTeam(client, tournament, teamData) {
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const db = getDb();
     const coCaptainUser = await client.users.fetch(coCaptainId);
-    const guild = await client.guilds.fetch(tournament.guildId);
     
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
@@ -1347,7 +1316,9 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                 [`teams.aprobados.${captainId}.coCaptainId`]: coCaptainId,
                 [`teams.aprobados.${captainId}.coCaptainTag`]: coCaptainUser.tag
             },
-            $unset: { [`teams.coCapitanes.${captainId}`]: "" }
+            $unset: {
+                [`teams.coCapitanes.${captainId}`]: ""
+            }
         }
     );
 
@@ -1357,30 +1328,13 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
             await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
             const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
             await matchesChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: false });
-            
-            if (tournament.shortId.startsWith('draft-')) {
-                const team = tournament.teams.aprobados[captainId];
-                const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
-                const teamTextChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
-                const teamVoiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${team.nombre}`);
-                if (teamTextChannel) await teamTextChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true });
-                if (teamVoiceChannel) await teamVoiceChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true });
-            }
-
-            const allMatches = [...Object.values(tournament.structure.calendario).flat(), ...Object.values(tournament.structure.eliminatorias).flat()];
-            const teamMatches = allMatches.filter(m => m && (m.equipoA.capitanId === captainId || m.equipoB.capitanId === captainId) && m.threadId);
-            for (const match of teamMatches) {
-                const thread = await client.channels.fetch(match.threadId).catch(() => null);
-                if (thread) await thread.members.add(coCaptainId).catch(() => {});
-            }
         } catch (e) {
             console.error(`No se pudieron dar permisos al co-capitán ${coCaptainId}:`, e);
         }
     }
-    
+
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
-    await notifyTournamentVisualizer(updatedTournament);
 }
 
 export async function kickTeam(client, tournament, captainId) {
@@ -1714,8 +1668,8 @@ export async function notifyCaptainsOfChanges(client, tournament) {
 }
 
 export async function requestStrike(client, draft, interactorId, teamId, reportedPlayerId, reason) {
-    const DISPUTE_CATEGORY_ID = '1396814712649551974';
-    const db = getDb();
+    const DISPUTE_CATEGORY_ID = '1396814712649551974'; // La categoría para los canales de disputa
+    const db = getDb(); // Obtenemos acceso a la base de datos
 
     try {
         const guild = await client.guilds.fetch(draft.guildId);
@@ -1723,6 +1677,7 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
         const reported = draft.players.find(p => p.userId === reportedPlayerId);
         if (!reporter || !reported) throw new Error('No se pudo identificar al capitán o al jugador.');
 
+        // 1. Crear el canal de texto privado para la disputa
         const channelName = `disputa-${reporter.teamName.slice(0, 15)}-${reported.psnId.slice(0, 15)}`;
         const disputeChannel = await guild.channels.create({
             name: channelName.toLowerCase().replace(/\s+/g, '-'),
@@ -1730,13 +1685,26 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
             parent: DISPUTE_CATEGORY_ID,
             reason: `Disputa de strike para ${reported.psnId}`,
             permissionOverwrites: [
-                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: ARBITRO_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel] },
-                { id: reporter.userId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
-                { id: reportedPlayerId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] }
+                {
+                    id: guild.id, // @everyone
+                    deny: [PermissionsBitField.Flags.ViewChannel],
+                },
+                {
+                    id: ARBITRO_ROLE_ID, // Rol de Árbitro/Admin
+                    allow: [PermissionsBitField.Flags.ViewChannel],
+                },
+                {
+                    id: reporter.userId, // El capitán que reporta
+                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
+                },
+                {
+                    id: reportedPlayerId, // El jugador reportado
+                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
+                }
             ],
         });
 
+        // 2. Crear el mensaje dentro del nuevo canal
         const embedInChannel = new EmbedBuilder()
             .setColor('#e67e22')
             .setTitle('⚠️ Disputa por Strike')
@@ -1744,31 +1712,38 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
             .addFields({ name: 'Motivo del Capitán', value: reason })
             .setFooter({ text: `Draft: ${draft.name}` });
 
+        // 3. Crear los botones con el customId CORTO (sin el motivo)
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`admin_strike_approve:${draft.shortId}:${reportedPlayerId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Aprobar Strike').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId(`admin_strike_reject:${draft.shortId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
         );
         
+        // 4. Enviar el mensaje con los botones al canal de disputa
         await disputeChannel.send({
-            content: `Atención <@&${ARBITRO_ROLE_ID}>, <@${reporter.userId}>, <@${reportedPlayerId}>. Se ha abierto este canal para resolver la disputa.`,
+            content: `Atención <@&${ARBITRO_ROLE_ID}>, <@${reporter.userId}>, <@${reportedPlayerId}>. Se ha abierto este canal para resolver una disputa.`,
             embeds: [embedInChannel],
             components: [row]
         });
 
+        // 5. Notificar al jugador por MD con el enlace al canal
         const reportedMember = await guild.members.fetch(reportedPlayerId).catch(() => null);
         if (reportedMember) {
             await reportedMember.send({
-                content: `🚨 **Has sido reportado en el draft "${draft.name}"** 🚨\n\nTu capitán ha solicitado un strike en tu contra. Tienes la oportunidad de explicar tu versión en el siguiente canal privado:\n\n${disputeChannel.toString()}`
+                content: `🚨 **Has sido reportado en el draft "${draft.name}"** 🚨\n\nTu capitán ha solicitado un strike en tu contra. Tienes la oportunidad de explicar tu versión de los hechos en el siguiente canal privado antes de que un administrador tome una decisión:\n\n${disputeChannel.toString()}`
             }).catch(e => console.warn(`No se pudo enviar MD de disputa al jugador ${reportedPlayerId}`));
         }
         
+        // --- LÓGICA DE PERSISTENCIA PARA SOLUCIONAR EL F5 ---
+        // 6. Marcamos al jugador como reportado EN LA BASE DE DATOS
         await db.collection('drafts').updateOne(
             { _id: draft._id, "players.userId": reportedPlayerId },
             { $set: { "players.$.hasBeenReportedByCaptain": true } }
         );
 
+        // 7. Notificamos al visualizador del cambio para que la web se actualice al instante
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         await notifyVisualizer(updatedDraft);
+        // --- FIN DE LA LÓGICA DE PERSISTENCIA ---
         
         return { success: true };
 
@@ -1822,43 +1797,28 @@ export async function requestPlayerKick(client, draft, captainId, playerIdToKick
     return { success: true };
 }
 
-// --- REEMPLAZA LA FUNCIÓN handleKickApproval ENTERA ---
 export async function handleKickApproval(client, draft, captainId, playerIdToKick, wasApproved) {
     const captain = /^\d+$/.test(captainId) ? await client.users.fetch(captainId).catch(() => null) : null;
     const player = /^\d+$/.test(playerIdToKick) ? await client.users.fetch(playerIdToKick).catch(() => null) : null;
-    const playerInfo = draft.players.find(p => p.userId === playerIdToKick);
-    const playerName = playerInfo?.psnId || 'el jugador';
-    const db = getDb();
+    const playerName = draft.players.find(p => p.userId === playerIdToKick)?.psnId || 'el jugador';
+    const db = getDb(); // <-- Acceso a la DB
 
     if (wasApproved) {
         await forceKickPlayer(client, draft.shortId, captainId, playerIdToKick);
         
-        if (captain) {
-            const embed = new EmbedBuilder()
-                .setColor('#2ecc71')
-                .setTitle('✅ Solicitud de Expulsión Aprobada')
-                .setDescription(`Tu solicitud para expulsar a **${playerName}** ha sido aprobada. El jugador ha sido eliminado del draft.`);
-            
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`admin_invite_replacement_start:${draft.shortId}:${captainId}:${playerIdToKick}`)
-                    .setLabel('Invitar Reemplazo')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('🔄')
-            );
-            await captain.send({ embeds: [embed], components: [row] });
-        }
-        if (player) await player.send(`🚨 Has sido expulsado del draft **${draft.name}** por un administrador y ya no eres elegible para este evento.`);
-        
+        if (captain) { /* ... tu código de MD al capitán ... */ }
+        if (player) await player.send(`🚨 Has sido expulsado del equipo en el draft **${draft.name}** tras una solicitud del capitán aprobada por un admin.`);
         return { success: true, message: "Expulsión aprobada y procesada." };
 
     } else { // Rechazado
+        // Si se rechaza, quitamos la marca de pendiente
         await db.collection('drafts').updateOne(
             { _id: draft._id, "players.userId": playerIdToKick },
             { $unset: { "players.$.kickRequestPending": "" } }
         );
         if (captain) await captain.send(`❌ Tu solicitud para expulsar a **${playerName}** ha sido **rechazada** por un administrador.`);
         
+        // Notificamos al visualizador para que el botón se reactive
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         await notifyVisualizer(updatedDraft);
 
@@ -1890,24 +1850,14 @@ export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKi
         }
     }
 
-    const playerExists = draft.players.some(p => p.userId === playerIdToKick && p.captainId === teamId);
-if (!playerExists) {
-    console.warn(`[KICK] Se intentó expulsar al jugador ${playerIdToKick} del equipo ${teamId}, pero ya no pertenecía a él.`);
-    const currentDraftState = await db.collection('drafts').findOne({ _id: draft._id });
-    await updateDraftMainInterface(client, currentDraftState.shortId);
-    await updatePublicMessages(client, currentDraftState);
-    await updateDraftManagementPanel(client, currentDraftState);
-    await notifyVisualizer(currentDraftState);
-    return;
-}
-
-// Usamos $pull para eliminar al jugador del array 'players' permanentemente para este draft.
-await db.collection('drafts').updateOne(
-    { _id: draft._id },
-    { 
-        $pull: { players: { userId: playerIdToKick } }
-    }
-);
+    // Actualizamos al jugador: lo dejamos sin equipo Y quitamos la marca de "solicitud pendiente"
+    await db.collection('drafts').updateOne(
+        { _id: draft._id, "players.userId": playerIdToKick },
+        { 
+            $set: { "players.$.captainId": null },
+            $unset: { "players.$.kickRequestPending": "" } 
+        }
+    );
 
     if (/^\d+$/.test(teamId)) {
         try {
@@ -1987,44 +1937,45 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const db = getDb();
     const replacementPlayer = draft.players.find(p => p.userId === replacementPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
-    const team = (await db.collection('tournaments').findOne({ shortId: `draft-${draft.shortId}` }))?.teams.aprobados[captainId];
 
+    // Paso 1: Limpiamos completamente el estado del jugador que fue expulsado.
+    // Lo devolvemos a agente libre y reseteamos cualquier marca de estado pendiente.
+    await db.collection('drafts').updateOne(
+        { _id: draft._id, "players.userId": kickedPlayerId },
+        { 
+            $set: { "players.$.captainId": null },
+            $unset: { 
+                "players.$.kickRequestPending": "",
+                "players.$.hasBeenReportedByCaptain": "" 
+            }
+        }
+    );
+
+    // Paso 2: Asignamos el nuevo jugador al equipo.
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": replacementPlayerId },
         { $set: { "players.$.captainId": captainId } }
     );
 
-    if (team && /^\d+$/.test(replacementPlayerId)) {
-        try {
-            const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
-            const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
-            const voiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${team.nombre}`);
-            
-            const permissions = [
-                PermissionsBitField.Flags.ViewChannel,
-                PermissionsBitField.Flags.Connect,
-                PermissionsBitField.Flags.Speak
-            ];
-            if (textChannel) await textChannel.permissionOverwrites.edit(replacementPlayerId, { ViewChannel: true });
-            if (voiceChannel) await voiceChannel.permissionOverwrites.edit(replacementPlayerId, { allow: permissions });
-
-            if (textChannel) await textChannel.send(`👋 ¡Bienvenido al equipo, <@${replacementPlayerId}>!`);
-
-        } catch (e) { console.error(`Error al dar permisos al jugador de reemplazo ${replacementPlayerId}:`, e); }
-    }
-
+    // Paso 3: Notificamos al capitán.
     if (/^\d+$/.test(captainId)) {
         try {
             const captainUser = await client.users.fetch(captainId);
-            await captainUser.send(`✅ **${replacementPlayer.psnId}** ha aceptado tu invitación y se ha unido a tu equipo.`);
-        } catch (e) { console.warn(`No se pudo notificar al capitán ${captainId}.`); }
+            await captainUser.send(`✅ **${replacementPlayer.psnId}** ha aceptado tu invitación y se ha unido a tu equipo como reemplazo.`);
+        } catch (e) {
+            console.warn(`No se pudo notificar al capitán ${captainId} de la aceptación del reemplazo.`);
+        }
     }
     
+    // --- BLOQUE DE ACTUALIZACIÓN COMPLETO Y CORRECTO ---
+    // Buscamos el estado final del draft una sola vez.
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    
+    // Actualizamos todas las interfaces para que reflejen el cambio.
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
-    await notifyVisualizer(updatedDraft);
+    await notifyVisualizer(updatedDraft); // <-- ¡La llamada crucial que faltaba!
 }
 export async function requestStrikeFromWeb(client, draftId, captainId, playerId, reason) {
     try {
