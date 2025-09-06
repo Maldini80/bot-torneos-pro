@@ -827,7 +827,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         newDraft.discordMessageIds.mainInterfaceTeamsMessageId = teamsMessage.id;
         newDraft.discordMessageIds.turnOrderMessageId = turnOrderMessage.id;
         
-        const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        const globalStatusChannel = await client.channels.fetch(CHANNELS.DRAFTS_STATUS);
         const statusMsg = await globalStatusChannel.send(createDraftStatusEmbed(newDraft));
         newDraft.discordMessageIds.statusMessageId = statusMsg.id;
 
@@ -1086,7 +1086,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null, casterThreadId: null }
         };
 
-        const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        const globalStatusChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS);
         const statusMsg = await globalStatusChannel.send(createTournamentStatusEmbed(newTournament));
         createdResources.messages.push({ channelId: globalStatusChannel.id, messageId: statusMsg.id });
         const classificationMsg = await infoChannel.send(createClassificationEmbed(newTournament));
