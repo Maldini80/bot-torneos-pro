@@ -533,6 +533,7 @@ export function createTeamRosterManagementEmbed(team, players, draftShortId) {
     return { embeds: [embed], components: [new ActionRowBuilder().addComponents(selectMenu)], flags: [MessageFlags.Ephemeral] };
 }
 
+// --- REEMPLAZA LA FUNCIÓN createPlayerManagementEmbed ENTERA ---
 export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin) {
     const db = getDb();
     let playerRecord = await db.collection('player_records').findOne({ userId: player.userId });
@@ -550,37 +551,38 @@ export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin
         );
 
     const components = [];
-    const row1 = new ActionRowBuilder();
-    row1.addComponents(
+    const captainRow = new ActionRowBuilder();
+    captainRow.addComponents(
         new ButtonBuilder().setCustomId(`captain_dm_player:${player.userId}`).setLabel('Enviar MD').setStyle(ButtonStyle.Secondary).setEmoji('✉️')
     );
 
     if (!player.isCaptain) {
-        row1.addComponents(
+        captainRow.addComponents(
             new ButtonBuilder().setCustomId(`captain_request_kick:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Expulsar Jugador').setStyle(ButtonStyle.Danger).setEmoji('🚫')
         );
     }
     
-    row1.addComponents(
-        new ButtonBuilder().setCustomId(`captain_report_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Reportar Jugador (Strike)').setStyle(ButtonStyle.Danger).setEmoji('⚠️')
+    captainRow.addComponents(
+        new ButtonBuilder().setCustomId(`captain_report_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Reportar (Strike)').setStyle(ButtonStyle.Danger).setEmoji('⚠️')
     );
     
-    components.push(row1);
+    components.push(captainRow);
 
     if (isAdmin) {
-        const adminRow = new ActionRowBuilder();
-        adminRow.addComponents(
+        const adminRow1 = new ActionRowBuilder();
+        const adminRow2 = new ActionRowBuilder();
+        adminRow1.addComponents(
             new ButtonBuilder().setCustomId(`admin_remove_strike:${player.userId}`).setLabel('Quitar Strike').setStyle(ButtonStyle.Success).setEmoji('✅').setDisabled(playerRecord.strikes === 0),
             new ButtonBuilder().setCustomId(`admin_pardon_player:${player.userId}`).setLabel('Perdonar (Quitar todos)').setStyle(ButtonStyle.Success).setEmoji('♻️').setDisabled(playerRecord.strikes === 0)
         );
         if (!player.isCaptain) {
-             adminRow.addComponents(
+             adminRow2.addComponents(
                 new ButtonBuilder().setCustomId(`admin_force_kick_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Forzar Expulsión').setStyle(ButtonStyle.Danger),
-                // AÑADE ESTE BOTÓN
                 new ButtonBuilder().setCustomId(`admin_invite_replacement_start:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Invitar Reemplazo').setStyle(ButtonStyle.Primary).setEmoji('🔄')
             );
         }
-        components.push(adminRow);
+        components.push(adminRow1);
+        if(adminRow2.components.length > 0) components.push(adminRow2);
     }
 
     return { embeds: [embed], components, flags: [MessageFlags.Ephemeral] };
