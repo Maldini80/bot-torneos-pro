@@ -437,7 +437,7 @@ function initializeDraftView(draftId) {
         } else if (draft.status === 'seleccion' && draft.captains.length > 0 && draft.selection.order.length > 0) {
             const numCaptains = draft.captains.length;
             const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
-            const totalRounds = 10;
+            const totalRounds = 11;
             roundInfoEl.textContent = `Ronda ${currentRound} de ${totalRounds}`;
             const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
             currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
@@ -505,28 +505,29 @@ function initializeDraftView(draftId) {
     }
 
     function applyTableFilters() {
-    const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-    const filterColumn = document.getElementById('filter-column-select')?.value || 'primary';
-    const rows = playersTableBodyEl.querySelectorAll('tr');
+        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+        const filterColumn = document.getElementById('filter-column-select')?.value || 'primary';
+        const rows = playersTableBodyEl.querySelectorAll('tr');
 
-    rows.forEach(row => {
-        const primaryPos = row.dataset.primaryPos;
-        const secondaryPos = row.dataset.secondaryPos;
-        
-        let isVisible = false;
-        if (activeFilterPos === 'Todos') {
-            isVisible = true;
-        } else {
-            if (filterColumn === 'primary' && primaryPos === activeFilterPos) {
+        rows.forEach(row => {
+            const primaryPos = row.dataset.primaryPos;
+            const secondaryPos = row.dataset.secondaryPos;
+            
+            let isVisible = false;
+            if (activeFilterPos === 'Todos') {
                 isVisible = true;
-            } else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
-                isVisible = true;
+            } else {
+                if (filterColumn === 'primary' && primaryPos === activeFilterPos) {
+                    isVisible = true;
+                } else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
+                    isVisible = true;
+                }
             }
-        }
-        
-        row.style.display = isVisible ? '' : 'none';
-    });
-}
+            
+            row.style.display = isVisible ? '' : 'none';
+        });
+    }
+
     function setupEventListeners() {
         document.querySelectorAll('.draft-view-btn').forEach(btn => btn.addEventListener('click', (e) => {
             document.querySelector('.draft-view-btn.active')?.classList.remove('active');
@@ -598,26 +599,26 @@ function initializeDraftView(draftId) {
     }
 
     function setupFilters() {
-    if (positionFiltersEl.innerHTML !== '') return;
-    positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
-    const select = document.getElementById('filter-column-select');
-    select.addEventListener('change', applyTableFilters);
+        if (positionFiltersEl.innerHTML !== '') return;
+        positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
+        const select = document.getElementById('filter-column-select');
+        select.addEventListener('change', applyTableFilters);
 
-    const allPositions = ['Todos', ...positionOrder];
-    allPositions.forEach(pos => {
-        const btn = document.createElement('button');
-        btn.className = 'filter-btn';
-        btn.dataset.pos = pos;
-        btn.textContent = pos;
-        if (pos === 'Todos') btn.classList.add('active');
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            applyTableFilters();
+        const allPositions = ['Todos', ...positionOrder];
+        allPositions.forEach(pos => {
+            const btn = document.createElement('button');
+            btn.className = 'filter-btn';
+            btn.dataset.pos = pos;
+            btn.textContent = pos;
+            if (pos === 'Todos') btn.classList.add('active');
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#position-filters .filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                applyTableFilters();
+            });
+            positionFiltersEl.appendChild(btn);
         });
-        positionFiltersEl.appendChild(btn);
-    });
-}
+    }
     
     function renderTeamManagementView(draft) {
         const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
