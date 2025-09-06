@@ -1801,17 +1801,21 @@ export async function handleKickApproval(client, draft, captainId, playerIdToKic
     const captain = /^\d+$/.test(captainId) ? await client.users.fetch(captainId).catch(() => null) : null;
     const player = /^\d+$/.test(playerIdToKick) ? await client.users.fetch(playerIdToKick).catch(() => null) : null;
     const playerName = draft.players.find(p => p.userId === playerIdToKick)?.psnId || 'el jugador';
-    const db = getDb(); // <-- Acceso a la DB
+    const db = getDb();
 
     if (wasApproved) {
+        // Esta función ahora elimina al jugador por completo gracias al cambio anterior
         await forceKickPlayer(client, draft.shortId, captainId, playerIdToKick);
         
-        if (captain) { /* ... tu código de MD al capitán ... */ }
-        if (player) await player.send(`🚨 Has sido expulsado del equipo en el draft **${draft.name}** tras una solicitud del capitán aprobada por un admin.`);
-        return { success: true, message: "Expulsión aprobada y procesada." };
+        // Mensaje al capitán
+        if (captain) {
+            await captain.send(`✅ Tu solicitud para expulsar a **${playerName}** ha sido **aprobada**. El jugador ha sido eliminado del draft.`);
+        }
+        // El mensaje al jugador ya se envía desde forceKickPlayer, así que no necesitamos repetirlo.
+        return { success: true, message: "Expulsión aprobada. El jugador ha sido eliminado del draft." };
 
     } else { // Rechazado
-        // Si se rechaza, quitamos la marca de pendiente
+        // Quitamos la marca de pendiente
         await db.collection('drafts').updateOne(
             { _id: draft._id, "players.userId": playerIdToKick },
             { $unset: { "players.$.kickRequestPending": "" } }
@@ -1825,7 +1829,6 @@ export async function handleKickApproval(client, draft, captainId, playerIdToKic
         return { success: true, message: "Expulsión rechazada." };
     }
 }
-
 export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKick) {
     const db = getDb();
     const guild = await client.guilds.fetch(process.env.GUILD_ID);
@@ -1835,57 +1838,56 @@ export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKi
     const player = draft.players.find(p => p.userId === playerIdToKick);
     const team = draft.captains.find(c => c.userId === teamId);
     if (!player) throw new Error('Jugador no encontrado en el draft.');
-    if (player.captainId !== teamId) throw new Error('El jugador no pertenece a este equipo.');
 
+    // Lógica de eliminación de canales (igual que antes)
     if (/^\d+$/.test(playerIdToKick)) {
         try {
             const teamNameFormatted = team.teamName.replace(/\s+/g, '-').toLowerCase();
             const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
             const voiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${team.teamName}`);
             
-            if (textChannel) await textChannel.permissionOverwrites.delete(playerIdToKick, 'Jugador expulsado del equipo');
-            if (voiceChannel) await voiceChannel.permissionOverwrites.delete(playerIdToKick, 'Jugador expulsado del equipo');
+            if (textChannel) await textChannel.permissionOverwrites.delete(playerIdToKick, 'Jugador expulsado del draft');
+            if (voiceChannel) await voiceChannel.permissionOverwrites.delete(playerIdToKick, 'Jugador expulsado del draft');
         } catch (e) {
             console.warn(`No se pudieron revocar los permisos de canal para el jugador expulsado ${playerIdToKick}: ${e.message}`);
         }
     }
 
-    // Actualizamos al jugador: lo dejamos sin equipo Y quitamos la marca de "solicitud pendiente"
+    // --- ¡CAMBIO CLAVE! ---
+    // Ahora eliminamos al jugador del array 'players' por completo.
     await db.collection('drafts').updateOne(
-        { _id: draft._id, "players.userId": playerIdToKick },
-        { 
-            $set: { "players.$.captainId": null },
-            $unset: { "players.$.kickRequestPending": "" } 
-        }
+        { _id: draft._id },
+        { $pull: { players: { userId: playerIdToKick } } }
     );
 
+    // Mensaje al capitán
     if (/^\d+$/.test(teamId)) {
         try {
             const captain = await client.users.fetch(teamId);
-            await captain.send(`ℹ️ Un administrador ha expulsado a **${player.psnId}** de tu equipo en el draft **${draft.name}**. Ahora es un agente libre.`);
+            // Mensaje actualizado
+            await captain.send(`ℹ️ Un administrador ha expulsado a **${player.psnId}** de tu equipo. El jugador ha sido **eliminado completamente del draft**.`);
         } catch (e) {
             console.warn(`No se pudo notificar al capitán ${teamId} de la expulsión forzosa.`);
         }
     }
 
+    // Mensaje al jugador expulsado
     if (/^\d+$/.test(playerIdToKick)) {
         try {
             const kickedUser = await client.users.fetch(playerIdToKick);
-            await kickedUser.send(`🚨 Has sido expulsado del equipo por un administrador en el draft **${draft.name}**. Vuelves a estar en la lista de jugadores disponibles.`);
+             // Mensaje actualizado
+            await kickedUser.send(`🚨 Has sido **expulsado del draft "${draft.name}"** por un administrador.`);
         } catch (e) {
             console.warn(`No se pudo notificar al jugador expulsado ${playerIdToKick}.`);
         }
     }
 
-    // --- BLOQUE DE ACTUALIZACIÓN CORRECTO ---
-    // Solo necesitamos buscar el draft una vez al final
+    // Actualizamos todas las interfaces
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    
-    // Actualizamos todas las interfaces para que reflejen el cambio
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
-    await updateDraftManagementPanel(client, updatedDraft); // Actualizamos el panel de admin
-    await notifyVisualizer(updatedDraft); // Sincronizamos con la web
+    await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
 }
 
 export async function removeStrike(client, playerId) {
