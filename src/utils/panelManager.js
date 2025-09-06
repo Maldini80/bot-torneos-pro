@@ -109,19 +109,19 @@ export async function setChannelIcon(client, channelId, icon) {
 
         let baseName;
 
-        // Identificamos cuál es el nombre base del canal, ignorando cualquier icono de estado previo.
-        if (channel.name.includes('torneos-inscripciones')) {
-            baseName = '📢-torneos-inscripciones';
-        } else if (channel.name.includes('drafts-inscripciones')) {
+        // Identificamos el nombre base CORRECTO según el ID del canal
+        if (channelId === CHANNELS.TOURNAMENTS_STATUS) {
+            baseName = '📢-torneos-tournaments';
+        } else if (channelId === CHANNELS.DRAFTS_STATUS) {
             baseName = '📢-drafts-inscripciones';
         } else {
-            // Si el nombre del canal es irreconocible, no hacemos nada para evitar romperlo.
-            console.warn(`[WARN] El canal ${channelId} tiene un nombre inesperado: "${channel.name}". No se puede actualizar el icono.`);
+            // Si por alguna razón el ID no coincide, no hacemos nada para evitar romper otros canales.
+            console.warn(`[WARN] Se intentó cambiar el icono de un canal no reconocido con ID: ${channelId}`);
             return;
         }
 
         // Reconstruimos el nombre completo desde cero: [NUEVO ICONO] + [NOMBRE BASE]
-        const newChannelName = `${icon}-${baseName}`;
+        const newChannelName = `${icon} ${baseName}`;
 
         if (channel.name !== newChannelName) {
             await channel.setName(newChannelName.slice(0, 100));
