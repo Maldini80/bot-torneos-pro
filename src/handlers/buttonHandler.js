@@ -675,6 +675,23 @@ if (action === 'admin_invite_replacement_start') {
     if (!isVerified) {
         return interaction.reply({ content: '❌ Debes verificar tu cuenta primero usando el botón "Verificar Cuenta".', flags: [MessageFlags.Ephemeral] });
     }
+		const verifiedData = await checkVerification(interaction.user.id);
+    if (verifiedData && !verifiedData.whatsapp) {
+        const modal = new ModalBuilder()
+            .setCustomId(`request_whatsapp_modal:${verifiedData.discordId}`)
+            .setTitle('Actualización de Perfil Requerida');
+        
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('whatsapp_input')
+            .setLabel("Tu número de WhatsApp (Ej: +34123456789)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setPlaceholder("Este dato es ahora obligatorio");
+
+        modal.addComponents(new ActionRowBuilder().addComponents(whatsappInput));
+        await interaction.showModal(modal);
+        return; // Detenemos la inscripción hasta que se complete
+    }
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
