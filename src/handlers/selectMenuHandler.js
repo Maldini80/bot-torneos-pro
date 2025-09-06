@@ -908,7 +908,6 @@ if (action === 'draft_pick_by_position') {
         setTimeout(() => channel.delete().catch(console.error), 10000);
     }
     if (action === 'admin_edit_verified_user_select') {
-    // Ya no hacemos defer, respondemos directamente.
     const userId = interaction.values[0];
     const db = getDb();
 
@@ -930,6 +929,7 @@ if (action === 'draft_pick_by_position') {
             { name: 'ID de Juego', value: `\`${userRecord.gameId}\``, inline: true },
             { name: 'Plataforma', value: `\`${userRecord.platform.toUpperCase()}\``, inline: true },
             { name: 'Twitter', value: `\`${userRecord.twitter}\``, inline: true },
+            { name: 'WhatsApp', value: `\`${userRecord.whatsapp || 'No registrado'}\``, inline: true }, // <-- LÍNEA AÑADIDA
             { name: 'Strikes Actuales', value: `\`${currentStrikes}\``, inline: true }
         )
         .setFooter({ text: 'Por favor, selecciona el campo que deseas modificar.' });
@@ -940,10 +940,10 @@ if (action === 'draft_pick_by_position') {
         .addOptions([
             { label: 'ID de Juego', value: 'gameId' },
             { label: 'Twitter', value: 'twitter' },
+            { label: 'WhatsApp', value: 'whatsapp' }, // <-- LÍNEA AÑADIDA
             { label: 'Strikes', value: 'strikes' }
         ]);
     
-    // Usamos interaction.update() porque estamos editando el mensaje original.
     return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(fieldMenu)], content: '' });
 }
     if (action === 'admin_edit_verified_field_select') {
