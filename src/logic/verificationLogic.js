@@ -163,6 +163,7 @@ export async function startProfileUpdateWizard(interaction) {
         .addOptions([
             { label: '🆔 ID de Juego (PSN/Xbox/EA)', value: 'gameId' },
             { label: '🐦 Cuenta de Twitter', value: 'twitter' },
+            { label: '📞 Número de WhatsApp', value: 'whatsapp' },
         ]);
     const row = new ActionRowBuilder().addComponents(fieldMenu);
     await interaction.editReply({ content: "### Asistente de Actualización de Perfil - Paso 1\n¿Qué dato verificado deseas solicitar cambiar?", components: [row] });
