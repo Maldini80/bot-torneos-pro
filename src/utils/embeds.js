@@ -632,7 +632,13 @@ export function createTournamentStatusEmbed(tournament) {
     const embed = new EmbedBuilder()
         .setColor(tournament.status === 'inscripcion_abierta' ? '#2ecc71' : '#3498db')
         .setTitle(`${statusIcon} ${tournament.nombre}`)
-        .addFields( { name: 'Formato / Format', value: format.label, inline: true }, { name: 'Equipos / Teams', value: `${teamsCount} / ${format.size}`, inline: true } )
+        .addFields(
+    { name: 'Formato / Format', value: format.label, inline: true },
+    // --- CAMPO NUEVO ---
+    { name: 'Rondas / Rounds', value: tournament.config.matchType === 'idavuelta' ? 'Ida y Vuelta' : 'Solo Ida', inline: true },
+    // ------------------
+    { name: 'Equipos / Teams', value: `${teamsCount} / ${format.size}`, inline: true }
+)
         .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
 
     const formatDescriptionES = TOURNAMENT_FORMATS[tournament.config.formatId].description;
