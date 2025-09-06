@@ -821,34 +821,40 @@ if (action === 'draft_pick_by_position') {
         return;
     }
      if (action === 'verify_select_platform_manual') {
-        const platform = interaction.values[0];
-        const modal = new ModalBuilder()
-            .setCustomId(`verification_ticket_submit:${platform}`)
-            .setTitle('Verificación - Datos del Jugador');
+    const platform = interaction.values[0];
+    const modal = new ModalBuilder()
+        .setCustomId(`verification_ticket_submit:${platform}`)
+        .setTitle('Verificación - Datos del Jugador');
+    
+    const gameIdInput = new TextInputBuilder()
+        .setCustomId('game_id_input')
+        .setLabel(`Tu ID en ${platform.toUpperCase()}`)
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
         
-        const gameIdInput = new TextInputBuilder()
-            .setCustomId('game_id_input')
-            .setLabel(`Tu ID en ${platform.toUpperCase()}`)
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-            
-        const twitterInput = new TextInputBuilder()
-            .setCustomId('twitter_input')
-            .setLabel("Tu usuario de Twitter (sin @)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+    const twitterInput = new TextInputBuilder()
+        .setCustomId('twitter_input')
+        .setLabel("Tu usuario de Twitter (sin @)")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-        const whatsappInput = new TextInputBuilder()
-    .setCustomId('whatsapp_input')
-    .setLabel("Tu WhatsApp (Ej: +34123456789)")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setPlaceholder("Visible solo para admins y capitanes");
- 
-         
-        modal.addComponents(new ActionRowBuilder().addComponents(gameIdInput), new ActionRowBuilder().addComponents(twitterInput));
-        return interaction.showModal(modal);
-    }
+    // AÑADIMOS EL CAMPO DE WHATSAPP
+    const whatsappInput = new TextInputBuilder()
+        .setCustomId('whatsapp_input')
+        .setLabel("Tu WhatsApp (Ej: +34123456789)")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder("Visible solo para admins y capitanes");
+
+    // AÑADIMOS LOS TRES COMPONENTES AL MODAL, SEPARADOS POR COMAS
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(gameIdInput),
+        new ActionRowBuilder().addComponents(twitterInput),
+        new ActionRowBuilder().addComponents(whatsappInput)
+    );
+    
+    return interaction.showModal(modal);
+}
 
     if (action === 'reject_verification_reason') {
         await interaction.deferUpdate();
