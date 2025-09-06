@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO selectMenuHandler.js (VERSIÓN FINAL CORREGIDA) ---
+// --- INICIO DEL ARCHIVO selectMenuHandler.js (VERSIÓN FINAL Y COMPLETA CORREGIDA) ---
 
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
@@ -473,7 +473,7 @@ export async function handleSelectMenu(interaction) {
         const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
         if (verifiedData && teamStatus === 'Libre') {
-            await interaction.deferUpdate(); 
+            await interaction.deferUpdate();
 
             const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
             const playerData = { 
@@ -797,8 +797,7 @@ export async function handleSelectMenu(interaction) {
             console.error(error);
             await interaction.editReply({ content: '❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.', components: [] });
         }
-    }
-    if (action === 'admin_promote_from_waitlist') {
+    } else if (action === 'admin_promote_from_waitlist') {
         await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const captainIdToPromote = interaction.values[0];
@@ -824,8 +823,7 @@ export async function handleSelectMenu(interaction) {
             await interaction.followUp({ content: `❌ Hubo un error al aprobar al equipo: ${error.message}`, flags: [MessageFlags.Ephemeral] });
         }
         return;
-    }
-     if (action === 'verify_select_platform_manual') {
+    } else if (action === 'verify_select_platform_manual') {
         const platform = interaction.values[0];
         const modal = new ModalBuilder()
             .setCustomId(`verification_ticket_submit:${platform}`)
@@ -857,9 +855,7 @@ export async function handleSelectMenu(interaction) {
         );
         
         return interaction.showModal(modal);
-    }
-
-    if (action === 'reject_verification_reason') {
+    } else if (action === 'reject_verification_reason') {
         await interaction.deferUpdate();
         const [channelId] = params;
         const reason = interaction.values[0];
@@ -877,9 +873,9 @@ export async function handleSelectMenu(interaction) {
 
         let reasonText = '';
         if (reason === 'inactivity') {
-            reasonText = 'Tu solicitud de verificación ha sido rechazada debido a inactividad. No has proporcionado las pruebas necesarias en el tiempo establecido.';
+            reasonText = 'Tu solicitud de verificación ha sido rechazada debido a inactividad.';
         } else {
-            reasonText = 'Tu solicitud de verificación ha sido rechazada porque las pruebas proporcionadas eran insuficientes o no válidas. Por favor, asegúrate de seguir las instrucciones correctamente si lo intentas de nuevo.';
+            reasonText = 'Tu solicitud de verificación ha sido rechazada porque las pruebas proporcionadas eran insuficientes o no válidas.';
         }
         
         const user = await client.users.fetch(ticket.userId).catch(() => null);
@@ -902,13 +898,12 @@ export async function handleSelectMenu(interaction) {
         
         await interaction.editReply({ content: 'Rechazo procesado.', components: [] });
         setTimeout(() => channel.delete().catch(console.error), 10000);
-    }
-    if (action === 'admin_edit_verified_user_select') {
+    } else if (action === 'admin_edit_verified_user_select') {
         const userId = interaction.values[0];
 
         const userRecord = await db.collection('verified_users').findOne({ discordId: userId });
         if (!userRecord) {
-            return interaction.update({ content: '❌ Este usuario no tiene un perfil verificado en la base de datos.', components: [], embeds: [] });
+            return interaction.update({ content: '❌ Este usuario no tiene un perfil verificado.', components: [], embeds: [] });
         }
 
         let playerRecord = await db.collection('player_records').findOne({ userId: userId });
@@ -938,8 +933,7 @@ export async function handleSelectMenu(interaction) {
             ]);
         
         return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(fieldMenu)], content: '' });
-    }
-    if (action === 'admin_edit_verified_field_select') {
+    } else if (action === 'admin_edit_verified_field_select') {
         const [userId] = params;
         const fieldToEdit = interaction.values[0];
 
@@ -972,8 +966,7 @@ export async function handleSelectMenu(interaction) {
             modal.addComponents(new ActionRowBuilder().addComponents(strikesInput));
             return interaction.showModal(modal);
         }
-    }
-    if (action === 'assign_cocaptain_select') {
+    } else if (action === 'assign_cocaptain_select') {
         await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const captainId = interaction.user.id;
@@ -1003,22 +996,5 @@ export async function handleSelectMenu(interaction) {
             await interaction.followUp({ content: 'Hubo un error al procesar la asignación.', flags: [MessageFlags.Ephemeral] });
         }
         return;
-    }
-    if (action === 'admin_create_roundtrip_select') {
-        const [formatId, type] = params;
-        const isRoundTrip = interaction.values[0];
-
-        const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}:${isRoundTrip}`).setTitle('Finalizar Creación de Torneo');
-        const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-        const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
-        modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
-        
-        if (type === 'pago') {
-            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
-            const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
-            const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
-            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizeInputCampeon), new ActionRowBuilder().addComponents(prizeInputFinalista));
-        }
-        await interaction.showModal(modal);
     }
 }
