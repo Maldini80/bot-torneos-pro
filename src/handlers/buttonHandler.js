@@ -1873,7 +1873,8 @@ if (action === 'admin_invite_replacement_start') {
             }
         }
     }
-    if (action === 'approve_verification') {
+
+if (action === 'approve_verification') {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return interaction.reply({ content: '❌ No tienes permisos para aprobar verificaciones.', flags: [MessageFlags.Ephemeral] });
     }
@@ -1890,61 +1891,68 @@ if (action === 'admin_invite_replacement_start') {
             const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
             const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
             await notificationMessage.delete();
-        } catch (error) {
-            console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}. Puede que ya no existiera.`, error.message);
-        }
+        } catch (error) { console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}.`); }
     }
     
     if (ticket.claimedBy !== interaction.user.id) {
          return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
     }
 
-    // 1. Guardar en la base de datos de verificados (con el nuevo campo)
+    // Guardar en la base de datos de verificados
     await db.collection('verified_users').updateOne(
         { discordId: ticket.userId },
-        { 
-            $set: {
-                discordTag: (await client.users.fetch(ticket.userId)).tag,
-                gameId: ticket.gameId,
-                platform: ticket.platform,
-                twitter: ticket.twitter,
-                whatsapp: ticket.whatsapp, // <-- DATO AÑADIDO
-                verifiedAt: new Date(),
-            }
-        },
+        { $set: {
+            discordTag: (await client.users.fetch(ticket.userId)).tag,
+            gameId: ticket.gameId, platform: ticket.platform,
+            twitter: ticket.twitter, whatsapp: ticket.whatsapp,
+            verifiedAt: new Date(),
+        }},
         { upsert: true }
     );
 
-    // 2. Asignar rol
+    // Asignar rol
     const guild = await client.guilds.fetch(ticket.guildId);
     const member = await guild.members.fetch(ticket.userId);
     const verifiedRole = await guild.roles.fetch(VERIFIED_ROLE_ID);
-    if (member && verifiedRole) {
-        await member.roles.add(verifiedRole);
-    }
+    if (member && verifiedRole) await member.roles.add(verifiedRole);
 
-    // 3. Notificar al usuario
+    // Notificar al usuario por MD (mensaje simple)
     try {
-        await member.send('🎉 **¡Identidad Verificada con Éxito!** 🎉\nTu cuenta ha sido aprobada por un administrador. Ya puedes inscribirte en nuestros drafts.');
-    } catch (e) {
-        console.warn(`No se pudo enviar MD de aprobación al usuario ${ticket.userId}`);
+        await member.send('🎉 **¡Identidad Verificada con Éxito!** 🎉\nTu cuenta ha sido aprobada por un administrador. Vuelve al canal del ticket para finalizar el proceso.');
+    } catch (e) { console.warn(`No se pudo enviar MD de aprobación al usuario ${ticket.userId}`); }
+
+    // --- LÓGICA NUEVA EN EL CANAL DEL TICKET ---
+    const channel = await client.channels.fetch(channelId);
+
+    // Botones para el usuario
+    const userActionRow = new ActionRowBuilder();
+    if (ticket.draftShortId) {
+        userActionRow.addComponents(
+            new ButtonBuilder().setCustomId(`user_continue_to_register:${ticket.draftShortId}:${channelId}`).setLabel('Inscribirme al Draft').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Salir sin Inscribirme').setStyle(ButtonStyle.Secondary)
+        );
+    } else {
+         userActionRow.addComponents(new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Finalizar').setStyle(ButtonStyle.Success));
     }
 
-    // 4. Cerrar ticket
-    await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
-    const channel = await client.channels.fetch(channelId);
-    await channel.send(`✅ Verificación aprobada por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
+    // Botón solo para el admin
+    const adminActionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`admin_close_ticket:${channelId}`).setLabel('Admin: Cerrar Ticket').setStyle(ButtonStyle.Danger)
+    );
+
+    await channel.send({
+        content: `<@${ticket.userId}>, ¡tu verificación ha sido aprobada! ¿Qué deseas hacer ahora?`,
+        components: [userActionRow, adminActionRow]
+    });
     
+    // Desactivamos los botones de aprobación/rechazo originales
     const originalMessage = interaction.message;
     const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
     disabledRow.components.forEach(c => c.setDisabled(true));
-    const finalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
-    finalEmbed.data.fields.find(f => f.name === 'Estado').value = `✅ **Aprobado por:** <@${interaction.user.id}>`;
-    await originalMessage.edit({ embeds: [finalEmbed], components: [disabledRow] });
-    
-    setTimeout(() => channel.delete().catch(console.error), 10000);
+    const finalEmbedInTicket = EmbedBuilder.from(originalMessage.embeds[0]);
+    finalEmbedInTicket.data.fields.find(f => f.name === 'Estado').value = `✅ **Aprobado por:** <@${interaction.user.id}>`;
+    await originalMessage.edit({ embeds: [finalEmbedInTicket], components: [disabledRow] });
 }
-
     if (action === 'reject_verification_start') {
         // CORRECCIÓN: Añadida comprobación de permisos
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
@@ -2100,4 +2108,48 @@ if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
             flags: [MessageFlags.Ephemeral]
         });
     }
+	if (action === 'user_continue_to_register') {
+    const [draftShortId, channelId] = params;
+    
+    // Mostramos al usuario los botones de inscripción
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`register_draft_player:${draftShortId}`).setLabel('👤 Inscribirme como Jugador').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`register_draft_captain:${draftShortId}`).setLabel('👑 Inscribirme como Capitán').setStyle(ButtonStyle.Secondary)
+    );
+    
+    await interaction.reply({
+        content: `¡Perfecto! Selecciona cómo quieres inscribirte al draft. Serás guiado por el proceso.`,
+        components: [row],
+        flags: [MessageFlags.Ephemeral]
+    });
+
+    // Cerramos el ticket en segundo plano
+    const channel = await client.channels.fetch(channelId);
+    await channel.send('✅ Proceso finalizado. Este canal se cerrará en 10 segundos.');
+    setTimeout(() => channel.delete().catch(console.error), 10000);
+}
+
+if (action === 'user_exit_without_registering') {
+    const [channelId] = params;
+    await interaction.deferUpdate();
+    const channel = await client.channels.fetch(channelId);
+    
+    await channel.send({
+        content: `De acuerdo, te sales sin inscribirte. Recuerda que puedes inscribirte más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.\n\nEste canal se cerrará en 15 segundos.`
+    });
+    
+    setTimeout(() => channel.delete().catch(console.error), 15000);
+}
+
+if (action === 'admin_close_ticket') {
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: '❌ Solo los administradores pueden usar este botón.', flags: [MessageFlags.Ephemeral] });
+    }
+    await interaction.deferUpdate();
+    const [channelId] = params;
+    const channel = await client.channels.fetch(channelId);
+    
+    await channel.send(`Ticket cerrado manualmente por un administrador. Este canal se cerrará en 10 segundos.`);
+    setTimeout(() => channel.delete().catch(console.error), 10000);
+}
 }
