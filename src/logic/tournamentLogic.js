@@ -671,7 +671,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             discordMessageIds: {}
         };
 
-        const globalStatusChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        const globalStatusChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS);
         const statusMsg = await globalStatusChannel.send(createTournamentStatusEmbed(newTournament));
         const classificationMsg = await infoChannel.send(createClassificationEmbed(newTournament));
         const calendarMsg = await infoChannel.send(createCalendarEmbed(newTournament));
@@ -697,24 +697,37 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         if (teamCategory) {
             for (const team of Object.values(newTournament.teams.aprobados)) {
                 const teamMembersIds = team.players.map(p => p.userId).filter(id => /^\d+$/.test(id));
-                const permissions = [
+                
+                // Permisos para el canal de texto
+                const textPermissions = [
                     { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                     { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
                     ...teamMembersIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
+                ];
+                
+                // Permisos para el canal de voz (Ver, Conectar Y Hablar)
+                const voicePermissions = [
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
+                    ...teamMembersIds.map(id => ({ id, allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.Connect,
+                        PermissionsBitField.Flags.Speak
+                    ]}))
                 ];
                 
                 const textChannel = await guild.channels.create({
                     name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`,
                     type: ChannelType.GuildText,
                     parent: teamCategory,
-                    permissionOverwrites: permissions
+                    permissionOverwrites: textPermissions
                 });
 
                 await guild.channels.create({
                     name: `🔊 ${team.nombre}`,
                     type: ChannelType.GuildVoice,
                     parent: teamCategory,
-                    permissionOverwrites: permissions
+                    permissionOverwrites: voicePermissions // <-- USAMOS LOS PERMISOS CORRECTOS
                 });
                 
                 const mentionString = teamMembersIds.map(id => `<@${id}>`).join(' ');
@@ -758,7 +771,6 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         await setBotBusy(false);
     }
 }
-
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
     if (/^\d+$/.test(userId)) {
         try {
@@ -1957,8 +1969,7 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const replacementPlayer = draft.players.find(p => p.userId === replacementPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
 
-    // Paso 1: Limpiamos completamente el estado del jugador que fue expulsado.
-    // Lo devolvemos a agente libre y reseteamos cualquier marca de estado pendiente.
+    // Paso 1: Limpiamos al jugador expulsado
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": kickedPlayerId },
         { 
@@ -1970,13 +1981,37 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
         }
     );
 
-    // Paso 2: Asignamos el nuevo jugador al equipo.
+    // Paso 2: Asignamos el nuevo jugador al equipo
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": replacementPlayerId },
         { $set: { "players.$.captainId": captainId } }
     );
 
-    // Paso 3: Notificamos al capitán.
+    // Paso 3: Damos permisos de canal al nuevo jugador
+    if (/^\d+$/.test(replacementPlayerId)) {
+        try {
+            const teamNameFormatted = captain.teamName.replace(/\s+/g, '-').toLowerCase();
+            const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
+            const voiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${captain.teamName}`);
+            
+            if (textChannel) {
+                await textChannel.permissionOverwrites.edit(replacementPlayerId, {
+                    ViewChannel: true
+                });
+            }
+            if (voiceChannel) {
+                await voiceChannel.permissionOverwrites.edit(replacementPlayerId, {
+                    ViewChannel: true,
+                    Connect: true,
+                    Speak: true
+                });
+            }
+        } catch (e) {
+            console.warn(`No se pudieron dar permisos de canal al jugador de reemplazo ${replacementPlayerId}: ${e.message}`);
+        }
+    }
+
+    // Paso 4: Notificamos al capitán
     if (/^\d+$/.test(captainId)) {
         try {
             const captainUser = await client.users.fetch(captainId);
@@ -1986,15 +2021,12 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
         }
     }
     
-    // --- BLOQUE DE ACTUALIZACIÓN COMPLETO Y CORRECTO ---
-    // Buscamos el estado final del draft una sola vez.
+    // Paso 5: Actualizamos todas las interfaces
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    
-    // Actualizamos todas las interfaces para que reflejen el cambio.
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
-    await notifyVisualizer(updatedDraft); // <-- ¡La llamada crucial que faltaba!
+    await notifyVisualizer(updatedDraft);
 }
 export async function requestStrikeFromWeb(client, draftId, captainId, playerId, reason) {
     try {
