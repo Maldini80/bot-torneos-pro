@@ -36,6 +36,7 @@ export async function handleModal(interaction) {
         const [platform] = params;
         const gameId = interaction.fields.getTextInputValue('game_id_input').trim();
         const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
+        const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
         const user = interaction.user;
         const guild = interaction.guild;
         
@@ -120,6 +121,7 @@ export async function handleModal(interaction) {
                 platform,
                 gameId,
                 twitter,
+                whatsapp,
                 uniqueCode,
                 status: 'pending',
                 claimedBy: null,
