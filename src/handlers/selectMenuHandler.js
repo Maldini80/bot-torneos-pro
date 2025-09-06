@@ -620,14 +620,18 @@ if (action === 'draft_pick_by_position') {
     }
 
     if (action === 'admin_set_channel_icon') {
-    await interaction.deferUpdate();
-    const [channelId] = params; // Ahora recibimos el ID del canal
+    const [channelId] = params;
     const selectedIcon = interaction.values[0];
     
-    // Llamamos a nuestra función mejorada
-    await setChannelIcon(client, channelId, selectedIcon);
+    // 1. Respondemos INMEDIATAMENTE para evitar el timeout.
+    await interaction.update({ 
+        content: `✅ ¡Orden recibida! El icono del canal se actualizará a ${selectedIcon} en unos segundos.`, 
+        components: [] 
+    });
 
-    await interaction.editReply({ content: `✅ El estado del canal ha sido actualizado manualmente a ${selectedIcon}.`, components: [] });
+    // 2. AHORA, hacemos el trabajo sin prisa.
+    await setChannelIcon(client, channelId, selectedIcon);
+    
     return;
 }
 
