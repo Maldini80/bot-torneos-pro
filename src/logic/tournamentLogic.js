@@ -1817,28 +1817,43 @@ export async function requestPlayerKick(client, draft, captainId, playerIdToKick
     return { success: true };
 }
 
+// --- REEMPLAZA LA FUNCIÓN handleKickApproval ENTERA ---
 export async function handleKickApproval(client, draft, captainId, playerIdToKick, wasApproved) {
     const captain = /^\d+$/.test(captainId) ? await client.users.fetch(captainId).catch(() => null) : null;
     const player = /^\d+$/.test(playerIdToKick) ? await client.users.fetch(playerIdToKick).catch(() => null) : null;
-    const playerName = draft.players.find(p => p.userId === playerIdToKick)?.psnId || 'el jugador';
-    const db = getDb(); // <-- Acceso a la DB
+    const playerInfo = draft.players.find(p => p.userId === playerIdToKick);
+    const playerName = playerInfo?.psnId || 'el jugador';
+    const db = getDb();
 
     if (wasApproved) {
         await forceKickPlayer(client, draft.shortId, captainId, playerIdToKick);
         
-        if (captain) { /* ... tu código de MD al capitán ... */ }
-        if (player) await player.send(`🚨 Has sido expulsado del equipo en el draft **${draft.name}** tras una solicitud del capitán aprobada por un admin.`);
+        if (captain) {
+            const embed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle('✅ Solicitud de Expulsión Aprobada')
+                .setDescription(`Tu solicitud para expulsar a **${playerName}** ha sido aprobada. El jugador ha sido eliminado del draft.`);
+            
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`admin_invite_replacement_start:${draft.shortId}:${captainId}:${playerIdToKick}`)
+                    .setLabel('Invitar Reemplazo')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🔄')
+            );
+            await captain.send({ embeds: [embed], components: [row] });
+        }
+        if (player) await player.send(`🚨 Has sido expulsado del draft **${draft.name}** por un administrador y ya no eres elegible para este evento.`);
+        
         return { success: true, message: "Expulsión aprobada y procesada." };
 
     } else { // Rechazado
-        // Si se rechaza, quitamos la marca de pendiente
         await db.collection('drafts').updateOne(
             { _id: draft._id, "players.userId": playerIdToKick },
             { $unset: { "players.$.kickRequestPending": "" } }
         );
         if (captain) await captain.send(`❌ Tu solicitud para expulsar a **${playerName}** ha sido **rechazada** por un administrador.`);
         
-        // Notificamos al visualizador para que el botón se reactive
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         await notifyVisualizer(updatedDraft);
 
