@@ -1328,22 +1328,29 @@ if (playerRecord && playerRecord.strikes >= 2) {
     }
     
     if (action === 'invite_cocaptain_start') {
-        const [tournamentShortId] = params;
-        const userSelectMenu = new UserSelectMenuBuilder()
-            .setCustomId(`invite_cocaptain_select:${tournamentShortId}`)
-            .setPlaceholder('Busca y selecciona al usuario para invitar...')
-            .setMinValues(1)
-            .setMaxValues(1);
-        
-        const row = new ActionRowBuilder().addComponents(userSelectMenu);
-        
-        await interaction.reply({
-            content: 'Selecciona al miembro del servidor que quieres invitar como co-capitán.',
-            components: [row],
-            flags: [MessageFlags.Ephemeral]
-        });
-        return;
-    }
+    const [tournamentShortId] = params;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) return interaction.reply({ content: 'Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+    const team = tournament.teams.aprobados[interaction.user.id];
+    if (!team) return interaction.reply({ content: 'No eres el capitán de un equipo en este torneo.', flags: [MessageFlags.Ephemeral] });
+    if (team.coCaptainId) return interaction.reply({ content: 'Ya tienes un co-capitán asignado.', flags: [MessageFlags.Ephemeral] });
+
+    const userSelectMenu = new UserSelectMenuBuilder()
+        .setCustomId(`assign_cocaptain_select:${tournamentShortId}`)
+        .setPlaceholder('Busca y selecciona al nuevo co-capitán...')
+        .setMinValues(1)
+        .setMaxValues(1);
+    
+    const row = new ActionRowBuilder().addComponents(userSelectMenu);
+    
+    await interaction.reply({
+        content: 'Selecciona al miembro del servidor que quieres asignar como co-capitán. Será añadido directamente, sin necesidad de que acepte.',
+        components: [row],
+        flags: [MessageFlags.Ephemeral]
+    });
+    return;
+}
     
     if (action === 'admin_force_reset_bot') {
         const modal = new ModalBuilder().setCustomId('admin_force_reset_modal').setTitle('⚠️ CONFIRMAR RESET FORZOSO ⚠️');
