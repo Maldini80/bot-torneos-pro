@@ -129,42 +129,57 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderLiveDraw(tournament) {
-        const allTeams = Object.values(tournament.teams.aprobados);
-        const drawnTeams = Object.values(tournament.structure.grupos).flatMap(g => g.equipos);
-        const unpickedTeams = allTeams.filter(t => !drawnTeams.some(dt => dt.id === t.id));
-        
-        unpickedTeamsPotEl.innerHTML = unpickedTeams.map(team => 
-            `<div class="draw-team-item" data-team-id="${team.id}">${team.nombre}</div>`
+    const allTeams = Object.values(tournament.teams.aprobados);
+    const drawnTeams = Object.values(tournament.structure.grupos).flatMap(g => g.equipos);
+    const unpickedTeams = allTeams.filter(t => !drawnTeams.some(dt => dt.id === t.id));
+
+    // Renderiza el bombo de equipos no sorteados SIEMPRE
+    unpickedTeamsPotEl.innerHTML = unpickedTeams.map(team => 
+        `<div class="draw-team-item" data-team-id="${team.id}">${team.nombre}</div>`
+    ).join('');
+
+    // Renderiza los grupos y los equipos ya sorteados SIEMPRE
+    if (liveDrawGroupsContainerEl.children.length === 0) {
+        liveDrawGroupsContainerEl.innerHTML = Object.keys(tournament.structure.grupos).sort().map(groupName => `
+            <div class="draw-group-box">
+                <h3>${groupName}</h3>
+                <div class="team-list" id="group-list-${groupName.replace(/\s+/g, '-')}"></div>
+            </div>
+        `).join('');
+    }
+
+    // Rellenar grupos con los equipos ya sorteados
+    Object.keys(tournament.structure.grupos).forEach(groupName => {
+        const groupListEl = document.getElementById(`group-list-${groupName.replace(/\s+/g, '-')}`);
+        groupListEl.innerHTML = tournament.structure.grupos[groupName].equipos.map(team => 
+            `<div class="draw-team-item placed">${team.nombre}</div>`
         ).join('');
+    });
 
-        if (liveDrawGroupsContainerEl.children.length === 0) {
-            liveDrawGroupsContainerEl.innerHTML = Object.keys(tournament.structure.grupos).sort().map(groupName => `
-                <div class="draw-group-box">
-                    <h3>${groupName}</h3>
-                    <div class="team-list" id="group-list-${groupName.replace(/\s+/g, '-')}"></div>
-                </div>
-            `).join('');
-        }
-
-        const lastDrawnTeam = findLastDrawnTeam(currentTournamentState, tournament);
-        if (lastDrawnTeam) {
-            const teamElementInPot = document.querySelector(`#unpicked-teams-pot .draw-team-item[data-team-id="${lastDrawnTeam.team.id}"]`);
-            if (teamElementInPot) {
-                teamElementInPot.classList.add('drawing');
-                setTimeout(() => {
-                    teamElementInPot.classList.add('drawn');
-                    const groupListEl = document.getElementById(`group-list-${lastDrawnTeam.group.replace(/\s+/g, '-')}`);
-                    if (groupListEl) {
-                        const newTeamElementInGroup = document.createElement('div');
-                        newTeamElementInGroup.className = 'draw-team-item';
-                        newTeamElementInGroup.textContent = lastDrawnTeam.team.nombre;
-                        groupListEl.appendChild(newTeamElementInGroup);
-                        setTimeout(() => newTeamElementInGroup.classList.add('placed'), 50);
-                    }
-                }, 1500);
-            }
+    // Detectar el último equipo sorteado y animarlo
+    const lastDrawnTeam = findLastDrawnTeam(currentTournamentState, tournament);
+    if (lastDrawnTeam) {
+        const teamElementInPot = document.querySelector(`#unpicked-teams-pot .draw-team-item[data-team-id="${lastDrawnTeam.team.id}"]`);
+        if (teamElementInPot) {
+            // Notificación visual del pick
+            const drawTitle = document.getElementById('live-draw-title');
+            drawTitle.textContent = `${lastDrawnTeam.team.nombre} ➔ ${lastDrawnTeam.group}`;
+            
+            teamElementInPot.classList.add('drawing');
+            setTimeout(() => {
+                teamElementInPot.classList.add('drawn');
+                const groupListEl = document.getElementById(`group-list-${lastDrawnTeam.group.replace(/\s+/g, '-')}`);
+                if (groupListEl) {
+                    const newTeamElementInGroup = document.createElement('div');
+                    newTeamElementInGroup.className = 'draw-team-item';
+                    newTeamElementInGroup.textContent = lastDrawnTeam.team.nombre;
+                    groupListEl.appendChild(newTeamElementInGroup);
+                    setTimeout(() => newTeamElementInGroup.classList.add('placed'), 50);
+                }
+            }, 1500);
         }
     }
+}
     
     function findLastDrawnTeam(oldState, newState) {
         if (!oldState || !newState || !oldState.structure.grupos) return null;
