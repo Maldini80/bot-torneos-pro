@@ -1982,45 +1982,44 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     const db = getDb();
     const replacementPlayer = draft.players.find(p => p.userId === replacementPlayerId);
     const captain = draft.captains.find(c => c.userId === captainId);
+    const team = (await db.collection('tournaments').findOne({ shortId: `draft-${draft.shortId}` }))?.teams.aprobados[captainId];
 
-    // Paso 1: Limpiamos completamente el estado del jugador que fue expulsado.
-    // Lo devolvemos a agente libre y reseteamos cualquier marca de estado pendiente.
-    await db.collection('drafts').updateOne(
-        { _id: draft._id, "players.userId": kickedPlayerId },
-        { 
-            $set: { "players.$.captainId": null },
-            $unset: { 
-                "players.$.kickRequestPending": "",
-                "players.$.hasBeenReportedByCaptain": "" 
-            }
-        }
-    );
-
-    // Paso 2: Asignamos el nuevo jugador al equipo.
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": replacementPlayerId },
         { $set: { "players.$.captainId": captainId } }
     );
 
-    // Paso 3: Notificamos al capitán.
+    if (team && /^\d+$/.test(replacementPlayerId)) {
+        try {
+            const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
+            const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
+            const voiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${team.nombre}`);
+            
+            const permissions = [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.Connect,
+                PermissionsBitField.Flags.Speak
+            ];
+            if (textChannel) await textChannel.permissionOverwrites.edit(replacementPlayerId, { ViewChannel: true });
+            if (voiceChannel) await voiceChannel.permissionOverwrites.edit(replacementPlayerId, { allow: permissions });
+
+            if (textChannel) await textChannel.send(`👋 ¡Bienvenido al equipo, <@${replacementPlayerId}>!`);
+
+        } catch (e) { console.error(`Error al dar permisos al jugador de reemplazo ${replacementPlayerId}:`, e); }
+    }
+
     if (/^\d+$/.test(captainId)) {
         try {
             const captainUser = await client.users.fetch(captainId);
-            await captainUser.send(`✅ **${replacementPlayer.psnId}** ha aceptado tu invitación y se ha unido a tu equipo como reemplazo.`);
-        } catch (e) {
-            console.warn(`No se pudo notificar al capitán ${captainId} de la aceptación del reemplazo.`);
-        }
+            await captainUser.send(`✅ **${replacementPlayer.psnId}** ha aceptado tu invitación y se ha unido a tu equipo.`);
+        } catch (e) { console.warn(`No se pudo notificar al capitán ${captainId}.`); }
     }
     
-    // --- BLOQUE DE ACTUALIZACIÓN COMPLETO Y CORRECTO ---
-    // Buscamos el estado final del draft una sola vez.
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    
-    // Actualizamos todas las interfaces para que reflejen el cambio.
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
-    await notifyVisualizer(updatedDraft); // <-- ¡La llamada crucial que faltaba!
+    await notifyVisualizer(updatedDraft);
 }
 export async function requestStrikeFromWeb(client, draftId, captainId, playerId, reason) {
     try {
