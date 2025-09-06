@@ -690,23 +690,30 @@ export async function handleSelectMenu(interaction) {
     const [formatId] = params;
     const type = interaction.values[0];
 
-    // Si el formato no admite ida y vuelta, mostramos el modal directamente
-    if (!TOURNAMENT_FORMATS[formatId].roundTrip) {
+    // Comprobamos si el formato en config.js tiene la propiedad roundTrip
+    const formatSupportsRoundTrip = TOURNAMENT_FORMATS[formatId] && TOURNAMENT_FORMATS[formatId].roundTrip;
+
+    if (!formatSupportsRoundTrip) {
+        // Si no lo soporta, creamos el modal directamente con 'false' para ida y vuelta
         const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}:false`).setTitle('Finalizar Creación de Torneo');
         const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
         const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
         modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
+        
         if (type === 'pago') {
-            // ... (código del modal de pago que ya tienes)
+            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
+            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizeInputCampeon), new ActionRowBuilder().addComponents(prizeInputFinalista));
         }
         await interaction.showModal(modal);
     } else {
-        // Si admite ida y vuelta, mostramos el menú de selección
+        // Si lo soporta, mostramos el menú de selección
         const roundTripMenu = new StringSelectMenuBuilder()
             .setCustomId(`admin_create_roundtrip_select:${formatId}:${type}`)
             .setPlaceholder('Paso 3: Elige el tipo de liguilla')
             .addOptions([
-                { label: 'Solo Ida', value: 'false', description: 'Los equipos se enfrentan una vez en la fase de grupos.' },
+                { label: 'Solo Ida', value: 'false', description: 'Los equipos se enfrentan una vez.' },
                 { label: 'Ida y Vuelta', value: 'true', description: 'Los equipos se enfrentan dos veces.' }
             ]);
         
@@ -714,8 +721,7 @@ export async function handleSelectMenu(interaction) {
             content: 'Ahora, selecciona si la fase de grupos será a partido único o a ida y vuelta.',
             components: [new ActionRowBuilder().addComponents(roundTripMenu)]
         });
-    }
-} else if (action === 'admin_change_format_select') {
+    } else if (action === 'admin_change_format_select') {
         await interaction.deferUpdate();
         
         const [tournamentShortId] = params;
@@ -1005,6 +1011,7 @@ if (action === 'assign_cocaptain_select') {
     const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
     const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
     modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
+    
     if (type === 'pago') {
         const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
         const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
