@@ -620,14 +620,16 @@ if (action === 'draft_pick_by_position') {
     }
 
     if (action === 'admin_set_channel_icon') {
-        await interaction.deferUpdate();
-        const selectedIcon = interaction.values[0];
-        
-        await setChannelIcon(client, selectedIcon);
+    await interaction.deferUpdate();
+    const [channelId] = params; // Ahora recibimos el ID del canal
+    const selectedIcon = interaction.values[0];
+    
+    // Llamamos a nuestra función mejorada
+    await setChannelIcon(client, channelId, selectedIcon);
 
-        await interaction.editReply({ content: `✅ El estado del canal ha sido actualizado manualmente a ${selectedIcon}.`, components: [] });
-        return;
-    }
+    await interaction.editReply({ content: `✅ El estado del canal ha sido actualizado manualmente a ${selectedIcon}.`, components: [] });
+    return;
+}
 
     if (action === 'admin_assign_cocap_team_select') {
         await interaction.deferUpdate();
