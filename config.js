@@ -58,6 +58,7 @@ export const TOURNAMENT_FORMATS = {
         description: '2 grupos de 4. El 1º de cada grupo va a la final.',
         description_en: '2 groups of 4. The 1st of each group goes to the final.',
         size: 8, groups: 2, qualifiersPerGroup: 1, knockoutStages: ['final']
+        roundTrip: true
     },
     '16_teams_quarters_classic': {
         label: '16 Equipos (Clásico - Semis Directas)',
@@ -66,24 +67,28 @@ export const TOURNAMENT_FORMATS = {
         size: 16, groups: 4,
         qualifiersPerGroup: 1,
         knockoutStages: ['semifinales', 'final']
+        roundTrip: true
     },
     '16_teams_quarters_new': {
         label: '16 Equipos (Nuevo - Cuartos)',
         description: '4 grupos de 4. Los 2 primeros de cada grupo a cuartos.',
         description_en: '4 groups of 4. The top 2 from each group advance to quarterfinals.',
         size: 16, groups: 4, qualifiersPerGroup: 2, knockoutStages: ['cuartos', 'semifinales', 'final']
+        roundTrip: true
     },
     '32_teams_quarters': {
         label: '32 Equipos (Cuartos de Final)',
         description: '8 grupos de 4. El 1º de cada grupo clasifica a cuartos.',
         description_en: '8 groups of 4. The 1st of each group qualifies for quarterfinals.',
         size: 32, groups: 8, qualifiersPerGroup: 1, knockoutStages: ['cuartos', 'semifinales', 'final']
+        roundTrip: true
     },
     '32_teams_ro16': {
         label: '32 Equipos (Octavos de Final)',
         description: '8 grupos de 4. Los 2 primeros clasifican a octavos.',
         description_en: '8 groups of 4. The top 2 qualify for the round of 16.',
         size: 32, groups: 8, qualifiersPerGroup: 2, knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final']
+        roundTrip: true
     }
 };
 
