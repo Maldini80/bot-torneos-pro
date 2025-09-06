@@ -505,16 +505,28 @@ function initializeDraftView(draftId) {
     }
 
     function applyTableFilters() {
-        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-        const rows = playersTableBodyEl.querySelectorAll('tr');
-        rows.forEach(row => {
-            const primaryPos = row.dataset.primaryPos;
-            const secondaryPos = row.dataset.secondaryPos;
-            const isVisible = (activeFilterPos === 'Todos') || (primaryPos === activeFilterPos) || (secondaryPos === activeFilterPos);
-            row.style.display = isVisible ? '' : 'none';
-        });
-    }
+    const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+    const filterColumn = document.getElementById('filter-column-select')?.value || 'primary';
+    const rows = playersTableBodyEl.querySelectorAll('tr');
 
+    rows.forEach(row => {
+        const primaryPos = row.dataset.primaryPos;
+        const secondaryPos = row.dataset.secondaryPos;
+        
+        let isVisible = false;
+        if (activeFilterPos === 'Todos') {
+            isVisible = true;
+        } else {
+            if (filterColumn === 'primary' && primaryPos === activeFilterPos) {
+                isVisible = true;
+            } else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
+                isVisible = true;
+            }
+        }
+        
+        row.style.display = isVisible ? '' : 'none';
+    });
+}
     function setupEventListeners() {
         document.querySelectorAll('.draft-view-btn').forEach(btn => btn.addEventListener('click', (e) => {
             document.querySelector('.draft-view-btn.active')?.classList.remove('active');
