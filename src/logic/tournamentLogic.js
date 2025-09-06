@@ -1184,27 +1184,45 @@ async function cleanupFailedCreation(client, resources) {
     console.log("[CLEANUP] Limpieza completada.");
 }
 
+// --- REEMPLAZA LA FUNCIÓN startGroupStage ENTERA ---
 export async function startGroupStage(client, guild, tournament) {
     await setBotBusy(true);
     try {
         const db = getDb();
         let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
         if (currentTournament.status !== 'inscripcion_abierta') { return; }
-        currentTournament.status = 'fase_de_grupos';
-        const format = currentTournament.config.format;
+
         let teams = Object.values(currentTournament.teams.aprobados);
         for (let i = teams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[teams[i], teams[j]] = [teams[j], teams[i]]; }
-        const grupos = {}; const numGrupos = format.groups; const tamanoGrupo = format.size / numGrupos;
-        for (let i = 0; i < teams.length; i++) {
-            const grupoIndex = Math.floor(i / tamanoGrupo); const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
-            if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
-            teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
-            grupos[nombreGrupo].equipos.push(teams[i]);
+
+        const format = currentTournament.config.format;
+        const numGrupos = format.groups;
+        const tamanoGrupo = format.size / numGrupos;
+        const grupos = {};
+        for (let i = 0; i < numGrupos; i++) {
+            const nombreGrupo = `Grupo ${String.fromCharCode(65 + i)}`;
+            grupos[nombreGrupo] = { equipos: [] };
         }
-        currentTournament.structure.grupos = grupos;
+        
+        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { status: 'sorteo_en_vivo', 'structure.grupos': grupos } });
+        currentTournament = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+        await notifyTournamentVisualizer(currentTournament);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        for (let i = 0; i < teams.length; i++) {
+            const grupoIndex = Math.floor(i / tamanoGrupo);
+            const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
+            teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
+            currentTournament.structure.grupos[nombreGrupo].equipos.push(teams[i]);
+
+            await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { 'structure.grupos': currentTournament.structure.grupos } });
+            await notifyTournamentVisualizer(await db.collection('tournaments').findOne({ _id: currentTournament._id }));
+            await new Promise(resolve => setTimeout(resolve, 2500));
+        }
+        
         const calendario = {};
-        for (const nombreGrupo in grupos) {
-            const equiposGrupo = grupos[nombreGrupo].equipos; calendario[nombreGrupo] = [];
+        for (const nombreGrupo in currentTournament.structure.grupos) {
+            const equiposGrupo = currentTournament.structure.grupos[nombreGrupo].equipos; calendario[nombreGrupo] = [];
             if (equiposGrupo.length === 4) {
                 const [t1, t2, t3, t4] = equiposGrupo;
                 calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t2), createMatchObject(nombreGrupo, 1, t3, t4));
@@ -1212,18 +1230,21 @@ export async function startGroupStage(client, guild, tournament) {
                 calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t4), createMatchObject(nombreGrupo, 3, t2, t3));
             }
         }
+        
+        currentTournament.status = 'fase_de_grupos';
         currentTournament.structure.calendario = calendario;
+        
         for (const nombreGrupo in calendario) {
             for (const partido of calendario[nombreGrupo].filter(p => p.jornada === 1)) {
                 const threadId = await createMatchThread(client, guild, partido, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
                 partido.threadId = threadId; partido.status = 'en_curso';
             }
         }
+
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
-        
         postTournamentUpdate('GROUP_STAGE_START', finalTournamentState).catch(console.error);
         await notifyTournamentVisualizer(finalTournamentState);
 
