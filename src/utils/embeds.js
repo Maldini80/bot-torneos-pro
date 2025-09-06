@@ -322,13 +322,20 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     const row2 = new ActionRowBuilder();
 
     if (draft.status === 'inscripcion') {
-        row1.addComponents(
-            new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️'),
-            new ButtonBuilder().setCustomId(`admin_edit_draft_captain_start:${draft.shortId}`).setLabel('Editar Capitán').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy),
-            new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
-            new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
-        );
-    }
+    row1.addComponents(
+        new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️'),
+        new ButtonBuilder().setCustomId(`admin_edit_draft_captain_start:${draft.shortId}`).setLabel('Editar Capitán').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
+    );
+}
+    const dataAccessRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+        .setCustomId(`consult_player_data_start:${draft.shortId}`)
+        .setLabel('Consultar Datos de Jugador')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('ℹ️')
+);
 
     if (draft.status === 'seleccion') {
         row1.addComponents(
@@ -351,6 +358,7 @@ export function createDraftManagementPanel(draft, isBusy = false) {
 
     const components = [];
     if (row1.components.length > 0) components.push(row1);
+    components.push(dataAccessRow);
     if (row2.components.length > 0) components.push(row2);
 
     return { embeds: [embed], components };
