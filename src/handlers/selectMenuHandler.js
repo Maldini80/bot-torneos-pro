@@ -728,6 +728,7 @@ if (action === 'draft_pick_by_position') {
         components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
     });
     return; 
+        }
  
      else if (action === 'admin_change_format_select') {
         await interaction.deferUpdate();
