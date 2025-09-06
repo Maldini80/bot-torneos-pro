@@ -1059,4 +1059,12 @@ if (action === 'admin_edit_strikes_submit') {
         return interaction.editReply({ content: `❌ Error al procesar la solicitud: ${error.message}` });
     }
 }
+    if (action === 'request_whatsapp_modal') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [userId] = params;
+    const whatsapp = interaction.fields.getTextInputValue('whatsapp_input');
+    await db.collection('verified_users').updateOne({ discordId: userId }, { $set: { whatsapp: whatsapp } });
+    await interaction.editReply({ content: '✅ ¡Gracias! Tu WhatsApp ha sido guardado. Ahora puedes volver a pulsar el botón de inscripción.' });
+    return;
+}
 }
