@@ -86,7 +86,7 @@ footer {
 
 
 main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: column; overflow: hidden; }
-#main-view-content, #live-matches-list, #team-list-container, #groups-container, #calendar-container, #bracket-container { overflow-y: auto; flex-grow: 1; padding-right: 10px;}
+#main-view-content, #live-matches-list, #team-list-container, #groups-container, #calendar-container, #bracket-container, #live-draw-view { overflow-y: auto; flex-grow: 1; padding-right: 10px;}
 
 .view-pane h2, aside h2 { font-family: var(--font-bebas); font-size: 2.2em; color: var(--text-color); text-shadow: 1px 1px 5px rgba(0,0,0,0.5); }
 .view-switcher { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
@@ -119,7 +119,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 .draw-group-box .draw-team-item.placed { opacity: 1; transform: translateY(0); }
 
 
-/* === ESTILOS PARA EL MODAL DE DETALLES DEL JUGADOR --- */
+/* === ESTILOS PARA MODALES (ROSTER Y DETALLES) --- */
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-color: rgba(0, 0, 0, 0.8);
@@ -148,6 +148,10 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 .detail-value { font-size: 1.1em; font-weight: bold; word-break: break-all; }
 #modal-player-twitter a { color: #1DA1F2; text-decoration: none; }
 #modal-player-twitter a:hover { text-decoration: underline; }
+#modal-roster-list { list-style-type: none; padding: 0; }
+#modal-roster-list li { padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+#modal-roster-list li:last-child { border-bottom: none; }
+
 
 /* === ESTILOS UNIFICADOS PARA LOGOS === */
 .team-logo-small, .team-logo-large, .bracket-team-logo {
