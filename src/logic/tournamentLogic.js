@@ -720,6 +720,17 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
                 await textChannel.send({
                     content: `### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`
                 });
+                const inviteButtonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+        .setCustomId(`invite_cocaptain_start:${newTournament.shortId}`)
+        .setLabel('Invitar Co-Capitán / Invite Co-Captain')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🤝')
+);
+await textChannel.send({
+    content: `👋 ¡Bienvenido, <@${team.capitanId}>! (${team.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
+    components: [inviteButtonRow]
+});
             }
         }
         
@@ -1308,6 +1319,7 @@ export async function approveTeam(client, tournament, teamData) {
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const db = getDb();
     const coCaptainUser = await client.users.fetch(coCaptainId);
+    const guild = await client.guilds.fetch(tournament.guildId);
     
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
@@ -1316,9 +1328,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                 [`teams.aprobados.${captainId}.coCaptainId`]: coCaptainId,
                 [`teams.aprobados.${captainId}.coCaptainTag`]: coCaptainUser.tag
             },
-            $unset: {
-                [`teams.coCapitanes.${captainId}`]: ""
-            }
+            $unset: { [`teams.coCapitanes.${captainId}`]: "" }
         }
     );
 
@@ -1328,13 +1338,30 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
             await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
             const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
             await matchesChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: false });
+            
+            if (tournament.shortId.startsWith('draft-')) {
+                const team = tournament.teams.aprobados[captainId];
+                const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
+                const teamTextChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
+                const teamVoiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${team.nombre}`);
+                if (teamTextChannel) await teamTextChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true });
+                if (teamVoiceChannel) await teamVoiceChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true });
+            }
+
+            const allMatches = [...Object.values(tournament.structure.calendario).flat(), ...Object.values(tournament.structure.eliminatorias).flat()];
+            const teamMatches = allMatches.filter(m => m && (m.equipoA.capitanId === captainId || m.equipoB.capitanId === captainId) && m.threadId);
+            for (const match of teamMatches) {
+                const thread = await client.channels.fetch(match.threadId).catch(() => null);
+                if (thread) await thread.members.add(coCaptainId).catch(() => {});
+            }
         } catch (e) {
             console.error(`No se pudieron dar permisos al co-capitán ${coCaptainId}:`, e);
         }
     }
-
+    
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
 }
 
 export async function kickTeam(client, tournament, captainId) {
