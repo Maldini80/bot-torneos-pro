@@ -1285,24 +1285,33 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'admin_update_channel_status') {
-        const statusMenu = new StringSelectMenuBuilder()
-            .setCustomId('admin_set_channel_icon')
-            .setPlaceholder('Selecciona el estado del canal manualmente')
-            .addOptions([
-                { label: 'Verde (Inscripciones Abiertas)', description: 'Hay torneos con plazas libres.', value: '🟢', emoji: '🟢' },
-                { label: 'Azul (Torneos en Juego)', description: 'Hay torneos en progreso o llenos.', value: '🔵', emoji: '🔵' },
-                { label: 'Rojo (Inactivo)', description: 'No hay torneos activos.', value: '🔴', emoji: '🔴' }
-            ]);
+    const channelSelectMenu = new StringSelectMenuBuilder()
+        .setCustomId('admin_select_channel_to_update_icon')
+        .setPlaceholder('Paso 1: Selecciona el canal a modificar')
+        .addOptions([
+            {
+                label: 'Canal de Torneos',
+                description: 'Modifica el icono del canal de anuncios de torneos.',
+                value: CHANNELS.TOURNAMENTS_STATUS, // Usamos el ID del canal
+                emoji: '🏆'
+            },
+            {
+                label: 'Canal de Drafts',
+                description: 'Modifica el icono del canal de anuncios de drafts.',
+                value: CHANNELS.DRAFTS_STATUS, // Usamos el ID del canal
+                emoji: '📝'
+            }
+        ]);
 
-        const row = new ActionRowBuilder().addComponents(statusMenu);
+    const row = new ActionRowBuilder().addComponents(channelSelectMenu);
 
-        await interaction.reply({
-            content: 'Elige qué icono de estado quieres establecer para el canal de torneos:',
-            components: [row],
-            flags: [MessageFlags.Ephemeral]
-        });
-        return;
-    }
+    await interaction.reply({
+        content: 'Por favor, elige qué canal de anuncios quieres actualizar.',
+        components: [row],
+        flags: [MessageFlags.Ephemeral]
+    });
+    return;
+}
     
     if (action === 'invite_cocaptain_start') {
         const [tournamentShortId] = params;
