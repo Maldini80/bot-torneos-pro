@@ -308,6 +308,7 @@ export async function approveDraftCaptain(client, draft, captainData) {
         psnId: captainData.psnId,
         eafcTeamName: captainData.eafcTeamName,
         twitter: captainData.twitter,
+        whatsapp: captainData.whatsapp,
         primaryPosition: captainData.position,
         secondaryPosition: 'NONE',
         currentTeam: captainData.teamName,
