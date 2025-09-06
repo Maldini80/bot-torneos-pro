@@ -99,19 +99,23 @@ export async function updateAllDraftManagementPanels(client, busyState) {
 // --- FIN DE LA MODIFICACIÓN ---
 
 
-export async function setChannelIcon(client, icon) {
+export async function setChannelIcon(client, channelId, icon) {
     try {
-        const channel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        // Ahora usa el ID que le pasamos
+        const channel = await client.channels.fetch(channelId);
         if (!channel) {
-            console.warn("[WARN] No se pudo encontrar el canal de estado de torneos para renombrarlo.");
+            console.warn(`[WARN] No se pudo encontrar el canal con ID ${channelId} para renombrarlo.`);
             return;
         }
 
-        const newChannelName = `${icon} 📢-torneos-tournaments`;
+        // Extraemos el nombre base sin el icono
+        const baseName = channel.name.replace(/^[^\s]+\s/g, '');
+        const newChannelName = `${icon} ${baseName}`;
+
         if (channel.name !== newChannelName) {
             await channel.setName(newChannelName.slice(0, 100));
         }
     } catch (e) {
-        console.warn("[WARN] Error crítico al intentar actualizar el nombre del canal de estado.", e);
+        console.warn(`[WARN] Error crítico al intentar actualizar el nombre del canal ${channelId}.`, e);
     }
 }
