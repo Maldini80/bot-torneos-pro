@@ -1829,65 +1829,61 @@ if (action === 'admin_invite_replacement_start') {
         await interaction.showModal(modal);
         return;
     }
-	// --- CÓDIGO NUEVO Y MEJORADO ---
-	if (action === 'claim_verification_ticket') {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.reply({ content: '❌ No tienes permisos para reclamar tickets.', flags: [MessageFlags.Ephemeral] });
+
+if (action === 'claim_verification_ticket') {
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: '❌ No tienes permisos para reclamar tickets.', flags: [MessageFlags.Ephemeral] });
+    }
+    
+    await interaction.deferUpdate();
+    const [channelId] = params;
+    const db = getDb();
+    const ticket = await db.collection('verificationtickets').findOne({ channelId });
+
+    if (!ticket || ticket.status === 'closed') {
+        return interaction.followUp({ content: '❌ Este ticket ya ha sido cerrado.', flags: [MessageFlags.Ephemeral] });
+    }
+    if (ticket.status === 'claimed') {
+        return interaction.followUp({ content: `🟡 Este ticket ya está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
+    }
+
+    await db.collection('verificationtickets').updateOne({ _id: ticket._id }, {
+        $set: {
+            status: 'claimed',
+            claimedBy: interaction.user.id
         }
-        
-        await interaction.deferUpdate();
-        const [channelId] = params;
-        const db = getDb();
-        const ticket = await db.collection('verificationtickets').findOne({ channelId });
+    });
 
-        // Verificación mejorada: si ya está reclamado, informa quién lo tiene.
-        if (!ticket || ticket.status === 'closed') {
-            return interaction.followUp({ content: '❌ Este ticket ya ha sido cerrado.', flags: [MessageFlags.Ephemeral] });
-        }
-        if (ticket.status === 'claimed') {
-            return interaction.followUp({ content: `🟡 Este ticket ya está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
-        }
+    const embedInTicket = EmbedBuilder.from(interaction.message.embeds[0]);
+    embedInTicket.addFields({ name: 'Estado', value: `🟡 **Atendido por:** <@${interaction.user.id}>` });
 
-        // 1. ACTUALIZA EL TICKET EN LA BASE DE DATOS
-        await db.collection('verificationtickets').updateOne({ _id: ticket._id }, {
-            $set: {
-                status: 'claimed',
-                claimedBy: interaction.user.id
-            }
-        });
+    // --- LÓGICA DE BOTONES MEJORADA ---
+    const actionButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`approve_verification:${channelId}`).setLabel('Aprobar Verificación').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`reject_verification_start:${channelId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId(`admin_close_ticket:${channelId}`).setLabel('Cerrar Ticket').setStyle(ButtonStyle.Secondary) // <-- BOTÓN AÑADIDO
+    );
 
-        // 2. ACTUALIZA EL MENSAJE DENTRO DEL CANAL PRIVADO (como antes)
-        const embedInTicket = EmbedBuilder.from(interaction.message.embeds[0]);
-        embedInTicket.addFields({ name: 'Estado', value: `🟡 **Atendido por:** <@${interaction.user.id}>` });
+    await interaction.message.edit({ embeds: [embedInTicket], components: [actionButtons] });
 
-        const actionButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`approve_verification:${channelId}`).setLabel('Aprobar Verificación').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`reject_verification_start:${channelId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-        );
-
-        await interaction.message.edit({ embeds: [embedInTicket], components: [actionButtons] });
-
-        // 3. ACTUALIZA EL AVISO EN EL CANAL DE ADMINISTRADORES
-        if (ticket.adminNotificationMessageId) {
-            try {
-                const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
-                const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
-                
-                const originalAdminEmbed = notificationMessage.embeds[0];
-                const updatedAdminEmbed = EmbedBuilder.from(originalAdminEmbed)
-                    .setTitle(`🟡 Ticket Atendido por ${interaction.user.tag}`)
-                    .setColor('#f1c40f'); // Color amarillo para indicar "en progreso"
-
-                await notificationMessage.edit({ embeds: [updatedAdminEmbed] });
-            } catch (error) {
-                console.warn(`[CLAIM UPDATE] No se pudo actualizar el mensaje de notificación del ticket ${ticket._id}.`, error.message);
-            }
+    if (ticket.adminNotificationMessageId) {
+        try {
+            const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
+            const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
+            const originalAdminEmbed = notificationMessage.embeds[0];
+            const updatedAdminEmbed = EmbedBuilder.from(originalAdminEmbed)
+                .setTitle(`🟡 Ticket Atendido por ${interaction.user.tag}`)
+                .setColor('#f1c40f');
+            await notificationMessage.edit({ embeds: [updatedAdminEmbed] });
+        } catch (error) {
+            console.warn(`[CLAIM UPDATE] No se pudo actualizar el mensaje de notificación del ticket ${ticket._id}.`, error.message);
         }
     }
+}
 
 if (action === 'approve_verification') {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: '❌ No tienes permisos para aprobar verificaciones.', flags: [MessageFlags.Ephemeral] });
+        return interaction.reply({ content: '❌ No tienes permisos para esta acción.', flags: [MessageFlags.Ephemeral] });
     }
 
     await interaction.deferUpdate();
@@ -1897,19 +1893,20 @@ if (action === 'approve_verification') {
 
     if (!ticket || ticket.status === 'closed') return;
     
+    // Solo el admin que reclamó el ticket puede aprobarlo
+    if (ticket.status === 'claimed' && ticket.claimedBy !== interaction.user.id) {
+         return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
+    }
+    
+    // Limpiamos la notificación en el canal de admins
     if (ticket.adminNotificationMessageId) {
         try {
             const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
-            const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
-            await notificationMessage.delete();
+            await adminApprovalChannel.messages.delete(ticket.adminNotificationMessageId).catch(() => {});
         } catch (error) { console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}.`); }
     }
     
-    if (ticket.claimedBy !== interaction.user.id) {
-         return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
-    }
-
-    // Guardar en la base de datos de verificados
+    // Guardamos los datos del usuario verificado
     await db.collection('verified_users').updateOne(
         { discordId: ticket.userId },
         { $set: {
@@ -1921,21 +1918,20 @@ if (action === 'approve_verification') {
         { upsert: true }
     );
 
-    // Asignar rol
+    // Asignamos el rol
     const guild = await client.guilds.fetch(ticket.guildId);
     const member = await guild.members.fetch(ticket.userId);
     const verifiedRole = await guild.roles.fetch(VERIFIED_ROLE_ID);
     if (member && verifiedRole) await member.roles.add(verifiedRole);
-
-    // Notificar al usuario por MD (mensaje simple)
+    
+    // Notificamos al usuario por MD (mensaje simple)
     try {
-        await member.send('🎉 **¡Identidad Verificada con Éxito!** 🎉\nTu cuenta ha sido aprobada por un administrador. Vuelve al canal del ticket para finalizar el proceso.');
+        await member.send('🎉 **¡Identidad Verificada con Éxito!** 🎉\nTu cuenta ha sido aprobada. Vuelve al canal del ticket para finalizar el proceso.');
     } catch (e) { console.warn(`No se pudo enviar MD de aprobación al usuario ${ticket.userId}`); }
 
     // --- LÓGICA NUEVA EN EL CANAL DEL TICKET ---
     const channel = await client.channels.fetch(channelId);
 
-    // Botones para el usuario
     const userActionRow = new ActionRowBuilder();
     if (ticket.draftShortId) {
         userActionRow.addComponents(
@@ -1943,26 +1939,25 @@ if (action === 'approve_verification') {
             new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Salir sin Inscribirme').setStyle(ButtonStyle.Secondary)
         );
     } else {
-         userActionRow.addComponents(new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Finalizar').setStyle(ButtonStyle.Success));
+         userActionRow.addComponents(new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Finalizar y Salir').setStyle(ButtonStyle.Success));
     }
 
-    // Botón solo para el admin
-    const adminActionRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`admin_close_ticket:${channelId}`).setLabel('Admin: Cerrar Ticket').setStyle(ButtonStyle.Danger)
-    );
-
+    // Enviamos el mensaje final para el usuario dentro del ticket
     await channel.send({
-        content: `<@${ticket.userId}>, ¡tu verificación ha sido aprobada! ¿Qué deseas hacer ahora?`,
-        components: [userActionRow, adminActionRow]
+        content: `✅ **Verificación Aprobada**\n¡Enhorabuena <@${ticket.userId}>! Tu cuenta ha sido verificada. ¿Qué deseas hacer ahora?`,
+        components: [userActionRow]
     });
     
-    // Desactivamos los botones de aprobación/rechazo originales
+    // Desactivamos los botones de admin del mensaje anterior y actualizamos el embed
     const originalMessage = interaction.message;
-    const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
-    disabledRow.components.forEach(c => c.setDisabled(true));
+    const disabledAdminRow = ActionRowBuilder.from(originalMessage.components[0]);
+    disabledAdminRow.components.forEach(c => c.setDisabled(true));
     const finalEmbedInTicket = EmbedBuilder.from(originalMessage.embeds[0]);
     finalEmbedInTicket.data.fields.find(f => f.name === 'Estado').value = `✅ **Aprobado por:** <@${interaction.user.id}>`;
-    await originalMessage.edit({ embeds: [finalEmbedInTicket], components: [disabledRow] });
+    await originalMessage.edit({ embeds: [finalEmbedInTicket], components: [disabledAdminRow] });
+    
+    // Marcamos el ticket como cerrado para evitar más acciones
+    await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
 }
     if (action === 'reject_verification_start') {
         // CORRECCIÓN: Añadida comprobación de permisos
@@ -2119,24 +2114,60 @@ if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
             flags: [MessageFlags.Ephemeral]
         });
     }
-	if (action === 'user_continue_to_register') {
+	
+if (action === 'user_continue_to_register') {
     const [draftShortId, channelId] = params;
+    const ticket = await db.collection('verificationtickets').findOne({ channelId });
+
+    // Comprobación de seguridad: Solo el usuario del ticket puede pulsar
+    if (interaction.user.id !== ticket.userId) {
+        return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
+    }
     
-    // Mostramos al usuario los botones de inscripción
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`register_draft_player:${draftShortId}`).setLabel('👤 Inscribirme como Jugador').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId(`register_draft_captain:${draftShortId}`).setLabel('👑 Inscribirme como Capitán').setStyle(ButtonStyle.Secondary)
     );
     
     await interaction.reply({
-        content: `¡Perfecto! Selecciona cómo quieres inscribirte al draft. Serás guiado por el proceso.`,
+        content: `¡Perfecto! Selecciona cómo quieres inscribirte. Serás guiado por el proceso.`,
         components: [row],
         flags: [MessageFlags.Ephemeral]
     });
 
-    // Cerramos el ticket en segundo plano
     const channel = await client.channels.fetch(channelId);
-    await channel.send('✅ Proceso finalizado. Este canal se cerrará en 10 segundos.');
+    await channel.send('✅ El usuario ha continuado con la inscripción. Este canal se cerrará en 15 segundos.');
+    setTimeout(() => channel.delete().catch(console.error), 15000);
+}
+
+if (action === 'user_exit_without_registering') {
+    const [channelId] = params;
+    const ticket = await db.collection('verificationtickets').findOne({ channelId });
+    
+    // Comprobación de seguridad
+    if (interaction.user.id !== ticket.userId) {
+        return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
+    }
+    
+    await interaction.reply({
+        content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.`,
+        flags: [MessageFlags.Ephemeral]
+    });
+
+    const channel = await client.channels.fetch(channelId);
+    await channel.send('El usuario ha decidido salir. Este canal se cerrará en 10 segundos.');
+    setTimeout(() => channel.delete().catch(console.error), 10000);
+}
+
+if (action === 'admin_close_ticket') {
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: '❌ Solo los administradores pueden usar este botón.', flags: [MessageFlags.Ephemeral] });
+    }
+    await interaction.deferUpdate();
+    const [channelId] = params;
+    const channel = await client.channels.fetch(channelId);
+    
+    await channel.send(`Ticket cerrado manualmente por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
     setTimeout(() => channel.delete().catch(console.error), 10000);
 }
 
