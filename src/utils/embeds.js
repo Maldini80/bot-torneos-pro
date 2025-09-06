@@ -769,20 +769,36 @@ export function createCalendarEmbed(tournament) {
         const sortedGroups = Object.keys(tournament.structure.calendario).sort();
         for (const groupName of sortedGroups) {
             const partidosDelGrupo = tournament.structure.calendario[groupName];
+            
+            // --- INICIO DE LA LÓGICA DINÁMICA ---
+            // Agrupamos los partidos por número de jornada
             const partidosPorJornada = {};
-            for (const partido of partidosDelGrupo) { if (!partidosPorJornada[partido.jornada]) partidosPorJornada[partido.jornada] = []; partidosPorJornada[partido.jornada].push(partido); }
-            let groupScheduleText = ''; const nameWidth = 15, centerWidth = 6;
+            for (const partido of partidosDelGrupo) { 
+                if (!partidosPorJornada[partido.jornada]) {
+                    partidosPorJornada[partido.jornada] = [];
+                }
+                partidosPorJornada[partido.jornada].push(partido); 
+            }
+            
+            let groupScheduleText = ''; 
+            const nameWidth = 15, centerWidth = 6;
+            
+            // Recorremos las jornadas que hemos encontrado, en orden numérico
             for (const jornadaNum of Object.keys(partidosPorJornada).sort((a, b) => a - b)) {
                 groupScheduleText += `Jornada / Round ${jornadaNum}\n`;
                 for (const partido of partidosPorJornada[jornadaNum]) {
                     const centerText = partido.resultado ? partido.resultado : 'vs';
-                    const paddingTotal = centerWidth - centerText.length; const paddingInicio = Math.ceil(paddingTotal / 2), paddingFin = Math.floor(paddingTotal / 2);
+                    const paddingTotal = centerWidth - centerText.length; 
+                    const paddingInicio = Math.ceil(paddingTotal / 2);
+                    const paddingFin = Math.floor(paddingTotal / 2);
                     const paddedCenter = ' '.repeat(paddingInicio) + centerText + ' '.repeat(paddingFin);
                     const equipoA = partido.equipoA.nombre.slice(0, nameWidth).padEnd(nameWidth);
                     const equipoB = partido.equipoB.nombre.slice(0, nameWidth).padStart(nameWidth);
                     groupScheduleText += `${equipoA}${paddedCenter}${equipoB}\n`;
                 }
             }
+            // --- FIN DE LA LÓGICA DINÁMICA ---
+            
             embed.addFields({ name: `**${groupName}**`, value: `\`\`\`\n${groupScheduleText.trim()}\n\`\`\`` });
         }
     }
