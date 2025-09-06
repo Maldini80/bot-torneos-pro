@@ -706,28 +706,46 @@ if (action === 'draft_pick_by_position') {
     const [formatId] = params;
     const type = interaction.values[0];
 
-    // En lugar de mostrar el modal, ahora mostramos el menú de tipo de partido
-    const matchTypeMenu = new StringSelectMenuBuilder()
-        .setCustomId(`admin_create_match_type:${formatId}:${type}`)
+    // Directamente mostramos el modal final, pasándole los datos
+    const modal = new ModalBuilder()
+        // Creamos un ID de modal que incluye todos los datos
+        .setCustomId(`create_tournament_final:${formatId}:${type}`)
+        .setTitle('Finalizar Creación de Torneo');
+    
+    const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+    const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
+    
+    // --- AÑADIMOS EL CAMPO DE IDA/VUELTA DIRECTAMENTE AL MODAL ---
+    const matchTypeInput = new StringSelectMenuBuilder()
+        .setCustomId('torneo_match_type')
         .setPlaceholder('Paso 3: Selecciona el tipo de partidos')
         .addOptions([
-            {
-                label: 'Solo Ida (3 Jornadas)',
-                description: 'Los equipos de cada grupo se enfrentan una vez.',
-                value: 'ida'
-            },
-            {
-                label: 'Ida y Vuelta (6 Jornadas)',
-                description: 'Los equipos de cada grupo se enfrentan dos veces.',
-                value: 'idavuelta'
-            }
+            { label: 'Solo Ida (3 Jornadas)', value: 'ida' },
+            { label: 'Ida y Vuelta (6 Jornadas)', value: 'idavuelta' }
         ]);
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(nombreInput), 
+        new ActionRowBuilder().addComponents(startTimeInput),
+        new ActionRowBuilder().addComponents(matchTypeInput) // Añadido como un componente del modal
+    );
+
+    if (type === 'pago') {
+        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
+        const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
+        const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
+        
+        modal.setTitle('Finalizar Creación (De Pago)');
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(entryFeeInput),
+            new ActionRowBuilder().addComponents(prizeInputCampeon),
+            new ActionRowBuilder().addComponents(prizeInputFinalista)
+        );
+    }
     
-    await interaction.update({
-        content: `Tipo seleccionado: **${type === 'pago' ? 'De Pago' : 'Gratuito'}**. Ahora, define las rondas:`,
-        components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
-    });
-    return; 
+    // Respondemos a la interacción UNA SOLA VEZ, mostrando el modal.
+    await interaction.showModal(modal);
+    return;
         }
  
      else if (action === 'admin_change_format_select') {
@@ -1058,33 +1076,5 @@ if (action === 'draft_pick_by_position') {
         components: [row]
     });
     return;
-}
-    else if (action === 'admin_create_match_type') {
-    const [formatId, type] = params;
-    const matchType = interaction.values[0];
-
-    // Ahora sí, mostramos el modal final, pasándole todos los datos
-    const modal = new ModalBuilder()
-        .setCustomId(`create_tournament:${formatId}:${type}:${matchType}`)
-        .setTitle('Finalizar Creación de Torneo');
-    
-    const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-    const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
-
-    if (type === 'pago') {
-        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
-        const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
-        const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
-        
-        modal.setTitle('Finalizar Creación (De Pago)');
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(entryFeeInput),
-            new ActionRowBuilder().addComponents(prizeInputCampeon),
-            new ActionRowBuilder().addComponents(prizeInputFinalista)
-        );
-    }
-    await interaction.showModal(modal);
 }
 }
