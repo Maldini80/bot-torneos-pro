@@ -610,6 +610,31 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             throw new Error('Este draft no ha finalizado o no existe.');
         }
 
+        // --- INICIO DE LA LÓGICA DE REDUCCIÓN DE STRIKES POR BUENA CONDUCTA ---
+        const playersInDraft = draft.players;
+        for (const player of playersInDraft) {
+            const playerRecord = await db.collection('player_records').findOne({ userId: player.userId });
+
+            // Solo actuamos si el jugador tiene 1 o 2 strikes.
+            if (playerRecord && playerRecord.strikes > 0 && playerRecord.strikes < 3) {
+                await db.collection('player_records').updateOne(
+                    { userId: player.userId },
+                    { $inc: { strikes: -1 } } // Reducimos en 1 el número de strikes
+                );
+                
+                // Notificamos al jugador por MD
+                if (/^\d+$/.test(player.userId)) {
+                    try {
+                        const user = await client.users.fetch(player.userId);
+                        await user.send(`✅ **¡Recompensa por buena conducta!**\nHas completado el draft **${draft.name}** sin incidentes. Como recompensa, tu número de strikes se ha reducido en 1. Ahora tienes **${playerRecord.strikes - 1}** strike(s). ¡Gracias por tu deportividad!`);
+                    } catch (e) {
+                        console.warn(`No se pudo notificar al jugador ${player.userId} de la reducción de strikes.`);
+                    }
+                }
+            }
+        }
+        // --- FIN DE LA LÓGICA DE REDUCCIÓN DE STRIKES ---
+
         const approvedTeams = {};
         for (const captain of draft.captains) {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
@@ -707,11 +732,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
                 });
                 
                 const mentionString = teamMembersIds.map(id => `<@${id}>`).join(' ');
-
-                // --- INICIO DE LA CORRECCIÓN DEL BOTÓN (PRIVADO) ---
-                // En lugar de un botón público, hacemos que el bot envíe una mención especial al capitán
                 await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
-                // Y ahora, en el canal de chat GENERAL del torneo, le mandamos el botón privado al capitán
                 await chatChannel.send({
                     content: `<@${team.capitanId}>, puedes invitar a tu co-capitán desde aquí:`,
                     components: [new ActionRowBuilder().addComponents(
@@ -721,9 +742,8 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
                             .setStyle(ButtonStyle.Secondary)
                             .setEmoji('🤝')
                     )],
-                    flags: [MessageFlags.Ephemeral] // <-- ESTA ES LA MAGIA. Solo el capitán lo verá.
+                    flags: [MessageFlags.Ephemeral]
                 });
-                // --- FIN DE LA CORRECCIÓN DEL BOTÓN (PRIVADO) ---
             }
         }
         
@@ -733,12 +753,15 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
         await publishTournamentVisualizerURL(client, newTournament);
+
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
+        
         const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
         await notifyTournamentVisualizer(finalTournament);
         for (const teamData of Object.values(finalTournament.teams.aprobados)) {
             await notifyCastersOfNewTeam(client, finalTournament, teamData);
         }
+        
         const draftChannel = await client.channels.fetch(draft.discordChannelId).catch(() => null);
         if (draftChannel) {
              await draftChannel.send('✅ **Torneo generado con éxito.** Este canal permanecerá como archivo para consultar las plantillas de los equipos.');
