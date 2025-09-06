@@ -8,7 +8,6 @@ import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdate
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 
-// --- REEMPLAZA LA FUNCIÓN handleSelectMenu ENTERA CON ESTE CÓDIGO ---
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
     const client = interaction.client;
@@ -962,4 +961,35 @@ export async function handleSelectMenu(interaction) {
             return interaction.showModal(modal);
         }
     }
+if (action === 'assign_cocaptain_select') {
+    await interaction.deferUpdate();
+    const [tournamentShortId] = params;
+    const captainId = interaction.user.id;
+    const coCaptainId = interaction.values[0];
+
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) return interaction.followUp({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+    const team = tournament.teams.aprobados[captainId];
+    if (!team) return;
+
+    const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
+    if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
+        return interaction.followUp({ content: '❌ Esta persona ya participa como capitán o co-capitán.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    try {
+        await addCoCaptain(client, tournament, captainId, coCaptainId);
+        const coCaptainUser = await client.users.fetch(coCaptainId);
+        const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
+        
+        await chatChannel.send(`🤝 ¡<@${coCaptainId}> ha sido asignado como co-capitán del equipo **${team.nombre}** por <@${captainId}>!`);
+        
+        await interaction.editReply({ content: `✅ **${coCaptainUser.tag}** ha sido asignado como co-capitán.`, components: [] });
+    } catch (error) {
+        console.error('Error al asignar co-capitán:', error);
+        await interaction.followUp({ content: 'Hubo un error al procesar la asignación.', flags: [MessageFlags.Ephemeral] });
+    }
+    return;
+}
 }
