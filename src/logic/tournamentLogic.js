@@ -1999,7 +1999,10 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
 export async function requestStrikeFromWeb(client, draftId, captainId, playerId, reason) {
     try {
         const draft = await getDb().collection('drafts').findOne({ shortId: draftId });
-        await requestStrike(client, draft, captainId, captainId, playerId, reason);
+        // --- CORRECCIÓN CLAVE ---
+        // El 'teamId' en un draft es el mismo que el 'captainId'.
+        const teamId = captainId; 
+        await requestStrike(client, draft, captainId, teamId, playerId, reason);
     } catch (error) {
         console.error(`[STRIKE WEB] Fallo en el strike del capitán ${captainId}: ${error.message}`);
         visualizerStateHandler.sendToUser(captainId, { type: 'strike_error', message: error.message });
