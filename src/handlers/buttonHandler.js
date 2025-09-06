@@ -3,7 +3,7 @@
 import mongoose from 'mongoose';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
-import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS, PAYMENT_CONFIG, ADMIN_APPROVAL_CHANNEL_ID, VERIFIED_ROLE_ID } from '../../config.js';
+import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS, PAYMENT_CONFIG, VERIFIED_ROLE_ID } from '../../config.js';
 import Team from '../../src/models/team.js'; 
 import {
     approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister,
@@ -670,33 +670,10 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'register_draft_captain' || action === 'register_draft_player') {
-const playerRecord = await db.collection('player_records').findOne({ userId: interaction.user.id });
-if (playerRecord && playerRecord.strikes >= 2) {
-    return interaction.reply({ 
-        content: '❌ No puedes inscribirte. Has alcanzado el límite de strikes permitidos.', 
-        flags: [MessageFlags.Ephemeral] 
-    });
-}
+
 		 const isVerified = await checkVerification(interaction.user.id);
     if (!isVerified) {
         return interaction.reply({ content: '❌ Debes verificar tu cuenta primero usando el botón "Verificar Cuenta".', flags: [MessageFlags.Ephemeral] });
-    }
-		const verifiedData = await checkVerification(interaction.user.id);
-    if (verifiedData && !verifiedData.whatsapp) {
-        const modal = new ModalBuilder()
-            .setCustomId(`request_whatsapp_modal:${verifiedData.discordId}`)
-            .setTitle('Actualización de Perfil Requerida');
-        
-        const whatsappInput = new TextInputBuilder()
-            .setCustomId('whatsapp_input')
-            .setLabel("Tu número de WhatsApp (Ej: +34123456789)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setPlaceholder("Este dato es ahora obligatorio");
-
-        modal.addComponents(new ActionRowBuilder().addComponents(whatsappInput));
-        await interaction.showModal(modal);
-        return; // Detenemos la inscripción hasta que se complete
     }
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -1328,29 +1305,22 @@ if (playerRecord && playerRecord.strikes >= 2) {
     }
     
     if (action === 'invite_cocaptain_start') {
-    const [tournamentShortId] = params;
-    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-    if (!tournament) return interaction.reply({ content: 'Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
-
-    const team = tournament.teams.aprobados[interaction.user.id];
-    if (!team) return interaction.reply({ content: 'No eres el capitán de un equipo en este torneo.', flags: [MessageFlags.Ephemeral] });
-    if (team.coCaptainId) return interaction.reply({ content: 'Ya tienes un co-capitán asignado.', flags: [MessageFlags.Ephemeral] });
-
-    const userSelectMenu = new UserSelectMenuBuilder()
-        .setCustomId(`assign_cocaptain_select:${tournamentShortId}`)
-        .setPlaceholder('Busca y selecciona al nuevo co-capitán...')
-        .setMinValues(1)
-        .setMaxValues(1);
-    
-    const row = new ActionRowBuilder().addComponents(userSelectMenu);
-    
-    await interaction.reply({
-        content: 'Selecciona al miembro del servidor que quieres asignar como co-capitán. Será añadido directamente, sin necesidad de que acepte.',
-        components: [row],
-        flags: [MessageFlags.Ephemeral]
-    });
-    return;
-}
+        const [tournamentShortId] = params;
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId(`invite_cocaptain_select:${tournamentShortId}`)
+            .setPlaceholder('Busca y selecciona al usuario para invitar...')
+            .setMinValues(1)
+            .setMaxValues(1);
+        
+        const row = new ActionRowBuilder().addComponents(userSelectMenu);
+        
+        await interaction.reply({
+            content: 'Selecciona al miembro del servidor que quieres invitar como co-capitán.',
+            components: [row],
+            flags: [MessageFlags.Ephemeral]
+        });
+        return;
+    }
     
     if (action === 'admin_force_reset_bot') {
         const modal = new ModalBuilder().setCustomId('admin_force_reset_modal').setTitle('⚠️ CONFIRMAR RESET FORZOSO ⚠️');
