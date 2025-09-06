@@ -1,4 +1,4 @@
-// --- INICIO DEL ARCHIVO selectMenuHandler.js (VERSIÓN FINAL Y COMPLETA) ---
+// --- INICIO DEL ARCHIVO selectMenuHandler.js (VERSIÓN FINAL CORREGIDA) ---
 
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
@@ -7,8 +7,6 @@ import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelec
 import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection } from '../logic/verificationLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
-
-// --- REEMPLAZA TU FUNCIÓN handleSelectMenu ENTERA CON ESTO ---
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
@@ -475,7 +473,7 @@ export async function handleSelectMenu(interaction) {
         const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
         if (verifiedData && teamStatus === 'Libre') {
-            await interaction.deferUpdate();
+            await interaction.deferUpdate(); 
 
             const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
             const playerData = { 
@@ -680,7 +678,6 @@ export async function handleSelectMenu(interaction) {
             .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
         
         await interaction.update({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
-
     } else if (action === 'admin_create_type') {
         const [formatId] = params;
         const type = interaction.values[0];
@@ -846,7 +843,19 @@ export async function handleSelectMenu(interaction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        modal.addComponents(new ActionRowBuilder().addComponents(gameIdInput), new ActionRowBuilder().addComponents(twitterInput));
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('whatsapp_input')
+            .setLabel("Tu WhatsApp (Ej: +34123456789)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setPlaceholder("Visible solo para admins y capitanes");
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(gameIdInput),
+            new ActionRowBuilder().addComponents(twitterInput),
+            new ActionRowBuilder().addComponents(whatsappInput)
+        );
+        
         return interaction.showModal(modal);
     }
 
@@ -854,7 +863,6 @@ export async function handleSelectMenu(interaction) {
         await interaction.deferUpdate();
         const [channelId] = params;
         const reason = interaction.values[0];
-        const db = getDb();
         const ticket = await db.collection('verificationtickets').findOne({ channelId });
 
         if (ticket.adminNotificationMessageId) {
@@ -897,7 +905,6 @@ export async function handleSelectMenu(interaction) {
     }
     if (action === 'admin_edit_verified_user_select') {
         const userId = interaction.values[0];
-        const db = getDb();
 
         const userRecord = await db.collection('verified_users').findOne({ discordId: userId });
         if (!userRecord) {
