@@ -439,51 +439,89 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'register_verified_draft_captain_modal') {
-        await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
-        
-        const [draftShortId, position, streamPlatform] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
+    const [draftShortId, position, streamPlatform] = params;
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
-        if (!draft || !verifiedData) {
-            return interaction.editReply('❌ Error: No se encontró el draft o tus datos de verificación.');
-        }
-        
-        const teamName = interaction.fields.getTextInputValue('team_name_input');
-        const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
-        const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
-        const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
-
-        const psnId = verifiedData.gameId;
-        const twitter = verifiedData.twitter;
-        const userId = interaction.user.id;
-
-        const captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId, twitter, position };
-        const playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId };
-        
-        await db.collection('drafts').updateOne(
-            { _id: draft._id },
-            { $set: { [`pendingCaptains.${userId}`]: captainData, [`pendingPlayers.${userId}`]: playerData } }
-        );
-
-        const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
-        const adminEmbed = new EmbedBuilder()
-            .setColor('#5865F2')
-            .setTitle(`🔔 Nueva Solicitud de Capitán de Draft (Verificado)`)
-            .setDescription(`**Draft:** ${draft.name}`)
-            .addFields( 
-                { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, 
-                { name: 'Capitán', value: interaction.user.tag, inline: true },
-                { name: 'PSN ID', value: captainData.psnId, inline: false },
-                { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false },
-                { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
-                { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
-            );
-        const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
-        await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
-        await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
-        return;
+    if (!draft || !verifiedData) {
+        return interaction.reply({ content: '❌ Error: No se encontró el draft o tus datos de verificación.', flags: [MessageFlags.Ephemeral] });
     }
+    
+    // --- ¡NUEVA LÓGICA DE COMPROBACIÓN! ---
+    if (!verifiedData.whatsapp) {
+        const whatsappModal = new ModalBuilder()
+            .setCustomId(`add_whatsapp_to_profile_modal:captain:${draftShortId}:${position}:${streamPlatform}`)
+            .setTitle('Dato Requerido: WhatsApp');
+        const infoInput = new TextInputBuilder()
+            .setCustomId('info')
+            .setLabel("¡Hola! Necesitamos un dato más.")
+            .setStyle(TextInputStyle.Paragraph)
+            .setValue("Hemos actualizado el bot y ahora es obligatorio registrar un número de WhatsApp. Por favor, añádelo a continuación para poder continuar con tu inscripción. Este dato solo se te pedirá una vez.")
+            .setRequired(false);
+        const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
+        const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
+        
+        whatsappModal.addComponents(
+            new ActionRowBuilder().addComponents(infoInput),
+            new ActionRowBuilder().addComponents(whatsappInput),
+            new ActionRowBuilder().addComponents(whatsappConfirmInput)
+        );
+        
+        // Guardamos los datos del formulario actual para reutilizarlos después
+        const currentFormData = {
+            teamName: interaction.fields.getTextInputValue('team_name_input'),
+            eafcTeamName: interaction.fields.getTextInputValue('eafc_team_name_input'),
+            streamUsername: interaction.fields.getTextInputValue('stream_username_input')
+        };
+        await db.collection('temp_form_data').updateOne(
+            { userId: interaction.user.id },
+            { $set: { data: currentFormData, createdAt: new Date() } },
+            { upsert: true }
+        );
+        await db.collection('temp_form_data').createIndex({ "createdAt": 1 }, { expireAfterSeconds: 600 });
+
+        return interaction.showModal(whatsappModal);
+    }
+    // --- FIN DE LA NUEVA LÓGICA ---
+
+    // Si el usuario ya tiene WhatsApp, el código continúa como antes.
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    
+    const teamName = interaction.fields.getTextInputValue('team_name_input');
+    const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
+    const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
+    const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
+
+    const userId = interaction.user.id;
+
+    // Añadimos el WhatsApp a los datos que se guardan
+    const captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp, position };
+    const playerData = { userId, userName: interaction.user.tag, psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId };
+    
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $set: { [`pendingCaptains.${userId}`]: captainData } }
+    );
+
+    const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
+    const adminEmbed = new EmbedBuilder()
+        .setColor('#5865F2')
+        .setTitle(`🔔 Nueva Solicitud de Capitán de Draft (Verificado)`)
+        .setDescription(`**Draft:** ${draft.name}`)
+        .addFields( 
+            { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, 
+            { name: 'Capitán', value: interaction.user.tag, inline: true },
+            { name: 'PSN ID', value: captainData.psnId, inline: false },
+            { name: 'WhatsApp', value: `\`${captainData.whatsapp}\``, inline: false }, // Mostramos el WhatsApp
+            { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false },
+            { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
+            { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
+        );
+    const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
+    await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
+    await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
+    return;
+}
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
         await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
         
@@ -1051,5 +1089,65 @@ if (action === 'admin_edit_strikes_submit') {
     } catch (error) {
         return interaction.editReply({ content: `❌ Error al procesar la solicitud: ${error.message}` });
     }
+}
+    if (action === 'add_whatsapp_to_profile_modal') {
+    const [, flow, draftShortId, position, streamPlatform] = params;
+    const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
+    const whatsappConfirm = interaction.fields.getTextInputValue('whatsapp_confirm_input').trim();
+
+    if (whatsapp !== whatsappConfirm) {
+        return interaction.reply({ content: '❌ Los números de WhatsApp no coinciden. Por favor, reinicia la inscripción.', flags: [MessageFlags.Ephemeral] });
+    }
+    
+    // Guardamos el WhatsApp en el perfil verificado del usuario para siempre
+    await db.collection('verified_users').updateOne(
+        { discordId: interaction.user.id },
+        { $set: { whatsapp: whatsapp } }
+    );
+    
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+    // Recuperamos los datos que el usuario ya había rellenado
+    const tempForm = await db.collection('temp_form_data').findOne({ userId: interaction.user.id });
+    if (!tempForm) {
+        return interaction.editReply({ content: '❌ Tu sesión ha expirado. Por favor, reinicia la inscripción.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    const { teamName, eafcTeamName, streamUsername } = tempForm.data;
+    const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const userId = interaction.user.id;
+    const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
+
+    // Continuamos con el flujo de capitán
+    const captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp, position };
+    const playerData = { userId, userName: interaction.user.tag, psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId };
+    
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $set: { [`pendingCaptains.${userId}`]: captainData } }
+    );
+    
+    // ... (El resto del código es idéntico al de 'register_verified_draft_captain_modal' para enviar la solicitud)
+    const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
+    const adminEmbed = new EmbedBuilder()
+        .setColor('#5865F2')
+        .setTitle(`🔔 Nueva Solicitud de Capitán de Draft (Verificado)`)
+        .setDescription(`**Draft:** ${draft.name}`)
+        .addFields( 
+            { name: 'Nombre de Equipo', value: teamName, inline: true }, 
+            { name: 'Capitán', value: interaction.user.tag, inline: true },
+            { name: 'PSN ID', value: verifiedData.gameId, inline: false },
+            { name: 'WhatsApp', value: `\`${verifiedData.whatsapp}\``, inline: false },
+            { name: 'Equipo EAFC', value: eafcTeamName, inline: false },
+            { name: 'Canal Transmisión', value: streamChannel, inline: false },
+            { name: 'Twitter', value: verifiedData.twitter || 'No proporcionado', inline: false }
+        );
+    const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
+    await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
+    
+    await db.collection('temp_form_data').deleteOne({ userId: interaction.user.id });
+    await interaction.editReply('✅ ¡Gracias por añadir tu WhatsApp! Tu solicitud para ser capitán ha sido enviada.');
+    return;
 }
 }
