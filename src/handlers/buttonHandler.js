@@ -1865,80 +1865,76 @@ if (action === 'admin_invite_replacement_start') {
         }
     }
     if (action === 'approve_verification') {
-        // CORRECCIÓN: Añadida comprobación de permisos
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.reply({ content: '❌ No tienes permisos para aprobar verificaciones.', flags: [MessageFlags.Ephemeral] });
-        }
-
-        await interaction.deferUpdate();
-        const [channelId] = params;
-        const db = getDb();
-        const ticket = await db.collection('verificationtickets').findOne({ channelId });
-
-        if (!ticket || ticket.status === 'closed') return;
-        
-		// --- AÑADE ESTE BLOQUE PARA BORRAR LA NOTIFICACIÓN ---
-        if (ticket.adminNotificationMessageId) {
-            try {
-                const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
-                const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
-                await notificationMessage.delete();
-            } catch (error) {
-                console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}. Puede que ya no existiera.`, error.message);
-            }
-        }
-        // --- FIN DEL BLOQUE A AÑADIR ---
-		
-        if (ticket.claimedBy !== interaction.user.id) {
-             // CORRECCIÓN: ephemeral actualizado a flags
-             return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
-        }
-
-        // 1. Guardar en la base de datos de verificados
-        await db.collection('verified_users').updateOne(
-            { discordId: ticket.userId },
-            { 
-                $set: {
-                    discordTag: (await client.users.fetch(ticket.userId)).tag,
-                    gameId: ticket.gameId,
-                    platform: ticket.platform,
-                    twitter: ticket.twitter,
-                    verifiedAt: new Date(),
-                }
-            },
-            { upsert: true }
-        );
-
-        // 2. Asignar rol
-        const guild = await client.guilds.fetch(ticket.guildId);
-        const member = await guild.members.fetch(ticket.userId);
-        const verifiedRole = await guild.roles.fetch(VERIFIED_ROLE_ID);
-        if (member && verifiedRole) {
-            await member.roles.add(verifiedRole);
-        }
-
-        // 3. Notificar al usuario
-        try {
-            await member.send('🎉 **¡Identidad Verificada con Éxito!** 🎉\nTu cuenta ha sido aprobada por un administrador. Ya puedes inscribirte en nuestros drafts.');
-        } catch (e) {
-            console.warn(`No se pudo enviar MD de aprobación al usuario ${ticket.userId}`);
-        }
-
-        // 4. Cerrar ticket
-        await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
-        const channel = await client.channels.fetch(channelId);
-        await channel.send(`✅ Verificación aprobada por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
-        
-        // Desactivar botones en el mensaje original
-        const originalMessage = interaction.message;
-        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
-        disabledRow.components.forEach(c => c.setDisabled(true));
-        const finalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
-        finalEmbed.data.fields.find(f => f.name === 'Estado').value = `✅ **Aprobado por:** <@${interaction.user.id}>`;
-        await originalMessage.edit({ embeds: [finalEmbed], components: [disabledRow] });
-        
-        setTimeout(() => channel.delete().catch(console.error), 10000);
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: '❌ No tienes permisos para aprobar verificaciones.', flags: [MessageFlags.Ephemeral] });
     }
+
+    await interaction.deferUpdate();
+    const [channelId] = params;
+    const db = getDb();
+    const ticket = await db.collection('verificationtickets').findOne({ channelId });
+
+    if (!ticket || ticket.status === 'closed') return;
+    
+    if (ticket.adminNotificationMessageId) {
+        try {
+            const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
+            const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
+            await notificationMessage.delete();
+        } catch (error) {
+            console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}. Puede que ya no existiera.`, error.message);
+        }
+    }
+    
+    if (ticket.claimedBy !== interaction.user.id) {
+         return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
+    }
+
+    // 1. Guardar en la base de datos de verificados (con el nuevo campo)
+    await db.collection('verified_users').updateOne(
+        { discordId: ticket.userId },
+        { 
+            $set: {
+                discordTag: (await client.users.fetch(ticket.userId)).tag,
+                gameId: ticket.gameId,
+                platform: ticket.platform,
+                twitter: ticket.twitter,
+                whatsapp: ticket.whatsapp, // <-- DATO AÑADIDO
+                verifiedAt: new Date(),
+            }
+        },
+        { upsert: true }
+    );
+
+    // 2. Asignar rol
+    const guild = await client.guilds.fetch(ticket.guildId);
+    const member = await guild.members.fetch(ticket.userId);
+    const verifiedRole = await guild.roles.fetch(VERIFIED_ROLE_ID);
+    if (member && verifiedRole) {
+        await member.roles.add(verifiedRole);
+    }
+
+    // 3. Notificar al usuario
+    try {
+        await member.send('🎉 **¡Identidad Verificada con Éxito!** 🎉\nTu cuenta ha sido aprobada por un administrador. Ya puedes inscribirte en nuestros drafts.');
+    } catch (e) {
+        console.warn(`No se pudo enviar MD de aprobación al usuario ${ticket.userId}`);
+    }
+
+    // 4. Cerrar ticket
+    await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
+    const channel = await client.channels.fetch(channelId);
+    await channel.send(`✅ Verificación aprobada por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
+    
+    const originalMessage = interaction.message;
+    const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+    disabledRow.components.forEach(c => c.setDisabled(true));
+    const finalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+    finalEmbed.data.fields.find(f => f.name === 'Estado').value = `✅ **Aprobado por:** <@${interaction.user.id}>`;
+    await originalMessage.edit({ embeds: [finalEmbed], components: [disabledRow] });
+    
+    setTimeout(() => channel.delete().catch(console.error), 10000);
+}
 
     if (action === 'reject_verification_start') {
         // CORRECCIÓN: Añadida comprobación de permisos
