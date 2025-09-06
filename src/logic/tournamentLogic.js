@@ -1546,13 +1546,29 @@ export async function updatePublicMessages(client, entity) {
         }
     };
 
-    if (collectionName === 'tournaments') {
-        await editMessageSafe(CHANNELS.TORNEOS_STATUS, latestState.discordMessageIds.statusMessageId, createTournamentStatusEmbed(latestState));
+    // --- INICIO DE LA MODIFICACIÓN CLAVE ---
+    let statusChannelId;
+    let statusEmbed;
+
+    if (isDraft) {
+        // Si es un draft, usamos el canal de drafts
+        statusChannelId = CHANNELS.DRAFTS_STATUS;
+        statusEmbed = createDraftStatusEmbed(latestState);
+    } else {
+        // Si es un torneo, usamos el canal de torneos
+        statusChannelId = CHANNELS.TOURNAMENTS_STATUS;
+        statusEmbed = createTournamentStatusEmbed(latestState);
+    }
+
+    // Actualizamos el mensaje de estado en el canal correcto
+    await editMessageSafe(statusChannelId, latestState.discordMessageIds.statusMessageId, statusEmbed);
+
+    // Las actualizaciones internas (clasificación, calendario) solo se aplican a torneos
+    if (!isDraft) {
         await editMessageSafe(latestState.discordChannelIds.infoChannelId, latestState.discordMessageIds.classificationMessageId, createClassificationEmbed(latestState));
         await editMessageSafe(latestState.discordChannelIds.infoChannelId, latestState.discordMessageIds.calendarMessageId, createCalendarEmbed(latestState));
-    } else { // Drafts
-        await editMessageSafe(CHANNELS.TORNEOS_STATUS, latestState.discordMessageIds.statusMessageId, createDraftStatusEmbed(latestState));
     }
+    // --- FIN DE LA MODIFICACIÓN CLAVE ---
 }
 
 async function promoteFromWaitlist(client, tournamentShortId, count) {
