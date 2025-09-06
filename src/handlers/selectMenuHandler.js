@@ -1032,4 +1032,24 @@ if (action === 'draft_pick_by_position') {
     await interaction.editReply({ embeds: [embed] });
     return;
 }
+    if (action === 'admin_select_channel_to_update_icon') {
+    const channelId = interaction.values[0]; // El ID del canal seleccionado
+    const statusMenu = new StringSelectMenuBuilder()
+        // Le pasamos el ID del canal al siguiente paso
+        .setCustomId(`admin_set_channel_icon:${channelId}`) 
+        .setPlaceholder('Paso 2: Selecciona el estado del canal')
+        .addOptions([
+            { label: 'Verde (Inscripciones Abiertas)', value: '🟢', emoji: '🟢' },
+            { label: 'Azul (En Juego / Lleno)', value: '🔵', emoji: '🔵' },
+            { label: 'Rojo (Inactivo)', value: '🔴', emoji: '🔴' }
+        ]);
+
+    const row = new ActionRowBuilder().addComponents(statusMenu);
+
+    await interaction.update({
+        content: 'Canal seleccionado. Ahora, elige el icono de estado que quieres establecer:',
+        components: [row]
+    });
+    return;
+}
 }
