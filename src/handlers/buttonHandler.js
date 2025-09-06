@@ -670,7 +670,13 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'register_draft_captain' || action === 'register_draft_player') {
-
+const playerRecord = await db.collection('player_records').findOne({ userId: interaction.user.id });
+if (playerRecord && playerRecord.strikes >= 2) {
+    return interaction.reply({ 
+        content: '❌ No puedes inscribirte. Has alcanzado el límite de strikes permitidos.', 
+        flags: [MessageFlags.Ephemeral] 
+    });
+}
 		 const isVerified = await checkVerification(interaction.user.id);
     if (!isVerified) {
         return interaction.reply({ content: '❌ Debes verificar tu cuenta primero usando el botón "Verificar Cuenta".', flags: [MessageFlags.Ephemeral] });
