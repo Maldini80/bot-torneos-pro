@@ -1292,13 +1292,13 @@ if (action === 'admin_invite_replacement_start') {
             {
                 label: 'Canal de Torneos',
                 description: 'Modifica el icono del canal de anuncios de torneos.',
-                value: CHANNELS.TOURNAMENTS_STATUS, // Usamos el ID del canal
+                value: CHANNELS.TOURNAMENTS_STATUS,
                 emoji: '🏆'
             },
             {
                 label: 'Canal de Drafts',
                 description: 'Modifica el icono del canal de anuncios de drafts.',
-                value: CHANNELS.DRAFTS_STATUS, // Usamos el ID del canal
+                value: CHANNELS.DRAFTS_STATUS,
                 emoji: '📝'
             }
         ]);
