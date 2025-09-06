@@ -614,37 +614,24 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         for (const captain of draft.captains) {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
             const teamData = {
-                id: captain.userId,
-                nombre: captain.teamName,
-                eafcTeamName: captain.eafcTeamName,
-                capitanId: captain.userId,
-                capitanTag: captain.userName,
-                coCaptainId: null,
-                coCaptainTag: null,
-                bandera: '🏳️',
-                paypal: null, 
-                streamChannel: captain.streamChannel,
-                twitter: captain.twitter,
-                inscritoEn: new Date(),
-                players: teamPlayers 
+                id: captain.userId, nombre: captain.teamName, eafcTeamName: captain.eafcTeamName,
+                capitanId: captain.userId, capitanTag: captain.userName,
+                coCaptainId: null, coCaptainTag: null, bandera: '🏳️', paypal: null, 
+                streamChannel: captain.streamChannel, twitter: captain.twitter,
+                inscritoEn: new Date(), players: teamPlayers 
             };
             approvedTeams[captain.userId] = teamData;
         }
 
         const tournamentName = `Torneo Draft - ${draft.name}`;
         const tournamentShortId = `draft-${draft.shortId}`;
-        
         const format = TOURNAMENT_FORMATS[formatId];
         if (!format) throw new Error(`Formato de torneo inválido: ${formatId}`);
 
         const config = {
-            formatId: formatId,
-            format: format, 
-            isPaid: draft.config.isPaid,
-            entryFee: draft.config.entryFee,
-            prizeCampeon: draft.config.prizeCampeon,
-            prizeFinalista: draft.config.prizeFinalista,
-            startTime: null
+            formatId: formatId, format: format, isPaid: draft.config.isPaid,
+            entryFee: draft.config.entryFee, prizeCampeon: draft.config.prizeCampeon,
+            prizeFinalista: draft.config.prizeFinalista, startTime: null
         };
         
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
@@ -653,9 +640,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const participantsAndStaffPermissions = [
             { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
             { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-            ...Object.keys(approvedTeams)
-                .filter(id => /^\d+$/.test(id))
-                .map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
+            ...Object.keys(approvedTeams).filter(id => /^\d+$/.test(id)).map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
         ];
 
         const infoChannel = await guild.channels.create({ name: `🏆-${tournamentShortId}-info`, type: ChannelType.GuildText, parent: TOURNAMENT_CATEGORY_ID, permissionOverwrites: [{ id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.SendMessages] }] });
@@ -664,8 +649,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
 
         const newTournament = {
             _id: new ObjectId(), shortId: tournamentShortId, guildId: guild.id, nombre: tournamentName, status: 'inscripcion_abierta',
-            config, 
-            teams: { pendientes: {}, aprobados: approvedTeams, reserva: {}, coCapitanes: {} },
+            config, teams: { pendientes: {}, aprobados: approvedTeams, reserva: {}, coCapitanes: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
             discordMessageIds: {}
@@ -698,42 +682,48 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             for (const team of Object.values(newTournament.teams.aprobados)) {
                 const teamMembersIds = team.players.map(p => p.userId).filter(id => /^\d+$/.test(id));
                 
-                // Permisos para el canal de texto
                 const textPermissions = [
                     { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                     { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
                     ...teamMembersIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
                 ];
                 
-                // Permisos para el canal de voz (Ver, Conectar Y Hablar)
                 const voicePermissions = [
                     { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                     { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
                     ...teamMembersIds.map(id => ({ id, allow: [
-                        PermissionsBitField.Flags.ViewChannel,
-                        PermissionsBitField.Flags.Connect,
-                        PermissionsBitField.Flags.Speak
+                        PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
                     ]}))
                 ];
                 
                 const textChannel = await guild.channels.create({
-                    name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`,
-                    type: ChannelType.GuildText,
-                    parent: teamCategory,
-                    permissionOverwrites: textPermissions
+                    name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`, type: ChannelType.GuildText,
+                    parent: teamCategory, permissionOverwrites: textPermissions
                 });
 
                 await guild.channels.create({
-                    name: `🔊 ${team.nombre}`,
-                    type: ChannelType.GuildVoice,
-                    parent: teamCategory,
-                    permissionOverwrites: voicePermissions // <-- USAMOS LOS PERMISOS CORRECTOS
+                    name: `🔊 ${team.nombre}`, type: ChannelType.GuildVoice,
+                    parent: teamCategory, permissionOverwrites: voicePermissions
                 });
                 
                 const mentionString = teamMembersIds.map(id => `<@${id}>`).join(' ');
-                await textChannel.send({
-                    content: `### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`
+
+                // --- INICIO DE LA CORRECCIÓN DEL BOTÓN (PRIVADO) ---
+                // En lugar de un botón público, hacemos que el bot envíe una mención especial al capitán
+                await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
+                // Y ahora, en el canal de chat GENERAL del torneo, le mandamos el botón privado al capitán
+                await chatChannel.send({
+                    content: `<@${team.capitanId}>, puedes invitar a tu co-capitán desde aquí:`,
+                    components: [new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`invite_cocaptain_start:${newTournament.shortId}`)
+                            .setLabel('Invitar Co-Capitán')
+                            .setStyle(ButtonStyle.Secondary)
+                            .setEmoji('🤝')
+                    )],
+                    flags: [MessageFlags.Ephemeral] // <-- ESTA ES LA MAGIA. Solo el capitán lo verá.
                 });
+                // --- FIN DE LA CORRECCIÓN DEL BOTÓN (PRIVADO) ---
             }
         }
         
@@ -743,15 +733,12 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
         await publishTournamentVisualizerURL(client, newTournament);
-
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
-        
         const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
         await notifyTournamentVisualizer(finalTournament);
         for (const teamData of Object.values(finalTournament.teams.aprobados)) {
             await notifyCastersOfNewTeam(client, finalTournament, teamData);
         }
-        
         const draftChannel = await client.channels.fetch(draft.discordChannelId).catch(() => null);
         if (draftChannel) {
              await draftChannel.send('✅ **Torneo generado con éxito.** Este canal permanecerá como archivo para consultar las plantillas de los equipos.');
@@ -1319,36 +1306,6 @@ export async function approveTeam(client, tournament, teamData) {
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
-    const db = getDb();
-    const coCaptainUser = await client.users.fetch(coCaptainId);
-    
-    await db.collection('tournaments').updateOne(
-        { _id: tournament._id },
-        {
-            $set: { 
-                [`teams.aprobados.${captainId}.coCaptainId`]: coCaptainId,
-                [`teams.aprobados.${captainId}.coCaptainTag`]: coCaptainUser.tag
-            },
-            $unset: {
-                [`teams.coCapitanes.${captainId}`]: ""
-            }
-        }
-    );
-
-    if (/^\d+$/.test(coCaptainId)) {
-        try {
-            const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
-            await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
-            const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
-            await matchesChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: false });
-        } catch (e) {
-            console.error(`No se pudieron dar permisos al co-capitán ${coCaptainId}:`, e);
-        }
-    }
-
-    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-    await updatePublicMessages(client, updatedTournament);
-}
 
 export async function kickTeam(client, tournament, captainId) {
     const db = getDb();
