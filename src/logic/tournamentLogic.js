@@ -1198,20 +1198,24 @@ export async function startGroupStage(client, guild, tournament) {
         currentTournament.structure.grupos = grupos;
         const calendario = {};
         for (const nombreGrupo in grupos) {
-            const equiposGrupo = grupos[nombreGrupo].equipos; calendario[nombreGrupo] = [];
+            const equiposGrupo = grupos[nombreGrupo].equipos; 
+            calendario[nombreGrupo] = [];
             if (equiposGrupo.length === 4) {
                 const [t1, t2, t3, t4] = equiposGrupo;
-                // Jornadas de IDA (siempre se crean)
-                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t2), createMatchObject(nombreGrupo, 1, t3, t4));
-                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t2, t4));
-                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t4), createMatchObject(nombreGrupo, 3, t2, t3));
                 
-                // --- LÓGICA NUEVA: Jornadas de VUELTA ---
+                // --- INICIO DE LA LÓGICA DE CALENDARIO CORRECTA ---
+                // Jornadas de IDA
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t4), createMatchObject(nombreGrupo, 1, t2, t3));
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t4, t2));
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t2), createMatchObject(nombreGrupo, 3, t3, t4));
+                
+                // Jornadas de VUELTA (si está configurado)
                 if (currentTournament.config.matchType === 'idavuelta') {
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t2, t1), createMatchObject(nombreGrupo, 4, t4, t3));
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t4, t2));
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t4, t1), createMatchObject(nombreGrupo, 6, t3, t2));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t4, t1), createMatchObject(nombreGrupo, 4, t3, t2));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t2, t4));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t2, t1), createMatchObject(nombreGrupo, 6, t4, t3));
                 }
+                // --- FIN DE LA LÓGICA DE CALENDARIO CORRECTA ---
             }
         }
         currentTournament.structure.calendario = calendario;
