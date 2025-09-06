@@ -445,53 +445,54 @@ export async function handleModal(interaction) {
         return;
     }
 
-    if (action === 'register_verified_draft_captain_modal') {
-        await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
-        
-        const [draftShortId, position, streamPlatform] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
+if (action === 'register_verified_draft_captain_modal') {
+    await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
+    
+    const [draftShortId, position, streamPlatform] = params;
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
-        if (!draft || !verifiedData) {
-            return interaction.editReply('❌ Error: No se encontró el draft o tus datos de verificación.');
-        }
-        
-        const teamName = interaction.fields.getTextInputValue('team_name_input');
-        const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
-        const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
-        const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
-
-        const psnId = verifiedData.gameId;
-        const twitter = verifiedData.twitter;
-        const userId = interaction.user.id;
-
-        const captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId, twitter, position };
-        const playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId };
-        
-        await db.collection('drafts').updateOne(
-            { _id: draft._id },
-            { $set: { [`pendingCaptains.${userId}`]: captainData, [`pendingPlayers.${userId}`]: playerData } }
-        );
-
-        const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
-        const adminEmbed = new EmbedBuilder()
-            .setColor('#5865F2')
-            .setTitle(`🔔 Nueva Solicitud de Capitán de Draft (Verificado)`)
-            .setDescription(`**Draft:** ${draft.name}`)
-            .addFields( 
-                { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, 
-                { name: 'Capitán', value: interaction.user.tag, inline: true },
-                { name: 'PSN ID', value: captainData.psnId, inline: false },
-                { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false },
-                { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
-                { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
-                { name: 'WhatsApp', value: `\`${verifiedData.whatsapp || 'No Proporcionado'}\``, inline: false }
-            );
-        const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
-        await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
-        await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
-        return;
+    if (!draft || !verifiedData) {
+        return interaction.editReply('❌ Error: No se encontró el draft o tus datos de verificación.');
     }
+    
+    const teamName = interaction.fields.getTextInputValue('team_name_input');
+    const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
+    const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
+    const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
+    const logoUrl = interaction.fields.getTextInputValue('logo_url_input'); // Leemos el logo
+
+    const psnId = verifiedData.gameId;
+    const twitter = verifiedData.twitter;
+    const userId = interaction.user.id;
+
+    const captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId, twitter, position, logoUrl: logoUrl || null };
+    const playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId };
+    
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $set: { [`pendingCaptains.${userId}`]: captainData, [`pendingPlayers.${userId}`]: playerData } }
+    );
+
+    const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
+    const adminEmbed = new EmbedBuilder()
+        .setColor('#5865F2')
+        .setTitle(`🔔 Nueva Solicitud de Capitán de Draft (Verificado)`)
+        .setDescription(`**Draft:** ${draft.name}`)
+        .addFields( 
+            { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, 
+            { name: 'Capitán', value: interaction.user.tag, inline: true },
+            { name: 'PSN ID', value: captainData.psnId, inline: false },
+            { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false },
+            { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
+            { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }, // <- AQUÍ FALTABA LA COMA
+            { name: 'WhatsApp', value: `\`${verifiedData.whatsapp || 'No Proporcionado'}\``, inline: false }
+        );
+    const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
+    await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
+    await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
+    return;
+}
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
         await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
         
