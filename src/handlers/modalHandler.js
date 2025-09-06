@@ -485,6 +485,7 @@ export async function handleModal(interaction) {
                 { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false },
                 { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
                 { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
+                { name: 'WhatsApp', value: `\`${verifiedData.whatsapp || 'No Proporcionado'}\``, inline: false }
             );
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
