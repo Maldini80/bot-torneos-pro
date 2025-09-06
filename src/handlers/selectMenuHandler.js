@@ -8,6 +8,8 @@ import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdate
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 
+// --- REEMPLAZA TU FUNCIÓN handleSelectMenu ENTERA CON ESTO ---
+
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
     const client = interaction.client;
@@ -15,10 +17,6 @@ export async function handleSelectMenu(interaction) {
     const db = getDb();
     
     const [action, ...params] = customId.split(':');
-
-    // =======================================================
-    // --- LÓGICA DE VERIFICACIÓN Y GESTIÓN DE PERFIL ---
-    // =======================================================
 
     if (action === 'verify_select_platform') {
         await handlePlatformSelection(interaction);
@@ -136,7 +134,6 @@ export async function handleSelectMenu(interaction) {
         const searchType = interaction.values[0];
 
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
         
         const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
             label: value,
@@ -310,7 +307,7 @@ export async function handleSelectMenu(interaction) {
                 console.error("Error capturado por el handler al crear el draft:", error);
                 await interaction.editReply({ content: `❌ Ocurrió un error: ${error.message}`, components: [] });
             }
-        } else { // type === 'pago'
+        } else {
             const modal = new ModalBuilder()
                 .setCustomId(`create_draft_paid_modal:${name}`)
                 .setTitle(`Crear Draft de Pago: ${name}`);
@@ -475,18 +472,17 @@ export async function handleSelectMenu(interaction) {
     if (action === 'draft_register_player_status_select') {
         const [draftShortId, primaryPosition, secondaryPosition] = params;
         const teamStatus = interaction.values[0];
-        const db = getDb();
         const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
         if (verifiedData && teamStatus === 'Libre') {
-            await interaction.deferUpdate(); 
+            await interaction.deferUpdate();
 
             const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
             const playerData = { 
                 userId: interaction.user.id, 
                 userName: interaction.user.tag, 
-                psnId: verifiedData.gameId, 
-                twitter: verifiedData.twitter, 
+                psnId: verifiedData.gameId,
+                twitter: verifiedData.twitter,
                 primaryPosition, 
                 secondaryPosition, 
                 currentTeam: 'Libre', 
@@ -504,8 +500,7 @@ export async function handleSelectMenu(interaction) {
             return;
         }
 
-        const modal = new ModalBuilder()
-            .setTitle('Finalizar Inscripción de Jugador');
+        const modal = new ModalBuilder().setTitle('Finalizar Inscripción de Jugador');
 
         if (verifiedData && teamStatus === 'Con Equipo') {
             modal.setCustomId(`register_draft_player_team_name_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}`);
@@ -687,15 +682,42 @@ export async function handleSelectMenu(interaction) {
         await interaction.update({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
 
     } else if (action === 'admin_create_type') {
-    const [formatId] = params;
-    const type = interaction.values[0];
+        const [formatId] = params;
+        const type = interaction.values[0];
+        const formatSupportsRoundTrip = TOURNAMENT_FORMATS[formatId] && TOURNAMENT_FORMATS[formatId].roundTrip;
 
-    // Comprobamos si el formato en config.js tiene la propiedad roundTrip
-    const formatSupportsRoundTrip = TOURNAMENT_FORMATS[formatId] && TOURNAMENT_FORMATS[formatId].roundTrip;
+        if (!formatSupportsRoundTrip) {
+            const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}:false`).setTitle('Finalizar Creación de Torneo');
+            const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+            const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
+            modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
+            
+            if (type === 'pago') {
+                const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
+                const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
+                const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
+                modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizeInputCampeon), new ActionRowBuilder().addComponents(prizeInputFinalista));
+            }
+            await interaction.showModal(modal);
+        } else {
+            const roundTripMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_create_roundtrip_select:${formatId}:${type}`)
+                .setPlaceholder('Paso 3: Elige el tipo de liguilla')
+                .addOptions([
+                    { label: 'Solo Ida', value: 'false', description: 'Los equipos se enfrentan una vez.' },
+                    { label: 'Ida y Vuelta', value: 'true', description: 'Los equipos se enfrentan dos veces.' }
+                ]);
+            
+            await interaction.update({
+                content: 'Ahora, selecciona si la fase de grupos será a partido único o a ida y vuelta.',
+                components: [new ActionRowBuilder().addComponents(roundTripMenu)]
+            });
+        }
+    } else if (action === 'admin_create_roundtrip_select') {
+        const [formatId, type] = params;
+        const isRoundTrip = interaction.values[0];
 
-    if (!formatSupportsRoundTrip) {
-        // Si no lo soporta, creamos el modal directamente con 'false' para ida y vuelta
-        const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}:false`).setTitle('Finalizar Creación de Torneo');
+        const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}:${isRoundTrip}`).setTitle('Finalizar Creación de Torneo');
         const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
         const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
         modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
@@ -707,20 +729,6 @@ export async function handleSelectMenu(interaction) {
             modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizeInputCampeon), new ActionRowBuilder().addComponents(prizeInputFinalista));
         }
         await interaction.showModal(modal);
-    } else {
-        // Si lo soporta, mostramos el menú de selección
-        const roundTripMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_create_roundtrip_select:${formatId}:${type}`)
-            .setPlaceholder('Paso 3: Elige el tipo de liguilla')
-            .addOptions([
-                { label: 'Solo Ida', value: 'false', description: 'Los equipos se enfrentan una vez.' },
-                { label: 'Ida y Vuelta', value: 'true', description: 'Los equipos se enfrentan dos veces.' }
-            ]);
-        
-        await interaction.update({
-            content: 'Ahora, selecciona si la fase de grupos será a partido único o a ida y vuelta.',
-            components: [new ActionRowBuilder().addComponents(roundTripMenu)]
-        });
     } else if (action === 'admin_change_format_select') {
         await interaction.deferUpdate();
         
@@ -820,9 +828,7 @@ export async function handleSelectMenu(interaction) {
         }
         return;
     }
-
-    // --- ESTE ES EL BLOQUE CORREGIDO ---
-    if (action === 'verify_select_platform_manual') {
+     if (action === 'verify_select_platform_manual') {
         const platform = interaction.values[0];
         const modal = new ModalBuilder()
             .setCustomId(`verification_ticket_submit:${platform}`)
@@ -840,19 +846,7 @@ export async function handleSelectMenu(interaction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        const whatsappInput = new TextInputBuilder()
-            .setCustomId('whatsapp_input')
-            .setLabel("Tu WhatsApp (Ej: +34123456789)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setPlaceholder("Visible solo para admins y capitanes");
-
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(gameIdInput),
-            new ActionRowBuilder().addComponents(twitterInput),
-            new ActionRowBuilder().addComponents(whatsappInput)
-        );
-        
+        modal.addComponents(new ActionRowBuilder().addComponents(gameIdInput), new ActionRowBuilder().addComponents(twitterInput));
         return interaction.showModal(modal);
     }
 
@@ -972,52 +966,52 @@ export async function handleSelectMenu(interaction) {
             return interaction.showModal(modal);
         }
     }
-if (action === 'assign_cocaptain_select') {
-    await interaction.deferUpdate();
-    const [tournamentShortId] = params;
-    const captainId = interaction.user.id;
-    const coCaptainId = interaction.values[0];
+    if (action === 'assign_cocaptain_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const captainId = interaction.user.id;
+        const coCaptainId = interaction.values[0];
 
-    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-    if (!tournament) return interaction.followUp({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.followUp({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
 
-    const team = tournament.teams.aprobados[captainId];
-    if (!team) return;
+        const team = tournament.teams.aprobados[captainId];
+        if (!team) return;
 
-    const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
-    if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
-        return interaction.followUp({ content: '❌ Esta persona ya participa como capitán o co-capitán.', flags: [MessageFlags.Ephemeral] });
+        const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
+        if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
+            return interaction.followUp({ content: '❌ Esta persona ya participa como capitán o co-capitán.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        try {
+            await addCoCaptain(client, tournament, captainId, coCaptainId);
+            const coCaptainUser = await client.users.fetch(coCaptainId);
+            const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
+            
+            await chatChannel.send(`🤝 ¡<@${coCaptainId}> ha sido asignado como co-capitán del equipo **${team.nombre}** por <@${captainId}>!`);
+            
+            await interaction.editReply({ content: `✅ **${coCaptainUser.tag}** ha sido asignado como co-capitán.`, components: [] });
+        } catch (error) {
+            console.error('Error al asignar co-capitán:', error);
+            await interaction.followUp({ content: 'Hubo un error al procesar la asignación.', flags: [MessageFlags.Ephemeral] });
+        }
+        return;
     }
-
-    try {
-        await addCoCaptain(client, tournament, captainId, coCaptainId);
-        const coCaptainUser = await client.users.fetch(coCaptainId);
-        const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
-        
-        await chatChannel.send(`🤝 ¡<@${coCaptainId}> ha sido asignado como co-capitán del equipo **${team.nombre}** por <@${captainId}>!`);
-        
-        await interaction.editReply({ content: `✅ **${coCaptainUser.tag}** ha sido asignado como co-capitán.`, components: [] });
-    } catch (error) {
-        console.error('Error al asignar co-capitán:', error);
-        await interaction.followUp({ content: 'Hubo un error al procesar la asignación.', flags: [MessageFlags.Ephemeral] });
-    }
-    return;
-}
     if (action === 'admin_create_roundtrip_select') {
-    const [formatId, type] = params;
-    const isRoundTrip = interaction.values[0]; // 'true' o 'false'
+        const [formatId, type] = params;
+        const isRoundTrip = interaction.values[0];
 
-    const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}:${isRoundTrip}`).setTitle('Finalizar Creación de Torneo');
-    const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-    const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
-    modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
-    
-    if (type === 'pago') {
-        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
-        const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
-        const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
-        modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizeInputCampeon), new ActionRowBuilder().addComponents(prizeInputFinalista));
+        const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}:${isRoundTrip}`).setTitle('Finalizar Creación de Torneo');
+        const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+        const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
+        modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
+        
+        if (type === 'pago') {
+            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
+            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizeInputCampeon), new ActionRowBuilder().addComponents(prizeInputFinalista));
+        }
+        await interaction.showModal(modal);
     }
-    await interaction.showModal(modal);
-}
 }
