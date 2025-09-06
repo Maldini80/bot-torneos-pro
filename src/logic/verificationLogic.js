@@ -233,13 +233,48 @@ export async function processProfileUpdate(interaction) {
 export async function approveProfileUpdate(interaction) {
     const [, userId, field, newValue] = interaction.customId.split(':');
     const db = getDb();
+    
+    // Actualiza el perfil verificado principal
     await db.collection('verified_users').updateOne({ discordId: userId }, { $set: { [field]: newValue } });
+
+    // --- INICIO DE LA LÓGICA DE SINCRONIZACIÓN ---
+    const activeDrafts = await db.collection('drafts').find({ 
+        "players.userId": userId,
+        status: { $nin: ['finalizado', 'torneo_generado', 'cancelado'] } 
+    }).toArray();
+
+    if (activeDrafts.length > 0) {
+        // Mapeamos los campos de 'verified_users' a los de 'drafts.players'
+        const fieldMap = {
+            gameId: 'psnId',
+            twitter: 'twitter',
+            whatsapp: 'whatsapp' // Añadimos el nuevo campo
+        };
+        const draftField = fieldMap[field];
+
+        if (draftField) {
+            // Actualizamos el dato en todos los drafts activos donde esté el jugador
+            await db.collection('drafts').updateMany(
+                { "players.userId": userId },
+                { $set: { [`players.$.${draftField}`]: newValue } }
+            );
+
+            // Notificamos las interfaces y el visualizador de cada draft afectado
+            for (const draft of activeDrafts) {
+                const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+                await updateDraftMainInterface(interaction.client, updatedDraft.shortId);
+                await notifyVisualizer(updatedDraft);
+            }
+        }
+    }
+    // --- FIN DE LA LÓGICA DE SINCRONIZACIÓN ---
+
     const user = await interaction.client.users.fetch(userId).catch(() => null);
     if (user) await user.send(`✅ Un administrador ha **aprobado** tu solicitud para cambiar tu \`${field}\`. Tu nuevo valor es ahora \`${newValue}\`.`);
     
     const embed = EmbedBuilder.from(interaction.message.embeds[0]).setColor('#2ecc71').setFooter({ text: `Aprobado por ${interaction.user.tag}` });
     await interaction.message.edit({ embeds: [embed], components: [] });
-    await interaction.reply({ content: 'Cambio aprobado.', ephemeral: true });
+    await interaction.reply({ content: 'Cambio aprobado y sincronizado con drafts activos.', ephemeral: true });
 }
 
 export async function rejectProfileUpdate(interaction) {
