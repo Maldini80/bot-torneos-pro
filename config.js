@@ -51,6 +51,7 @@ export const TOURNAMENT_FORMATS = {
         description: '2 grupos de 4. Los 2 primeros de cada grupo a semifinales.',
         description_en: '2 groups of 4. The top 2 from each group advance to semifinals.',
         size: 8, groups: 2, qualifiersPerGroup: 2, knockoutStages: ['semifinales', 'final']
+        roundTrip: true
     },
     '8_teams_final': {
         label: '8 Equipos (Nuevo - Final Directa)',
