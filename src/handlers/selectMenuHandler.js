@@ -820,26 +820,45 @@ if (action === 'draft_pick_by_position') {
         return;
     }
      if (action === 'verify_select_platform_manual') {
-        const platform = interaction.values[0];
-        const modal = new ModalBuilder()
-            .setCustomId(`verification_ticket_submit:${platform}`)
-            .setTitle('Verificación - Datos del Jugador');
+    const platform = interaction.values[0];
+    const modal = new ModalBuilder()
+        .setCustomId(`verification_ticket_submit:${platform}`)
+        .setTitle('Verificación - Datos del Jugador');
+    
+    const gameIdInput = new TextInputBuilder()
+        .setCustomId('game_id_input')
+        .setLabel(`Tu ID en ${platform.toUpperCase()}`)
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
         
-        const gameIdInput = new TextInputBuilder()
-            .setCustomId('game_id_input')
-            .setLabel(`Tu ID en ${platform.toUpperCase()}`)
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-            
-        const twitterInput = new TextInputBuilder()
-            .setCustomId('twitter_input')
-            .setLabel("Tu usuario de Twitter (sin @)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+    const twitterInput = new TextInputBuilder()
+        .setCustomId('twitter_input')
+        .setLabel("Tu usuario de Twitter (sin @)")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-        modal.addComponents(new ActionRowBuilder().addComponents(gameIdInput), new ActionRowBuilder().addComponents(twitterInput));
-        return interaction.showModal(modal);
-    }
+    // --- INICIO DE LA MODIFICACIÓN ---
+    const whatsappInput = new TextInputBuilder()
+        .setCustomId('whatsapp_input')
+        .setLabel("Tu WhatsApp (Ej: +34 123456789)")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+    const whatsappConfirmInput = new TextInputBuilder()
+        .setCustomId('whatsapp_confirm_input')
+        .setLabel("Confirma tu WhatsApp (Escríbelo de nuevo)")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+    // --- FIN DE LA MODIFICACIÓN ---
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(gameIdInput), 
+        new ActionRowBuilder().addComponents(twitterInput),
+        new ActionRowBuilder().addComponents(whatsappInput),       // <-- LÍNEA AÑADIDA
+        new ActionRowBuilder().addComponents(whatsappConfirmInput) // <-- LÍNEA AÑADIDA
+    );
+    return interaction.showModal(modal);
+}
 
     if (action === 'reject_verification_reason') {
         await interaction.deferUpdate();
