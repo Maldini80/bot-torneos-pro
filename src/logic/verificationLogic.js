@@ -1,5 +1,5 @@
 // --- INICIO DEL ARCHIVO verificationLogic.js (VERSIÓN FINAL Y COMPLETA) ---
-
+import { updateDraftMainInterface, notifyVisualizer } from './tournamentLogic.js';
 import { getDb } from '../../database.js';
 import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, MessageFlags } from 'discord.js';
 import { VERIFIED_ROLE_ID, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
