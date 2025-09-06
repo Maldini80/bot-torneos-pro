@@ -676,17 +676,19 @@ export async function handleModal(interaction) {
         return;
     }
 
-    if (action === 'create_tournament') {
+    if (action === 'create_tournament_final') { // El ID del modal ha cambiado
     await interaction.reply({ content: '⏳ Creando el torneo, por favor espera...', flags: [MessageFlags.Ephemeral] });
     
-    // Ahora recibimos 3 parámetros
-    const [formatId, type, matchType] = params;
+    const [formatId, type] = params;
+    
+    // Leemos los datos de los campos del modal
     const nombre = interaction.fields.getTextInputValue('torneo_nombre');
+    const startTime = interaction.fields.getTextInputValue('torneo_start_time');
+    const matchType = interaction.fields.getTextInputValue('torneo_match_type'); // Leemos el valor del select
+
     const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     
-    // Añadimos matchType a la configuración
-    const config = { formatId, isPaid: type === 'pago', matchType: matchType };
-    config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
+    const config = { formatId, isPaid: type === 'pago', matchType: matchType, startTime: startTime || null };
 
     if (config.isPaid) {
         config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
