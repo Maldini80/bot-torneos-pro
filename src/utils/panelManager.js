@@ -115,7 +115,6 @@ export async function setChannelIcon(client, channelId, icon) {
         } else if (channelId === CHANNELS.DRAFTS_STATUS) {
             baseName = '📢-drafts-inscripciones';
         } else {
-            // Si por alguna razón el ID no coincide, no hacemos nada para evitar romper otros canales.
             console.warn(`[WARN] Se intentó cambiar el icono de un canal no reconocido con ID: ${channelId}`);
             return;
         }
