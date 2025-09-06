@@ -101,16 +101,27 @@ export async function updateAllDraftManagementPanels(client, busyState) {
 
 export async function setChannelIcon(client, channelId, icon) {
     try {
-        // Ahora usa el ID que le pasamos
         const channel = await client.channels.fetch(channelId);
         if (!channel) {
             console.warn(`[WARN] No se pudo encontrar el canal con ID ${channelId} para renombrarlo.`);
             return;
         }
 
-        // Extraemos el nombre base sin el icono
-        const baseName = channel.name.replace(/^[^\s]+\s/g, '');
-        const newChannelName = `${icon} ${baseName}`;
+        let baseName;
+
+        // Identificamos cuál es el nombre base del canal, ignorando cualquier icono de estado previo.
+        if (channel.name.includes('torneos-inscripciones')) {
+            baseName = '📢-torneos-inscripciones';
+        } else if (channel.name.includes('drafts-inscripciones')) {
+            baseName = '📢-drafts-inscripciones';
+        } else {
+            // Si el nombre del canal es irreconocible, no hacemos nada para evitar romperlo.
+            console.warn(`[WARN] El canal ${channelId} tiene un nombre inesperado: "${channel.name}". No se puede actualizar el icono.`);
+            return;
+        }
+
+        // Reconstruimos el nombre completo desde cero: [NUEVO ICONO] + [NOMBRE BASE]
+        const newChannelName = `${icon}-${baseName}`;
 
         if (channel.name !== newChannelName) {
             await channel.setName(newChannelName.slice(0, 100));
