@@ -40,20 +40,6 @@
                     <button class="view-btn" data-view="teams-view">Equipos</button>
                 </nav>
                 <div id="main-view-content">
-                    <!-- --- NUEVA VISTA PARA EL SORTEO EN VIVO --- -->
-                    <div id="live-draw-view" class="view-pane">
-                        <h2 id="live-draw-title">Sorteo de Grupos en Vivo</h2>
-                        <div class="draw-container">
-                            <div class="draw-pot">
-                                <h3>Equipos por Sortear</h3>
-                                <div id="unpicked-teams-pot"></div>
-                            </div>
-                            <div class="draw-groups" id="live-draw-groups-container">
-                                <!-- Los grupos se generarán aquí -->
-                            </div>
-                        </div>
-                    </div>
-                    
                     <div id="classification-view" class="view-pane active">
                         <h2>Fase de Grupos</h2>
                         <div id="groups-container"></div>
@@ -87,7 +73,7 @@
                 <div id="live-matches-list"></div>
             </aside>
         </div>
-        <div id="roster-modal" class="hidden modal-overlay">
+        <div id="roster-modal" class="hidden">
             <div class="modal-content">
                 <span class="close-button">&times;</span>
                 <h3 id="modal-team-name"></h3>
@@ -159,36 +145,6 @@
     </div>
     
     <div id="pick-alert" class="hidden"><div id="pick-alert-content"></div></div>
-    
-    <!-- --- ESTRUCTURA MODAL DE DETALLES DEL JUGADOR --- -->
-    <div id="player-details-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <span class="close-button" id="modal-close-btn">&times;</span>
-            <h3 id="modal-player-name"></h3>
-            <div class="player-details-grid">
-                <div class="detail-item">
-                    <span class="detail-label">ID de Juego</span>
-                    <span class="detail-value" id="modal-player-psn"></span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Posición Primaria</span>
-                    <span class="detail-value" id="modal-player-pos1"></span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Posición Secundaria</span>
-                    <span class="detail-value" id="modal-player-pos2"></span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Twitter</span>
-                    <span class="detail-value" id="modal-player-twitter"></span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">WhatsApp</span>
-                    <span class="detail-value" id="modal-player-whatsapp"></span>
-                </div>
-            </div>
-        </div>
-    </div>
     
     <footer id="common-footer">
         Powered by VPG LIGHTNINGS
