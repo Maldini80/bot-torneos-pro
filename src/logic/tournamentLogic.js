@@ -1851,13 +1851,25 @@ export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKi
     }
 
     // Actualizamos al jugador: lo dejamos sin equipo Y quitamos la marca de "solicitud pendiente"
-    await db.collection('drafts').updateOne(
-        { _id: draft._id, "players.userId": playerIdToKick },
-        { 
-            $set: { "players.$.captainId": null },
-            $unset: { "players.$.kickRequestPending": "" } 
-        }
-    );
+    const playerExists = draft.players.some(p => p.userId === playerIdToKick && p.captainId === teamId);
+if (!playerExists) {
+    console.warn(`[KICK] Se intentó expulsar al jugador ${playerIdToKick} del equipo ${teamId}, pero ya no pertenecía a él.`);
+    // Si el jugador ya no está, no es necesario hacer nada más en la DB, pero sí actualizar las interfaces
+    const currentDraftState = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, currentDraftState.shortId);
+    await updatePublicMessages(client, currentDraftState);
+    await updateDraftManagementPanel(client, currentDraftState);
+    await notifyVisualizer(currentDraftState);
+    return;
+}
+
+// Usamos $pull para eliminar al jugador del array 'players' permanentemente para este draft.
+await db.collection('drafts').updateOne(
+    { _id: draft._id },
+    { 
+        $pull: { players: { userId: playerIdToKick } }
+    }
+);
 
     if (/^\d+$/.test(teamId)) {
         try {
