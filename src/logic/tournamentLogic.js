@@ -525,7 +525,9 @@ async function fullCleanupDraft(client, draft) {
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.warRoomVoiceChannelId);
 
     try {
-        const globalChannel = await client.channels.fetch(CHANNELS.TORNEOS_STATUS);
+        // --- CORRECCIÓN CLAVE ---
+        // Ahora busca en el canal correcto para los drafts
+        const globalChannel = await client.channels.fetch(CHANNELS.DRAFTS_STATUS);
         await deleteResourceSafe(globalChannel.messages.fetch.bind(globalChannel.messages), discordMessageIds.statusMessageId);
     } catch(e) {
         console.warn("No se pudo encontrar o borrar el mensaje de estado del draft.");
