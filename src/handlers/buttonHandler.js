@@ -671,27 +671,38 @@ if (action === 'admin_invite_replacement_start') {
 
     if (action === 'register_draft_captain' || action === 'register_draft_player') {
 
-		 const isVerified = await checkVerification(interaction.user.id);
+    // --- INICIO DE LA NUEVA LÓGICA DE BLOQUEO POR STRIKES ---
+    const playerRecord = await db.collection('player_records').findOne({ userId: interaction.user.id });
+
+    if (playerRecord && playerRecord.strikes >= 3) {
+        return interaction.reply({
+            content: `❌ **Inscripción Bloqueada:** Tienes ${playerRecord.strikes} strikes acumulados. No puedes participar en nuevos drafts hasta que tu caso sea revisado por un administrador.`,
+            flags: [MessageFlags.Ephemeral]
+        });
+    }
+    // --- FIN DE LA NUEVA LÓGICA DE BLOQUEO POR STRIKES ---
+
+    const isVerified = await checkVerification(interaction.user.id);
     if (!isVerified) {
         return interaction.reply({ content: '❌ Debes verificar tu cuenta primero usando el botón "Verificar Cuenta".', flags: [MessageFlags.Ephemeral] });
     }
-        const [draftShortId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
+    const [draftShortId] = params;
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
 
-        const userId = interaction.user.id;
-        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
-                                  (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
-                                  draft.players.some(p => p.userId === userId) ||
-                                  (draft.pendingPayments && draft.pendingPayments[userId]);
-        if (isAlreadyRegistered) {
-            return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
-        }
-        
-        const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, draftShortId);
-        await interaction.reply(ruleStepContent);
-        return;
+    const userId = interaction.user.id;
+    const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
+                              (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
+                              draft.players.some(p => p.userId === userId) ||
+                              (draft.pendingPayments && draft.pendingPayments[userId]);
+    if (isAlreadyRegistered) {
+        return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
     }
+    
+    const ruleStepContent = createRuleAcceptanceEmbed(1, 3, action, draftShortId);
+    await interaction.reply(ruleStepContent);
+    return;
+}
 
     if (action === 'draft_approve_captain' || action === 'draft_reject_captain') {
         await interaction.deferUpdate();
