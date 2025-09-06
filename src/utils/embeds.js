@@ -301,7 +301,12 @@ export function createDraftStatusEmbed(draft) {
         );
     }
 
-    return { embeds: [embed], components: [row] };
+    const components = [];
+if (row.components.length > 0) {
+    components.push(row);
+}
+
+return { embeds: [embed], components };
 }
 
 export function createDraftManagementPanel(draft, isBusy = false) {
