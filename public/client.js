@@ -428,25 +428,25 @@ function initializeDraftView(draftId) {
     }
 
     function renderHeader(draft) {
-        draftNameEl.textContent = draft.name;
-        if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
-            roundInfoEl.textContent = 'Selección Finalizada';
-            currentTeamEl.textContent = '---';
-            currentPickEl.textContent = '---';
-            roundPickOrderEl.innerHTML = '';
-        } else if (draft.status === 'seleccion' && draft.captains.length > 0 && draft.selection.order.length > 0) {
-            const numCaptains = draft.captains.length;
-            const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
-            const totalRounds = 11;
-            roundInfoEl.textContent = `Ronda ${currentRound} de ${totalRounds}`;
-            const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
-            currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
-            currentPickEl.textContent = draft.selection.currentPick;
-            renderRoundPickOrder(draft);
-        }
-        const isMyTeamManaged = currentUser && draft.captains.some(c => c.userId === currentUser.id);
-        manageTeamTab.style.display = (draft.status === 'finalizado' || draft.status === 'torneo_generado') && isMyTeamManaged ? 'inline-block' : 'none';
+    draftNameEl.textContent = draft.name;
+    if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
+        roundInfoEl.textContent = 'Selección Finalizada';
+        currentTeamEl.textContent = '---';
+        currentPickEl.textContent = '---';
+        roundPickOrderEl.innerHTML = '';
+    } else if (draft.status === 'seleccion' && draft.captains.length > 0 && draft.selection.order.length > 0) {
+        const numCaptains = draft.captains.length;
+        const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
+        const totalRounds = 10; // <-- VALOR CORREGIDO A 10
+        roundInfoEl.textContent = `Ronda ${currentRound} de ${totalRounds}`;
+        const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
+        currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
+        currentPickEl.textContent = draft.selection.currentPick;
+        renderRoundPickOrder(draft);
     }
+    const isMyTeamManaged = currentUser && draft.captains.some(c => c.userId === currentUser.id);
+    manageTeamTab.style.display = (draft.status === 'finalizado' || draft.status === 'torneo_generado') && isMyTeamManaged ? 'inline-block' : 'none';
+}
 
     function renderTeams(draft) {
         const teamsGrid = document.getElementById('teams-grid');
