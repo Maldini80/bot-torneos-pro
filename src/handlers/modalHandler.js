@@ -650,24 +650,22 @@ if (action === 'register_verified_draft_captain_modal') {
     if (action === 'create_tournament') {
     await interaction.reply({ content: '⏳ Creando el torneo, por favor espera...', flags: [MessageFlags.Ephemeral] });
     
-    const [formatId, type] = params;
+    const [formatId, type, isRoundTrip] = params;
     const nombre = interaction.fields.getTextInputValue('torneo_nombre');
     const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    const config = { formatId, isPaid: type === 'pago' };
-    config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
+    
+    const config = { 
+        formatId, 
+        isPaid: type === 'pago',
+        roundTrip: isRoundTrip === 'true' // Convertimos el string a booleano
+    };
 
+    config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
     if (config.isPaid) {
         config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
         config.enlacePaypal = PAYMENT_CONFIG.PAYPAL_EMAIL;
         config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
         config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
-    }
-
-    try {
-        const roundTripValue = interaction.fields.getTextInputValue('torneo_round_trip').toLowerCase();
-        config.roundTrip = roundTripValue.includes('vuelta');
-    } catch (e) {
-        config.roundTrip = false; // Valor por defecto si el campo no existe
     }
     
     const result = await createNewTournament(client, guild, nombre, shortId, config);
