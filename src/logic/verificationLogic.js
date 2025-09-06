@@ -239,6 +239,28 @@ export async function approveProfileUpdate(interaction) {
     
     const embed = EmbedBuilder.from(interaction.message.embeds[0]).setColor('#2ecc71').setFooter({ text: `Aprobado por ${interaction.user.tag}` });
     await interaction.message.edit({ embeds: [embed], components: [] });
+    if (field === 'gameId') {
+    const activeDrafts = await db.collection('drafts').find({ 
+        status: { $in: ['inscripcion', 'seleccion'] }, 
+        'players.userId': userId 
+    }).toArray();
+
+    for (const draft of activeDrafts) {
+        await db.collection('drafts').updateOne(
+            { _id: draft._id, 'players.userId': userId },
+            { $set: { 'players.$.psnId': newValue } }
+        );
+        await db.collection('drafts').updateOne(
+            { _id: draft._id, 'captains.userId': userId },
+            { $set: { 'captains.$.psnId': newValue } }
+        );
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        if (updatedDraft) {
+            await updateDraftMainInterface(interaction.client, updatedDraft.shortId);
+            await notifyVisualizer(updatedDraft);
+        }
+    }
+}
     await interaction.reply({ content: 'Cambio aprobado.', ephemeral: true });
 }
 
