@@ -1,4 +1,4 @@
-/* --- INICIO DEL ARCHIVO style.css (VERSIÓN FINAL CORREGIDA PARA MÓVILES) --- */
+/* --- INICIO DEL ARCHIVO style.css (VERSIÓN FINAL COMPLETA) --- */
 
 :root {
     --primary-color: #e62429;
@@ -23,7 +23,6 @@
 
 body {
     background-color: var(--background-color);
-    /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
     background-image: url('https://i.imgur.com/mxtcWwu.jpeg');
     background-size: cover;
     background-position: center;
@@ -41,13 +40,9 @@ body.draft-view-style #draft-container, body:not(.draft-view-style) #app-contain
 
 header {
     text-align: center; padding: 10px 0 15px 0; border-bottom: 2px solid var(--primary-color);
-    /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
-    background: 
-        linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), /* Capa oscura para legibilidad */
-        url('https://i.imgur.com/S8lm70s.jpeg'); /* Tu imagen de fondo */
-    background-size: cover; /* Asegura que la imagen cubra todo el espacio */
-    background-position: center; /* Centra la imagen */
-    
+    background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://i.imgur.com/S8lm70s.jpeg');
+    background-size: cover;
+    background-position: center;
     margin-bottom: 20px; position: relative; animation: neon-glow 1.5s infinite alternate; flex-shrink: 0;
 }
 .header-content { display: flex; align-items: center; justify-content: center; gap: 20px; }
@@ -98,6 +93,61 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 .view-btn { font-family: var(--font-bebas); font-size: 1.5em; padding: 10px 20px; border: none; background-color: transparent; color: #888; cursor: pointer; transition: color 0.2s, border-bottom 0.2s; border-bottom: 3px solid transparent; }
 .view-btn.active { color: var(--primary-color); border-bottom: 3px solid var(--primary-color); }
 .view-pane { display: none; } .view-pane.active { display: block; }
+
+/* === ESTILOS PARA EL SORTEO EN VIVO ("BOLAS CALIENTES") === */
+#live-draw-title { text-align: center; }
+.draw-container { display: grid; grid-template-columns: 1fr 3fr; gap: 30px; height: 100%; }
+.draw-pot { border: 2px solid var(--border-color); border-radius: 8px; padding: 15px; overflow-y: auto; }
+.draw-pot h3 { text-align: center; font-family: var(--font-bebas); color: var(--primary-color); margin-top: 0; }
+#unpicked-teams-pot { display: flex; flex-direction: column; gap: 8px; }
+.draw-team-item {
+    background-color: #2a2a2a; border-radius: 20px; padding: 8px 15px;
+    text-align: center; font-weight: bold;
+    transition: all 0.5s ease-in-out;
+}
+.draw-team-item.drawing {
+    background-color: var(--winner-color); color: #141414;
+    transform: scale(1.1); box-shadow: 0 0 15px var(--winner-color);
+    opacity: 1 !important;
+}
+.draw-team-item.drawn { opacity: 0; transform: scale(0.5) translateX(50px); }
+.draw-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+.draw-group-box { border: 2px solid var(--primary-color); border-radius: 8px; padding: 15px; background-color: rgba(0,0,0,0.2); }
+.draw-group-box h3 { text-align: center; font-family: var(--font-bebas); margin-top: 0; }
+.draw-group-box .team-list { display: flex; flex-direction: column; gap: 10px; }
+.draw-group-box .draw-team-item { opacity: 0; transform: translateY(20px); }
+.draw-group-box .draw-team-item.placed { opacity: 1; transform: translateY(0); }
+
+
+/* === ESTILOS PARA EL MODAL DE DETALLES DEL JUGADOR --- */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.modal-overlay:not(.hidden) { opacity: 1; pointer-events: auto; }
+.modal-overlay .modal-content {
+    background: #1f1f1f; border: 1px solid var(--border-color);
+    border-radius: 8px; padding: 30px; width: 90%; max-width: 600px;
+    position: relative;
+    transform: scale(0.95); transition: transform 0.3s;
+}
+.modal-overlay:not(.hidden) .modal-content { transform: scale(1); }
+.modal-overlay .modal-content h3 { font-family: var(--font-bebas); font-size: 2em; color: var(--primary-color); margin: 0 0 20px 0; text-align: center; }
+.modal-overlay .close-button {
+    position: absolute; top: 10px; right: 15px;
+    font-size: 2em; color: #888; cursor: pointer;
+    transition: color 0.2s;
+}
+.modal-overlay .close-button:hover { color: var(--text-color); }
+.player-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.detail-item { background-color: #2a2a2a; padding: 12px; border-radius: 5px; }
+.detail-label { display: block; font-size: 0.8em; color: #8899a6; text-transform: uppercase; margin-bottom: 5px; }
+.detail-value { font-size: 1.1em; font-weight: bold; word-break: break-all; }
+#modal-player-twitter a { color: #1DA1F2; text-decoration: none; }
+#modal-player-twitter a:hover { text-decoration: underline; }
 
 /* === ESTILOS UNIFICADOS PARA LOGOS === */
 .team-logo-small, .team-logo-large, .bracket-team-logo {
@@ -226,6 +276,13 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 .pick-btn { background-color: #2ecc71; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background-color 0.2s; width: 100%; box-sizing: border-box; }
 .pick-btn:hover { background-color: #27ae60; }
 .pick-btn:disabled { background-color: #555; cursor: not-allowed; }
+.details-btn {
+    background-color: #3498db; color: white; border: none;
+    padding: 8px 12px; border-radius: 4px; font-weight: bold;
+    cursor: pointer; transition: background-color 0.2s;
+    width: 100%; box-sizing: border-box; font-size: 0.9em;
+}
+.details-btn:hover { background-color: #2980b9; }
 #pick-alert { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
 #pick-alert.visible { opacity: 1; }
 #pick-alert-content { background-color: var(--surface-color); padding: 40px 60px; border-radius: 10px; text-align: center; border: 2px solid var(--winner-color); font-family: var(--font-bebas); animation: neon-glow 1.5s infinite alternate; }
@@ -249,8 +306,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 #position-filters { display: flex; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; }
 .filter-btn { background: #333; border: 1px solid #555; color: #ccc; padding: 8px 12px; border-radius: 20px; cursor: pointer; transition: all .2s; }
 .filter-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
-#filter-column-select { display: none; } /* Oculto por defecto, se maneja con botones */
-
+#filter-column-select { display: none; }
 
 /* --- RESPONSIVE --- */
 .mobile-view-switcher { display: none; }
@@ -262,176 +318,56 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
         min-height: 100vh;
     }
 
-    #app-container, #draft-container {
-        height: auto;
-    }
+    #app-container, #draft-container { height: auto; }
 
-    /* --- Corrección del Header --- */
-    .header-content {
-        flex-direction: column;
-        gap: 10px;
-    }
-    header h1 {
-        font-size: clamp(1.8em, 8vw, 2.5em);
-        word-break: break-word;
-    }
-    header p {
-        font-size: 1em;
-        word-break: break-word; /* También para subtítulos */
-    }
-    .header-logo {
-        height: 60px;
-    }
+    .header-content { flex-direction: column; gap: 10px; }
+    header h1 { font-size: clamp(1.8em, 8vw, 2.5em); word-break: break-word; }
+    header p { font-size: 1em; word-break: break-word; }
+    .header-logo { height: 60px; }
 
-    /* --- Corrección de Navegación --- */
-    .view-switcher {
-        display: none !important; /* Esconder la navegación de escritorio con más fuerza */
-    }
-    .mobile-view-switcher {
-        display: block;
-        margin: 15px 0;
-    }
+    .view-switcher { display: none !important; }
+    .mobile-view-switcher { display: block; margin: 15px 0; }
     #mobile-view-select {
-        width: 100%;
-        padding: 12px;
-        background-color: var(--surface-color);
-        color: var(--text-color);
-        border: 1px solid var(--border-color);
-        border-radius: 5px;
-        font-size: 1.2em;
-        font-family: var(--font-bebas);
-        -webkit-appearance: none;
-        appearance: none;
+        width: 100%; padding: 12px; background-color: var(--surface-color);
+        color: var(--text-color); border: 1px solid var(--border-color);
+        border-radius: 5px; font-size: 1.2em; font-family: var(--font-bebas);
+        -webkit-appearance: none; appearance: none;
         background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e62429%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
         background-repeat: no-repeat;
         background-position: right 1rem center;
         background-size: .8em;
     }
 
-    /* --- Corrección del Contenido Principal --- */
-    .main-content, .content-grid-draftview {
-        grid-template-columns: 1fr;
-        height: auto;
-    }
-    main#main-panel {
-        padding: 15px;
-    }
-    aside#live-match-sidebar, #teams-container-draftview {
-        order: 2;
-        margin-top: 20px;
-    }
-    #available-players-container-draftview {
-        order: 1;
-    }
-    #teams-grid {
-        grid-template-columns: 1fr;
-    }
+    .main-content, .content-grid-draftview { grid-template-columns: 1fr; height: auto; }
+    main#main-panel { padding: 15px; }
+    aside#live-match-sidebar, #teams-container-draftview { order: 2; margin-top: 20px; }
+    #available-players-container-draftview { order: 1; }
+    #teams-grid { grid-template-columns: 1fr; }
 
-    /* --- Corrección del Footer --- */
-    footer {
-        position: static;
-        margin-top: 20px;
-    }
+    footer { position: static; margin-top: 20px; }
     
-    /* --- Corrección para la tarjeta de estadísticas --- */
-    .team-stat-card {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-    .team-stats-grid {
-        width: 100%;
-        display: flex;
-        justify-content: space-around;
-    }
-    .stat-item {
-        width: auto;
-        flex: 1;
-    }
+    .team-stat-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .team-stats-grid { width: 100%; display: flex; justify-content: space-around; }
+    .stat-item { width: auto; flex: 1; }
 
-    /* --- Corrección para calendario y eliminatorias --- */
-    .calendar-match {
-        flex-direction: column;
-        gap: 10px;
-        text-align: center;
-    }
-    .calendar-match .team-info {
-        width: 100%;
-        justify-content: center;
-    }
-    .calendar-match .team-info.left, .calendar-match .team-info.right {
-        justify-content: center;
-    }
+    .calendar-match { flex-direction: column; gap: 10px; text-align: center; }
+    .calendar-match .team-info { width: 100%; justify-content: center; }
+    .calendar-match .team-info.left, .calendar-match .team-info.right { justify-content: center; }
+    .bracket-round { width: 250px; }
+
+    .players-table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: var(--primary-color) #1f1f1f; }
+    #players-table { min-width: 450px; width: 100%; border-collapse: collapse; }
+    #players-table thead { display: table-header-group; }
+    #players-table tr { display: table-row; width: auto; }
+    #players-table td { display: table-cell; padding: 8px 10px; border-top: 1px solid var(--border-color); font-size: 0.95em; vertical-align: middle; }
+    #players-table td:before { content: ""; display: none; }
     
-    .bracket-round {
-        width: 250px;
-    }
-
-   /* --- NUEVA CORRECCIÓN para tabla móvil con SCROLL HORIZONTAL --- */
-
-.players-table-container {
-    /* La magia sucede aquí: habilitamos el scroll horizontal */
-    overflow-x: auto;
-    /* Un pequeño detalle visual para indicar que se puede hacer scroll */
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: var(--primary-color) #1f1f1f;
-}
-
-#players-table {
-    /* Hacemos que la tabla ocupe un ancho mínimo, 
-       forzando el scroll si la pantalla es más pequeña */
-    min-width: 450px; 
-    width: 100%;
-    border-collapse: collapse;
-}
-
-#players-table thead {
-    /* Mantenemos las cabeceras visibles en la versión con scroll */
-    display: table-header-group;
-}
-
-#players-table tr, #players-table td {
-    /* Reseteamos los estilos de "bloque" para que se comporte como tabla */
-    display: table-row;
-    width: auto;
-}
-
-#players-table td {
-    display: table-cell; /* Volvemos a la normalidad */
-    padding: 8px 10px;
-    border-top: 1px solid var(--border-color);
-    font-size: 0.95em;
-    vertical-align: middle;
-}
-
-#players-table td:before {
-    /* Ocultamos las etiquetas "data-label" ya que las cabeceras son visibles */
-    content: "";
-    display: none;
-}
-/* ----------------------------------------------------------------- */
-    .pick-btn {
-        padding: 12px;
-        font-size: 1.1em;
-    }
-    .player-management-card {
-        grid-template-columns: 1fr;
-    }
-    .draft-view-btn {
-        font-size: 1.2em;
-        padding: 8px 15px;
-    }
-    /* --- Corrección para el texto cortado en la tabla móvil --- */
-#players-table td:before {
-    flex-shrink: 0; /* Evita que la etiqueta se encoja */
-    margin-right: 15px; /* Añade un poco de espacio */
-}
-.player-data {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis; /* Añade "..." al texto largo */
-    display: block; /* Asegura que ocupe el espacio disponible */
-}
-/* ----------------------------------------------------------- */
+    .pick-btn, .details-btn { padding: 12px; font-size: 1.1em; }
+    .player-management-card { grid-template-columns: 1fr; }
+    .draft-view-btn { font-size: 1.2em; padding: 8px 15px; }
+    
+    .player-data { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .player-details-grid { grid-template-columns: 1fr; }
+    .draw-container { grid-template-columns: 1fr; }
+    .draw-pot { max-height: 200px; }
 }
