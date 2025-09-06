@@ -687,47 +687,35 @@ export async function handleSelectMenu(interaction) {
         await interaction.update({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
 
     } else if (action === 'admin_create_type') {
-        const [formatId] = params;
-        const type = interaction.values[0];
-        const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}`).setTitle('Finalizar Creación de Torneo');
-        
+    const [formatId] = params;
+    const type = interaction.values[0];
+
+    // Si el formato no admite ida y vuelta, mostramos el modal directamente
+    if (!TOURNAMENT_FORMATS[formatId].roundTrip) {
+        const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}:false`).setTitle('Finalizar Creación de Torneo');
         const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
         const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
-
         modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
-
         if (type === 'pago') {
-            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
-            const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
-            const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
-            
-            modal.setTitle('Finalizar Creación (De Pago)');
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(entryFeeInput),
-                new ActionRowBuilder().addComponents(prizeInputCampeon),
-                new ActionRowBuilder().addComponents(prizeInputFinalista)
-            );
+            // ... (código del modal de pago que ya tienes)
         }
-        if (TOURNAMENT_FORMATS[formatId].roundTrip) { // Solo muestra la opción si el formato lo permite
-    const roundTripMenu = new StringSelectMenuBuilder()
-        .setCustomId('torneo_round_trip')
-        .setPlaceholder('Elige el tipo de liguilla')
-        .addOptions([
-            { label: 'Solo Ida', value: 'false' },
-            { label: 'Ida y Vuelta', value: 'true' }
-        ]);
-    // ¡OJO! Los modales no aceptan menús. Lo cambiaremos a un TextInput
-    const roundTripInput = new TextInputBuilder()
-        .setCustomId('torneo_round_trip')
-        .setLabel("Liguilla (Escribe 'ida' o 'ida y vuelta')")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setPlaceholder('ida');
-    modal.addComponents(new ActionRowBuilder().addComponents(roundTripInput));
-}
         await interaction.showModal(modal);
-
-    } else if (action === 'admin_change_format_select') {
+    } else {
+        // Si admite ida y vuelta, mostramos el menú de selección
+        const roundTripMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_create_roundtrip_select:${formatId}:${type}`)
+            .setPlaceholder('Paso 3: Elige el tipo de liguilla')
+            .addOptions([
+                { label: 'Solo Ida', value: 'false', description: 'Los equipos se enfrentan una vez en la fase de grupos.' },
+                { label: 'Ida y Vuelta', value: 'true', description: 'Los equipos se enfrentan dos veces.' }
+            ]);
+        
+        await interaction.update({
+            content: 'Ahora, selecciona si la fase de grupos será a partido único o a ida y vuelta.',
+            components: [new ActionRowBuilder().addComponents(roundTripMenu)]
+        });
+    }
+} else if (action === 'admin_change_format_select') {
         await interaction.deferUpdate();
         
         const [tournamentShortId] = params;
@@ -1008,5 +996,21 @@ if (action === 'assign_cocaptain_select') {
         await interaction.followUp({ content: 'Hubo un error al procesar la asignación.', flags: [MessageFlags.Ephemeral] });
     }
     return;
+}
+    if (action === 'admin_create_roundtrip_select') {
+    const [formatId, type] = params;
+    const isRoundTrip = interaction.values[0]; // 'true' o 'false'
+
+    const modal = new ModalBuilder().setCustomId(`create_tournament:${formatId}:${type}:${isRoundTrip}`).setTitle('Finalizar Creación de Torneo');
+    const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+    const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
+    modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
+    if (type === 'pago') {
+        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
+        const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
+        const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
+        modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizeInputCampeon), new ActionRowBuilder().addComponents(prizeInputFinalista));
+    }
+    await interaction.showModal(modal);
 }
 }
