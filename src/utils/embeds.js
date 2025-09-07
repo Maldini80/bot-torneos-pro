@@ -515,12 +515,22 @@ export function createCaptainControlPanel(draft) {
     }
 
     if (draft.status === 'torneo_generado') {
-        embed.setDescription('**El torneo ha sido generado.**\nUsa el botón de abajo para gestionar tu plantilla (hacer cambios, reportar jugadores, etc.).');
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`captain_manage_roster_start:${draft.shortId}`).setLabel('Gestionar Plantilla').setStyle(ButtonStyle.Primary).setEmoji('📋')
-        );
-        return { embeds: [embed], components: [row] };
-    }
+    embed.setDescription('**El torneo ha sido generado.**\nUsa los botones de abajo para gestionar tu plantilla o consultar jugadores libres.');
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`captain_manage_roster_start:${draft.shortId}`)
+            .setLabel('Gestionar Mi Plantilla')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('📋'),
+        // --- BOTÓN NUEVO ---
+        new ButtonBuilder()
+            .setCustomId(`captain_view_free_agents:${draft.shortId}`)
+            .setLabel('Ver Agentes Libres')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🔎')
+    );
+    return { embeds: [embed], components: [row] };
+}
 
     embed.setDescription('Este panel de control está inactivo.');
     return { embeds: [embed], components: [] };
@@ -547,54 +557,75 @@ export function createTeamRosterManagementEmbed(team, players, draftShortId) {
     return { embeds: [embed], components: [new ActionRowBuilder().addComponents(selectMenu)], flags: [MessageFlags.Ephemeral] };
 }
 
-export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin) {
+export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin, mode = 'manage') {
     const db = getDb();
+    const verifiedData = await db.collection('verified_users').findOne({ discordId: player.userId });
     let playerRecord = await db.collection('player_records').findOne({ userId: player.userId });
     if (!playerRecord) playerRecord = { userId: player.userId, strikes: 0, history: [] };
 
     const embed = new EmbedBuilder()
         .setColor('#3498db')
-        .setTitle(`${player.isCaptain ? '👑' : '👤'} ${player.psnId}`)
-        .addFields(
-            { name: 'Discord', value: `<@${player.userId}>`, inline: true },
-            { name: 'Posición Primaria', value: DRAFT_POSITIONS[player.primaryPosition], inline: true },
-            { name: 'Posición Secundaria', value: player.secondaryPosition === 'NONE' ? 'Ninguna' : DRAFT_POSITIONS[player.secondaryPosition], inline: true },
-            { name: 'Twitter', value: player.twitter ? `[@${player.twitter}](https://twitter.com/${player.twitter})` : 'No proporcionado', inline: true },
-            { name: 'Strikes Actuales', value: `\`${playerRecord.strikes}\``, inline: true }
+        .setTitle(`ℹ️ Ficha de Datos: ${player.psnId}`)
+        .setAuthor({ name: player.userName })
+        .setThumbnail(await client.users.fetch(player.userId).then(u => u.displayAvatarURL()).catch(() => null));
+
+    // Sección de Datos Verificados
+    if (verifiedData) {
+        embed.addFields(
+            { name: '📋 Datos de Verificación', value: '\u200B' },
+            { name: 'ID de Juego', value: `\`${verifiedData.gameId}\``, inline: true },
+            { name: 'Twitter', value: verifiedData.twitter ? `\`${verifiedData.twitter}\`` : '`No registrado`', inline: true },
+            { name: 'WhatsApp', value: `\`${verifiedData.whatsapp || 'No registrado'}\``, inline: true }
         );
+    } else {
+        embed.addFields({ name: '📋 Datos de Verificación', value: 'Este usuario no está verificado.' });
+    }
+
+    // Sección de Datos del Draft Actual
+    const captain = player.captainId ? draft.captains.find(c => c.userId === player.captainId) : null;
+    embed.addFields(
+        { name: '📝 Datos del Draft Actual', value: '\u200B' },
+        { name: 'Posición Primaria', value: `\`${player.primaryPosition}\``, inline: true },
+        { name: 'Posición Secundaria', value: `\`${player.secondaryPosition === 'NONE' ? 'N/A' : player.secondaryPosition}\``, inline: true },
+        { name: 'Equipo (Club)', value: `\`${player.currentTeam || 'N/A'}\``, inline: true },
+        { name: 'Fichado por (Draft)', value: captain ? `\`${captain.teamName}\`` : '`Agente Libre`', inline: true },
+        { name: 'Strikes Acumulados', value: `\`${playerRecord.strikes}\``, inline: true }
+    );
 
     const components = [];
-    const row1 = new ActionRowBuilder();
-    row1.addComponents(
-        new ButtonBuilder().setCustomId(`captain_dm_player:${player.userId}`).setLabel('Enviar MD').setStyle(ButtonStyle.Secondary).setEmoji('✉️')
-    );
-
-    if (!player.isCaptain) {
+    // Solo mostramos botones de acción si estamos en modo "gestión"
+    if (mode === 'manage') {
+        const row1 = new ActionRowBuilder();
         row1.addComponents(
-            new ButtonBuilder().setCustomId(`captain_request_kick:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Expulsar Jugador').setStyle(ButtonStyle.Danger).setEmoji('🚫')
+            new ButtonBuilder().setCustomId(`captain_dm_player:${player.userId}`).setLabel('Enviar MD').setStyle(ButtonStyle.Secondary).setEmoji('✉️')
         );
-    }
-    
-    row1.addComponents(
-        new ButtonBuilder().setCustomId(`captain_report_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Reportar Jugador (Strike)').setStyle(ButtonStyle.Danger).setEmoji('⚠️')
-    );
-    
-    components.push(row1);
 
-    if (isAdmin) {
-        const adminRow = new ActionRowBuilder();
-        adminRow.addComponents(
-            new ButtonBuilder().setCustomId(`admin_remove_strike:${player.userId}`).setLabel('Quitar Strike').setStyle(ButtonStyle.Success).setEmoji('✅').setDisabled(playerRecord.strikes === 0),
-            new ButtonBuilder().setCustomId(`admin_pardon_player:${player.userId}`).setLabel('Perdonar (Quitar todos)').setStyle(ButtonStyle.Success).setEmoji('♻️').setDisabled(playerRecord.strikes === 0)
-        );
         if (!player.isCaptain) {
-             adminRow.addComponents(
-                new ButtonBuilder().setCustomId(`admin_force_kick_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Forzar Expulsión').setStyle(ButtonStyle.Danger),
-                // AÑADE ESTE BOTÓN
-                new ButtonBuilder().setCustomId(`admin_invite_replacement_start:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Invitar Reemplazo').setStyle(ButtonStyle.Primary).setEmoji('🔄')
+            row1.addComponents(
+                new ButtonBuilder().setCustomId(`captain_request_kick:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Solicitar Expulsión').setStyle(ButtonStyle.Danger).setEmoji('🚫')
             );
         }
-        components.push(adminRow);
+        
+        row1.addComponents(
+            new ButtonBuilder().setCustomId(`captain_report_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Reportar (Strike)').setStyle(ButtonStyle.Danger).setEmoji('⚠️')
+        );
+        
+        components.push(row1);
+
+        if (isAdmin) {
+            const adminRow = new ActionRowBuilder();
+            adminRow.addComponents(
+                new ButtonBuilder().setCustomId(`admin_remove_strike:${player.userId}`).setLabel('Quitar Strike').setStyle(ButtonStyle.Success).setEmoji('✅').setDisabled(playerRecord.strikes === 0),
+                new ButtonBuilder().setCustomId(`admin_pardon_player:${player.userId}`).setLabel('Perdonar (Quitar todos)').setStyle(ButtonStyle.Success).setEmoji('♻️').setDisabled(playerRecord.strikes === 0)
+            );
+            if (!player.isCaptain) {
+                 adminRow.addComponents(
+                    new ButtonBuilder().setCustomId(`admin_force_kick_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Forzar Expulsión').setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder().setCustomId(`admin_invite_replacement_start:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Invitar Reemplazo').setStyle(ButtonStyle.Primary).setEmoji('🔄')
+                );
+            }
+            components.push(adminRow);
+        }
     }
 
     return { embeds: [embed], components, flags: [MessageFlags.Ephemeral] };
