@@ -676,12 +676,14 @@ export async function handleModal(interaction) {
         return;
     }
 
-    if (action === 'create_tournament') {
-    await interaction.reply({ content: '⏳ Creando el torneo, por favor espera...', flags: [MessageFlags.Ephemeral] });
+if (action === 'create_tournament') {
+    // 1. Respondemos INMEDIATAMENTE para evitar el timeout.
+    await interaction.reply({ 
+        content: '⏳ ¡Recibido! Creando el torneo en segundo plano. Esto puede tardar unos segundos...', 
+        flags: [MessageFlags.Ephemeral] 
+    });
     
-    // Leemos los 3 parámetros que ahora vienen en el customId del modal
     const [formatId, type, matchType] = params;
-    
     const nombre = interaction.fields.getTextInputValue('torneo_nombre');
     const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     
@@ -695,13 +697,20 @@ export async function handleModal(interaction) {
         config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
     }
     
-    const result = await createNewTournament(client, guild, nombre, shortId, config);
+    // 2. AHORA, hacemos el trabajo lento sin prisa.
+    try {
+        const result = await createNewTournament(client, guild, nombre, shortId, config);
 
-    if (result.success) {
-        await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
-    } else {
-        console.error("Error capturado por el handler al crear el torneo:", result.message);
-        await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo: ${result.message}` });
+        // 3. Cuando termina, editamos nuestra respuesta inicial.
+        if (result.success) {
+            await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
+        } else {
+            console.error("Error capturado por el handler al crear el torneo:", result.message);
+            await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo: ${result.message}` });
+        }
+    } catch (error) {
+        console.error("Error CRÍTICO durante la creación del torneo:", error);
+        await interaction.editReply({ content: `❌ Ocurrió un error muy grave al crear el torneo. Revisa los logs.` });
     }
     return;
 }
