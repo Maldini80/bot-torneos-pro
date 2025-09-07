@@ -28,52 +28,37 @@ export async function finalizeMatchThread(client, partido, resultString) {
 
 export async function processMatchResult(client, guild, tournament, matchId, resultString) {
     const db = getDb();
-    // Leemos el estado inicial del torneo
     let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
     const { partido, fase } = findMatch(currentTournament, matchId);
     if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
 
-    // Si el partido ya tenía resultado, lo revertimos
     if (partido.resultado) {
         await revertStats(currentTournament, partido);
     }
     
-    // Aplicamos el nuevo resultado
     partido.resultado = resultString;
     partido.status = 'finalizado';
 
-    // Actualizamos el nombre del hilo
     await updateMatchThreadName(client, partido);
     
     if (fase === 'grupos') {
         await updateGroupStageStats(currentTournament, partido);
-        // Guardamos las estadísticas actualizadas
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
         
-        // Releemos el torneo DESPUÉS de actualizar las stats, por si acaso
-        currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await checkAndCreateNextRoundThreads(client, guild, currentTournament, partido);
+        let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
         
-        // Releemos OTRA VEZ, porque la función anterior puede haber hecho cambios
-        currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await checkForGroupStageAdvancement(client, guild, currentTournament);
+        updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats);
 
-    } else { // Si es una fase eliminatoria
-        // Guardamos el resultado del partido de eliminatoria
+    } else {
         await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
-        
-        // Releemos el torneo DESPUÉS de guardar el resultado
-        currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await checkForKnockoutAdvancement(client, guild, currentTournament);
+        let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats);
     }
     
-    // --- LA LÍNEA MÁS IMPORTANTE ---
-    // Justo antes de actualizar cualquier cosa pública, hacemos una LECTURA FINAL
-    // para asegurarnos de tener la versión más fresca y completa de la base de datos.
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
-
-    // Ahora, actualizamos todas las interfaces con los datos 100% correctos
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
     await notifyTournamentVisualizer(finalTournamentState);
@@ -165,6 +150,8 @@ async function updateGroupStageStats(tournament, partido) {
     }
 }
 
+// --- REEMPLAZA LA FUNCIÓN checkForGroupStageAdvancement ENTERA CON ESTA VERSIÓN ---
+
 async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allGroupMatches = Object.values(tournament.structure.calendario).flat();
     if (allGroupMatches.length === 0 || tournament.status !== 'fase_de_grupos') return;
@@ -172,8 +159,17 @@ async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
     if (allFinished) {
         console.log(`[ADVANCEMENT] Fase de grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
+        
         postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
+
         await startNextKnockoutRound(client, guild, tournament);
+
+        const finalTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
+        
+        await updatePublicMessages(client, finalTournamentState);
+        await updateTournamentManagementThread(client, finalTournamentState);
+        await notifyTournamentVisualizer(finalTournamentState);
+
     }
 }
 
