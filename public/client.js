@@ -473,47 +473,56 @@ function initializeDraftView(draftId) {
         teamsGrid.innerHTML = allTeamsHtml;
     }
 
-    function renderAvailablePlayers(draft) {
-        playersTableBodyEl.innerHTML = '';
-        const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
-        const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
+function renderAvailablePlayers(draft) {
+    playersTableBodyEl.innerHTML = '';
+    const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
+    const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
+    
+    // --- NUEVA LÓGICA DE VISIBILIDAD DE DETALLES ---
+    const canViewDetails = currentUser && (draft.status === 'finalizado' || draft.status === 'torneo_generado');
 
-        const filterSelect = document.getElementById('filter-column-select');
-        if (filterSelect) {
-            filterSelect.style.display = isMyTurn ? 'none' : 'inline-block';
-        }
-        const legendEl = document.querySelector('#available-players-container-draftview .legend');
-        if (legendEl) {
-            legendEl.style.display = isMyTurn ? 'none' : 'block';
-        }
-
-        let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false);
-        
-        availablePlayers.sort(sortPlayersAdvanced);
-
-        availablePlayers.forEach(player => {
-            const row = document.createElement('tr');
-            row.dataset.primaryPos = player.primaryPosition;
-            row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
-
-            const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
-            const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-            const actionButton = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
-            const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
-            
-            row.innerHTML = `
-    <td data-label="Strikes"><span class="player-data">${player.strikes || 0}</span></td>
-    <td data-label="NOMBRE"><span class="player-data">${statusIcon} ${player.psnId}</span></td>
-    <td data-label="Pos. Primaria" class="col-primary"><span class="player-data">${player.primaryPosition}</span></td>
-    <td data-label="Pos. Secundaria" class="col-secondary"><span class="player-data">${secPos}</span></td>
-    <td data-label="Acción" class="col-action"><span class="player-data">${actionButton}</span></td>
-`;
-            playersTableBodyEl.appendChild(row);
-        });
-
-        applyTableFilters();
+    const filterSelect = document.getElementById('filter-column-select');
+    if (filterSelect) {
+        filterSelect.style.display = isMyTurn ? 'none' : 'inline-block';
+    }
+    const legendEl = document.querySelector('#available-players-container-draftview .legend');
+    if (legendEl) {
+        legendEl.style.display = isMyTurn ? 'none' : 'block';
     }
 
+    let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false);
+    
+    availablePlayers.sort(sortPlayersAdvanced);
+
+    availablePlayers.forEach(player => {
+        const row = document.createElement('tr');
+        row.dataset.primaryPos = player.primaryPosition;
+        row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
+
+        const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
+        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+        
+        let actionButtonsHTML = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
+        
+        // Si se cumplen las condiciones, añadimos el botón de ver detalles
+        if (canViewDetails) {
+            actionButtonsHTML += `<button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>`;
+        }
+
+        const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
+        
+        row.innerHTML = `
+            <td data-label="Strikes"><span class="player-data">${player.strikes || 0}</span></td>
+            <td data-label="NOMBRE"><span class="player-data">${statusIcon} ${player.psnId}</span></td>
+            <td data-label="Pos. Primaria" class="col-primary"><span class="player-data">${player.primaryPosition}</span></td>
+            <td data-label="Pos. Secundaria" class="col-secondary"><span class="player-data">${secPos}</span></td>
+            <td data-label="Acción" class="col-action">${actionButtonsHTML}</td>
+        `;
+        playersTableBodyEl.appendChild(row);
+    });
+
+    applyTableFilters();
+}
     function applyTableFilters() {
         const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
         const filterColumn = document.getElementById('filter-column-select').value;
@@ -616,6 +625,25 @@ function initializeDraftView(draftId) {
     }
 }
         });
+// Evento para el nuevo botón de detalles
+    document.body.addEventListener('click', (event) => {
+        if (event.target.classList.contains('details-btn')) {
+            const playerId = event.target.dataset.playerId;
+            const draftId = event.target.dataset.draftId;
+            showPlayerDetailsModal(draftId, playerId);
+        }
+    });
+
+    // Lógica para cerrar el nuevo modal
+    const detailsModal = document.getElementById('player-details-modal');
+    const closeDetailsButton = detailsModal.querySelector('.close-button');
+    
+    closeDetailsButton.addEventListener('click', () => detailsModal.classList.add('hidden'));
+    detailsModal.addEventListener('click', (event) => {
+        if (event.target === detailsModal) {
+            detailsModal.classList.add('hidden');
+        }
+    });
     }
 
     function setupFilters() {
@@ -639,8 +667,8 @@ function initializeDraftView(draftId) {
             positionFiltersEl.appendChild(btn);
         });
     }
-    
-    function renderTeamManagementView(draft) {
+
+function renderTeamManagementView(draft) {
     const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
     if (!myCaptainData) {
         rosterManagementContainer.innerHTML = '';
@@ -655,15 +683,12 @@ function initializeDraftView(draftId) {
         card.className = 'player-management-card';
         const strikes = player.strikes || 0;
         
-        // Leemos el estado del jugador desde los datos que nos llegan del servidor
         const hasBeenReported = player.hasBeenReportedByCaptain || false;
         const kickRequestPending = player.kickRequestPending || false;
         
-        // Decidimos qué texto mostrar en los botones basándonos en el estado
         const reportButtonText = hasBeenReported ? 'Reportado' : 'Reportar (Strike)';
         const kickButtonText = kickRequestPending ? 'Solicitud Pendiente' : 'Solicitar Expulsión';
 
-        // Construimos la tarjeta del jugador con los botones y textos correctos
         card.innerHTML = `
             <div class="player-management-info">
                 <h3>${player.psnId}</h3>
@@ -677,12 +702,13 @@ function initializeDraftView(draftId) {
                 <button class="btn-kick" data-player-id="${player.userId}" ${kickRequestPending ? 'disabled' : ''}>
                     ${kickButtonText}
                 </button>
+                <!-- BOTÓN NUEVO AÑADIDO AQUÍ -->
+                <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>
             </div>
         `;
         rosterManagementContainer.appendChild(card);
     });
 }
-
     function sortPlayersAdvanced(a, b) {
         const posIndexA = positionOrder.indexOf(a.primaryPosition);
         const posIndexB = positionOrder.indexOf(b.primaryPosition);
@@ -734,6 +760,38 @@ function initializeDraftView(draftId) {
         const bannerEl = document.getElementById('last-pick-banner');
         bannerEl.innerHTML = `<strong>Último Pick:</strong> ${player.psnId} ➔ ${captain.teamName}`;
         bannerEl.classList.add('visible');
+    }
+async function showPlayerDetailsModal(draftId, playerId) {
+        const modal = document.getElementById('player-details-modal');
+        const modalPlayerName = document.getElementById('modal-player-name');
+        const modalContent = document.getElementById('modal-player-details-content');
+
+        modalPlayerName.textContent = 'Cargando...';
+        modalContent.innerHTML = '<p>Obteniendo datos del jugador...</p>';
+        modal.classList.remove('hidden');
+
+        try {
+            const response = await fetch(`/api/player-details/${draftId}/${playerId}`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'No se pudieron obtener los detalles.');
+            }
+            const data = await response.json();
+
+            modalPlayerName.textContent = `Ficha de: ${data.psnId}`;
+            modalContent.innerHTML = `
+                <p><span class="detail-label">Discord:</span> <span class="detail-value">${data.discordTag}</span></p>
+                <p><span class="detail-label">ID de Juego:</span> <span class="detail-value">${data.psnId}</span></p>
+                <p><span class="detail-label">Pos. Primaria:</span> <span class="detail-value">${data.primaryPosition}</span></p>
+                <p><span class="detail-label">Pos. Secundaria:</span> <span class="detail-value">${data.secondaryPosition}</span></p>
+                <p><span class="detail-label">WhatsApp:</span> <span class="detail-value">${data.whatsapp || 'No registrado'}</span></p>
+                <p><span class="detail-label">Twitter:</span> <span class="detail-value">${data.twitter || 'No registrado'}</span></p>
+                <p><span class="detail-label">Strikes:</span> <span class="detail-value">${data.strikes}</span></p>
+            `;
+        } catch (error) {
+            modalPlayerName.textContent = 'Error';
+            modalContent.innerHTML = `<p style="color: var(--primary-color);">${error.message}</p>`;
+        }
     }
 
     initialize();
