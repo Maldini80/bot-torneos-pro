@@ -435,3 +435,76 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
 }
 /* ----------------------------------------------------------- */
 }
+.details-btn {
+    background-color: #3498db; /* Un azul para indicar información */
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 5px; /* Espacio extra */
+}
+
+.details-btn:hover {
+    background-color: #2980b9;
+}
+
+/* Estilos para la ventana emergente de detalles del jugador */
+.modal {
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#player-details-modal .modal-content {
+    background-color: #1a1a1a;
+    margin: auto;
+    padding: 25px;
+    border: 1px solid var(--primary-color);
+    width: 90%;
+    max-width: 500px;
+    border-radius: 8px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+}
+
+#modal-player-name {
+    font-family: var(--font-bebas);
+    font-size: 2em;
+    color: var(--primary-color);
+    margin-top: 0;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+#modal-player-details-content p {
+    margin: 8px 0;
+    font-size: 1.1em;
+    line-height: 1.6;
+}
+
+#modal-player-details-content .detail-label {
+    color: #888;
+    font-weight: bold;
+}
+
+#modal-player-details-content .detail-value {
+    color: #f1f1f1;
+    background-color: #2c2c2c;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+}
