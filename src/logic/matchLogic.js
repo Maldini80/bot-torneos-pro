@@ -66,47 +66,55 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     return partido;
 }
 
+
 export async function simulateAllPendingMatches(client, tournamentShortId) {
     const db = getDb();
-    let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-    if (!tournament) throw new Error('Torneo no encontrado para simulación');
+    let initialTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!initialTournament) throw new Error('Torneo no encontrado para simulación');
 
-    const guild = await client.guilds.fetch(tournament.guildId);
+    const guild = await client.guilds.fetch(initialTournament.guildId);
     
-    let allMatches = [];
-    if (tournament.structure.calendario) {
-        allMatches.push(...Object.values(tournament.structure.calendario).flat());
+    // Creamos una lista estática de partidos a simular al principio
+    let allMatchesToSimulate = [];
+    if (initialTournament.structure.calendario) {
+        allMatchesToSimulate.push(...Object.values(initialTournament.structure.calendario).flat());
     }
-    if (tournament.structure.eliminatorias) {
-        for (const stageKey in tournament.structure.eliminatorias) {
+    if (initialTournament.structure.eliminatorias) {
+        for (const stageKey in initialTournament.structure.eliminatorias) {
             if (stageKey === 'rondaActual') continue;
-            const stageData = tournament.structure.eliminatorias[stageKey];
-            if (Array.isArray(stageData)) {
-                allMatches.push(...stageData);
-            } else if (stageData && typeof stageData === 'object' && stageData.matchId) {
-                allMatches.push(stageData);
-            }
+            const stageData = initialTournament.structure.eliminatorias[stageKey];
+            if (Array.isArray(stageData)) allMatchesToSimulate.push(...stageData);
+            else if (stageData && typeof stageData === 'object' && stageData.matchId) allMatchesToSimulate.push(stageData);
         }
     }
     
-    const pendingMatches = allMatches.filter(p => p && (p.status === 'pendiente' || p.status === 'en_curso'));
+    const pendingMatches = allMatchesToSimulate.filter(p => p && (p.status === 'pendiente' || p.status === 'en_curso'));
 
     if (pendingMatches.length === 0) {
         return { message: 'No hay partidos pendientes para simular.' };
     }
 
+    let simulatedCount = 0;
     for (const match of pendingMatches) {
+        // ¡COMPROBACIÓN DE SEGURIDAD!
+        // Antes de procesar cada partido, volvemos a leer el estado actual del torneo.
+        let currentTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        // Si el torneo ha sido finalizado (por un partido anterior en este mismo bucle), nos detenemos.
+        if (!currentTournamentState || currentTournamentState.status === 'finalizado') {
+            console.log(`[SIMULATION] Simulación detenida porque el torneo ${tournamentShortId} ha finalizado.`);
+            break;
+        }
+
         const golesA = Math.floor(Math.random() * 5);
         const golesB = Math.floor(Math.random() * 5);
         const resultString = `${golesA}-${golesB}`;
         
-        let currentTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         await processMatchResult(client, guild, currentTournamentState, match.matchId, resultString);
+        simulatedCount++;
     }
     
-    return { message: `Se han simulado con éxito ${pendingMatches.length} partidos.`};
+    return { message: `Se han simulado con éxito ${simulatedCount} partidos.`};
 }
-
 export function findMatch(tournament, matchId) {
     for (const groupName in tournament.structure.calendario) {
         const match = tournament.structure.calendario[groupName].find(p => p.matchId === matchId);
