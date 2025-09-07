@@ -429,33 +429,36 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    if (action === 'draft_register_player_pos_select_primary') {
-        const [draftShortId] = params;
-        const primaryPosition = interaction.values[0];
+if (action === 'draft_register_player_pos_select_primary') {
+    const [draftShortId] = params;
+    const primaryPosition = interaction.values[0];
 
-        const positionOptions = Object.entries(DRAFT_POSITIONS)
-            .map(([key, value]) => ({
-                label: value,
-                value: key
-            }));
-        
-        positionOptions.push({
-            label: 'No tengo posición secundaria',
-            value: 'NONE',
-            emoji: '✖️'
-        });
+    // Filtramos la posición primaria de las opciones de la secundaria
+    const positionOptions = Object.entries(DRAFT_POSITIONS)
+        .filter(([key]) => key !== primaryPosition) // <-- LÍNEA CLAVE
+        .map(([key, value]) => ({
+            label: value,
+            value: key
+        }));
+    
+    // Ponemos "No tengo" al principio
+    positionOptions.unshift({
+        label: 'No tengo posición secundaria',
+        value: 'NONE',
+        emoji: '✖️'
+    });
 
-        const secondaryPosMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_register_player_pos_select_secondary:${draftShortId}:${primaryPosition}`)
-            .setPlaceholder('Paso 2: Selecciona tu posición SECUNDARIA')
-            .addOptions(positionOptions);
-        
-        await interaction.update({
-            content: `Has elegido **${DRAFT_POSITIONS[primaryPosition]}** como primaria. Ahora, selecciona tu posición secundaria.`,
-            components: [new ActionRowBuilder().addComponents(secondaryPosMenu)]
-        });
-        return;
-    }
+    const secondaryPosMenu = new StringSelectMenuBuilder()
+        .setCustomId(`draft_register_player_pos_select_secondary:${draftShortId}:${primaryPosition}`)
+        .setPlaceholder('Paso 2: Selecciona tu posición SECUNDARIA')
+        .addOptions(positionOptions);
+    
+    await interaction.update({
+        content: `Has elegido **${DRAFT_POSITIONS[primaryPosition]}** como primaria. Ahora, selecciona tu posición secundaria.`,
+        components: [new ActionRowBuilder().addComponents(secondaryPosMenu)]
+    });
+    return;
+}
 
     if (action === 'draft_register_player_pos_select_secondary') {
         const [draftShortId, primaryPosition] = params;
@@ -478,29 +481,35 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    if (action === 'draft_register_player_status_select') {
+if (action === 'draft_register_player_status_select') {
     const [draftShortId, primaryPosition, secondaryPosition] = params;
     const teamStatus = interaction.values[0];
     const db = getDb();
     const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
-    // Si el usuario está verificado y es agente libre, lo inscribimos directamente.
-    if (verifiedData && teamStatus === 'Libre') {
-        await interaction.deferUpdate(); // Confirmamos la interacción
+    // --- INICIO DE LA LÓGICA DE COMPROBACIÓN DE WHATSAPP PARA JUGADORES ---
+    if (verifiedData && !verifiedData.whatsapp) {
+        const whatsappModal = new ModalBuilder()
+            .setCustomId(`add_whatsapp_to_profile_modal:player:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`)
+            .setTitle('Dato Requerido: WhatsApp');
+        const infoInput = new TextInputBuilder().setCustomId('info').setLabel("¡Hola! Necesitamos un dato más.").setStyle(TextInputStyle.Paragraph).setValue("Hemos actualizado el bot y ahora es obligatorio registrar un número de WhatsApp. Por favor, añádelo a continuación para poder continuar. Solo se te pedirá esta vez.").setRequired(false);
+        const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
+        const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
+        
+        whatsappModal.addComponents(new ActionRowBuilder().addComponents(infoInput), new ActionRowBuilder().addComponents(whatsappInput), new ActionRowBuilder().addComponents(whatsappConfirmInput));
+        return interaction.showModal(whatsappModal);
+    }
+    // --- FIN DE LA LÓGICA DE COMPROBACIÓN ---
 
+    if (verifiedData && teamStatus === 'Libre') {
+        await interaction.deferUpdate();
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const playerData = { 
-            userId: interaction.user.id, 
-            userName: interaction.user.tag, 
-            psnId: verifiedData.gameId, // Dato verificado
-            twitter: verifiedData.twitter, // Dato verificado
-            primaryPosition, 
-            secondaryPosition, 
-            currentTeam: 'Libre', 
-            isCaptain: false, 
-            captainId: null 
+            userId: interaction.user.id, userName: interaction.user.tag, 
+            psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp,
+            primaryPosition, secondaryPosition, currentTeam: 'Libre', 
+            isCaptain: false, captainId: null 
         };
-
         await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
         await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
         
@@ -511,31 +520,18 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    // Si no está verificado O si tiene equipo, mostramos un modal.
-    const modal = new ModalBuilder()
-        .setTitle('Finalizar Inscripción de Jugador');
-
-    // Si está verificado pero tiene equipo, solo preguntamos el nombre del equipo.
+    const modal = new ModalBuilder().setTitle('Finalizar Inscripción de Jugador');
     if (verifiedData && teamStatus === 'Con Equipo') {
         modal.setCustomId(`register_draft_player_team_name_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}`);
-        const currentTeamInput = new TextInputBuilder()
-            .setCustomId('current_team_input')
-            .setLabel("Nombre de tu equipo actual")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+        const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("Nombre de tu equipo actual").setStyle(TextInputStyle.Short).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
     } else {
-        // Flujo original para no verificados (como fallback)
         modal.setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`);
         const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
         const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(twitterInput));
         if (teamStatus === 'Con Equipo') {
-            const currentTeamInput = new TextInputBuilder()
-                .setCustomId('current_team_input')
-                .setLabel("Nombre de tu equipo actual")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
+            const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("Nombre de tu equipo actual").setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
         }
     }
@@ -543,7 +539,6 @@ export async function handleSelectMenu(interaction) {
     await interaction.showModal(modal);
     return;
 }
-
 if (action === 'draft_pick_by_position') {
     await interaction.deferUpdate();
     const [draftShortId, captainId] = params;
@@ -956,38 +951,25 @@ if (action === 'draft_pick_by_position') {
     
     return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(fieldMenu)], content: '' });
 }
-    if (action === 'admin_edit_verified_field_select') {
+
+if (action === 'admin_edit_verified_field_select') {
     const [userId] = params;
     const fieldToEdit = interaction.values[0];
 
-    // Si se edita ID de Juego o Twitter, usamos el modal antiguo
-    if (fieldToEdit === 'gameId' || fieldToEdit === 'twitter') {
+    // Si es cualquiera de estos tres, usamos el mismo modal
+    if (['gameId', 'twitter', 'whatsapp'].includes(fieldToEdit)) {
         const modal = new ModalBuilder()
             .setCustomId(`admin_edit_verified_submit:${userId}:${fieldToEdit}`)
-            .setTitle(`Cambiar ${fieldToEdit === 'gameId' ? 'ID de Juego' : 'Twitter'}`);
-        
-        const newValueInput = new TextInputBuilder()
-            .setCustomId('new_value_input')
-            .setLabel("Nuevo Valor")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-        
+            .setTitle(`Cambiar ${fieldToEdit}`);
+        const newValueInput = new TextInputBuilder().setCustomId('new_value_input').setLabel("Nuevo Valor").setStyle(TextInputStyle.Short).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(newValueInput));
         return interaction.showModal(modal);
 
-    // Si se editan los Strikes, usamos un nuevo modal
     } else if (fieldToEdit === 'strikes') {
         const modal = new ModalBuilder()
             .setCustomId(`admin_edit_strikes_submit:${userId}`)
             .setTitle(`Establecer Strikes`);
-        
-        const strikesInput = new TextInputBuilder()
-            .setCustomId('strikes_input')
-            .setLabel("Nuevo número total de strikes")
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder("Ej: 0, 1, 2...")
-            .setRequired(true);
-
+        const strikesInput = new TextInputBuilder().setCustomId('strikes_input').setLabel("Nuevo número total de strikes").setStyle(TextInputStyle.Short).setPlaceholder("Ej: 0, 1, 2...").setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(strikesInput));
         return interaction.showModal(modal);
     }
