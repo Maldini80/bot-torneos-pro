@@ -207,18 +207,19 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'admin_select_player_from_roster') {
-        await interaction.deferUpdate();
-        const [draftShortId, teamId] = params;
-        const selectedPlayerId = interaction.values[0];
+    await interaction.deferUpdate();
+    const [draftShortId, teamId] = params;
+    const selectedPlayerId = interaction.values[0];
 
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const player = draft.players.find(p => p.userId === selectedPlayerId);
-        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const player = draft.players.find(p => p.userId === selectedPlayerId);
+    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-        const playerManagementEmbed = await createPlayerManagementEmbed(player, draft, teamId, isAdmin);
-        await interaction.editReply(playerManagementEmbed);
-        return;
-    }
+    // Llamamos a la ficha en modo 'manage' para que muestre los botones de acción
+    const playerManagementEmbed = await createPlayerManagementEmbed(player, draft, teamId, isAdmin, 'manage');
+    await interaction.editReply(playerManagementEmbed);
+    return;
+}
 
     if (action === 'admin_select_captain_to_edit') {
         const [draftShortId] = params;
@@ -1069,5 +1070,19 @@ if (action === 'admin_edit_verified_field_select') {
         );
     }
     await interaction.showModal(modal);
+}
+    if (action === 'view_free_agent_details') {
+    await interaction.deferUpdate();
+    const [draftShortId] = params;
+    const selectedPlayerId = interaction.values[0];
+
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const player = draft.players.find(p => p.userId === selectedPlayerId);
+    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+    // Llamamos a la ficha en modo 'view' para que NO muestre los botones de acción
+    const playerViewEmbed = await createPlayerManagementEmbed(player, draft, null, isAdmin, 'view');
+    await interaction.editReply(playerViewEmbed);
+    return;
 }
 }
