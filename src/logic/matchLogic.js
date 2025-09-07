@@ -128,10 +128,15 @@ export function findMatch(tournament, matchId) {
 
 async function updateGroupStageStats(tournament, partido) {
     const [golesA, golesB] = partido.resultado.split('-').map(Number);
+    
+    // ¡CORRECCIÓN CLAVE! Buscamos los equipos en la referencia correcta del objeto del torneo.
     const equipoA = tournament.structure.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
     const equipoB = tournament.structure.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
 
-    if (!equipoA || !equipoB) return;
+    if (!equipoA || !equipoB) {
+        console.error(`[STATS ERROR] No se encontraron los equipos del partido ${partido.matchId} en el grupo ${partido.nombreGrupo}.`);
+        return;
+    }
 
     equipoA.stats.pj += 1;
     equipoB.stats.pj += 1;
@@ -142,14 +147,15 @@ async function updateGroupStageStats(tournament, partido) {
     equipoA.stats.dg = equipoA.stats.gf - equipoA.stats.gc;
     equipoB.stats.dg = equipoB.stats.gf - equipoB.stats.gc;
 
-    if (golesA > golesB) equipoA.stats.pts += 3;
-    else if (golesB > golesA) equipoB.stats.pts += 3;
-    else {
+    if (golesA > golesB) {
+        equipoA.stats.pts += 3;
+    } else if (golesB > golesA) {
+        equipoB.stats.pts += 3;
+    } else {
         equipoA.stats.pts += 1;
         equipoB.stats.pts += 1;
     }
 }
-
 // --- REEMPLAZA LA FUNCIÓN checkForGroupStageAdvancement ENTERA CON ESTA VERSIÓN ---
 
 async function checkForGroupStageAdvancement(client, guild, tournament) {
