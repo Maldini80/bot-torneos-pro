@@ -1094,7 +1094,8 @@ if (action === 'admin_edit_strikes_submit') {
         return interaction.editReply({ content: `❌ Error al procesar la solicitud: ${error.message}` });
     }
 }
-    if (action === 'add_whatsapp_to_profile_modal') {
+
+if (action === 'add_whatsapp_to_profile_modal') {
     const [, flow, draftShortId, position, streamPlatform] = params;
     const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
     const whatsappConfirm = interaction.fields.getTextInputValue('whatsapp_confirm_input').trim();
@@ -1103,7 +1104,6 @@ if (action === 'admin_edit_strikes_submit') {
         return interaction.reply({ content: '❌ Los números de WhatsApp no coinciden. Por favor, reinicia la inscripción.', flags: [MessageFlags.Ephemeral] });
     }
     
-    // Guardamos el WhatsApp en el perfil verificado del usuario para siempre
     await db.collection('verified_users').updateOne(
         { discordId: interaction.user.id },
         { $set: { whatsapp: whatsapp } }
@@ -1111,7 +1111,6 @@ if (action === 'admin_edit_strikes_submit') {
     
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-    // Recuperamos los datos que el usuario ya había rellenado
     const tempForm = await db.collection('temp_form_data').findOne({ userId: interaction.user.id });
     if (!tempForm) {
         return interaction.editReply({ content: '❌ Tu sesión ha expirado. Por favor, reinicia la inscripción.', flags: [MessageFlags.Ephemeral] });
@@ -1123,16 +1122,13 @@ if (action === 'admin_edit_strikes_submit') {
     const userId = interaction.user.id;
     const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
 
-    // Continuamos con el flujo de capitán
     const captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp, position };
-    const playerData = { userId, userName: interaction.user.tag, psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId };
     
     await db.collection('drafts').updateOne(
         { _id: draft._id },
         { $set: { [`pendingCaptains.${userId}`]: captainData } }
     );
     
-    // ... (El resto del código es idéntico al de 'register_verified_draft_captain_modal' para enviar la solicitud)
     const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
     const adminEmbed = new EmbedBuilder()
         .setColor('#5865F2')
