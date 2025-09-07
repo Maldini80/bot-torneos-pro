@@ -2170,16 +2170,4 @@ if (action === 'admin_close_ticket') {
     await channel.send(`Ticket cerrado manualmente por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
     setTimeout(() => channel.delete().catch(console.error), 10000);
 }
-
-if (action === 'admin_close_ticket') {
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: '❌ Solo los administradores pueden usar este botón.', flags: [MessageFlags.Ephemeral] });
-    }
-    await interaction.deferUpdate();
-    const [channelId] = params;
-    const channel = await client.channels.fetch(channelId);
-    
-    await channel.send(`Ticket cerrado manualmente por un administrador. Este canal se cerrará en 10 segundos.`);
-    setTimeout(() => channel.delete().catch(console.error), 10000);
-}
 }
