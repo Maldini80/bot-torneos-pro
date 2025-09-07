@@ -2170,4 +2170,40 @@ if (action === 'admin_close_ticket') {
     await channel.send(`Ticket cerrado manualmente por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
     setTimeout(() => channel.delete().catch(console.error), 10000);
 }
+
+if (action === 'captain_view_free_agents') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [draftShortId] = params;
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    
+    const isCaptain = draft.captains.some(c => c.userId === interaction.user.id);
+    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+    const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+
+    if (!isCaptain && !isAdmin && !isReferee) {
+        return interaction.editReply({ content: '❌ No tienes permiso para usar esta función.' });
+    }
+
+    const freeAgents = draft.players.filter(p => !p.captainId && !p.isCaptain);
+    if (freeAgents.length === 0) {
+        return interaction.editReply({ content: 'ℹ️ No hay agentes libres disponibles en este momento.' });
+    }
+
+    const playerOptions = freeAgents.slice(0, 25).map(p => ({
+        label: p.psnId,
+        description: `Pos: ${p.primaryPosition} / ${p.secondaryPosition === 'NONE' ? 'N/A' : p.secondaryPosition}`,
+        value: p.userId,
+    }));
+
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId(`view_free_agent_details:${draftShortId}`)
+        .setPlaceholder('Selecciona un agente libre para ver sus detalles...')
+        .addOptions(playerOptions);
+    
+    await interaction.editReply({
+        content: `Hay ${freeAgents.length} agentes libres. Selecciona uno de la lista:`,
+        components: [new ActionRowBuilder().addComponents(selectMenu)]
+    });
+    return;
+}
 }
