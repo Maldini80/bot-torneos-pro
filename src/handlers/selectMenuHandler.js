@@ -1059,4 +1059,33 @@ if (action === 'draft_pick_by_position') {
     });
     return;
 }
+    else if (action === 'admin_create_match_type') {
+    const [formatId, type] = params;
+    const matchType = interaction.values[0];
+
+    // Ahora sí, mostramos el modal final. Como esta es la PRIMERA respuesta a la interacción
+    // de este menú, interaction.showModal() es correcto.
+    const modal = new ModalBuilder()
+        .setCustomId(`create_tournament:${formatId}:${type}:${matchType}`)
+        .setTitle('Finalizar Creación de Torneo');
+    
+    const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+    const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
+
+    if (type === 'pago') {
+        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
+        const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
+        const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
+        
+        modal.setTitle('Finalizar Creación (De Pago)');
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(entryFeeInput),
+            new ActionRowBuilder().addComponents(prizeInputCampeon),
+            new ActionRowBuilder().addComponents(prizeInputFinalista)
+        );
+    }
+    await interaction.showModal(modal);
+}
 }
