@@ -1530,14 +1530,34 @@ if (action === 'admin_invite_replacement_start') {
             .catch(error => { console.error("Error durante el sorteo en segundo plano:", error); if (interaction.channel) { interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`); } });
         return;
     }
-    if (action === 'admin_simulate_matches') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        await interaction.editReply({ content: '⏳ Simulando todos los partidos pendientes... Esto puede tardar un momento.' });
-        const result = await simulateAllPendingMatches(client, tournamentShortId);
-        await interaction.editReply(`✅ Simulación completada. ${result.message}`);
-        return;
-    }
+
+if (action === 'admin_simulate_matches') {
+    // Respondemos inmediatamente para evitar el timeout
+    await interaction.reply({ 
+        content: '⏳ Orden recibida. La simulación de todos los partidos pendientes ha comenzado en segundo plano. Esto puede tardar un momento.',
+        flags: [MessageFlags.Ephemeral] 
+    });
+
+    const [tournamentShortId] = params;
+    
+    // Ejecutamos la simulación y NO esperamos a que termine (trabajo en segundo plano)
+    simulateAllPendingMatches(client, tournamentShortId)
+        .then(result => {
+            // Cuando termina, intentamos editar la respuesta inicial
+            interaction.editReply(`✅ Simulación completada. ${result.message}`).catch(() => {
+                // Si falla (porque ha pasado mucho tiempo), enviamos un nuevo mensaje al canal
+                interaction.channel.send(`✅ La simulación para el torneo \`${tournamentShortId}\` ha finalizado. ${result.message}`);
+            });
+        })
+        .catch(error => {
+            console.error("Error crítico durante la simulación de partidos:", error);
+            interaction.editReply(`❌ Ocurrió un error crítico durante la simulación: ${error.message}`).catch(() => {
+                interaction.channel.send(`❌ Ocurrió un error crítico durante la simulación para el torneo \`${tournamentShortId}\`.`);
+            });
+        });
+
+    return;
+}
     if (action === 'admin_end_tournament') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
