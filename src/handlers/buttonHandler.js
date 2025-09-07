@@ -1934,10 +1934,10 @@ if (action === 'approve_verification') {
 
     const userActionRow = new ActionRowBuilder();
     if (ticket.draftShortId) {
-        userActionRow.addComponents(
-            new ButtonBuilder().setCustomId(`user_continue_to_register:${ticket.draftShortId}:${channelId}`).setLabel('Inscribirme al Draft').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Salir sin Inscribirme').setStyle(ButtonStyle.Secondary)
-        );
+    userActionRow.addComponents(
+        new ButtonBuilder().setCustomId(`user_continue_to_register:${ticket.draftShortId}:${channelId}`).setLabel('Inscribirme al Draft').setStyle(ButtonStyle.Success), // <-- VERDE
+        new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Salir sin Inscribirme').setStyle(ButtonStyle.Danger) // <-- ROJO
+    );
     } else {
          userActionRow.addComponents(new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Finalizar y Salir').setStyle(ButtonStyle.Success));
     }
@@ -2169,18 +2169,6 @@ if (action === 'admin_close_ticket') {
     
     await channel.send(`Ticket cerrado manualmente por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
     setTimeout(() => channel.delete().catch(console.error), 10000);
-}
-
-if (action === 'user_exit_without_registering') {
-    const [channelId] = params;
-    await interaction.deferUpdate();
-    const channel = await client.channels.fetch(channelId);
-    
-    await channel.send({
-        content: `De acuerdo, te sales sin inscribirte. Recuerda que puedes inscribirte más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.\n\nEste canal se cerrará en 15 segundos.`
-    });
-    
-    setTimeout(() => channel.delete().catch(console.error), 15000);
 }
 
 if (action === 'admin_close_ticket') {
