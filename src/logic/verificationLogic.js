@@ -174,23 +174,16 @@ export async function handleProfileUpdateSelection(interaction) {
     const verificationData = await checkVerification(interaction.user.id);
     const currentValue = verificationData[fieldToUpdate];
 
+    // --- TÍTULO DINÁMICO ---
+    const fieldLabels = { gameId: 'ID de Juego', twitter: 'Twitter', whatsapp: 'WhatsApp' };
+    const modalTitle = `Actualizar ${fieldLabels[fieldToUpdate] || fieldToUpdate}`;
+
     const modal = new ModalBuilder()
         .setCustomId(`update_profile_submit_new_value:${fieldToUpdate}`)
-        .setTitle(`Actualizar ${fieldToUpdate === 'gameId' ? 'ID de Juego' : 'Twitter'}`);
+        .setTitle(modalTitle); // <-- USAMOS EL TÍTULO CORRECTO
         
-    const newValueInput = new TextInputBuilder()
-        .setCustomId('new_value_input')
-        .setLabel("Nuevo Valor")
-        .setPlaceholder("Escribe aquí el nuevo dato")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-    const reasonInput = new TextInputBuilder()
-        .setCustomId('reason_input')
-        .setLabel("Motivo del Cambio")
-        .setPlaceholder("Ej: Me equivoqué al escribirlo, he cambiado de cuenta, etc.")
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true);
+    const newValueInput = new TextInputBuilder().setCustomId('new_value_input').setLabel("Nuevo Valor").setPlaceholder("Escribe aquí el nuevo dato").setStyle(TextInputStyle.Short).setRequired(true);
+    const reasonInput = new TextInputBuilder().setCustomId('reason_input').setLabel("Motivo del Cambio").setPlaceholder("Ej: Me equivoqué al escribirlo, he cambiado de cuenta, etc.").setStyle(TextInputStyle.Paragraph).setRequired(true);
         
     modal.addComponents(new ActionRowBuilder().addComponents(newValueInput), new ActionRowBuilder().addComponents(reasonInput));
     await interaction.showModal(modal);
