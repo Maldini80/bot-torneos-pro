@@ -29,7 +29,7 @@ export const CHANNELS = {
 
 // Configuración de Pagos
 export const PAYMENT_CONFIG = {
-    PAYPAL_EMAIL: 'johancamirotti13@hotmail.com'
+    PAYPAL_EMAIL: 'Jgm141400@gmail.com'
 };
 
 // Configuración para el sistema de Draft
