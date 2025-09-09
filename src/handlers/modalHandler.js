@@ -410,7 +410,7 @@ export async function handleModal(interaction) {
     }
 
 if (action === 'register_verified_draft_captain_modal') {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }); // Defer immediately
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
     const [draftShortId, position, streamPlatform] = params;
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -420,7 +420,6 @@ if (action === 'register_verified_draft_captain_modal') {
         return interaction.editReply({ content: '❌ Error: No se encontró el draft o tus datos de verificación.' });
     }
     
-    // This is the essential part: update the DB and send the reply to the user.
     const teamName = interaction.fields.getTextInputValue('team_name_input');
     const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
     const streamUsername = interaction.fields.getTextInputValue('stream_username_input');
@@ -436,7 +435,6 @@ if (action === 'register_verified_draft_captain_modal') {
     
     await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
-    // Now do the slow stuff (sending messages to other channels)
     try {
         const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
         const adminEmbed = new EmbedBuilder()
@@ -514,14 +512,48 @@ if (action === 'register_verified_draft_captain_modal') {
         }
 
         if (draft.config.isPaid) {
-            // ... (Lógica de pago no necesita cambios)
+            const pendingData = { playerData, captainData }; 
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
+
+            const embedDm = new EmbedBuilder()
+                .setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`)
+                .setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.\n\n**Pagar a / Pay to:**\n\`${PAYMENT_CONFIG.PAYPAL_EMAIL}\`\n\nUna vez realizado, pulsa el botón de abajo.`)
+                .setColor('#e67e22');
+                
+            const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_payment_confirm_start:${draftShortId}`).setLabel('✅ Ya he Pagado / I Have Paid').setStyle(ButtonStyle.Success));
+            try {
+                await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
+                await interaction.editReply('✅ ¡Inscripción recibida! Revisa tus Mensajes Directos para completar el pago.');
+            } catch (e) {
+                await interaction.editReply('❌ No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.');
+            }
         } else {
             if (isRegisteringAsCaptain) {
-                // ... (Lógica de capitán no necesita cambios)
+                await db.collection('drafts').updateOne(
+                    { _id: draft._id },
+                    { $set: { [`pendingCaptains.${userId}`]: captainData, [`pendingPlayers.${userId}`]: playerData } }
+                );
+
+                const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
+                const adminEmbed = new EmbedBuilder()
+                    .setColor('#5865F2')
+                    .setTitle(`🔔 Nueva Solicitud de Capitán de Draft`)
+                    .setDescription(`**Draft:** ${draft.name}`)
+                    .addFields( 
+                        { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, 
+                        { name: 'Capitán', value: interaction.user.tag, inline: true },
+                        { name: 'PSN ID', value: captainData.psnId, inline: false },
+                        { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false },
+                        { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
+                        { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
+                    );
+                const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
+                await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
+                await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
+
             } else {
                 await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
 
-                // --- INICIO DE LA SOLUCIÓN: Lógica Reordenada y Cierre de Canal ---
                 await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
                 
                 if (isFromTicket) {
@@ -536,7 +568,6 @@ if (action === 'register_verified_draft_captain_modal') {
                 updatePublicMessages(client, updatedDraft);
                 updateDraftMainInterface(client, updatedDraft.shortId);
                 notifyVisualizer(updatedDraft);
-                // --- FIN DE LA SOLUCIÓN ---
             }
         }
         return;
@@ -1054,112 +1085,62 @@ if (action === 'admin_edit_strikes_submit') {
 }
 
 if (action === 'add_whatsapp_to_profile_modal') {
-    // --- INICIO DE LA SOLUCIÓN: Flujo de Capitán Corregido ---
-    if (params[0] === 'captain') {
-        const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
-        const whatsappConfirm = interaction.fields.getTextInputValue('whatsapp_confirm_input').trim();
-
-        if (whatsapp !== whatsappConfirm) {
-            return interaction.reply({ content: '❌ Los números de WhatsApp no coinciden. Por favor, reinicia la inscripción.', flags: [MessageFlags.Ephemeral] });
-        }
-
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
-        // Actualizamos el perfil del usuario con el WhatsApp
-        await db.collection('verified_users').updateOne(
-            { discordId: interaction.user.id },
-            { $set: { whatsapp } },
-            { upsert: true } // Aseguramos que se cree si no existe
-        );
-
-        // Recuperamos los datos temporales que guardamos antes
-        const tempForm = await db.collection('temp_form_data').findOneAndDelete({ _id: interaction.user.id });
-        if (!tempForm.value) {
-            return interaction.editReply({ content: '❌ Tu sesión ha expirado (no se encontraron datos de inscripción). Por favor, reinicia el proceso.' });
-        }
-
-        const { platform, originalAction, entityId, teamIdOrPosition } = tempForm.value;
-        const position = teamIdOrPosition;
-        
-        // Ahora que tenemos el WhatsApp, mostramos el modal de inscripción final que queríamos mostrar originalmente
-        const modal = new ModalBuilder();
-        const streamUsernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
-        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
-        const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
-        
-        modal.setCustomId(`register_verified_draft_captain_modal:${entityId}:${position}:${platform}`);
-        modal.setTitle('Inscripción de Capitán (Verificado)');
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(streamUsernameInput),
-            new ActionRowBuilder().addComponents(teamNameInput),
-            new ActionRowBuilder().addComponents(eafcNameInput)
-        );
-        
-        // En lugar de responder a la interacción del modal de WhatsApp (que ya está deferida),
-        // enviamos un mensaje de seguimiento y mostramos el nuevo modal.
-        // ESTO NO ES POSIBLE. Debemos completar la interacción.
-        await interaction.editReply({ content: '✅ WhatsApp guardado. Por favor, completa ahora los datos de tu equipo.', components: [] });
-        
-        // Como no podemos mostrar un modal desde un editReply, guiamos al usuario.
-        // La mejor solución es fusionar los flujos.
-        // VOY A REPLANTEAR ESTA LÓGICA PORQUE ES INCORRECTA.
-    }
-    // --- FIN DE LA SOLUCIÓN ---
-
-
-    const [, flow, ...flowParams] = params;
+    const [flow, ...flowParams] = customId.split(':').slice(1);
     const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
     const whatsappConfirm = interaction.fields.getTextInputValue('whatsapp_confirm_input').trim();
 
     if (whatsapp !== whatsappConfirm) {
-        return interaction.reply({ content: '❌ Los números de WhatsApp no coinciden. Por favor, reinicia la inscripción.', flags: [MessageFlags.Ephemeral] });
+        return interaction.reply({ content: '❌ Los números de WhatsApp no coinciden. Por favor, reinicia el proceso.', flags: [MessageFlags.Ephemeral] });
     }
     
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
     await db.collection('verified_users').updateOne(
         { discordId: interaction.user.id },
-        { $set: { whatsapp } }
+        { $set: { whatsapp } },
+        { upsert: true }
     );
     
     const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
     if (flow === 'captain') {
-        const [draftShortId, position, streamPlatform] = flowParams;
-        const tempForm = await db.collection('temp_form_data').findOneAndDelete({ userId: interaction.user.id });
+        const tempForm = await db.collection('temp_form_data').findOneAndDelete({ _id: interaction.user.id });
 
         if (!tempForm.value) {
-            return interaction.editReply({ content: '❌ Tu sesión ha expirado (no se encontraron datos de inscripción). Por favor, reinicia el proceso.' });
+            return interaction.editReply({ content: '❌ Tu sesión ha expirado. Por favor, reinicia el proceso de inscripción.' });
         }
 
-        const { teamName, eafcTeamName, streamUsername } = tempForm.value.data;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
+        const { platform, entityId, teamIdOrPosition } = tempForm.value;
+        const [draftShortId, position] = [entityId, teamIdOrPosition];
 
+        await interaction.editReply('✅ WhatsApp guardado. Finalizando tu inscripción como capitán...');
+
+        // Ahora que tenemos el WhatsApp, podemos completar la inscripción
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const { teamName, eafcTeamName, streamUsername } = tempForm.value; // Estos datos ahora sí existen
+        const streamChannel = platform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
         const captainData = { userId: interaction.user.id, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp, position };
         
-        await db.collection('drafts').updateOne(
-            { _id: draft._id },
-            { $set: { [`pendingCaptains.${interaction.user.id}`]: captainData } }
-        );
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingCaptains.${interaction.user.id}`]: captainData } });
         
+        // El resto del flujo de notificación a admins, etc.
         const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
         const adminEmbed = new EmbedBuilder()
             .setColor('#5865F2').setTitle(`🔔 Nueva Solicitud de Capitán (Verificado)`)
             .setDescription(`**Draft:** ${draft.name}`)
             .addFields( 
-                { name: 'Nombre de Equipo', value: teamName, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true },
+                { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true },
                 { name: 'PSN ID', value: verifiedData.gameId, inline: false }, { name: 'WhatsApp', value: `\`${verifiedData.whatsapp}\``, inline: false },
-                { name: 'Equipo EAFC', value: eafcTeamName, inline: false }, { name: 'Canal Transmisión', value: streamChannel, inline: false },
+                { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false }, { name: 'Canal Transmisión', value: streamChannel, inline: false },
                 { name: 'Twitter', value: verifiedData.twitter || 'No proporcionado', inline: false }
             );
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${interaction.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         
-        await interaction.editReply('✅ ¡Gracias por añadir tu WhatsApp! Tu solicitud para ser capitán ha sido enviada.');
+        await interaction.followUp({ content: '✅ ¡Tu solicitud para ser capitán ha sido enviada!', flags: [MessageFlags.Ephemeral] });
 
     } else if (flow === 'player') {
-        const [draftShortId, primaryPosition, secondaryPosition, teamStatus] = flowParams;
+        const [draftShortId, primaryPosition, secondaryPosition, teamStatus, channelId] = flowParams;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         
         const playerData = { 
@@ -1170,8 +1151,16 @@ if (action === 'add_whatsapp_to_profile_modal') {
         };
         await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
 
-        await interaction.editReply('✅ ¡Gracias por añadir tu WhatsApp! Tu inscripción como jugador ha sido completada.');
+        await interaction.editReply('✅ ¡Inscripción completada!');
 
+        if (channelId && channelId !== 'no-ticket') {
+            const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
+            if (ticketChannel) {
+                await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+                setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
+            }
+        }
+        
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         updatePublicMessages(client, updatedDraft);
         updateDraftMainInterface(client, updatedDraft.shortId);
@@ -1182,9 +1171,9 @@ if (action === 'add_whatsapp_to_profile_modal') {
     // AÑADE ESTE PRIMER BLOQUE PARA SOLUCIONAR EL ERROR DE "SESIÓN EXPIRADA" (PROBLEMA 4)
 
     if (action === 'register_draft_player_team_name_modal') {
+        const [draftShortId, primaryPosition, secondaryPosition, channelId] = params;
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
-        const [draftShortId, primaryPosition, secondaryPosition] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
@@ -1209,12 +1198,20 @@ if (action === 'add_whatsapp_to_profile_modal') {
 
         await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
         
-        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await updatePublicMessages(client, updatedDraft);
-        await updateDraftMainInterface(client, updatedDraft.shortId);
-        await notifyVisualizer(updatedDraft);
-
         await interaction.editReply(`✅ ¡Inscripción completada! Hemos usado tus datos verificados.`);
+
+        if (channelId && channelId !== 'no-ticket') {
+            const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
+            if (ticketChannel) {
+                await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+                setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
+            }
+        }
+        
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        updatePublicMessages(client, updatedDraft);
+        updateDraftMainInterface(client, updatedDraft.shortId);
+        notifyVisualizer(updatedDraft);
         return;
     }
 
