@@ -1909,8 +1909,6 @@ if (action === 'claim_verification_ticket') {
     }
 }
 
-// NUEVO CÓDIGO en buttonHandler.js
-
 if (action === 'approve_verification') {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return interaction.reply({ content: '❌ No tienes permisos para esta acción.', flags: [MessageFlags.Ephemeral] });
@@ -1957,7 +1955,6 @@ if (action === 'approve_verification') {
     const channel = await client.channels.fetch(channelId);
     const userActionRow = new ActionRowBuilder();
 
-    // --- LÓGICA CORREGIDA PARA MOSTRAR BOTONES ---
     if (ticket.draftShortId && ticket.draftShortId !== 'undefined') {
         userActionRow.addComponents(
             new ButtonBuilder().setCustomId(`user_continue_to_register:${ticket.draftShortId}:${channelId}`).setLabel('Inscribirme al Draft').setStyle(ButtonStyle.Success),
@@ -1967,13 +1964,11 @@ if (action === 'approve_verification') {
         userActionRow.addComponents(new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Finalizar y Salir').setStyle(ButtonStyle.Success));
     }
 
-    // --- MENSAJE MEJORADO PARA EL USUARIO ---
     const approvalEmbed = new EmbedBuilder()
         .setColor('#2ecc71')
         .setTitle('✅ Verificación Aprobada')
         .setDescription('¡Enhorabuena! Tu cuenta ha sido verificada. ¿Qué deseas hacer ahora?');
 
-    // Enviamos el ping por separado del embed para una mejor notificación.
     await channel.send({
         content: `<@${ticket.userId}>`,
         embeds: [approvalEmbed],
@@ -1987,7 +1982,6 @@ if (action === 'approve_verification') {
     finalEmbedInTicket.data.fields.find(f => f.name === 'Estado').value = `✅ **Aprobado por:** <@${interaction.user.id}>`;
     await originalMessage.edit({ embeds: [finalEmbedInTicket], components: [disabledAdminRow] });
     
-    // Marcamos como 'closed' para evitar duplicados, pero NO borramos el canal.
     await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
 }
     if (action === 'reject_verification_start') {
@@ -2165,11 +2159,30 @@ if (action === 'user_continue_to_register') {
         flags: [MessageFlags.Ephemeral]
     });
 
-    // --- AÑADIMOS EL CIERRE DEL CANAL ---
     const channel = await client.channels.fetch(channelId).catch(() => null);
     if (channel) {
         await channel.send('✅ El usuario ha continuado con la inscripción. Este canal se cerrará en 15 segundos.');
         setTimeout(() => channel.delete('Usuario procedió a inscribirse.').catch(console.error), 15000);
+    }
+}
+
+if (action === 'user_exit_without_registering') {
+    const [channelId] = params;
+    const ticket = await db.collection('verificationtickets').findOne({ channelId });
+    
+    if (interaction.user.id !== ticket.userId) {
+        return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
+    }
+    
+    await interaction.reply({
+        content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.`,
+        flags: [MessageFlags.Ephemeral]
+    });
+
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (channel) {
+        await channel.send('El usuario ha decidido salir. Este canal se cerrará en 10 segundos.');
+        setTimeout(() => channel.delete('Usuario salió del proceso.').catch(console.error), 10000);
     }
 }
 
