@@ -33,7 +33,7 @@ export async function handleModal(interaction) {
     if (action === 'verification_ticket_submit') {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-    const [platform] = params;
+    const [platform, draftShortId] = params;
     const gameId = interaction.fields.getTextInputValue('game_id_input').trim();
     const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
     // --- INICIO DE LA MODIFICACIÓN ---
@@ -128,12 +128,13 @@ export async function handleModal(interaction) {
             platform,
             gameId,
             twitter,
-            whatsapp, // <-- DATO AÑADIDO
+            whatsapp,
             uniqueCode,
             status: 'pending',
             claimedBy: null,
             createdAt: new Date(),
-            adminNotificationMessageId: adminNotificationMessageId
+            adminNotificationMessageId: adminNotificationMessageId,
+            draftShortId: draftShortId || null // <-- AÑADIMOS EL ID DEL DRAFT
         });
 
         await interaction.editReply({ content: `✅ ¡Perfecto! Hemos creado un canal privado para ti. Por favor, continúa aquí: ${ticketChannel.toString()}` });
