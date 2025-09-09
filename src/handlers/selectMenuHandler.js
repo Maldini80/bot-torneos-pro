@@ -519,12 +519,17 @@ if (action === 'draft_register_player_status_select') {
             isCaptain: false, captainId: null 
         };
         await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
-        await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
         
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Primero, actualizamos todo y esperamos a que termine.
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await updateDraftMainInterface(client, updatedDraft.shortId);
         await updatePublicMessages(client, updatedDraft);
+        await updateDraftMainInterface(client, updatedDraft.shortId);
         await notifyVisualizer(updatedDraft);
+        
+        // Y solo después, enviamos la confirmación al usuario.
+        await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
+        // --- FIN DE LA CORRECCIÓN ---
         return;
     }
 
