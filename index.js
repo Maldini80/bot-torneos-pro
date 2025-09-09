@@ -71,10 +71,18 @@ client.on(Events.InteractionCreate, async interaction => {
         else if (interaction.isModalSubmit()) await handleModal(interaction);
         else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) await handleSelectMenu(interaction);
     } catch (error) {
-        if (error.code === 10062) {
-            console.warn('[WARN] Se intentó responder a una interacción que ya había expirado.');
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Ignoramos los errores comunes de tiempo de respuesta que no son críticos.
+        const knownDiscordErrors = [
+            10062, // Unknown interaction (ha expirado por el tiempo)
+            40060  // Interaction has already been acknowledged (ya fue respondida o expiró)
+        ];
+
+        if (error.code && knownDiscordErrors.includes(error.code)) {
+            console.warn(`[WARN] Se ignoró un error de interacción conocido (${error.code}). Probablemente por un cold start del servidor.`);
             return;
         }
+        // --- FIN DE LA MODIFICACIÓN ---
 
         console.error('[ERROR DE INTERACCIÓN]', error);
 
@@ -86,9 +94,8 @@ client.on(Events.InteractionCreate, async interaction => {
                 await interaction.reply(errorMessage);
             }
         } catch (e) {
-            if (e.code !== 10062 && e.code !== 40060) {
-                 console.error("Error al enviar mensaje de error de interacción:", e.message);
-            }
+            // No hacemos nada si falla el mensaje de error, para evitar bucles.
+            console.error("No se pudo enviar el mensaje de error de la interacción:", e.message);
         }
     }
 });
