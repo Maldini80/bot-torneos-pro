@@ -452,17 +452,13 @@ export async function handleModal(interaction) {
         const whatsappModal = new ModalBuilder()
             .setCustomId(`add_whatsapp_to_profile_modal:captain:${draftShortId}:${position}:${streamPlatform}`)
             .setTitle('Dato Requerido: WhatsApp');
-        const infoInput = new TextInputBuilder()
-            .setCustomId('info')
-            .setLabel("¡Hola! Necesitamos un dato más.")
-            .setStyle(TextInputStyle.Paragraph)
-            .setValue("Hemos actualizado el bot y ahora es obligatorio registrar un número de WhatsApp. Por favor, añádelo a continuación para poder continuar con tu inscripción. Este dato solo se te pedirá una vez.")
-            .setRequired(false);
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Se ha eliminado el campo de texto 'infoInput' para evitar confusiones.
         const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
         const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
         
         whatsappModal.addComponents(
-            new ActionRowBuilder().addComponents(infoInput),
+            // El modal ahora solo tiene los dos campos necesarios.
             new ActionRowBuilder().addComponents(whatsappInput),
             new ActionRowBuilder().addComponents(whatsappConfirmInput)
         );
