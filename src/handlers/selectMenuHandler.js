@@ -4,7 +4,7 @@ import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam, updateDraftMainInterface, updatePublicMessages, notifyVisualizer } from '../logic/tournamentLogic.js';
-import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection } from '../logic/verificationLogic.js';
+import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection, checkVerification } from '../logic/verificationLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 
@@ -415,12 +415,12 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_register_captain_pos_select') {
-        const [draftShortId] = params;
+        const [draftShortId, channelId] = params;
         const position = interaction.values[0];
 
         const platformButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:register_draft_captain:${draftShortId}:${position}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:register_draft_captain:${draftShortId}:${position}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:register_draft_captain:${draftShortId}:${position}:${channelId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:register_draft_captain:${draftShortId}:${position}:${channelId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
         );
 
         await interaction.update({
@@ -431,18 +431,16 @@ export async function handleSelectMenu(interaction) {
     }
 
 if (action === 'draft_register_player_pos_select_primary') {
-    const [draftShortId] = params;
+    const [draftShortId, channelId] = params;
     const primaryPosition = interaction.values[0];
 
-    // Filtramos la posición primaria de las opciones de la secundaria
     const positionOptions = Object.entries(DRAFT_POSITIONS)
-        .filter(([key]) => key !== primaryPosition) // <-- LÍNEA CLAVE
+        .filter(([key]) => key !== primaryPosition)
         .map(([key, value]) => ({
             label: value,
             value: key
         }));
     
-    // Ponemos "No tengo" al principio
     positionOptions.unshift({
         label: 'No tengo posición secundaria',
         value: 'NONE',
@@ -450,7 +448,7 @@ if (action === 'draft_register_player_pos_select_primary') {
     });
 
     const secondaryPosMenu = new StringSelectMenuBuilder()
-        .setCustomId(`draft_register_player_pos_select_secondary:${draftShortId}:${primaryPosition}`)
+        .setCustomId(`draft_register_player_pos_select_secondary:${draftShortId}:${primaryPosition}:${channelId}`)
         .setPlaceholder('Paso 2: Selecciona tu posición SECUNDARIA')
         .addOptions(positionOptions);
     
@@ -462,13 +460,13 @@ if (action === 'draft_register_player_pos_select_primary') {
 }
 
     if (action === 'draft_register_player_pos_select_secondary') {
-        const [draftShortId, primaryPosition] = params;
+        const [draftShortId, primaryPosition, channelId] = params;
         const secondaryPosition = interaction.values[0];
         
         const secondaryPositionLabel = secondaryPosition === 'NONE' ? 'Ninguna' : DRAFT_POSITIONS[secondaryPosition];
 
         const statusMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_register_player_status_select:${draftShortId}:${primaryPosition}:${secondaryPosition}`)
+            .setCustomId(`draft_register_player_status_select:${draftShortId}:${primaryPosition}:${secondaryPosition}:${channelId}`)
             .setPlaceholder('Paso 3: ¿Tienes equipo actualmente?')
             .addOptions([
                 { label: 'Soy Agente Libre', value: 'Libre', emoji: '👋' },
@@ -482,76 +480,79 @@ if (action === 'draft_register_player_pos_select_primary') {
         return;
     }
 
-// CÓDIGO COMPLETO Y FINAL para selectMenuHandler.js
+    // --- INICIO DE LA SOLUCIÓN: Lógica de WhatsApp para Jugadores y Cierre de Canal ---
+    if (action === 'draft_register_player_status_select') {
+        const [draftShortId, primaryPosition, secondaryPosition, channelId] = params;
+        const teamStatus = interaction.values[0];
+        const verifiedData = await checkVerification(interaction.user.id);
+    
+        // Si el usuario está verificado pero no tiene WhatsApp, se lo pedimos.
+        if (verifiedData && !verifiedData.whatsapp) {
+            const whatsappModal = new ModalBuilder()
+                .setCustomId(`add_whatsapp_to_profile_modal:player:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}:${channelId}`)
+                .setTitle('Dato Requerido: WhatsApp');
+            
+            const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
+            const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
+            
+            whatsappModal.addComponents(new ActionRowBuilder().addComponents(whatsappInput), new ActionRowBuilder().addComponents(whatsappConfirmInput));
+            return interaction.showModal(whatsappModal);
+        }
 
-if (action === 'draft_register_player_status_select') {
-    const [draftShortId, primaryPosition, secondaryPosition] = params;
-    const teamStatus = interaction.values[0];
-    const db = getDb();
-    const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
+        // Si ya tiene WhatsApp o no está verificado, continuamos al modal de inscripción final.
+        const modal = new ModalBuilder().setTitle('Finalizar Inscripción de Jugador');
+        // El customId ahora SIEMPRE incluye el channelId para poder cerrar el ticket.
+        let modalCustomId = `register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}:${channelId}`;
 
-    // --- INICIO DE LA LÓGICA DE COMPROBACIÓN DE WHATSAPP PARA JUGADORES ---
-    if (verifiedData && !verifiedData.whatsapp) {
-        const whatsappModal = new ModalBuilder()
-            .setCustomId(`add_whatsapp_to_profile_modal:player:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`)
-            .setTitle('Dato Requerido: WhatsApp');
-        
-        const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
-        const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
-        
-        whatsappModal.addComponents(
-            new ActionRowBuilder().addComponents(whatsappInput), 
-            new ActionRowBuilder().addComponents(whatsappConfirmInput)
-        );
-        return interaction.showModal(whatsappModal);
-    }
-    // --- FIN DE LA LÓGICA DE COMPROBACIÓN ---
+        if (verifiedData) { // Si está verificado, solo pedimos el nombre del equipo si es necesario.
+            if (teamStatus === 'Con Equipo') {
+                modal.setCustomId(`register_draft_player_team_name_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${channelId}`);
+                const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("Nombre de tu equipo actual").setStyle(TextInputStyle.Short).setRequired(true);
+                modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
+            } else {
+                // Si es agente libre y verificado, se inscribe directamente sin modal.
+                await interaction.deferUpdate();
+                const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+                const playerData = { 
+                    userId: interaction.user.id, userName: interaction.user.tag, 
+                    psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp,
+                    primaryPosition, secondaryPosition, currentTeam: 'Libre', 
+                    isCaptain: false, captainId: null 
+                };
+                await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+                
+                await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
 
-    // Este es el código que representaba el "// ..."
-    // Se ejecuta si el usuario ya tiene WhatsApp, o si no está verificado (flujo antiguo)
-    if (verifiedData && teamStatus === 'Libre') {
-        await interaction.deferUpdate();
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const playerData = { 
-            userId: interaction.user.id, userName: interaction.user.tag, 
-            psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp,
-            primaryPosition, secondaryPosition, currentTeam: 'Libre', 
-            isCaptain: false, captainId: null 
-        };
-        await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+                if (channelId && channelId !== 'no-ticket') {
+                    const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
+                    if (ticketChannel) {
+                        await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+                        setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
+                    }
+                }
+                
+                const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+                updatePublicMessages(client, updatedDraft);
+                updateDraftMainInterface(client, updatedDraft.shortId);
+                notifyVisualizer(updatedDraft);
+                return;
+            }
+        } else { // Flujo antiguo para no verificados
+            modal.setCustomId(modalCustomId);
+            const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
+            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(twitterInput));
+            if (teamStatus === 'Con Equipo') {
+                const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("Nombre de tu equipo actual").setStyle(TextInputStyle.Short).setRequired(true);
+                modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
+            }
+        }
         
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Primero, actualizamos todo y esperamos a que termine.
-        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await updatePublicMessages(client, updatedDraft);
-        await updateDraftMainInterface(client, updatedDraft.shortId);
-        await notifyVisualizer(updatedDraft);
-        
-        // Y solo después, enviamos la confirmación al usuario.
-        await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
-        // --- FIN DE LA CORRECCIÓN ---
+        await interaction.showModal(modal);
         return;
     }
+    // --- FIN DE LA SOLUCIÓN ---
 
-    const modal = new ModalBuilder().setTitle('Finalizar Inscripción de Jugador');
-    if (verifiedData && teamStatus === 'Con Equipo') {
-        modal.setCustomId(`register_draft_player_team_name_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}`);
-        const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("Nombre de tu equipo actual").setStyle(TextInputStyle.Short).setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
-    } else {
-        modal.setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`);
-        const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
-        const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(twitterInput));
-        if (teamStatus === 'Con Equipo') {
-            const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("Nombre de tu equipo actual").setStyle(TextInputStyle.Short).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
-        }
-    }
-    
-    await interaction.showModal(modal);
-    return;
-}
 if (action === 'draft_pick_by_position') {
     await interaction.deferUpdate();
     const [draftShortId, captainId] = params;
