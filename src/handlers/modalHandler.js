@@ -49,10 +49,22 @@ export async function handleModal(interaction) {
     const user = interaction.user;
     const guild = interaction.guild;
     
+    // --- INICIO DE LA LÓGICA MEJORADA PARA TICKETS ATASCADOS ---
     const existingTicket = await db.collection('verificationtickets').findOne({ userId: user.id, status: { $in: ['pending', 'claimed'] } });
     if (existingTicket) {
-        return interaction.editReply({ content: `❌ Ya tienes un ticket de verificación abierto aquí: <#${existingTicket.channelId}>` });
+        // Comprobamos si el canal del ticket todavía existe
+        const channel = await guild.channels.fetch(existingTicket.channelId).catch(() => null);
+
+        if (channel) {
+            // El canal existe, el ticket es legítimo.
+            return interaction.editReply({ content: `❌ Ya tienes un ticket de verificación abierto aquí: ${channel.toString()}` });
+        } else {
+            // El canal NO existe. Es un ticket atascado.
+            console.warn(`[TICKET ATASCADO] El usuario ${user.tag} tiene un ticket (${existingTicket._id}) apuntando a un canal borrado. Informando al usuario.`);
+            return interaction.editReply({ content: `❌ **Error:** Detectamos una solicitud de verificación anterior que no se cerró correctamente (posiblemente el canal fue borrado manualmente).\n\nPor favor, contacta con un administrador para que limpie tu solicitud anterior antes de que puedas crear una nueva.` });
+        }
     }
+    // --- FIN DE LA LÓGICA MEJORADA ---
 
     try {
         const ticketChannel = await guild.channels.create({
