@@ -1,5 +1,6 @@
 // --- INICIO DEL ARCHIVO verificationLogic.js (VERSIÓN FINAL Y COMPLETA) ---
 
+import { notifyVisualizer, updateDraftMainInterface } from '../logic/tournamentLogic.js';
 import { getDb } from '../../database.js';
 import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, MessageFlags } from 'discord.js';
 import { VERIFIED_ROLE_ID, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
@@ -228,47 +229,50 @@ export async function approveProfileUpdate(interaction) {
     const [, userId, field, newValue] = interaction.customId.split(':');
     const db = getDb();
     
-    // Actualiza el perfil verificado principal
+    // Actualiza el perfil verificado principal (Lógica existente)
     await db.collection('verified_users').updateOne({ discordId: userId }, { $set: { [field]: newValue } });
 
-    // --- INICIO DE LA LÓGICA DE SINCRONIZACIÓN ---
+    // --- INICIO DE LA NUEVA LÓGICA DE SINCRONIZACIÓN ---
+
+    // 1. Buscamos todos los drafts activos donde el jugador esté inscrito.
     const activeDrafts = await db.collection('drafts').find({ 
         "players.userId": userId,
         status: { $nin: ['finalizado', 'torneo_generado', 'cancelado'] } 
     }).toArray();
 
     if (activeDrafts.length > 0) {
-        // Mapeamos los campos de 'verified_users' a los de 'drafts.players'
+        // 2. Mapeamos los nombres de los campos para que coincidan con la estructura de 'players' en el draft.
         const fieldMap = {
             gameId: 'psnId',
             twitter: 'twitter',
-            whatsapp: 'whatsapp' // Añadimos el nuevo campo
+            whatsapp: 'whatsapp'
         };
         const draftField = fieldMap[field];
 
         if (draftField) {
-            // Actualizamos el dato en todos los drafts activos donde esté el jugador
+            // 3. Actualizamos el dato en todos los drafts activos donde esté el jugador.
             await db.collection('drafts').updateMany(
-                { "players.userId": userId },
+                { "players.userId": userId, status: { $nin: ['finalizado', 'torneo_generado', 'cancelado'] } },
                 { $set: { [`players.$.${draftField}`]: newValue } }
             );
 
-            // Notificamos las interfaces y el visualizador de cada draft afectado
+            // 4. Notificamos las interfaces y el visualizador de cada draft afectado.
             for (const draft of activeDrafts) {
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
                 await updateDraftMainInterface(interaction.client, updatedDraft.shortId);
-                await notifyVisualizer(updatedDraft);
+                await notifyVisualizer(updatedDraft); // ¡Importante para la web!
             }
         }
     }
-    // --- FIN DE LA LÓGICA DE SINCRONIZACIÓN ---
+    // --- FIN DE LA NUEVA LÓGICA DE SINCRONIZACIÓN ---
 
     const user = await interaction.client.users.fetch(userId).catch(() => null);
     if (user) await user.send(`✅ Un administrador ha **aprobado** tu solicitud para cambiar tu \`${field}\`. Tu nuevo valor es ahora \`${newValue}\`.`);
     
     const embed = EmbedBuilder.from(interaction.message.embeds[0]).setColor('#2ecc71').setFooter({ text: `Aprobado por ${interaction.user.tag}` });
     await interaction.message.edit({ embeds: [embed], components: [] });
-    await interaction.reply({ content: 'Cambio aprobado y sincronizado con drafts activos.', ephemeral: true });
+    // Mensaje de respuesta mejorado para el admin
+    await interaction.reply({ content: 'Cambio aprobado y sincronizado con los drafts activos.', ephemeral: true });
 }
 
 export async function rejectProfileUpdate(interaction) {
