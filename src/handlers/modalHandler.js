@@ -409,7 +409,7 @@ export async function handleModal(interaction) {
         return;
     }
 
-    if (action === 'register_verified_draft_captain_modal') {
+if (action === 'register_verified_draft_captain_modal') {
     const [draftShortId, position, streamPlatform] = params;
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
@@ -418,9 +418,9 @@ export async function handleModal(interaction) {
         return interaction.reply({ content: '❌ Error: No se encontró el draft o tus datos de verificación.', flags: [MessageFlags.Ephemeral] });
     }
     
-    // --- LÓGICA CORREGIDA ---
+    // --- LÓGICA CORREGIDA PARA MANEJAR WHATSAPP FALTANTE ---
     if (!verifiedData.whatsapp) {
-        // 1. Guardamos los datos del formulario actual para recuperarlos después.
+        // 1. Guardamos los datos del formulario actual en una 'sesión' temporal en la BBDD.
         const currentFormData = {
             teamName: interaction.fields.getTextInputValue('team_name_input'),
             eafcTeamName: interaction.fields.getTextInputValue('eafc_team_name_input'),
@@ -431,10 +431,9 @@ export async function handleModal(interaction) {
             { $set: { data: currentFormData, createdAt: new Date() } },
             { upsert: true }
         );
-        // Creamos un índice TTL para que los datos temporales se borren solos después de 10 minutos.
         await db.collection('temp_form_data').createIndex({ "createdAt": 1 }, { expireAfterSeconds: 600 });
 
-        // 2. Creamos el modal para pedir el WhatsApp.
+        // 2. Creamos y mostramos el modal para pedir solo el WhatsApp.
         const whatsappModal = new ModalBuilder()
             .setCustomId(`add_whatsapp_to_profile_modal:captain:${draftShortId}:${position}:${streamPlatform}`)
             .setTitle('Dato Requerido: WhatsApp');
@@ -446,12 +445,11 @@ export async function handleModal(interaction) {
             new ActionRowBuilder().addComponents(whatsappConfirmInput)
         );
         
-        // 3. MOSTRAMOS el modal de WhatsApp. ESTO ES VÁLIDO porque es la PRIMERA respuesta a la interacción del modal anterior.
+        // Esto es válido porque es la primera respuesta al modal de inscripción.
         return interaction.showModal(whatsappModal);
     }
-    // --- FIN DE LÓGICA CORREGIDA ---
 
-    // Este código se ejecuta si el usuario YA tenía WhatsApp.
+    // Este código solo se ejecuta si el usuario YA tiene WhatsApp.
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
     const teamName = interaction.fields.getTextInputValue('team_name_input');
@@ -472,12 +470,9 @@ export async function handleModal(interaction) {
         .setColor('#5865F2').setTitle(`🔔 Nueva Solicitud de Capitán (Verificado)`)
         .setDescription(`**Draft:** ${draft.name}`)
         .addFields( 
-            { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, 
-            { name: 'Capitán', value: interaction.user.tag, inline: true },
-            { name: 'PSN ID', value: captainData.psnId, inline: false },
-            { name: 'WhatsApp', value: `\`${captainData.whatsapp}\``, inline: false },
-            { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false },
-            { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
+            { name: 'Nombre de Equipo', value: captainData.teamName, inline: true }, { name: 'Capitán', value: interaction.user.tag, inline: true },
+            { name: 'PSN ID', value: captainData.psnId, inline: false }, { name: 'WhatsApp', value: `\`${captainData.whatsapp}\``, inline: false },
+            { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false }, { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
             { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
         );
     const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
@@ -1118,16 +1113,15 @@ if (action === 'admin_edit_strikes_submit') {
 }
 
 if (action === 'add_whatsapp_to_profile_modal') {
-    // La coma extra al principio estaba causando un error en la desestructuración.
     const [, flow, ...flowParams] = params;
     const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
     const whatsappConfirm = interaction.fields.getTextInputValue('whatsapp_confirm_input').trim();
 
     if (whatsapp !== whatsappConfirm) {
+        // Usamos reply porque es la primera respuesta al modal del WhatsApp
         return interaction.reply({ content: '❌ Los números de WhatsApp no coinciden. Por favor, reinicia la inscripción.', flags: [MessageFlags.Ephemeral] });
     }
     
-    // Defer a la respuesta para darnos tiempo.
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
     await db.collection('verified_users').updateOne(
@@ -1139,10 +1133,9 @@ if (action === 'add_whatsapp_to_profile_modal') {
 
     if (flow === 'captain') {
         const [draftShortId, position, streamPlatform] = flowParams;
-        // Buscamos y BORRAMOS los datos temporales en una sola operación atómica.
         const tempForm = await db.collection('temp_form_data').findOneAndDelete({ userId: interaction.user.id });
 
-        if (!tempForm.value) { // Si no se encuentra nada, la sesión ha expirado.
+        if (!tempForm.value) {
             return interaction.editReply({ content: '❌ Tu sesión ha expirado (no se encontraron datos de inscripción). Por favor, reinicia el proceso.' });
         }
 
