@@ -481,6 +481,12 @@ if (action === 'register_verified_draft_captain_modal') {
     return;
 }
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
+        // --- INICIO DE LA SOLUCIÓN: Cierre de Canal de Verificación ---
+        const lastParam = params[params.length - 1];
+        const isFromTicket = lastParam && lastParam.length > 15 && /^\d+$/.test(lastParam);
+        const ticketChannelId = isFromTicket ? lastParam : null;
+        // --- FIN DE LA SOLUCIÓN ---
+
         await interaction.reply({ content: '⏳ Procesando tu inscripción...', flags: [MessageFlags.Ephemeral] });
         
         const isRegisteringAsCaptain = action.includes('captain');
@@ -578,18 +584,19 @@ if (action === 'register_verified_draft_captain_modal') {
             } else {
                 await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
 
-                // --- INICIO DE LA CORRECCIÓN ---
-                // Primero, actualizamos todo.
-                const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-                await updatePublicMessages(client, updatedDraft);
-                await updateDraftMainInterface(client, updatedDraft.shortId);
-                await notifyVisualizer(updatedDraft);
-                
-                // Y después, confirmamos al usuario.
+                // --- INICIO DE LA CORRECCIÓN: Lógica Reordenada ---
+                // 1. Respondemos al usuario INMEDIATAMENTE.
                 await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
-                 const [, , , , channelId] = params; 
-                if (channelId && channelId !== 'no-ticket') {
-                    const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
+                
+                // 2. Ejecutamos las actualizaciones lentas en segundo plano.
+                const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+                updatePublicMessages(client, updatedDraft);
+                updateDraftMainInterface(client, updatedDraft.shortId);
+                notifyVisualizer(updatedDraft);
+                
+                // 3. Cerramos el canal de verificación si procede.
+                if (ticketChannelId) {
+                    const ticketChannel = await client.channels.fetch(ticketChannelId).catch(() => null);
                     if (ticketChannel) {
                         await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
                         setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
@@ -1112,18 +1119,19 @@ if (action === 'admin_edit_strikes_submit') {
     }
 }
 
+// --- INICIO DE LA SOLUCIÓN: Lógica de WhatsApp y "Thinking..." ---
 if (action === 'add_whatsapp_to_profile_modal') {
     const [, flow, ...flowParams] = params;
     const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
     const whatsappConfirm = interaction.fields.getTextInputValue('whatsapp_confirm_input').trim();
 
     if (whatsapp !== whatsappConfirm) {
-        // Usamos reply porque es la primera respuesta al modal del WhatsApp
         return interaction.reply({ content: '❌ Los números de WhatsApp no coinciden. Por favor, reinicia la inscripción.', flags: [MessageFlags.Ephemeral] });
     }
     
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     
+    // Tarea Esencial 1: Actualizar el perfil del usuario con el WhatsApp.
     await db.collection('verified_users').updateOne(
         { discordId: interaction.user.id },
         { $set: { whatsapp } }
@@ -1139,10 +1147,10 @@ if (action === 'add_whatsapp_to_profile_modal') {
             return interaction.editReply({ content: '❌ Tu sesión ha expirado (no se encontraron datos de inscripción). Por favor, reinicia el proceso.' });
         }
 
+        // Tareas Esenciales 2 (Capitán): Procesar la solicitud.
         const { teamName, eafcTeamName, streamUsername } = tempForm.value.data;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const streamChannel = streamPlatform === 'twitch' ? `https://twitch.tv/${streamUsername}` : `https://youtube.com/@${streamUsername}`;
-
         const captainData = { userId: interaction.user.id, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp, position };
         
         await db.collection('drafts').updateOne(
@@ -1150,6 +1158,10 @@ if (action === 'add_whatsapp_to_profile_modal') {
             { $set: { [`pendingCaptains.${interaction.user.id}`]: captainData } }
         );
         
+        // Respuesta Rápida al Usuario
+        await interaction.editReply('✅ ¡Gracias por añadir tu WhatsApp! Tu solicitud para ser capitán ha sido enviada.');
+
+        // Tareas Lentas (en segundo plano)
         const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
         const adminEmbed = new EmbedBuilder()
             .setColor('#5865F2').setTitle(`🔔 Nueva Solicitud de Capitán (Verificado)`)
@@ -1162,13 +1174,12 @@ if (action === 'add_whatsapp_to_profile_modal') {
             );
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${interaction.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
-        
-        await interaction.editReply('✅ ¡Gracias por añadir tu WhatsApp! Tu solicitud para ser capitán ha sido enviada.');
 
     } else if (flow === 'player') {
         const [draftShortId, primaryPosition, secondaryPosition, teamStatus] = flowParams;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         
+        // Tarea Esencial 2 (Jugador): Inscribir en el draft.
         const playerData = { 
             userId: interaction.user.id, userName: interaction.user.tag, 
             psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp,
@@ -1176,16 +1187,20 @@ if (action === 'add_whatsapp_to_profile_modal') {
             isCaptain: false, captainId: null 
         };
         await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
-
-        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await updatePublicMessages(client, updatedDraft);
-        await updateDraftMainInterface(client, updatedDraft.shortId);
-        await notifyVisualizer(updatedDraft);
-
+        
+        // Respuesta Rápida al Usuario
         await interaction.editReply('✅ ¡Gracias por añadir tu WhatsApp! Tu inscripción como jugador ha sido completada.');
+
+        // Tareas Lentas (en segundo plano)
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        updatePublicMessages(client, updatedDraft);
+        updateDraftMainInterface(client, updatedDraft.shortId);
+        notifyVisualizer(updatedDraft);
     }
     return;
 }
+// --- FIN DE LA SOLUCIÓN ---
+
     // AÑADE ESTE PRIMER BLOQUE PARA SOLUCIONAR EL ERROR DE "SESIÓN EXPIRADA" (PROBLEMA 4)
 
     if (action === 'register_draft_player_team_name_modal') {
