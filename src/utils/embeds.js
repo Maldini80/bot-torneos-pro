@@ -658,67 +658,76 @@ export function createTournamentStatusEmbed(tournament) {
     const format = tournament.config.format;
     const teamsCount = Object.keys(tournament.teams.aprobados).length;
     let statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
-    if (tournament.status === 'inscripcion_abierta' && teamsCount >= format.size) { statusIcon = TOURNAMENT_STATUS_ICONS['cupo_lleno']; }
+    if (tournament.status === 'inscripcion_abierta' && teamsCount >= format.size) {
+        statusIcon = TOURNAMENT_STATUS_ICONS['cupo_lleno'];
+    }
 
     const embed = new EmbedBuilder()
         .setColor(tournament.status === 'inscripcion_abierta' ? '#2ecc71' : '#3498db')
         .setTitle(`${statusIcon} ${tournament.nombre}`)
-        .addFields(
-    { name: 'Formato / Format', value: format.label, inline: true },
-    // --- CAMPO NUEVO ---
-    { name: 'Rondas / Rounds', value: tournament.config.matchType === 'idavuelta' ? 'Ida y Vuelta' : 'Solo Ida', inline: true },
-    // ------------------
-    { name: 'Equipos / Teams', value: `${teamsCount} / ${format.size}`, inline: true }
-)
         .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
 
-    const formatDescriptionES = TOURNAMENT_FORMATS[tournament.config.formatId].description;
-    const formatDescriptionEN = TOURNAMENT_FORMATS[tournament.config.formatId].description_en || formatDescriptionES;
+    // --- LÓGICA MODIFICADA PARA UN SOLO IDIOMA Y MÁS CLARIDAD ---
 
-    let descriptionLines = [];
+    const formatDescription = TOURNAMENT_FORMATS[tournament.config.formatId].description;
+    embed.setDescription(formatDescription);
+
+    embed.addFields(
+        { name: 'Formato', value: format.label, inline: true },
+        { name: 'Rondas', value: tournament.config.matchType === 'idavuelta' ? 'Ida y Vuelta' : 'Solo Ida', inline: true },
+        { name: 'Equipos', value: `${teamsCount} / ${format.size}`, inline: true }
+    );
 
     if (tournament.config.isPaid) {
-        descriptionLines.push('**Este es un torneo de pago. / This is a paid tournament.**');
-        embed.addFields(
-            { name: 'Inscripción / Entry', value: `${tournament.config.entryFee}€`, inline: true },
-            { name: '🏆 Premio Campeón / Champion Prize', value: `${tournament.config.prizeCampeon}€`, inline: true }
-        );
+        embed.addFields({ name: 'Inscripción', value: `**${tournament.config.entryFee}€**`, inline: true });
+        
+        let prizePool = `🏆 **Campeón:** ${tournament.config.prizeCampeon}€`;
         if (tournament.config.prizeFinalista > 0) {
-            embed.addFields({ name: '🥈 Premio Finalista / Runner-up Prize', value: `${tournament.config.prizeFinalista}€`, inline: true });
+            prizePool += `\n🥈 **Finalista:** ${tournament.config.prizeFinalista}€`;
         }
-    } else {
-        descriptionLines.push('**Este es un torneo gratuito. / This is a free tournament.**');
-        embed.addFields({ name: 'Entry', value: 'Gratuito / Free', inline: true });
-    }
+        embed.addFields({ name: 'Premios', value: prizePool, inline: true });
 
-    descriptionLines.push(`\n🇪🇸 ${formatDescriptionES}`);
-    descriptionLines.push(`🇬🇧 ${formatDescriptionEN}`);
-    embed.setDescription(descriptionLines.join('\n'));
+        // Añadimos los métodos de pago si existen
+        let paymentMethods = '';
+        if (tournament.config.paypalEmail) {
+            paymentMethods += `\n**PayPal:** \`${tournament.config.paypalEmail}\``;
+        }
+        if (tournament.config.bizumNumber) {
+            paymentMethods += `\n**Bizum:** \`${tournament.config.bizumNumber}\``;
+        }
+        if (paymentMethods) {
+            embed.addFields({ name: 'Métodos de Pago', value: paymentMethods.trim(), inline: false });
+        }
+
+    } else {
+        embed.addFields({ name: 'Inscripción', value: 'Gratuito', inline: true });
+    }
 
     if (tournament.config.startTime) {
-        embed.addFields({ name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime, inline: false });
+        embed.addFields({ name: 'Inicio Programado', value: tournament.config.startTime, inline: false });
     }
-
+    
+    // El resto de la lógica de los botones permanece igual
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
     const isFull = teamsCount >= format.size;
 
     if (tournament.status === 'inscripcion_abierta') {
         if (!isFull) {
-            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
+            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme').setStyle(ButtonStyle.Success).setEmoji('📝'));
         } else if (!tournament.config.isPaid) {
-            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_reserva_start:${tournament.shortId}`).setLabel('Inscribirme en Reserva / Waitlist').setStyle(ButtonStyle.Primary).setEmoji('📋'));
+            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_reserva_start:${tournament.shortId}`).setLabel('Inscribirme en Reserva').setStyle(ButtonStyle.Primary).setEmoji('📋'));
         }
-        row1.addComponents(new ButtonBuilder().setCustomId(`darse_baja_start:${tournament.shortId}`).setLabel('Darse de Baja / Unregister').setStyle(ButtonStyle.Danger).setEmoji('👋'));
+        row1.addComponents(new ButtonBuilder().setCustomId(`darse_baja_start:${tournament.shortId}`).setLabel('Darse de Baja').setStyle(ButtonStyle.Danger).setEmoji('👋'));
     }
 
     row2.addComponents(
-        new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes / View Participants').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
-        new ButtonBuilder().setLabel('Normas / Rules').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
+        new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
+        new ButtonBuilder().setLabel('Normas').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
     );
 
     if (tournament.status === 'finalizado') {
-        embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado / Finished)`);
+        embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado)`);
     }
 
     const components = [];
@@ -727,7 +736,6 @@ export function createTournamentStatusEmbed(tournament) {
 
     return { embeds: [embed], components };
 }
-
 export function createTeamListEmbed(tournament) {
     const approvedTeams = Object.values(tournament.teams.aprobados);
     const format = tournament.config.format;
