@@ -41,7 +41,9 @@ export async function handleButton(interaction) {
             content = 'Para participar, primero debes verificar tu cuenta. Este proceso solo se realiza una vez y sirve para todos los futuros drafts.';
             row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setCustomId('verify_start_manual')
+                    // --- MODIFICACIÓN CLAVE ---
+                    // Ahora pasamos el ID del draft al siguiente paso
+                    .setCustomId(`verify_start_manual:${draftShortId}`)
                     .setLabel('✅ Verificar mi Cuenta')
                     .setStyle(ButtonStyle.Success)
             );
@@ -88,8 +90,12 @@ export async function handleButton(interaction) {
     // =======================================================
     
     if (action === 'verify_start_manual') {
+        // --- MODIFICACIÓN CLAVE ---
+        // Capturamos el ID del draft que ahora viene en los parámetros
+        const [draftShortId] = params;
         const platformMenu = new StringSelectMenuBuilder()
-            .setCustomId('verify_select_platform_manual')
+            // Y lo añadimos al customId del siguiente paso
+            .setCustomId(`verify_select_platform_manual:${draftShortId}`)
             .setPlaceholder('Paso 1: Selecciona tu plataforma principal')
             .addOptions([
                 { label: '🎮 PlayStation', value: 'psn' },
