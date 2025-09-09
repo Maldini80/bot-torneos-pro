@@ -1046,8 +1046,6 @@ if (action === 'admin_edit_verified_field_select') {
     const [formatId, type] = params;
     const matchType = interaction.values[0];
 
-    // Ahora sí, mostramos el modal final. Como esta es la PRIMERA respuesta a la interacción
-    // de este menú, interaction.showModal() es correcto.
     const modal = new ModalBuilder()
         .setCustomId(`create_tournament:${formatId}:${type}:${matchType}`)
         .setTitle('Finalizar Creación de Torneo');
@@ -1058,16 +1056,35 @@ if (action === 'admin_edit_verified_field_select') {
     modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
 
     if (type === 'pago') {
-        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción / Entry Fee (€)").setStyle(TextInputStyle.Short).setRequired(true);
-        const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón / Champion Prize (€)").setStyle(TextInputStyle.Short).setRequired(true);
-        const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista / Runner-up Prize (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
-        
         modal.setTitle('Finalizar Creación (De Pago)');
+
+        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
+        const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true);
+        const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
+        
+        // --- INICIO DE LA MODIFICACIÓN ---
+        const paypalInput = new TextInputBuilder()
+            .setCustomId('torneo_paypal_email')
+            .setLabel("Email de PayPal (Opcional)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false)
+            .setPlaceholder('tu.email@ejemplo.com');
+
+        const bizumInput = new TextInputBuilder()
+            .setCustomId('torneo_bizum_number')
+            .setLabel("Nº de Bizum (Opcional)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false)
+            .setPlaceholder('Ej: 600111222');
+
         modal.addComponents(
             new ActionRowBuilder().addComponents(entryFeeInput),
             new ActionRowBuilder().addComponents(prizeInputCampeon),
-            new ActionRowBuilder().addComponents(prizeInputFinalista)
+            new ActionRowBuilder().addComponents(prizeInputFinalista),
+            new ActionRowBuilder().addComponents(paypalInput),
+            new ActionRowBuilder().addComponents(bizumInput)
         );
+        // --- FIN DE LA MODIFICACIÓN ---
     }
     await interaction.showModal(modal);
 }
