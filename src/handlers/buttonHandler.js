@@ -677,16 +677,19 @@ if (action === 'admin_invite_replacement_start') {
 
     if (action === 'register_draft_captain' || action === 'register_draft_player') {
     const playerRecord = await db.collection('player_records').findOne({ userId: interaction.user.id });
+
     if (playerRecord && playerRecord.strikes >= 3) {
-        return interaction.reply({ content: `❌ Tienes ${playerRecord.strikes} strikes. No puedes participar.`, flags: [MessageFlags.Ephemeral] });
+        return interaction.reply({
+            content: `❌ **Inscripción Bloqueada:** Tienes ${playerRecord.strikes} strikes acumulados. No puedes participar en nuevos drafts.`,
+            flags: [MessageFlags.Ephemeral]
+        });
     }
 
     const isVerified = await checkVerification(interaction.user.id);
     if (!isVerified) {
-        return interaction.reply({ content: '❌ Debes verificar tu cuenta primero.', flags: [MessageFlags.Ephemeral] });
+        return interaction.reply({ content: '❌ Debes verificar tu cuenta primero usando el botón "Verificar Cuenta".', flags: [MessageFlags.Ephemeral] });
     }
-
-    // --- MODIFICACIÓN CLAVE: Capturamos el channelId que puede venir o no ---
+    
     const [draftShortId, channelId] = params;
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
@@ -697,11 +700,13 @@ if (action === 'admin_invite_replacement_start') {
                               draft.players.some(p => p.userId === userId) ||
                               (draft.pendingPayments && draft.pendingPayments[userId]);
     if (isAlreadyRegistered) {
-        return interaction.reply({ content: '❌ Ya estás inscrito en este draft.', flags: [MessageFlags.Ephemeral] });
+        return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
     }
     
-    // Y lo pasamos como parte de 'originalAction'
-    const ruleStepContent = createRuleAcceptanceEmbed(1, 3, `${action}:${channelId || 'no-ticket'}`, draftShortId);
+    // --- CORRECCIÓN CLAVE ---
+    // Pasamos los parámetros en el orden correcto a la función.
+    const originalActionWithContext = `${action}:${channelId || 'no-ticket'}`;
+    const ruleStepContent = createRuleAcceptanceEmbed(1, 3, originalActionWithContext, draftShortId);
     await interaction.reply(ruleStepContent);
     return;
 }
@@ -1606,24 +1611,19 @@ if (action === 'admin_simulate_matches') {
     }
 
     if (action === 'darse_baja_draft_start') {
-    // IMPORTANTE: Hemos eliminado el deferReply de aquí para evitar el doble reply.
-
     const [draftShortId] = params;
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     if (!draft) {
         return interaction.reply({ content: "Error: Draft no encontrado.", flags: [MessageFlags.Ephemeral] });
     }
 
-    // --- LÓGICA MEJORADA PARA CAPITANES ---
-    // 1. Comprobamos PRIMERO si el usuario es un capitán.
     const isCaptain = draft.captains.some(c => c.userId === interaction.user.id);
     if (isCaptain) {
         return interaction.reply({ 
-            content: "❌ Los capitanes no pueden usar esta opción. La baja de un capitán debe ser gestionada manualmente por un administrador.", 
+            content: "❌ Los capitanes no pueden usar esta opción. La baja debe ser gestionada por un administrador.", 
             flags: [MessageFlags.Ephemeral] 
         });
     }
-    // --- FIN DE LA LÓGICA PARA CAPITANES ---
 
     const playerEntry = draft.players.find(p => p.userId === interaction.user.id);
     if (!playerEntry) {
@@ -1634,30 +1634,22 @@ if (action === 'admin_simulate_matches') {
         return interaction.reply({ content: "No puedes solicitar la baja mientras la fase de selección está en curso.", flags: [MessageFlags.Ephemeral] });
     }
 
-    // SI EL JUGADOR ESTÁ FICHADO (y ya sabemos que no es capitán), PEDIMOS MOTIVO
     if (playerEntry.captainId) {
         const modal = new ModalBuilder()
             .setCustomId(`unregister_draft_reason_modal:${draftShortId}`)
             .setTitle('Solicitar Baja de Equipo');
         const reasonInput = new TextInputBuilder()
-            .setCustomId('reason_input')
-            .setLabel("Motivo de tu solicitud de baja")
-            .setPlaceholder("Por favor, explica brevemente por qué deseas dejar el equipo.")
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true)
-            .setMaxLength(500);
+            .setCustomId('reason_input').setLabel("Motivo de tu solicitud de baja")
+            .setPlaceholder("Explica brevemente por qué deseas dejar el equipo.").setStyle(TextInputStyle.Paragraph)
+            .setRequired(true).setMaxLength(500);
         modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
         
-        // Esta es la única respuesta a la interacción, por lo que es válida.
         await interaction.showModal(modal);
 
-    } else { // SI ES AGENTE LIBRE
-        // Como quitamos el deferReply, ahora necesitamos hacer un reply aquí.
-        await interaction.reply({ content: "Procesando tu solicitud de baja...", flags: [MessageFlags.Ephemeral] });
+    } else {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const result = await requestUnregisterFromDraft(client, draft, interaction.user.id, "Agente Libre (no fichado)");
-        
-        // Usamos editReply para actualizar nuestro mensaje inicial.
-        return interaction.editReply({ content: result.message });
+        await interaction.editReply({ content: result.message });
     }
 }
     
