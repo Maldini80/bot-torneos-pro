@@ -1252,40 +1252,44 @@ if (action === 'add_whatsapp_to_profile_modal') {
 // AÑADE ESTE SEGUNDO BLOQUE PARA SOLUCIONAR LA EDICIÓN DE PERFIL (PROBLEMA 1)
 
     if (action === 'admin_edit_verified_submit') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [, userId, fieldToEdit] = params;
-        const newValue = interaction.fields.getTextInputValue('new_value_input');
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    // --- INICIO DE LA CORRECCIÓN ---
+    // La asignación correcta es esta, sin la coma al principio.
+    const [userId, fieldToEdit] = params;
+    // --- FIN DE LA CORRECCIÓN ---
+    const newValue = interaction.fields.getTextInputValue('new_value_input');
 
-        await db.collection('verified_users').updateOne(
-            { discordId: userId },
-            { $set: { [fieldToEdit]: newValue } }
-        );
+    await db.collection('verified_users').updateOne(
+        { discordId: userId },
+        { $set: { [fieldToEdit]: newValue } }
+    );
 
-        const activeDrafts = await db.collection('drafts').find({ 
-            "players.userId": userId,
-            status: { $nin: ['finalizado', 'torneo_generado', 'cancelado'] } 
-        }).toArray();
+    const activeDrafts = await db.collection('drafts').find({ 
+        "players.userId": userId,
+        status: { $nin: ['finalizado', 'torneo_generado', 'cancelado'] } 
+    }).toArray();
 
-        if (activeDrafts.length > 0) {
-            const fieldMap = { gameId: 'psnId', twitter: 'twitter', whatsapp: 'whatsapp' };
-            const draftField = fieldMap[fieldToEdit];
+    if (activeDrafts.length > 0) {
+        const fieldMap = { gameId: 'psnId', twitter: 'twitter', whatsapp: 'whatsapp' };
+        const draftField = fieldMap[fieldToEdit];
 
-            if (draftField) {
-                await db.collection('drafts').updateMany(
-                    { "players.userId": userId },
-                    { $set: { [`players.$.${draftField}`]: newValue } }
-                );
+        if (draftField) {
+            await db.collection('drafts').updateMany(
+                { "players.userId": userId },
+                { $set: { [`players.$.${draftField}`]: newValue } }
+            );
 
-                for (const draft of activeDrafts) {
-                    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-                    updateDraftMainInterface(client, updatedDraft.shortId);
-                    notifyVisualizer(updatedDraft);
-                }
+            for (const draft of activeDrafts) {
+                const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+                updateDraftMainInterface(client, updatedDraft.shortId);
+                notifyVisualizer(updatedDraft);
             }
         }
-
-        const user = await client.users.fetch(userId);
-        await interaction.editReply({ content: `✅ El campo \`${fieldToEdit}\` de **${user.tag}** ha sido actualizado a \`${newValue}\` y sincronizado.` });
-        return;
     }
+
+    // Ahora `userId` tiene el valor correcto y esta línea funcionará.
+    const user = await client.users.fetch(userId);
+    await interaction.editReply({ content: `✅ El campo \`${fieldToEdit}\` de **${user.tag}** ha sido actualizado a \`${newValue}\` y sincronizado.` });
+    return;
+}
 }
