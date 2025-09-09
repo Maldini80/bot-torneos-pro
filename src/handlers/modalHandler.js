@@ -1204,4 +1204,82 @@ if (action === 'add_whatsapp_to_profile_modal') {
     await interaction.editReply('✅ ¡Gracias por añadir tu WhatsApp! Tu solicitud para ser capitán ha sido enviada.');
     return;
 }
+    // AÑADE ESTE PRIMER BLOQUE PARA SOLUCIONAR EL ERROR DE "SESIÓN EXPIRADA" (PROBLEMA 4)
+
+    if (action === 'register_draft_player_team_name_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        
+        const [draftShortId, primaryPosition, secondaryPosition] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
+
+        if (!draft || !verifiedData) {
+            return interaction.editReply('❌ Error: No se encontró el draft o tus datos de verificación.');
+        }
+
+        const currentTeam = interaction.fields.getTextInputValue('current_team_input');
+
+        const playerData = { 
+            userId: interaction.user.id, 
+            userName: interaction.user.tag, 
+            psnId: verifiedData.gameId,
+            twitter: verifiedData.twitter,
+            whatsapp: verifiedData.whatsapp,
+            primaryPosition, 
+            secondaryPosition, 
+            currentTeam, 
+            isCaptain: false, 
+            captainId: null 
+        };
+
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+        
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await updatePublicMessages(client, updatedDraft);
+        await updateDraftMainInterface(client, updatedDraft.shortId);
+        await notifyVisualizer(updatedDraft);
+
+        await interaction.editReply(`✅ ¡Inscripción completada! Hemos usado tus datos verificados.`);
+        return;
+    }
+
+// AÑADE ESTE SEGUNDO BLOQUE PARA SOLUCIONAR LA EDICIÓN DE PERFIL (PROBLEMA 1)
+
+    if (action === 'admin_edit_verified_submit') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [, userId, fieldToEdit] = params;
+        const newValue = interaction.fields.getTextInputValue('new_value_input');
+
+        await db.collection('verified_users').updateOne(
+            { discordId: userId },
+            { $set: { [fieldToEdit]: newValue } }
+        );
+
+        const activeDrafts = await db.collection('drafts').find({ 
+            "players.userId": userId,
+            status: { $nin: ['finalizado', 'torneo_generado', 'cancelado'] } 
+        }).toArray();
+
+        if (activeDrafts.length > 0) {
+            const fieldMap = { gameId: 'psnId', twitter: 'twitter', whatsapp: 'whatsapp' };
+            const draftField = fieldMap[fieldToEdit];
+
+            if (draftField) {
+                await db.collection('drafts').updateMany(
+                    { "players.userId": userId },
+                    { $set: { [`players.$.${draftField}`]: newValue } }
+                );
+
+                for (const draft of activeDrafts) {
+                    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+                    updateDraftMainInterface(client, updatedDraft.shortId);
+                    notifyVisualizer(updatedDraft);
+                }
+            }
+        }
+
+        const user = await client.users.fetch(userId);
+        await interaction.editReply({ content: `✅ El campo \`${fieldToEdit}\` de **${user.tag}** ha sido actualizado a \`${newValue}\` y sincronizado.` });
+        return;
+    }
 }
