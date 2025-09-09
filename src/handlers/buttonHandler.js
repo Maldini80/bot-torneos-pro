@@ -255,6 +255,35 @@ export async function handleButton(interaction) {
     const db = getDb();
     const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
+    // --- INICIO DE LA SOLUCIÓN: Detección de WhatsApp Faltante ---
+    if (originalAction.startsWith('register_draft_captain') && verifiedData && !verifiedData.whatsapp) {
+        // Guardamos los datos actuales en una sesión temporal para no perderlos
+        const tempFormData = {
+            _id: interaction.user.id, // Usamos el ID del usuario como ID del documento
+            platform, originalAction, entityId, teamIdOrPosition,
+            createdAt: new Date()
+        };
+        await db.collection('temp_form_data').updateOne({ _id: interaction.user.id }, { $set: tempFormData }, { upsert: true });
+        // Creamos un índice TTL para que los datos temporales se borren solos después de 10 minutos
+        await db.collection('temp_form_data').createIndex({ "createdAt": 1 }, { expireAfterSeconds: 600 });
+        
+        // Mostramos el modal para pedir solo el WhatsApp
+        const whatsappModal = new ModalBuilder()
+            .setCustomId(`add_whatsapp_to_profile_modal:captain`) // Custom ID genérico
+            .setTitle('Dato Requerido: WhatsApp');
+        const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
+        const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
+        
+        whatsappModal.addComponents(
+            new ActionRowBuilder().addComponents(whatsappInput),
+            new ActionRowBuilder().addComponents(whatsappConfirmInput)
+        );
+        
+        // Respondemos al botón mostrando el modal de WhatsApp
+        return interaction.showModal(whatsappModal);
+    }
+    // --- FIN DE LA SOLUCIÓN ---
+
     const modal = new ModalBuilder();
     let finalActionId;
 
@@ -265,7 +294,6 @@ export async function handleButton(interaction) {
         const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
         const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
         
-        // Si el capitán está verificado, le pedimos menos datos
         if (verifiedData) {
             finalActionId = `register_verified_draft_captain_modal:${entityId}:${position}:${platform}`;
             modal.setTitle('Inscripción de Capitán (Verificado)');
@@ -275,7 +303,6 @@ export async function handleButton(interaction) {
                 new ActionRowBuilder().addComponents(eafcNameInput)
             );
         } else {
-            // Flujo antiguo para capitanes no verificados (fallback)
             finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}`;
             modal.setTitle('Inscripción como Capitán de Draft');
             const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
@@ -1131,9 +1158,9 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'rules_accept') {
-    // --- MODIFICACIÓN CLAVE: Desestructuramos el originalAction para obtener el channelId ---
+    // --- INICIO DE LA SOLUCIÓN: Capturar el channelId y pasarlo correctamente ---
     const [currentStepStr, originalBaseAction, channelId, entityId] = params;
-    const originalAction = `${originalBaseAction}:${channelId}`; // Reconstruimos para la lógica existente
+    const originalAction = `${originalBaseAction}:${channelId}`;
     const currentStep = parseInt(currentStepStr);
     
     const isCaptainFlow = originalAction.includes('captain');
@@ -1141,7 +1168,6 @@ if (action === 'admin_invite_replacement_start') {
     const totalSteps = isCaptainFlow || isTournamentFlow ? 3 : 1;
 
     if (currentStep >= totalSteps) {
-        // Pasamos el channelId a los siguientes customIds
         if (originalAction.startsWith('register_draft_captain')) {
             const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({ label: value, value: key }));
             const posMenu = new StringSelectMenuBuilder()
@@ -1151,7 +1177,7 @@ if (action === 'admin_invite_replacement_start') {
             await interaction.update({ content: 'Has aceptado las normas. Ahora, selecciona tu posición.', components: [new ActionRowBuilder().addComponents(posMenu)], embeds: [] });
 
         } else if (isTournamentFlow) {
-            // ... (Esta parte no cambia, pero se mantiene)
+            // Lógica de torneo normal (no cambia)
         } else {
             const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({ label: value, value: key }));
             const primaryPosMenu = new StringSelectMenuBuilder()
@@ -1161,10 +1187,11 @@ if (action === 'admin_invite_replacement_start') {
             await interaction.update({ content: 'Has aceptado las normas. Ahora, tu posición primaria.', components: [new ActionRowBuilder().addComponents(primaryPosMenu)], embeds: [] });
         }
     } else {
-        const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, originalAction, entityId);
+        const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
         await interaction.update(nextStepContent);
     }
     return;
+    // --- FIN DE LA SOLUCIÓN ---
 }
     
     if (action === 'rules_reject') {
