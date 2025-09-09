@@ -30,41 +30,34 @@ export async function handleModal(interaction) {
     }
 
     // --- LÓGICA DE TICKETS DE VERIFICACIÓN (AÑADIDA) ---
-    if (action === 'verification_ticket_submit') {
+
+if (action === 'verification_ticket_submit') {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     const [platform, draftShortId] = params;
     const gameId = interaction.fields.getTextInputValue('game_id_input').trim();
     const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
-    // --- INICIO DE LA MODIFICACIÓN ---
     const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
     const whatsappConfirm = interaction.fields.getTextInputValue('whatsapp_confirm_input').trim();
 
-    // Comprobamos que los dos números coincidan
     if (whatsapp !== whatsappConfirm) {
         return interaction.editReply({ content: '❌ **Error:** Los números de WhatsApp no coinciden. Por favor, inténtalo de nuevo.' });
     }
-    // --- FIN DE LA MODIFICACIÓN ---
 
     const user = interaction.user;
     const guild = interaction.guild;
     
-    // --- INICIO DE LA LÓGICA MEJORADA PARA TICKETS ATASCADOS ---
     const existingTicket = await db.collection('verificationtickets').findOne({ userId: user.id, status: { $in: ['pending', 'claimed'] } });
     if (existingTicket) {
-        // Comprobamos si el canal del ticket todavía existe
         const channel = await guild.channels.fetch(existingTicket.channelId).catch(() => null);
 
         if (channel) {
-            // El canal existe, el ticket es legítimo.
             return interaction.editReply({ content: `❌ Ya tienes un ticket de verificación abierto aquí: ${channel.toString()}` });
         } else {
-            // El canal NO existe. Es un ticket atascado.
-            console.warn(`[TICKET ATASCADO] El usuario ${user.tag} tiene un ticket (${existingTicket._id}) apuntando a un canal borrado. Informando al usuario.`);
-            return interaction.editReply({ content: `❌ **Error:** Detectamos una solicitud de verificación anterior que no se cerró correctamente (posiblemente el canal fue borrado manualmente).\n\nPor favor, contacta con un administrador para que limpie tu solicitud anterior antes de que puedas crear una nueva.` });
+            console.warn(`[TICKET ATASCADO] El usuario ${user.tag} tiene un ticket (${existingTicket._id}) apuntando a un canal borrado.`);
+            return interaction.editReply({ content: `❌ **Error:** Detectamos una solicitud de verificación anterior que no se cerró correctamente. Por favor, contacta con un administrador.` });
         }
     }
-    // --- FIN DE LA LÓGICA MEJORADA ---
 
     try {
         const ticketChannel = await guild.channels.create({
@@ -82,65 +75,31 @@ export async function handleModal(interaction) {
         let adminNotificationMessageId = null;
 
         if (adminApprovalChannel) {
-            const adminNotificationEmbed = new EmbedBuilder()
-                .setColor('#f1c40f')
-                .setTitle('🔎 Nueva Solicitud de Verificación Pendiente')
-                .setDescription(`El usuario <@${user.id}> ha abierto un ticket.`)
-                .addFields(
-                    { name: 'Usuario', value: user.tag, inline: true },
-                    { name: 'Plataforma', value: platform.toUpperCase(), inline: true }
-                );
-            const goToChannelButton = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setLabel('Ir al Ticket').setStyle(ButtonStyle.Link).setURL(ticketChannel.url)
-            );
+            const adminNotificationEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle('🔎 Nueva Solicitud de Verificación Pendiente').setDescription(`El usuario <@${user.id}> ha abierto un ticket.`).addFields({ name: 'Usuario', value: user.tag, inline: true }, { name: 'Plataforma', value: platform.toUpperCase(), inline: true });
+            const goToChannelButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Ir al Ticket').setStyle(ButtonStyle.Link).setURL(ticketChannel.url));
             const adminMessage = await adminApprovalChannel.send({ embeds: [adminNotificationEmbed], components: [goToChannelButton] });
             adminNotificationMessageId = adminMessage.id;
         }
 
-        // Actualizamos el resumen para incluir el WhatsApp
-        const summaryEmbedInTicket = new EmbedBuilder()
-            .setColor('#f1c40f')
-            .setTitle('🔎 Nueva Solicitud de Verificación')
-            .addFields(
-                { name: 'Usuario', value: `<@${user.id}> (${user.tag})`, inline: false },
-                { name: 'Plataforma', value: platform.toUpperCase(), inline: true },
-                { name: 'ID de Juego', value: `\`${gameId}\``, inline: true },
-                { name: 'Twitter', value: `\`${twitter}\``, inline: true },
-                { name: 'WhatsApp', value: `\`${whatsapp}\``, inline: true } // <-- DATO AÑADIDO
-            );
-        const claimButton = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`claim_verification_ticket:${ticketChannel.id}`).setLabel('Reclamar Ticket').setStyle(ButtonStyle.Primary)
-        );
+        const summaryEmbedInTicket = new EmbedBuilder().setColor('#f1c40f').setTitle('🔎 Nueva Solicitud de Verificación').addFields({ name: 'Usuario', value: `<@${user.id}> (${user.tag})`, inline: false }, { name: 'Plataforma', value: platform.toUpperCase(), inline: true }, { name: 'ID de Juego', value: `\`${gameId}\``, inline: true }, { name: 'Twitter', value: `\`${twitter}\``, inline: true }, { name: 'WhatsApp', value: `\`${whatsapp}\``, inline: true });
+        const claimButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`claim_verification_ticket:${ticketChannel.id}`).setLabel('Reclamar Ticket').setStyle(ButtonStyle.Primary));
         await ticketChannel.send({ embeds: [summaryEmbedInTicket], components: [claimButton] });
 
         const uniqueCode = `${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-        const instructionsEmbed = new EmbedBuilder()
-            .setColor('#3498db')
-            .setTitle('¡Bienvenido a tu Canal de Verificación!')
-            .setDescription(`Tu **código de verificación único** es: **\`${uniqueCode}\`**\n\nPor favor, edita la biografía/estado de tu perfil en **${platform.toUpperCase()}** para que contenga este código. Luego, envía una **captura de pantalla completa** en este canal donde se vea claramente tu **ID de Juego** y el **código**.`);
+        const instructionsEmbed = new EmbedBuilder().setColor('#3498db').setTitle('¡Bienvenido a tu Canal de Verificación!').setDescription(`Tu **código de verificación único** es: **\`${uniqueCode}\`**\n\nPor favor, edita la biografía/estado de tu perfil en **${platform.toUpperCase()}** para que contenga este código. Luego, envía una **captura de pantalla completa** en este canal donde se vea claramente tu **ID de Juego** y el **código**.`);
         await ticketChannel.send({ content: `<@${user.id}>`, embeds: [instructionsEmbed] });
 
-        // Guardamos el WhatsApp en la base de datos del ticket
         await db.collection('verificationtickets').insertOne({
-            userId: user.id,
-            guildId: guild.id,
-            channelId: ticketChannel.id,
-            platform,
-            gameId,
-            twitter,
-            whatsapp,
-            uniqueCode,
-            status: 'pending',
-            claimedBy: null,
-            createdAt: new Date(),
-            adminNotificationMessageId: adminNotificationMessageId,
-            draftShortId: draftShortId || null // <-- AÑADIMOS EL ID DEL DRAFT
+            userId: user.id, guildId: guild.id, channelId: ticketChannel.id,
+            platform, gameId, twitter, whatsapp, uniqueCode, status: 'pending',
+            claimedBy: null, createdAt: new Date(), adminNotificationMessageId,
+            draftShortId: draftShortId || null
         });
 
         await interaction.editReply({ content: `✅ ¡Perfecto! Hemos creado un canal privado para ti. Por favor, continúa aquí: ${ticketChannel.toString()}` });
     } catch (error) {
         console.error("Error al crear el canal de verificación:", error);
-        await interaction.editReply({ content: '❌ Hubo un error al crear tu canal de verificación. Asegúrate de que el bot tiene permisos para gestionar canales en la categoría de tickets.' });
+        await interaction.editReply({ content: '❌ Hubo un error al crear tu canal de verificación. Asegúrate de que el bot tiene permisos.' });
     }
     return;
 }
