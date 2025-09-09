@@ -634,7 +634,11 @@ export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
     const ruleEmbed = ruleEmbeds[step - 1];
-    const isPlayer = originalAction.includes('player');
+    
+    // --- LÓGICA DE ROBUSTEZ AÑADIDA ---
+    // Aseguramos que originalAction sea siempre un string para evitar errores.
+    const safeOriginalAction = originalAction || ''; 
+    const isPlayer = safeOriginalAction.includes('player');
     const finalTotalSteps = isPlayer ? 1 : 3;
 
     ruleEmbed.setFooter({ text: `Paso ${step} de ${finalTotalSteps} - Debes aceptar todas las normas para poder inscribirte.` });
