@@ -482,6 +482,8 @@ if (action === 'draft_register_player_pos_select_primary') {
         return;
     }
 
+// CÓDIGO COMPLETO Y FINAL para selectMenuHandler.js
+
 if (action === 'draft_register_player_status_select') {
     const [draftShortId, primaryPosition, secondaryPosition] = params;
     const teamStatus = interaction.values[0];
@@ -493,15 +495,20 @@ if (action === 'draft_register_player_status_select') {
         const whatsappModal = new ModalBuilder()
             .setCustomId(`add_whatsapp_to_profile_modal:player:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}`)
             .setTitle('Dato Requerido: WhatsApp');
-        const infoInput = new TextInputBuilder().setCustomId('info').setLabel("¡Hola! Necesitamos un dato más.").setStyle(TextInputStyle.Paragraph).setValue("Hemos actualizado el bot y ahora es obligatorio registrar un número de WhatsApp. Por favor, añádelo a continuación para poder continuar. Solo se te pedirá esta vez.").setRequired(false);
+        
         const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
         const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
         
-        whatsappModal.addComponents(new ActionRowBuilder().addComponents(infoInput), new ActionRowBuilder().addComponents(whatsappInput), new ActionRowBuilder().addComponents(whatsappConfirmInput));
+        whatsappModal.addComponents(
+            new ActionRowBuilder().addComponents(whatsappInput), 
+            new ActionRowBuilder().addComponents(whatsappConfirmInput)
+        );
         return interaction.showModal(whatsappModal);
     }
     // --- FIN DE LA LÓGICA DE COMPROBACIÓN ---
 
+    // Este es el código que representaba el "// ..."
+    // Se ejecuta si el usuario ya tiene WhatsApp, o si no está verificado (flujo antiguo)
     if (verifiedData && teamStatus === 'Libre') {
         await interaction.deferUpdate();
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
