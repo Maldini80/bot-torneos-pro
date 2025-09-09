@@ -592,6 +592,14 @@ export async function handleModal(interaction) {
                 
                 // Y después, confirmamos al usuario.
                 await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
+                 const [, , , , channelId] = params; 
+                if (channelId && channelId !== 'no-ticket') {
+                    const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
+                    if (ticketChannel) {
+                        await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+                        setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
+                    }
+                }
                 // --- FIN DE LA CORRECCIÓN ---
             }
         }
