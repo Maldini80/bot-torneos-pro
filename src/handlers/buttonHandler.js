@@ -1909,6 +1909,8 @@ if (action === 'claim_verification_ticket') {
     }
 }
 
+// NUEVO CÓDIGO en buttonHandler.js
+
 if (action === 'approve_verification') {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return interaction.reply({ content: '❌ No tienes permisos para esta acción.', flags: [MessageFlags.Ephemeral] });
@@ -1921,12 +1923,10 @@ if (action === 'approve_verification') {
 
     if (!ticket || ticket.status === 'closed') return;
     
-    // Solo el admin que reclamó el ticket puede aprobarlo
     if (ticket.status === 'claimed' && ticket.claimedBy !== interaction.user.id) {
          return interaction.followUp({ content: `❌ Este ticket está siendo atendido por <@${ticket.claimedBy}>.`, flags: [MessageFlags.Ephemeral] });
     }
     
-    // Limpiamos la notificación en el canal de admins
     if (ticket.adminNotificationMessageId) {
         try {
             const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
@@ -1934,7 +1934,6 @@ if (action === 'approve_verification') {
         } catch (error) { console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}.`); }
     }
     
-    // Guardamos los datos del usuario verificado
     await db.collection('verified_users').updateOne(
         { discordId: ticket.userId },
         { $set: {
@@ -1946,52 +1945,41 @@ if (action === 'approve_verification') {
         { upsert: true }
     );
 
-    // Asignamos el rol
     const guild = await client.guilds.fetch(ticket.guildId);
     const member = await guild.members.fetch(ticket.userId);
     const verifiedRole = await guild.roles.fetch(VERIFIED_ROLE_ID);
     if (member && verifiedRole) await member.roles.add(verifiedRole);
     
-    // Notificamos al usuario por MD (mensaje simple)
     try {
         await member.send('🎉 **¡Identidad Verificada con Éxito!** 🎉\nTu cuenta ha sido aprobada. Vuelve al canal del ticket para finalizar el proceso.');
     } catch (e) { console.warn(`No se pudo enviar MD de aprobación al usuario ${ticket.userId}`); }
 
-    // --- LÓGICA NUEVA EN EL CANAL DEL TICKET ---
     const channel = await client.channels.fetch(channelId);
-
     const userActionRow = new ActionRowBuilder();
-    // --- MODIFICACIÓN CLAVE ---
-    // Leemos el draftShortId que guardamos en la base de datos
+
+    // --- LÓGICA CORREGIDA PARA MOSTRAR BOTONES ---
     if (ticket.draftShortId && ticket.draftShortId !== 'undefined') {
-        // Si existe, mostramos los botones para inscribirse o salir
         userActionRow.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`user_continue_to_register:${ticket.draftShortId}:${channelId}`)
-                .setLabel('Inscribirme al Draft')
-                .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId(`user_exit_without_registering:${channelId}`)
-                .setLabel('Salir sin Inscribirme')
-                .setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId(`user_continue_to_register:${ticket.draftShortId}:${channelId}`).setLabel('Inscribirme al Draft').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Salir sin Inscribirme').setStyle(ButtonStyle.Danger)
         );
     } else {
-        // Si no existe (verificación genérica), mostramos solo el botón de finalizar
-         userActionRow.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`user_exit_without_registering:${channelId}`)
-                .setLabel('Finalizar y Salir')
-                .setStyle(ButtonStyle.Success)
-        );
+        userActionRow.addComponents(new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Finalizar y Salir').setStyle(ButtonStyle.Success));
     }
 
-    // Enviamos el mensaje final para el usuario dentro del ticket
+    // --- MENSAJE MEJORADO PARA EL USUARIO ---
+    const approvalEmbed = new EmbedBuilder()
+        .setColor('#2ecc71')
+        .setTitle('✅ Verificación Aprobada')
+        .setDescription('¡Enhorabuena! Tu cuenta ha sido verificada. ¿Qué deseas hacer ahora?');
+
+    // Enviamos el ping por separado del embed para una mejor notificación.
     await channel.send({
-        content: `✅ **Verificación Aprobada**\n¡Enhorabuena <@${ticket.userId}>! Tu cuenta ha sido verificada. ¿Qué deseas hacer ahora?`,
+        content: `<@${ticket.userId}>`,
+        embeds: [approvalEmbed],
         components: [userActionRow]
     });
     
-    // Desactivamos los botones de admin del mensaje anterior y actualizamos el embed
     const originalMessage = interaction.message;
     const disabledAdminRow = ActionRowBuilder.from(originalMessage.components[0]);
     disabledAdminRow.components.forEach(c => c.setDisabled(true));
@@ -1999,7 +1987,7 @@ if (action === 'approve_verification') {
     finalEmbedInTicket.data.fields.find(f => f.name === 'Estado').value = `✅ **Aprobado por:** <@${interaction.user.id}>`;
     await originalMessage.edit({ embeds: [finalEmbedInTicket], components: [disabledAdminRow] });
     
-    // Marcamos el ticket como cerrado para evitar más acciones
+    // Marcamos como 'closed' para evitar duplicados, pero NO borramos el canal.
     await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
 }
     if (action === 'reject_verification_start') {
@@ -2162,7 +2150,6 @@ if (action === 'user_continue_to_register') {
     const [draftShortId, channelId] = params;
     const ticket = await db.collection('verificationtickets').findOne({ channelId });
 
-    // Comprobación de seguridad: Solo el usuario del ticket puede pulsar
     if (interaction.user.id !== ticket.userId) {
         return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
     }
@@ -2178,16 +2165,18 @@ if (action === 'user_continue_to_register') {
         flags: [MessageFlags.Ephemeral]
     });
 
-    const channel = await client.channels.fetch(channelId);
-    await channel.send('✅ El usuario ha continuado con la inscripción. Este canal se cerrará en 15 segundos.');
-    setTimeout(() => channel.delete().catch(console.error), 15000);
+    // --- AÑADIMOS EL CIERRE DEL CANAL ---
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (channel) {
+        await channel.send('✅ El usuario ha continuado con la inscripción. Este canal se cerrará en 15 segundos.');
+        setTimeout(() => channel.delete('Usuario procedió a inscribirse.').catch(console.error), 15000);
+    }
 }
 
 if (action === 'user_exit_without_registering') {
     const [channelId] = params;
     const ticket = await db.collection('verificationtickets').findOne({ channelId });
     
-    // Comprobación de seguridad
     if (interaction.user.id !== ticket.userId) {
         return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
     }
@@ -2197,9 +2186,12 @@ if (action === 'user_exit_without_registering') {
         flags: [MessageFlags.Ephemeral]
     });
 
-    const channel = await client.channels.fetch(channelId);
-    await channel.send('El usuario ha decidido salir. Este canal se cerrará en 10 segundos.');
-    setTimeout(() => channel.delete().catch(console.error), 10000);
+    // --- AÑADIMOS EL CIERRE DEL CANAL ---
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (channel) {
+        await channel.send('El usuario ha decidido salir. Este canal se cerrará en 10 segundos.');
+        setTimeout(() => channel.delete('Usuario salió del proceso.').catch(console.error), 10000);
+    }
 }
 
 if (action === 'admin_close_ticket') {
