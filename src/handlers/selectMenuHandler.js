@@ -838,9 +838,12 @@ if (action === 'draft_pick_by_position') {
         return;
     }
      if (action === 'verify_select_platform_manual') {
+    // --- MODIFICACIÓN CLAVE ---
+    const [draftShortId] = params;
     const platform = interaction.values[0];
     const modal = new ModalBuilder()
-        .setCustomId(`verification_ticket_submit:${platform}`)
+        // Pasamos el ID del draft al modal final
+        .setCustomId(`verification_ticket_submit:${platform}:${draftShortId}`)
         .setTitle('Verificación - Datos del Jugador');
     
     const gameIdInput = new TextInputBuilder()
@@ -855,7 +858,6 @@ if (action === 'draft_pick_by_position') {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
-    // --- INICIO DE LA MODIFICACIÓN ---
     const whatsappInput = new TextInputBuilder()
         .setCustomId('whatsapp_input')
         .setLabel("Tu WhatsApp (Ej: +34 123456789)")
@@ -867,13 +869,12 @@ if (action === 'draft_pick_by_position') {
         .setLabel("Confirma tu WhatsApp (Escríbelo de nuevo)")
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
-    // --- FIN DE LA MODIFICACIÓN ---
 
     modal.addComponents(
         new ActionRowBuilder().addComponents(gameIdInput), 
         new ActionRowBuilder().addComponents(twitterInput),
-        new ActionRowBuilder().addComponents(whatsappInput),       // <-- LÍNEA AÑADIDA
-        new ActionRowBuilder().addComponents(whatsappConfirmInput) // <-- LÍNEA AÑADIDA
+        new ActionRowBuilder().addComponents(whatsappInput),
+        new ActionRowBuilder().addComponents(whatsappConfirmInput)
     );
     return interaction.showModal(modal);
 }
