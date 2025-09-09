@@ -1881,7 +1881,9 @@ if (action === 'claim_verification_ticket') {
     const actionButtons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`approve_verification:${channelId}`).setLabel('Aprobar Verificación').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`reject_verification_start:${channelId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger),
+        // --- INICIO DE LA MODIFICACIÓN ---
         new ButtonBuilder().setCustomId(`admin_close_ticket:${channelId}`).setLabel('Cerrar Ticket').setStyle(ButtonStyle.Secondary) // <-- BOTÓN AÑADIDO
+        // --- FIN DE LA MODIFICACIÓN ---
     );
 
     await interaction.message.edit({ embeds: [embedInTicket], components: [actionButtons] });
@@ -2185,10 +2187,21 @@ if (action === 'admin_close_ticket') {
     }
     await interaction.deferUpdate();
     const [channelId] = params;
-    const channel = await client.channels.fetch(channelId);
     
-    await channel.send(`Ticket cerrado manualmente por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
-    setTimeout(() => channel.delete().catch(console.error), 10000);
+    // --- INICIO DE LA MODIFICACIÓN DE SEGURIDAD ---
+    const db = getDb();
+    // Marcamos el ticket como cerrado en la BBDD para evitar que se quede "atascado"
+    await db.collection('verificationtickets').updateOne(
+        { channelId: channelId },
+        { $set: { status: 'closed' } }
+    );
+    // --- FIN DE LA MODIFICACIÓN DE SEGURIDAD ---
+
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (channel) {
+        await channel.send(`Ticket cerrado manualmente por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
+        setTimeout(() => channel.delete('Ticket cerrado manualmente por admin.').catch(console.error), 10000);
+    }
 }
 
 if (action === 'captain_view_free_agents') {
