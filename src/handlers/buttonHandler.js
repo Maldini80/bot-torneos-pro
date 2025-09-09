@@ -1961,13 +1961,28 @@ if (action === 'approve_verification') {
     const channel = await client.channels.fetch(channelId);
 
     const userActionRow = new ActionRowBuilder();
-    if (ticket.draftShortId) {
-    userActionRow.addComponents(
-        new ButtonBuilder().setCustomId(`user_continue_to_register:${ticket.draftShortId}:${channelId}`).setLabel('Inscribirme al Draft').setStyle(ButtonStyle.Success), // <-- VERDE
-        new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Salir sin Inscribirme').setStyle(ButtonStyle.Danger) // <-- ROJO
-    );
+    // --- MODIFICACIÓN CLAVE ---
+    // Leemos el draftShortId que guardamos en la base de datos
+    if (ticket.draftShortId && ticket.draftShortId !== 'undefined') {
+        // Si existe, mostramos los botones para inscribirse o salir
+        userActionRow.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`user_continue_to_register:${ticket.draftShortId}:${channelId}`)
+                .setLabel('Inscribirme al Draft')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId(`user_exit_without_registering:${channelId}`)
+                .setLabel('Salir sin Inscribirme')
+                .setStyle(ButtonStyle.Danger)
+        );
     } else {
-         userActionRow.addComponents(new ButtonBuilder().setCustomId(`user_exit_without_registering:${channelId}`).setLabel('Finalizar y Salir').setStyle(ButtonStyle.Success));
+        // Si no existe (verificación genérica), mostramos solo el botón de finalizar
+         userActionRow.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`user_exit_without_registering:${channelId}`)
+                .setLabel('Finalizar y Salir')
+                .setStyle(ButtonStyle.Success)
+        );
     }
 
     // Enviamos el mensaje final para el usuario dentro del ticket
