@@ -814,14 +814,46 @@ if (action === 'create_tournament') {
         }
     
         if (tournament.config.isPaid) {
-            const embedDm = new EmbedBuilder().setTitle(`💸 Inscripción Pendiente de Pago: ${tournament.nombre}`).setDescription(`🇪🇸 ¡Casi listo! Para confirmar tu plaza, realiza el pago.\n🇬🇧 Almost there! To confirm your spot, please complete the payment.`).addFields({ name: 'Entry', value: `${tournament.config.entryFee}€` }, { name: 'Pagar a / Pay to', value: `\`${PAYMENT_CONFIG.PAYPAL_EMAIL}\`` }, { name: 'Instrucciones / Instructions', value: '🇪🇸 1. Realiza el pago.\n2. Pulsa el botón de abajo para confirmar.\n\n🇬🇧 1. Make the payment.\n2. Press the button below to confirm.' }).setColor('#e67e22');
-            const confirmButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`payment_confirm_start:${tournamentShortId}`).setLabel('✅ He Pagado / I Have Paid').setStyle(ButtonStyle.Success));
-            try {
-                await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
-                await interaction.editReply({ content: '✅ 🇪🇸 ¡Inscripción recibida! Revisa tus MD para completar el pago.\n🇬🇧 Registration received! Check your DMs to complete the payment.' });
-            } catch (e) {
-                await interaction.editReply({ content: '❌ 🇪🇸 No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.\n🇬🇧 I could not send you a DM. Please open your DMs and try again.' });
+            // --- INICIO DE LA NUEVA LÓGICA EFÍMERA ---
+
+            // Construimos el texto con los métodos de pago solo si existen
+            let paymentInstructions = '';
+            if (tournament.config.paypalEmail) {
+                paymentInstructions += `\n- **PayPal:** \`${tournament.config.paypalEmail}\``;
             }
+            if (tournament.config.bizumNumber) {
+                paymentInstructions += `\n- **Bizum:** \`${tournament.config.bizumNumber}\``;
+            }
+
+            if (!paymentInstructions) {
+                paymentInstructions = "\n*No se ha configurado un método de pago. Contacta con un administrador.*";
+            }
+
+            const embedEphemere = new EmbedBuilder()
+                .setColor('#e67e22')
+                .setTitle(`💸 Inscripción Recibida - Pendiente de Pago`)
+                .setDescription(`¡Casi listo! Para confirmar tu plaza en el torneo **${tournament.nombre}**, realiza el pago de **${tournament.config.entryFee}€** a través de uno de los siguientes métodos:`)
+                .addFields(
+                    { name: 'Métodos de Pago', value: paymentInstructions },
+                    { name: 'Instrucciones', value: '1. Realiza el pago.\n2. **MUY IMPORTANTE:** Pulsa el botón de abajo para notificar a los administradores y que puedan verificarlo.' }
+                )
+                .setFooter({ text: 'Este mensaje solo es visible para ti.' });
+                
+            const confirmButton = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`payment_confirm_start:${tournamentShortId}`)
+                    .setLabel('✅ Ya he realizado el Pago')
+                    .setStyle(ButtonStyle.Success)
+            );
+
+            // Respondemos de forma efímera con toda la información
+            await interaction.editReply({ 
+                content: '✅ ¡Inscripción recibida! Sigue los pasos a continuación para finalizar.', 
+                embeds: [embedEphemere], 
+                components: [confirmButton] 
+            });
+
+            // --- FIN DE LA NUEVA LÓGICA EFÍMERA ---
         } else {
             const adminEmbed = new EmbedBuilder()
                 .setColor('#3498DB')
