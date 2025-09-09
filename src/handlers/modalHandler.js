@@ -627,12 +627,17 @@ export async function handleModal(interaction) {
 
             } else {
                 await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
-                await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
-                
+
+                // --- INICIO DE LA CORRECCIÓN ---
+                // Primero, actualizamos todo.
                 const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-                await updateDraftMainInterface(client, updatedDraft.shortId);
                 await updatePublicMessages(client, updatedDraft);
+                await updateDraftMainInterface(client, updatedDraft.shortId);
                 await notifyVisualizer(updatedDraft);
+                
+                // Y después, confirmamos al usuario.
+                await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
+                // --- FIN DE LA CORRECCIÓN ---
             }
         }
         return;
