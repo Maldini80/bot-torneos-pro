@@ -1084,13 +1084,15 @@ export async function createNewTournament(client, guild, name, shortId, config) 
                 formatId: config.formatId, 
                 format, 
                 isPaid: config.isPaid, 
-                // --- INICIO DE LA CORRECCIÓN ---
                 matchType: config.matchType || 'ida', 
-                // --- FIN DE LA CORRECCIÓN ---
                 entryFee: config.isPaid ? config.entryFee : 0, 
                 prizeCampeon: config.isPaid ? config.prizeCampeon : 0, 
                 prizeFinalista: config.isPaid ? config.prizeFinalista : 0, 
-                enlacePaypal: config.isPaid ? config.enlacePaypal : null, 
+                // --- INICIO DE LA MODIFICACIÓN ---
+                // Guardamos los nuevos campos que vienen desde el modalHandler
+                paypalEmail: config.isPaid ? config.paypalEmail : null,
+                bizumNumber: config.isPaid ? config.bizumNumber : null,
+                // --- FIN DE LA MODIFICACIÓN ---
                 startTime: config.startTime || null 
             },
             teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {} },
