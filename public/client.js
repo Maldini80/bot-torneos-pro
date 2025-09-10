@@ -762,37 +762,37 @@ function renderTeamManagementView(draft) {
         bannerEl.classList.add('visible');
     }
 async function showPlayerDetailsModal(draftId, playerId) {
-        const modal = document.getElementById('player-details-modal');
-        const modalPlayerName = document.getElementById('modal-player-name');
-        const modalContent = document.getElementById('modal-player-details-content');
+    const modal = document.getElementById('player-details-modal');
+    const modalPlayerName = document.getElementById('modal-player-name');
+    const modalContent = document.getElementById('modal-player-details-content');
 
-        modalPlayerName.textContent = 'Cargando...';
-        modalContent.innerHTML = '<p>Obteniendo datos del jugador...</p>';
-        modal.classList.remove('hidden');
+    modalPlayerName.textContent = 'Cargando...';
+    modalContent.innerHTML = '<p>Obteniendo datos del jugador...</p>';
+    modal.classList.remove('hidden');
 
-        try {
-            const response = await fetch(`/api/player-details/${draftId}/${playerId}`);
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'No se pudieron obtener los detalles.');
-            }
-            const data = await response.json();
-
-            modalPlayerName.textContent = `Ficha de: ${data.psnId}`;
-            modalContent.innerHTML = `
-                <p><span class="detail-label">Discord:</span> <span class="detail-value">${data.discordTag}</span></p>
-                <p><span class="detail-label">ID de Juego:</span> <span class="detail-value">${data.psnId}</span></p>
-                <p><span class="detail-label">Pos. Primaria:</span> <span class="detail-value">${data.primaryPosition}</span></p>
-                <p><span class="detail-label">Pos. Secundaria:</span> <span class="detail-value">${data.secondaryPosition}</span></p>
-                <p><span class="detail-label">WhatsApp:</span> <span class="detail-value">${data.whatsapp || 'No registrado'}</span></p>
-                <p><span class="detail-label">Twitter:</span> <span class="detail-value">${data.twitter || 'No registrado'}</span></p>
-                <p><span class="detail-label">Strikes:</span> <span class="detail-value">${data.strikes}</span></p>
-            `;
-        } catch (error) {
-            modalPlayerName.textContent = 'Error';
-            modalContent.innerHTML = `<p style="color: var(--primary-color);">${error.message}</p>`;
+    try {
+        const response = await fetch(`/api/player-details/${draftId}/${playerId}`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'No se pudieron obtener los detalles.');
         }
+        const data = await response.json();
+
+        modalPlayerName.textContent = `Ficha de: ${data.psnId}`;
+        modalContent.innerHTML = `
+            <p><span class="detail-label">Discord:</span> <span class="detail-value">${data.discordTag}</span></p>
+            <p><span class="detail-label">ID de Juego:</span> <span class="detail-value">${data.psnId}</span></p>
+            <p><span class="detail-label">Pos. Primaria:</span> <span class="detail-value">${data.primaryPosition}</span></p>
+            <p><span class="detail-label">Pos. Secundaria:</span> <span class="detail-value">${data.secondaryPosition}</span></p>
+            <p><span class="detail-label">WhatsApp:</span> <span class="detail-value">${data.whatsapp || 'No registrado'}</span></p>
+            <p><span class="detail-label">Twitter:</span> <span class="detail-value">${data.twitter || 'No registrado'}</span></p>
+            <p><span class="detail-label">Strikes:</span> <span class="detail-value">${data.strikes}</span></p>
+        `;
+    } catch (error) {
+        modalPlayerName.textContent = 'Error';
+        modalContent.innerHTML = `<p style="color: var(--primary-color);">${error.message}</p>`;
     }
+}
 
     initialize();
 }
