@@ -2173,38 +2173,6 @@ if (action === 'user_exit_without_registering') {
         setTimeout(() => channel.delete('Usuario salió del proceso.').catch(console.error), 10000);
     }
 }
-
-if (action === 'user_exit_without_registering') {
-    const [channelId] = params;
-    const ticket = await db.collection('verificationtickets').findOne({ channelId });
-    
-    if (interaction.user.id !== ticket.userId) {
-        return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
-    }
-    
-    try {
-        // Intenta responder. Si ya se respondió, el catch lo manejará.
-        await interaction.reply({
-            content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.`,
-            flags: [MessageFlags.Ephemeral]
-        });
-    } catch (error) {
-        if (error.code !== 'InteractionAlreadyReplied') {
-            // Si es un error diferente, lo lanzamos para que se registre.
-            throw error;
-        }
-        // Si es 'InteractionAlreadyReplied', lo ignoramos y continuamos.
-        console.warn(`[WARN] Interacción 'user_exit_without_registering' ya respondida. Se procederá al cierre del canal de todas formas.`);
-    }
-
-    // Esta parte se ejecuta siempre, incluso si la interacción ya fue respondida.
-    const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (channel) {
-        await channel.send('El usuario ha decidido salir. Este canal se cerrará en 10 segundos.');
-        setTimeout(() => channel.delete('Usuario salió del proceso.').catch(console.error), 10000);
-    }
-}
-
 if (action === 'admin_close_ticket') {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return interaction.reply({ content: '❌ Solo los administradores pueden usar este botón.', flags: [MessageFlags.Ephemeral] });
