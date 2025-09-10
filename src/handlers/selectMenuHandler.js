@@ -1112,7 +1112,7 @@ if (action === 'admin_edit_verified_field_select') {
     const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
     // Llamamos a la ficha en modo 'view' para que NO muestre los botones de acción
-    const playerViewEmbed = await createPlayerManagementEmbed(player, draft, null, isAdmin, 'view');
+    const playerViewEmbed = await createPlayerManagementEmbed(interaction.client, player, draft, null, isAdmin, 'view');
     await interaction.editReply(playerViewEmbed);
     return;
 }
