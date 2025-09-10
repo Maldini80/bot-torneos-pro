@@ -1102,7 +1102,94 @@ if (action === 'admin_edit_verified_field_select') {
     }
     await interaction.showModal(modal);
 }
-    if (action === 'view_free_agent_details') {
+    // --- NUEVOS BLOQUES DE CÓDIGO ---
+
+// Maneja la selección de "Primaria" o "Secundaria"
+if (action === 'free_agent_search_type') {
+    await interaction.deferUpdate();
+    const [draftShortId] = params;
+    const searchType = interaction.values[0];
+
+    const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+        label: value,
+        value: key
+    }));
+
+    const positionMenu = new StringSelectMenuBuilder()
+        .setCustomId(`free_agent_select_position:${draftShortId}:${searchType}`)
+        .setPlaceholder(`Paso 2: Elige la posición ${searchType === 'primary' ? 'primaria' : 'secundaria'}`)
+        .addOptions(positionOptions);
+
+    await interaction.editReply({
+        content: `Buscaremos por posición ${searchType === 'primary' ? 'primaria' : 'secundaria'}. Ahora, selecciona la posición exacta:`,
+        components: [new ActionRowBuilder().addComponents(positionMenu)]
+    });
+    return;
+}
+
+// Maneja la selección de la posición y muestra la lista paginada
+if (action === 'free_agent_select_position' || action === 'free_agent_select_page') {
+    await interaction.deferUpdate();
+    const [draftShortId, searchType, position, pageStr] = params;
+    const page = action === 'free_agent_select_page' ? parseInt(interaction.values[0].replace('page_', '')) : 0;
+    const selectedPosition = action === 'free_agent_select_position' ? interaction.values[0] : position;
+
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const freeAgents = draft.players.filter(p => !p.captainId && !p.isCaptain);
+    
+    const candidates = freeAgents.filter(p => 
+        (searchType === 'primary' && p.primaryPosition === selectedPosition) ||
+        (searchType === 'secondary' && p.secondaryPosition === selectedPosition)
+    );
+
+    if (candidates.length === 0) {
+        return interaction.editReply({
+            content: `No se encontraron agentes libres para la posición **${DRAFT_POSITIONS[selectedPosition]}** (${searchType}).`,
+            components: []
+        });
+    }
+
+    candidates.sort((a, b) => a.psnId.localeCompare(b.psnId));
+    const pageSize = 25;
+    const pageCount = Math.ceil(candidates.length / pageSize);
+    const startIndex = page * pageSize;
+    const endIndex = startIndex + pageSize;
+    const candidatesPage = candidates.slice(startIndex, endIndex);
+
+    const playerOptions = candidatesPage.map(p => ({
+        label: p.psnId,
+        description: `Pos: ${p.primaryPosition} / ${p.secondaryPosition || 'N/A'}`,
+        value: p.userId
+    }));
+
+    const playerMenu = new StringSelectMenuBuilder()
+        .setCustomId(`view_free_agent_details:${draftShortId}`)
+        .setPlaceholder(`Pág. ${page + 1}/${pageCount} - Selecciona un jugador para ver su ficha`)
+        .addOptions(playerOptions);
+
+    const components = [new ActionRowBuilder().addComponents(playerMenu)];
+
+    if (pageCount > 1) {
+        const pageOptions = [];
+        for (let i = 0; i < pageCount; i++) {
+            pageOptions.push({ label: `Página ${i + 1} de ${pageCount}`, value: `page_${i}` });
+        }
+        const pageMenu = new StringSelectMenuBuilder()
+            .setCustomId(`free_agent_select_page:${draftShortId}:${searchType}:${selectedPosition}`)
+            .setPlaceholder('Cambiar de página')
+            .addOptions(pageOptions);
+        components.unshift(new ActionRowBuilder().addComponents(pageMenu));
+    }
+    
+    await interaction.editReply({
+        content: `Mostrando **${candidates.length}** agentes libres para **${DRAFT_POSITIONS[selectedPosition]}** (${searchType}).`,
+        components
+    });
+    return;
+}
+
+// Maneja la selección final del jugador y muestra su ficha
+if (action === 'view_free_agent_details') {
     await interaction.deferUpdate();
     const [draftShortId] = params;
     const selectedPlayerId = interaction.values[0];
@@ -1111,9 +1198,9 @@ if (action === 'admin_edit_verified_field_select') {
     const player = draft.players.find(p => p.userId === selectedPlayerId);
     const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-    // Llamamos a la ficha en modo 'view' para que NO muestre los botones de acción
     const playerViewEmbed = await createPlayerManagementEmbed(interaction.client, player, draft, null, isAdmin, 'view');
     await interaction.editReply(playerViewEmbed);
     return;
 }
+// --- FIN DE LOS NUEVOS BLOQUES ---
 }
