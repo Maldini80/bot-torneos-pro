@@ -1147,41 +1147,39 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'rules_accept') {
-    // --- INICIO DE LA SOLUCIÓN: Capturar el channelId y pasarlo correctamente ---
-    const [currentStepStr, originalBaseAction, channelId, entityId] = params;
-    const originalAction = `${originalBaseAction}:${channelId}`;
-    const currentStep = parseInt(currentStepStr);
-    
-    const isCaptainFlow = originalAction.includes('captain');
-    const isTournamentFlow = !originalAction.startsWith('register_draft');
-    const totalSteps = isCaptainFlow || isTournamentFlow ? 3 : 1;
+// --- INICIO DE LA SOLUCIÓN: Capturar el channelId y pasarlo correctamente ---
+const [currentStepStr, originalBaseAction, channelId, entityId] = params;
+const originalAction = `${originalBaseAction}:${channelId}`;
+const currentStep = parseInt(currentStepStr);
 
-    if (currentStep >= totalSteps) {
-        if (originalAction.startsWith('register_draft_captain')) {
-            const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({ label: value, value: key }));
-            const posMenu = new StringSelectMenuBuilder()
-                .setCustomId(`draft_register_captain_pos_select:${entityId}:${channelId}`)
-                .setPlaceholder('Selecciona tu posición PRIMARIA como Capitán')
-                .addOptions(positionOptions);
-            await interaction.update({ content: 'Has aceptado las normas. Ahora, selecciona tu posición.', components: [new ActionRowBuilder().addComponents(posMenu)], embeds: [] });
+const isCaptainFlow = originalAction.includes('captain');
+const isTournamentFlow = !originalAction.startsWith('register_draft');
+const totalSteps = isCaptainFlow || isTournamentFlow ? 3 : 1;
 
-        } else if (isTournamentFlow) {
-            // Lógica de torneo normal (no cambia)
-        } else {
-            const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({ label: value, value: key }));
-            const primaryPosMenu = new StringSelectMenuBuilder()
-                .setCustomId(`draft_register_player_pos_select_primary:${entityId}:${channelId}`)
-                .setPlaceholder('Paso 1: Selecciona tu posición PRIMARIA')
-                .addOptions(positionOptions);
-            await interaction.update({ content: 'Has aceptado las normas. Ahora, tu posición primaria.', components: [new ActionRowBuilder().addComponents(primaryPosMenu)], embeds: [] });
-        }
+if (currentStep >= totalSteps) {
+    if (originalAction.startsWith('register_draft_captain')) {
+        const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({ label: value, value: key }));
+        const posMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_register_captain_pos_select:${entityId}:${channelId}`)
+            .setPlaceholder('Selecciona tu posición PRIMARIA como Capitán')
+            .addOptions(positionOptions);
+        await interaction.update({ content: 'Has aceptado las normas. Ahora, selecciona tu posición.', components: [new ActionRowBuilder().addComponents(posMenu)], embeds: [] });
+
+    } else if (isTournamentFlow) {
+        // Lógica de torneo normal (no cambia)
     } else {
-        const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
-        await interaction.update(nextStepContent);
+        const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({ label: value, value: key }));
+        const primaryPosMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_register_player_pos_select_primary:${entityId}:${channelId}`)
+            .setPlaceholder('Paso 1: Selecciona tu posición PRIMARIA')
+            .addOptions(positionOptions);
+        await interaction.update({ content: 'Has aceptado las normas. Ahora, tu posición primaria.', components: [new ActionRowBuilder().addComponents(primaryPosMenu)], embeds: [] });
     }
-    return;
-    // --- FIN DE LA SOLUCIÓN ---
+} else {
+    const nextStepContent = createRuleAcceptanceEmbed(currentStep + 1, totalSteps, originalAction, entityId);
+    await interaction.update(nextStepContent);
 }
+return;
     
     if (action === 'rules_reject') {
         await interaction.update({ content: 'Has cancelado el proceso de inscripción. Para volver a intentarlo, pulsa de nuevo el botón de inscripción.', components: [], embeds: [] });
