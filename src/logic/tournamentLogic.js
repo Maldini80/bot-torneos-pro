@@ -682,7 +682,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
         if (teamCategory) {
             for (const team of Object.values(newTournament.teams.aprobados)) {
-                const teamMembersIds = team.players.map(p => p.userId).filter(id => /^\d+$/.test(id));
+                const teamMembersIds = team.players.map(p => p.userId);
                 
                 const textPermissions = [
                     { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
