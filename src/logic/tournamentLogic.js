@@ -681,48 +681,54 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         
         const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
         if (teamCategory) {
-            for (const team of Object.values(newTournament.teams.aprobados)) {
-                const teamMembersIds = team.players.map(p => p.userId);
-                
-                const textPermissions = [
-                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                    { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-                    ...teamMembersIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
-                ];
-                
-                const voicePermissions = [
-                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                    { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-                    ...teamMembersIds.map(id => ({ id, allow: [
-                        PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
-                    ]}))
-                ];
-                
-                const textChannel = await guild.channels.create({
-                    name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`, type: ChannelType.GuildText,
-                    parent: teamCategory, permissionOverwrites: textPermissions
-                });
+    for (const team of Object.values(newTournament.teams.aprobados)) {
+        // Filtramos solo los jugadores con IDs de Discord reales para los permisos
+        const realPlayerIds = team.players.map(p => p.userId).filter(id => /^\d+$/.test(id));
+        
+        const textPermissions = [
+            { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+            { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
+            ...realPlayerIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
+        ];
+        
+        const voicePermissions = [
+            { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+            { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
+            ...realPlayerIds.map(id => ({ id, allow: [
+                PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
+            ]}))
+        ];
+        
+        const textChannel = await guild.channels.create({
+            name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`, type: ChannelType.GuildText,
+            parent: teamCategory, permissionOverwrites: textPermissions
+        });
 
-                await guild.channels.create({
-                    name: `🔊 ${team.nombre}`, type: ChannelType.GuildVoice,
-                    parent: teamCategory, permissionOverwrites: voicePermissions
-                });
-                
-                const mentionString = teamMembersIds.map(id => `<@${id}>`).join(' ');
-                await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
-                await chatChannel.send({
-                    content: `<@${team.capitanId}>, puedes invitar a tu co-capitán desde aquí:`,
-                    components: [new ActionRowBuilder().addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`invite_cocaptain_start:${newTournament.shortId}`)
-                            .setLabel('Invitar Co-Capitán')
-                            .setStyle(ButtonStyle.Secondary)
-                            .setEmoji('🤝')
-                    )],
-                    flags: [MessageFlags.Ephemeral]
-                });
-            }
+        await guild.channels.create({
+            name: `🔊 ${team.nombre}`, type: ChannelType.GuildVoice,
+            parent: teamCategory, permissionOverwrites: voicePermissions
+        });
+        
+        // Para el mensaje de bienvenida, podemos mencionar a todos los reales
+        const mentionString = realPlayerIds.map(id => `<@${id}>`).join(' ');
+        await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
+        
+        // Solo mostramos el botón de invitar co-capitán al capitán real
+        if (/^\d+$/.test(team.capitanId)) {
+            await chatChannel.send({
+                content: `<@${team.capitanId}>, puedes invitar a tu co-capitán desde aquí:`,
+                components: [new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`invite_cocaptain_start:${newTournament.shortId}`)
+                        .setLabel('Invitar Co-Capitán')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('🤝')
+                )],
+                flags: [MessageFlags.Ephemeral]
+            });
         }
+    }
+}
         
         for (const member of arbitroRole.members.values()) { await managementThread.members.add(member.id).catch(()=>{}); await notificationsThread.members.add(member.id).catch(()=>{}); }
         if (casterRole) { for (const member of casterRole.members.values()) { await casterThread.members.add(member.id).catch(()=>{}); } }
