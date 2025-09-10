@@ -2235,33 +2235,26 @@ if (action === 'captain_view_free_agents') {
     const [draftShortId] = params;
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     
-    const isCaptain = draft.captains.some(c => c.userId === interaction.user.id);
-    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
-    const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+    const member = interaction.member;
+    const isCaptain = draft.captains.some(c => c.userId === member.id);
+    const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
+    const isReferee = member.roles.cache.has(ARBITRO_ROLE_ID);
 
     if (!isCaptain && !isAdmin && !isReferee) {
         return interaction.editReply({ content: '❌ No tienes permiso para usar esta función.' });
     }
 
-    const freeAgents = draft.players.filter(p => !p.captainId && !p.isCaptain);
-    if (freeAgents.length === 0) {
-        return interaction.editReply({ content: 'ℹ️ No hay agentes libres disponibles en este momento.' });
-    }
+    const searchTypeMenu = new StringSelectMenuBuilder()
+        .setCustomId(`free_agent_search_type:${draftShortId}`)
+        .setPlaceholder('Paso 1: Elige cómo buscar al jugador')
+        .addOptions([
+            { label: 'Por Posición Primaria', value: 'primary', emoji: '⭐' },
+            { label: 'Por Posición Secundaria', value: 'secondary', emoji: '🔹' }
+        ]);
 
-    const playerOptions = freeAgents.slice(0, 25).map(p => ({
-        label: p.psnId,
-        description: `Pos: ${p.primaryPosition} / ${p.secondaryPosition === 'NONE' ? 'N/A' : p.secondaryPosition}`,
-        value: p.userId,
-    }));
-
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId(`view_free_agent_details:${draftShortId}`)
-        .setPlaceholder('Selecciona un agente libre para ver sus detalles...')
-        .addOptions(playerOptions);
-    
     await interaction.editReply({
-        content: `Hay ${freeAgents.length} agentes libres. Selecciona uno de la lista:`,
-        components: [new ActionRowBuilder().addComponents(selectMenu)]
+        content: '¿Cómo deseas buscar entre los agentes libres disponibles?',
+        components: [new ActionRowBuilder().addComponents(searchTypeMenu)]
     });
     return;
 }
