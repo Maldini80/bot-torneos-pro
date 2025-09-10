@@ -2156,11 +2156,22 @@ if (action === 'user_exit_without_registering') {
         return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
     }
     
-    await interaction.reply({
-        content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.`,
-        flags: [MessageFlags.Ephemeral]
-    });
+    try {
+        // Intenta responder. Si ya se respondió, el catch lo manejará.
+        await interaction.reply({
+            content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.`,
+            flags: [MessageFlags.Ephemeral]
+        });
+    } catch (error) {
+        if (error.code !== 'InteractionAlreadyReplied') {
+            // Si es un error diferente, lo lanzamos para que se registre.
+            throw error;
+        }
+        // Si es 'InteractionAlreadyReplied', lo ignoramos y continuamos.
+        console.warn(`[WARN] Interacción 'user_exit_without_registering' ya respondida. Se procederá al cierre del canal de todas formas.`);
+    }
 
+    // Esta parte se ejecuta siempre, incluso si la interacción ya fue respondida.
     const channel = await client.channels.fetch(channelId).catch(() => null);
     if (channel) {
         await channel.send('El usuario ha decidido salir. Este canal se cerrará en 10 segundos.');
@@ -2176,12 +2187,22 @@ if (action === 'user_exit_without_registering') {
         return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
     }
     
-    await interaction.reply({
-        content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.`,
-        flags: [MessageFlags.Ephemeral]
-    });
+    try {
+        // Intenta responder. Si ya se respondió, el catch lo manejará.
+        await interaction.reply({
+            content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.`,
+            flags: [MessageFlags.Ephemeral]
+        });
+    } catch (error) {
+        if (error.code !== 'InteractionAlreadyReplied') {
+            // Si es un error diferente, lo lanzamos para que se registre.
+            throw error;
+        }
+        // Si es 'InteractionAlreadyReplied', lo ignoramos y continuamos.
+        console.warn(`[WARN] Interacción 'user_exit_without_registering' ya respondida. Se procederá al cierre del canal de todas formas.`);
+    }
 
-    // --- AÑADIMOS EL CIERRE DEL CANAL ---
+    // Esta parte se ejecuta siempre, incluso si la interacción ya fue respondida.
     const channel = await client.channels.fetch(channelId).catch(() => null);
     if (channel) {
         await channel.send('El usuario ha decidido salir. Este canal se cerrará en 10 segundos.');
