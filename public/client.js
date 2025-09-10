@@ -585,53 +585,59 @@ function renderAvailablePlayers(draft) {
         }));
 
         playersTableBodyEl.addEventListener('click', (event) => {
-            if (event.target.classList.contains('pick-btn')) {
-                const playerId = event.target.dataset.playerId;
-                let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
+        if (event.target.classList.contains('pick-btn')) {
+            const playerId = event.target.dataset.playerId;
+            let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
 
-                if (!activeFilterPos || activeFilterPos === 'Todos') {
-                    const playerRow = event.target.closest('tr');
-                    activeFilterPos = playerRow.dataset.primaryPos;
-                }
-
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
-                    document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
-                }
-            }
-        });
-
-        rosterManagementContainer.addEventListener('click', (event) => {
-            const target = event.target;
-            const playerId = target.dataset.playerId;
-
-            if (target.classList.contains('btn-strike')) {
-                const reason = prompt("Por favor, introduce un motivo breve para el strike (ej: inactividad, toxicidad):");
-                if (reason && reason.trim() !== '') {
-                    socket.send(JSON.stringify({ type: 'report_player', draftId, playerId, reason: reason.trim() }));
-                    target.disabled = true;
-                    target.textContent = 'Reportado';
-                }
+            if (!activeFilterPos || activeFilterPos === 'Todos') {
+                const playerRow = event.target.closest('tr');
+                activeFilterPos = playerRow.dataset.primaryPos;
             }
 
-            if (target.classList.contains('btn-kick')) {
-    const reason = prompt("Por favor, introduce un motivo breve para solicitar la expulsión:");
-    if (reason && reason.trim() !== '') {
-        if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador por el motivo "${reason.trim()}"? Un administrador deberá aprobarlo.`)) {
-            socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason: reason.trim() }));
-            target.disabled = true;
-            target.textContent = 'Solicitud Pendiente';
-        }
-    }
-}
-        });
-// Evento para el nuevo botón de detalles
-    document.body.addEventListener('click', (event) => {
-        if (event.target.classList.contains('details-btn')) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
+                document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
+            }
+        } 
+        // --- BLOQUE AÑADIDO ---
+        else if (event.target.classList.contains('details-btn')) {
             const playerId = event.target.dataset.playerId;
             const draftId = event.target.dataset.draftId;
             showPlayerDetailsModal(draftId, playerId);
         }
+        // --- FIN DEL BLOQUE AÑADIDO ---
+    });
+
+        rosterManagementContainer.addEventListener('click', (event) => {
+        const target = event.target;
+        const playerId = target.dataset.playerId;
+        const draftId = target.dataset.draftId; // Lo necesitamos aquí también
+
+        if (target.classList.contains('btn-strike')) {
+            const reason = prompt("Por favor, introduce un motivo breve para el strike (ej: inactividad, toxicidad):");
+            if (reason && reason.trim() !== '') {
+                socket.send(JSON.stringify({ type: 'report_player', draftId, playerId, reason: reason.trim() }));
+                target.disabled = true;
+                target.textContent = 'Reportado';
+            }
+        }
+
+        if (target.classList.contains('btn-kick')) {
+            const reason = prompt("Por favor, introduce un motivo breve para solicitar la expulsión:");
+            if (reason && reason.trim() !== '') {
+                if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador por el motivo "${reason.trim()}"? Un administrador deberá aprobarlo.`)) {
+                    socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason: reason.trim() }));
+                    target.disabled = true;
+                    target.textContent = 'Solicitud Pendiente';
+                }
+            }
+        }
+        
+        // --- BLOQUE AÑADIDO ---
+        if (target.classList.contains('details-btn')) {
+            showPlayerDetailsModal(draftId, playerId);
+        }
+        // --- FIN DEL BLOQUE AÑADIDO ---
     });
 
     // Lógica para cerrar el nuevo modal
