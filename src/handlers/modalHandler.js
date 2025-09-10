@@ -1209,6 +1209,13 @@ if (action === 'admin_edit_strikes_submit') {
         await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
         
         await interaction.editReply(`✅ ¡Inscripción completada! Hemos usado tus datos verificados.`);
+        if (channelId && channelId !== 'no-ticket') {
+        const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
+        if (ticketChannel) {
+            await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+            setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
+        }
+    }
 
         if (channelId && channelId !== 'no-ticket') {
             const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
