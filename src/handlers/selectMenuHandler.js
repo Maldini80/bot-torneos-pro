@@ -216,7 +216,7 @@ export async function handleSelectMenu(interaction) {
     const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
     // Llamamos a la ficha en modo 'manage' para que muestre los botones de acción
-    const playerManagementEmbed = await createPlayerManagementEmbed(player, draft, teamId, isAdmin, 'manage');
+    const playerManagementEmbed = await createPlayerManagementEmbed(interaction.client, player, draft, teamId, isAdmin, 'manage');
     await interaction.editReply(playerManagementEmbed);
     return;
 }
