@@ -92,6 +92,50 @@ app.get('/logout', (req, res) => {
 app.get('/api/user', (req, res) => {
     res.json(req.user || null);
 });
+app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
+    if (!req.user) {
+        return res.status(403).send({ error: 'No autorizado. Debes iniciar sesión.' });
+    }
+
+    try {
+        const { draftId, playerId } = req.params;
+        const db = getDb();
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftId });
+        if (!draft) {
+            return res.status(404).send({ error: 'Draft no encontrado.' });
+        }
+
+        const isCaptainInThisDraft = draft.captains.some(c => c.userId === req.user.id);
+        if (!isCaptainInThisDraft) {
+             return res.status(403).send({ error: 'No tienes permiso para ver los detalles de este draft.' });
+        }
+
+        const verifiedData = await db.collection('verified_users').findOne({ discordId: playerId });
+        const playerRecord = await db.collection('player_records').findOne({ userId: playerId });
+        const draftPlayerData = draft.players.find(p => p.userId === playerId);
+
+        if (!verifiedData || !draftPlayerData) {
+            return res.status(404).send({ error: 'No se encontraron todos los datos para este jugador.' });
+        }
+
+        const responseData = {
+            psnId: verifiedData.gameId,
+            discordTag: verifiedData.discordTag,
+            primaryPosition: draftPlayerData.primaryPosition,
+            secondaryPosition: draftPlayerData.secondaryPosition,
+            whatsapp: verifiedData.whatsapp || 'No Proporcionado',
+            twitter: verifiedData.twitter || 'No Proporcionado',
+            strikes: playerRecord ? playerRecord.strikes : 0
+        };
+
+        res.json(responseData);
+
+    } catch (error) {
+        console.error(`[API Player Details Error]: ${error.message}`);
+        res.status(500).send({ error: 'Error interno del servidor.' });
+    }
+});
 
 export async function startVisualizerServer(client) {
     app.use(express.json());
