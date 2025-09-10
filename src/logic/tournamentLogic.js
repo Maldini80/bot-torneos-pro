@@ -7,7 +7,7 @@ import { createClassificationEmbed, createCalendarEmbed, createTournamentStatusE
 import { updateAdminPanel, updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { setBotBusy } from '../../index.js';
 import { ObjectId } from 'mongodb';
-import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
+import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 import { visualizerStateHandler } from '../../visualizerServer.js';
 
