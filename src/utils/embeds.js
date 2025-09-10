@@ -557,7 +557,7 @@ export function createTeamRosterManagementEmbed(team, players, draftShortId) {
     return { embeds: [embed], components: [new ActionRowBuilder().addComponents(selectMenu)], flags: [MessageFlags.Ephemeral] };
 }
 
-export async function createPlayerManagementEmbed(player, draft, teamId, isAdmin, mode = 'manage') {
+export async function createPlayerManagementEmbed(client, player, draft, teamId, isAdmin, mode = 'manage') {
     const db = getDb();
     const verifiedData = await db.collection('verified_users').findOne({ discordId: player.userId });
     let playerRecord = await db.collection('player_records').findOne({ userId: player.userId });
