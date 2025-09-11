@@ -107,9 +107,9 @@ app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
             return res.status(404).send({ error: 'Draft no encontrado.' });
         }
 
-        const isCaptainInThisDraft = draft.captains.some(c => String(c.userId) === String(req.user.id));
+        const isCaptainInThisDraft = draft.captains.some(c => c.userId === req.user.id);
         if (!isCaptainInThisDraft) {
-             return res.status(403).send({ error: 'No eres capitán en este draft y no tienes permiso para ver estos datos.' });
+             return res.status(403).send({ error: 'No tienes permiso para ver los detalles de este draft.' });
         }
 
         const verifiedData = await db.collection('verified_users').findOne({ discordId: playerId });
