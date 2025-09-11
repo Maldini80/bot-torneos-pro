@@ -795,8 +795,14 @@ async function showPlayerDetailsModal(draftId, playerId) {
             <p><span class="detail-label">Strikes:</span> <span class="detail-value">${data.strikes}</span></p>
         `;
     } catch (error) {
-        modalPlayerName.textContent = 'Error';
-        modalContent.innerHTML = `<p style="color: var(--primary-color);">${error.message}</p>`;
+        // --- INICIO DE LA MEJORA ---
+        modalPlayerName.textContent = 'Acceso Denegado';
+        modalContent.innerHTML = `
+            <p style="text-align: center; font-size: 1.2em;">❌ Error al obtener los datos</p>
+            <p style="background-color: #2c2c2c; padding: 10px; border-radius: 4px; color: #ff6b6b;"><strong>Motivo:</strong> ${error.message}</p>
+            <p style="font-size: 0.9em; color: #888;">Asegúrate de haber iniciado sesión y de ser capitán en este draft.</p>
+        `;
+        // --- FIN DE LA MEJORA ---
     }
 }
 
