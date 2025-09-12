@@ -1063,42 +1063,26 @@ if (action === 'admin_edit_verified_field_select') {
     const modal = new ModalBuilder()
         .setCustomId(`create_tournament:${formatId}:${type}:${matchType}`)
         .setTitle('Finalizar Creación de Torneo');
-    
+
     const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
     const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
+    
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(nombreInput),
+        new ActionRowBuilder().addComponents(startTimeInput)
+    );
 
     if (type === 'pago') {
         modal.setTitle('Finalizar Creación (De Pago)');
-
         const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
         const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true);
         const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
         
-        // --- INICIO DE LA MODIFICACIÓN ---
-        const paypalInput = new TextInputBuilder()
-            .setCustomId('torneo_paypal_email')
-            .setLabel("Email de PayPal (Opcional)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false)
-            .setPlaceholder('tu.email@ejemplo.com');
-
-        const bizumInput = new TextInputBuilder()
-            .setCustomId('torneo_bizum_number')
-            .setLabel("Nº de Bizum (Opcional)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false)
-            .setPlaceholder('Ej: 600111222');
-
         modal.addComponents(
             new ActionRowBuilder().addComponents(entryFeeInput),
             new ActionRowBuilder().addComponents(prizeInputCampeon),
-            new ActionRowBuilder().addComponents(prizeInputFinalista),
-            new ActionRowBuilder().addComponents(paypalInput),
-            new ActionRowBuilder().addComponents(bizumInput)
+            new ActionRowBuilder().addComponents(prizeInputFinalista)
         );
-        // --- FIN DE LA MODIFICACIÓN ---
     }
     await interaction.showModal(modal);
 }
