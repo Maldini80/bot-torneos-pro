@@ -599,13 +599,7 @@ function renderAvailablePlayers(draft) {
                 document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
             }
         } 
-        // --- BLOQUE AÑADIDO ---
-        else if (event.target.classList.contains('details-btn')) {
-            const playerId = event.target.dataset.playerId;
-            const draftId = event.target.dataset.draftId;
-            showPlayerDetailsModal(draftId, playerId);
-        }
-        // --- FIN DEL BLOQUE AÑADIDO ---
+       
     });
 
         rosterManagementContainer.addEventListener('click', (event) => {
@@ -648,6 +642,24 @@ function renderAvailablePlayers(draft) {
     detailsModal.addEventListener('click', (event) => {
         if (event.target === detailsModal) {
             detailsModal.classList.add('hidden');
+        }
+    });
+        // --- INICIO DEL NUEVO BLOQUE DE ESCUCHA GLOBAL ---
+    document.addEventListener('click', function(event) {
+        // Solo nos interesa si se hizo clic en un botón con la clase 'details-btn'
+        if (event.target.classList.contains('details-btn')) {
+            const playerId = event.target.dataset.playerId;
+            const draftId = event.target.dataset.draftId;
+            
+            // Debug log que pediste:
+            console.log('Botón de Ficha clickeado, datos:', { draftId, playerId });
+
+            // Si tenemos los datos, mostramos la ventana
+            if (draftId && playerId) {
+                showPlayerDetailsModal(draftId, playerId);
+            } else {
+                console.error('Faltan datos en el botón para mostrar la ficha (draftId o playerId).');
+            }
         }
     });
     }
