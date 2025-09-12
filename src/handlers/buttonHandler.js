@@ -250,93 +250,94 @@ export async function handleButton(interaction) {
         return;
     }
     
-    if (action === 'streamer_warning_accept') {
-        const [platform, originalAction, entityId, teamIdOrPosition] = params;
-        const db = getDb();
-        const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
+if (action === 'streamer_warning_accept') {
+    const [platform, originalAction, entityId, combinedParams] = params;
+    const [position, channelId] = (combinedParams || ':').split(':'); // <-- CAMBIO CLAVE AQUÍ
 
-        const modal = new ModalBuilder();
-        let finalActionId;
+    const db = getDb();
+    const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
 
-        // --- INICIO DE LA NUEVA LÓGICA MEJORADA ---
+    const modal = new ModalBuilder();
+    let finalActionId;
 
-        // Flujo para Capitanes de Draft
-        if (originalAction.startsWith('register_draft_captain')) {
-            const position = teamIdOrPosition;
-            const streamUsernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
-            const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
-            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
+    // --- INICIO DE LA NUEVA LÓGICA MEJORADA ---
 
-            // CASO 1: El usuario está verificado y YA TIENE WhatsApp.
-            if (verifiedData && verifiedData.whatsapp) {
-                finalActionId = `register_verified_draft_captain_modal:${entityId}:${position}:${platform}:${channelId}`;
-                modal.setTitle('Inscripción de Capitán (Verificado)');
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(streamUsernameInput),
-                    new ActionRowBuilder().addComponents(teamNameInput),
-                    new ActionRowBuilder().addComponents(eafcNameInput)
-                );
-            } 
-            // CASO 2: El usuario está verificado pero LE FALTA el WhatsApp.
-            else if (verifiedData && !verifiedData.whatsapp) {
-                // Usamos el mismo customId, pero añadimos los campos de WhatsApp al modal.
-                finalActionId = `register_verified_draft_captain_modal:${entityId}:${position}:${platform}:${channelId}`;
-                modal.setTitle('Inscripción (Falta WhatsApp)');
-                const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
-                const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
-                
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(streamUsernameInput),
-                    new ActionRowBuilder().addComponents(teamNameInput),
-                    new ActionRowBuilder().addComponents(eafcNameInput),
-                    new ActionRowBuilder().addComponents(whatsappInput),
-                    new ActionRowBuilder().addComponents(whatsappConfirmInput)
-                );
-            }
-            // CASO 3: El usuario no está verificado (flujo original).
-            else {
-                finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}:${channelId}`;
-                modal.setTitle('Inscripción como Capitán de Draft');
-                const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
-                const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(streamUsernameInput),
-                    new ActionRowBuilder().addComponents(teamNameInput),
-                    new ActionRowBuilder().addComponents(eafcNameInput),
-                    new ActionRowBuilder().addComponents(psnIdInput),
-                    new ActionRowBuilder().addComponents(twitterInput)
-                );
-            }
-        }
-        // Flujo para Torneos Normales (no draft) - Esta parte no necesita cambios.
-        else { 
-            const streamUsernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
+    // Flujo para Capitanes de Draft
+    if (originalAction.startsWith('register_draft_captain')) {
+        const streamUsernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
+        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre de tu Equipo (3-12 caracteres)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(12).setRequired(true);
+        const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
+
+        // CASO 1: El usuario está verificado y YA TIENE WhatsApp.
+        if (verifiedData && verifiedData.whatsapp) {
+            finalActionId = `register_verified_draft_captain_modal:${entityId}:${position}:${platform}:${channelId || 'no-ticket'}`;
+            modal.setTitle('Inscripción de Capitán (Verificado)');
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(streamUsernameInput),
+                new ActionRowBuilder().addComponents(teamNameInput),
+                new ActionRowBuilder().addComponents(eafcNameInput)
+            );
+        } 
+        // CASO 2: El usuario está verificado pero LE FALTA el WhatsApp.
+        else if (verifiedData && !verifiedData.whatsapp) {
+            // Usamos el mismo customId, pero añadimos los campos de WhatsApp al modal.
+            finalActionId = `register_verified_draft_captain_modal:${entityId}:${position}:${platform}:${channelId || 'no-ticket'}`;
+            modal.setTitle('Inscripción (Falta WhatsApp)');
+            const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
+            const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
             
-            if (originalAction === 'register_team_from_db') {
-                const tournamentShortId = entityId;
-                const teamId = teamIdOrPosition;
-                finalActionId = `inscripcion_final_modal:${tournamentShortId}:${platform}:${teamId}`;
-                modal.setTitle('Finalizar Inscripción (Stream)');
-                modal.addComponents(new ActionRowBuilder().addComponents(streamUsernameInput));
-            } else {
-                finalActionId = `inscripcion_modal:${entityId}:${platform}`;
-                modal.setTitle('Inscripción de Equipo');
-                const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
-                const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
-                const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter o el de tu equipo (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(streamUsernameInput),
-                    new ActionRowBuilder().addComponents(teamNameInput), 
-                    new ActionRowBuilder().addComponents(eafcNameInput), 
-                    new ActionRowBuilder().addComponents(twitterInput)
-                );
-            }
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(streamUsernameInput),
+                new ActionRowBuilder().addComponents(teamNameInput),
+                new ActionRowBuilder().addComponents(eafcNameInput),
+                new ActionRowBuilder().addComponents(whatsappInput),
+                new ActionRowBuilder().addComponents(whatsappConfirmInput)
+            );
         }
-
-        modal.setCustomId(finalActionId);
-        await interaction.showModal(modal);
-        return;
+        // CASO 3: El usuario no está verificado (flujo original).
+        else {
+            finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}:${channelId || 'no-ticket'}`;
+            modal.setTitle('Inscripción como Capitán de Draft');
+            const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
+            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(streamUsernameInput),
+                new ActionRowBuilder().addComponents(teamNameInput),
+                new ActionRowBuilder().addComponents(eafcNameInput),
+                new ActionRowBuilder().addComponents(psnIdInput),
+                new ActionRowBuilder().addComponents(twitterInput)
+            );
+        }
     }
+    // Flujo para Torneos Normales (no draft) - Esta parte no necesita cambios.
+    else { 
+        const streamUsernameInput = new TextInputBuilder().setCustomId('stream_username_input').setLabel(`Tu usuario en ${platform.charAt(0).toUpperCase() + platform.slice(1)}`).setStyle(TextInputStyle.Short).setRequired(true);
+        
+        if (originalAction === 'register_team_from_db') {
+            const tournamentShortId = entityId;
+            const teamId = position; // En este flujo 'position' es 'teamId'
+            finalActionId = `inscripcion_final_modal:${tournamentShortId}:${platform}:${teamId}`;
+            modal.setTitle('Finalizar Inscripción (Stream)');
+            modal.addComponents(new ActionRowBuilder().addComponents(streamUsernameInput));
+        } else {
+            finalActionId = `inscripcion_modal:${entityId}:${platform}`;
+            modal.setTitle('Inscripción de Equipo');
+            const teamNameInput = new TextInputBuilder().setCustomId('nombre_equipo_input').setLabel("Nombre de tu equipo (para el torneo)").setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(20).setRequired(true);
+            const eafcNameInput = new TextInputBuilder().setCustomId('eafc_team_name_input').setLabel("Nombre de tu equipo dentro del EAFC").setStyle(TextInputStyle.Short).setRequired(true);
+            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter o el de tu equipo (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(streamUsernameInput),
+                new ActionRowBuilder().addComponents(teamNameInput), 
+                new ActionRowBuilder().addComponents(eafcNameInput), 
+                new ActionRowBuilder().addComponents(twitterInput)
+            );
+        }
+    }
+
+    modal.setCustomId(finalActionId);
+    await interaction.showModal(modal);
+    return;
+}
     if (action === 'admin_edit_team_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
