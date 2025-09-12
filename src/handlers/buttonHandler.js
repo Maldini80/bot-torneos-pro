@@ -1154,7 +1154,7 @@ if (action === 'admin_invite_replacement_start') {
     
     const isCaptainFlow = originalAction.includes('captain');
     const isTournamentFlow = !originalAction.startsWith('register_draft');
-    const totalSteps = isCaptainFlow || isTournamentFlow ? 3 : 1;
+    const totalSteps = isCaptainFlow || isTournamentFlow ? 2 : 1;
 
     if (currentStep >= totalSteps) {
         if (originalAction.startsWith('register_draft_captain')) {
