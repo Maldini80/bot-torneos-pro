@@ -269,7 +269,7 @@ export async function handleButton(interaction) {
 
             // CASO 1: El usuario está verificado y YA TIENE WhatsApp.
             if (verifiedData && verifiedData.whatsapp) {
-                finalActionId = `register_verified_draft_captain_modal:${entityId}:${position}:${platform}`;
+                finalActionId = `register_verified_draft_captain_modal:${entityId}:${position}:${platform}:${channelId}`;
                 modal.setTitle('Inscripción de Capitán (Verificado)');
                 modal.addComponents(
                     new ActionRowBuilder().addComponents(streamUsernameInput),
@@ -280,7 +280,7 @@ export async function handleButton(interaction) {
             // CASO 2: El usuario está verificado pero LE FALTA el WhatsApp.
             else if (verifiedData && !verifiedData.whatsapp) {
                 // Usamos el mismo customId, pero añadimos los campos de WhatsApp al modal.
-                finalActionId = `register_verified_draft_captain_modal:${entityId}:${position}:${platform}`;
+                finalActionId = `register_verified_draft_captain_modal:${entityId}:${position}:${platform}:${channelId}`;
                 modal.setTitle('Inscripción (Falta WhatsApp)');
                 const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
                 const whatsappConfirmInput = new TextInputBuilder().setCustomId('whatsapp_confirm_input').setLabel("Confirma tu WhatsApp").setStyle(TextInputStyle.Short).setRequired(true);
@@ -295,7 +295,7 @@ export async function handleButton(interaction) {
             }
             // CASO 3: El usuario no está verificado (flujo original).
             else {
-                finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}`;
+                finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}:${channelId}`;
                 modal.setTitle('Inscripción como Capitán de Draft');
                 const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
                 const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
