@@ -235,10 +235,10 @@ export async function handleButton(interaction) {
         return;
     }
 	if (action === 'select_stream_platform') {
-        const [platform, originalAction, entityId, position] = params;
+        const [platform, originalAction, entityId, position, channelId] = params;
         
         // Esta función crea el embed de advertencia que debería aparecer después
-        const warningContent = createStreamerWarningEmbed(platform, originalAction, entityId, position);
+        const warningContent = createStreamerWarningEmbed(platform, originalAction, entityId, `${position}:${channelId || 'no-ticket'}`);
 
         // Actualizamos la interacción para mostrar la advertencia
         await interaction.update(warningContent);
