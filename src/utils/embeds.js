@@ -849,36 +849,24 @@ export function createCasterInfoEmbed(teamData, tournament) {
 export function createStreamerWarningEmbed(platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
     const embed = new EmbedBuilder()
         .setColor('#E67E22') // Naranja de advertencia
-        .setTitle('⚠️ ¡ATENCIÓN, CAPITÁN! INSTRUCCIONES IMPORTANTES')
-        .setDescription('**Leer esto es OBLIGATORIO. El correcto funcionamiento del torneo y de la retransmisión depende de ello.**')
-        .addFields(
-            {
-                name: '🔴 1. Tu Usuario de Stream',
-                value: 'Asegúrate de escribir tu nombre de usuario de **' + platform + '** **EXACTAMENTE** como es. Sin errores, sin mayúsculas/minúsculas incorrectas y sin la URL completa. Solo el nombre de usuario.'
-            },
-            {
-                name: '🔴 2. El Canal Correcto',
-                value: 'Debes proporcionar el canal que **REALMENTE USARÁS** para retransmitir tus partidos del torneo. No pongas un canal secundario o uno que no uses.'
-            },
-            {
-                name: '✅ 3. Normas de Retransmisión',
-                value: 'Para que los casters puedan trabajar, durante tus partidos es **OBLIGATORIO**:\n- **Tener las IDs visibles** en el juego.\n- **Desactivar el audio de los comentaristas** del juego.'
-            },
-            {
-                name: '🚫 Consecuencias',
-                value: 'Proporcionar información incorrecta de forma repetida impedirá tu participación como capitán en futuros torneos. **Esta información es VITAL para los casters y el visualizador en vivo.**'
-            }
-        );
+        .setTitle('⚠️ ¡IMPORTANTE PARA STREAM')
+        .setDescription(
+            "🔴 **1. ESCRIBE SOLO TU USUARIO DE STREAM EN EL FORMULARIO**\n\n" +
+            "🔴 **2. RETRANSMITE EL TORNEO DESDE AHÍ**"
+        )
+        .addFields({
+            name: '🔴 3. Normas de Retransmisión',
+            value: '• Tener las IDs visibles en el juego.\n• Desactivar el audio de los comentaristas del juego.'
+        });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            // CORRECCIÓN: El customId ahora pasa los parámetros de forma limpia.
             .setCustomId(`streamer_warning_accept:${platform}:${originalAction}:${entityId}:${teamIdOrPosition}`)
             .setLabel('Entendido, continuar con la inscripción')
             .setStyle(ButtonStyle.Success)
             .setEmoji('✅'),
         new ButtonBuilder()
-            .setCustomId('rules_reject') // Reutilizamos el botón de rechazo
+            .setCustomId('rules_reject')
             .setLabel('Cancelar')
             .setStyle(ButtonStyle.Danger)
     );
