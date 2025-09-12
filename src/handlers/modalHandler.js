@@ -378,7 +378,7 @@ export async function handleModal(interaction) {
     if (action === 'register_verified_draft_captain_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
-        const [draftShortId, position, streamPlatform] = params;
+        const [draftShortId, position, streamPlatform, ticketChannelId] = params;
         const db = getDb();
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         let verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
@@ -439,6 +439,13 @@ export async function handleModal(interaction) {
         } catch (e) {
             console.error("Failed to send captain application to admin channel:", e);
         }
+        if (ticketChannelId && ticketChannelId !== 'no-ticket') {
+    const ticketChannel = await client.channels.fetch(ticketChannelId).catch(() => null);
+    if (ticketChannel) {
+        await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+        setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
+    }
+}
         return;
     }
 
@@ -597,6 +604,14 @@ export async function handleModal(interaction) {
                 const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
                 await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
+
+                if (isFromTicket) {
+    const ticketChannel = await client.channels.fetch(ticketChannelId).catch(() => null);
+    if (ticketChannel) {
+        await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+        setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
+    }
+}
 
             } else {
                 await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
