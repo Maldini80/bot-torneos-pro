@@ -94,6 +94,7 @@ app.get('/api/user', (req, res) => {
     res.json(req.user || null);
 });
 app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
+    // 1. Mantenemos la comprobación de que el usuario esté logueado.
     if (!req.user) {
         return res.status(403).send({ error: 'No autorizado. Debes iniciar sesión.' });
     }
@@ -106,29 +107,57 @@ app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
         if (!draft) {
             return res.status(404).send({ error: 'Draft no encontrado.' });
         }
+        
+        // 2. ¡ELIMINAMOS LA RESTRICCIÓN DE SER CAPITÁN! Ahora cualquiera logueado puede ver.
 
-        const isCaptainInThisDraft = draft.captains.some(c => c.userId === req.user.id);
-        if (!isCaptainInThisDraft) {
-             return res.status(403).send({ error: 'No tienes permiso para ver los detalles de este draft.' });
-        }
-
-        const verifiedData = await db.collection('verified_users').findOne({ discordId: playerId });
-        const playerRecord = await db.collection('player_records').findOne({ userId: playerId });
         const draftPlayerData = draft.players.find(p => p.userId === playerId);
-
-        if (!verifiedData || !draftPlayerData) {
-            return res.status(404).send({ error: 'No se encontraron todos los datos para este jugador.' });
+        if (!draftPlayerData) {
+            return res.status(404).send({ error: 'Jugador no encontrado en este draft.' });
         }
 
-        const responseData = {
-            psnId: verifiedData.gameId,
-            discordTag: verifiedData.discordTag,
-            primaryPosition: draftPlayerData.primaryPosition,
-            secondaryPosition: draftPlayerData.secondaryPosition,
-            whatsapp: verifiedData.whatsapp || 'No Proporcionado',
-            twitter: verifiedData.twitter || 'No Proporcionado',
-            strikes: playerRecord ? playerRecord.strikes : 0
-        };
+        let responseData;
+        const isTestPlayer = playerId.startsWith('test_');
+
+        // 3. Creamos dos caminos: uno para jugadores reales y otro para los de prueba.
+        if (isTestPlayer) {
+            // Si es un jugador de prueba, usamos los datos que ya tenemos en el draft.
+            responseData = {
+                psnId: draftPlayerData.psnId,
+                discordTag: draftPlayerData.userName,
+                primaryPosition: draftPlayerData.primaryPosition,
+                secondaryPosition: draftPlayerData.secondaryPosition,
+                whatsapp: 'N/A (Test Player)',
+                twitter: 'N/A (Test Player)',
+                strikes: 0
+            };
+        } else {
+            // Si es un jugador real, buscamos sus datos completos en la base de datos.
+            const verifiedData = await db.collection('verified_users').findOne({ discordId: playerId });
+            const playerRecord = await db.collection('player_records').findOne({ userId: playerId });
+
+            if (!verifiedData) {
+                // Puede que un jugador real se inscribiera sin estar verificado, tenemos un fallback.
+                 responseData = {
+                    psnId: draftPlayerData.psnId,
+                    discordTag: draftPlayerData.userName,
+                    primaryPosition: draftPlayerData.primaryPosition,
+                    secondaryPosition: draftPlayerData.secondaryPosition,
+                    whatsapp: 'No Verificado',
+                    twitter: draftPlayerData.twitter || 'No Verificado',
+                    strikes: playerRecord ? playerRecord.strikes : 0
+                };
+            } else {
+                responseData = {
+                    psnId: verifiedData.gameId,
+                    discordTag: verifiedData.discordTag,
+                    primaryPosition: draftPlayerData.primaryPosition,
+                    secondaryPosition: draftPlayerData.secondaryPosition,
+                    whatsapp: verifiedData.whatsapp || 'No Proporcionado',
+                    twitter: verifiedData.twitter || 'No Proporcionado',
+                    strikes: playerRecord ? playerRecord.strikes : 0
+                };
+            }
+        }
 
         res.json(responseData);
 
