@@ -714,13 +714,12 @@ function renderTeamManagementView(draft) {
                 <p>Strikes: <span class="strikes">${strikes}</span></p>
             </div>
             <div class="management-actions">
-                <button class="btn-strike" data-player-id="${player.userId}" ${hasBeenReported ? 'disabled' : ''}>
+                <button class="btn-strike" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" ${hasBeenReported ? 'disabled' : ''}>
                     ${reportButtonText}
                 </button>
-                <button class="btn-kick" data-player-id="${player.userId}" ${kickRequestPending ? 'disabled' : ''}>
+                <button class="btn-kick" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" ${kickRequestPending ? 'disabled' : ''}>
                     ${kickButtonText}
                 </button>
-                <!-- BOTÓN NUEVO AÑADIDO AQUÍ -->
                 <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>
             </div>
         `;
