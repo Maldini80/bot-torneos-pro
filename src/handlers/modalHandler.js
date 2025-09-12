@@ -697,10 +697,7 @@ if (action === 'create_tournament') {
 
     if (config.isPaid) {
         config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Leemos los nuevos campos del modal. Si no existen o están vacíos, los guardamos como null.
-        config.paypalEmail = interaction.fields.getTextInputValue('torneo_paypal_email') || null;
-        config.bizumNumber = interaction.fields.getTextInputValue('torneo_bizum_number') || null;
+    
         // La línea de 'enlacePaypal' ya no es necesaria, la eliminamos.
         // --- FIN DE LA MODIFICACIÓN ---
         config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
