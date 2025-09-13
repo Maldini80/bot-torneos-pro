@@ -723,24 +723,28 @@ if (action === 'create_tournament') {
 }
 
     if (action === 'edit_tournament_modal') {
-        await interaction.reply({ content: '⏳ Actualizando configuración...', flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const newConfig = {
-            prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
-            prizeFinalista: parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista')),
-            entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')),
-            startTime: interaction.fields.getTextInputValue('torneo_start_time') || null,
-        };
-        newConfig.isPaid = newConfig.entryFee > 0;
-        try {
-            await updateTournamentConfig(client, tournamentShortId, newConfig);
-            await interaction.editReply({ content: '✅ ¡Éxito! La configuración ha sido actualizada. Usa el botón "Notificar Cambios" para avisar a los capitanes.' });
-        } catch (error) {
-            console.error("Error al actualizar la configuración del torneo:", error);
-            await interaction.editReply({ content: `❌ Ocurrió un error al actualizar el torneo. Revisa los logs.` });
-        }
-        return;
+    await interaction.reply({ content: '⏳ Actualizando configuración...', flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    
+    const newConfig = {
+        prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
+        prizeFinalista: parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista')),
+        entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')),
+        // Leemos los nuevos campos de pago
+        paypalEmail: interaction.fields.getTextInputValue('torneo_paypal_email') || null,
+        bizumNumber: interaction.fields.getTextInputValue('torneo_bizum_number') || null,
+    };
+    newConfig.isPaid = newConfig.entryFee > 0;
+
+    try {
+        await updateTournamentConfig(client, tournamentShortId, newConfig);
+        await interaction.editReply({ content: '✅ ¡Éxito! La configuración ha sido actualizada. Usa el botón "Notificar Cambios" para avisar a los capitanes.' });
+    } catch (error) {
+        console.error("Error al actualizar la configuración del torneo:", error);
+        await interaction.editReply({ content: `❌ Ocurrió un error al actualizar el torneo. Revisa los logs.` });
     }
+    return;
+}
 
     if (action === 'edit_payment_details_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
