@@ -2258,4 +2258,34 @@ if (action === 'captain_view_free_agents') {
     });
     return;
 }
+	if (action === 'admin_add_registered_team_start') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(process.env.DATABASE_URL);
+    }
+
+    const allTeams = await Team.find({ guildId: interaction.guildId }).lean();
+    if (!allTeams || allTeams.length === 0) {
+        return interaction.editReply({ content: 'No hay equipos registrados en la base de datos para añadir.' });
+    }
+
+    const teamOptions = allTeams.map(team => ({
+        label: team.name,
+        description: `Manager ID: ${team.managerId}`,
+        value: team._id.toString() // Usamos el ID del equipo como valor
+    }));
+
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId(`admin_select_registered_team_to_add:${tournamentShortId}`)
+        .setPlaceholder('Selecciona el equipo que deseas inscribir')
+        .addOptions(teamOptions.slice(0, 25)); // Discord solo permite 25 opciones a la vez
+
+    await interaction.editReply({
+        content: 'Por favor, selecciona un equipo de la lista para inscribirlo en el torneo. Se usará a su mánager como capitán.',
+        components: [new ActionRowBuilder().addComponents(selectMenu)]
+    });
+    return;
+}
 }
