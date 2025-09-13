@@ -849,7 +849,7 @@ export function createCasterInfoEmbed(teamData, tournament) {
 export function createStreamerWarningEmbed(platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
     const embed = new EmbedBuilder()
         .setColor('#E67E22') // Naranja de advertencia
-        .setTitle('⚠️ ¡IMPORTANTE PARA STREAM')
+        .setTitle('⚠️ IMPORTANTE PARA STREAM')
         .setDescription(
             "🔴 **1. ESCRIBE SOLO TU USUARIO DE STREAM EN EL FORMULARIO**\n\n" +
             "🔴 **2. RETRANSMITE EL TORNEO DESDE AHÍ**"
