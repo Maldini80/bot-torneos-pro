@@ -173,6 +173,14 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
+    row2.addComponents(
+    new ButtonBuilder()
+        .setCustomId(`admin_add_registered_team_start:${tournament.shortId}`)
+        .setLabel('Añadir Equipo Registrado')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('➕')
+        .setDisabled(isBusy)
+);
     const row3 = new ActionRowBuilder();
 
     const isBeforeDraw = tournament.status === 'inscripcion_abierta';
