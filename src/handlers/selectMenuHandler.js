@@ -1243,4 +1243,56 @@ if (action === 'admin_select_registered_team_to_add') {
     }
     return;
 }
+    if (action === 'admin_select_team_page') {
+    await interaction.deferUpdate();
+    const [tournamentShortId] = params;
+    const selectedPage = parseInt(interaction.values[0].replace('page_', ''));
+
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(process.env.DATABASE_URL);
+    }
+
+    const allTeams = await Team.find({ guildId: interaction.guildId }).lean();
+    allTeams.sort((a, b) => a.name.localeCompare(b.name));
+
+    const pageSize = 25;
+    const pageCount = Math.ceil(allTeams.length / pageSize);
+    
+    const startIndex = selectedPage * pageSize;
+    const teamsOnPage = allTeams.slice(startIndex, startIndex + pageSize);
+
+    const teamOptions = teamsOnPage.map(team => ({
+        label: team.name,
+        description: `Manager ID: ${team.managerId}`,
+        value: team._id.toString()
+    }));
+
+    const teamSelectMenu = new StringSelectMenuBuilder()
+        .setCustomId(`admin_select_registered_team_to_add:${tournamentShortId}`)
+        .setPlaceholder(`Paso 1: Selecciona equipo (Pág. ${selectedPage + 1})`)
+        .addOptions(teamOptions);
+
+    const pageOptions = [];
+    for (let i = 0; i < pageCount; i++) {
+        const startNum = i * pageSize + 1;
+        const endNum = Math.min((i + 1) * pageSize, allTeams.length);
+        pageOptions.push({
+            label: `Página ${i + 1} (${startNum}-${endNum})`,
+            value: `page_${i}`
+        });
+    }
+    const pageSelectMenu = new StringSelectMenuBuilder()
+        .setCustomId(`admin_select_team_page:${tournamentShortId}`)
+        .setPlaceholder('Paso 2: Cambiar de página')
+        .addOptions(pageOptions);
+
+    await interaction.editReply({
+        content: `Mostrando ${teamsOnPage.length} de ${allTeams.length} equipos registrados. Por favor, selecciona un equipo:`,
+        components: [
+            new ActionRowBuilder().addComponents(teamSelectMenu),
+            new ActionRowBuilder().addComponents(pageSelectMenu)
+        ]
+    });
+    return;
+}
 }
