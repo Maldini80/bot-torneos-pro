@@ -861,7 +861,7 @@ export function createStreamerWarningEmbed(platform, originalAction, entityId, t
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`sw_accept:${platform}:${originalAction}:${entityId}:${teamIdOrPosition}`)
+            .setCustomId(`streamer_warning_accept:${platform}:${originalAction}:${entityId}:${teamIdOrPosition}`)
             .setLabel('Entendido, continuar con la inscripción')
             .setStyle(ButtonStyle.Success)
             .setEmoji('✅'),
