@@ -1202,5 +1202,45 @@ if (action === 'view_free_agent_details') {
     await interaction.editReply(playerViewEmbed);
     return;
 }
-// --- FIN DE LOS NUEVOS BLOQUES ---
+if (action === 'admin_select_registered_team_to_add') {
+    await interaction.deferUpdate();
+    const [tournamentShortId] = params;
+    const selectedTeamId = interaction.values[0];
+
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(process.env.DATABASE_URL);
+    }
+
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const team = await Team.findById(selectedTeamId).lean();
+    const manager = await client.users.fetch(team.managerId).catch(() => null);
+
+    if (!tournament || !team || !manager) {
+        return interaction.editReply({ content: 'Error: No se pudo encontrar el torneo, el equipo o el mánager en Discord.', components: [] });
+    }
+
+    // Preparamos los datos del equipo como si se hubiera inscrito él mismo
+    const teamData = {
+        id: team.managerId,
+        nombre: team.name,
+        eafcTeamName: team.name, // Asumimos que es el mismo
+        capitanId: team.managerId,
+        capitanTag: manager.tag,
+        logoUrl: team.logoUrl,
+        twitter: team.twitterHandle,
+        // Dejamos estos campos vacíos para que el admin los edite si es necesario
+        streamChannel: null,
+        paypal: null,
+        inscritoEn: new Date()
+    };
+
+    try {
+        await approveTeam(client, tournament, teamData);
+        await interaction.editReply({ content: `✅ El equipo **${team.name}** ha sido inscrito con éxito en el torneo.`, components: [] });
+    } catch (error) {
+        console.error("Error al añadir equipo registrado:", error);
+        await interaction.editReply({ content: `❌ Hubo un error al inscribir al equipo: ${error.message}`, components: [] });
+    }
+    return;
+}
 }
