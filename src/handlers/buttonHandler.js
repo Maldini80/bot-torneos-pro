@@ -220,7 +220,7 @@ export async function handleButton(interaction) {
         
         // CORRECCIÓN: Pasamos 'register_team_from_db' como una palabra clave
         // y el teamId como un parámetro separado para evitar errores de 'split'.
-        const originalAction = 'register_team_from_db'; 
+        const originalAction = 'reg_db'; 
 
         const platformButtons = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
