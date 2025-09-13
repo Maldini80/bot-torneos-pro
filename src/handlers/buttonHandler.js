@@ -1249,13 +1249,24 @@ if (action === 'admin_invite_replacement_start') {
             const amountInput = new TextInputBuilder().setCustomId('amount_input').setLabel("¿Cuántos equipos de prueba quieres añadir?").setStyle(TextInputStyle.Short).setRequired(true).setValue('1');
             modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
         } else if (action === 'admin_edit_tournament_start') {
-            modal = new ModalBuilder().setCustomId(`edit_tournament_modal:${tournamentShortId}`).setTitle(`Editar Torneo: ${tournament.nombre}`);
-            const prizeCInput = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeCampeon.toString());
-            const prizeFInput = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeFinalista.toString());
-            const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
-            const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.startTime || '');
-            modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(startTimeInput));
-        } else if (action === 'payment_confirm_start') {
+    modal = new ModalBuilder().setCustomId(`edit_tournament_modal:${tournamentShortId}`).setTitle(`Editar Torneo: ${tournament.nombre}`);
+    
+    const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
+    const prizeCInput = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeCampeon.toString());
+    const prizeFInput = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.prizeFinalista.toString());
+    
+    // --- CAMPOS AÑADIDOS ---
+    const paypalInput = new TextInputBuilder().setCustomId('torneo_paypal_email').setLabel("Email de PayPal (Opcional)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.paypalEmail || '');
+    const bizumInput = new TextInputBuilder().setCustomId('torneo_bizum_number').setLabel("Nº de Bizum (Opcional)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.bizumNumber || '');
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(feeInput),
+        new ActionRowBuilder().addComponents(prizeCInput),
+        new ActionRowBuilder().addComponents(prizeFInput),
+        new ActionRowBuilder().addComponents(paypalInput),
+        new ActionRowBuilder().addComponents(bizumInput)
+    );
+} else if (action === 'payment_confirm_start') {
             modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
             const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
