@@ -2271,20 +2271,52 @@ if (action === 'captain_view_free_agents') {
         return interaction.editReply({ content: 'No hay equipos registrados en la base de datos para añadir.' });
     }
 
-    const teamOptions = allTeams.map(team => ({
+    // Ordenamos los equipos alfabéticamente por nombre
+    allTeams.sort((a, b) => a.name.localeCompare(b.name));
+
+    const pageSize = 25;
+    const pageCount = Math.ceil(allTeams.length / pageSize);
+    const page = 0; // Empezamos en la primera página
+
+    const startIndex = page * pageSize;
+    const teamsOnPage = allTeams.slice(startIndex, startIndex + pageSize);
+
+    const teamOptions = teamsOnPage.map(team => ({
         label: team.name,
         description: `Manager ID: ${team.managerId}`,
-        value: team._id.toString() // Usamos el ID del equipo como valor
+        value: team._id.toString()
     }));
 
-    const selectMenu = new StringSelectMenuBuilder()
+    const teamSelectMenu = new StringSelectMenuBuilder()
         .setCustomId(`admin_select_registered_team_to_add:${tournamentShortId}`)
-        .setPlaceholder('Selecciona el equipo que deseas inscribir')
-        .addOptions(teamOptions.slice(0, 25)); // Discord solo permite 25 opciones a la vez
+        .setPlaceholder('Paso 1: Selecciona el equipo a inscribir')
+        .addOptions(teamOptions);
+
+    const components = [new ActionRowBuilder().addComponents(teamSelectMenu)];
+
+    // Si hay más de una página, añadimos el selector de página
+    if (pageCount > 1) {
+        const pageOptions = [];
+        for (let i = 0; i < pageCount; i++) {
+            const startNum = i * pageSize + 1;
+            const endNum = Math.min((i + 1) * pageSize, allTeams.length);
+            pageOptions.push({
+                label: `Página ${i + 1} (${startNum}-${endNum})`,
+                value: `page_${i}`
+            });
+        }
+        const pageSelectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_team_page:${tournamentShortId}`)
+            .setPlaceholder('Paso 2: Cambiar de página')
+            .addOptions(pageOptions);
+        
+        // Lo añadimos como una nueva fila de componentes
+        components.push(new ActionRowBuilder().addComponents(pageSelectMenu));
+    }
 
     await interaction.editReply({
-        content: 'Por favor, selecciona un equipo de la lista para inscribirlo en el torneo. Se usará a su mánager como capitán.',
-        components: [new ActionRowBuilder().addComponents(selectMenu)]
+        content: `Mostrando ${teamsOnPage.length} de ${allTeams.length} equipos registrados. Por favor, selecciona un equipo:`,
+        components
     });
     return;
 }
