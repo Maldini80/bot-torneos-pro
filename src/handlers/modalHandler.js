@@ -378,7 +378,7 @@ export async function handleModal(interaction) {
     if (action === 'register_verified_draft_captain_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         
-        const [draftShortId, position, streamPlatform, ticketChannelId] = params;
+        const [draftShortId, position, streamPlatform] = params;
         const db = getDb();
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         let verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
@@ -439,13 +439,6 @@ export async function handleModal(interaction) {
         } catch (e) {
             console.error("Failed to send captain application to admin channel:", e);
         }
-        if (ticketChannelId && ticketChannelId !== 'no-ticket') {
-    const ticketChannel = await client.channels.fetch(ticketChannelId).catch(() => null);
-    if (ticketChannel) {
-        await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
-        setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
-    }
-}
         return;
     }
 
@@ -605,14 +598,6 @@ export async function handleModal(interaction) {
                 await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
-                if (isFromTicket) {
-    const ticketChannel = await client.channels.fetch(ticketChannelId).catch(() => null);
-    if (ticketChannel) {
-        await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
-        setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
-    }
-}
-
             } else {
                 await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
 
@@ -697,7 +682,10 @@ if (action === 'create_tournament') {
 
     if (config.isPaid) {
         config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
-    
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Leemos los nuevos campos del modal. Si no existen o están vacíos, los guardamos como null.
+        config.paypalEmail = interaction.fields.getTextInputValue('torneo_paypal_email') || null;
+        config.bizumNumber = interaction.fields.getTextInputValue('torneo_bizum_number') || null;
         // La línea de 'enlacePaypal' ya no es necesaria, la eliminamos.
         // --- FIN DE LA MODIFICACIÓN ---
         config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
@@ -723,28 +711,24 @@ if (action === 'create_tournament') {
 }
 
     if (action === 'edit_tournament_modal') {
-    await interaction.reply({ content: '⏳ Actualizando configuración...', flags: [MessageFlags.Ephemeral] });
-    const [tournamentShortId] = params;
-    
-    const newConfig = {
-        prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
-        prizeFinalista: parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista')),
-        entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')),
-        // Leemos los nuevos campos de pago
-        paypalEmail: interaction.fields.getTextInputValue('torneo_paypal_email') || null,
-        bizumNumber: interaction.fields.getTextInputValue('torneo_bizum_number') || null,
-    };
-    newConfig.isPaid = newConfig.entryFee > 0;
-
-    try {
-        await updateTournamentConfig(client, tournamentShortId, newConfig);
-        await interaction.editReply({ content: '✅ ¡Éxito! La configuración ha sido actualizada. Usa el botón "Notificar Cambios" para avisar a los capitanes.' });
-    } catch (error) {
-        console.error("Error al actualizar la configuración del torneo:", error);
-        await interaction.editReply({ content: `❌ Ocurrió un error al actualizar el torneo. Revisa los logs.` });
+        await interaction.reply({ content: '⏳ Actualizando configuración...', flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const newConfig = {
+            prizeCampeon: parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon')),
+            prizeFinalista: parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista')),
+            entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')),
+            startTime: interaction.fields.getTextInputValue('torneo_start_time') || null,
+        };
+        newConfig.isPaid = newConfig.entryFee > 0;
+        try {
+            await updateTournamentConfig(client, tournamentShortId, newConfig);
+            await interaction.editReply({ content: '✅ ¡Éxito! La configuración ha sido actualizada. Usa el botón "Notificar Cambios" para avisar a los capitanes.' });
+        } catch (error) {
+            console.error("Error al actualizar la configuración del torneo:", error);
+            await interaction.editReply({ content: `❌ Ocurrió un error al actualizar el torneo. Revisa los logs.` });
+        }
+        return;
     }
-    return;
-}
 
     if (action === 'edit_payment_details_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
