@@ -9,17 +9,17 @@ const ruleEmbeds = [
         .setTitle('📜 REGLAMENTO OFICIAL DE PARTIDO')
         .setDescription(
             `⏱️**Salidas del Partido**
-Se permite un máximo de 2 salidas por equipo, siempre y cuando ocurran antes del minuto 10 del
-partido. Salir del partido una tercera vez o después del minuto 10 podrá ser sancionado.
+Máximo de 2 salidas por equipo, antes del minuto 10 del partido.
+Salir del partido una tercera vez o después del minuto 10 podrá ser sancionado.
 
 ⏳**Tiempo de Cortesía 10 minutos**
+
 📏**Límites de Altura**
-• (DFC/CB): Máximo 6'2" / 187cm.
-• Resto de Jugadores: Máximo 5'10" / 177cm.
+• (DFC/CB): Máximo 187cm.
+• Resto de Jugadores: Máximo 177cm.
 • (POR/GK): Sin límite de altura.
 
-🚫**PlayStyles Prohibidos**
-Prohibidos los siguientes PlayStyles, tanto en su versión de plata como de oro:
+🚫**PlayStyles Prohibidos** en plata y oro
 • AÉREO (Aerial)
 • ANTICIPACIÓN (Anticipate / "Mapache")`
         ),
@@ -881,10 +881,10 @@ export function createCasterInfoEmbed(teamData, tournament) {
 export function createStreamerWarningEmbed(platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
     const embed = new EmbedBuilder()
         .setColor('#E67E22') // Naranja de advertencia
-        .setTitle('⚠️ IMPORTANTE PARA STREAMERS')
+        .setTitle('⚠️ ANTES DE RELLENAR EL FORMULARIO IMPORTANTE PARA STREAMERS')
         .addFields(
             {
-                name: '🔴 1. SOLO ESCRIBE TU NOMBRE DE USUARIO DEL STREAM',
+                name: '🔴 1. EN EL SIGUIENTE FORMULARIO ESCRIBE SOLO TU USUARIO DE STREAM',
                 value: '\u200B' 
             },
             {
