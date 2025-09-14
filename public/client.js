@@ -815,7 +815,11 @@ async function showPlayerDetailsModal(draftId, playerId) {
         modalContent.innerHTML = `<p style="color: var(--primary-color);">${error.message}</p>`;
     }
 }
-    function initializeRouletteView(sessionId) {
+    
+    initialize();
+}
+
+function initializeRouletteView(sessionId) {
     const loadingEl = document.getElementById('loading');
     const rouletteContainerEl = document.getElementById('roulette-container');
     const canvas = document.getElementById('roulette-canvas');
@@ -953,5 +957,3 @@ async function showPlayerDetailsModal(draftId, playerId) {
     spinButton.addEventListener('click', spin);
 }
 
-    initialize();
-}
