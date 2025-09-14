@@ -221,6 +221,7 @@ export async function startVisualizerServer(client) {
         ws.on('message', async (message) => {
             try {
                 const data = JSON.parse(message);
+                console.log('[DEBUG 2] Mensaje recibido del navegador:', data);
                 if (!ws.user) return;
 
                 const captainId = ws.user.id;
