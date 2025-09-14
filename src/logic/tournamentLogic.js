@@ -2181,3 +2181,64 @@ export async function requestKickFromWeb(client, draftId, captainId, playerId, r
 export async function getVerifiedPlayer(userId) {
     return await checkVerification(userId);
 }
+export async function prepareRouletteDraw(client, draftShortId) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+    if (!draft || draft.status !== 'finalizado') {
+        throw new Error('Este draft no ha finalizado o no existe.');
+    }
+
+    const sessionId = `roulette_${draft.shortId}_${Math.random().toString(36).substring(2, 8)}`;
+    const teamsToDraw = Object.values(draft.captains).map(c => ({ id: c.userId, name: c.teamName, logoUrl: c.logoUrl || null }));
+
+    // Guardamos la sesión de la ruleta en la base de datos
+    await db.collection('roulette_sessions').insertOne({
+        sessionId: sessionId,
+        draftShortId: draft.shortId,
+        teams: teamsToDraw,
+        drawnTeams: [],
+        groups: { A: [], B: [] }, // Asumiendo 2 grupos para un draft de 8 equipos
+        status: 'pending'
+    });
+
+    // Cambiamos el estado del draft para que no se pueda volver a iniciar otro sorteo
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $set: { status: 'sorteo_ruleta_pendiente' } }
+    );
+        
+    // Generamos el enlace y lo enviamos al canal de casters
+    const rouletteUrl = `${process.env.BASE_URL}/?rouletteSessionId=${sessionId}`;
+    const casterChannelId = draft.discordMessageIds.casterTextChannelId;
+
+    if (casterChannelId) {
+        try {
+            const casterChannel = await client.channels.fetch(casterChannelId);
+            const embed = new EmbedBuilder()
+                .setColor('#e62429')
+                .setTitle('🎡 Enlace para el Sorteo con Ruleta')
+                .setDescription('¡Aquí tenéis el enlace exclusivo para realizar el sorteo del torneo en directo! Abridlo en un navegador para capturarlo en OBS.')
+                .setTimestamp();
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setLabel('Abrir Ruleta del Sorteo')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL(rouletteUrl)
+                    .setEmoji('🔗')
+            );
+            
+            await casterChannel.send({ embeds: [embed], components: [row] });
+        } catch (e) {
+            console.error(`No se pudo enviar el enlace de la ruleta al canal de casters ${casterChannelId}:`, e);
+            throw new Error('No se pudo encontrar o enviar el mensaje al canal de casters.');
+        }
+    } else {
+        throw new Error('No se ha configurado un canal para casters en este draft.');
+    }
+
+    // Actualizamos el panel de gestión para reflejar el nuevo estado
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftManagementPanel(client, updatedDraft);
+}
