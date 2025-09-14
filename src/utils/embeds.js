@@ -8,41 +8,47 @@ const ruleEmbeds = [
         .setColor('#f1c40f')
         .setTitle('📜 REGLAMENTO OFICIAL DE PARTIDO')
         .setDescription(
-            
-            "⏱️**Salidas del Partido**\n" +
-            "Se permite un máximo de 2 salidas por equipo, siempre y cuando ocurran antes del minuto 10 del\n" +
-            "partido. Salir del partido una tercera vez o después del minuto 10 podrá ser sancionado.\n\n" +
-            "⏳**Tiempo de Cortesía 10 minutos**\n" +
-            "📏**Límites de Altura**\n" +
-            "• (DFC/CB): Máximo 6'2\" / 187cm.\n" +
-            "• Resto de Jugadores: Máximo 5'10\" / 177cm.\n" +
-            "• (POR/GK): Sin límite de altura.\n\n" +
-            "🚫**PlayStyles Prohibidos**\n" +
-            "Prohibidos los siguientes PlayStyles, tanto en su versión de plata como de oro:\n" +
-            "• AÉREO (Aerial)\n" +
-            "• ANTICIPACIÓN (Anticipate / \"Mapache\")\n\n" +
+            `⏱️**Salidas del Partido**
+Se permite un máximo de 2 salidas por equipo, siempre y cuando ocurran antes del minuto 10 del
+partido. Salir del partido una tercera vez o después del minuto 10 podrá ser sancionado.
+
+⏳**Tiempo de Cortesía 10 minutos**
+📏**Límites de Altura**
+• (DFC/CB): Máximo 6'2" / 187cm.
+• Resto de Jugadores: Máximo 5'10" / 177cm.
+• (POR/GK): Sin límite de altura.
+
+🚫**PlayStyles Prohibidos**
+Prohibidos los siguientes PlayStyles, tanto en su versión de plata como de oro:
+• AÉREO (Aerial)
+• ANTICIPACIÓN (Anticipate / "Mapache")`
         ),
     new EmbedBuilder()
         .setColor('#f1c40f')
         .setTitle('📋 GUÍA DE REPORTES, PRUEBAS Y DISPUTAS')
         .setDescription(
-            "• No es necesario presentar clip de alturas perks si no se solicita, pero es vuestra\n" +
-            "responsabilidad tenerlo preparado.\n\n" +
-            "• Al finalizar el partido, ambos capitanes debéis pulsar el botón 'Reportar Resultado' y poner el resultado\n\n" +
-            "• **Si detectas una irregularidad,** pulsar el botón 'Solicitar Arbitraje'\n" +
-            "y explicar el problema a los árbitros en el hilo."
+            `• No es necesario presentar clip de alturas perks si no se solicita, pero es vuestra
+responsabilidad tenerlo preparado.
+
+• Al finalizar el partido, ambos capitanes debéis pulsar el botón 'Reportar Resultado' y poner el resultado
+
+• **Si detectas una irregularidad,** pulsar el botón 'Solicitar Arbitraje'
+y explicar el problema a los árbitros en el hilo.`
         ),
     new EmbedBuilder()
         .setColor('#f1c40f')
         .setTitle('⚠️ SANCIONES POR INCUMPLIMIENTO')
         .setDescription(
-            "Las siguientes acciones conllevarán sanciones directas:\n\n" +
-            "• **Incumplimiento del Tiempo de Cortesía:**\n" +
-            "• **Consecuencia:** Partido perdido 1-0.\n\n" +
-            "• **Pruebas que Demuestran una Infracción (Altura/Perk Ilegal):**\n" +
-            "• **Consecuencia:** Partido perdido 3-0.\n\n" +
-            "• **No Presentar Pruebas (Cuando son solicitadas):**\n" +
-            "• **Consecuencia:** Partido perdido 3-0.\n" +
+            `Las siguientes acciones conllevarán sanciones directas:
+
+• **Incumplimiento del Tiempo de Cortesía:**
+• **Consecuencia:** Partido perdido 1-0.
+
+• **Pruebas que Demuestran una Infracción (Altura/Perk Ilegal):**
+• **Consecuencia:** Partido perdido 3-0.
+
+• **No Presentar Pruebas (Cuando son solicitadas):**
+• **Consecuencia:** Partido perdido 3-0.`
         )
 ];
 
@@ -879,9 +885,11 @@ export function createStreamerWarningEmbed(platform, originalAction, entityId, t
         .addFields(
             {
                 name: '🔴 1. SOLO ESCRIBE TU NOMBRE DE USUARIO DEL STREAM',
+                value: '\u200B' 
             },
             {
                 name: '🔴 2. RETRANSMITE EL TORNEO EN EL CANAL DEL USUARIO QUE PONDRAS',
+                value: '\u200B' 
             },
             {
                 name: '🔴 3. NORMAS DE RETRANSMISION',
@@ -891,13 +899,12 @@ export function createStreamerWarningEmbed(platform, originalAction, entityId, t
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            // CORRECCIÓN: El customId ahora pasa los parámetros de forma limpia.
             .setCustomId(`streamer_warning_accept:${platform}:${originalAction}:${entityId}:${teamIdOrPosition}`)
             .setLabel('Entendido, continuar con la inscripción')
             .setStyle(ButtonStyle.Success)
             .setEmoji('✅'),
         new ButtonBuilder()
-            .setCustomId('rules_reject') // Reutilizamos el botón de rechazo
+            .setCustomId('rules_reject')
             .setLabel('Cancelar')
             .setStyle(ButtonStyle.Danger)
     );
