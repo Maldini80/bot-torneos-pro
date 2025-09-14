@@ -2307,7 +2307,7 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ _id: new ObjectId(tournamentId) });
     const guild = await client.guilds.fetch(tournament.guildId);
-
+    
     // --- INICIO DEL BLOQUE AÑADIDO: CREACIÓN DE CANALES DE EQUIPO ---
     const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
     const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
