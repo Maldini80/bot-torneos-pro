@@ -2261,55 +2261,74 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
     const db = getDb();
     const session = await db.collection('roulette_sessions').findOne({ sessionId });
     if (!session || session.status !== 'pending') return;
+    if (session.drawnTeams.includes(teamId)) return;
 
-    // Verificamos que el equipo no haya sido ya sorteado
-    if (session.drawnTeams.includes(teamId)) {
-        console.warn(`[ROULETTE] Se intentó volver a sortear al equipo ${teamId} en la sesión ${sessionId}`);
-        return;
-    }
-
+    // Aquí usamos el ID del torneo guardado en la sesión
     const tournament = await db.collection('tournaments').findOne({ _id: new ObjectId(session.tournamentId) });
     if (!tournament) return;
 
-    // Lógica para asignar a Grupo A o B alternativamente
     const nextGroup = session.drawnTeams.length % 2 === 0 ? 'A' : 'B';
     const groupName = `Grupo ${nextGroup}`;
     
-    // Buscamos los datos completos del equipo en el draft original
-    const draft = await db.collection('drafts').findOne({ shortId: session.draftShortId });
+    const draft = await db.collection('drafts').findOne({ shortId: tournament.shortId.replace('draft-', '') });
     const captainData = draft.captains.find(c => c.userId === teamId);
     
-    // Creamos el objeto del equipo para el torneo
     const teamObject = {
-        id: captainData.userId,
-        nombre: captainData.teamName,
-        capitanId: captainData.userId,
+        id: captainData.userId, nombre: captainData.teamName, capitanId: captainData.userId,
+        logoUrl: captainData.logoUrl, eafcTeamName: captainData.eafcTeamName,
         stats: { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 }
     };
 
-    // Actualizamos la base de datos
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
-        { $push: { [`structure.grupos.${groupName}.equipos`]: teamObject } }
+        { $push: { [`structure.grupos.${groupName}.equipos`]: teamObject }, $set: { [`teams.aprobados.${teamId}`]: teamObject } }
     );
     await db.collection('roulette_sessions').updateOne(
         { _id: session._id },
         { $push: { drawnTeams: teamId } }
     );
 
-    // Actualizamos las interfaces públicas y el visualizador en tiempo real
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await notifyTournamentVisualizer(updatedTournament);
 
-    // Comprobamos si el sorteo ha terminado
     const newSessionState = await db.collection('roulette_sessions').findOne({ _id: session._id });
     if (newSessionState.drawnTeams.length === newSessionState.teams.length) {
-        console.log(`[ROULETTE] Sorteo finalizado para el torneo ${tournament.shortId}.`);
+        console.log(`[ROULETTE] Sorteo finalizado para ${tournament.shortId}.`);
         await db.collection('roulette_sessions').updateOne({ _id: session._id }, { $set: { status: 'completed' } });
-        
-        // El torneo ya está creado, ahora solo generamos los partidos de la Jornada 1
-        const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await startGroupStage(client, await client.guilds.fetch(finalTournamentState.guildId), finalTournamentState);
+        await finalizeRouletteDrawAndStartMatches(client, tournament._id);
     }
+}
+async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
+    const db = getDb();
+    const tournament = await db.collection('tournaments').findOne({ _id: tournamentId });
+    const guild = await client.guilds.fetch(tournament.guildId);
+
+    const calendario = {};
+    for (const nombreGrupo in tournament.structure.grupos) {
+        const equiposGrupo = tournament.structure.grupos[nombreGrupo].equipos;
+        calendario[nombreGrupo] = [];
+        if (equiposGrupo.length === 4) {
+            const [t1, t2, t3, t4] = equiposGrupo;
+            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t4), createMatchObject(nombreGrupo, 1, t2, t3));
+            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t4, t2));
+            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t2), createMatchObject(nombreGrupo, 3, t3, t4));
+        }
+    }
+
+    for (const partido of Object.values(calendario).flat().filter(p => p.jornada === 1)) {
+        const threadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+        partido.threadId = threadId;
+        partido.status = 'en_curso';
+    }
+
+    await db.collection('tournaments').updateOne(
+        { _id: tournament._id },
+        { $set: { 'structure.calendario': calendario, status: 'fase_de_grupos' } }
+    );
+
+    const finalTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    await updatePublicMessages(client, finalTournament);
+    await updateTournamentManagementThread(client, finalTournament);
+    await notifyTournamentVisualizer(finalTournament);
 }
