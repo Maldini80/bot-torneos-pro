@@ -156,16 +156,32 @@
         </div>
     </div>
 
+    <!-- ========= ESTRUCTURA PARA LA RULETA DE SORTEO ========= -->
    <div id="roulette-container" class="hidden">
-        <div id="roulette-status">Cargando equipos...</div>
-        <div id="roulette-wrapper">
-            <canvas id="roulette-canvas" width="800" height="800"></canvas>
-            <!-- Este es el logo que pediste para el centro -->
-            <img src="https://i.imgur.com/E6obnvO.png" id="roulette-logo" alt="VPG Logo">
-            <!-- Esta es la flecha que indicará el ganador -->
-            <img src="https://i.imgur.com/8z1Z2Qy.png" id="roulette-pointer" alt="Pointer">
+        <div id="roulette-main-content">
+            <div id="roulette-status">Cargando equipos...</div>
+            <div id="roulette-wrapper">
+                <canvas id="roulette-canvas" width="800" height="800"></canvas>
+                <img src="https://i.imgur.com/E6obnvO.png" id="roulette-logo" alt="VPG Logo">
+                <img src="https://i.imgur.com/xzDiVrR.png" id="roulette-pointer" alt="Pointer">
+            </div>
+            <button id="spin-button" disabled>CARGANDO EQUIPOS...</button>
         </div>
-        <button id="spin-button" disabled>ESPERANDO DATOS</button>
+        <aside id="roulette-sidebar">
+            <h2>GRUPOS DEL TORNEO</h2>
+            <div class="roulette-group-container">
+                <h3>GRUPO A</h3>
+                <ul id="group-a-list">
+                    <!-- Los equipos aparecerán aquí -->
+                </ul>
+            </div>
+            <div class="roulette-group-container">
+                <h3>GRUPO B</h3>
+                <ul id="group-b-list">
+                    <!-- Los equipos aparecerán aquí -->
+                </ul>
+            </div>
+        </aside>
     </div>
     
     <footer id="common-footer">
