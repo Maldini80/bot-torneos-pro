@@ -2295,7 +2295,7 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
 
     const newSessionState = await db.collection('roulette_sessions').findOne({ _id: session._id });
     if (newSessionState.drawnTeams.length === newSessionState.teams.length) {
-        console.log(`[ROULETTE] Sorteo finalizado para ${tournament.shortId}.`);
+        console.log(`[ROULETTE] Sorteo finalizado para el torneo ${tournament.shortId}.`);
         await db.collection('roulette_sessions').updateOne({ _id: session._id }, { $set: { status: 'completed' } });
         await finalizeRouletteDrawAndStartMatches(client, tournament._id);
     }
