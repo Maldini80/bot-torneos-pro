@@ -2308,6 +2308,54 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     const tournament = await db.collection('tournaments').findOne({ _id: new ObjectId(tournamentId) });
     const guild = await client.guilds.fetch(tournament.guildId);
 
+    // --- INICIO DEL BLOQUE AÑADIDO: CREACIÓN DE CANALES DE EQUIPO ---
+    const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
+    const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
+    const draft = await db.collection('drafts').findOne({ shortId: tournament.shortId.replace('draft-', '') });
+
+    if (teamCategory && arbitroRole && draft) {
+        console.log(`[CHANNELS] Creando canales de equipo para el torneo ${tournament.shortId}`);
+        for (const team of Object.values(tournament.teams.aprobados)) {
+            // Buscamos la plantilla completa del equipo en el draft original
+            const teamPlayers = draft.players.filter(p => p.captainId === team.capitanId);
+            const realPlayerIds = teamPlayers.map(p => p.userId).filter(id => /^\d+$/.test(id));
+            
+            const textPermissions = [
+                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
+                ...realPlayerIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
+            ];
+            
+            const voicePermissions = [
+                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
+                ...realPlayerIds.map(id => ({ id, allow: [
+                    PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
+                ]}))
+            ];
+            
+            const textChannel = await guild.channels.create({
+                name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`,
+                type: ChannelType.GuildText,
+                parent: teamCategory,
+                permissionOverwrites: textPermissions
+            });
+
+            await guild.channels.create({
+                name: `🔊 ${team.nombre}`,
+                type: ChannelType.GuildVoice,
+                parent: teamCategory,
+                permissionOverwrites: voicePermissions
+            });
+            
+            const mentionString = realPlayerIds.map(id => `<@${id}>`).join(' ');
+            await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
+        }
+    } else {
+        console.warn(`[CHANNELS] No se pudo crear canales de equipo para ${tournament.shortId} por falta de categoría, rol o datos del draft.`);
+    }
+    // --- FIN DEL BLOQUE AÑADIDO ---
+
     const calendario = {};
     for (const nombreGrupo in tournament.structure.grupos) {
         const equiposGrupo = tournament.structure.grupos[nombreGrupo].equipos;
