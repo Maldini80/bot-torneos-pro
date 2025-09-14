@@ -195,7 +195,7 @@ export async function startVisualizerServer(client) {
             
             // Enviamos solo los equipos que aún no han sido sorteados
             const teamsToDraw = session.teams.filter(t => !session.drawnTeams.includes(t.id));
-            res.json({ teams: teamsToDraw, tournamentShortId: session.tournamentId.toString() }); // Enviamos también el ID para futuras referencias
+            res.json({ teams: teamsToDraw, tournamentShortId: session.tournamentShortId }); // Enviamos también el ID para futuras referencias
 
         } catch (error) {
             console.error(`[API Roulette Data Error]: ${error.message}`);
