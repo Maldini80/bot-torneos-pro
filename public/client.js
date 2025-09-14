@@ -845,7 +845,10 @@ function initializeRouletteView(sessionId) {
     // *** NUEVO: Escucha las actualizaciones del torneo para llenar los grupos ***
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
+        console.log('[DEBUG 6] Actualización recibida del bot:', message);
+        
         if (message.type === 'tournament' && message.id === currentTournamentId) {
+            console.log('[DEBUG 7] ¡IDs coinciden! Actualizando la lista de grupos.', { id_recibido: message.id, id_esperado: currentTournamentId });
             updateGroupDisplay(message.data.structure.grupos);
         }
     };
