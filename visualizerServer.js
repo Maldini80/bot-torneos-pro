@@ -22,6 +22,7 @@ const draftStates = new Map();
 const tournamentStates = new Map();
 
 function broadcastUpdate(type, id, data) {
+    console.log(`[DEBUG 5] Enviando actualización a todos los clientes. Tipo: ${type}, ID: ${id}`);
     const payload = JSON.stringify({ type, id, data });
     wss.clients.forEach(client => {
         if (client.readyState === client.OPEN) client.send(payload);
