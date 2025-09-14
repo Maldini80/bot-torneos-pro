@@ -7,7 +7,7 @@ import session from 'express-session';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
-import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb } from './src/logic/tournamentLogic.js';
+import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
 
 const app = express();
@@ -183,6 +183,26 @@ export async function startVisualizerServer(client) {
         else res.status(404).send({ error: 'Tournament data not found' });
     });
 
+    app.get('/api/roulette-data/:sessionId', async (req, res) => {
+        try {
+            const { sessionId } = req.params;
+            const db = getDb();
+            const session = await db.collection('roulette_sessions').findOne({ sessionId });
+            
+            if (!session) {
+                return res.status(404).send({ error: 'Sesión de sorteo no encontrada.' });
+            }
+            
+            // Enviamos solo los equipos que aún no han sido sorteados
+            const teamsToDraw = session.teams.filter(t => !session.drawnTeams.includes(t.id));
+            res.json({ teams: teamsToDraw, tournamentShortId: session.tournamentId.toString() }); // Enviamos también el ID para futuras referencias
+
+        } catch (error) {
+            console.error(`[API Roulette Data Error]: ${error.message}`);
+            res.status(500).send({ error: 'Error interno del servidor.' });
+        }
+    });
+
     server.on('upgrade', (request, socket, head) => {
         sessionParser(request, {}, () => {
             wss.handleUpgrade(request, socket, head, (ws) => {
@@ -210,6 +230,11 @@ export async function startVisualizerServer(client) {
                     case 'execute_draft_pick':
                         await handlePlayerSelectionFromWeb(client, draftId, captainId, playerId, position);
                         await advanceDraftTurn(client, draftId);
+                        break;
+
+                    case 'spin_result':
+                        const { sessionId, teamId } = data;
+                        await handleRouletteSpinResult(client, sessionId, teamId);
                         break;
                     
                     case 'report_player':
