@@ -352,8 +352,19 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     }
 
     if (draft.status === 'finalizado') {
-         row1.addComponents(
-            new ButtonBuilder().setCustomId(`draft_force_tournament:${draft.shortId}`).setLabel('Forzar Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy)
+        row1.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`draft_force_tournament_classic:${draft.shortId}`)
+                .setLabel('Sorteo Clásico (Instantáneo)')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🎲')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
+                .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
+                .setLabel('Sorteo con Ruleta (Visual)')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🎡')
+                .setDisabled(isBusy)
         );
     }
 
