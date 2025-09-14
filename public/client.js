@@ -949,6 +949,7 @@ function initializeRouletteView(sessionId) {
         const winner = teams[index];
 
         statusEl.textContent = `Asignando a... ¡${winner.name}!`;
+        console.log('[DEBUG 1] Enviando resultado al bot:', { sessionId: sessionId, teamId: winner.id });
 
         if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: 'spin_result', sessionId: sessionId, teamId: winner.id }));
