@@ -2288,7 +2288,6 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
         { _id: session._id },
         { $push: { drawnTeams: teamId } }
         console.log('[DEBUG 4] Base de datos actualizada. Notificando al visualizador...');
-    );
 
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
