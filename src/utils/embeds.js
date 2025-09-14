@@ -8,65 +8,28 @@ const ruleEmbeds = [
         .setColor('#f1c40f')
         .setTitle('📜 REGLAMENTO OFICIAL DE PARTIDO')
         .setDescription(
-            "A continuación se detallan las normas obligatorias para todos los partidos del torneo. El\n" +
-            "desconocimiento de estas reglas no exime de su cumplimiento.\n\n" +
-            "👥**11 Jugadores Obligatorios**\n" +
-            "Todos los partidos deben jugarse con 11 futbolistas en el campo.\n\n" +
-            "🤖**Posición 'Cualquiera' (CLQ)**\n" +
-            "No es obligatorio el uso de esta posición.\n\n" +
+            
             "⏱️**Salidas del Partido**\n" +
             "Se permite un máximo de 2 salidas por equipo, siempre y cuando ocurran antes del minuto 10 del\n" +
             "partido. Salir del partido una tercera vez o después del minuto 10 podrá ser sancionado.\n\n" +
-            "⏳**Tiempo de Cortesía**\n" +
-            "Se establece un tiempo de cortesía de 10 minutos desde la hora oficial del partido. Pasado este\n" +
-            "tiempo, si un equipo no está listo, el rival podrá reclamar la victoria (presentando pruebas de la\n" +
-            "espera). La sanción por incumplimiento es la pérdida del partido por 1-0.\n\n" +
+            "⏳**Tiempo de Cortesía 10 minutos**\n" +
             "📏**Límites de Altura**\n" +
-            "Se deben respetar los siguientes límites de altura para los jugadores virtuales:\n" +
-            "• Defensas Centrales (DFC/CB): Máximo 6'2\" / 187cm.\n" +
-            "• Resto de Jugadores de Campo: Máximo 5'10\" / 177cm.\n" +
-            "• Portero (POR/GK): Sin límite de altura.\n\n" +
+            "• (DFC/CB): Máximo 6'2\" / 187cm.\n" +
+            "• Resto de Jugadores: Máximo 5'10\" / 177cm.\n" +
+            "• (POR/GK): Sin límite de altura.\n\n" +
             "🚫**PlayStyles Prohibidos**\n" +
-            "Quedan totalmente prohibidos los siguientes PlayStyles, tanto en su versión de plata como de oro:\n" +
+            "Prohibidos los siguientes PlayStyles, tanto en su versión de plata como de oro:\n" +
             "• AÉREO (Aerial)\n" +
             "• ANTICIPACIÓN (Anticipate / \"Mapache\")\n\n" +
-            "**NOTA: Para saber cómo proceder después de un partido (reportar resultados, solicitar pruebas,\n" +
-            "etc.), consulta la Guía de Reportes y Pruebas.**"
         ),
     new EmbedBuilder()
         .setColor('#f1c40f')
         .setTitle('📋 GUÍA DE REPORTES, PRUEBAS Y DISPUTAS')
         .setDescription(
-            "Para garantizar la integridad y la fluidez del torneo, es obligatorio que ambos capitanes o sus co-capitanes sigan este\n" +
-            "procedimiento después de cada partido.\n\n" +
-            "**Paso 1: Jugar el Partido y Preparar las Pruebas**\n" +
-            "En cada encuentro, ambos capitanes o sus co-capitanes deben grabar un clip durante el partido por si el rival lo\n" +
-            "solicitara. Este clip debe mostrar claramente el vestíbulo final donde se vean TODOS los jugadores\n" +
-            "del equipo, sus alturas y sus PlayStyles/Perks, y el partido que estan disputando.\n" +
-            "• **Importante:** No es necesario presentar este clip si no se solicita, pero es vuestra\n" +
+            "• No es necesario presentar clip de alturas perks si no se solicita, pero es vuestra\n" +
             "responsabilidad tenerlo preparado.\n\n" +
-            "**Paso 2: Reportar el Resultado (Procedimiento Estándar)**\n" +
-            "El procedimiento habitual se basa en la confianza y la deportividad.\n" +
-            "1. Al finalizar el partido, ambos capitanes debéis pulsar el botón 'Reportar Resultado' en el\n" +
-            "hilo del partido.\n" +
-            "2. Introducid el marcador final.\n" +
-            "• **Si los resultados coinciden:** ¡Perfecto! El sistema validará el resultado, actualizará\n" +
-            "las clasificaciones y el hilo del partido se cerrará y eliminará. No se necesita\n" +
-            "hacer nada más.\n\n" +
-            "**Paso 3: Gestión de Pruebas (SOLO si hay sospechas)**\n" +
-            "• **Solicitud de Pruebas:** Si durante o después del partido sospechas que tu rival ha\n" +
-            "incumplido alguna norma, debes solicitarle las pruebas a través del chat del hilo del\n" +
-            "partido.\n" +
-            "• **Presentación de Pruebas:** Al ser solicitadas, el equipo rival está OBLIGADO a presentar el\n" +
-            "clip que grabó. Para ello, debe:\n" +
-            "1. Usar el botón 'Prueba de altura perks' que le llevará a Streamable.com para subir\n" +
-            "el vídeo.\n" +
-            "2. Pegar el enlace de Streamable (o de YouTube/Twitch) en el hilo del partido.\n\n" +
-            "**Paso 4: Revisión y Disputa**\n" +
-            "Una vez las pruebas son subidas, el capitán que las solicitó debe revisarlas.\n" +
-            "• **Si todo es correcto,** ambos equipos deben proceder a reportar el resultado como se indica\n" +
-            "en el Paso 2.\n" +
-            "• **Si detectas una irregularidad,** ahora es el momento de pulsar el botón 'Solicitar Arbitraje'\n" +
+            "• Al finalizar el partido, ambos capitanes debéis pulsar el botón 'Reportar Resultado' y poner el resultado\n\n" +
+            "• **Si detectas una irregularidad,** pulsar el botón 'Solicitar Arbitraje'\n" +
             "y explicar el problema a los árbitros en el hilo."
         ),
     new EmbedBuilder()
@@ -79,14 +42,7 @@ const ruleEmbeds = [
             "• **Pruebas que Demuestran una Infracción (Altura/Perk Ilegal):**\n" +
             "• **Consecuencia:** Partido perdido 3-0.\n\n" +
             "• **No Presentar Pruebas (Cuando son solicitadas):**\n" +
-            "• **Torneo de Pago:** Consecuencia: Partido perdido 3-0.\n" +
-            "• **Torneo Gratuito:**\n" +
-            "• **1ª Vez:** El caso quedará bajo supervisión de un árbitro. Se podrá quedar en\n" +
-            "\"advertencia oficial\" si hay consenso con el rival; de lo contrario, se\n" +
-            "dictaminará el partido como perdido.\n" +
-            "• **2ª Vez:** Consecuencia: Expulsión del torneo. Además, el capitán no podrá\n" +
-            "participar en más torneos gratuitos de VPG hasta que su caso sea revisado\n" +
-            "por el Staff."
+            "• **Consecuencia:** Partido perdido 3-0.\n" +
         )
 ];
 
@@ -919,24 +875,17 @@ export function createCasterInfoEmbed(teamData, tournament) {
 export function createStreamerWarningEmbed(platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
     const embed = new EmbedBuilder()
         .setColor('#E67E22') // Naranja de advertencia
-        .setTitle('⚠️ ¡ATENCIÓN, CAPITÁN! INSTRUCCIONES IMPORTANTES')
-        .setDescription('**Leer esto es OBLIGATORIO. El correcto funcionamiento del torneo y de la retransmisión depende de ello.**')
+        .setTitle('⚠️ IMPORTANTE PARA STREAMERS')
         .addFields(
             {
-                name: '🔴 1. Tu Usuario de Stream',
-                value: 'Asegúrate de escribir tu nombre de usuario de **' + platform + '** **EXACTAMENTE** como es. Sin errores, sin mayúsculas/minúsculas incorrectas y sin la URL completa. Solo el nombre de usuario.'
+                name: '🔴 1. SOLO ESCRIBE TU NOMBRE DE USUARIO DEL STREAM',
             },
             {
-                name: '🔴 2. El Canal Correcto',
-                value: 'Debes proporcionar el canal que **REALMENTE USARÁS** para retransmitir tus partidos del torneo. No pongas un canal secundario o uno que no uses.'
+                name: '🔴 2. RETRANSMITE EL TORNEO EN EL CANAL DEL USUARIO QUE PONDRAS',
             },
             {
-                name: '✅ 3. Normas de Retransmisión',
+                name: '🔴 3. NORMAS DE RETRANSMISION',
                 value: 'Para que los casters puedan trabajar, durante tus partidos es **OBLIGATORIO**:\n- **Tener las IDs visibles** en el juego.\n- **Desactivar el audio de los comentaristas** del juego.'
-            },
-            {
-                name: '🚫 Consecuencias',
-                value: 'Proporcionar información incorrecta de forma repetida impedirá tu participación como capitán en futuros torneos. **Esta información es VITAL para los casters y el visualizador en vivo.**'
             }
         );
 
