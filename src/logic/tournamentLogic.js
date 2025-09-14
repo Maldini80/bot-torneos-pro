@@ -2182,63 +2182,78 @@ export async function getVerifiedPlayer(userId) {
     return await checkVerification(userId);
 }
 export async function prepareRouletteDraw(client, draftShortId) {
+    await setBotBusy(true);
     const db = getDb();
-    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    const guild = await client.guilds.fetch(process.env.GUILD_ID);
 
-    if (!draft || draft.status !== 'finalizado') {
-        throw new Error('Este draft no ha finalizado o no existe.');
-    }
+    try {
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft || draft.status !== 'finalizado') {
+            throw new Error('Este draft no ha finalizado o no existe.');
+        }
 
-    const sessionId = `roulette_${draft.shortId}_${Math.random().toString(36).substring(2, 8)}`;
-    const teamsToDraw = Object.values(draft.captains).map(c => ({ id: c.userId, name: c.teamName, logoUrl: c.logoUrl || null }));
-
-    // Guardamos la sesión de la ruleta en la base de datos
-    await db.collection('roulette_sessions').insertOne({
-        sessionId: sessionId,
-        draftShortId: draft.shortId,
-        teams: teamsToDraw,
-        drawnTeams: [],
-        groups: { A: [], B: [] }, // Asumiendo 2 grupos para un draft de 8 equipos
-        status: 'pending'
-    });
-
-    // Cambiamos el estado del draft para que no se pueda volver a iniciar otro sorteo
-    await db.collection('drafts').updateOne(
-        { _id: draft._id },
-        { $set: { status: 'sorteo_ruleta_pendiente' } }
-    );
+        // --- INICIO DE LA LÓGICA NUEVA: CREAR EL TORNEO VACÍO ---
+        const tournamentName = `Torneo Draft - ${draft.name}`;
+        const tournamentShortId = `draft-${draft.shortId}`;
+        const formatId = '8_teams_semis_classic'; // Formato fijo para draft de 8 equipos
+        const format = TOURNAMENT_FORMATS[formatId];
+        const config = {
+            formatId, format, isPaid: draft.config.isPaid, matchType: 'ida',
+            entryFee: draft.config.entryFee, prizeCampeon: draft.config.prizeCampeon, prizeFinalista: draft.config.prizeFinalista,
+        };
         
-    // Generamos el enlace y lo enviamos al canal de casters
-    const rouletteUrl = `${process.env.BASE_URL}/?rouletteSessionId=${sessionId}`;
-    const casterChannelId = draft.discordMessageIds.casterTextChannelId;
+        // Creamos la estructura del torneo en la base de datos pero con equipos y grupos vacíos.
+        const newTournament = await createNewTournament(client, guild, tournamentName, tournamentShortId, config);
+        if (!newTournament.success) {
+            throw new Error(newTournament.message || "No se pudo crear la estructura del torneo.");
+        }
 
-    if (casterChannelId) {
-        try {
+        // Creamos los grupos vacíos en la estructura del torneo
+        const initialGroups = { 'Grupo A': { equipos: [] }, 'Grupo B': { equipos: [] } };
+        await db.collection('tournaments').updateOne(
+            { _id: newTournament.tournament._id },
+            { $set: { 'structure.grupos': initialGroups, status: 'sorteo_en_curso' } }
+        );
+        // --- FIN DE LA LÓGICA NUEVA ---
+
+        const sessionId = `roulette_${tournamentShortId}_${Math.random().toString(36).substring(2, 8)}`;
+        const teamsToDraw = draft.captains.map(c => ({ id: c.userId, name: c.teamName, logoUrl: c.logoUrl || null }));
+
+        await db.collection('roulette_sessions').insertOne({
+            sessionId: sessionId,
+            tournamentId: newTournament.tournament._id, // Guardamos el ID del torneo real
+            teams: teamsToDraw,
+            drawnTeams: [],
+            status: 'pending'
+        });
+
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $set: { status: 'sorteo_ruleta_pendiente' } }
+        );
+
+        const rouletteUrl = `${process.env.BASE_URL}/?rouletteSessionId=${sessionId}`;
+        const casterChannelId = draft.discordMessageIds.casterTextChannelId;
+
+        if (casterChannelId) {
             const casterChannel = await client.channels.fetch(casterChannelId);
             const embed = new EmbedBuilder()
                 .setColor('#e62429')
                 .setTitle('🎡 Enlace para el Sorteo con Ruleta')
                 .setDescription('¡Aquí tenéis el enlace exclusivo para realizar el sorteo del torneo en directo! Abridlo en un navegador para capturarlo en OBS.')
                 .setTimestamp();
-
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setLabel('Abrir Ruleta del Sorteo')
-                    .setStyle(ButtonStyle.Link)
-                    .setURL(rouletteUrl)
-                    .setEmoji('🔗')
+                new ButtonBuilder().setLabel('Abrir Ruleta del Sorteo').setStyle(ButtonStyle.Link).setURL(rouletteUrl).setEmoji('🔗')
             );
-            
             await casterChannel.send({ embeds: [embed], components: [row] });
-        } catch (e) {
-            console.error(`No se pudo enviar el enlace de la ruleta al canal de casters ${casterChannelId}:`, e);
-            throw new Error('No se pudo encontrar o enviar el mensaje al canal de casters.');
+        } else {
+            throw new Error('No se ha configurado un canal para casters en este draft.');
         }
-    } else {
-        throw new Error('No se ha configurado un canal para casters en este draft.');
-    }
 
-    // Actualizamos el panel de gestión para reflejar el nuevo estado
-    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    await updateDraftManagementPanel(client, updatedDraft);
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await updateDraftManagementPanel(client, updatedDraft);
+
+    } finally {
+        await setBotBusy(false);
+    }
 }
