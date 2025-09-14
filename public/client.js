@@ -4,8 +4,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const tournamentId = urlParams.get('tournamentId');
     const draftId = urlParams.get('draftId');
+    const rouletteSessionId = urlParams.get('rouletteSessionId'); // <-- Línea nueva
 
-    if (tournamentId) {
+    if (rouletteSessionId) {
+        // Si hay un ID de ruleta, iniciamos esa vista
+        document.body.classList.add('draft-view-style'); // Reutilizamos un estilo para el fondo
+        initializeRouletteView(rouletteSessionId);
+    } else if (tournamentId) {
         document.body.classList.remove('draft-view-style');
         initializeTournamentView(tournamentId);
     } else if (draftId) {
@@ -809,6 +814,143 @@ async function showPlayerDetailsModal(draftId, playerId) {
         modalPlayerName.textContent = 'Error';
         modalContent.innerHTML = `<p style="color: var(--primary-color);">${error.message}</p>`;
     }
+}
+    function initializeRouletteView(sessionId) {
+    const loadingEl = document.getElementById('loading');
+    const rouletteContainerEl = document.getElementById('roulette-container');
+    const canvas = document.getElementById('roulette-canvas');
+    const spinButton = document.getElementById('spin-button');
+    const statusEl = document.getElementById('roulette-status');
+    const ctx = canvas.getContext('2d');
+
+    let teams = [];
+    let startAngle = 0;
+    let spinTime = 0;
+    let spinTimeTotal = 0;
+    let spinAngleStart = 0;
+    let tournamentShortId = null;
+
+    // Colores para los quesitos de la ruleta (se irán alternando)
+    const colors = ["#E62429", "#222222", "#FFFFFF", "#555555"];
+
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const socket = new WebSocket(`${protocol}://${window.location.host}`);
+    socket.onopen = () => console.log('Conectado al servidor para Sorteo con Ruleta.');
+
+    async function fetchTeams() {
+        spinButton.disabled = true;
+        spinButton.textContent = 'CARGANDO EQUIPOS...';
+        try {
+            const response = await fetch(`/api/roulette-data/${sessionId}`);
+            const data = await response.json();
+            
+            if (response.ok) {
+                teams = data.teams;
+                tournamentShortId = data.tournamentShortId; // Guardamos el ID del torneo
+                if (teams.length > 0) {
+                    drawRoulette();
+                    spinButton.disabled = false;
+                    spinButton.textContent = 'GIRAR RULETA';
+                    statusEl.textContent = `Listos para sortear. ${teams.length} equipos restantes.`;
+                } else {
+                    statusEl.textContent = '¡SORTEO FINALIZADO!';
+                    spinButton.textContent = 'COMPLETADO';
+                    spinButton.disabled = true;
+                }
+            } else {
+                statusEl.textContent = `Error: ${data.error}`;
+            }
+        } catch (error) {
+            statusEl.textContent = 'Error al conectar con el servidor.';
+        }
+    }
+
+    function drawRoulette() {
+        const arc = Math.PI * 2 / teams.length;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.font = 'bold 24px Bebas Neue';
+
+        teams.forEach((team, i) => {
+            const angle = startAngle + i * arc;
+            ctx.fillStyle = colors[i % colors.length];
+
+            // Dibuja el "quesito"
+            ctx.beginPath();
+            ctx.arc(400, 400, 380, angle, angle + arc, false);
+            ctx.arc(400, 400, 0, angle + arc, angle, true);
+            ctx.stroke();
+            ctx.fill();
+
+            // Dibuja el texto con el nombre del equipo
+            ctx.save();
+            ctx.fillStyle = (i % colors.length === 2) ? '#000000' : '#FFFFFF'; // Texto negro sobre fondo blanco
+            ctx.translate(400 + Math.cos(angle + arc / 2) * 200, 400 + Math.sin(angle + arc / 2) * 200);
+            ctx.rotate(angle + arc / 2 + Math.PI / 2);
+            const text = team.name;
+            ctx.fillText(text, -ctx.measureText(text).width / 2, 0);
+            ctx.restore();
+        });
+    }
+
+    function spin() {
+        spinButton.disabled = true;
+        statusEl.textContent = 'Girando...';
+
+        spinAngleStart = Math.random() * 10 + 10; // Velocidad inicial
+        spinTime = 0;
+        spinTimeTotal = Math.random() * 3000 + 5000; // Duración del giro
+        animate();
+    }
+
+    function animate() {
+        spinTime += 30;
+        if (spinTime >= spinTimeTotal) {
+            stopSpinning();
+            return;
+        }
+        // Fórmula para que la ruleta frene poco a poco
+        const spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+        startAngle += (spinAngle * Math.PI / 180);
+        drawRoulette();
+        requestAnimationFrame(animate);
+    }
+
+    function stopSpinning() {
+        const degrees = startAngle * 180 / Math.PI + 90;
+        const arc = 360 / teams.length;
+        const index = Math.floor((360 - degrees % 360) / arc);
+        const winner = teams[index];
+
+        statusEl.textContent = `¡Le toca a... ${winner.name}!`;
+
+        // Avisamos al bot del resultado
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'spin_result',
+                sessionId: sessionId,
+                teamId: winner.id
+            }));
+        }
+
+        // Después de unos segundos, recargamos la ruleta para el siguiente giro
+        setTimeout(() => {
+            fetchTeams();
+        }, 4000);
+    }
+    
+    function easeOut(t, b, c, d) {
+        const ts = (t /= d) * t;
+        const tc = ts * t;
+        return b + c * (tc + -3 * ts + 3 * t);
+    }
+
+    // --- INICIO ---
+    loadingEl.classList.add('hidden');
+    rouletteContainerEl.classList.remove('hidden');
+    fetchTeams(); // Carga los equipos iniciales
+    spinButton.addEventListener('click', spin);
 }
 
     initialize();
