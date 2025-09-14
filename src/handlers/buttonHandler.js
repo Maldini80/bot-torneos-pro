@@ -10,7 +10,7 @@ import {
     addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
     approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft,
     approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
-    forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement, kickPlayerFromDraft
+    forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement, prepareRouletteDraw, kickPlayerFromDraft
 } from '../logic/tournamentLogic.js';
 import {
     checkVerification, startVerificationWizard, showVerificationModal, startProfileUpdateWizard, approveProfileUpdate, rejectProfileUpdate, openProfileUpdateThread
@@ -892,7 +892,7 @@ if (action === 'admin_invite_replacement_start') {
         return;
     }
     
-    if (action === 'draft_force_tournament') {
+    if (action === 'draft_force_tournament_classic') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
 
@@ -917,6 +917,18 @@ if (action === 'admin_invite_replacement_start') {
             content: 'Por favor, elige el formato que tendrá el torneo que se creará a partir de este draft:',
             components: [new ActionRowBuilder().addComponents(formatMenu)],
         });
+        return;
+    }
+	if (action === 'draft_force_tournament_roulette') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        try {
+            await prepareRouletteDraw(client, draftShortId);
+            await interaction.editReply({ content: '✅ ¡Todo listo para el sorteo con ruleta! Se ha enviado un enlace privado al canal de los casters.' });
+        } catch (error) {
+            console.error('Error al preparar el sorteo con ruleta:', error);
+            await interaction.editReply({ content: `❌ Hubo un error al preparar el sorteo: ${error.message}` });
+        }
         return;
     }
 
