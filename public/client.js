@@ -825,6 +825,8 @@ function initializeRouletteView(sessionId) {
     const canvas = document.getElementById('roulette-canvas');
     const spinButton = document.getElementById('spin-button');
     const statusEl = document.getElementById('roulette-status');
+    const groupAList = document.getElementById('group-a-list');
+    const groupBList = document.getElementById('group-b-list');
     const ctx = canvas.getContext('2d');
 
     let teams = [];
@@ -832,14 +834,21 @@ function initializeRouletteView(sessionId) {
     let spinTime = 0;
     let spinTimeTotal = 0;
     let spinAngleStart = 0;
-    let tournamentShortId = null;
+    let currentTournamentId = null;
 
-    // Colores para los quesitos de la ruleta (se irán alternando)
     const colors = ["#E62429", "#222222", "#FFFFFF", "#555555"];
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
     socket.onopen = () => console.log('Conectado al servidor para Sorteo con Ruleta.');
+
+    // *** NUEVO: Escucha las actualizaciones del torneo para llenar los grupos ***
+    socket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'tournament' && message.id === currentTournamentId) {
+            updateGroupDisplay(message.data.structure.grupos);
+        }
+    };
 
     async function fetchTeams() {
         spinButton.disabled = true;
@@ -850,7 +859,7 @@ function initializeRouletteView(sessionId) {
             
             if (response.ok) {
                 teams = data.teams;
-                tournamentShortId = data.tournamentShortId; // Guardamos el ID del torneo
+                currentTournamentId = data.tournamentShortId; // Usamos el ID del torneo
                 if (teams.length > 0) {
                     drawRoulette();
                     spinButton.disabled = false;
@@ -861,35 +870,47 @@ function initializeRouletteView(sessionId) {
                     spinButton.textContent = 'COMPLETADO';
                     spinButton.disabled = true;
                 }
-            } else {
-                statusEl.textContent = `Error: ${data.error}`;
-            }
-        } catch (error) {
-            statusEl.textContent = 'Error al conectar con el servidor.';
+            } else { statusEl.textContent = `Error: ${data.error}`; }
+        } catch (error) { statusEl.textContent = 'Error al conectar con el servidor.'; }
+    }
+
+    // *** NUEVO: Función para actualizar la lista de grupos en la barra lateral ***
+    function updateGroupDisplay(groups) {
+        groupAList.innerHTML = '';
+        groupBList.innerHTML = '';
+        if (groups['Grupo A']) {
+            groups['Grupo A'].equipos.forEach(team => {
+                const li = document.createElement('li');
+                li.textContent = team.nombre;
+                groupAList.appendChild(li);
+            });
+        }
+        if (groups['Grupo B']) {
+            groups['Grupo B'].equipos.forEach(team => {
+                const li = document.createElement('li');
+                li.textContent = team.nombre;
+                groupBList.appendChild(li);
+            });
         }
     }
 
     function drawRoulette() {
+        if (teams.length === 0) return;
         const arc = Math.PI * 2 / teams.length;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
         ctx.font = 'bold 24px Bebas Neue';
-
         teams.forEach((team, i) => {
             const angle = startAngle + i * arc;
             ctx.fillStyle = colors[i % colors.length];
-
-            // Dibuja el "quesito"
             ctx.beginPath();
             ctx.arc(400, 400, 380, angle, angle + arc, false);
             ctx.arc(400, 400, 0, angle + arc, angle, true);
             ctx.stroke();
             ctx.fill();
-
-            // Dibuja el texto con el nombre del equipo
             ctx.save();
-            ctx.fillStyle = (i % colors.length === 2) ? '#000000' : '#FFFFFF'; // Texto negro sobre fondo blanco
+            ctx.fillStyle = (i % colors.length === 2) ? '#000000' : '#FFFFFF';
             ctx.translate(400 + Math.cos(angle + arc / 2) * 200, 400 + Math.sin(angle + arc / 2) * 200);
             ctx.rotate(angle + arc / 2 + Math.PI / 2);
             const text = team.name;
@@ -899,12 +920,13 @@ function initializeRouletteView(sessionId) {
     }
 
     function spin() {
+        if (teams.length === 0) return;
         spinButton.disabled = true;
         statusEl.textContent = 'Girando...';
-
-        spinAngleStart = Math.random() * 10 + 10; // Velocidad inicial
+        // *** MODIFICADO: Más fuerza y duración para un giro más emocionante ***
+        spinAngleStart = Math.random() * 20 + 30;
         spinTime = 0;
-        spinTimeTotal = Math.random() * 3000 + 5000; // Duración del giro
+        spinTimeTotal = Math.random() * 2000 + 7000;
         animate();
     }
 
@@ -914,7 +936,6 @@ function initializeRouletteView(sessionId) {
             stopSpinning();
             return;
         }
-        // Fórmula para que la ruleta frene poco a poco
         const spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
         startAngle += (spinAngle * Math.PI / 180);
         drawRoulette();
@@ -927,21 +948,13 @@ function initializeRouletteView(sessionId) {
         const index = Math.floor((360 - degrees % 360) / arc);
         const winner = teams[index];
 
-        statusEl.textContent = `¡Le toca a... ${winner.name}!`;
+        statusEl.textContent = `Asignando a... ¡${winner.name}!`;
 
-        // Avisamos al bot del resultado
         if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'spin_result',
-                sessionId: sessionId,
-                teamId: winner.id
-            }));
+            socket.send(JSON.stringify({ type: 'spin_result', sessionId: sessionId, teamId: winner.id }));
         }
 
-        // Después de unos segundos, recargamos la ruleta para el siguiente giro
-        setTimeout(() => {
-            fetchTeams();
-        }, 4000);
+        setTimeout(() => { fetchTeams(); }, 4000);
     }
     
     function easeOut(t, b, c, d) {
@@ -950,10 +963,8 @@ function initializeRouletteView(sessionId) {
         return b + c * (tc + -3 * ts + 3 * t);
     }
 
-    // --- INICIO ---
     loadingEl.classList.add('hidden');
     rouletteContainerEl.classList.remove('hidden');
-    fetchTeams(); // Carga los equipos iniciales
+    fetchTeams();
     spinButton.addEventListener('click', spin);
 }
-
