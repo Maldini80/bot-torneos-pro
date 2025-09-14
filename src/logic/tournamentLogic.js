@@ -2221,7 +2221,7 @@ export async function prepareRouletteDraw(client, draftShortId) {
 
         await db.collection('roulette_sessions').insertOne({
             sessionId: sessionId,
-            tournamentId: newTournament.tournament._id, // Guardamos el ID del torneo real
+            tournamentShortId: newTournament.tournament.shortId, // Guardamos el shortId
             teams: teamsToDraw,
             drawnTeams: [],
             status: 'pending'
@@ -2264,7 +2264,7 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
     if (session.drawnTeams.includes(teamId)) return;
 
     // Aquí usamos el ID del torneo guardado en la sesión
-    const tournament = await db.collection('tournaments').findOne({ _id: new ObjectId(session.tournamentId) });
+    const tournament = await db.collection('tournaments').findOne({ shortId: session.tournamentShortId });
     if (!tournament) return;
 
     const nextGroup = session.drawnTeams.length % 2 === 0 ? 'A' : 'B';
