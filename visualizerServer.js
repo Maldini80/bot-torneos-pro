@@ -222,9 +222,18 @@ export async function startVisualizerServer(client) {
         ws.on('message', async (message) => {
             try {
                 const data = JSON.parse(message);
-                console.log('[DEBUG 2] Mensaje recibido del navegador:', data);
+
+                // 1. Procesamos primero las acciones públicas que no necesitan login
+                if (data.type === 'spin_result') {
+                    const { sessionId, teamId } = data;
+                    await handleRouletteSpinResult(client, sessionId, teamId);
+                    return; // Terminamos aquí, la acción pública está hecha
+                }
+
+                // 2. Ahora, ponemos el "guardia de seguridad" solo para las acciones privadas
                 if (!ws.user) return;
 
+                // 3. Si el usuario está logueado, procesamos sus acciones de capitán
                 const captainId = ws.user.id;
                 const { draftId, playerId, reason, position } = data;
 
@@ -232,11 +241,6 @@ export async function startVisualizerServer(client) {
                     case 'execute_draft_pick':
                         await handlePlayerSelectionFromWeb(client, draftId, captainId, playerId, position);
                         await advanceDraftTurn(client, draftId);
-                        break;
-
-                    case 'spin_result':
-                        const { sessionId, teamId } = data;
-                        await handleRouletteSpinResult(client, sessionId, teamId);
                         break;
                     
                     case 'report_player':
