@@ -2258,6 +2258,7 @@ export async function prepareRouletteDraw(client, draftShortId) {
     }
 }
 export async function handleRouletteSpinResult(client, sessionId, teamId) {
+    console.log(`[DEBUG 3] Ejecutando lógica para la sesión ${sessionId} y el equipo ${teamId}`);
     const db = getDb();
     const session = await db.collection('roulette_sessions').findOne({ sessionId });
     if (!session || session.status !== 'pending') return;
