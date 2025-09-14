@@ -2336,36 +2336,3 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     await updateTournamentManagementThread(client, finalTournament);
     await notifyTournamentVisualizer(finalTournament);
 }
-async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
-    const db = getDb();
-    const tournament = await db.collection('tournaments').findOne({ _id: tournamentId });
-    const guild = await client.guilds.fetch(tournament.guildId);
-
-    const calendario = {};
-    for (const nombreGrupo in tournament.structure.grupos) {
-        const equiposGrupo = tournament.structure.grupos[nombreGrupo].equipos;
-        calendario[nombreGrupo] = [];
-        if (equiposGrupo.length === 4) {
-            const [t1, t2, t3, t4] = equiposGrupo;
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t4), createMatchObject(nombreGrupo, 1, t2, t3));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t4, t2));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t2), createMatchObject(nombreGrupo, 3, t3, t4));
-        }
-    }
-
-    for (const partido of Object.values(calendario).flat().filter(p => p.jornada === 1)) {
-        const threadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
-        partido.threadId = threadId;
-        partido.status = 'en_curso';
-    }
-
-    await db.collection('tournaments').updateOne(
-        { _id: tournament._id },
-        { $set: { 'structure.calendario': calendario, status: 'fase_de_grupos' } }
-    );
-
-    const finalTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-    await updatePublicMessages(client, finalTournament);
-    await updateTournamentManagementThread(client, finalTournament);
-    await notifyTournamentVisualizer(finalTournament);
-}
