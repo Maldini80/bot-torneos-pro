@@ -681,16 +681,19 @@ if (action === 'create_tournament') {
     config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
 
     if (config.isPaid) {
-        config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Leemos los nuevos campos del modal. Si no existen o están vacíos, los guardamos como null.
-        config.paypalEmail = interaction.fields.getTextInputValue('torneo_paypal_email') || null;
-        config.bizumNumber = interaction.fields.getTextInputValue('torneo_bizum_number') || null;
-        // La línea de 'enlacePaypal' ya no es necesaria, la eliminamos.
-        // --- FIN DE LA MODIFICACIÓN ---
-        config.prizeCampeon = parseFloat(interaction.fields.getTextInputValue('torneo_prize_campeon'));
-        config.prizeFinalista = parseFloat(interaction.fields.getTextInputValue('torneo_prize_finalista') || '0');
-    }
+    config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
+    
+    // Lógica para separar los premios
+    const [prizeC = '0', prizeF = '0'] = interaction.fields.getTextInputValue('torneo_prizes').split('/');
+    config.prizeCampeon = parseFloat(prizeC.trim());
+    config.prizeFinalista = parseFloat(prizeF.trim());
+
+    // Lógica para separar los métodos de pago
+    const paymentMethods = interaction.fields.getTextInputValue('torneo_payment_methods') || '/';
+    const [paypal = null, bizum = null] = paymentMethods.split('/');
+    config.paypalEmail = paypal ? paypal.trim() : null;
+    config.bizumNumber = bizum ? bizum.trim() : null;
+}
     
     // 2. AHORA, hacemos el trabajo lento sin prisa.
     try {
