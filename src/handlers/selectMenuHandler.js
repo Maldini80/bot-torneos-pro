@@ -1072,36 +1072,32 @@ if (action === 'admin_edit_verified_field_select') {
     modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
 
     if (type === 'pago') {
-        modal.setTitle('Finalizar Creación (De Pago)');
+    modal.setTitle('Finalizar Creación (De Pago)');
 
-        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
-        const prizeInputCampeon = new TextInputBuilder().setCustomId('torneo_prize_campeon').setLabel("Premio Campeón (€)").setStyle(TextInputStyle.Short).setRequired(true);
-        const prizeInputFinalista = new TextInputBuilder().setCustomId('torneo_prize_finalista').setLabel("Premio Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue('0');
-        
-        // --- INICIO DE LA MODIFICACIÓN ---
-        const paypalInput = new TextInputBuilder()
-            .setCustomId('torneo_paypal_email')
-            .setLabel("Email de PayPal (Opcional)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false)
-            .setPlaceholder('tu.email@ejemplo.com');
+    const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
+    
+    // CAMBIO 1: Premios combinados en un solo campo
+    const prizesInput = new TextInputBuilder()
+        .setCustomId('torneo_prizes')
+        .setLabel("Premios: Campeón / Finalista (€)")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('Ej: 100/50  (Si no hay para finalista, pon 100/0)');
 
-        const bizumInput = new TextInputBuilder()
-            .setCustomId('torneo_bizum_number')
-            .setLabel("Nº de Bizum (Opcional)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false)
-            .setPlaceholder('Ej: 600111222');
+    // CAMBIO 2: Métodos de pago combinados en un solo campo
+    const paymentMethodsInput = new TextInputBuilder()
+        .setCustomId('torneo_payment_methods')
+        .setLabel("Métodos Pago: PayPal / Bizum")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setPlaceholder('Ej: mi@email.com / 600111222');
 
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(entryFeeInput),
-            new ActionRowBuilder().addComponents(prizeInputCampeon),
-            new ActionRowBuilder().addComponents(prizeInputFinalista),
-            new ActionRowBuilder().addComponents(paypalInput),
-            new ActionRowBuilder().addComponents(bizumInput)
-        );
-        // --- FIN DE LA MODIFICACIÓN ---
-    }
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(entryFeeInput),
+        new ActionRowBuilder().addComponents(prizesInput),
+        new ActionRowBuilder().addComponents(paymentMethodsInput)
+    );
+}
     await interaction.showModal(modal);
 }
     // --- NUEVOS BLOQUES DE CÓDIGO ---
