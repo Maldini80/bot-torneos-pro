@@ -2091,7 +2091,7 @@ if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
         }
     }
 } else { // Rechazado
-        const [draftShortId, reporterId, disputeChannelId] = params;
+        const [draftShortId, reportedId, reporterId, disputeChannelId] = params;
         const reporter = await client.users.fetch(reporterId).catch(() => null);
         if (reporter) await reporter.send('❌ Un administrador ha **rechazado** tu solicitud de strike tras revisar el caso.');
         
