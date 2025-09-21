@@ -40,13 +40,7 @@ y explicar el problema a los árbitros en el hilo.`
             `Las siguientes acciones conllevarán sanciones directas:
 
 • **Incumplimiento del Tiempo de Cortesía:**
-• **Consecuencia:** Partido perdido 1-0.
-
-• **Pruebas que Demuestran una Infracción (Altura/Perk Ilegal):**
-• **Consecuencia:** Partido perdido 3-0.
-
-• **No Presentar Pruebas (Cuando son solicitadas):**
-• **Consecuencia:** Partido perdido 3-0.`
+• **Consecuencia:** Partido perdido 1-0.`
         )
 ];
 
