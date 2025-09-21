@@ -14,23 +14,15 @@ Salir del partido una tercera vez o después del minuto 10 podrá ser sancionado
 
 ⏳**Tiempo de Cortesía 10 minutos**
 
-📏**Límites de Altura**
-• (DFC/CB): Máximo 187cm.
-• Resto de Jugadores: Máximo 177cm.
-• (POR/GK): Sin límite de altura.
+📏**Sin Límites de Altura**
 
-🚫**PlayStyles Prohibidos** en plata y oro
-• AÉREO (Aerial)
-• ANTICIPACIÓN (Anticipate / "Mapache")`
+🚫**Sin PlayStyles Prohibidos**`
         ),
     new EmbedBuilder()
         .setColor('#f1c40f')
         .setTitle('📋 GUÍA DE REPORTES, PRUEBAS Y DISPUTAS')
         .setDescription(
-            `• No es necesario presentar clip de alturas perks si no se solicita, pero es vuestra
-responsabilidad tenerlo preparado.
-
-• Al finalizar el partido, ambos capitanes debéis pulsar el botón 'Reportar Resultado' y poner el resultado
+            `• Al finalizar el partido, ambos capitanes debéis pulsar el botón 'Reportar Resultado' y poner el resultado.
 
 • **Si detectas una irregularidad,** pulsar el botón 'Solicitar Arbitraje'
 y explicar el problema a los árbitros en el hilo.`
@@ -42,13 +34,7 @@ y explicar el problema a los árbitros en el hilo.`
             `Las siguientes acciones conllevarán sanciones directas:
 
 • **Incumplimiento del Tiempo de Cortesía:**
-• **Consecuencia:** Partido perdido 1-0.
-
-• **Pruebas que Demuestran una Infracción (Altura/Perk Ilegal):**
-• **Consecuencia:** Partido perdido 3-0.
-
-• **No Presentar Pruebas (Cuando son solicitadas):**
-• **Consecuencia:** Partido perdido 3-0.`
+• **Consecuencia:** Partido perdido 1-0.`
         )
 ];
 
