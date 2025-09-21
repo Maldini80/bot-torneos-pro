@@ -19,9 +19,7 @@ Salir del partido una tercera vez o después del minuto 10 podrá ser sancionado
 • Resto de Jugadores: Máximo 177cm.
 • (POR/GK): Sin límite de altura.
 
-🚫**PlayStyles Prohibidos** en plata y oro
-• AÉREO (Aerial)
-• ANTICIPACIÓN (Anticipate / "Mapache")`
+🚫**Sin PlayStyles Prohibidos**`
         ),
     new EmbedBuilder()
         .setColor('#f1c40f')
