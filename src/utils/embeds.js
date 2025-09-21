@@ -19,7 +19,9 @@ Salir del partido una tercera vez o después del minuto 10 podrá ser sancionado
 • Resto de Jugadores: Máximo 177cm.
 • (POR/GK): Sin límite de altura.
 
-🚫**Sin PlayStyles Prohibidos**`
+🚫**PlayStyles Prohibidos** en plata y oro
+• AÉREO (Aerial)
+• ANTICIPACIÓN (Anticipate / "Mapache")`
         ),
     new EmbedBuilder()
         .setColor('#f1c40f')
@@ -40,7 +42,13 @@ y explicar el problema a los árbitros en el hilo.`
             `Las siguientes acciones conllevarán sanciones directas:
 
 • **Incumplimiento del Tiempo de Cortesía:**
-• **Consecuencia:** Partido perdido 1-0.`
+• **Consecuencia:** Partido perdido 1-0.
+
+• **Pruebas que Demuestran una Infracción (Altura/Perk Ilegal):**
+• **Consecuencia:** Partido perdido 3-0.
+
+• **No Presentar Pruebas (Cuando son solicitadas):**
+• **Consecuencia:** Partido perdido 3-0.`
         )
 ];
 
