@@ -1217,24 +1217,44 @@ if (action === 'admin_select_registered_team_to_add') {
         return interaction.editReply({ content: 'Error: No se pudo encontrar el torneo, el equipo o el mánager en Discord.', components: [] });
     }
 
+    // --- INICIO DE LA NUEVA LÓGICA ---
+    // 1. Buscamos el último torneo en el que participó el equipo para encontrar su stream.
+    const previousTournament = await db.collection('tournaments').findOne(
+        { [`teams.aprobados.${team.managerId}`]: { $exists: true } }, // Buscamos torneos donde el equipo estuvo aprobado
+        {
+            sort: { _id: -1 }, // Ordenamos por el más reciente
+            projection: { [`teams.aprobados.${team.managerId}.streamChannel`]: 1 } // Solo necesitamos el campo del stream
+        }
+    );
+
+    // 2. Extraemos la URL del stream si existe. Si no, será null.
+    const lastStreamUrl = previousTournament ? previousTournament.teams.aprobados[team.managerId]?.streamChannel : null;
+    // --- FIN DE LA NUEVA LÓGICA ---
+
+
     // Preparamos los datos del equipo como si se hubiera inscrito él mismo
     const teamData = {
         id: team.managerId,
         nombre: team.name,
-        eafcTeamName: team.name, // Asumimos que es el mismo
+        eafcTeamName: team.name,
         capitanId: team.managerId,
         capitanTag: manager.tag,
         logoUrl: team.logoUrl,
         twitter: team.twitterHandle,
-        // Dejamos estos campos vacíos para que el admin los edite si es necesario
-        streamChannel: null,
+        // 3. Usamos la URL encontrada (o null si no hay) al crear los datos del equipo.
+        streamChannel: lastStreamUrl,
         paypal: null,
         inscritoEn: new Date()
     };
 
     try {
         await approveTeam(client, tournament, teamData);
-        await interaction.editReply({ content: `✅ El equipo **${team.name}** ha sido inscrito con éxito en el torneo.`, components: [] });
+        // Mensaje de confirmación mejorado para el admin
+        const confirmationMessage = lastStreamUrl
+            ? `✅ El equipo **${team.name}** ha sido inscrito con éxito. Se ha reutilizado su último canal de stream: ${lastStreamUrl}`
+            : `✅ El equipo **${team.name}** ha sido inscrito con éxito. No se encontró un stream anterior para reutilizar.`;
+        await interaction.editReply({ content: confirmationMessage, components: [] });
+
     } catch (error) {
         console.error("Error al añadir equipo registrado:", error);
         await interaction.editReply({ content: `❌ Hubo un error al inscribir al equipo: ${error.message}`, components: [] });
