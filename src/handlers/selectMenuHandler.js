@@ -1293,4 +1293,31 @@ if (action === 'admin_select_registered_team_to_add') {
     });
     return;
 }
+    if (action === 'admin_kick_team_select') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const captainIdToKick = interaction.values[0];
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const teamData = tournament.teams.aprobados[captainIdToKick];
+
+        if (!teamData) {
+            return interaction.editReply({ content: '❌ Error: Este equipo ya no parece estar en el torneo.' });
+        }
+
+        await kickTeam(client, tournament, captainIdToKick);
+
+        try {
+            const user = await client.users.fetch(captainIdToKick);
+            await user.send(`🚨 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.`);
+        } catch (e) {
+            console.warn(`No se pudo enviar MD de expulsión al usuario ${captainIdToKick}`);
+        }
+
+        await interaction.editReply({
+            content: `✅ El equipo **${teamData.nombre}** ha sido expulsado con éxito del torneo.`,
+            components: [] // Quitamos el menú desplegable
+        });
+        return;
+    }
 }
