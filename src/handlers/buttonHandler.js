@@ -2332,4 +2332,31 @@ if (action === 'captain_view_free_agents') {
     });
     return;
 }
+	if (action === 'admin_kick_team_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+
+        if (approvedTeams.length === 0) {
+            return interaction.editReply({ content: 'No hay equipos aprobados en este torneo para expulsar.' });
+        }
+
+        const teamOptions = approvedTeams.map(team => ({
+            label: team.nombre,
+            description: `Capitán: ${team.capitanTag}`,
+            value: team.capitanId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_kick_team_select:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el equipo a expulsar')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: 'Por favor, selecciona de la lista el equipo que deseas expulsar del torneo. Esta acción es irreversible.',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
 }
