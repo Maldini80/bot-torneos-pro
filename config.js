@@ -108,4 +108,4 @@ export const TOURNAMENT_STATUS_ICONS = {
 };
 
 // Enlace al PDF de las normas del torneo
-export const PDF_RULES_URL = 'https://archive.org/details/normas-de-los-partidos-y-guia-de-como-reportar';
+export const PDF_RULES_URL = 'https://archive.org/details/reglamento-efc-26';
