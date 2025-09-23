@@ -187,6 +187,8 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
 
+if (hasCaptains) { row3.addComponents(new ButtonBuilder().setCustomId(`admin_kick_team_start:${tournament.shortId}`).setLabel("Expulsar Equipo").setStyle(ButtonStyle.Danger).setEmoji('✖️').setDisabled(isBusy)); }
+    
     // --- BLOQUE CORREGIDO PARA EVITAR EL ERROR ---
     const components = [];
     if (row1.components.length > 0) components.push(row1);
