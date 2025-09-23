@@ -908,38 +908,77 @@ if (action === 'create_tournament') {
         return;
     }
     if (action === 'report_result_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [matchId, tournamentShortId] = params;
-        let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const { partido } = findMatch(tournament, matchId);
-        if (!partido) return interaction.editReply('Error: Partido no encontrado.');
-        const golesA = interaction.fields.getTextInputValue('goles_a');
-        const golesB = interaction.fields.getTextInputValue('goles_b');
-        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
-        const reportedResult = `${golesA}-${golesB}`;
-        const reporterId = interaction.user.id;
-        const opponentId = reporterId === partido.equipoA.capitanId ? partido.equipoB.capitanId : partido.equipoA.capitanId;
-        partido.reportedScores[reporterId] = reportedResult;
-        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
-        const opponentReport = partido.reportedScores[opponentId];
-        if (opponentReport) {
-            if (opponentReport === reportedResult) {
-                tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-                const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
-                await interaction.editReply({content: '✅ 🇪🇸 Resultados coinciden. El partido ha sido finalizado.\n🇬🇧 Results match. The match has been finalized.'});
-                await finalizeMatchThread(client, processedMatch, reportedResult);
-            } else {
-                await interaction.editReply({content: '❌ 🇪🇸 Los resultados reportados no coinciden. Se ha notificado a los árbitros.\n🇬🇧 The reported results do not match. Referees have been notified.'});
-                const thread = interaction.channel;
-                if(thread.isThread()) await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅🔵]-/g, '')}`.slice(0,100));
-                await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentId}> ha reportado: \`${opponentReport}\` `});
-            }
-        } else {
-            await interaction.editReply({content: '✅ 🇪🇸 Tu resultado ha sido enviado. Esperando el reporte de tu oponente.\n🇬🇧 Your result has been submitted. Awaiting your opponent\'s report.'});
-            await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado un resultado de **${reportedResult}**. Esperando la confirmación de <@${opponentId}>.`);
-        }
-        return;
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [matchId, tournamentShortId] = params;
+    let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const { partido } = findMatch(tournament, matchId);
+    if (!partido) return interaction.editReply('Error: Partido no encontrado.');
+
+    // FIX 1: Actualizamos los datos de los equipos con la información más reciente.
+    // Esto soluciona que los co-capitanes añadidos después del sorteo no sean reconocidos.
+    partido.equipoA = tournament.teams.aprobados[partido.equipoA.capitanId];
+    partido.equipoB = tournament.teams.aprobados[partido.equipoB.capitanId];
+    if (!partido.equipoA || !partido.equipoB) {
+        return interaction.editReply({ content: 'Error: No se pudieron encontrar los datos actualizados de uno de los equipos.' });
     }
+
+    const golesA = interaction.fields.getTextInputValue('goles_a');
+    const golesB = interaction.fields.getTextInputValue('goles_b');
+    if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
+    const reportedResult = `${golesA}-${golesB}`;
+    const reporterId = interaction.user.id;
+
+    // FIX 2: Identificamos correctamente si quien reporta es capitán O co-capitán.
+    let myTeam, opponentTeam;
+    if (reporterId === partido.equipoA.capitanId || reporterId === partido.equipoA.coCaptainId) {
+        myTeam = partido.equipoA;
+        opponentTeam = partido.equipoB;
+    } else if (reporterId === partido.equipoB.capitanId || reporterId === partido.equipoB.coCaptainId) {
+        myTeam = partido.equipoB;
+        opponentTeam = partido.equipoA;
+    } else {
+        return interaction.editReply({ content: 'Error: No pareces ser un capitán o co-capitán de este partido.' });
+    }
+
+    partido.reportedScores[reporterId] = reportedResult;
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
+
+    // FIX 2 (cont.): Comprobamos si el capitán O el co-capitán del otro equipo ya han reportado.
+    const opponentCaptainReport = partido.reportedScores[opponentTeam.capitanId];
+    const opponentCoCaptainReport = opponentTeam.coCaptainId ? partido.reportedScores[opponentTeam.coCaptainId] : undefined;
+    const opponentReport = opponentCaptainReport || opponentCoCaptainReport;
+
+    if (opponentReport) {
+        if (opponentReport === reportedResult) {
+            // FIX 3: Respondemos INMEDIATAMENTE para evitar el error de "Unknown Message".
+            await interaction.editReply({content: '✅ Resultados coinciden. Finalizando el partido...'});
+
+            // Y ahora realizamos las tareas lentas en segundo plano.
+            tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
+            await finalizeMatchThread(client, processedMatch, reportedResult);
+        } else {
+            // Resultados NO coinciden, avisamos a árbitros.
+            await interaction.editReply({content: '❌ Los resultados reportados no coinciden. Se ha notificado a los árbitros.'});
+            const thread = interaction.channel;
+            if(thread.isThread()) await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅🔵]-/g, '')}`.slice(0,100));
+            
+            const opponentReporterId = opponentCaptainReport ? opponentTeam.capitanId : opponentTeam.coCaptainId;
+            
+            await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentReporterId}> ha reportado: \`${opponentReport}\` `});
+        }
+    } else {
+        // FIX 2 (cont.): Construimos el mensaje mencionando a capitán Y co-capitán si existe.
+        let opponentMention = `<@${opponentTeam.capitanId}>`;
+        if (opponentTeam.coCaptainId) {
+            opponentMention += ` o <@${opponentTeam.coCaptainId}>`;
+        }
+        
+        await interaction.editReply({content: '✅ Tu resultado ha sido enviado. Esperando el reporte de tu oponente.'});
+        await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado un resultado de **${reportedResult}**. Esperando la confirmación de ${opponentMention}.`);
+    }
+    return;
+}
     if (action === 'admin_force_result_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [matchId, tournamentShortId] = params;
