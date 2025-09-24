@@ -108,4 +108,4 @@ export const TOURNAMENT_STATUS_ICONS = {
 };
 
 // Enlace al PDF de las normas del torneo
-export const PDF_RULES_URL = 'https://archive.org/details/reglamento-efc-26';
+export const PDF_RULES_URL = 'https://archive.org/details/reglamento-torneo-v-4';
