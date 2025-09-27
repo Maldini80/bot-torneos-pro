@@ -480,12 +480,13 @@ export function createCaptainControlPanel(draft) {
         .setColor('#f1c40f')
         .setTitle('🕹️ Panel de Control de Capitanes');
 
-    if (draft.status === 'seleccion' && draft.selection.currentPick <= 80) {
+    const totalPicks = draft.captains.length * 10;
+if (draft.status === 'seleccion' && draft.selection.currentPick <= totalPicks) {
         const currentCaptainId = draft.selection.order[draft.selection.turn];
         const captain = draft.captains.find(c => c.userId === currentCaptainId);
 
         embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
-        embed.setFooter({ text: `Pick #${draft.selection.currentPick} de 80` });
+        embed.setFooter({ text: `Pick #${draft.selection.currentPick} de ${totalPicks}` });
 
         const isPicking = draft.selection.isPicking || false;
 
