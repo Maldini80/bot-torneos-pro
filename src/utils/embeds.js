@@ -730,7 +730,7 @@ export function createTournamentStatusEmbed(tournament) {
     // El resto de la lógica de los botones permanece igual
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
-    const isFull = teamsCount >= format.size;
+    const isFull = format.size > 0 && teamsCount >= format.size;
 
     if (tournament.status === 'inscripcion_abierta') {
         if (!isFull) {
