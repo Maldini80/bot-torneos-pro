@@ -2405,13 +2405,13 @@ async function generateFlexibleLeagueSchedule(client, guild, tournament) {
     tournament.status = 'fase_de_grupos';
     let teams = Object.values(tournament.teams.aprobados);
 
-    // Añadir el equipo fantasma "DESCANSO" si el número de equipos es impar
+    // 1. Añadimos el equipo fantasma si es necesario (lógica que ya funcionaba)
     if (teams.length % 2 !== 0) {
         const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
         teams.push(ghostTeam);
     }
 
-    // Inicializar estadísticas para todos los equipos reales
+    // 2. Inicializamos las estadísticas (lógica que ya funcionaba)
     teams.forEach(team => {
         if (team.id !== 'ghost') {
             team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
@@ -2421,46 +2421,27 @@ async function generateFlexibleLeagueSchedule(client, guild, tournament) {
     const singleGroup = { equipos: teams.filter(t => t.id !== 'ghost') };
     tournament.structure.grupos['Liga'] = singleGroup;
     
-    let matches = [];
-    let usedPairings = new Set();
-
+    // --- INICIO DE LA NUEVA LÓGICA DE EMPAREJAMIENTO (MÁS SIMPLE Y ROBUSTA) ---
+    let allMatches = [];
     for (let round = 1; round <= tournament.config.totalRounds; round++) {
-        let teamsToPair = [...teams];
-        teamsToPair.sort((a, b) => (b.stats?.pts || 0) - (a.stats?.pts || 0) || Math.random() - 0.5);
-
-        let roundPairings = [];
-        let pairedTeamsInRound = new Set();
-
-        for (let i = 0; i < teamsToPair.length; i++) {
-            if (pairedTeamsInRound.has(teamsToPair[i].id)) continue;
-
-            for (let j = i + 1; j < teamsToPair.length; j++) {
-                if (pairedTeamsInRound.has(teamsToPair[j].id)) continue;
-
-                const pairing1 = `${teamsToPair[i].id}-${teamsToPair[j].id}`;
-                const pairing2 = `${teamsToPair[j].id}-${teamsToPair[i].id}`;
-
-                if (!usedPairings.has(pairing1) && !usedPairings.has(pairing2)) {
-                    roundPairings.push([teamsToPair[i], teamsToPair[j]]);
-                    usedPairings.add(pairing1);
-                    usedPairings.add(pairing2);
-                    pairedTeamsInRound.add(teamsToPair[i].id);
-                    pairedTeamsInRound.add(teamsToPair[j].id);
-                    break;
-                }
+        // Barajamos a los equipos de forma aleatoria en CADA jornada
+        let shuffledTeams = [...teams].sort(() => Math.random() - 0.5);
+        
+        for (let i = 0; i < shuffledTeams.length; i += 2) {
+            const teamA = shuffledTeams[i];
+            const teamB = shuffledTeams[i + 1];
+            if (teamA && teamB) {
+                const match = createMatchObject('Liga', round, teamA, teamB);
+                allMatches.push(match);
             }
         }
-
-        roundPairings.forEach(pair => {
-            const match = createMatchObject('Liga', round, pair[0], pair[1]);
-            matches.push(match);
-        });
     }
+    // --- FIN DE LA NUEVA LÓGICA DE EMPAREJAMIENTO ---
     
-    tournament.structure.calendario['Liga'] = matches;
+    tournament.structure.calendario['Liga'] = allMatches;
 
-    // Gestionar partidos contra el equipo fantasma y crear hilos
-    for (const match of matches) {
+    // 3. Gestionamos los partidos fantasma y creamos los hilos (lógica que ya funcionaba)
+    for (const match of allMatches) {
         const isGhostMatch = match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost';
         if (isGhostMatch) {
             match.status = 'finalizado';
@@ -2468,10 +2449,12 @@ async function generateFlexibleLeagueSchedule(client, guild, tournament) {
             match.resultado = realTeamIsA ? '1-0' : '0-1';
             const realTeam = realTeamIsA ? match.equipoA : match.equipoB;
             const groupTeam = tournament.structure.grupos['Liga'].equipos.find(t => t.id === realTeam.id);
-            groupTeam.stats.pj += 1;
-            groupTeam.stats.pts += 3;
-            groupTeam.stats.gf += 1;
-            groupTeam.stats.dg += 1;
+            if (groupTeam) { // Comprobación de seguridad
+                groupTeam.stats.pj += 1;
+                groupTeam.stats.pts += 3;
+                groupTeam.stats.gf += 1;
+                groupTeam.stats.dg += 1;
+            }
         } else if (match.jornada === 1) {
             const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
             match.threadId = threadId;
