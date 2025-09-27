@@ -1238,7 +1238,7 @@ export async function approveTeam(client, tournament, teamData) {
     const maxTeams = latestTournament.config.format.size;
     const currentApprovedTeamsCount = Object.keys(latestTournament.teams.aprobados).length;
 
-    if (currentApprovedTeamsCount < maxTeams) {
+    if (latestTournament.config.format.size === 0 || currentApprovedTeamsCount < maxTeams) {
         latestTournament.teams.aprobados[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
         if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
