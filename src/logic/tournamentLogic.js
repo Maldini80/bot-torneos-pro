@@ -2359,7 +2359,8 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     await updatePublicMessages(client, finalTournament);
     await updateTournamentManagementThread(client, finalTournament);
     await notifyTournamentVisualizer(finalTournament);
-    async function generateGroupBasedSchedule(client, guild, tournament) {
+}
+async function generateGroupBasedSchedule(client, guild, tournament) {
     const db = getDb();
     tournament.status = 'fase_de_grupos';
     const format = tournament.config.format;
@@ -2479,5 +2480,4 @@ async function generateFlexibleLeagueSchedule(client, guild, tournament) {
     }
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
-}
 }
