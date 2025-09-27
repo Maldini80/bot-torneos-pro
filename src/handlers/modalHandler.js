@@ -269,86 +269,90 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'add_draft_test_players_modal') {
-        await interaction.reply({ content: '✅ Orden recibida. Añadiendo participantes de prueba...', flags: [MessageFlags.Ephemeral] });
-        const [draftShortId] = params;
-        const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [draftShortId] = params;
+    
+    // Leemos los DOS nuevos campos de la ventana
+    const targetCaptains = parseInt(interaction.fields.getTextInputValue('target_captains_input'));
+    const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
 
-        if (isNaN(amount) || amount <= 0) {
-            return interaction.followUp({ content: '❌ La cantidad debe ser un número mayor que cero.', flags: [MessageFlags.Ephemeral] });
-        }
-
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        if (!draft) {
-            return interaction.followUp({ content: '❌ No se encontró el draft.' });
-        }
-        
-        const amountToAdd = amount;
-        const positions = Object.keys(DRAFT_POSITIONS);
-        const bulkCaptains = [];
-        const bulkPlayers = [];
-
-        for (let i = 0; i < amountToAdd; i++) {
-            const uniqueId = `test_${Date.now()}_${i}`;
-            const currentCaptainCount = draft.captains.length + bulkCaptains.length;
-
-            if (currentCaptainCount < 8) {
-                const teamName = `E-Prueba-${currentCaptainCount + 1}`;
-                const captainData = {
-                    userId: uniqueId, userName: `TestCaptain#${1000 + i}`, teamName: teamName,
-                    streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, eafcTeamName: `EAFC-Test-${currentCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
-                };
-                
-                const captainAsPlayerData = {
-                    userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
-                    primaryPosition: captainData.position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: uniqueId
-                };
-                bulkCaptains.push(captainData);
-                bulkPlayers.push(captainAsPlayerData);
-            } else {
-                const currentPlayerCount = draft.players.length + bulkPlayers.length;
-                const primaryPos = positions[Math.floor(Math.random() * positions.length)];
-                let secondaryPos = positions[Math.floor(Math.random() * positions.length)];
-                if (primaryPos === secondaryPos) {
-                   secondaryPos = 'NONE';
-                }
-
-                const playerData = {
-                    userId: uniqueId,
-                    userName: `TestPlayer#${2000 + i}`,
-                    psnId: `Jugador-Prueba-${currentPlayerCount + 1}`,
-                    twitter: 'test_player',
-                    primaryPosition: primaryPos,
-                    secondaryPosition: secondaryPos,
-                    currentTeam: 'Libre',
-                    isCaptain: false,
-                    captainId: null
-                };
-                bulkPlayers.push(playerData);
-            }
-        }
-
-        const updateQuery = {};
-        if (bulkCaptains.length > 0) {
-            updateQuery.$push = { ...updateQuery.$push, captains: { $each: bulkCaptains } };
-        }
-        if (bulkPlayers.length > 0) {
-            updateQuery.$push = { ...updateQuery.$push, players: { $each: bulkPlayers } };
-        }
-
-        if (Object.keys(updateQuery).length > 0) {
-            await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
-        }
-
-        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await updateDraftMainInterface(client, updatedDraft.shortId);
-        await updatePublicMessages(client, updatedDraft);
-        await updateDraftManagementPanel(client, updatedDraft);
-        await notifyVisualizer(updatedDraft);
-        
-        const nonCaptainPlayersAdded = bulkPlayers.length - bulkCaptains.length;
-        await interaction.editReply({ content: `✅ ¡Operación completada! Se han añadido **${bulkCaptains.length} capitanes** y **${nonCaptainPlayersAdded} jugadores** de prueba.` });
-        return;
+    // Verificamos que ambos campos sean números válidos
+    if (isNaN(targetCaptains) || targetCaptains <= 0 || isNaN(amount) || amount <= 0) {
+        return interaction.editReply({ content: '❌ Los valores deben ser números mayores que cero.' });
     }
+
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) {
+        return interaction.editReply({ content: '❌ No se encontró el draft.' });
+    }
+    
+    const currentCaptainCount = draft.captains.length;
+    
+    // --- INICIO DE LA NUEVA LÓGICA DE CÁLCULO ---
+    const captainsNeeded = Math.max(0, targetCaptains - currentCaptainCount);
+    const captainsToAdd = Math.min(captainsNeeded, amount); // No podemos crear más capitanes que el total pedido
+    const playersToAdd = amount - captainsToAdd; // El resto serán jugadores libres
+    // --- FIN DE LA NUEVA LÓGICA DE CÁLCULO ---
+
+    const positions = Object.keys(DRAFT_POSITIONS);
+    const bulkCaptains = [];
+    const bulkPlayers = [];
+
+    // Bucle para crear los capitanes necesarios
+    for (let i = 0; i < captainsToAdd; i++) {
+        const uniqueId = `test_cap_${Date.now()}_${i}`;
+        const newCaptainCount = currentCaptainCount + bulkCaptains.length;
+        const teamName = `E-Prueba-${newCaptainCount + 1}`;
+        
+        const captainData = {
+            userId: uniqueId, userName: `TestCaptain#${1000 + i}`, teamName: teamName,
+            streamChannel: 'https://twitch.tv/test', psnId: `Capi-Test-${newCaptainCount + 1}`, eafcTeamName: `EAFC-Test-${newCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
+        };
+        const captainAsPlayerData = {
+            userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
+            primaryPosition: captainData.position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: uniqueId
+        };
+        bulkCaptains.push(captainData);
+        bulkPlayers.push(captainAsPlayerData);
+    }
+
+    // Bucle para crear los jugadores libres restantes
+    for (let i = 0; i < playersToAdd; i++) {
+        const uniqueId = `test_plr_${Date.now()}_${i}`;
+        const primaryPos = positions[Math.floor(Math.random() * positions.length)];
+        let secondaryPos = positions[Math.floor(Math.random() * positions.length)];
+        if (primaryPos === secondaryPos) secondaryPos = 'NONE';
+        
+        const playerData = {
+            userId: uniqueId, userName: `TestPlayer#${2000 + i}`, psnId: `Jugador-Test-${i + 1}`,
+            twitter: 'test_player', primaryPosition: primaryPos, secondaryPosition: secondaryPos,
+            currentTeam: 'Libre', isCaptain: false, captainId: null
+        };
+        bulkPlayers.push(playerData);
+    }
+    
+    const updateQuery = {};
+    if (bulkCaptains.length > 0) {
+        updateQuery.$push = { ...updateQuery.$push, captains: { $each: bulkCaptains } };
+    }
+    if (bulkPlayers.length > 0) {
+        updateQuery.$push = { ...updateQuery.$push, players: { $each: bulkPlayers } };
+    }
+
+    if (Object.keys(updateQuery).length > 0) {
+        await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
+    }
+
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
+    
+    // Mensaje final mucho más claro
+    await interaction.editReply({ content: `✅ ¡Operación completada! Se han añadido **${bulkCaptains.length} capitanes** y **${playersToAdd} jugadores** de prueba.` });
+    return;
+}
 
     if (action === 'create_draft_paid_modal') {
         await interaction.reply({ content: '⏳ Creando el draft de pago...', flags: [MessageFlags.Ephemeral] });
