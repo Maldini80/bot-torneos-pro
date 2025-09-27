@@ -1259,4 +1259,51 @@ if (action === 'register_draft_player_team_name_modal') {
     await interaction.editReply({ content: `✅ El campo \`${fieldToEdit}\` de **${user.tag}** ha sido actualizado a \`${newValue}\` y sincronizado.` });
     return;
 }
+    if (action === 'create_flexible_league_modal') {
+    await interaction.reply({ 
+        content: '⏳ ¡Recibido! Creando la liguilla flexible en segundo plano...', 
+        flags: [MessageFlags.Ephemeral] 
+    });
+
+    const [type] = params;
+    const nombre = interaction.fields.getTextInputValue('torneo_nombre');
+    const qualifiers = parseInt(interaction.fields.getTextInputValue('torneo_qualifiers'));
+    const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    if (isNaN(qualifiers) || ![2, 4, 8, 16, 32].includes(qualifiers)) {
+        return interaction.editReply({ content: '❌ Error: El número de equipos clasificatorios debe ser una potencia de 2 (2, 4, 8, 16...).' });
+    }
+
+    const config = { 
+        formatId: 'flexible_league', 
+        isPaid: type === 'pago',
+        // Añadimos los datos específicos de la liguilla a la configuración
+        qualifiers: qualifiers,
+        totalRounds: 3 // Jornadas fijas
+    };
+    
+    if (config.isPaid) {
+        config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
+        const [prizeC = '0', prizeF = '0'] = interaction.fields.getTextInputValue('torneo_prizes').split('/');
+        config.prizeCampeon = parseFloat(prizeC.trim());
+        config.prizeFinalista = parseFloat(prizeF.trim());
+        const paymentMethods = interaction.fields.getTextInputValue('torneo_payment_methods') || '/';
+        const [paypal = null, bizum = null] = paymentMethods.split('/');
+        config.paypalEmail = paypal ? paypal.trim() : null;
+        config.bizumNumber = bizum ? bizum.trim() : null;
+    }
+
+    try {
+        const result = await createNewTournament(client, guild, nombre, shortId, config);
+        if (result.success) {
+            await interaction.editReply({ content: `✅ ¡Éxito! La liguilla **"${nombre}"** ha sido creada.` });
+        } else {
+            await interaction.editReply({ content: `❌ Ocurrió un error al crear la liguilla: ${result.message}` });
+        }
+    } catch (error) {
+        console.error("Error crítico durante la creación de la liguilla:", error);
+        await interaction.editReply({ content: `❌ Ocurrió un error muy grave. Revisa los logs.` });
+    }
+    return;
+}
 }
