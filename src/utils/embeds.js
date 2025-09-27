@@ -420,10 +420,16 @@ export function createDraftMainInterface(draft) {
         teamFields[index % 3].push(teamString);
     });
 
-    if (teamFields[0].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[0].join('\n\n'), inline: true });
-    if (teamFields[1].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[1].join('\n\n'), inline: true });
-    if (teamFields[2].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[2].join('\n\n'), inline: true });
-
+    teamFields.forEach((col, i) => {
+    if (col.length > 0) {
+        let colString = col.join('\n\n');
+        // Esta es la protección que faltaba. Si el texto es muy largo, lo corta.
+        if (colString.length > 1024) {
+            colString = colString.substring(0, 1021) + '...';
+        }
+        teamsEmbed.addFields({ name: '\u200B', value: colString, inline: true });
+    }
+});
     const turnOrderEmbed = new EmbedBuilder()
         .setColor('#e67e22')
         .setTitle('🐍 Orden de Selección del Draft');
