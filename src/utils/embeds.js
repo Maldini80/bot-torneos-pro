@@ -429,9 +429,9 @@ export function createDraftMainInterface(draft) {
         .setTitle('🐍 Orden de Selección del Draft');
 
     if (draft.status === 'seleccion' && draft.selection.order.length > 0) {
-        const picksList = [];
-        const totalPicks = 80;
-        const numCaptains = draft.selection.order.length;
+    const picksList = [];
+    const numCaptains = draft.selection.order.length;
+    const totalPicks = numCaptains * 10;
         const captainMap = new Map(draft.captains.map(c => [c.userId, c.teamName]));
 
         const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
