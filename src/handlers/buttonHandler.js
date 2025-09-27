@@ -862,22 +862,34 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'draft_add_test_players') {
-        const [draftShortId] = params;
-        const modal = new ModalBuilder()
-            .setCustomId(`add_draft_test_players_modal:${draftShortId}`)
-            .setTitle('Añadir Jugadores de Prueba');
-            
-        const amountInput = new TextInputBuilder()
-            .setCustomId('amount_input')
-            .setLabel("¿Cuántos jugadores de prueba quieres añadir?")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setValue('1');
-            
-        modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
-        await interaction.showModal(modal);
-        return;
-    }
+    const [draftShortId] = params;
+    const modal = new ModalBuilder()
+        .setCustomId(`add_draft_test_players_modal:${draftShortId}`)
+        .setTitle('Añadir Jugadores y Capitanes de Prueba');
+    
+    // <-- El nuevo campo para el objetivo de capitanes
+    const targetCaptainsInput = new TextInputBuilder()
+        .setCustomId('target_captains_input')
+        .setLabel("Objetivo de Capitanes Totales")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder("Ej: 8 o 16");
+
+    // <-- El campo de siempre, pero con una etiqueta más clara
+    const amountInput = new TextInputBuilder()
+        .setCustomId('amount_input')
+        .setLabel("¿Cuántos jugadores de prueba añadir en total?")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder("Ej: 20");
+        
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(targetCaptainsInput),
+        new ActionRowBuilder().addComponents(amountInput)
+    );
+    await interaction.showModal(modal);
+    return;
+}
 
     if (action === 'draft_simulate_picks') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
