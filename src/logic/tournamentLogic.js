@@ -1207,48 +1207,15 @@ export async function startGroupStage(client, guild, tournament) {
         const db = getDb();
         let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
         if (currentTournament.status !== 'inscripcion_abierta') { return; }
-        currentTournament.status = 'fase_de_grupos';
-        const format = currentTournament.config.format;
-        let teams = Object.values(currentTournament.teams.aprobados);
-        for (let i = teams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[teams[i], teams[j]] = [teams[j], teams[i]]; }
-        const grupos = {}; const numGrupos = format.groups; const tamanoGrupo = format.size / numGrupos;
-        for (let i = 0; i < teams.length; i++) {
-            const grupoIndex = Math.floor(i / tamanoGrupo); const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
-            if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
-            teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
-            grupos[nombreGrupo].equipos.push(teams[i]);
+
+        // --- INICIO DE LA NUEVA LÓGICA ---
+        if (currentTournament.config.formatId === 'flexible_league') {
+            await generateFlexibleLeagueSchedule(client, guild, currentTournament);
+        } else {
+            await generateGroupBasedSchedule(client, guild, currentTournament);
         }
-        currentTournament.structure.grupos = grupos;
-        const calendario = {};
-        for (const nombreGrupo in grupos) {
-            const equiposGrupo = grupos[nombreGrupo].equipos; 
-            calendario[nombreGrupo] = [];
-            if (equiposGrupo.length === 4) {
-                const [t1, t2, t3, t4] = equiposGrupo;
-                
-                // --- INICIO DE LA LÓGICA DE CALENDARIO CORRECTA ---
-                // Jornadas de IDA
-                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t4), createMatchObject(nombreGrupo, 1, t2, t3));
-                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t4, t2));
-                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t2), createMatchObject(nombreGrupo, 3, t3, t4));
-                
-                // Jornadas de VUELTA (si está configurado)
-                if (currentTournament.config.matchType === 'idavuelta') {
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t4, t1), createMatchObject(nombreGrupo, 4, t3, t2));
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t2, t4));
-                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t2, t1), createMatchObject(nombreGrupo, 6, t4, t3));
-                }
-                // --- FIN DE LA LÓGICA DE CALENDARIO CORRECTA ---
-            }
-        }
-        currentTournament.structure.calendario = calendario;
-        for (const nombreGrupo in calendario) {
-            for (const partido of calendario[nombreGrupo].filter(p => p.jornada === 1)) {
-                const threadId = await createMatchThread(client, guild, partido, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
-                partido.threadId = threadId; partido.status = 'en_curso';
-            }
-        }
-        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
+        // --- FIN DE LA NUEVA LÓGICA ---
+
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
@@ -1256,12 +1223,12 @@ export async function startGroupStage(client, guild, tournament) {
         postTournamentUpdate('GROUP_STAGE_START', finalTournamentState).catch(console.error);
         await notifyTournamentVisualizer(finalTournamentState);
 
-    } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
+    } catch (error) { 
+        console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
     }
 }
-
 export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
@@ -2392,4 +2359,125 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     await updatePublicMessages(client, finalTournament);
     await updateTournamentManagementThread(client, finalTournament);
     await notifyTournamentVisualizer(finalTournament);
+    async function generateGroupBasedSchedule(client, guild, tournament) {
+    const db = getDb();
+    tournament.status = 'fase_de_grupos';
+    const format = tournament.config.format;
+    let teams = Object.values(tournament.teams.aprobados);
+    for (let i = teams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[teams[i], teams[j]] = [teams[j], teams[i]]; }
+    const grupos = {}; const numGrupos = format.groups; const tamanoGrupo = format.size / numGrupos;
+    for (let i = 0; i < teams.length; i++) {
+        const grupoIndex = Math.floor(i / tamanoGrupo); const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
+        if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
+        teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
+        grupos[nombreGrupo].equipos.push(teams[i]);
+    }
+    tournament.structure.grupos = grupos;
+    const calendario = {};
+    for (const nombreGrupo in grupos) {
+        const equiposGrupo = grupos[nombreGrupo].equipos; 
+        calendario[nombreGrupo] = [];
+        if (equiposGrupo.length === 4) {
+            const [t1, t2, t3, t4] = equiposGrupo;
+            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t4), createMatchObject(nombreGrupo, 1, t2, t3));
+            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t4, t2));
+            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t2), createMatchObject(nombreGrupo, 3, t3, t4));
+            if (tournament.config.matchType === 'idavuelta') {
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t4, t1), createMatchObject(nombreGrupo, 4, t3, t2));
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t2, t4));
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t2, t1), createMatchObject(nombreGrupo, 6, t4, t3));
+            }
+        }
+    }
+    tournament.structure.calendario = calendario;
+    for (const nombreGrupo in calendario) {
+        for (const partido of calendario[nombreGrupo].filter(p => p.jornada === 1)) {
+            const threadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+            partido.threadId = threadId; partido.status = 'en_curso';
+        }
+    }
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
+}
+
+async function generateFlexibleLeagueSchedule(client, guild, tournament) {
+    const db = getDb();
+    tournament.status = 'fase_de_grupos';
+    let teams = Object.values(tournament.teams.aprobados);
+
+    // Añadir el equipo fantasma "DESCANSO" si el número de equipos es impar
+    if (teams.length % 2 !== 0) {
+        const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
+        teams.push(ghostTeam);
+    }
+
+    // Inicializar estadísticas para todos los equipos reales
+    teams.forEach(team => {
+        if (team.id !== 'ghost') {
+            team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
+        }
+    });
+
+    const singleGroup = { equipos: teams.filter(t => t.id !== 'ghost') };
+    tournament.structure.grupos['Liga'] = singleGroup;
+    
+    let matches = [];
+    let usedPairings = new Set();
+
+    for (let round = 1; round <= tournament.config.totalRounds; round++) {
+        let teamsToPair = [...teams];
+        teamsToPair.sort((a, b) => (b.stats?.pts || 0) - (a.stats?.pts || 0) || Math.random() - 0.5);
+
+        let roundPairings = [];
+        let pairedTeamsInRound = new Set();
+
+        for (let i = 0; i < teamsToPair.length; i++) {
+            if (pairedTeamsInRound.has(teamsToPair[i].id)) continue;
+
+            for (let j = i + 1; j < teamsToPair.length; j++) {
+                if (pairedTeamsInRound.has(teamsToPair[j].id)) continue;
+
+                const pairing1 = `${teamsToPair[i].id}-${teamsToPair[j].id}`;
+                const pairing2 = `${teamsToPair[j].id}-${teamsToPair[i].id}`;
+
+                if (!usedPairings.has(pairing1) && !usedPairings.has(pairing2)) {
+                    roundPairings.push([teamsToPair[i], teamsToPair[j]]);
+                    usedPairings.add(pairing1);
+                    usedPairings.add(pairing2);
+                    pairedTeamsInRound.add(teamsToPair[i].id);
+                    pairedTeamsInRound.add(teamsToPair[j].id);
+                    break;
+                }
+            }
+        }
+
+        roundPairings.forEach(pair => {
+            const match = createMatchObject('Liga', round, pair[0], pair[1]);
+            matches.push(match);
+        });
+    }
+    
+    tournament.structure.calendario['Liga'] = matches;
+
+    // Gestionar partidos contra el equipo fantasma y crear hilos
+    for (const match of matches) {
+        const isGhostMatch = match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost';
+        if (isGhostMatch) {
+            match.status = 'finalizado';
+            const realTeamIsA = match.equipoA.id !== 'ghost';
+            match.resultado = realTeamIsA ? '1-0' : '0-1';
+            const realTeam = realTeamIsA ? match.equipoA : match.equipoB;
+            const groupTeam = tournament.structure.grupos['Liga'].equipos.find(t => t.id === realTeam.id);
+            groupTeam.stats.pj += 1;
+            groupTeam.stats.pts += 3;
+            groupTeam.stats.gf += 1;
+            groupTeam.stats.dg += 1;
+        } else if (match.jornada === 1) {
+            const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+            match.threadId = threadId;
+            match.status = 'en_curso';
+        }
+    }
+
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
+}
 }
