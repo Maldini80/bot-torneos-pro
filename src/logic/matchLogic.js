@@ -167,23 +167,30 @@ async function updateGroupStageStats(tournament, partido) {
 // --- REEMPLAZA LA FUNCIÓN checkForGroupStageAdvancement ENTERA CON ESTA VERSIÓN ---
 
 async function checkForGroupStageAdvancement(client, guild, tournament) {
+    // Obtenemos todos los partidos de la fase de grupos/liga
     const allGroupMatches = Object.values(tournament.structure.calendario).flat();
+    
+    // Si no hay partidos o el torneo ya no está en fase de grupos, no hacemos nada
     if (allGroupMatches.length === 0 || tournament.status !== 'fase_de_grupos') return;
 
+    // Comprobamos si TODOS los partidos han finalizado
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
+    
     if (allFinished) {
-        console.log(`[ADVANCEMENT] Fase de grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
+        console.log(`[ADVANCEMENT] Fase de liguilla/grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
         
         postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
 
+        // Llamamos a la función que iniciará la siguiente fase
         await startNextKnockoutRound(client, guild, tournament);
 
+        // Volvemos a cargar el estado final del torneo por si ha cambiado
         const finalTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
         
+        // Actualizamos todos los mensajes y visualizadores
         await updatePublicMessages(client, finalTournamentState);
         await updateTournamentManagementThread(client, finalTournamentState);
         await notifyTournamentVisualizer(finalTournamentState);
-
     }
 }
 
