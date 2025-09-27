@@ -717,24 +717,37 @@ if (action === 'draft_pick_by_position') {
     const [formatId] = params;
     const type = interaction.values[0];
 
-    // Volvemos a mostrar el menú de tipo de partido como un paso intermedio
+    // --- INICIO DE LA NUEVA LÓGICA ---
+    // Si es nuestra liguilla, vamos directamente al modal final.
+    if (formatId === 'flexible_league') {
+        const modal = new ModalBuilder()
+            .setCustomId(`create_flexible_league_modal:${type}`)
+            .setTitle('Finalizar Creación de Liguilla');
+        
+        const nameInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+        const qualifiersInput = new TextInputBuilder().setCustomId('torneo_qualifiers').setLabel("Nº de Equipos Clasificatorios (2, 4, 8...)").setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(nameInput), new ActionRowBuilder().addComponents(qualifiersInput));
+        
+        if (type === 'pago') {
+            modal.setTitle('Finalizar Liguilla (De Pago)');
+            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizesInput = new TextInputBuilder().setCustomId('torneo_prizes').setLabel("Premios: Campeón / Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Ej: 100/50');
+            const paymentMethodsInput = new TextInputBuilder().setCustomId('torneo_payment_methods').setLabel("Métodos Pago: PayPal / Bizum").setStyle(TextInputStyle.Short).setRequired(false);
+            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizesInput), new ActionRowBuilder().addComponents(paymentMethodsInput));
+        }
+        
+        return interaction.showModal(modal);
+    }
+    // --- FIN DE LA NUEVA LÓGICA ---
+
+    // Si es un torneo de grupos normal, mantenemos la lógica de siempre.
     const matchTypeMenu = new StringSelectMenuBuilder()
         .setCustomId(`admin_create_match_type:${formatId}:${type}`)
         .setPlaceholder('Paso 3: Selecciona el tipo de partidos')
         .addOptions([
-            {
-                label: 'Solo Ida (3 Jornadas)',
-                description: 'Los equipos de cada grupo se enfrentan una vez.',
-                value: 'ida'
-            },
-            {
-                label: 'Ida y Vuelta (6 Jornadas)',
-                description: 'Los equipos de cada grupo se enfrentan dos veces.',
-                value: 'idavuelta'
-            }
+            // ... (código existente de las opciones)
         ]);
     
-    // La clave es usar .update() para responder a la interacción del menú anterior
     await interaction.update({
         content: `Tipo seleccionado: **${type === 'pago' ? 'De Pago' : 'Gratuito'}**. Ahora, define las rondas:`,
         components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
