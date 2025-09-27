@@ -535,8 +535,6 @@ export async function handleModal(interaction) {
         const twitter = interaction.fields.getTextInputValue('twitter_input');
 
         if (isRegisteringAsCaptain) {
-            const totalCaptains = draft.captains.length + (draft.pendingCaptains ? Object.keys(draft.pendingCaptains).length : 0);
-            if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
             
             const teamName = interaction.fields.getTextInputValue('team_name_input');
             const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
