@@ -885,30 +885,46 @@ if (action === 'create_tournament') {
         return;
     }
     if (action === 'add_test_teams_modal') {
-        await interaction.reply({ content: '✅ Orden recibida. Añadiendo equipos de prueba en segundo plano...', flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
-        if (isNaN(amount) || amount <= 0) return;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return;
-        const teamsCount = Object.keys(tournament.teams.aprobados).length;
+    await interaction.reply({ content: '✅ Orden recibida. Añadiendo equipos de prueba en segundo plano...', flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
+    if (isNaN(amount) || amount <= 0) return;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) return;
+
+    // --- INICIO DE LA LÓGICA CORREGIDA ---
+    const teamsCount = Object.keys(tournament.teams.aprobados).length;
+    let amountToAdd;
+
+    if (tournament.config.format.size > 0) {
+        // Lógica antigua y correcta para torneos con límite (8, 16...)
         const availableSlots = tournament.config.format.size - teamsCount;
-        const amountToAdd = Math.min(amount, availableSlots);
-        if (amountToAdd <= 0) return;
-        let bulkOps = [];
-        for (let i = 0; i < amountToAdd; i++) {
-            const teamId = `test_${Date.now()}_${i}`;
-            const teamData = { id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`, capitanId: teamId, capitanTag: `TestUser#${1000 + i}`, bandera: '🧪', paypal: 'admin@test.com', streamChannel: 'https://twitch.tv/test', twitter: 'test', inscritoEn: new Date() };
-            bulkOps.push({ updateOne: { filter: { _id: tournament._id }, update: { $set: { [`teams.aprobados.${teamId}`]: teamData } } } });
-        }
-        if (bulkOps.length > 0) await db.collection('tournaments').bulkWrite(bulkOps);
-        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        await updatePublicMessages(client, updatedTournament);
-        await updateTournamentManagementThread(client, updatedTournament);
-        await notifyTournamentVisualizer(updatedTournament);
-     
-        return;
+        amountToAdd = Math.min(amount, availableSlots);
+    } else {
+        // Nueva lógica para la liguilla, que no tiene límite de slots
+        amountToAdd = amount;
     }
+    
+    if (amountToAdd <= 0) {
+        // Añadimos una respuesta clara para el admin si no se puede añadir a nadie
+        return interaction.editReply({ content: 'ℹ️ No se pueden añadir más equipos de prueba. El torneo ya está lleno o la cantidad introducida es cero.' });
+    }
+    // --- FIN DE LA LÓGICA CORREGIDA ---
+
+    let bulkOps = [];
+    for (let i = 0; i < amountToAdd; i++) {
+        const teamId = `test_${Date.now()}_${i}`;
+        const teamData = { id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`, capitanId: teamId, capitanTag: `TestUser#${1000 + i}`, bandera: '🧪', paypal: 'admin@test.com', streamChannel: 'https://twitch.tv/test', twitter: 'test', inscritoEn: new Date() };
+        bulkOps.push({ updateOne: { filter: { _id: tournament._id }, update: { $set: { [`teams.aprobados.${teamId}`]: teamData } } } });
+    }
+    if (bulkOps.length > 0) await db.collection('tournaments').bulkWrite(bulkOps);
+    const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    await updatePublicMessages(client, updatedTournament);
+    await updateTournamentManagementThread(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
+ 
+    return;
+}
     if (action === 'report_result_modal') {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     const [matchId, tournamentShortId] = params;
