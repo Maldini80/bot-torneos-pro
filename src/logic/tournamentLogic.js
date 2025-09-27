@@ -2270,7 +2270,16 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
     const tournament = await db.collection('tournaments').findOne({ shortId: session.tournamentShortId });
     if (!tournament) return;
 
-    const nextGroup = session.drawnTeams.length % 2 === 0 ? 'A' : 'B';
+    let nextGroup;
+    const totalTeams = session.teams.length;
+    const drawnCount = session.drawnTeams.length;
+
+    if (totalTeams <= 8) { // Mantiene la lógica para 8 o menos equipos
+        nextGroup = drawnCount % 2 === 0 ? 'A' : 'B';
+    } else { // Nueva lógica para más de 8 equipos (ej. 16)
+        const groupLetters = ['A', 'B', 'C', 'D'];
+        nextGroup = groupLetters[drawnCount % 4];
+    }
     const groupName = `Grupo ${nextGroup}`;
     
     const draft = await db.collection('drafts').findOne({ shortId: tournament.shortId.replace('draft-', '') });
