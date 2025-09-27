@@ -223,77 +223,97 @@ async function startNextKnockoutRound(client, guild, tournament) {
     const format = currentTournament.config.format;
     const rondaActual = currentTournament.structure.eliminatorias.rondaActual;
     const indiceRondaActual = rondaActual ? format.knockoutStages.indexOf(rondaActual) : -1;
-    const siguienteRonda = format.knockoutStages[indiceRondaActual + 1];
+    const siguienteRondaKey = format.knockoutStages[indiceRondaActual + 1];
 
-    if (!siguienteRonda) {
+    if (!siguienteRondaKey) {
         console.log(`[ADVANCEMENT] No hay más rondas eliminatorias para ${tournament.shortId}.`);
         return;
     }
-    if (currentTournament.status === siguienteRonda) return;
 
-    currentTournament.status = siguienteRonda;
-    currentTournament.structure.eliminatorias.rondaActual = siguienteRonda;
+    // Evitamos que se ejecute dos veces si ya está en la siguiente ronda
+    if (currentTournament.status === siguienteRondaKey) return;
 
-    let partidos;
-    if (indiceRondaActual === -1) {
-        const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
-        
-        if (format.qualifiersPerGroup === 1) {
-            const clasificados = [];
-            for (const groupName of gruposOrdenados) {
-                const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
-                if (grupoOrdenado[0]) {
-                    clasificados.push(JSON.parse(JSON.stringify(grupoOrdenado[0])));
-                }
-            }
-            partidos = crearPartidosEliminatoria(clasificados, siguienteRonda);
-
-        } else if (currentTournament.config.formatId === '8_teams_semis_classic') {
-            const grupoA = [...currentTournament.structure.grupos['Grupo A'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo A'));
-            const grupoB = [...currentTournament.structure.grupos['Grupo B'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo B'));
-            partidos = [
-                createMatchObject(null, siguienteRonda, grupoA[0], grupoB[1]),
-                createMatchObject(null, siguienteRonda, grupoB[0], grupoA[1])
-            ];
+    let clasificados = [];
+    
+    // --- INICIO DE LA LÓGICA DE CLASIFICACIÓN ---
+    if (indiceRondaActual === -1) { // Esto significa que venimos de la fase de grupos/liga
+        if (currentTournament.config.formatId === 'flexible_league') {
+            // Lógica para nuestra Liguilla Flexible
+            const leagueTeams = [...currentTournament.structure.grupos['Liga'].equipos];
+            leagueTeams.sort((a, b) => sortTeams(a, b, currentTournament, 'Liga'));
+            clasificados = leagueTeams.slice(0, currentTournament.config.qualifiers);
         } else {
-            const bombo1 = [];
-            const bombo2 = [];
-            for (const groupName of gruposOrdenados) {
-                const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
-                if (grupoOrdenado[0]) bombo1.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[0])), group: groupName });
-                if (format.qualifiersPerGroup > 1 && grupoOrdenado[1]) {
-                    bombo2.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[1])), group: groupName });
+            // Lógica para los torneos de grupos de siempre
+            const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
+            if (format.qualifiersPerGroup === 1) {
+                for (const groupName of gruposOrdenados) {
+                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
+                    if (grupoOrdenado[0]) clasificados.push(JSON.parse(JSON.stringify(grupoOrdenado[0])));
                 }
+            } else if (currentTournament.config.formatId === '8_teams_semis_classic') {
+                // Caso especial del formato de 8 equipos clásico
+                const grupoA = [...currentTournament.structure.grupos['Grupo A'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo A'));
+                const grupoB = [...currentTournament.structure.grupos['Grupo B'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo B'));
+                // Cruces específicos: 1A vs 2B y 1B vs 2A
+                clasificados.push(grupoA[0], grupoB[1], grupoB[0], grupoA[1]);
+            } else {
+                // Lógica para torneos de grupos con 2 clasificados por grupo
+                const bombo1 = []; const bombo2 = [];
+                for (const groupName of gruposOrdenados) {
+                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
+                    if (grupoOrdenado[0]) bombo1.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[0])), group: groupName });
+                    if (grupoOrdenado[1]) bombo2.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[1])), group: groupName });
+                }
+                // Esta función especial ya la teníamos y sigue siendo válida
+                const partidos = crearPartidosEvitandoMismoGrupo(bombo1, bombo2, siguienteRondaKey);
+                currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
+                clasificados = null; // Indicamos que los partidos ya están creados
             }
-            partidos = crearPartidosEvitandoMismoGrupo(bombo1, bombo2, siguienteRonda);
         }
-    } else {
+    } else { // Venimos de una ronda de eliminatorias anterior
         const partidosRondaAnterior = currentTournament.structure.eliminatorias[rondaActual];
-        const clasificados = partidosRondaAnterior.map(p => {
+        clasificados = partidosRondaAnterior.map(p => {
             const [golesA, golesB] = p.resultado.split('-').map(Number);
             return golesA > golesB ? p.equipoA : p.equipoB;
         });
-        partidos = crearPartidosEliminatoria(clasificados, siguienteRonda);
+    }
+    // --- FIN DE LA LÓGICA DE CLASIFICACIÓN ---
+
+    let partidos;
+    if (clasificados) {
+        // Si es un caso especial como el 8_teams_semis_classic, los cruces son fijos
+        if (currentTournament.config.formatId === '8_teams_semis_classic' && clasificados.length === 4) {
+             partidos = [
+                createMatchObject(null, siguienteRondaKey, clasificados[0], clasificados[1]),
+                createMatchObject(null, siguienteRondaKey, clasificados[2], clasificados[3])
+            ];
+        } else {
+            // Para todos los demás casos (incluida nuestra liguilla), creamos los cruces estándar
+            partidos = crearPartidosEliminatoria(clasificados, siguienteRondaKey);
+        }
+    } else {
+        partidos = currentTournament.structure.eliminatorias[siguienteRondaKey];
     }
 
     if (!partidos || partidos.length === 0) {
-        console.error(`[FATAL ERROR] No se generaron partidos para la ronda '${siguienteRonda}' del torneo ${currentTournament.shortId}. Abortando avance.`);
-        currentTournament.status = rondaActual || 'fase_de_grupos';
-        currentTournament.structure.eliminatorias.rondaActual = rondaActual;
-        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "status": currentTournament.status, "structure.eliminatorias.rondaActual": currentTournament.structure.eliminatorias.rondaActual }});
+        console.error(`[FATAL ERROR] No se generaron partidos para la ronda '${siguienteRondaKey}' del torneo ${currentTournament.shortId}.`);
         return;
     }
 
-    if (siguienteRonda === 'final') {
+    const siguienteRondaNombre = siguienteRondaKey.charAt(0).toUpperCase() + siguienteRondaKey.slice(1);
+    currentTournament.status = siguienteRondaKey;
+    currentTournament.structure.eliminatorias.rondaActual = siguienteRondaKey;
+
+    if (siguienteRondaKey === 'final') {
         currentTournament.structure.eliminatorias.final = partidos[0];
     } else {
-        currentTournament.structure.eliminatorias[siguienteRonda] = partidos;
+        currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
     }
     
-    postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRonda, tournament: currentTournament }).catch(console.error);
+    postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRondaKey, tournament: currentTournament }).catch(console.error);
 
     const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
-    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🔥`).setFooter({text: '¡Mucha suerte!'});
+    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRondaNombre}! 🔥`).setFooter({text: '¡Mucha suerte!'});
 
     for(const [i, p] of partidos.entries()) {
         const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
@@ -309,7 +329,6 @@ async function startNextKnockoutRound(client, guild, tournament) {
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
 }
-
 async function handleFinalResult(client, guild, tournament) {
     const final = tournament.structure.eliminatorias.final;
     const [golesA, golesB] = final.resultado.split('-').map(Number);
