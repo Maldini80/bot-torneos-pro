@@ -302,20 +302,42 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     }
 
     if (draft.status === 'finalizado') {
-        row1.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`draft_force_tournament_classic:${draft.shortId}`)
-                .setLabel('Sorteo Clásico (Instantáneo)')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('🎲')
-                .setDisabled(isBusy),
-            new ButtonBuilder()
-                .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
-                .setLabel('Sorteo con Ruleta (Visual)')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('🎡')
-                .setDisabled(isBusy)
-        );
+        const captainCount = draft.captains.length;
+
+        // Buscamos formatos compatibles con el número de capitanes
+        const compatibleFormats = Object.entries(TOURNAMENT_FORMATS)
+            .filter(([, format]) => format.isDraftCompatible && format.size === captainCount)
+            .map(([key, format]) => ({
+                label: format.label,
+                description: format.description.slice(0, 100),
+                value: key
+            }));
+
+        if (compatibleFormats.length > 0) {
+            // Si hay formatos, mostramos el menú de selección
+            embed.addFields({ name: 'Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. Por favor, selecciona el formato de torneo que deseas crear.` });
+            const formatMenu = new StringSelectMenuBuilder()
+                .setCustomId(`draft_create_tournament_format:${draft.shortId}`)
+                .setPlaceholder('Selecciona el formato para el torneo resultante')
+                .addOptions(compatibleFormats);
+            row1.addComponents(formatMenu);
+
+            // Mostramos la ruleta solo si hay 8 equipos
+            if (captainCount === 8) {
+                row2.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
+                        .setLabel('Alternativa: Sorteo con Ruleta')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('🎡')
+                        .setDisabled(isBusy)
+                );
+            }
+        } else {
+            // Si no hay formatos compatibles (ej: 14 equipos), mostramos un aviso
+            embed.setColor('#e74c3c')
+                 .addFields({ name: '⚠️ Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. Este número no es válido para generar un torneo (se necesita 8 o 16). Por favor, usa el botón "Gestionar Participantes" para ajustar el número de equipos.` });
+        }
     }
 
     row2.addComponents(new ButtonBuilder()
