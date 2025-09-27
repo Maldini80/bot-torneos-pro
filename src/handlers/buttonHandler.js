@@ -2371,4 +2371,42 @@ if (action === 'captain_view_free_agents') {
         });
         return;
     }
+	if (action === 'create_flexible_league_start') {
+    const modal = new ModalBuilder()
+        .setCustomId('create_flexible_league_modal')
+        .setTitle('Configuración de la Liguilla Flexible');
+
+    const nameInput = new TextInputBuilder()
+        .setCustomId('torneo_nombre')
+        .setLabel("Nombre del Torneo")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+    
+    const qualifiersInput = new TextInputBuilder()
+        .setCustomId('torneo_qualifiers')
+        .setLabel("Nº de Equipos que se Clasifican")
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder("Ej: 4 (para semis), 8 (para cuartos)...")
+        .setRequired(true);
+
+    const typeMenu = new StringSelectMenuBuilder()
+        .setCustomId('admin_create_type:flexible_league') // Usamos el ID del formato
+        .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
+        .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
+    
+    // NOTA: Por simplicidad, la liguilla será siempre a 'ida'.
+    // El modal para los datos de pago se gestionará en el handler de menús.
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(nameInput),
+        new ActionRowBuilder().addComponents(qualifiersInput)
+    );
+
+    // La respuesta inicial ahora incluye un menú para elegir el tipo
+    return interaction.reply({
+        content: "Has elegido crear una Liguilla Flexible. Por favor, rellena los datos básicos y selecciona el tipo de inscripción.",
+        components: [new ActionRowBuilder().addComponents(typeMenu)],
+        flags: [MessageFlags.Ephemeral]
+    });
+}
 }
