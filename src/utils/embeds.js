@@ -57,8 +57,9 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
         case 'tournaments':
             embed.setTitle('Gestión de Torneos');
             const tournamentActionsRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Nuevo Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy)
-            );
+    new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo (Grupos)').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
+    new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear Liguilla Flexible').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy)
+);
             components.push(tournamentActionsRow, backButtonRow);
             break;
 
