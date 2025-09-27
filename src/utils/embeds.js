@@ -224,7 +224,7 @@ export function createDraftStatusEmbed(draft) {
         .setColor(embedColor)
         .setTitle(`${statusIcon} Draft: ${draft.name}`)
         .addFields(
-            { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
+            { name: 'Capitanes / Captains', value: `${captainCount}`, inline: true },
             { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount}`, inline: true },
             { name: 'Total', value: `${totalParticipants}`, inline: true }
         )
