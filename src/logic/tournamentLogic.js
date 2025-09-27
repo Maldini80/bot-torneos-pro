@@ -1014,7 +1014,7 @@ export async function advanceDraftTurn(client, draftShortId) {
     const db = getDb();
     let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-    const totalPicks = 80;
+    const totalPicks = draft.captains.length * 10;
     if (draft.selection.currentPick >= totalPicks) {
          await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado', "selection.isPicking": false, "selection.activeInteractionId": null } });
          const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
