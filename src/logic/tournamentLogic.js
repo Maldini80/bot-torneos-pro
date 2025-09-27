@@ -2405,13 +2405,11 @@ async function generateFlexibleLeagueSchedule(client, guild, tournament) {
     tournament.status = 'fase_de_grupos';
     let teams = Object.values(tournament.teams.aprobados);
 
-    // 1. Añadimos el equipo fantasma si es necesario (lógica que ya funcionaba)
     if (teams.length % 2 !== 0) {
         const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
         teams.push(ghostTeam);
     }
 
-    // 2. Inicializamos las estadísticas (lógica que ya funcionaba)
     teams.forEach(team => {
         if (team.id !== 'ghost') {
             team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
@@ -2421,26 +2419,52 @@ async function generateFlexibleLeagueSchedule(client, guild, tournament) {
     const singleGroup = { equipos: teams.filter(t => t.id !== 'ghost') };
     tournament.structure.grupos['Liga'] = singleGroup;
     
-    // --- INICIO DE LA NUEVA LÓGICA DE EMPAREJAMIENTO (MÁS SIMPLE Y ROBUSTA) ---
     let allMatches = [];
+    const usedPairings = new Set(); // El "libro de contabilidad" de partidos jugados
+
     for (let round = 1; round <= tournament.config.totalRounds; round++) {
-        // Barajamos a los equipos de forma aleatoria en CADA jornada
-        let shuffledTeams = [...teams].sort(() => Math.random() - 0.5);
-        
-        for (let i = 0; i < shuffledTeams.length; i += 2) {
-            const teamA = shuffledTeams[i];
-            const teamB = shuffledTeams[i + 1];
-            if (teamA && teamB) {
-                const match = createMatchObject('Liga', round, teamA, teamB);
-                allMatches.push(match);
+        // Barajamos los equipos para añadir aleatoriedad
+        let teamsToPair = [...teams].sort(() => Math.random() - 0.5);
+        let pairedTeamsInRound = new Set();
+
+        for (const teamA of teamsToPair) {
+            if (pairedTeamsInRound.has(teamA.id)) continue;
+
+            // Buscamos un oponente para teamA
+            let opponentFound = false;
+            for (const teamB of teamsToPair) {
+                if (teamA.id === teamB.id || pairedTeamsInRound.has(teamB.id)) continue;
+
+                const pairing1 = `${teamA.id}-${teamB.id}`;
+                const pairing2 = `${teamB.id}-${teamA.id}`;
+
+                // Si este partido NO se ha jugado antes, lo creamos
+                if (!usedPairings.has(pairing1) && !usedPairings.has(pairing2)) {
+                    allMatches.push(createMatchObject('Liga', round, teamA, teamB));
+                    usedPairings.add(pairing1); // Lo apuntamos en nuestro libro
+                    pairedTeamsInRound.add(teamA.id);
+                    pairedTeamsInRound.add(teamB.id);
+                    opponentFound = true;
+                    break; // Pasamos al siguiente equipo sin emparejar
+                }
+            }
+            
+            // PLAN B (Fallback): Si es imposible encontrar un rival nuevo, repetimos uno
+            if (!opponentFound) {
+                for (const teamB of teamsToPair) {
+                    if (teamA.id !== teamB.id && !pairedTeamsInRound.has(teamB.id)) {
+                         allMatches.push(createMatchObject('Liga', round, teamA, teamB));
+                         pairedTeamsInRound.add(teamA.id);
+                         pairedTeamsInRound.add(teamB.id);
+                         break;
+                    }
+                }
             }
         }
     }
-    // --- FIN DE LA NUEVA LÓGICA DE EMPAREJAMIENTO ---
     
     tournament.structure.calendario['Liga'] = allMatches;
 
-    // 3. Gestionamos los partidos fantasma y creamos los hilos (lógica que ya funcionaba)
     for (const match of allMatches) {
         const isGhostMatch = match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost';
         if (isGhostMatch) {
@@ -2449,7 +2473,7 @@ async function generateFlexibleLeagueSchedule(client, guild, tournament) {
             match.resultado = realTeamIsA ? '1-0' : '0-1';
             const realTeam = realTeamIsA ? match.equipoA : match.equipoB;
             const groupTeam = tournament.structure.grupos['Liga'].equipos.find(t => t.id === realTeam.id);
-            if (groupTeam) { // Comprobación de seguridad
+            if (groupTeam) {
                 groupTeam.stats.pj += 1;
                 groupTeam.stats.pts += 3;
                 groupTeam.stats.gf += 1;
