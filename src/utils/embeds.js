@@ -323,7 +323,7 @@ export function createDraftManagementPanel(draft, isBusy = false) {
             row1.addComponents(formatMenu);
 
             // Mostramos la ruleta solo si hay 8 equipos
-            if (captainCount === 8) {
+            if (captainCount === 8 || captainCount === 16) {
                 row2.addComponents(
                     new ButtonBuilder()
                         .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
