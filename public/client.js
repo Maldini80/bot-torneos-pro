@@ -41,8 +41,6 @@ function initializeTournamentView(tournamentId) {
     const viewSwitcherEl = document.querySelector('.view-switcher');
     const finishedViewEl = document.getElementById('finished-view');
     const championNameEl = document.getElementById('champion-name');
-    const partnerLogoContainerEl = document.getElementById('partner-logo-container');
-    const partnerLogoImgEl = document.getElementById('partner-logo');
 
     let hasLoadedInitialData = false;
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -118,17 +116,6 @@ function initializeTournamentView(tournamentId) {
         
         tournamentNameEl.textContent = tournament.nombre;
         tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
-        const logoUrl = tournament.config.partnerLogoUrl;
-
-// 2. Comprobamos si nos han dado una URL.
-if (logoUrl) {
-    // Si SÍ hay URL:
-    partnerLogoImgEl.src = logoUrl; // Ponemos la URL en la etiqueta de la imagen.
-    partnerLogoContainerEl.classList.remove('hidden'); // Mostramos el "marco" contenedor.
-} else {
-    // Si NO hay URL:
-    partnerLogoContainerEl.classList.add('hidden'); // Ocultamos el "marco" contenedor.
-}
         renderTeams(tournament);
         renderClassification(tournament);
         renderCalendar(tournament);
@@ -451,21 +438,7 @@ function initializeDraftView(draftId) {
     }
 
     function renderHeader(draft) {
-        const partnerLogoContainerEl = document.getElementById('partner-logo-container');
-const partnerLogoImgEl = document.getElementById('partner-logo');
         draftNameEl.textContent = draft.name;
-        // 1. Leemos la URL del logo del colaborador desde el objeto 'draft'.
-const logoUrl = draft.config.partnerLogoUrl;
-
-// 2. Comprobamos si nos han dado una URL.
-if (logoUrl) {
-    // Si SÍ hay URL:
-    partnerLogoImgEl.src = logoUrl; // Ponemos la URL en la etiqueta de la imagen.
-    partnerLogoContainerEl.classList.remove('hidden'); // Mostramos el "marco" contenedor.
-} else {
-    // Si NO hay URL:
-    partnerLogoContainerEl.classList.add('hidden'); // Ocultamos el "marco" contenedor.
-}
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
             roundInfoEl.textContent = 'Selección Finalizada';
             currentTeamEl.textContent = '---';
