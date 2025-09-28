@@ -2445,35 +2445,32 @@ async function generateFlexibleLeagueSchedule(tournament) {
     tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
     tournament.structure.calendario['Liga'] = [];
 
-    // --- INICIO DEL ALGORITMO DE CALENDARIO CORREGIDO Y DEFINITIVO ---
     const numTeams = teams.length;
-    const totalRoundsToGenerate = tournament.config.totalRounds;
+    // --- LA CORRECCIÓN CLAVE ESTÁ AQUÍ ---
+    const totalRoundsToGenerate = tournament.config.totalRounds || 3; // Leemos el dato correcto
     
-    // Barajamos los equipos una vez para que cada sorteo sea único
-    teams.sort(() => Math.random() - 0.5);
-
     // Creamos una copia que rotará
-    let rotatingTeams = teams.slice(1); 
+    let rotatingTeams = [...teams];
+    rotatingTeams.shift(); // Sacamos al primer equipo que no rota
 
     for (let round = 0; round < totalRoundsToGenerate; round++) {
-        // Emparejamos el primer equipo (que nunca rota) con el último del array rotativo
-        const teamA = teams[0];
-        const teamB = rotatingTeams[rotatingTeams.length - 1];
-        const matchData = createMatchObject('Liga', round + 1, teamA, teamB);
-        tournament.structure.calendario['Liga'].push(matchData);
+        const teamA = teams[0]; // El primer equipo siempre juega
+        const teamB = rotatingTeams[0]; // contra el primer equipo del array rotativo
+        
+        const homeTeam = round % 2 === 0 ? teamA : teamB;
+        const awayTeam = round % 2 === 0 ? teamB : teamA;
+        tournament.structure.calendario['Liga'].push(createMatchObject('Liga', round + 1, homeTeam, awayTeam));
 
-        // Emparejamos el resto de equipos
-        for (let i = 0; i < (numTeams / 2) - 1; i++) {
+        // Emparejamos el resto
+        for (let i = 1; i < numTeams / 2; i++) {
             const teamC = rotatingTeams[i];
-            const teamD = rotatingTeams[rotatingTeams.length - 2 - i];
-            const matchData2 = createMatchObject('Liga', round + 1, teamC, teamD);
-            tournament.structure.calendario['Liga'].push(matchData2);
+            const teamD = rotatingTeams[numTeams - 1 - i];
+            tournament.structure.calendario['Liga'].push(createMatchObject('Liga', round + 1, teamC, teamD));
         }
-
-        // Rotamos el array para la siguiente jornada (el primer elemento pasa al final)
-        rotatingTeams.unshift(rotatingTeams.pop());
+        
+        // Rotamos el array para la siguiente jornada
+        rotatingTeams.push(rotatingTeams.shift());
     }
-    // --- FIN DEL ALGORITMO DE CALENDARIO CORRECTO ---
     
     console.log(`[DEBUG LIGA] 3. Total de partidos generados: ${tournament.structure.calendario['Liga'].length}`);
 
