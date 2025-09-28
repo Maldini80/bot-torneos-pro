@@ -41,7 +41,8 @@ function initializeTournamentView(tournamentId) {
     const viewSwitcherEl = document.querySelector('.view-switcher');
     const finishedViewEl = document.getElementById('finished-view');
     const championNameEl = document.getElementById('champion-name');
-    const partnerLogoEl = document.getElementById('partner-logo');
+    const partnerLogoContainerEl = document.getElementById('partner-logo-container');
+    const partnerLogoImgEl = document.getElementById('partner-logo');
 
     let hasLoadedInitialData = false;
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -117,11 +118,16 @@ function initializeTournamentView(tournamentId) {
         
         tournamentNameEl.textContent = tournament.nombre;
         tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
-        if (tournament.config.partnerLogoUrl) {
-    partnerLogoEl.src = tournament.config.partnerLogoUrl;
-    partnerLogoEl.classList.remove('hidden');
+        const logoUrl = tournament.config.partnerLogoUrl;
+
+// 2. Comprobamos si nos han dado una URL.
+if (logoUrl) {
+    // Si SÍ hay URL:
+    partnerLogoImgEl.src = logoUrl; // Ponemos la URL en la etiqueta de la imagen.
+    partnerLogoContainerEl.classList.remove('hidden'); // Mostramos el "marco" contenedor.
 } else {
-    partnerLogoEl.classList.add('hidden');
+    // Si NO hay URL:
+    partnerLogoContainerEl.classList.add('hidden'); // Ocultamos el "marco" contenedor.
 }
         renderTeams(tournament);
         renderClassification(tournament);
@@ -445,13 +451,20 @@ function initializeDraftView(draftId) {
     }
 
     function renderHeader(draft) {
-        const partnerLogoEl = document.getElementById('partner-logo');
+        const partnerLogoContainerEl = document.getElementById('partner-logo-container');
+const partnerLogoImgEl = document.getElementById('partner-logo');
         draftNameEl.textContent = draft.name;
-        if (draft.config.partnerLogoUrl) {
-    partnerLogoEl.src = draft.config.partnerLogoUrl;
-    partnerLogoEl.classList.remove('hidden');
+        // 1. Leemos la URL del logo del colaborador desde el objeto 'draft'.
+const logoUrl = draft.config.partnerLogoUrl;
+
+// 2. Comprobamos si nos han dado una URL.
+if (logoUrl) {
+    // Si SÍ hay URL:
+    partnerLogoImgEl.src = logoUrl; // Ponemos la URL en la etiqueta de la imagen.
+    partnerLogoContainerEl.classList.remove('hidden'); // Mostramos el "marco" contenedor.
 } else {
-    partnerLogoEl.classList.add('hidden');
+    // Si NO hay URL:
+    partnerLogoContainerEl.classList.add('hidden'); // Ocultamos el "marco" contenedor.
 }
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
             roundInfoEl.textContent = 'Selección Finalizada';
