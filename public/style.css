@@ -62,7 +62,7 @@ header {
 }
 .header-logo { height: 110px; width: auto; }
 .header-text { text-align: left; }
-header h1 { font-family: var(--font-bebas); font-size: 2.8em; color: var(--primary-color); margin: 0; text-transform: uppercase; text-shadow: 0 0 10px var(--primary-color), 2px 2px 8px rgba(0,0,0,0.7); }
+header h1 { font-family: var(--font-bebas); font-size: 2.8em; color: var(--primary-color); margin: 0; text-transform: uppercase; }
 header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
 
 #last-pick-banner {
