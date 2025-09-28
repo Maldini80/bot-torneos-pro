@@ -54,10 +54,10 @@ header {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 40px; /* Aumentamos el espacio entre el logo y el texto */
-    max-width: 1400px; /* Un ancho máximo para que no se separe demasiado en pantallas grandes */
-    margin: 0 auto; /* Centra el contenido en la página */
-    padding: 0 20px; /* Añade un poco de espacio en los bordes */
+    gap: 25px; /* Hemos reducido un poco el espacio para que se vea más compacto */
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
     box-sizing: border-box;
 }
 .main-logo-img { 
@@ -461,6 +461,14 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     overflow: hidden;
     text-overflow: ellipsis; /* Añade "..." al texto largo */
     display: block; /* Asegura que ocupe el espacio disponible */
+}
+    .main-logo-img {
+    height: 60px; /* Reducimos el tamaño de tu logo principal en móvil */
+}
+
+.partner-logo-container {
+    width: 100px;  /* Reducimos el ancho del marco del colaborador */
+    height: 60px;  /* Reducimos el alto del marco del colaborador */
 }
 /* ----------------------------------------------------------- */
 }
