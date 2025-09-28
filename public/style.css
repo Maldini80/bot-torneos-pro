@@ -54,34 +54,13 @@ header {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 25px; /* Hemos reducido un poco el espacio para que se vea más compacto */
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 20px;
+    gap: 40px; /* Aumentamos el espacio entre el logo y el texto */
+    max-width: 1400px; /* Un ancho máximo para que no se separe demasiado en pantallas grandes */
+    margin: 0 auto; /* Centra el contenido en la página */
+    padding: 0 20px; /* Añade un poco de espacio en los bordes */
     box-sizing: border-box;
 }
-.main-logo-img { 
-    height: 110px; /* Tamaño del logo principal de The Blitz */
-    width: auto; 
-}
-
-.partner-logo-container {
-    width: 150px;
-    height: 80px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px dotted rgba(255, 255, 255, 0.2); /* <-- LÍNEA AÑADIDA */
-}
-
-/* 2. La imagen dentro del marco */
-#partner-logo {
-    max-width: 100%;    /* La imagen nunca será más ancha que el marco */
-    max-height: 100%;   /* La imagen nunca será más alta que el marco */
-    width: auto;
-    height: auto;
-}
+.header-logo { height: 110px; width: auto; }
 .header-text { text-align: left; }
 header h1 { font-family: var(--font-bebas); font-size: 2.8em; color: var(--primary-color); margin: 0; text-transform: uppercase; }
 header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
@@ -462,14 +441,6 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     overflow: hidden;
     text-overflow: ellipsis; /* Añade "..." al texto largo */
     display: block; /* Asegura que ocupe el espacio disponible */
-}
-    .main-logo-img {
-    height: 60px; /* Reducimos el tamaño de tu logo principal en móvil */
-}
-
-.partner-logo-container {
-    width: 100px;  /* Reducimos el ancho del marco del colaborador */
-    height: 60px;  /* Reducimos el alto del marco del colaborador */
 }
 /* ----------------------------------------------------------- */
 }
