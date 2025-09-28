@@ -1322,4 +1322,32 @@ if (action === 'register_draft_player_team_name_modal') {
     }
     return;
 }
+    if (action === 'create_draft_league_qualifiers_modal') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [draftShortId] = params;
+    const qualifiers = parseInt(interaction.fields.getTextInputValue('torneo_qualifiers'));
+
+    if (isNaN(qualifiers) || ![2, 4, 8, 16, 32].includes(qualifiers)) {
+        return interaction.editReply({ content: '❌ Error: El número de equipos clasificatorios debe ser 2, 4, 8, o 16.' });
+    }
+    
+    // Preparamos la configuración específica de la liguilla
+    const leagueConfig = {
+        qualifiers: qualifiers,
+        totalRounds: 3
+    };
+
+    try {
+        // Llamamos a la función de creación, pasándole la nueva configuración
+        const newTournament = await createTournamentFromDraft(client, guild, draftShortId, 'flexible_league', leagueConfig);
+        await interaction.editReply({
+            content: `✅ ¡Liguilla **"${newTournament.nombre}"** creada con éxito a partir del draft! Ya puedes gestionarla desde su hilo.`,
+            components: []
+        });
+    } catch (error) {
+        console.error(error);
+        await interaction.editReply({ content: `❌ Hubo un error crítico: ${error.message}`, components: [] });
+    }
+    return;
+}
 }
