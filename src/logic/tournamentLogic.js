@@ -602,7 +602,7 @@ export async function simulateDraftPicks(client, draftShortId) {
     }
 }
 
-export async function createTournamentFromDraft(client, guild, draftShortId, formatId) {
+export async function createTournamentFromDraft(client, guild, draftShortId, formatId, leagueConfig = {}) {
     await setBotBusy(true);
     const db = getDb();
 
@@ -631,10 +631,11 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         if (!format) throw new Error(`Formato de torneo inválido: ${formatId}`);
 
         const config = {
-            formatId: formatId, format: format, isPaid: draft.config.isPaid,
-            entryFee: draft.config.entryFee, prizeCampeon: draft.config.prizeCampeon,
-            prizeFinalista: draft.config.prizeFinalista, startTime: null
-        };
+    formatId: formatId, format: format, isPaid: draft.config.isPaid,
+    entryFee: draft.config.entryFee, prizeCampeon: draft.config.prizeCampeon,
+    prizeFinalista: draft.config.prizeFinalista, startTime: null,
+    ...leagueConfig // <-- ESTA LÍNEA FUSIONA LOS DATOS NUEVOS (qualifiers y totalRounds)
+};
         
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
