@@ -50,9 +50,16 @@ header {
     
     margin-bottom: 20px; position: relative; animation: neon-glow 1.5s infinite alternate; flex-shrink: 0;
 }
-.header-content { display: flex; align-items: center; justify-content: center; gap: 20px; }
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px; /* <-- AUMENTADO para dar más espacio */
+    max-width: 1200px; /* Evita que se estire demasiado en pantallas anchas */
+    margin: 0 auto; /* Centra el contenedor del header */
+}
 .header-logo { height: 110px; width: auto; }
-.header-text { text-align: center; }
+.header-text { text-align: left; }
 header h1 { font-family: var(--font-bebas); font-size: 3.5em; color: var(--primary-color); margin: 0; text-transform: uppercase; text-shadow: 0 0 10px var(--primary-color), 2px 2px 8px rgba(0,0,0,0.7); }
 header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
 
