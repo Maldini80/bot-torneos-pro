@@ -268,17 +268,37 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_create_tournament_format') {
-        await interaction.deferUpdate();
-        const [draftShortId] = params;
-        const selectedFormatId = interaction.values[0];
+    const [draftShortId] = params;
+    const selectedFormatId = interaction.values[0];
 
+    // --- INICIO DE LA NUEVA LÓGICA ---
+    if (selectedFormatId === 'flexible_league') {
+        // Si es una liguilla, no creamos el torneo aún. Mostramos el modal para pedir los clasificados.
+        const modal = new ModalBuilder()
+            .setCustomId(`create_draft_league_qualifiers_modal:${draftShortId}`)
+            .setTitle('Configurar Liguilla del Draft');
+
+        const qualifiersInput = new TextInputBuilder()
+            .setCustomId('torneo_qualifiers')
+            .setLabel("Nº de Equipos que se Clasifican")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: 4 (para semis), 8 (para cuartos)...")
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(qualifiersInput));
+        return interaction.showModal(modal);
+
+    } else {
+        // Si es un torneo normal (8 o 16), procedemos como siempre.
+        await interaction.deferUpdate();
         try {
-            const newTournament = await createTournamentFromDraft(client, guild, draftShortId, selectedFormatId);
+            // Pasamos un objeto vacío como tercer parámetro porque no hay config de liguilla
+            const newTournament = await createTournamentFromDraft(client, guild, draftShortId, selectedFormatId, {});
             await interaction.editReply({
-                content: `✅ ¡Torneo **"${newTournament.nombre}"** creado con éxito a partir del draft! Ya puedes gestionarlo desde su propio hilo en el canal de administración.`,
+                content: `✅ ¡Torneo **"${newTournament.nombre}"** creado con éxito a partir del draft!`,
                 components: []
             });
-
+            // ... (el resto del código para enviar el botón de sorteo se mantiene)
             const managementThread = await client.channels.fetch(newTournament.discordMessageIds.managementThreadId);
             const startDrawButton = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
@@ -299,9 +319,10 @@ export async function handleSelectMenu(interaction) {
                 components: []
             });
         }
-        return;
     }
-
+    // --- FIN DE LA NUEVA LÓGICA ---
+    return;
+}
     if (action === 'create_draft_type') {
         const [name] = params;
         const type = interaction.values[0];
