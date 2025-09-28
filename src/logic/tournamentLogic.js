@@ -40,7 +40,7 @@ async function publishDraftVisualizerURL(client, draft) {
             .setColor('#2ecc71')
             .setTitle('🔴 Visualizador del Draft EN VIVO')
             .setDescription(`¡El visualizador para el draft **${draft.name}** ya está disponible!\n\nUtiliza el botón de abajo para abrirlo en tu navegador. Esta es la URL que debes capturar en tu software de streaming (OBS, Streamlabs, etc.).`)
-            .setImage('https://i.imgur.com/LgPYksv.png')
+            .setImage('https://i.imgur.com/959tU0e.png')
             .setTimestamp()
             .setFooter({ text: 'VPG Lightnings - Sistema de Drafts' });
 
@@ -84,7 +84,7 @@ async function publishTournamentVisualizerURL(client, tournament) {
             .setColor('#2ecc71')
             .setTitle('🏆 Visualizador del Torneo EN VIVO')
             .setDescription(`¡El visualizador para el torneo **${tournament.nombre}** ya está disponible!\n\nUtiliza el botón de abajo para abrirlo y seguir toda la acción en tiempo real.`)
-            .setImage('https://i.imgur.com/LgPYksv.png')
+            .setImage('https://i.imgur.com/959tU0e.png')
             .setTimestamp()
             .setFooter({ text: 'VPG Lightnings - Sistema de Torneos' });
 
