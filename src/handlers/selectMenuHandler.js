@@ -268,60 +268,76 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_create_tournament_format') {
-    await interaction.deferUpdate(); // Deferimos la actualización para tener tiempo
     const [draftShortId] = params;
     const selectedFormatId = interaction.values[0];
 
-    try {
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const captainCount = draft.captains.length;
+    // --- INICIO DE LA LÓGICA UNIFICADA Y CORREGIDA ---
 
-        // Creamos el torneo
-        const newTournament = await createTournamentFromDraft(client, guild, draftShortId, selectedFormatId, {});
-        
-        await interaction.editReply({
-            content: `✅ ¡Torneo **"${newTournament.nombre}"** creado con éxito a partir del draft!`,
-            components: []
-        });
+    if (selectedFormatId === 'flexible_league') {
+        // CAMINO A: Si es una liguilla, detenemos todo y mostramos el modal para pedir los clasificados.
+        const modal = new ModalBuilder()
+            .setCustomId(`create_draft_league_qualifiers_modal:${draftShortId}`)
+            .setTitle('Configurar Liguilla del Draft');
 
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
-        // Ahora, enviamos un nuevo mensaje en el hilo de gestión con los botones de sorteo
-        const managementThread = await client.channels.fetch(newTournament.discordMessageIds.managementThreadId);
-        const actionRow = new ActionRowBuilder();
+        const qualifiersInput = new TextInputBuilder()
+            .setCustomId('torneo_qualifiers')
+            .setLabel("Nº de Equipos que se Clasifican")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: 4 (semis), 8 (cuartos)...")
+            .setRequired(true);
 
-        // Botón de Sorteo Clásico (siempre disponible)
-        actionRow.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`admin_force_draw:${newTournament.shortId}`)
-                .setLabel('Iniciar Sorteo Clásico')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('🎲')
-        );
+        modal.addComponents(new ActionRowBuilder().addComponents(qualifiersInput));
+        return interaction.showModal(modal);
 
-        // Botón de Ruleta (solo si aplica)
-        if (captainCount === 8 || captainCount === 16) {
+    } else {
+        // CAMINO B: Si es un torneo normal (8 o 16), lo creamos y luego enviamos los botones de sorteo.
+        await interaction.deferUpdate();
+        try {
+            const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+            const captainCount = draft.captains.length;
+
+            const newTournament = await createTournamentFromDraft(client, guild, draftShortId, selectedFormatId, {});
+            
+            await interaction.editReply({
+                content: `✅ ¡Torneo **"${newTournament.nombre}"** creado con éxito a partir del draft!`,
+                components: []
+            });
+
+            const managementThread = await client.channels.fetch(newTournament.discordMessageIds.managementThreadId);
+            const actionRow = new ActionRowBuilder();
+
             actionRow.addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`) // <-- ¡CORREGIDO! Usamos el ID del draft original
-                    .setLabel('Iniciar Sorteo con Ruleta')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('🎡')
+                    .setCustomId(`admin_force_draw:${newTournament.shortId}`)
+                    .setLabel('Iniciar Sorteo Clásico')
+                    .setStyle(ButtonStyle.Success)
+                    .setEmoji('🎲')
             );
+
+            if (captainCount === 8 || captainCount === 16) {
+                actionRow.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
+                        .setLabel('Iniciar Sorteo con Ruleta')
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji('🎡')
+                );
+            }
+
+            await managementThread.send({
+                content: 'El torneo ha sido poblado con los equipos del draft. Por favor, elige el método de sorteo:',
+                components: [actionRow]
+            });
+
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({
+                content: `❌ Hubo un error crítico al crear el torneo desde el draft: ${error.message}`,
+                components: []
+            });
         }
-
-        await managementThread.send({
-            content: 'El torneo ha sido poblado con los equipos del draft. Por favor, elige el método de sorteo:',
-            components: [actionRow]
-        });
-        // --- FIN DE LA LÓGICA CORREGIDA ---
-
-    } catch (error) {
-        console.error(error);
-        await interaction.editReply({
-            content: `❌ Hubo un error crítico al crear el torneo desde el draft: ${error.message}`,
-            components: []
-        });
     }
+    // --- FIN DE LA LÓGICA UNIFICADA ---
     return;
 }
     if (action === 'create_draft_type') {
