@@ -393,7 +393,8 @@ export async function handleSelectMenu(interaction) {
             modal.addComponents(
                 new ActionRowBuilder().addComponents(entryFeeInput),
                 new ActionRowBuilder().addComponents(prizeCInput),
-                new ActionRowBuilder().addComponents(prizeFInput)
+                new ActionRowBuilder().addComponents(prizeFInput),
+                new ActionRowBuilder().addComponents(partnerLogoInput)
             );
             await interaction.showModal(modal);
         }
