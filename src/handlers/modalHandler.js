@@ -367,7 +367,7 @@ export async function handleModal(interaction) {
 
         const isPaid = true;
         const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const config = { isPaid, entryFee, prizeCampeon, prizeFinalista };
+        const config = { isPaid, entryFee, prizeCampeon, prizeFinalista, partnerLogoUrl: interaction.fields.getTextInputValue('partner_logo_url') || null };
 
         try {
             await createNewDraft(client, guild, name, shortId, config);
