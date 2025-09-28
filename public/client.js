@@ -924,7 +924,13 @@ function initializeRouletteView(sessionId) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
-        ctx.font = 'bold 24px Bebas Neue';
+        if (teams.length > 12) {
+    // Si hay muchos equipos (ej. 16), usamos una fuente más pequeña
+    ctx.font = 'bold 16px Bebas Neue';
+} else {
+    // Si hay pocos equipos (ej. 8), usamos la fuente grande de siempre
+    ctx.font = 'bold 24px Bebas Neue';
+}
         teams.forEach((team, i) => {
             const angle = startAngle + i * arc;
             ctx.fillStyle = colors[i % colors.length];
