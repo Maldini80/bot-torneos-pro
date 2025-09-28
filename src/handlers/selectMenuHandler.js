@@ -739,8 +739,7 @@ if (action === 'draft_pick_by_position') {
     const [formatId] = params;
     const type = interaction.values[0];
 
-    // --- INICIO DE LA NUEVA LÓGICA ---
-    // Si es nuestra liguilla, vamos directamente al modal final.
+    // Si es la liguilla flexible, mostramos su modal específico
     if (formatId === 'flexible_league') {
         const modal = new ModalBuilder()
             .setCustomId(`create_flexible_league_modal:${type}`)
@@ -760,20 +759,30 @@ if (action === 'draft_pick_by_position') {
         
         return interaction.showModal(modal);
     }
-    // --- FIN DE LA NUEVA LÓGICA ---
-
-    // Si es un torneo de grupos normal, mantenemos la lógica de siempre.
+    
+    // --- INICIO DE LA CORRECCIÓN CLAVE ---
+    // Para CUALQUIER OTRO formato (los de grupos), mostramos el menú de tipo de partido
     const matchTypeMenu = new StringSelectMenuBuilder()
         .setCustomId(`admin_create_match_type:${formatId}:${type}`)
         .setPlaceholder('Paso 3: Selecciona el tipo de partidos')
         .addOptions([
-            // ... (código existente de las opciones)
+            {
+                label: 'Solo Ida (3 Jornadas)',
+                description: 'Los equipos de cada grupo se enfrentan una vez.',
+                value: 'ida'
+            },
+            {
+                label: 'Ida y Vuelta (6 Jornadas)',
+                description: 'Los equipos de cada grupo se enfrentan dos veces.',
+                value: 'idavuelta'
+            }
         ]);
     
     await interaction.update({
         content: `Tipo seleccionado: **${type === 'pago' ? 'De Pago' : 'Gratuito'}**. Ahora, define las rondas:`,
         components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
     });
+    // --- FIN DE LA CORRECCIÓN CLAVE ---
     return;
 }
      else if (action === 'admin_change_format_select') {
