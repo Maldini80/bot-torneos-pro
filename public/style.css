@@ -1,13 +1,13 @@
 /* --- INICIO DEL ARCHIVO style.css (VERSIÓN FINAL CORREGIDA PARA MÓVILES) --- */
 
 :root {
-    --primary-color: #e62429;
+    --primary-color: #ff9c00;
     --background-color: #141414;
     --surface-color: rgba(10, 10, 10, 0.85);
     --text-color: #f1f1f1;
-    --border-color: rgba(230, 36, 41, 0.3);
+    --border-color: rgba(255, 156, 0, 0.3);
     --winner-color: #ffc107;
-    --glow-color: rgba(230, 36, 41, 0.7);
+    --glow-color: rgba(255, 156, 0, 0.7);
     --font-bebas: 'Bebas Neue', sans-serif;
     --font-roboto: 'Roboto', sans-serif;
 }
