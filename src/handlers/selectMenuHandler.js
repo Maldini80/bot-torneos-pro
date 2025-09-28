@@ -302,7 +302,7 @@ export async function handleSelectMenu(interaction) {
         if (captainCount === 8 || captainCount === 16) {
             actionRow.addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`draft_force_tournament_roulette:${draftShortId}`) // Usa el draftId para la ruleta
+                    .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`) // <-- ¡CORREGIDO! Usamos el ID del draft original
                     .setLabel('Iniciar Sorteo con Ruleta')
                     .setStyle(ButtonStyle.Primary)
                     .setEmoji('🎡')
