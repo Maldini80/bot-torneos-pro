@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import Team from '../../src/models/team.js';
 import { getDb, updateBotSettings } from '../../database.js';
 // --- CÓDIGO MODIFICADO Y CORRECTO ---
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer } from '../logic/tournamentLogic.js';
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer, createTournamentFromDraft } from '../logic/tournamentLogic.js';
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 // --- LÍNEA CORREGIDA Y COMPLETA ---
