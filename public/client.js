@@ -41,6 +41,7 @@ function initializeTournamentView(tournamentId) {
     const viewSwitcherEl = document.querySelector('.view-switcher');
     const finishedViewEl = document.getElementById('finished-view');
     const championNameEl = document.getElementById('champion-name');
+    const partnerLogoEl = document.getElementById('partner-logo');
 
     let hasLoadedInitialData = false;
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -116,6 +117,12 @@ function initializeTournamentView(tournamentId) {
         
         tournamentNameEl.textContent = tournament.nombre;
         tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
+        if (tournament.config.partnerLogoUrl) {
+    partnerLogoEl.src = tournament.config.partnerLogoUrl;
+    partnerLogoEl.classList.remove('hidden');
+} else {
+    partnerLogoEl.classList.add('hidden');
+}
         renderTeams(tournament);
         renderClassification(tournament);
         renderCalendar(tournament);
@@ -438,7 +445,14 @@ function initializeDraftView(draftId) {
     }
 
     function renderHeader(draft) {
+        const partnerLogoEl = document.getElementById('partner-logo');
         draftNameEl.textContent = draft.name;
+        if (draft.config.partnerLogoUrl) {
+    partnerLogoEl.src = draft.config.partnerLogoUrl;
+    partnerLogoEl.classList.remove('hidden');
+} else {
+    partnerLogoEl.classList.add('hidden');
+}
         if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
             roundInfoEl.textContent = 'Selección Finalizada';
             currentTeamEl.textContent = '---';
