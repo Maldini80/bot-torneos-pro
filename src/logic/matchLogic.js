@@ -223,27 +223,29 @@ async function startNextKnockoutRound(client, guild, tournament) {
     const format = currentTournament.config.format;
     const rondaActual = currentTournament.structure.eliminatorias.rondaActual;
     
-    // --- INICIO DE LA LÓGICA CORREGIDA Y DEFINITIVA ---
     let siguienteRondaKey;
 
     if (rondaActual) {
-        // Si ya estamos en eliminatorias, simplemente buscamos la siguiente ronda en la lista
+        // Si ya estamos en eliminatorias, buscamos la siguiente en la lista
         const indiceRondaActual = format.knockoutStages.indexOf(rondaActual);
         siguienteRondaKey = format.knockoutStages[indiceRondaActual + 1];
     } else {
-        // Si venimos de la fase de liga/grupos, CALCULAMOS la ronda correcta
-        const numQualifiers = currentTournament.config.qualifiers || format.size / format.groups * format.qualifiersPerGroup;
-        
-        if (numQualifiers === 2) siguienteRondaKey = 'final';
-        else if (numQualifiers === 4) siguienteRondaKey = 'semifinales';
-        else if (numQualifiers === 8) siguienteRondaKey = 'cuartos';
-        else if (numQualifiers === 16) siguienteRondaKey = 'octavos';
-        else {
-            console.error(`[ERROR] Número de clasificados no válido (${numQualifiers}) para el torneo ${currentTournament.shortId}`);
-            return; // Detenemos la ejecución si el número es incorrecto
+        // Si venimos de la fase de liga/grupos, determinamos la PRIMERA ronda de eliminatorias
+        if (currentTournament.config.formatId === 'flexible_league') {
+            const numQualifiers = currentTournament.config.qualifiers;
+            if (numQualifiers === 2) siguienteRondaKey = 'final';
+            else if (numQualifiers === 4) siguienteRondaKey = 'semifinales';
+            else if (numQualifiers === 8) siguienteRondaKey = 'cuartos';
+            else if (numQualifiers === 16) siguienteRondaKey = 'octavos';
+            else {
+                console.error(`[ERROR] Número de clasificados no válido (${numQualifiers}) para el torneo ${currentTournament.shortId}`);
+                return; // Detenemos la ejecución si el número es incorrecto
+            }
+        } else {
+            // Para torneos de grupos, la primera ronda es SIEMPRE la primera de su lista knockoutStages
+            siguienteRondaKey = format.knockoutStages[0];
         }
     }
-    // --- FIN DE LA LÓGICA CORREGIDA ---
 
     if (!siguienteRondaKey) {
         console.log(`[ADVANCEMENT] No hay más rondas eliminatorias para ${tournament.shortId}.`);
@@ -254,13 +256,12 @@ async function startNextKnockoutRound(client, guild, tournament) {
 
     let clasificados = [];
     
-    if (!rondaActual) { // Venimos de la fase de grupos/liga
+    if (!rondaActual) { 
         if (currentTournament.config.formatId === 'flexible_league') {
             const leagueTeams = [...currentTournament.structure.grupos['Liga'].equipos];
             leagueTeams.sort((a, b) => sortTeams(a, b, currentTournament, 'Liga'));
             clasificados = leagueTeams.slice(0, currentTournament.config.qualifiers);
         } else {
-            // ... (el resto de la lógica para torneos de grupos, que ya funcionaba bien, se mantiene)
             const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
             if (format.qualifiersPerGroup === 1) {
                 for (const groupName of gruposOrdenados) {
@@ -283,7 +284,7 @@ async function startNextKnockoutRound(client, guild, tournament) {
                 clasificados = null; 
             }
         }
-    } else { // Venimos de una ronda de eliminatorias anterior
+    } else {
         const partidosRondaAnterior = currentTournament.structure.eliminatorias[rondaActual];
         clasificados = partidosRondaAnterior.map(p => {
             const [golesA, golesB] = p.resultado.split('-').map(Number);
@@ -293,8 +294,14 @@ async function startNextKnockoutRound(client, guild, tournament) {
 
     let partidos;
     if (clasificados) {
-        // Para la liguilla flexible, los cruces son siempre 1º vs último, 2º vs penúltimo...
-        partidos = crearPartidosEliminatoria(clasificados, siguienteRondaKey);
+        if (currentTournament.config.formatId === '8_teams_semis_classic' && clasificados.length === 4) {
+             partidos = [
+                createMatchObject(null, siguienteRondaKey, clasificados[0], clasificados[1]),
+                createMatchObject(null, siguienteRondaKey, clasificados[2], clasificados[3])
+            ];
+        } else {
+            partidos = crearPartidosEliminatoria(clasificados, siguienteRondaKey);
+        }
     } else {
         partidos = currentTournament.structure.eliminatorias[siguienteRondaKey];
     }
