@@ -65,9 +65,21 @@ header {
     width: auto; 
 }
 
-.partner-logo-img {
-    height: 110px;  /* <-- ¡PUEDES CAMBIAR ESTE NÚMERO! */
+.partner-logo-container {
+    width: 150px;       /* Ancho fijo del marco. ¡Puedes ajustar esto! */
+    height: 80px;       /* Alto fijo del marco. ¡Puedes ajustar esto! */
+    flex-shrink: 0;     /* Evita que el marco se encoja si no hay espacio */
+    display: flex;      /* Centra la imagen dentro del marco */
+    align-items: center;
+    justify-content: center;
+}
+
+/* 2. La imagen dentro del marco */
+#partner-logo {
+    max-width: 100%;    /* La imagen nunca será más ancha que el marco */
+    max-height: 100%;   /* La imagen nunca será más alta que el marco */
     width: auto;
+    height: auto;
 }
 .header-text { text-align: left; }
 header h1 { font-family: var(--font-bebas); font-size: 2.8em; color: var(--primary-color); margin: 0; text-transform: uppercase; }
