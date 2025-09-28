@@ -24,7 +24,7 @@
 body {
     background-color: var(--background-color);
     /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
-    background-image: url('https://i.imgur.com/mxtcWwu.jpeg');
+    background-image: url('https://i.imgur.com/aKTLoUl.png');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -44,7 +44,7 @@ header {
     /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
     background: 
         linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), /* Capa oscura para legibilidad */
-        url('https://i.imgur.com/S8lm70s.jpeg'); /* Tu imagen de fondo */
+        url('https://i.imgur.com/Fj4iFjP.png'); /* Tu imagen de fondo */
     background-size: cover; /* Asegura que la imagen cubra todo el espacio */
     background-position: center; /* Centra la imagen */
     
