@@ -680,6 +680,7 @@ if (action === 'create_tournament') {
     
     const config = { formatId, isPaid: type === 'pago', matchType: matchType };
     config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
+    config.partnerLogoUrl = interaction.fields.getTextInputValue('partner_logo_url') || null;
 
     if (config.isPaid) {
         config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
