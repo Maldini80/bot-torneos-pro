@@ -383,18 +383,10 @@ export async function handleSelectMenu(interaction) {
                 .setRequired(true)
                 .setValue('0');
 
-            const partnerLogoInput = new TextInputBuilder()
-        .setCustomId('partner_logo_url')
-        .setLabel("URL del Logo del Colaborador (Opcional)")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(false)
-        .setPlaceholder('Ej: https://i.imgur.com/logo.png');
-
             modal.addComponents(
                 new ActionRowBuilder().addComponents(entryFeeInput),
                 new ActionRowBuilder().addComponents(prizeCInput),
-                new ActionRowBuilder().addComponents(prizeFInput),
-                new ActionRowBuilder().addComponents(partnerLogoInput)
+                new ActionRowBuilder().addComponents(prizeFInput)
             );
             await interaction.showModal(modal);
         }
@@ -1137,14 +1129,7 @@ if (action === 'admin_edit_verified_field_select') {
     const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
     const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
 
-        const partnerLogoInput = new TextInputBuilder()
-    .setCustomId('partner_logo_url')
-    .setLabel("URL del Logo del Colaborador (Opcional)")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setPlaceholder('Ej: https://i.imgur.com/logo.png');
-
-    modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput), new ActionRowBuilder().addComponents(partnerLogoInput));
+    modal.addComponents(new ActionRowBuilder().addComponents(nombreInput), new ActionRowBuilder().addComponents(startTimeInput));
 
     if (type === 'pago') {
     modal.setTitle('Finalizar Creación (De Pago)');
