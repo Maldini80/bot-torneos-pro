@@ -2427,7 +2427,7 @@ async function generateGroupBasedSchedule(tournament) {
 
 async function generateFlexibleLeagueSchedule(tournament) {
     const db = getDb();
-    console.log(`[DEBUG LIGA] 1. Iniciando la generación de calendario para ${tournament.shortId}`); // <-- AÑADIR
+    console.log(`[DEBUG LIGA] 1. Iniciando la generación de calendario para ${tournament.shortId}`);
     tournament.status = 'fase_de_grupos';
     let teams = Object.values(tournament.teams.aprobados);
 
@@ -2436,7 +2436,7 @@ async function generateFlexibleLeagueSchedule(tournament) {
         teams.push(ghostTeam);
     }
 
-    console.log(`[DEBUG LIGA] 2. Número de equipos para el sorteo (incluido fantasma si hay): ${teams.length}`); // <-- AÑADIR
+    console.log(`[DEBUG LIGA] 2. Número de equipos para el sorteo: ${teams.length}`);
 
     teams.forEach(team => {
         if (team.id !== 'ghost') team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
@@ -2445,31 +2445,37 @@ async function generateFlexibleLeagueSchedule(tournament) {
     tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
     tournament.structure.calendario['Liga'] = [];
 
+    // --- INICIO DEL ALGORITMO DE CALENDARIO CORREGIDO Y DEFINITIVO ---
     const numTeams = teams.length;
     const totalRoundsToGenerate = tournament.config.totalRounds;
     
-    let rotatingTeams = [...teams];
+    // Barajamos los equipos una vez para que cada sorteo sea único
+    teams.sort(() => Math.random() - 0.5);
+
+    // Creamos una copia que rotará
+    let rotatingTeams = teams.slice(1); 
 
     for (let round = 0; round < totalRoundsToGenerate; round++) {
-        for (let i = 0; i < numTeams / 2; i++) {
-            const teamA = rotatingTeams[i];
-            const teamB = rotatingTeams[numTeams - 1 - i];
-            
-            if (teamA && teamB && teamA.id !== teamB.id) {
-                const homeTeam = round % 2 === 0 ? teamA : teamB;
-                const awayTeam = round % 2 === 0 ? teamB : teamA;
-                const matchData = createMatchObject('Liga', round + 1, homeTeam, awayTeam);
-                tournament.structure.calendario['Liga'].push(matchData);
-            }
+        // Emparejamos el primer equipo (que nunca rota) con el último del array rotativo
+        const teamA = teams[0];
+        const teamB = rotatingTeams[rotatingTeams.length - 1];
+        const matchData = createMatchObject('Liga', round + 1, teamA, teamB);
+        tournament.structure.calendario['Liga'].push(matchData);
+
+        // Emparejamos el resto de equipos
+        for (let i = 0; i < (numTeams / 2) - 1; i++) {
+            const teamC = rotatingTeams[i];
+            const teamD = rotatingTeams[rotatingTeams.length - 2 - i];
+            const matchData2 = createMatchObject('Liga', round + 1, teamC, teamD);
+            tournament.structure.calendario['Liga'].push(matchData2);
         }
-        
-        const firstTeam = rotatingTeams.shift();
-        const lastTeam = rotatingTeams.pop();
-        rotatingTeams.unshift(lastTeam);
-        rotatingTeams.unshift(firstTeam);
+
+        // Rotamos el array para la siguiente jornada (el primer elemento pasa al final)
+        rotatingTeams.unshift(rotatingTeams.pop());
     }
+    // --- FIN DEL ALGORITMO DE CALENDARIO CORRECTO ---
     
-    console.log(`[DEBUG LIGA] 3. Total de partidos generados en el calendario: ${tournament.structure.calendario['Liga'].length}`); // <-- AÑADIR
+    console.log(`[DEBUG LIGA] 3. Total de partidos generados: ${tournament.structure.calendario['Liga'].length}`);
 
     for (const match of tournament.structure.calendario['Liga']) {
         if (match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost') {
@@ -2487,5 +2493,5 @@ async function generateFlexibleLeagueSchedule(tournament) {
         }
     }
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
-    console.log(`[DEBUG LIGA] 4. Paso final: Calendario guardado en la base de datos.`); // <-- AÑADIR
+    console.log(`[DEBUG LIGA] 4. Calendario guardado en la DB.`);
 }
