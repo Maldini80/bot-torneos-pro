@@ -2427,16 +2427,17 @@ async function generateGroupBasedSchedule(tournament) {
 
 async function generateFlexibleLeagueSchedule(tournament) {
     const db = getDb();
+    console.log(`[DEBUG LIGA] 1. Iniciando la generación de calendario para ${tournament.shortId}`); // <-- AÑADIR
     tournament.status = 'fase_de_grupos';
     let teams = Object.values(tournament.teams.aprobados);
 
-    // 1. Añadimos el equipo fantasma si es necesario (lógica que ya funcionaba)
     if (teams.length % 2 !== 0) {
         const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
         teams.push(ghostTeam);
     }
 
-    // 2. Inicializamos las estadísticas (lógica que ya funcionaba)
+    console.log(`[DEBUG LIGA] 2. Número de equipos para el sorteo (incluido fantasma si hay): ${teams.length}`); // <-- AÑADIR
+
     teams.forEach(team => {
         if (team.id !== 'ghost') team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
     });
@@ -2444,11 +2445,9 @@ async function generateFlexibleLeagueSchedule(tournament) {
     tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
     tournament.structure.calendario['Liga'] = [];
 
-    // --- INICIO DEL ALGORITMO DE CALENDARIO CORRECTO Y DEFINITIVO ---
     const numTeams = teams.length;
     const totalRoundsToGenerate = tournament.config.totalRounds;
     
-    // Creamos una copia para no modificar el array original mientras trabajamos
     let rotatingTeams = [...teams];
 
     for (let round = 0; round < totalRoundsToGenerate; round++) {
@@ -2456,8 +2455,7 @@ async function generateFlexibleLeagueSchedule(tournament) {
             const teamA = rotatingTeams[i];
             const teamB = rotatingTeams[numTeams - 1 - i];
             
-            if (teamA && teamB) {
-                // Alternamos localía para que sea más justo
+            if (teamA && teamB && teamA.id !== teamB.id) {
                 const homeTeam = round % 2 === 0 ? teamA : teamB;
                 const awayTeam = round % 2 === 0 ? teamB : teamA;
                 const matchData = createMatchObject('Liga', round + 1, homeTeam, awayTeam);
@@ -2465,15 +2463,14 @@ async function generateFlexibleLeagueSchedule(tournament) {
             }
         }
         
-        // Rotamos el array para la siguiente jornada, manteniendo el primer equipo fijo
         const firstTeam = rotatingTeams.shift();
         const lastTeam = rotatingTeams.pop();
         rotatingTeams.unshift(lastTeam);
         rotatingTeams.unshift(firstTeam);
     }
-    // --- FIN DEL ALGORITMO DE CALENDARIO CORRECTO ---
+    
+    console.log(`[DEBUG LIGA] 3. Total de partidos generados en el calendario: ${tournament.structure.calendario['Liga'].length}`); // <-- AÑADIR
 
-    // 3. Gestionamos los partidos fantasma
     for (const match of tournament.structure.calendario['Liga']) {
         if (match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost') {
             match.status = 'finalizado';
@@ -2490,4 +2487,5 @@ async function generateFlexibleLeagueSchedule(tournament) {
         }
     }
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
+    console.log(`[DEBUG LIGA] 4. Paso final: Calendario guardado en la base de datos.`); // <-- AÑADIR
 }
