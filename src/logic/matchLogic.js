@@ -375,17 +375,23 @@ async function handleFinalResult(client, guild, tournament) {
 }
 
 function crearPartidosEliminatoria(equipos, ronda) {
+    // La lista 'equipos' ya viene ordenada de mejor a peor clasificado.
+    // NO la barajamos.
     let partidos = [];
-    for (let i = equipos.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [equipos[i], equipos[j]] = [equipos[j], equipos[i]];
-    }
+    const numEquipos = equipos.length;
 
-    for(let i = 0; i < equipos.length; i += 2) {
-        if (!equipos[i] || !equipos[i+1]) continue;
-        const partido = createMatchObject(null, ronda, equipos[i], equipos[i+1]);
-        partidos.push(partido);
+    // Recorremos solo la mitad de la lista para crear los emparejamientos
+    for (let i = 0; i < numEquipos / 2; i++) {
+        const equipoA = equipos[i]; // El mejor de los que quedan (1º, 2º, 3º...)
+        const equipoB = equipos[numEquipos - 1 - i]; // El peor de los que quedan (Último, penúltimo...)
+
+        if (equipoA && equipoB) {
+            const partido = createMatchObject(null, ronda, equipoA, equipoB);
+            partidos.push(partido);
+        }
     }
+    
+    // Devolvemos la lista de partidos ya creada con los cruces correctos
     return partidos;
 }
 
