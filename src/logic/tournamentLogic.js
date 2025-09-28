@@ -1084,28 +1084,20 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             return { success: false, message: "Fallo al crear los canales base del torneo." };
         }
 
+        // --- INICIO DE LA LÓGICA CORREGIDA ---
         const newTournament = {
             _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta',
-            config: { 
-                formatId: config.formatId, 
-                format, 
-                isPaid: config.isPaid, 
-                matchType: config.matchType || 'ida', 
-                entryFee: config.isPaid ? config.entryFee : 0, 
-                prizeCampeon: config.isPaid ? config.prizeCampeon : 0, 
-                prizeFinalista: config.isPaid ? config.prizeFinalista : 0, 
-                // --- INICIO DE LA MODIFICACIÓN ---
-                // Guardamos los nuevos campos que vienen desde el modalHandler
-                paypalEmail: config.isPaid ? config.paypalEmail : null,
-                bizumNumber: config.isPaid ? config.bizumNumber : null,
-                // --- FIN DE LA MODIFICACIÓN ---
-                startTime: config.startTime || null 
+            config: {
+                ...config, // Copia TODA la configuración que llega (incl. qualifiers y totalRounds)
+                format: format, // Añade el objeto de formato completo
+                matchType: config.matchType || 'ida',
             },
             teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
             discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null, casterThreadId: null }
         };
+        // --- FIN DE LA LÓGICA CORREGIDA ---
 
         const globalStatusChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS);
         const statusMsg = await globalStatusChannel.send(createTournamentStatusEmbed(newTournament));
