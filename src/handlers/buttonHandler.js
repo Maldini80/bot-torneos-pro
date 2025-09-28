@@ -1447,10 +1447,29 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'admin_create_tournament_start') {
-        const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, value: key })));
-        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
-        return;
+    // --- INICIO DE LA LÓGICA CORREGIDA ---
+    // Filtramos la lista para mostrar solo los formatos de grupos (con tamaño fijo > 0)
+    const groupFormats = Object.entries(TOURNAMENT_FORMATS)
+        .filter(([, format]) => format.size > 0)
+        .map(([key, format]) => ({
+            label: format.label,
+            value: key
+        }));
+
+    // Comprobación de seguridad: si no hay formatos, no continuamos.
+    if (groupFormats.length === 0) {
+        return interaction.reply({ content: '❌ No hay formatos de torneo de grupos configurados.', flags: [MessageFlags.Ephemeral] });
     }
+
+    const formatMenu = new StringSelectMenuBuilder()
+        .setCustomId('admin_create_format')
+        .setPlaceholder('Paso 1: Selecciona el formato del torneo')
+        .addOptions(groupFormats); // Usamos la lista ya filtrada
+    
+    await interaction.reply({ content: 'Iniciando creación de torneo de grupos...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
+    // --- FIN DE LA LÓGICA CORREGIDA ---
+    return;
+}
     
     if (action === 'admin_undo_draw') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
