@@ -2430,11 +2430,13 @@ async function generateFlexibleLeagueSchedule(tournament) {
     tournament.status = 'fase_de_grupos';
     let teams = Object.values(tournament.teams.aprobados);
 
+    // 1. Añadimos el equipo fantasma si es necesario
     if (teams.length % 2 !== 0) {
         const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
         teams.push(ghostTeam);
     }
 
+    // 2. Inicializamos las estadísticas
     teams.forEach(team => {
         if (team.id !== 'ghost') team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
     });
@@ -2442,32 +2444,38 @@ async function generateFlexibleLeagueSchedule(tournament) {
     tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
     tournament.structure.calendario['Liga'] = [];
 
-    const allPossibleMatches = [];
-    for (let i = 0; i < teams.length; i++) {
-        for (let j = i + 1; j < teams.length; j++) {
-            allPossibleMatches.push([teams[i], teams[j]]);
+    // --- INICIO DEL NUEVO ALGORITMO DE CALENDARIO (MÉTODO CÍRCULO) ---
+    // Barajamos los equipos una vez al principio para que el calendario sea diferente cada vez
+    teams.sort(() => Math.random() - 0.5);
+
+    const numTeams = teams.length;
+    const totalRoundsToGenerate = tournament.config.totalRounds;
+
+    for (let round = 0; round < totalRoundsToGenerate; round++) {
+        for (let i = 0; i < numTeams / 2; i++) {
+            const teamA = teams[i];
+            const teamB = teams[numTeams - 1 - i];
+            
+            // Asegurarnos de que no es un partido contra sí mismo (solo en caso de error)
+            if (teamA && teamB && teamA.id !== teamB.id) {
+                // Alternamos local/visitante en cada jornada para mayor justicia
+                const homeTeam = round % 2 === 0 ? teamA : teamB;
+                const awayTeam = round % 2 === 0 ? teamB : teamA;
+                
+                const matchData = createMatchObject('Liga', round + 1, homeTeam, awayTeam);
+                tournament.structure.calendario['Liga'].push(matchData);
+            }
         }
+        
+        // Rotamos los equipos para la siguiente jornada (dejando el primero fijo)
+        const firstTeam = teams.shift();
+        const lastTeam = teams.pop();
+        teams.unshift(lastTeam);
+        teams.unshift(firstTeam);
     }
-    allPossibleMatches.sort(() => Math.random() - 0.5);
+    // --- FIN DEL NUEVO ALGORITMO ---
 
-    const matchesByTeam = new Map(teams.map(t => [t.id, 0]));
-    const finalSchedulePairs = [];
-
-    for (const pair of allPossibleMatches) {
-        if (matchesByTeam.get(pair[0].id) < 3 && matchesByTeam.get(pair[1].id) < 3) {
-            finalSchedulePairs.push(pair);
-            matchesByTeam.set(pair[0].id, matchesByTeam.get(pair[0].id) + 1);
-            matchesByTeam.set(pair[1].id, matchesByTeam.get(pair[1].id) + 1);
-        }
-    }
-
-    const matchesPerRound = teams.length / 2;
-    for (let i = 0; i < finalSchedulePairs.length; i++) {
-        const round = Math.floor(i / matchesPerRound) + 1;
-        const matchData = createMatchObject('Liga', round, finalSchedulePairs[i][0], finalSchedulePairs[i][1]);
-        tournament.structure.calendario['Liga'].push(matchData);
-    }
-
+    // 3. Gestionamos los partidos fantasma y creamos los hilos de la Jornada 1
     for (const match of tournament.structure.calendario['Liga']) {
         if (match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost') {
             match.status = 'finalizado';
