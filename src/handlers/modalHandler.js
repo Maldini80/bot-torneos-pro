@@ -669,7 +669,6 @@ export async function handleModal(interaction) {
     }
 
 if (action === 'create_tournament') {
-    // 1. Respondemos INMEDIATAMENTE para evitar el timeout.
     await interaction.reply({ 
         content: '⏳ ¡Recibido! Creando el torneo en segundo plano. Esto puede tardar unos segundos...', 
         flags: [MessageFlags.Ephemeral] 
@@ -683,35 +682,31 @@ if (action === 'create_tournament') {
     config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
 
     if (config.isPaid) {
-    config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
+        config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
+        const [prizeC = '0', prizeF = '0'] = interaction.fields.getTextInputValue('torneo_prizes').split('/');
+        config.prizeCampeon = parseFloat(prizeC.trim());
+        config.prizeFinalista = parseFloat(prizeF.trim());
+        const paymentMethods = interaction.fields.getTextInputValue('torneo_payment_methods') || '/';
+        const [paypal = null, bizum = null] = paymentMethods.split('/');
+        config.paypalEmail = paypal ? paypal.trim() : null;
+        config.bizumNumber = bizum ? bizum.trim() : null;
+    }
     
-    // Lógica para separar los premios
-    const [prizeC = '0', prizeF = '0'] = interaction.fields.getTextInputValue('torneo_prizes').split('/');
-    config.prizeCampeon = parseFloat(prizeC.trim());
-    config.prizeFinalista = parseFloat(prizeF.trim());
-
-    // Lógica para separar los métodos de pago
-    const paymentMethods = interaction.fields.getTextInputValue('torneo_payment_methods') || '/';
-    const [paypal = null, bizum = null] = paymentMethods.split('/');
-    config.paypalEmail = paypal ? paypal.trim() : null;
-    config.bizumNumber = bizum ? bizum.trim() : null;
-}
-    
-    // 2. AHORA, hacemos el trabajo lento sin prisa.
+    // --- INICIO DE LA CORRECCIÓN CLAVE ---
     try {
         const result = await createNewTournament(client, guild, nombre, shortId, config);
 
-        // 3. Cuando termina, editamos nuestra respuesta inicial.
+        // Ahora usamos followUp para enviar un mensaje nuevo en lugar de editar.
         if (result.success) {
-            await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
+            await interaction.followUp({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.`, flags: [MessageFlags.Ephemeral] });
         } else {
-            console.error("Error capturado por el handler al crear el torneo:", result.message);
-            await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo: ${result.message}` });
+            await interaction.followUp({ content: `❌ Ocurrió un error al crear el torneo: ${result.message}`, flags: [MessageFlags.Ephemeral] });
         }
     } catch (error) {
         console.error("Error CRÍTICO durante la creación del torneo:", error);
-        await interaction.editReply({ content: `❌ Ocurrió un error muy grave al crear el torneo. Revisa los logs.` });
+        await interaction.followUp({ content: `❌ Ocurrió un error muy grave al crear el torneo. Revisa los logs.`, flags: [MessageFlags.Ephemeral] });
     }
+    // --- FIN DE LA CORRECCIÓN CLAVE ---
     return;
 }
 
