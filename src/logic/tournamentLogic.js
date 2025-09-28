@@ -1205,27 +1205,27 @@ export async function startGroupStage(client, guild, tournament) {
     await setBotBusy(true);
     try {
         const db = getDb();
-        let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-        if (currentTournament.status !== 'inscripcion_abierta') { return; }
+        let tournamentData = await db.collection('tournaments').findOne({ _id: tournament._id });
+        if (tournamentData.status !== 'inscripcion_abierta') { return; }
 
-        if (currentTournament.config.formatId === 'flexible_league') {
-            await generateFlexibleLeagueSchedule(currentTournament);
+        // Paso 1: Generar el calendario y guardarlo en la base de datos
+        if (tournamentData.config.formatId === 'flexible_league') {
+            await generateFlexibleLeagueSchedule(tournamentData);
         } else {
-            await generateGroupBasedSchedule(currentTournament);
+            await generateGroupBasedSchedule(tournamentData);
         }
         
-        // --- INICIO DEL NUEVO BLOQUE AÑADIDO ---
-        // Una vez generado el calendario, creamos los hilos solo para la Jornada 1
-        const updatedTournament = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+        // --- INICIO DE LA LÓGICA CORREGIDA Y DEFINITIVA ---
+        // Paso 2: Volver a cargar la versión MÁS RECIENTE del torneo desde la DB
+        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournamentData._id });
+        
+        // Paso 3: Ahora sí, crear los hilos de la Jornada 1
         const allMatches = Object.values(updatedTournament.structure.calendario).flat();
-
         for (const match of allMatches) {
-            // Solo creamos hilos para partidos reales de la jornada 1 que no lo tengan ya
             if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
                 const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
                 
-                // Actualizamos la base de datos al instante para cada hilo creado
-                const groupKey = match.nombreGrupo; // 'Grupo A', 'Liga', etc.
+                const groupKey = match.nombreGrupo;
                 const matchIndex = updatedTournament.structure.calendario[groupKey].findIndex(m => m.matchId === match.matchId);
 
                 if (matchIndex > -1) {
@@ -1239,9 +1239,10 @@ export async function startGroupStage(client, guild, tournament) {
                 }
             }
         }
-        // --- FIN DEL NUEVO BLOQUE AÑADIDO ---
+        // --- FIN DE LA LÓGICA CORREGIDA ---
 
-        const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+        // Paso 4: Actualizar todas las interfaces públicas
+        const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournamentData._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
         
