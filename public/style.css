@@ -54,13 +54,15 @@ header {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 40px; /* <-- AUMENTADO para dar más espacio */
-    max-width: 1200px; /* Evita que se estire demasiado en pantallas anchas */
-    margin: 0 auto; /* Centra el contenedor del header */
+    gap: 40px; /* Aumentamos el espacio entre el logo y el texto */
+    max-width: 1400px; /* Un ancho máximo para que no se separe demasiado en pantallas grandes */
+    margin: 0 auto; /* Centra el contenido en la página */
+    padding: 0 20px; /* Añade un poco de espacio en los bordes */
+    box-sizing: border-box;
 }
 .header-logo { height: 110px; width: auto; }
 .header-text { text-align: left; }
-header h1 { font-family: var(--font-bebas); font-size: 3.5em; color: var(--primary-color); margin: 0; text-transform: uppercase; text-shadow: 0 0 10px var(--primary-color), 2px 2px 8px rgba(0,0,0,0.7); }
+header h1 { font-family: var(--font-bebas); font-size: 2.8em; color: var(--primary-color); margin: 0; text-transform: uppercase; text-shadow: 0 0 10px var(--primary-color), 2px 2px 8px rgba(0,0,0,0.7); }
 header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
 
 #last-pick-banner {
