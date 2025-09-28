@@ -1395,10 +1395,9 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     // 4. Anunciamos la incorporación en el chat general
     try {
         const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
-        const embed = new EmbedBuilder()
-            .setColor('#3498db')
-            .setDescription(`🤝 ¡El equipo **${team.nombre}** da la bienvenida a su nuevo co-capitán, <@${coCaptainId}>!`);
-        await chatChannel.send({ embeds: [embed] });
+        // Creamos un mensaje de texto simple en lugar de un embed
+        const announcementMessage = `🤝 ¡El equipo **${team.nombre}** da la bienvenida a su nuevo co-capitán, <@${coCaptainId}>!`;
+        await chatChannel.send({ content: announcementMessage });
     } catch (e) {
         console.error(`No se pudo enviar el anuncio de nuevo co-capitán al chat general:`, e);
     }
