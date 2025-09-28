@@ -66,12 +66,13 @@ header {
 }
 
 .partner-logo-container {
-    width: 150px;       /* Ancho fijo del marco. ¡Puedes ajustar esto! */
-    height: 80px;       /* Alto fijo del marco. ¡Puedes ajustar esto! */
-    flex-shrink: 0;     /* Evita que el marco se encoja si no hay espacio */
-    display: flex;      /* Centra la imagen dentro del marco */
+    width: 150px;
+    height: 80px;
+    flex-shrink: 0;
+    display: flex;
     align-items: center;
     justify-content: center;
+    border: 2px dotted rgba(255, 255, 255, 0.2); /* <-- LÍNEA AÑADIDA */
 }
 
 /* 2. La imagen dentro del marco */
