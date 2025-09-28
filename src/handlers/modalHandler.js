@@ -367,7 +367,7 @@ export async function handleModal(interaction) {
 
         const isPaid = true;
         const shortId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const config = { isPaid, entryFee, prizeCampeon, prizeFinalista, partnerLogoUrl: interaction.fields.getTextInputValue('partner_logo_url') || null };
+        const config = { isPaid, entryFee, prizeCampeon, prizeFinalista };
 
         try {
             await createNewDraft(client, guild, name, shortId, config);
@@ -680,7 +680,6 @@ if (action === 'create_tournament') {
     
     const config = { formatId, isPaid: type === 'pago', matchType: matchType };
     config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
-    config.partnerLogoUrl = interaction.fields.getTextInputValue('partner_logo_url') || null;
 
     if (config.isPaid) {
         config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
