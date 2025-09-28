@@ -383,6 +383,13 @@ export async function handleSelectMenu(interaction) {
                 .setRequired(true)
                 .setValue('0');
 
+            const partnerLogoInput = new TextInputBuilder()
+        .setCustomId('partner_logo_url')
+        .setLabel("URL del Logo del Colaborador (Opcional)")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setPlaceholder('Ej: https://i.imgur.com/logo.png');
+
             modal.addComponents(
                 new ActionRowBuilder().addComponents(entryFeeInput),
                 new ActionRowBuilder().addComponents(prizeCInput),
