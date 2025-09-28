@@ -1208,13 +1208,38 @@ export async function startGroupStage(client, guild, tournament) {
         let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
         if (currentTournament.status !== 'inscripcion_abierta') { return; }
 
-        // --- INICIO DE LA NUEVA LÓGICA ---
         if (currentTournament.config.formatId === 'flexible_league') {
-            await generateFlexibleLeagueSchedule(client, guild, currentTournament);
+            await generateFlexibleLeagueSchedule(currentTournament);
         } else {
-            await generateGroupBasedSchedule(client, guild, currentTournament);
+            await generateGroupBasedSchedule(currentTournament);
         }
-        // --- FIN DE LA NUEVA LÓGICA ---
+        
+        // --- INICIO DEL NUEVO BLOQUE AÑADIDO ---
+        // Una vez generado el calendario, creamos los hilos solo para la Jornada 1
+        const updatedTournament = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+        const allMatches = Object.values(updatedTournament.structure.calendario).flat();
+
+        for (const match of allMatches) {
+            // Solo creamos hilos para partidos reales de la jornada 1 que no lo tengan ya
+            if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
+                const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
+                
+                // Actualizamos la base de datos al instante para cada hilo creado
+                const groupKey = match.nombreGrupo; // 'Grupo A', 'Liga', etc.
+                const matchIndex = updatedTournament.structure.calendario[groupKey].findIndex(m => m.matchId === match.matchId);
+
+                if (matchIndex > -1) {
+                    await db.collection('tournaments').updateOne(
+                        { _id: updatedTournament._id },
+                        { $set: { 
+                            [`structure.calendario.${groupKey}.${matchIndex}.threadId`]: threadId, 
+                            [`structure.calendario.${groupKey}.${matchIndex}.status`]: 'en_curso' 
+                        }}
+                    );
+                }
+            }
+        }
+        // --- FIN DEL NUEVO BLOQUE AÑADIDO ---
 
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
@@ -2360,24 +2385,30 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     await updateTournamentManagementThread(client, finalTournament);
     await notifyTournamentVisualizer(finalTournament);
 }
-async function generateGroupBasedSchedule(client, guild, tournament) {
+async function generateGroupBasedSchedule(tournament) {
     const db = getDb();
     tournament.status = 'fase_de_grupos';
     const format = tournament.config.format;
     let teams = Object.values(tournament.teams.aprobados);
-    for (let i = teams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[teams[i], teams[j]] = [teams[j], teams[i]]; }
-    const grupos = {}; const numGrupos = format.groups; const tamanoGrupo = format.size / numGrupos;
+    teams.sort(() => Math.random() - 0.5);
+
+    const grupos = {};
+    const numGrupos = format.groups;
+    const tamanoGrupo = format.size / numGrupos;
+
     for (let i = 0; i < teams.length; i++) {
-        const grupoIndex = Math.floor(i / tamanoGrupo); const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
+        const grupoIndex = Math.floor(i / tamanoGrupo);
+        const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
         if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
         teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
         grupos[nombreGrupo].equipos.push(teams[i]);
     }
     tournament.structure.grupos = grupos;
+
     const calendario = {};
     for (const nombreGrupo in grupos) {
-        const equiposGrupo = grupos[nombreGrupo].equipos; 
         calendario[nombreGrupo] = [];
+        const equiposGrupo = grupos[nombreGrupo].equipos;
         if (equiposGrupo.length === 4) {
             const [t1, t2, t3, t4] = equiposGrupo;
             calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t4), createMatchObject(nombreGrupo, 1, t2, t3));
@@ -2391,16 +2422,10 @@ async function generateGroupBasedSchedule(client, guild, tournament) {
         }
     }
     tournament.structure.calendario = calendario;
-    for (const nombreGrupo in calendario) {
-        for (const partido of calendario[nombreGrupo].filter(p => p.jornada === 1)) {
-            const threadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
-            partido.threadId = threadId; partido.status = 'en_curso';
-        }
-    }
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
 }
 
-async function generateFlexibleLeagueSchedule(client, guild, tournament) {
+async function generateFlexibleLeagueSchedule(tournament) {
     const db = getDb();
     tournament.status = 'fase_de_grupos';
     let teams = Object.values(tournament.teams.aprobados);
@@ -2411,63 +2436,40 @@ async function generateFlexibleLeagueSchedule(client, guild, tournament) {
     }
 
     teams.forEach(team => {
-        if (team.id !== 'ghost') {
-            team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
-        }
+        if (team.id !== 'ghost') team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
     });
 
-    const singleGroup = { equipos: teams.filter(t => t.id !== 'ghost') };
-    tournament.structure.grupos['Liga'] = singleGroup;
-    
-    let allMatches = [];
-    const usedPairings = new Set(); // El "libro de contabilidad" de partidos jugados
+    tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
+    tournament.structure.calendario['Liga'] = [];
 
-    for (let round = 1; round <= tournament.config.totalRounds; round++) {
-        // Barajamos los equipos para añadir aleatoriedad
-        let teamsToPair = [...teams].sort(() => Math.random() - 0.5);
-        let pairedTeamsInRound = new Set();
-
-        for (const teamA of teamsToPair) {
-            if (pairedTeamsInRound.has(teamA.id)) continue;
-
-            // Buscamos un oponente para teamA
-            let opponentFound = false;
-            for (const teamB of teamsToPair) {
-                if (teamA.id === teamB.id || pairedTeamsInRound.has(teamB.id)) continue;
-
-                const pairing1 = `${teamA.id}-${teamB.id}`;
-                const pairing2 = `${teamB.id}-${teamA.id}`;
-
-                // Si este partido NO se ha jugado antes, lo creamos
-                if (!usedPairings.has(pairing1) && !usedPairings.has(pairing2)) {
-                    allMatches.push(createMatchObject('Liga', round, teamA, teamB));
-                    usedPairings.add(pairing1); // Lo apuntamos en nuestro libro
-                    pairedTeamsInRound.add(teamA.id);
-                    pairedTeamsInRound.add(teamB.id);
-                    opponentFound = true;
-                    break; // Pasamos al siguiente equipo sin emparejar
-                }
-            }
-            
-            // PLAN B (Fallback): Si es imposible encontrar un rival nuevo, repetimos uno
-            if (!opponentFound) {
-                for (const teamB of teamsToPair) {
-                    if (teamA.id !== teamB.id && !pairedTeamsInRound.has(teamB.id)) {
-                         allMatches.push(createMatchObject('Liga', round, teamA, teamB));
-                         pairedTeamsInRound.add(teamA.id);
-                         pairedTeamsInRound.add(teamB.id);
-                         break;
-                    }
-                }
-            }
+    const allPossibleMatches = [];
+    for (let i = 0; i < teams.length; i++) {
+        for (let j = i + 1; j < teams.length; j++) {
+            allPossibleMatches.push([teams[i], teams[j]]);
         }
     }
-    
-    tournament.structure.calendario['Liga'] = allMatches;
+    allPossibleMatches.sort(() => Math.random() - 0.5);
 
-    for (const match of allMatches) {
-        const isGhostMatch = match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost';
-        if (isGhostMatch) {
+    const matchesByTeam = new Map(teams.map(t => [t.id, 0]));
+    const finalSchedulePairs = [];
+
+    for (const pair of allPossibleMatches) {
+        if (matchesByTeam.get(pair[0].id) < 3 && matchesByTeam.get(pair[1].id) < 3) {
+            finalSchedulePairs.push(pair);
+            matchesByTeam.set(pair[0].id, matchesByTeam.get(pair[0].id) + 1);
+            matchesByTeam.set(pair[1].id, matchesByTeam.get(pair[1].id) + 1);
+        }
+    }
+
+    const matchesPerRound = teams.length / 2;
+    for (let i = 0; i < finalSchedulePairs.length; i++) {
+        const round = Math.floor(i / matchesPerRound) + 1;
+        const matchData = createMatchObject('Liga', round, finalSchedulePairs[i][0], finalSchedulePairs[i][1]);
+        tournament.structure.calendario['Liga'].push(matchData);
+    }
+
+    for (const match of tournament.structure.calendario['Liga']) {
+        if (match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost') {
             match.status = 'finalizado';
             const realTeamIsA = match.equipoA.id !== 'ghost';
             match.resultado = realTeamIsA ? '1-0' : '0-1';
@@ -2479,12 +2481,7 @@ async function generateFlexibleLeagueSchedule(client, guild, tournament) {
                 groupTeam.stats.gf += 1;
                 groupTeam.stats.dg += 1;
             }
-        } else if (match.jornada === 1) {
-            const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
-            match.threadId = threadId;
-            match.status = 'en_curso';
         }
     }
-
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
 }
