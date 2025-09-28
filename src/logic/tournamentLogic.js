@@ -1343,16 +1343,14 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     );
 
-    // 2. Damos permisos en los canales PRINCIPALES y de EQUIPO
+    // 2. Damos permisos en los canales
     if (/^\d+$/.test(coCaptainId)) {
         try {
-            // Canales generales del torneo
             const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
             await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
             const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
             await matchesChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: false });
 
-            // Canales privados del equipo (si es un torneo de draft)
             if (team.players && team.players.length > 0) {
                 const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
                 const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
@@ -1367,7 +1365,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     }
 
-    // 3. Sincronizamos con los hilos de partido YA CREADOS
+    // 3. Sincronizamos con los hilos de partido
     const allMatches = [
         ...Object.values(tournament.structure.calendario).flat(),
         ...Object.values(tournament.structure.eliminatorias).flat()
@@ -1393,7 +1391,20 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     }
 
-    // 4. Actualizamos los mensajes públicos y visualizador
+    // --- INICIO DEL BLOQUE AÑADIDO ---
+    // 4. Anunciamos la incorporación en el chat general
+    try {
+        const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setDescription(`🤝 ¡El equipo **${team.nombre}** da la bienvenida a su nuevo co-capitán, <@${coCaptainId}>!`);
+        await chatChannel.send({ embeds: [embed] });
+    } catch (e) {
+        console.error(`No se pudo enviar el anuncio de nuevo co-capitán al chat general:`, e);
+    }
+    // --- FIN DEL BLOQUE AÑADIDO ---
+
+    // 5. Actualizamos los mensajes públicos y visualizador
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await notifyTournamentVisualizer(updatedTournament);
