@@ -216,24 +216,24 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'confirm_team_registration') {
-        const [tournamentShortId, teamId] = params;
-        
-        // CORRECCIÓN: Pasamos 'register_team_from_db' como una palabra clave
-        // y el teamId como un parámetro separado para evitar errores de 'split'.
-        const originalAction = 'reg_team_db';
+    const [tournamentShortId, teamId] = params;
+    
+    // Usamos una palabra clave abreviada para no superar los 100 caracteres.
+    const originalAction = 'reg_team_db'; 
 
-        const platformButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`sel_stream:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`sel_stream:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-        );
+    const platformButtons = new ActionRowBuilder().addComponents(
+        // Y aquí también usamos una etiqueta abreviada 'sel_stream'.
+        new ButtonBuilder().setCustomId(`sel_stream:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`sel_stream:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+    );
 
-        await interaction.update({
-            content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
-            embeds: [],
-            components: [platformButtons]
-        });
-        return;
-    }
+    await interaction.update({
+        content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
+        embeds: [],
+        components: [platformButtons]
+    });
+    return;
+}
 	if (originalAction === 'reg_team_db') {
         const [platform, originalAction, entityId, position] = params;
         
