@@ -455,20 +455,21 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_register_captain_pos_select') {
-        const [draftShortId, channelId] = params;
-        const position = interaction.values[0];
+    const [draftShortId, channelId] = params;
+    const position = interaction.values[0];
 
-        const platformButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:register_draft_captain:${draftShortId}:${position}:${channelId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:register_draft_captain:${draftShortId}:${position}:${channelId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-        );
+    const platformButtons = new ActionRowBuilder().addComponents(
+        // Usamos la misma etiqueta abreviada 'sel_stream' para consistencia.
+        new ButtonBuilder().setCustomId(`sel_stream:twitch:register_draft_captain:${draftShortId}:${position}:${channelId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`sel_stream:youtube:register_draft_captain:${draftShortId}:${position}:${channelId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+    );
 
-        await interaction.update({
-            content: `Has seleccionado **${DRAFT_POSITIONS[position]}**. Ahora, selecciona tu plataforma de transmisión.`,
-            components: [platformButtons]
-        });
-        return;
-    }
+    await interaction.update({
+        content: `Has seleccionado **${DRAFT_POSITIONS[position]}**. Ahora, selecciona tu plataforma de transmisión.`,
+        components: [platformButtons]
+    });
+    return;
+}
 
 if (action === 'draft_register_player_pos_select_primary') {
     const [draftShortId, channelId] = params;
