@@ -220,11 +220,11 @@ export async function handleButton(interaction) {
         
         // CORRECCIÓN: Pasamos 'register_team_from_db' como una palabra clave
         // y el teamId como un parámetro separado para evitar errores de 'split'.
-        const originalAction = 'register_team_from_db'; 
+        const originalAction = 'reg_team_db';
 
         const platformButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder().setCustomId(`sel_stream:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`sel_stream:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
         );
 
         await interaction.update({
@@ -234,7 +234,7 @@ export async function handleButton(interaction) {
         });
         return;
     }
-	if (action === 'select_stream_platform') {
+	if (originalAction === 'reg_team_db') {
         const [platform, originalAction, entityId, position] = params;
         
         // Esta función crea el embed de advertencia que debería aparecer después
