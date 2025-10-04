@@ -222,10 +222,9 @@ export async function handleButton(interaction) {
     const originalAction = 'reg_team_db'; 
 
     const platformButtons = new ActionRowBuilder().addComponents(
-        // Y aquí también usamos una etiqueta abreviada 'sel_stream'.
-        new ButtonBuilder().setCustomId(`sel_stream:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(`sel_stream:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-    );
+    new ButtonBuilder().setCustomId(`sel_stream:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary), // Abreviado
+    new ButtonBuilder().setCustomId(`sel_stream:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary) // Abreviado
+);
 
     await interaction.update({
         content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
