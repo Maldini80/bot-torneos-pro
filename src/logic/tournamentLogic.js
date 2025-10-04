@@ -1024,6 +1024,7 @@ export async function advanceDraftTurn(client, draftShortId) {
          await updateDraftMainInterface(client, finalDraftState.shortId);
          await updatePublicMessages(client, finalDraftState);
          await updateCaptainControlPanel(client, finalDraftState);
+         await notifyVisualizer(finalDraftState);
          return;
     }
 
