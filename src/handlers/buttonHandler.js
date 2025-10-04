@@ -216,24 +216,25 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'confirm_team_registration') {
-    const [tournamentShortId, teamId] = params;
-    
-    // Usamos una palabra clave abreviada para no superar los 100 caracteres.
-    const originalAction = 'reg_team_db'; 
+        const [tournamentShortId, teamId] = params;
+        
+        // CORRECCIÓN: Pasamos 'register_team_from_db' como una palabra clave
+        // y el teamId como un parámetro separado para evitar errores de 'split'.
+        const originalAction = 'register_team_from_db'; 
 
-    const platformButtons = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`sel_stream:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary), // Abreviado
-    new ButtonBuilder().setCustomId(`sel_stream:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary) // Abreviado
-);
+        const platformButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+        );
 
-    await interaction.update({
-        content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
-        embeds: [],
-        components: [platformButtons]
-    });
-    return;
-}
-	if (originalAction === 'reg_team_db') {
+        await interaction.update({
+            content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
+            embeds: [],
+            components: [platformButtons]
+        });
+        return;
+    }
+	if (action === 'select_stream_platform') {
         const [platform, originalAction, entityId, position] = params;
         
         // Esta función crea el embed de advertencia que debería aparecer después
