@@ -2282,11 +2282,23 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
     const draft = await db.collection('drafts').findOne({ shortId: tournament.shortId.replace('draft-', '') });
     const captainData = draft.captains.find(c => c.userId === teamId);
     
-    const teamObject = {
-        id: captainData.userId, nombre: captainData.teamName, capitanId: captainData.userId,
-        logoUrl: captainData.logoUrl, eafcTeamName: captainData.eafcTeamName,
-        stats: { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 }
-    };
+    const teamPlayers = draft.players.filter(p => p.captainId === teamId);
+
+const teamObject = {
+    id: captainData.userId,
+    nombre: captainData.teamName,
+    eafcTeamName: captainData.eafcTeamName,
+    capitanId: captainData.userId,
+    capitanTag: captainData.userName,   // Copia el tag de Discord
+    coCaptainId: null,
+    coCaptainTag: null,
+    logoUrl: captainData.logoUrl,
+    twitter: captainData.twitter,       // Copia el Twitter
+    streamChannel: captainData.streamChannel, // Copia el canal de stream
+    inscritoEn: new Date(),
+    players: teamPlayers,               // Copia la PLANTILLA COMPLETA
+    stats: { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 }
+};
 
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
