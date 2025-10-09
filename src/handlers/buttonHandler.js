@@ -2470,4 +2470,55 @@ if (action === 'admin_return_to_main_panel') {
     await interaction.editReply(panelContent);
     return;
 }
+	// Muestra la lista de partidos para reabrir o modificar
+if (action === 'admin_reopen_match_start' || action === 'admin_modify_final_result_start') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+    const allMatches = [
+        ...Object.values(tournament.structure.calendario || {}).flat(),
+        ...Object.values(tournament.structure.eliminatorias || {}).flat()
+    ];
+    
+    const completedMatches = allMatches.filter(match => match && match.status === 'finalizado' && match.id !== 'ghost');
+
+    if (completedMatches.length === 0) {
+        return interaction.editReply({ content: 'No hay partidos finalizados para gestionar en este torneo.' });
+    }
+    
+    // Creamos las opciones para el menú desplegable
+    const matchOptions = completedMatches.map(match => {
+        const stage = match.nombreGrupo ? `${match.nombreGrupo} - J${match.jornada}` : match.jornada;
+        return {
+            label: `${stage}: ${match.equipoA.nombre} vs ${match.equipoB.nombre}`,
+            description: `Resultado actual: ${match.resultado}`,
+            value: match.matchId,
+        };
+    }).slice(0, 25); // Discord solo permite 25 opciones por menú
+
+    // Definimos un ID diferente para cada acción
+    const selectMenuId = action === 'admin_reopen_match_start' 
+        ? `admin_reopen_match_select:${tournamentShortId}` 
+        : `admin_modify_final_result_select:${tournamentShortId}`;
+
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId(selectMenuId)
+        .setPlaceholder('Selecciona el partido que quieres gestionar...')
+        .addOptions(matchOptions);
+
+    let content = action === 'admin_reopen_match_start'
+        ? 'Selecciona el partido que deseas reabrir. Esto revertirá sus estadísticas y creará un nuevo hilo.'
+        : 'Selecciona el partido cuyo resultado final deseas modificar directamente.';
+    
+    if (completedMatches.length > 25) {
+        content += '\n\n⚠️ **Atención:** Solo se muestran los primeros 25 partidos finalizados.';
+    }
+
+    await interaction.editReply({
+        content: content,
+        components: [new ActionRowBuilder().addComponents(selectMenu)],
+    });
+    return;
+}
 }
