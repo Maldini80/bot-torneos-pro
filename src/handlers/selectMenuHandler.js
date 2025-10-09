@@ -9,6 +9,7 @@ import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelec
 import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection, checkVerification } from '../logic/verificationLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
+import { processMatchResult, findMatch, finalizeMatchThread, revertStats } from '../logic/matchLogic.js';
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
@@ -1400,4 +1401,61 @@ if (action === 'admin_select_registered_team_to_add') {
         });
         return;
     }
+    // Bloque 1: Lógica para Reabrir Partido
+if (action === 'admin_reopen_match_select') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const matchId = interaction.values[0];
+
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const { partido } = findMatch(tournament, matchId);
+
+    if (!partido) {
+        return interaction.editReply({ content: '❌ Error: El partido seleccionado ya no existe.' });
+    }
+
+    await revertStats(tournament, partido);
+
+    partido.resultado = null;
+    partido.status = 'pendiente';
+    partido.reportedScores = {};
+    
+    const newThreadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+    partido.threadId = newThreadId;
+    partido.status = 'en_curso';
+
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
+    
+    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    await updatePublicMessages(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
+
+    await interaction.editReply({ content: `✅ ¡Partido reabierto! Se ha creado un nuevo hilo para el encuentro: <#${newThreadId}>` });
+    return;
+}
+
+// Bloque 2: Lógica para mostrar el formulario de Modificar Resultado
+if (action === 'admin_modify_final_result_select') {
+    const [tournamentShortId] = params;
+    const matchId = interaction.values[0];
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const { partido } = findMatch(tournament, matchId);
+
+    if (!partido) {
+        return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    const [golesA_actual = '', golesB_actual = ''] = partido.resultado ? partido.resultado.split('-') : [];
+
+    const modal = new ModalBuilder()
+        .setCustomId(`admin_modify_final_result_modal:${tournamentShortId}:${matchId}`)
+        .setTitle('Modificar Resultado Final');
+
+    const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setValue(golesA_actual).setRequired(true);
+    const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setValue(golesB_actual).setRequired(true);
+    
+    modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
+    await interaction.showModal(modal);
+    return;
+}
 }
