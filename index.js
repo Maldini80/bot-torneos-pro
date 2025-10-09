@@ -9,7 +9,8 @@ import { handleButton } from './src/handlers/buttonHandler.js';
 import { handleModal } from './src/handlers/modalHandler.js';
 import { handleSelectMenu } from './src/handlers/selectMenuHandler.js';
 import { handleMessageTranslation } from './src/logic/translationLogic.js';
-import { updateAdminPanel, updateAllManagementPanels, updateAllDraftManagementPanels } from './src/utils/panelManager.js';
+import { updateAdminPanel, updateAllManagementPanels, updateAllDraftManagementPanels } from './src/utils/panelManager.js'
+import { checkOverdueMatches } from './src/logic/matchLogic.js';
 import { CHANNELS } from './config.js';
 
 process.on('uncaughtException', (error, origin) => {
@@ -151,6 +152,9 @@ async function startBot() {
     await connectDb();
     await startVisualizerServer(client, advanceDraftTurn, handlePlayerSelectionFromWeb);
     client.login(process.env.DISCORD_TOKEN);
+    setInterval(() => {
+    checkOverdueMatches(client);
+}, 60000);
 }
 
 startBot();
