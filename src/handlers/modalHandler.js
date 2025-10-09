@@ -1359,6 +1359,14 @@ if (action === 'admin_modify_final_result_modal') {
 
     // processMatchResult es lo suficientemente inteligente como para revertir el resultado anterior antes de aplicar el nuevo.
     await processMatchResult(client, guild, tournament, matchId, newResultString);
+    // --- INICIO DEL BLOQUE DE REFUERZO ---
+// Volvemos a leer el estado final del torneo desde la DB para asegurar que tenemos los datos más frescos.
+const finalTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+// Y ahora, forzamos la notificación al visualizador.
+if (finalTournamentState) {
+    await notifyTournamentVisualizer(finalTournamentState);
+}
+// --- FIN DEL BLOQUE DE REFUERZO ---
 
     await interaction.editReply({ content: `✅ ¡Resultado modificado con éxito a **${newResultString}**! La clasificación y las rondas han sido actualizadas.` });
     return;
