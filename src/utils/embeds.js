@@ -128,7 +128,13 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         .setLabel('Añadir Equipo Registrado')
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('➕')
-        .setDisabled(isBusy)
+        .setDisabled(isBusy),
+        new ButtonBuilder()
+            .setCustomId(`admin_manage_results_start:${tournament.shortId}`)
+            .setLabel('Gestionar Resultados')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🗂️')
+            .setDisabled(isBusy)
 );
     const row3 = new ActionRowBuilder();
 
