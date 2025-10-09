@@ -1,8 +1,8 @@
-// src/logic/matchLogic.js
+// --- INICIO DEL ARCHIVO matchLogic.js (VERSIÓN FINAL Y CORREGIDA) ---
+
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
 import { updatePublicMessages, endTournament, notifyTournamentVisualizer } from './tournamentLogic.js';
-
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
@@ -33,6 +33,7 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     const { partido, fase } = findMatch(currentTournament, matchId);
     if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
 
+    // Si ya había un resultado, primero lo revertimos.
     if (partido.resultado) {
         await revertStats(currentTournament, partido);
     }
@@ -66,7 +67,6 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     return partido;
 }
 
-
 export async function simulateAllPendingMatches(client, tournamentShortId) {
     const db = getDb();
     let initialTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -74,7 +74,6 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
 
     const guild = await client.guilds.fetch(initialTournament.guildId);
     
-    // Creamos una lista estática de partidos a simular al principio
     let allMatchesToSimulate = [];
     if (initialTournament.structure.calendario) {
         allMatchesToSimulate.push(...Object.values(initialTournament.structure.calendario).flat());
@@ -96,10 +95,7 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
 
     let simulatedCount = 0;
     for (const match of pendingMatches) {
-        // ¡COMPROBACIÓN DE SEGURIDAD!
-        // Antes de procesar cada partido, volvemos a leer el estado actual del torneo.
         let currentTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        // Si el torneo ha sido finalizado (por un partido anterior en este mismo bucle), nos detenemos.
         if (!currentTournamentState || currentTournamentState.status === 'finalizado') {
             console.log(`[SIMULATION] Simulación detenida porque el torneo ${tournamentShortId} ha finalizado.`);
             break;
@@ -115,6 +111,7 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
     
     return { message: `Se han simulado con éxito ${simulatedCount} partidos.`};
 }
+
 export function findMatch(tournament, matchId) {
     for (const groupName in tournament.structure.calendario) {
         const match = tournament.structure.calendario[groupName].find(p => p.matchId === matchId);
@@ -137,7 +134,6 @@ export function findMatch(tournament, matchId) {
 async function updateGroupStageStats(tournament, partido) {
     const [golesA, golesB] = partido.resultado.split('-').map(Number);
     
-    // ¡CORRECCIÓN CLAVE! Buscamos los equipos en la referencia correcta del objeto del torneo.
     const equipoA = tournament.structure.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
     const equipoB = tournament.structure.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
 
@@ -164,30 +160,21 @@ async function updateGroupStageStats(tournament, partido) {
         equipoB.stats.pts += 1;
     }
 }
-// --- REEMPLAZA LA FUNCIÓN checkForGroupStageAdvancement ENTERA CON ESTA VERSIÓN ---
 
 async function checkForGroupStageAdvancement(client, guild, tournament) {
-    // Obtenemos todos los partidos de la fase de grupos/liga
     const allGroupMatches = Object.values(tournament.structure.calendario).flat();
     
-    // Si no hay partidos o el torneo ya no está en fase de grupos, no hacemos nada
     if (allGroupMatches.length === 0 || tournament.status !== 'fase_de_grupos') return;
 
-    // Comprobamos si TODOS los partidos han finalizado
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
     
     if (allFinished) {
         console.log(`[ADVANCEMENT] Fase de liguilla/grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
         
         postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
-
-        // Llamamos a la función que iniciará la siguiente fase
         await startNextKnockoutRound(client, guild, tournament);
 
-        // Volvemos a cargar el estado final del torneo por si ha cambiado
         const finalTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
-        
-        // Actualizamos todos los mensajes y visualizadores
         await updatePublicMessages(client, finalTournamentState);
         await updateTournamentManagementThread(client, finalTournamentState);
         await notifyTournamentVisualizer(finalTournamentState);
@@ -226,11 +213,9 @@ async function startNextKnockoutRound(client, guild, tournament) {
     let siguienteRondaKey;
 
     if (rondaActual) {
-        // Si ya estamos en eliminatorias, buscamos la siguiente en la lista
         const indiceRondaActual = format.knockoutStages.indexOf(rondaActual);
         siguienteRondaKey = format.knockoutStages[indiceRondaActual + 1];
     } else {
-        // Si venimos de la fase de liga/grupos, determinamos la PRIMERA ronda de eliminatorias
         if (currentTournament.config.formatId === 'flexible_league') {
             const numQualifiers = currentTournament.config.qualifiers;
             if (numQualifiers === 2) siguienteRondaKey = 'final';
@@ -239,10 +224,9 @@ async function startNextKnockoutRound(client, guild, tournament) {
             else if (numQualifiers === 16) siguienteRondaKey = 'octavos';
             else {
                 console.error(`[ERROR] Número de clasificados no válido (${numQualifiers}) para el torneo ${currentTournament.shortId}`);
-                return; // Detenemos la ejecución si el número es incorrecto
+                return;
             }
         } else {
-            // Para torneos de grupos, la primera ronda es SIEMPRE la primera de su lista knockoutStages
             siguienteRondaKey = format.knockoutStages[0];
         }
     }
@@ -340,6 +324,7 @@ async function startNextKnockoutRound(client, guild, tournament) {
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
 }
+
 async function handleFinalResult(client, guild, tournament) {
     const final = tournament.structure.eliminatorias.final;
     const [golesA, golesB] = final.resultado.split('-').map(Number);
@@ -382,15 +367,12 @@ async function handleFinalResult(client, guild, tournament) {
 }
 
 function crearPartidosEliminatoria(equipos, ronda) {
-    // La lista 'equipos' ya viene ordenada de mejor a peor clasificado.
-    // NO la barajamos.
     let partidos = [];
     const numEquipos = equipos.length;
 
-    // Recorremos solo la mitad de la lista para crear los emparejamientos
     for (let i = 0; i < numEquipos / 2; i++) {
-        const equipoA = equipos[i]; // El mejor de los que quedan (1º, 2º, 3º...)
-        const equipoB = equipos[numEquipos - 1 - i]; // El peor de los que quedan (Último, penúltimo...)
+        const equipoA = equipos[i];
+        const equipoB = equipos[numEquipos - 1 - i];
 
         if (equipoA && equipoB) {
             const partido = createMatchObject(null, ronda, equipoA, equipoB);
@@ -398,7 +380,6 @@ function crearPartidosEliminatoria(equipos, ronda) {
         }
     }
     
-    // Devolvemos la lista de partidos ya creada con los cruces correctos
     return partidos;
 }
 
@@ -457,7 +438,7 @@ function sortTeams(a, b, tournament, groupName) {
     return Math.random() - 0.5;
 }
 
-async function revertStats(tournament, partido) {
+export async function revertStats(tournament, partido) {
     if (!partido.nombreGrupo || !partido.resultado) return;
     
     const [oldGolesA, oldGolesB] = partido.resultado.split('-').map(Number);
@@ -482,21 +463,16 @@ async function revertStats(tournament, partido) {
         equipoB.stats.pts -= 1;
     }
 }
-/**
- * Revisa todos los torneos activos en busca de partidos pendientes de un segundo
- * reporte que hayan superado el tiempo límite.
- * @param {import('discord.js').Client} client El cliente de Discord.
- */
+
 export async function checkOverdueMatches(client) {
     const db = getDb();
     const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
 
-    // 1. Buscamos solo torneos que estén en juego.
     const activeTournaments = await db.collection('tournaments').find({
         status: { $nin: ['finalizado', 'inscripcion_abierta', 'cancelado'] }
     }).toArray();
 
-    if (activeTournaments.length === 0) return; // Si no hay torneos activos, no hacemos nada.
+    if (activeTournaments.length === 0) return;
 
     for (const tournament of activeTournaments) {
         const allMatches = [
@@ -508,14 +484,10 @@ export async function checkOverdueMatches(client) {
         if (!guild) continue;
 
         for (const match of allMatches) {
-            if (!match || !match.reportedScores) continue;
+            if (!match || !match.reportedScores || typeof match.reportedScores !== 'object') continue;
 
             const reportKeys = Object.keys(match.reportedScores);
 
-            // 2. Buscamos partidos que cumplan las 3 condiciones:
-            //    - Tienen exactamente 1 reporte.
-            //    - Su estado aún no es 'finalizado'.
-            //    - La hora de ese único reporte es de hace más de 3 minutos.
             if (reportKeys.length === 1 && match.status !== 'finalizado' && match.reportedScores[reportKeys[0]].reportedAt < threeMinutesAgo) {
                 
                 console.log(`[VIGILANTE] Partido atascado detectado: ${match.matchId} en el torneo ${tournament.shortId}. Validando automáticamente.`);
@@ -523,10 +495,8 @@ export async function checkOverdueMatches(client) {
                 const resultString = match.reportedScores[reportKeys[0]].score;
 
                 try {
-                    // 3. Usamos las funciones que ya existen para procesar el resultado.
                     const processedMatch = await processMatchResult(client, guild, tournament, match.matchId, resultString);
 
-                    // 4. Notificamos en el hilo y lo cerramos.
                     const thread = await client.channels.fetch(processedMatch.threadId).catch(() => null);
                     if (thread) {
                         await thread.send(`⚠️ **Este partido ha sido validado automáticamente** debido a que uno de los rivales no ha reportado el resultado en el tiempo establecido.`);
@@ -540,3 +510,5 @@ export async function checkOverdueMatches(client) {
         }
     }
 }
+
+// --- FIN DEL ARCHIVO ---
