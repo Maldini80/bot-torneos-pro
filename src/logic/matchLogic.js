@@ -482,3 +482,61 @@ async function revertStats(tournament, partido) {
         equipoB.stats.pts -= 1;
     }
 }
+/**
+ * Revisa todos los torneos activos en busca de partidos pendientes de un segundo
+ * reporte que hayan superado el tiempo límite.
+ * @param {import('discord.js').Client} client El cliente de Discord.
+ */
+export async function checkOverdueMatches(client) {
+    const db = getDb();
+    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
+
+    // 1. Buscamos solo torneos que estén en juego.
+    const activeTournaments = await db.collection('tournaments').find({
+        status: { $nin: ['finalizado', 'inscripcion_abierta', 'cancelado'] }
+    }).toArray();
+
+    if (activeTournaments.length === 0) return; // Si no hay torneos activos, no hacemos nada.
+
+    for (const tournament of activeTournaments) {
+        const allMatches = [
+            ...Object.values(tournament.structure.calendario || {}).flat(),
+            ...Object.values(tournament.structure.eliminatorias || {}).flat()
+        ];
+
+        const guild = await client.guilds.fetch(tournament.guildId).catch(() => null);
+        if (!guild) continue;
+
+        for (const match of allMatches) {
+            if (!match || !match.reportedScores) continue;
+
+            const reportKeys = Object.keys(match.reportedScores);
+
+            // 2. Buscamos partidos que cumplan las 3 condiciones:
+            //    - Tienen exactamente 1 reporte.
+            //    - Su estado aún no es 'finalizado'.
+            //    - La hora de ese único reporte es de hace más de 3 minutos.
+            if (reportKeys.length === 1 && match.status !== 'finalizado' && match.reportedScores[reportKeys[0]].reportedAt < threeMinutesAgo) {
+                
+                console.log(`[VIGILANTE] Partido atascado detectado: ${match.matchId} en el torneo ${tournament.shortId}. Validando automáticamente.`);
+
+                const resultString = match.reportedScores[reportKeys[0]].score;
+
+                try {
+                    // 3. Usamos las funciones que ya existen para procesar el resultado.
+                    const processedMatch = await processMatchResult(client, guild, tournament, match.matchId, resultString);
+
+                    // 4. Notificamos en el hilo y lo cerramos.
+                    const thread = await client.channels.fetch(processedMatch.threadId).catch(() => null);
+                    if (thread) {
+                        await thread.send(`⚠️ **Este partido ha sido validado automáticamente** debido a que uno de los rivales no ha reportado el resultado en el tiempo establecido.`);
+                    }
+                    await finalizeMatchThread(client, processedMatch, resultString);
+
+                } catch (error) {
+                    console.error(`[VIGILANTE] Error al procesar automáticamente el partido ${match.matchId}:`, error);
+                }
+            }
+        }
+    }
+}
