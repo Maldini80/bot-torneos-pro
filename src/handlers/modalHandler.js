@@ -953,7 +953,7 @@ if (action === 'create_tournament') {
         return interaction.editReply({ content: 'Error: No pareces ser un capitán o co-capitán de este partido.' });
     }
 
-    partido.reportedScores[reporterId] = reportedResult;
+    partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date() };
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
 
     // FIX 2 (cont.): Comprobamos si el capitán O el co-capitán del otro equipo ya han reportado.
@@ -962,7 +962,7 @@ if (action === 'create_tournament') {
     const opponentReport = opponentCaptainReport || opponentCoCaptainReport;
 
     if (opponentReport) {
-        if (opponentReport === reportedResult) {
+        if (opponentReport && opponentReport.score === reportedResult) {
             // FIX 3: Respondemos INMEDIATAMENTE para evitar el error de "Unknown Message".
             await interaction.editReply({content: '✅ Resultados coinciden. Finalizando el partido...'});
 
@@ -978,7 +978,7 @@ if (action === 'create_tournament') {
             
             const opponentReporterId = opponentCaptainReport ? opponentTeam.capitanId : opponentTeam.coCaptainId;
             
-            await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentReporterId}> ha reportado: \`${opponentReport}\` `});
+            await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentReporterId}> ha reportado: \`${opponentReport.score}\` `});
         }
     } else {
         // FIX 2 (cont.): Construimos el mensaje mencionando a capitán Y co-capitán si existe.
