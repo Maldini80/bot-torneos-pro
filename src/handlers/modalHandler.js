@@ -1345,4 +1345,22 @@ if (action === 'register_draft_player_team_name_modal') {
     }
     return;
 }
+    // Bloque 3: Lógica para procesar el formulario de Modificar Resultado
+if (action === 'admin_modify_final_result_modal') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId, matchId] = params;
+    
+    let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    // ¡Importante! Aquí no llamamos a revertStats porque processMatchResult ya lo hace internamente.
+    
+    const golesA = interaction.fields.getTextInputValue('goles_a');
+    const golesB = interaction.fields.getTextInputValue('goles_b');
+    const newResultString = `${golesA}-${golesB}`;
+
+    // processMatchResult es lo suficientemente inteligente como para revertir el resultado anterior antes de aplicar el nuevo.
+    await processMatchResult(client, guild, tournament, matchId, newResultString);
+
+    await interaction.editReply({ content: `✅ ¡Resultado modificado con éxito a **${newResultString}**! La clasificación y las rondas han sido actualizadas.` });
+    return;
+}
 }
