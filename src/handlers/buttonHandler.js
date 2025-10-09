@@ -2428,4 +2428,46 @@ if (action === 'captain_view_free_agents') {
         flags: [MessageFlags.Ephemeral]
     });
 }
+	// Muestra el submenú para gestionar resultados de partidos finalizados
+if (action === 'admin_manage_results_start') {
+    await interaction.deferUpdate();
+    const [tournamentShortId] = params;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+    const embed = new EmbedBuilder()
+        .setColor('#e67e22')
+        .setTitle(`Gestión de Resultados: ${tournament.nombre}`)
+        .setDescription('Selecciona una acción para corregir un partido que ya ha finalizado.')
+        .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`admin_reopen_match_start:${tournamentShortId}`)
+            .setLabel('Reabrir Partido Cerrado')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('⏪'),
+        new ButtonBuilder()
+            .setCustomId(`admin_modify_final_result_start:${tournamentShortId}`)
+            .setLabel('Modificar Resultado Final')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('✍️'),
+        new ButtonBuilder()
+            .setCustomId(`admin_return_to_main_panel:${tournamentShortId}`)
+            .setLabel('<< Volver')
+            .setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.editReply({ embeds: [embed], components: [row] });
+    return;
+}
+
+// Devuelve al usuario al panel de gestión principal del torneo
+if (action === 'admin_return_to_main_panel') {
+    await interaction.deferUpdate();
+    const [tournamentShortId] = params;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const panelContent = createTournamentManagementPanel(tournament);
+    await interaction.editReply(panelContent);
+    return;
+}
 }
