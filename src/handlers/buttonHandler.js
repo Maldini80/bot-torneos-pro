@@ -239,7 +239,7 @@ export async function handleButton(interaction) {
         const [platform, originalAction, entityId, position] = params;
         
         // Esta función crea el embed de advertencia que debería aparecer después
-        const warningContent = createStreamerWarningEmbed(platform, originalAction, entityId, position);
+        const warningContent = createStreamerWarningEmbed(interaction.member, platform, originalAction, entityId, position);
 
         // Actualizamos la interacción para mostrar la advertencia
         await interaction.update(warningContent);
