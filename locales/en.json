@@ -5,5 +5,12 @@
   "dmInvitationTitle": "🤝 Co-Captain Invitation",
   "dmInvitationBody": "You have been invited by **{inviterTag}** to be the co-captain for **{teamName}** in the **{tournamentName}** tournament.",
   "coCaptainAcceptedConfirmation": "✅ You have accepted the invitation! You are now a co-captain.",
-  "dmCaptainNotifiedOfAcceptance": "✅ **{userTag}** has accepted your invitation and is now your co-captain."
+  "dmCaptainNotifiedOfAcceptance": "✅ **{userTag}** has accepted your invitation and is now your co-captain.",
+  "streamerWarningTitle": "⚠️ IMPORTANT FOR STREAMERS",
+  "streamerWarningField1": "🔴 1. FILL IN ONLY YOUR STREAM USERNAME",
+  "streamerWarningField2": "🔴 2. BROADCAST ON THE CHANNEL YOU PROVIDE",
+  "streamerWarningField3": "🔴 3. BROADCASTING RULES",
+  "streamerWarningBody": "To allow casters to work, it is **MANDATORY**:\n- **Have IDs visible** in-game.\n- **Disable in-game commentator audio**.",
+  "understoodButton": "Understood, continue",
+  "cancelButton": "Cancel"
 }
