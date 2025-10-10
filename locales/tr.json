@@ -81,5 +81,14 @@
   "dmVerificationRejectedInactivity": "Talebiniz hareketsizlik nedeniyle reddedildi. Gerekli kanıtları zamanında sunmadınız.",
   "dmVerificationRejectedProof": "Talebiniz, sunulan kanıtların yetersiz veya geçersiz olması nedeniyle reddedildi.",
   "simulationNoPendingMatches": "✅ Simüle edilecek bekleyen maç yok.",
-  "simulationSuccess": "✅ Simülasyon tamamlandı. {count} maç işlendi."
+  "simulationSuccess": "✅ Simülasyon tamamlandı. {count} maç işlendi.",
+  "autoRegistrationTitle": "Otomatik Kayıt Onayı",
+  "autoRegistrationBody": "**{teamName}** takımının bir lideri olduğunuzu tespit ettik. Kayıtlı verileri kullanarak takımı **{tournamentName}** turnuvasına kaydetmek ister misiniz?",
+  "autoRegistrationFooter": "Herhangi bir form doldurmanız gerekmeyecek.",
+  "yesEnrollMyTeamButton": "Evet, Takımımı Kaydet",
+  "cancelButtonLabel": "İptal",
+  "teamConfirmedSelectStream": "✅ Takım onaylandı. Lütfen şimdi turnuva maçları için ana yayın platformunuzu seçin.",
+  "finalizeStreamRegistrationModalTitle": "Kaydı Tamamla (Yayın)",
+  "yourUsernameInPlatformLabel": "{platform} üzerindeki kullanıcı adınız",
+  "errorNotMatchCaptain": "❌ Hata: Bu maçın bir kaptanı veya yardımcı kaptanı gibi görünmüyorsunuz."
 }
