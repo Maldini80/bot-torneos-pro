@@ -1416,7 +1416,7 @@ if (action === 'admin_invite_replacement_start') {
         
         const embed = new EmbedBuilder()
             .setColor('#3498db')
-            .setTitle(`Participantes: ${tournament.nombre}`)
+            .setTitle(t('participantsTitle', interaction.member, { tournamentName: tournament.nombre }))
             .setDescription(description);
 
         try {
@@ -1686,7 +1686,7 @@ if (action === 'admin_simulate_matches') {
         if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
 
         const result = await requestUnregister(client, tournament, interaction.user.id);
-        await interaction.editReply({ content: result.message });
+        await interaction.editReply({ content: t(result.messageKey, interaction.member) });
     }
 
     if (action === 'darse_baja_draft_start') {
@@ -1728,7 +1728,7 @@ if (action === 'admin_simulate_matches') {
     } else {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const result = await requestUnregisterFromDraft(client, draft, interaction.user.id, "Agente Libre (no fichado)");
-        await interaction.editReply({ content: result.message });
+        await interaction.editReply({ content: t(result.messageKey, interaction.member) });
     }
 }
     
