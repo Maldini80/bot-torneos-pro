@@ -11,6 +11,7 @@ import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 import { createMatchThread } from '../utils/tournamentUtils.js';
 import { processMatchResult, findMatch, finalizeMatchThread, revertStats } from '../logic/matchLogic.js';
+import { t } from '../utils/translator.js';
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
@@ -232,7 +233,7 @@ export async function handleSelectMenu(interaction) {
         const captain = draft.captains.find(c => c.userId === captainId);
 
         if (!captain) {
-            return interaction.reply({ content: 'Error: No se pudo encontrar a ese capitán.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: t('errorCaptainNotFound', interaction.member), flags: [MessageFlags.Ephemeral] });
         }
 
         const modal = new ModalBuilder()
@@ -751,7 +752,7 @@ if (action === 'draft_pick_by_position') {
             .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
             .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
         
-        await interaction.update({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
+        await interaction.update({ content: t('formatSelectedMessage', interaction.member, { formatLabel: TOURNAMENT_FORMATS[formatId].label }), components: [new ActionRowBuilder().addComponents(typeMenu)] });
 
     } else if (action === 'admin_create_type') {
     const [formatId] = params;
@@ -810,7 +811,7 @@ if (action === 'draft_pick_by_position') {
         const newFormatId = interaction.values[0];
         await updateTournamentConfig(interaction.client, tournamentShortId, { formatId: newFormatId });
 
-        await interaction.editReply({ content: `✅ Formato actualizado a: **${TOURNAMENT_FORMATS[newFormatId].label}**.`, components: [] });
+        await interaction.editReply({ content: t('formatUpdatedSuccess', interaction.member, { formatLabel: TOURNAMENT_FORMATS[newFormatId].label }), components: [] });
 
     } else if (action === 'admin_change_type_select') {
         const [tournamentShortId] = params;
@@ -887,18 +888,15 @@ if (action === 'draft_pick_by_position') {
 
         const teamData = tournament.teams.reserva[captainIdToPromote];
         if (!teamData) {
-            return interaction.followUp({ content: 'Error: Este equipo ya no está en la lista de reserva.', flags: [MessageFlags.Ephemeral] });
+            return interaction.followUp({ content: t('errorTeamNotInWaitlist', interaction.member), flags: [MessageFlags.Ephemeral] });
         }
 
         try {
             await approveTeam(client, tournament, teamData);
-            await interaction.editReply({ 
-                content: `✅ El equipo **${teamData.nombre}** ha sido aprobado y movido de la reserva al torneo.`,
-                components: []
-            });
+            await interaction.editReply({ content: t('teamPromotedSuccess', interaction.member, { teamName: teamData.nombre }), components: [] });
         } catch (error) {
             console.error("Error al promover equipo desde la reserva:", error);
-            await interaction.followUp({ content: `❌ Hubo un error al aprobar al equipo: ${error.message}`, flags: [MessageFlags.Ephemeral] });
+            await interaction.followUp({ content: t('errorRequestFailed', interaction.member, { error: error.message }), flags: [MessageFlags.Ephemeral] });
         }
         return;
     }
@@ -979,7 +977,13 @@ if (action === 'draft_pick_by_position') {
 
         await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
         const channel = await client.channels.fetch(channelId);
-        await channel.send(`❌ Verificación rechazada por <@${interaction.user.id}>. Motivo: ${reason === 'inactivity' ? 'Inactividad' : 'Pruebas insuficientes'}. Este canal se cerrará en 10 segundos.`);
+        
+        // Obtenemos el texto del motivo traducido (para el usuario, aunque aquí se usa para el admin)
+        const reasonKey = reason === 'inactivity' ? 'rejectionReasonInactivity' : 'rejectionReasonProof';
+        const reasonText = t(reasonKey, interaction.member); // Usamos el idioma del admin para el log
+        
+        // Mensaje PÚBLICO en el ticket, bilingüe manual
+        await channel.send(`❌ Verificación rechazada por <@${interaction.user.id}>. / Verification rejected by <@${interaction.user.id}>.\nMotivo / Reason: **${reasonText}**.\nEste canal se cerrará en 10 segundos. / This channel will close in 10 seconds.`);
         
         const originalMessage = await channel.messages.fetch(interaction.message.reference.messageId);
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
@@ -988,7 +992,8 @@ if (action === 'draft_pick_by_position') {
         finalEmbed.data.fields.find(f => f.name === 'Estado').value = `❌ **Rechazado por:** <@${interaction.user.id}>`;
         await originalMessage.edit({ embeds: [finalEmbed], components: [disabledRow] });
         
-        await interaction.editReply({ content: 'Rechazo procesado.', components: [] });
+        // Respuesta PRIVADA para el admin, traducida
+        await interaction.editReply({ content: t('rejectionProcessed', interaction.member), components: [] });
         setTimeout(() => channel.delete().catch(console.error), 10000);
     }
     if (action === 'admin_edit_verified_user_select') {
