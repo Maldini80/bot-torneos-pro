@@ -886,13 +886,13 @@ export function createCalendarEmbed(tournament) {
 export function createCasterInfoEmbed(teamData, tournament) {
     const embed = new EmbedBuilder()
         .setColor('#1abc9c')
-        .setTitle(`📢 Nuevo Equipo Inscrito: ${teamData.nombre}`)
-        .setAuthor({ name: `Torneo: ${tournament.nombre}`})
+        .setTitle(`📢 Nuevo Equipo Inscrito / New Team Registered: ${teamData.nombre}`)
+        .setAuthor({ name: `Torneo / Tournament: ${tournament.nombre}`})
         .addFields(
-            { name: 'Capitán', value: teamData.capitanTag, inline: true },
-            { name: 'ID Capitán', value: `\`${teamData.capitanId}\``, inline: true },
-            { name: 'Twitter', value: teamData.twitter ? `[Ver Twitter](${teamData.twitter.startsWith('http') ? '' : 'https://twitter.com/'}${teamData.twitter})` : 'No proporcionado', inline: true },
-            { name: 'Canal de Transmisión', value: teamData.streamChannel || 'No proporcionado', inline: false }
+            { name: 'Capitán / Captain', value: teamData.capitanTag, inline: true },
+            { name: 'ID Capitán / Captain ID', value: `\`${teamData.capitanId}\``, inline: true },
+            { name: 'Twitter', value: teamData.twitter ? `[Ver / View](${teamData.twitter.startsWith('http') ? '' : 'https://twitter.com/'}${teamData.twitter})` : 'N/A', inline: true },
+            { name: 'Canal de Stream / Stream Channel', value: teamData.streamChannel || 'N/A', inline: false }
         )
         .setTimestamp();
 
