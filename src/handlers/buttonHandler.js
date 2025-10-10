@@ -213,11 +213,22 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'confirm_team_registration') {
-        // ...
+        const [tournamentShortId, teamId] = params;
+        
+        const originalAction = 'register_team_from_db'; 
+
+        // --- LÍNEA RESTAURADA Y FUNDAMENTAL ---
+        // Aquí es donde se crean los botones que necesitamos.
+        const platformButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+        );
+        // --- FIN DE LA LÍNEA RESTAURADA ---
+
         await interaction.update({
             content: t('teamConfirmedSelectStream', interaction.member),
             embeds: [],
-            components: [platformButtons]
+            components: [platformButtons] // Ahora `platformButtons` sí existe y funcionará.
         });
         return;
     }
