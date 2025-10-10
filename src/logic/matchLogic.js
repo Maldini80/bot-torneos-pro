@@ -334,7 +334,14 @@ async function handleFinalResult(client, guild, tournament) {
     
     const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
     if(infoChannel) {
-        const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`🇪🇸 **¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**\n\n🇬🇧 **Congratulations to <@${campeon.capitanId}> (${campeon.nombre}) for winning the ${tournament.nombre} tournament!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();
+        // --- LÍNEA CORREGIDA ---
+        const embedCampeon = new EmbedBuilder()
+            .setColor('#ffd700')
+            .setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`)
+            .setDescription(`🇪🇸 **¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**\n\n🇬🇧 **Congratulations to <@${campeon.capitanId}> (${campeon.nombre}) for winning the ${tournament.nombre} tournament!**`)
+            .setThumbnail('https://i.imgur.com/C5mJg1s.png')
+            .setTimestamp();
+        
         await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
     }
     
@@ -366,7 +373,6 @@ async function handleFinalResult(client, guild, tournament) {
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
 }
-
 function crearPartidosEliminatoria(equipos, ronda) {
     let partidos = [];
     const numEquipos = equipos.length;
