@@ -3,5 +3,7 @@
   "registrationSuccess": "✅ ¡Inscripción recibida! Un administrador la revisará pronto.",
   "paymentModalTitle": "Confirmar Pago",
   "dmInvitationTitle": "🤝 Invitación de Co-Capitán",
-  "dmInvitationBody": "Has sido invitado por **{inviterTag}** para ser co-capitán de **{teamName}** en el torneo **{tournamentName}**."
+  "dmInvitationBody": "Has sido invitado por **{inviterTag}** para ser co-capitán de **{teamName}** en el torneo **{tournamentName}**.",
+  "coCaptainAcceptedConfirmation": "✅ ¡Has aceptado la invitación! Ahora eres co-capitán.",
+  "dmCaptainNotifiedOfAcceptance": "✅ **{userTag}** ha aceptado tu invitación y ahora es tu co-capitán."
 }
