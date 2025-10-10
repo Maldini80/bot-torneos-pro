@@ -2,6 +2,7 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
 import { getBotSettings, getDb } from '../../database.js';
+import { t } from '../utils/translator.js';
 
 const ruleEmbeds = [
     new EmbedBuilder()
@@ -636,17 +637,17 @@ export async function createPlayerManagementEmbed(client, player, draft, teamId,
 
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
-    const ruleEmbed = ruleEmbeds[step - 1];
+    const ruleEmbed = ruleEmbeds[step - 1]; // Los embeds de reglas ya están en español, los dejamos así por simplicidad.
     
-    // --- LÓGICA DE ROBUSTEZ AÑADIDA ---
-    // Aseguramos que originalAction sea siempre un string para evitar errores.
     const safeOriginalAction = originalAction || ''; 
     const isPlayer = safeOriginalAction.includes('player');
     const finalTotalSteps = isPlayer ? 1 : 3;
 
-    ruleEmbed.setFooter({ text: `Paso ${step} de ${finalTotalSteps} - Debes aceptar todas las normas para poder inscribirte.` });
+    // --- MODIFICADO: Footer bilingüe ---
+    ruleEmbed.setFooter({ text: `Paso ${step} de ${finalTotalSteps} / Step ${step} of ${finalTotalSteps}\nDebes aceptar todas las normas. / You must accept all rules.` });
 
     const row = new ActionRowBuilder().addComponents(
+        // --- MODIFICADO: Botones bilingües ---
         new ButtonBuilder()
             .setCustomId(`rules_accept:${step}:${originalAction}:${entityId}`)
             .setLabel('Acepto / I Accept')
@@ -674,12 +675,12 @@ export function createTournamentStatusEmbed(tournament) {
         .setTitle(`${statusIcon} ${tournament.nombre}`)
         .setFooter({ text: `ID: ${tournament.shortId}` });
 
-    // Descripción bilingüe
+    // --- MODIFICADO: Descripción bilingüe ---
     const formatDescriptionES = TOURNAMENT_FORMATS[tournament.config.formatId].description;
     const formatDescriptionEN = TOURNAMENT_FORMATS[tournament.config.formatId].description_en;
     embed.setDescription(`🇪🇸 ${formatDescriptionES}\n🇬🇧 ${formatDescriptionEN}`);
 
-    // Campos bilingües
+    // --- MODIFICADO: Campos bilingües ---
     embed.addFields(
         { name: 'Formato / Format', value: format.label, inline: true },
         { name: 'Rondas / Rounds', value: tournament.config.matchType === 'idavuelta' ? 'Ida y Vuelta / Two Legs' : 'Solo Ida / One Leg', inline: true },
@@ -720,6 +721,7 @@ export function createTournamentStatusEmbed(tournament) {
 
     if (tournament.status === 'inscripcion_abierta') {
         if (!isFull) {
+            // --- MODIFICADO: Botón bilingüe ---
             row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
         } else if (!tournament.config.isPaid) {
             row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_reserva_start:${tournament.shortId}`).setLabel('Lista de Reserva / Waitlist').setStyle(ButtonStyle.Primary).setEmoji('📋'));
@@ -727,6 +729,7 @@ export function createTournamentStatusEmbed(tournament) {
         row1.addComponents(new ButtonBuilder().setCustomId(`darse_baja_start:${tournament.shortId}`).setLabel('Darse de Baja / Unregister').setStyle(ButtonStyle.Danger).setEmoji('👋'));
     }
 
+    // --- MODIFICADO: Botones bilingües ---
     row2.addComponents(
         new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes / View Participants').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
         new ButtonBuilder().setLabel('Normas / Rules').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
