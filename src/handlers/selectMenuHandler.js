@@ -57,7 +57,7 @@ export async function handleSelectMenu(interaction) {
 
     if (candidates.length === 0) {
         return interaction.editReply({
-            content: `No se encontraron agentes libres para la posición **${DRAFT_POSITIONS[selectedPosition]}**.`,
+            content: t('errorNoFreeAgentsForPosition', interaction.member, { position: DRAFT_POSITIONS[selectedPosition] }),
             components: []
         });
     }
@@ -98,7 +98,10 @@ export async function handleSelectMenu(interaction) {
     }
     
     await interaction.editReply({
-        content: `Mostrando agentes libres para **${DRAFT_POSITIONS[selectedPosition]}**. Hay un total de ${candidates.length} jugadores.`,
+        content: t('showingFreeAgentsForPosition', interaction.member, { 
+            position: DRAFT_POSITIONS[selectedPosition],
+            count: candidates.length
+        }),
         components
     });
     return;
@@ -174,7 +177,7 @@ export async function handleSelectMenu(interaction) {
 
         if (!draft.captains || draft.captains.length === 0) {
             return interaction.editReply({
-                content: `❌ El draft **${draft.name}** no tiene capitanes aprobados. No hay plantillas para gestionar.`,
+                content: t('draftHasNoCaptainsError', interaction.member, { draftName: draft.name }),
                 components: []
             });
         }
@@ -191,7 +194,7 @@ export async function handleSelectMenu(interaction) {
             .addOptions(teamOptions);
 
         await interaction.editReply({
-            content: `Gestionando **${draft.name}**. Selecciona un equipo:`,
+            content: t('managingDraftMessage', interaction.member, { draftName: draft.name }),
             components: [new ActionRowBuilder().addComponents(selectMenu)]
         });
         return;
@@ -263,9 +266,9 @@ export async function handleSelectMenu(interaction) {
         
         try {
             await inviteReplacementPlayer(client, draft, teamId, kickedPlayerId, replacementPlayerId);
-            await interaction.editReply({ content: '✅ Invitación enviada al jugador de reemplazo.', components: [] });
+            await interaction.editReply({ content: t('invitationSentSuccess', interaction.member), components: [] });
         } catch(error) {
-            await interaction.editReply({ content: `❌ Error: ${error.message}`, components: [] });
+            await interaction.editReply({ content: t('errorRequestFailed', interaction.member, { error: error.message }), components: [] });
         }
         return;
     }
@@ -827,7 +830,7 @@ if (action === 'draft_pick_by_position') {
         } else {
             await interaction.deferUpdate();
             await updateTournamentConfig(interaction.client, tournamentShortId, { isPaid: false, entryFee: 0, prizeCampeon: 0, prizeFinalista: 0 });
-            await interaction.editReply({ content: `✅ Torneo actualizado a: **Gratuito**.`, components: [] });
+            await interaction.editReply({ content: t('typeUpdatedToFree', interaction.member), components: [] });
         }
     } else if (action === 'invite_cocaptain_select') {
         await interaction.deferUpdate();
@@ -1002,7 +1005,7 @@ if (action === 'draft_pick_by_position') {
 
     const userRecord = await db.collection('verified_users').findOne({ discordId: userId });
     if (!userRecord) {
-        return interaction.update({ content: '❌ Este usuario no tiene un perfil verificado en la base de datos.', components: [], embeds: [] });
+        return interaction.update({ content: t('errorUserNotVerified', interaction.member), components: [], embeds: [] });
     }
 
     let playerRecord = await db.collection('player_records').findOne({ userId: userId });
@@ -1070,7 +1073,7 @@ if (action === 'admin_edit_verified_field_select') {
     const draftPlayerData = draft.players.find(p => p.userId === selectedUserId);
 
     if (!verifiedData && !draftPlayerData) {
-        return interaction.editReply({ content: `❌ El usuario ${user.tag} no está ni verificado ni inscrito en este draft.` });
+        return interaction.editReply({ content: t('errorUserNotInDraftOrVerified', interaction.member, { userTag: user.tag }) });
     }
 
     const embed = new EmbedBuilder()
