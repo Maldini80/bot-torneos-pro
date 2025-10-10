@@ -51,5 +51,20 @@
   "captainChangeNotificationBody": "La configuración del torneo ha cambiado.",
   "captainChangeNotificationFooter": "Si tienes dudas, contacta a un administrador.",
   "draftPlayerSelectedTitle": "¡Has sido seleccionado en el Draft!",
-  "draftPlayerSelectedBody": "¡Enhorabuena! Has sido elegido por el equipo **{teamName}** (Capitán: {captainTag}) en el draft **{draftName}**."
+  "draftPlayerSelectedBody": "¡Enhorabuena! Has sido elegido por el equipo **{teamName}** (Capitán: {captainTag}) en el draft **{draftName}**.",
+  "errorCaptainNotFound": "❌ Error: No se pudo encontrar a ese capitán.",
+  "errorNoFreeAgentsForPosition": "❌ No se encontraron agentes libres para la posición **{position}**.",
+  "showingFreeAgentsForPosition": "Mostrando agentes libres para **{position}**. Hay un total de {count} jugadores.",
+  "draftHasNoCaptainsError": "❌ El draft **{draftName}** no tiene capitanes aprobados. No hay plantillas para gestionar.",
+  "managingDraftMessage": "Gestionando **{draftName}**. Selecciona un equipo:",
+  "invitationSentSuccess": "✅ Invitación enviada al jugador de reemplazo.",
+  "formatSelectedMessage": "Formato seleccionado: **{formatLabel}**. Ahora, el tipo:",
+  "formatUpdatedSuccess": "✅ Formato actualizado a: **{formatLabel}**.",
+  "typeUpdatedToFree": "✅ Torneo actualizado a: **Gratuito**.",
+  "teamPromotedSuccess": "✅ El equipo **{teamName}** ha sido aprobado y movido de la reserva al torneo.",
+  "errorTeamNotInWaitlist": "❌ Error: Este equipo ya no está en la lista de reserva.",
+  "rejectionProcessed": "Rechazo procesado.",
+  "rejectionReasonMessage": "❌ Verificación rechazada por <@{adminId}>. Motivo: {reason}. Este canal se cerrará en 10 segundos.",
+  "rejectionReasonInactivity": "Inactividad",
+  "rejectionReasonProof": "Pruebas insuficientes"
 }
