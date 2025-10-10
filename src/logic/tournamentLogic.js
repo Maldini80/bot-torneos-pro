@@ -198,12 +198,20 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         
         if (/^\d+$/.test(selectedPlayerId)) {
             try {
-                const playerUser = await client.users.fetch(selectedPlayerId);
+                // Obtenemos el objeto `member` del jugador para saber su idioma
+                const guild = await client.guilds.fetch(draft.guildId);
+                const playerMember = await guild.members.fetch(selectedPlayerId);
+
+                // Construimos el embed usando el traductor
                 const embed = new EmbedBuilder()
                     .setColor('#2ecc71')
-                    .setTitle(`¡Has sido seleccionado en el Draft!`)
-                    .setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
-                await playerUser.send({ embeds: [embed] });
+                    .setTitle(t('draftPlayerSelectedTitle', playerMember))
+                    .setDescription(t('draftPlayerSelectedBody', playerMember, {
+                        teamName: captain.teamName,
+                        captainTag: captain.userName,
+                        draftName: draft.name
+                    }));
+                await playerMember.send({ embeds: [embed] });
             } catch (e) {
                 console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`);
             }
@@ -278,9 +286,19 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
         
         if (/^\d+$/.test(selectedPlayerId)) {
             try {
-                const playerUser = await client.users.fetch(selectedPlayerId);
-                const embed = new EmbedBuilder().setColor('#2ecc71').setTitle(`¡Has sido seleccionado en el Draft!`).setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
-                await playerUser.send({ embeds: [embed] });
+                // La lógica es idéntica a la anterior
+                const guild = await client.guilds.fetch(draft.guildId);
+                const playerMember = await guild.members.fetch(selectedPlayerId);
+
+                const embed = new EmbedBuilder()
+                    .setColor('#2ecc71')
+                    .setTitle(t('draftPlayerSelectedTitle', playerMember))
+                    .setDescription(t('draftPlayerSelectedBody', playerMember, {
+                        teamName: captain.teamName,
+                        captainTag: captain.userName,
+                        draftName: draft.name
+                    }));
+                await playerMember.send({ embeds: [embed] });
             } catch (e) { console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`); }
         }
 
@@ -1446,7 +1464,7 @@ export async function kickTeam(client, tournament, captainId) {
     try {
         const casterThread = await client.channels.fetch(updatedTournament.discordMessageIds.casterThreadId).catch(()=>null);
         if (casterThread) {
-            await casterThread.send(`- Equipo **${teamData.nombre}** (Capitán: ${teamData.capitanTag}) ha sido eliminado del torneo.`);
+            await casterThread.send(- Equipo / Team **${teamData.nombre}** (Cap: ${teamData.capitanTag}) ha sido eliminado / has been removed.);
         }
     } catch (e) {
         console.warn(`No se pudo notificar la expulsión en el hilo de casters para el torneo ${tournament.shortId}`);
