@@ -68,5 +68,8 @@
   "rejectionReasonInactivity": "Inactividad",
   "rejectionReasonProof": "Pruebas insuficientes",
   "errorUserNotVerified": "❌ Este usuario no tiene un perfil verificado en la base de datos.",
-  "errorUserNotInDraftOrVerified": "❌ El usuario {userTag} no está ni verificado ni inscrito en este draft."
+  "errorUserNotInDraftOrVerified": "❌ El usuario {userTag} no está ni verificado ni inscrito en este draft.",
+  "dmVerificationRejected": "❌ **Verificación Rechazada**\n\n{reason}",
+  "dmVerificationRejectedInactivity": "Tu solicitud ha sido rechazada debido a inactividad. No has proporcionado las pruebas necesarias a tiempo.",
+  "dmVerificationRejectedProof": "Tu solicitud ha sido rechazada porque las pruebas proporcionadas eran insuficientes o no válidas."
 }
