@@ -15,7 +15,6 @@ export async function finalizeMatchThread(client, partido, resultString) {
         const thread = await client.channels.fetch(partido.threadId).catch(() => null);
         if (thread) {
             const finalMessage = `✅ **Resultado final confirmado / Final result confirmed:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}.\n\nEste hilo se eliminará en 10 segundos. / This thread will be deleted in 10 seconds.`;
-            await thread.send(finalMessage);
             await new Promise(resolve => setTimeout(resolve, 10000));
             await thread.delete('Partido finalizado.').catch(() => {});
         }
@@ -90,7 +89,8 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
     const pendingMatches = allMatchesToSimulate.filter(p => p && (p.status === 'pendiente' || p.status === 'en_curso'));
 
     if (pendingMatches.length === 0) {
-        return { message: 'No hay partidos pendientes para simular.' };
+        // Devolvemos la CLAVE de traducción
+        return { messageKey: 'simulationNoPendingMatches', count: 0 };
     }
 
     let simulatedCount = 0;
@@ -109,7 +109,8 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
         simulatedCount++;
     }
     
-    return { message: `Se han simulado con éxito ${simulatedCount} partidos.`};
+    // Devolvemos la CLAVE de traducción y la variable
+    return { messageKey: 'simulationSuccess', count: simulatedCount };
 }
 
 export function findMatch(tournament, matchId) {
@@ -333,7 +334,7 @@ async function handleFinalResult(client, guild, tournament) {
     
     const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
     if(infoChannel) {
-        const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();
+        const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`🇪🇸 **¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**\n\n🇬🇧 **Congratulations to <@${campeon.capitanId}> (${campeon.nombre}) for winning the ${tournament.nombre} tournament!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();
         await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
     }
     
