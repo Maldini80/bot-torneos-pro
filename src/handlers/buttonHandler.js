@@ -213,25 +213,26 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'confirm_team_registration') {
-        const [tournamentShortId, teamId] = params;
-        
-        const originalAction = 'register_team_from_db'; 
+const [tournamentShortId, teamId] = params;
+		const originalAction = 'register_team_from_db'; 
 
-        // --- LÍNEA RESTAURADA Y FUNDAMENTAL ---
-        // Aquí es donde se crean los botones que necesitamos.
-        const platformButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-        );
-        // --- FIN DE LA LÍNEA RESTAURADA ---
+    // --- ESTE ES EL BLOQUE CRÍTICO QUE FALTABA ---
+    // Aquí es donde realmente creamos la variable `platformButtons`.
+    // Sin este bloque, la línea de abajo siempre dará el error "platformButtons is not defined".
+    const platformButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+    );
+    // --- FIN DEL BLOQUE CRÍTICO ---
 
-        await interaction.update({
-            content: t('teamConfirmedSelectStream', interaction.member),
-            embeds: [],
-            components: [platformButtons] // Ahora `platformButtons` sí existe y funcionará.
-        });
-        return;
-    }
+    // Ahora, esta línea puede usar `platformButtons` porque ya ha sido creada.
+    await interaction.update({
+        content: t('teamConfirmedSelectStream', interaction.member),
+        embeds: [],
+        components: [platformButtons]
+    });
+    return;
+}
 	if (action === 'select_stream_platform') {
         const [platform, originalAction, entityId, position] = params;
         
