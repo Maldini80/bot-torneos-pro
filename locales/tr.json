@@ -71,5 +71,7 @@
   "errorUserNotInDraftOrVerified": "❌ {userTag} kullanıcısı ne doğrulanmış ne de bu draft'a kayıtlı.",
   "dmVerificationRejected": "❌ **Doğrulama Reddedildi**\n\n{reason}",
   "dmVerificationRejectedInactivity": "Talebiniz hareketsizlik nedeniyle reddedildi. Gerekli kanıtları zamanında sunmadınız.",
-  "dmVerificationRejectedProof": "Talebiniz, sunulan kanıtların yetersiz veya geçersiz olması nedeniyle reddedildi."
+  "dmVerificationRejectedProof": "Talebiniz, sunulan kanıtların yetersiz veya geçersiz olması nedeniyle reddedildi.",
+  "simulationNoPendingMatches": "✅ Simüle edilecek bekleyen maç yok.", 
+  "simulationSuccess": "✅ Simülasyon tamamlandı. {count} maç işlendi."
 }
