@@ -60,14 +60,12 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             reason: `Partido de torneo: ${tournamentShortId}`
         });
 
-        // --- INICIO DE LA LÓGICA DE MIEMBROS Y MENCIONES MEJORADA ---
         const addMemberIfReal = async (memberId) => {
             if (memberId && /^\d+$/.test(memberId)) {
                 await thread.members.add(memberId).catch(e => console.warn(`No se pudo añadir al miembro ${memberId} al hilo: ${e.message}`));
             }
         };
 
-        // Añadimos a todos los responsables a la vez
         await Promise.all([
             addMemberIfReal(partido.equipoA.capitanId),
             addMemberIfReal(partido.equipoB.capitanId),
@@ -75,7 +73,6 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             addMemberIfReal(partido.equipoB.coCaptainId)
         ]);
         
-        // Construimos el string de menciones para el Equipo A
         let mentionsA = [];
         if (partido.equipoA.capitanId && /^\d+$/.test(partido.equipoA.capitanId)) {
             mentionsA.push(`<@${partido.equipoA.capitanId}>`);
@@ -84,7 +81,6 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             mentionsA.push(`<@${partido.equipoA.coCaptainId}>`);
         }
 
-        // Construimos el string de menciones para el Equipo B
         let mentionsB = [];
         if (partido.equipoB.capitanId && /^\d+$/.test(partido.equipoB.capitanId)) {
             mentionsB.push(`<@${partido.equipoB.capitanId}>`);
@@ -93,31 +89,38 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             mentionsB.push(`<@${partido.equipoB.coCaptainId}>`);
         }
 
-        // Unimos todo para el mensaje final
-        const mentionString = (mentionsA.join(' y ') || 'Equipo A') + ' vs ' + (mentionsB.join(' y ') || 'Equipo B');
-        // --- FIN DE LA LÓGICA DE MIEMBROS Y MENCIONES MEJORADA ---
+        const mentionString = (mentionsA.join(' y/and ') || 'Equipo A') + ' vs ' + (mentionsB.join(' y/and ') || 'Equipo B');
 
-        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
-            .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*`);
+        // --- INICIO DE MODIFICACIONES BILINGÜES ---
         
-        const footerText = '🇪🇸 Para subir una prueba, usa el botón o pega un enlace de YouTube/Twitch.\n' +
-                           '🇬🇧 To upload proof, use the button or paste a YouTube/Twitch link.';
+        const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido / Match: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
+            .setDescription(`${description}\n\n` +
+                `🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n` +
+                `🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n` +
+                `*🇪🇸 El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*\n` +
+                `*🇬🇧 The home team (${partido.equipoA.nombre}) must search for and invite the away team.*`
+            );
+        
+        const footerText = '🇪🇸 Para subir una prueba, usa el botón o pega un enlace de Streamable/YouTube/Twitch.\n' +
+                           '🇬🇧 To upload proof, use the button or paste a Streamable/YouTube/Twitch link.';
         embed.setFooter({ text: footerText });
 
         const row1 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
+            new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado / Report Result").setStyle(ButtonStyle.Primary).setEmoji("📊"),
             new ButtonBuilder()
-                .setLabel('Prueba de altura perks')
+                .setLabel('Subir Prueba / Upload Proof')
                 .setURL('https://streamable.com')
                 .setStyle(ButtonStyle.Link)
                 .setEmoji('📹')
         );
 
         const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`request_referee:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
-            new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️"),
-            new ButtonBuilder().setCustomId(`invite_to_thread:${partido.matchId}:${tournamentShortId}`).setLabel("Invitar al Hilo").setStyle(ButtonStyle.Secondary).setEmoji("🤝")
+            new ButtonBuilder().setCustomId(`request_referee:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Arbitraje / Request Referee").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
+            new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado / Force Result").setStyle(ButtonStyle.Secondary).setEmoji("✍️"),
+            new ButtonBuilder().setCustomId(`invite_to_thread:${partido.matchId}:${tournamentShortId}`).setLabel("Invitar al Hilo / Invite to Thread").setStyle(ButtonStyle.Secondary).setEmoji("🤝")
         );
+        
+        // --- FIN DE MODIFICACIONES BILINGÜES ---
         
         await thread.send({ content: `<@&${ARBITRO_ROLE_ID}> ${mentionString}`, embeds: [embed], components: [row1, row2] });
         
@@ -127,7 +130,6 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         return null;
     }
 }
-
 export async function updateMatchThreadName(client, partido) {
     if (!partido.threadId) return;
     try {
