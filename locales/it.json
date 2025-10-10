@@ -69,9 +69,17 @@
   "rejectionReasonProof": "Prove insufficienti",
   "errorUserNotVerified": "❌ Questo utente non ha un profilo verificato nel database.",
   "errorUserNotInDraftOrVerified": "❌ L'utente {userTag} non è né verificato né iscritto a questo draft.",
+  "reportResultModalTitle": "Segnala Risultato",
+  "goalsForTeamLabel": "Gol di {teamName}",
+  "resultSubmittedWaiting": "✅ Il tuo risultato è stato inviato. In attesa del resoconto del tuo avversario.",
+  "resultsMismatchError": "❌ I risultati segnalati non coincidono. Gli arbitri sono stati avvisati.",
+  "unregisterRequestSent": "✅ La tua richiesta di ritiro è stata inviata agli amministratori.",
+  "unregisterErrorNotFound": "❌ Non sei iscritto a questo torneo.",
+  "dmRejectionTitle": "Iscrizione Rifiutata",
+  "dmRejectionBody": "La tua iscrizione per la squadra **{teamName}** nel torneo **{tournamentName}** è stata **rifiutata**.",
   "dmVerificationRejected": "❌ **Verifica Rifiutata**\n\n{reason}",
   "dmVerificationRejectedInactivity": "La tua richiesta è stata rifiutata per inattività. Non hai fornito le prove necessarie in tempo.",
   "dmVerificationRejectedProof": "La tua richiesta è stata rifiutata perché le prove fornite erano insufficienti o non valide.",
-  simulationNoPendingMatches": "✅ Nessuna partita in sospeso da simulare.", 
+  "simulationNoPendingMatches": "✅ Nessuna partita in sospeso da simulare.",
   "simulationSuccess": "✅ Simulazione completata. Sono state elaborate {count} partite."
 }
