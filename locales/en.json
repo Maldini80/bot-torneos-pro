@@ -12,5 +12,17 @@
   "streamerWarningField3": "🔴 3. BROADCASTING RULES",
   "streamerWarningBody": "To allow casters to work, it is **MANDATORY**:\n- **Have IDs visible** in-game.\n- **Disable in-game commentator audio**.",
   "understoodButton": "Understood, continue",
-  "cancelButton": "Cancel"
+  "cancelButton": "Cancel",
+  "errorTournamentNotFound": "❌ Error: This tournament was not found.",
+  "errorAlreadyRegistered": "❌ You are already registered or on the waitlist for this tournament.",
+  "errorNotCaptain": "❌ You are not a Manager or Captain of any registered team on this Discord.",
+  "registrationCanceled": "Registration canceled.",
+  "errorDraftNotFound": "❌ Error: This draft was not found.",
+  "errorAlreadyInDraft": "❌ You are already registered, pending approval, or pending payment in this draft.",
+  "errorMustVerify": "❌ You must verify your account first using the \"Verify Account\" button.",
+  "errorPickNotYourTurn": "❌ It's not your turn to pick or you don't have permission.",
+  "errorPickNoPlayers": "❌ There are no available players to select.",
+  "errorGeneric": "❌ There was an error processing your request.",
+  "unregisteredSuccess": "✅ Team unregistration processed.",
+  "unregisteredRejected": "❌ Unregister request rejected."
 }
