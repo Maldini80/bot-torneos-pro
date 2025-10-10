@@ -1358,7 +1358,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const coCaptainUser = await client.users.fetch(coCaptainId);
     const team = tournament.teams.aprobados[captainId];
     
-    // 1. Actualizamos la base de datos
+    // 1. Actualizamos la base de datos (lógica completa)
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
         {
@@ -1372,7 +1372,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     );
 
-    // 2. Damos permisos en los canales
+    // 2. Damos permisos en los canales (lógica completa)
     if (/^\d+$/.test(coCaptainId)) {
         try {
             const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
@@ -1394,7 +1394,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     }
 
-    // 3. Sincronizamos con los hilos de partido
+    // 3. Sincronizamos con los hilos de partido (lógica completa)
     const allMatches = [
         ...Object.values(tournament.structure.calendario).flat(),
         ...Object.values(tournament.structure.eliminatorias).flat()
@@ -1410,7 +1410,8 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                 const thread = await client.channels.fetch(threadId);
                 if (thread) {
                     await thread.members.add(coCaptainId);
-                    await thread.send(`ℹ️ <@${coCaptainId}> ha sido añadido a este hilo como co-capitán.`);
+                    // --- MENSAJE PÚBLICO EN HILO (Bilingüe Manual) ---
+                    await thread.send(`ℹ️ <@${coCaptainId}> ha sido añadido a este hilo como co-capitán. / has been added to this thread as co-captain.`);
                 }
             } catch (error) {
                 if (error.code !== 10003) { 
@@ -1420,19 +1421,28 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     }
 
-    // --- INICIO DEL BLOQUE AÑADIDO ---
-    // 4. Anunciamos la incorporación en el chat general
+    // --- LÓGICA DE TRADUCCIÓN APLICADA ---
+
+    // 4. Anunciamos la incorporación en el chat general (Público -> Bilingüe Manual)
     try {
         const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
-        // Creamos un mensaje de texto simple en lugar de un embed
-        const announcementMessage = `🤝 ¡El equipo **${team.nombre}** da la bienvenida a su nuevo co-capitán, <@${coCaptainId}>!`;
+        const announcementMessage = `🤝 ¡El equipo **${team.nombre}** da la bienvenida a su nuevo co-capitán, <@${coCaptainId}>! / The team **${team.nombre}** welcomes its new co-captain, <@${coCaptainId}>!`;
         await chatChannel.send({ content: announcementMessage });
     } catch (e) {
         console.error(`No se pudo enviar el anuncio de nuevo co-capitán al chat general:`, e);
     }
-    // --- FIN DEL BLOQUE AÑADIDO ---
+    
+    // 5. Notificamos por MD al capitán original (Privado -> Traducción Dinámica)
+    try {
+        const captainMember = await guild.members.fetch(captainId);
+        await captainMember.send(t('dmCaptainNotifiedOfAcceptance', captainMember, {
+            userTag: coCaptainUser.tag
+        }));
+    } catch (e) {
+        console.warn(`No se pudo enviar MD al capitán original ${captainId}.`);
+    }
 
-    // 5. Actualizamos los mensajes públicos y visualizador
+    // 6. Actualizamos los mensajes públicos y visualizador (lógica completa)
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await notifyTournamentVisualizer(updatedTournament);
