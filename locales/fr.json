@@ -90,5 +90,11 @@
   "teamConfirmedSelectStream": "✅ Équipe confirmée. Veuillez maintenant sélectionner votre plateforme de streaming principale pour les matchs du tournoi.",
   "finalizeStreamRegistrationModalTitle": "Finaliser l'Inscription (Stream)",
   "yourUsernameInPlatformLabel": "Votre nom d'utilisateur sur {platform}",
-  "errorNotMatchCaptain": "❌ Erreur : Vous ne semblez pas être un capitaine ou co-capitaine de ce match."
+  "errorNotMatchCaptain": "❌ Erreur : Vous ne semblez pas être un capitaine ou co-capitaine de ce match.",
+  "participantsTitle": "Participantes / Participants: {tournamentName}",
+  "welcomeMessage": "👋 ¡Bienvenido / Welcome, {mention}! ({teamName})",
+  "inviteCoCaptainMessage": "Puedes usar el botón de abajo para invitar a tu co-capitán.\nYou can use the button below to invite your co-captain.",
+  "inviteCoCaptainButton": "Invitar Co-Capitán / Invite Co-Captain",
+  "coCaptainWelcomeMessage": "🤝 ¡El equipo **{teamName}** da la bienvenida a su nuevo co-capitán, {mention}! / The team **{teamName}** welcomes its new co-captain, {mention}!",
+  "coCaptainAddedToThread": "ℹ️ {mention} ha sido añadido a este hilo como co-capitán. / has been added to this thread as co-captain."
 }
