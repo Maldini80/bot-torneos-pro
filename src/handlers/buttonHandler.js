@@ -189,21 +189,23 @@ export async function handleButton(interaction) {
         // --- FIN DE LA MODIFICACIÓN ---
 
         const embed = new EmbedBuilder()
-            .setTitle('Confirmación de Inscripción Automática')
-            .setDescription(`Hemos detectado que eres un líder del equipo **${team.name}**. ¿Deseas inscribirlo en el torneo **${tournament.nombre}** usando sus datos guardados?`)
+            .setTitle(t('autoRegistrationTitle', interaction.member))
+            .setDescription(t('autoRegistrationBody', interaction.member, { teamName: team.name, tournamentName: tournament.nombre }))
             .setThumbnail(team.logoUrl)
             .setColor('Green')
-            .setFooter({ text: 'No tendrás que rellenar ningún formulario.' });
+            .setFooter({ text: t('autoRegistrationFooter', interaction.member) });
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`confirm_team_registration:${tournamentShortId}:${team._id}`)
-                .setLabel('✅ Sí, Inscribir mi Equipo')
-                .setStyle(ButtonStyle.Success),
+                .setLabel(t('yesEnrollMyTeamButton', interaction.member))
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('✅'),
             new ButtonBuilder()
                 .setCustomId('cancel_registration')
-                .setLabel('❌ Cancelar')
+                .setLabel(t('cancelButtonLabel', interaction.member))
                 .setStyle(ButtonStyle.Danger)
+                .setEmoji('❌')
         );
 
         await interaction.editReply({ embeds: [embed], components: [row] });
@@ -211,19 +213,9 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'confirm_team_registration') {
-        const [tournamentShortId, teamId] = params;
-        
-        // CORRECCIÓN: Pasamos 'register_team_from_db' como una palabra clave
-        // y el teamId como un parámetro separado para evitar errores de 'split'.
-        const originalAction = 'register_team_from_db'; 
-
-        const platformButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-        );
-
+        // ...
         await interaction.update({
-            content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
+            content: t('teamConfirmedSelectStream', interaction.member),
             embeds: [],
             components: [platformButtons]
         });
@@ -311,7 +303,12 @@ export async function handleButton(interaction) {
                 const tournamentShortId = entityId;
                 const teamId = teamIdOrPosition;
                 finalActionId = `inscripcion_final_modal:${tournamentShortId}:${platform}:${teamId}`;
-                modal.setTitle('Finalizar Inscripción (Stream)');
+                
+                // --- MODIFICADO ---
+                streamUsernameInput.setLabel(t('yourUsernameInPlatformLabel', interaction.member, { platform: platform.charAt(0).toUpperCase() + platform.slice(1) }));
+                modal.setTitle(t('finalizeStreamRegistrationModalTitle', interaction.member));
+                // --- FIN MODIFICADO ---
+
                 modal.addComponents(new ActionRowBuilder().addComponents(streamUsernameInput));
             } else {
                 finalActionId = `inscripcion_modal:${entityId}:${platform}`;
