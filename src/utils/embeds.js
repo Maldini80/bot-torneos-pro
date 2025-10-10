@@ -902,34 +902,25 @@ export function createCasterInfoEmbed(teamData, tournament) {
 /**
  * NUEVO: Crea el embed de advertencia para capitanes sobre la importancia de su stream.
  */
-export function createStreamerWarningEmbed(platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
+export function createStreamerWarningEmbed(member, platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
     const embed = new EmbedBuilder()
-        .setColor('#E67E22') // Naranja de advertencia
-        .setTitle('⚠️ ANTES DE RELLENAR EL FORMULARIO IMPORTANTE PARA STREAMERS')
+        .setColor('#E67E22')
+        .setTitle(t('streamerWarningTitle', member))
         .addFields(
-            {
-                name: '🔴 1. EN EL SIGUIENTE FORMULARIO ESCRIBE SOLO TU USUARIO DE STREAM',
-                value: '\u200B' 
-            },
-            {
-                name: '🔴 2. RETRANSMITE EL TORNEO EN EL CANAL DEL USUARIO QUE PONDRAS',
-                value: '\u200B' 
-            },
-            {
-                name: '🔴 3. NORMAS DE RETRANSMISION',
-                value: 'Para que los casters puedan trabajar, durante tus partidos es **OBLIGATORIO**:\n- **Tener las IDs visibles** en el juego.\n- **Desactivar el audio de los comentaristas** del juego.'
-            }
+            { name: t('streamerWarningField1', member), value: '\u200B' },
+            { name: t('streamerWarningField2', member), value: '\u200B' },
+            { name: t('streamerWarningField3', member), value: t('streamerWarningBody', member) }
         );
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`streamer_warning_accept:${platform}:${originalAction}:${entityId}:${teamIdOrPosition}`)
-            .setLabel('Entendido, continuar con la inscripción')
+            .setLabel(t('understoodButton', member))
             .setStyle(ButtonStyle.Success)
             .setEmoji('✅'),
         new ButtonBuilder()
             .setCustomId('rules_reject')
-            .setLabel('Cancelar')
+            .setLabel(t('cancelButton', member))
             .setStyle(ButtonStyle.Danger)
     );
     
