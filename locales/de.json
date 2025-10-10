@@ -69,9 +69,17 @@
   "rejectionReasonProof": "Unzureichender Nachweis",
   "errorUserNotVerified": "❌ Dieser Benutzer hat kein verifiziertes Profil in der Datenbank.",
   "errorUserNotInDraftOrVerified": "❌ Der Benutzer {userTag} ist weder verifiziert noch in diesem Draft registriert.",
+  "reportResultModalTitle": "Ergebnis Melden",
+  "goalsForTeamLabel": "Tore für {teamName}",
+  "resultSubmittedWaiting": "✅ Dein Ergebnis wurde übermittelt. Warte auf den Bericht deines Gegners.",
+  "resultsMismatchError": "❌ Die gemeldeten Ergebnisse stimmen nicht überein. Die Schiedsrichter wurden benachrichtigt.",
+  "unregisterRequestSent": "✅ Deine Abmeldeanfrage wurde an die Administratoren gesendet.",
+  "unregisterErrorNotFound": "❌ Du bist nicht in diesem Turnier angemeldet.",
+  "dmRejectionTitle": "Anmeldung Abgelehnt",
+  "dmRejectionBody": "Deine Anmeldung für das Team **{teamName}** im Turnier **{tournamentName}** wurde **abgelehnt**.",
   "dmVerificationRejected": "❌ **Verifizierung Abgelehnt**\n\n{reason}",
   "dmVerificationRejectedInactivity": "Deine Anfrage wurde wegen Inaktivität abgelehnt. Du hast die erforderlichen Nachweise nicht rechtzeitig erbracht.",
   "dmVerificationRejectedProof": "Deine Anfrage wurde abgelehnt, da die bereitgestellten Nachweise unzureichend oder ungültig waren.",
-  "simulationNoPendingMatches": "✅ Keine ausstehenden Spiele zu simulieren.", 
+  "simulationNoPendingMatches": "✅ Keine ausstehenden Spiele zu simulieren.",
   "simulationSuccess": "✅ Simulation abgeschlossen. {count} Spiele wurden verarbeitet."
 }
