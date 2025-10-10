@@ -42,5 +42,14 @@
   "paymentNotified": "✅ Thank you! Your payment has been notified. You will receive an update upon approval.",
   "errorPendingRegistrationNotFound": "❌ Your pending registration was not found. Please register again.",
   "kickRequestSent": "✅ Your request to kick the player has been sent to the administrators for review.",
-  "errorRequestFailed": "❌ Error processing request: {error}"
+  "errorRequestFailed": "❌ Error processing request: {error}",
+  "prizePaidNotification": "💰 Good news! Your **{prizeType}** prize from the **{tournamentName}** tournament has been marked as **paid**. Thanks for participating!",
+  "captainUpdateNotification": "ℹ️ An administrator has assigned **{userTag}** as the co-captain for your team **{teamName}**.",
+  "coCaptainUpdateNotification": "ℹ️ An administrator has assigned you as the co-captain for the team **{teamName}** (Captain: {captainTag}) in the **{tournamentName}** tournament.",
+  "kickNotification": "🚨 You have been **kicked** from the **{tournamentName}** tournament by an administrator.",
+  "captainChangeNotificationTitle": "📢 Tournament Update: {tournamentName}",
+  "captainChangeNotificationBody": "The tournament configuration has changed.",
+  "captainChangeNotificationFooter": "If you have questions, contact an administrator.",
+  "draftPlayerSelectedTitle": "You have been selected in the Draft!",
+  "draftPlayerSelectedBody": "Congratulations! You have been chosen by the team **{teamName}** (Captain: {captainTag}) in the **{draftName}** draft."
 }
