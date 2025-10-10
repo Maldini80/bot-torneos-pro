@@ -1633,12 +1633,26 @@ if (action === 'admin_simulate_matches') {
             return interaction.editReply({ content: "Esta invitación ya no es válida." });
         }
         
+        // La función que hace los cambios en la base de datos no se modifica.
         await addCoCaptain(client, tournament, captainId, coCaptainId);
         
-        const captainUser = await client.users.fetch(captainId);
-        await captainUser.send(`✅ **${interaction.user.tag}** ha aceptado tu invitación y ahora es tu co-capitán.`);
-        await interaction.editReply({ content: "✅ ¡Has aceptado la invitación! Ahora eres co-capitán." });
+        // --- LÓGICA DE TRADUCCIÓN AÑADIDA ---
 
+        // 1. Obtenemos el objeto `member` del capitán original para saber su idioma.
+        const guild = await client.guilds.fetch(tournament.guildId);
+        const captainMember = await guild.members.fetch(captainId);
+
+        // 2. Enviamos el MD al capitán, traducido a SU idioma.
+        await captainMember.send(t('dmCaptainNotifiedOfAcceptance', captainMember, {
+            userTag: interaction.user.tag
+        }));
+        
+        // 3. Enviamos la respuesta efímera al usuario que aceptó, traducida a SU idioma.
+        await interaction.editReply({ content: t('coCaptainAcceptedConfirmation', interaction.member) });
+
+        // --- FIN DE LA LÓGICA DE TRADUCCIÓN ---
+
+        // El resto del código para desactivar los botones no cambia.
         const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ components: [disabledRow] });
