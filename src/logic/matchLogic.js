@@ -14,7 +14,7 @@ export async function finalizeMatchThread(client, partido, resultString) {
     try {
         const thread = await client.channels.fetch(partido.threadId).catch(() => null);
         if (thread) {
-            const finalMessage = `✅ **Resultado final confirmado:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}.\n\nEste hilo se eliminará automáticamente en 10 segundos.`;
+            const finalMessage = `✅ **Resultado final confirmado / Final result confirmed:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}.\n\nEste hilo se eliminará en 10 segundos. / This thread will be deleted in 10 seconds.`;
             await thread.send(finalMessage);
             await new Promise(resolve => setTimeout(resolve, 10000));
             await thread.delete('Partido finalizado.').catch(() => {});
@@ -499,7 +499,7 @@ export async function checkOverdueMatches(client) {
 
                     const thread = await client.channels.fetch(processedMatch.threadId).catch(() => null);
                     if (thread) {
-                        await thread.send(`⚠️ **Este partido ha sido validado automáticamente** debido a que uno de los rivales no ha reportado el resultado en el tiempo establecido.`);
+                        await thread.send(`⚠️ **Partido validado automáticamente / Match automatically validated**\n🇪🇸 El resultado se ha confirmado porque uno de los equipos no reportó a tiempo.\n🇬🇧 The result has been confirmed because one of the teams did not report in time.`);
                     }
                     await finalizeMatchThread(client, processedMatch, resultString);
 
