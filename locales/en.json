@@ -1,0 +1,7 @@
+{
+  "errorNoPermission": "❌ You do not have permission to perform this action.",
+  "registrationSuccess": "✅ Registration received! An admin will review it shortly.",
+  "paymentModalTitle": "Confirm Payment",
+  "dmInvitationTitle": "🤝 Co-Captain Invitation",
+  "dmInvitationBody": "You have been invited by **{inviterTag}** to be the co-captain for **{teamName}** in the **{tournamentName}** tournament."
+}
