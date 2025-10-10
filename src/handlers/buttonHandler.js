@@ -169,26 +169,20 @@ export async function handleButton(interaction) {
         // --- INICIO DE LA MODIFICACIÓN: GUÍA DE INSCRIPCIÓN ---
         if (!team) {
             const embed = new EmbedBuilder()
-                .setColor('#e74c3c') // Rojo de error
-                .setTitle('❌ No eres Manager o Capitán de ningún equipo en el Discord')
-                .setDescription('Para poder inscribirte en un torneo, primero debes ser **mánager o capitán** de un equipo **registrado en este Discord**.')
+                .setColor('#e74c3c')
+                .setTitle(t('errorNotCaptainTitle', interaction.member))
+                .setDescription(t('errorNotCaptainDescription', interaction.member))
                 .addFields(
                     {
-                        name: '👉 Si eres el Mánager de tu equipo (y aún no lo has registrado):',
-                        value: '1. Ve al canal #🏠・registra-equipo-o-unete.\n' +
-                               '2. Usa el comando o botón para **Acciones de manager**.\n' +
-                               '3. Sigue los pasos del sistema.\n' +
-                               '4. Una vez registrado, vuelve aquí y pulsa de nuevo el botón de inscripción al torneo.'
+                        name: t('errorNotCaptainManagerGuideTitle', interaction.member),
+                        value: t('errorNotCaptainManagerGuideValue', interaction.member)
                     },
                     {
-                        name: '👉 Si eres Capitán o Jugador (y no el mánager):',
-                        value: '1. Pídele al **mánager** de tu equipo que siga los pasos de arriba para registrar el club en el Discord.\n' +
-                               '2. Una vez el equipo esté registrado, el mánager podrá **invitarte** o tú podrás **solicitar unirte** desde el canal #🏠・registra-equipo-o-unete .\n' +
-                               '3. Cuando ya formes parte de la plantilla, el mánager podrá **ascenderte a capitán**.\n' +
-                               '4. ¡Como capitán, ya podrás inscribir al equipo en torneos!'
+                        name: t('errorNotCaptainPlayerGuideTitle', interaction.member),
+                        value: t('errorNotCaptainPlayerGuideValue', interaction.member)
                     }
                 )
-                .setFooter({ text: 'Este sistema asegura que todos los equipos y capitanes estén correctamente registrados.' });
+                .setFooter({ text: t('errorNotCaptainFooter', interaction.member) });
 
             return interaction.editReply({ embeds: [embed] });
         }
