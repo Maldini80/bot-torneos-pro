@@ -12,6 +12,8 @@ import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyl
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { createDraftStatusEmbed } from '../utils/embeds.js';
+import { t } from '../utils/translator.js';
+
 const VERIFICATION_TICKET_CATEGORY_ID = '1396814712649551974';
 
 export async function handleModal(interaction) {
@@ -126,7 +128,7 @@ export async function handleModal(interaction) {
         const team = await Team.findById(teamId).lean();
 
         if (!tournament || !team) {
-            return interaction.editReply({ content: '❌ El torneo o el equipo ya no existen.' });
+            return interaction.editReply({ content: t('errorTeamOrTournamentNotFound', interaction.member) });
         }
 
         const teamData = {
@@ -160,7 +162,7 @@ export async function handleModal(interaction) {
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${teamData.capitanId}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${teamData.capitanId}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
         
-        await interaction.editReply({ content: `✅ ¡Tu inscripción para **${team.name}** ha sido recibida! Un admin la revisará pronto.` });
+        await interaction.editReply({ content: t('registrationFinalizedAdminReview', interaction.member, { teamName: team.name }) });
         return;
     }
 
@@ -219,10 +221,10 @@ export async function handleModal(interaction) {
 
         try {
             await requestStrike(client, draft, interaction.user.id, teamId, playerId, reason);
-            await interaction.editReply({ content: '✅ Tu solicitud de strike ha sido enviada a los administradores.' });
+            await interaction.editReply({ content: t('kickRequestSent', interaction.member) });
         } catch (error) {
             console.error(error);
-            await interaction.editReply({ content: `❌ Error al reportar: ${error.message}` });
+            await interaction.editReply({ content: t('errorRequestFailed', interaction.member, { error: error.message }) });
         }
         return;
     }
@@ -750,13 +752,13 @@ if (action === 'create_tournament') {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
-            return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
+            return interaction.editReply({ content: t('errorTournamentNotFound', interaction.member) });
         }
     
         const captainId = interaction.user.id;
         const isAlreadyInTournament = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
         if (isAlreadyInTournament) {
-            return interaction.editReply({ content: '❌ 🇪🇸 Ya estás inscrito o en la lista de reserva de este torneo.\n🇬🇧 You are already registered or on the waitlist for this tournament.'});
+            return interaction.editReply({ content: t('errorAlreadyRegistered', interaction.member) });
         }
         
         const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
@@ -772,7 +774,7 @@ if (action === 'create_tournament') {
         ];
     
         if (allTeamNames.includes(teamName.toLowerCase())) {
-            return interaction.editReply('Ya existe un equipo con este nombre en este torneo.');
+            return interaction.editReply({ content: t('errorTeamNameExists', interaction.member) });
         }
         
         const teamData = { 
@@ -792,7 +794,7 @@ if (action === 'create_tournament') {
     
         if (action === 'reserva_modal') {
             await addTeamToWaitlist(client, tournament, teamData);
-            await interaction.editReply('✅ 🇪🇸 ¡Inscripción recibida! Has sido añadido a la **lista de reserva**. Serás notificado si una plaza queda libre.\n🇬🇧 Registration received! You have been added to the **waitlist**. You will be notified if a spot becomes available.');
+            await interaction.editReply({ content: t('registrationWaitlistSuccess', interaction.member) });
             return;
         }
     
@@ -838,7 +840,7 @@ if (action === 'create_tournament') {
 
             // Respondemos de forma efímera con toda la información
             await interaction.editReply({ 
-                content: '✅ ¡Inscripción recibida! Sigue los pasos a continuación para finalizar.', 
+                content: t('registrationPaidPending', interaction.member), 
                 embeds: [embedEphemere], 
                 components: [confirmButton] 
             });
@@ -857,7 +859,7 @@ if (action === 'create_tournament') {
                 );
             const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
             await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
-            await interaction.editReply('✅ 🇪🇸 ¡Tu inscripción ha sido recibida! Un admin la revisará pronto.\n🇬🇧 Your registration has been received! An admin will review it shortly.');
+            await interaction.editReply({ content: t('registrationFreeAdminReview', interaction.member) });
         }
         return;
     }
@@ -865,18 +867,18 @@ if (action === 'create_tournament') {
         await interaction.reply({ content: '⏳ Notificando tu pago...', flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('❌ Este torneo ya no existe.');
+        if (!tournament) return interaction.editReply({ content: t('errorTournamentNotFound', interaction.member) });
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
         const userPaypal = interaction.fields.getTextInputValue('user_paypal_input');
         await db.collection('tournaments').updateOne({ shortId: tournamentShortId }, { $set: { [`teams.pendientes.${interaction.user.id}.paypal`]: userPaypal } });
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const teamData = updatedTournament.teams.pendientes[interaction.user.id];
-        if (!teamData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
+        if (!teamData) return interaction.editReply({ content: t('errorPendingRegistrationNotFound', interaction.member) });
         const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields( { name: 'Equipo', value: teamData.nombre, inline: true }, { name: 'Capitán', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán", value: `\`${userPaypal}\`` } );
         const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
         await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
-        await interaction.editReply('✅ 🇪🇸 ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.\n🇬🇧 Thank you! Your payment has been notified. You will receive a notice upon approval.');
+        await interaction.editReply({ content: t('paymentNotified', interaction.member) });
         return;
     }
     if (action === 'add_test_teams_modal') {
@@ -1180,9 +1182,9 @@ if (action === 'admin_edit_strikes_submit') {
 
     try {
         const result = await requestUnregisterFromDraft(client, draft, interaction.user.id, reason);
-        return interaction.editReply({ content: result.message });
+        return interaction.editReply({ content: t(result.messageKey, interaction.member) });
     } catch (error) {
-        return interaction.editReply({ content: `❌ Error al procesar la solicitud: ${error.message}` });
+        return interaction.editReply({ content: t('errorRequestFailed', interaction.member, { error: error.message }) });
     }
 }
 if (action === 'register_draft_player_team_name_modal') {
