@@ -98,5 +98,7 @@
   "coCaptainWelcomeMessage": "🤝 ¡El equipo **{teamName}** da la bienvenida a su nuevo co-capitán, {mention}! / The team **{teamName}** welcomes its new co-captain, {mention}!",
   "coCaptainAddedToThread": "ℹ️ {mention} ha sido añadido a este hilo como co-capitán. / has been added to this thread as co-captain.",
   "dmWaitlistTitle": "⚠️ {tournamentName} için Bekleme Listesinde",
-  "dmWaitlistBody": "Merhaba! **{teamName}** takımınız **bekleme listesine** eklendi.\nTurnuva şu anda dolu, ancak bir yer açılırsa takımınız otomatik olarak değerlendirilecektir."
+  "dmWaitlistBody": "Merhaba! **{teamName}** takımınız **bekleme listesine** eklendi.\nTurnuva şu anda dolu, ancak bir yer açılırsa takımınız otomatik olarak değerlendirilecektir.",
+  "dmApprovalTitle": "✅ Kayıt Onaylandı!",
+  "dmApprovalBody": "Tebrikler! Takımınız **{teamName}**, **{tournamentName}** turnuvasına katılmak için onaylandı."
 }
