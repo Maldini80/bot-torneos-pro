@@ -68,5 +68,8 @@
   "rejectionReasonInactivity": "Inaktivität",
   "rejectionReasonProof": "Unzureichender Nachweis",
   "errorUserNotVerified": "❌ Dieser Benutzer hat kein verifiziertes Profil in der Datenbank.",
-  "errorUserNotInDraftOrVerified": "❌ Der Benutzer {userTag} ist weder verifiziert noch in diesem Draft registriert."
+  "errorUserNotInDraftOrVerified": "❌ Der Benutzer {userTag} ist weder verifiziert noch in diesem Draft registriert.",
+  "dmVerificationRejected": "❌ **Verifizierung Abgelehnt**\n\n{reason}",
+  "dmVerificationRejectedInactivity": "Deine Anfrage wurde wegen Inaktivität abgelehnt. Du hast die erforderlichen Nachweise nicht rechtzeitig erbracht.",
+  "dmVerificationRejectedProof": "Deine Anfrage wurde abgelehnt, da die bereitgestellten Nachweise unzureichend oder ungültig waren."
 }
