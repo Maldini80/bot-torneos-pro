@@ -42,5 +42,14 @@
   "paymentNotified": "✅ ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.",
   "errorPendingRegistrationNotFound": "❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.",
   "kickRequestSent": "✅ Tu solicitud para expulsar al jugador ha sido enviada a los administradores para su revisión.",
-  "errorRequestFailed": "❌ Error al procesar la solicitud: {error}"
+  "errorRequestFailed": "❌ Error al procesar la solicitud: {error}",
+  "prizePaidNotification": "💰 ¡Buenas noticias! Tu premio de **{prizeType}** del torneo **{tournamentName}** ha sido marcado como **pagado**. ¡Gracias por participar!",
+  "captainUpdateNotification": "ℹ️ Un administrador te ha asignado a **{userTag}** como co-capitán de tu equipo **{teamName}**.",
+  "coCaptainUpdateNotification": "ℹ️ Un administrador te ha asignado como co-capitán del equipo **{teamName}** (Capitán: {captainTag}) en el torneo **{tournamentName}**.",
+  "kickNotification": "🚨 Has sido **expulsado** del torneo **{tournamentName}** por un administrador.",
+  "captainChangeNotificationTitle": "📢 Actualización del Torneo: {tournamentName}",
+  "captainChangeNotificationBody": "La configuración del torneo ha cambiado.",
+  "captainChangeNotificationFooter": "Si tienes dudas, contacta a un administrador.",
+  "draftPlayerSelectedTitle": "¡Has sido seleccionado en el Draft!",
+  "draftPlayerSelectedBody": "¡Enhorabuena! Has sido elegido por el equipo **{teamName}** (Capitán: {captainTag}) en el draft **{draftName}**."
 }
