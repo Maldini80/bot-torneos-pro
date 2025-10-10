@@ -787,8 +787,12 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
     if (/^\d+$/.test(userId)) {
         try {
-            const user = await client.users.fetch(userId);
-            await user.send(`💰 ¡Buenas noticias! Tu premio de **${prizeType}** del torneo **${tournament.nombre}** ha sido marcado como **pagado**. ¡Gracias por participar!`);
+            const guild = await client.guilds.fetch(tournament.guildId);
+            const member = await guild.members.fetch(userId);
+            await member.send(t('prizePaidNotification', member, {
+                prizeType: prizeType,
+                tournamentName: tournament.nombre
+            }));
             return { success: true };
         } catch (e) {
             console.warn(`No se pudo notificar al usuario ${userId} del pago del premio.`);
@@ -1813,24 +1817,33 @@ export async function notifyCaptainsOfChanges(client, tournament) {
     if (approvedCaptains.length === 0) {
         return { success: true, message: "✅ No hay capitanes inscritos a los que notificar." };
     }
-    const embed = new EmbedBuilder()
-        .setColor('#f1c40f')
-        .setTitle(`📢 Actualización del Torneo / Tournament Update: ${tournament.nombre}`)
-        .setDescription('🇪🇸 La configuración del torneo ha cambiado.\n🇬🇧 The tournament configuration has changed.')
-        .addFields(
-            { name: 'Formato / Format', value: tournament.config.format.label, inline: true },
-            { name: 'Tipo / Type', value: tournament.config.isPaid ? 'De Pago / Paid' : 'Gratuito / Free', inline: true },
-            { name: 'Entry', value: `${tournament.config.entryFee}€`, inline: true },
-            { name: 'Premio Campeón / Champion Prize', value: `${tournament.config.prizeCampeon}€`, inline: true },
-            { name: 'Premio Finalista / Runner-up Prize', value: `${tournament.config.prizeFinalista}€`, inline: true },
-            { name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime || 'No especificado / Not specified', inline: true }
-        )
-        .setFooter({ text: 'Si tienes dudas, contacta a un administrador.' });
     let notifiedCount = 0;
+    const guild = await client.guilds.fetch(tournament.guildId);
+
     for (const team of approvedCaptains) {
         if (/^\d+$/.test(team.capitanId)) {
-            try { const user = await client.users.fetch(team.capitanId); await user.send({ embeds: [embed] }); notifiedCount++;
-            } catch (e) { console.warn(`No se pudo notificar al capitán ${team.capitanTag}`); }
+            try {
+                const member = await guild.members.fetch(team.capitanId);
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#f1c40f')
+                    .setTitle(t('captainChangeNotificationTitle', member, { tournamentName: tournament.nombre }))
+                    .setDescription(t('captainChangeNotificationBody', member))
+                    .addFields(
+                        { name: 'Formato / Format', value: tournament.config.format.label, inline: true },
+                        { name: 'Tipo / Type', value: tournament.config.isPaid ? 'De Pago / Paid' : 'Gratuito / Free', inline: true },
+                        { name: 'Entry', value: `${tournament.config.entryFee}€`, inline: true },
+                        { name: 'Premio Campeón / Champion Prize', value: `${tournament.config.prizeCampeon}€`, inline: true },
+                        { name: 'Premio Finalista / Runner-up Prize', value: `${tournament.config.prizeFinalista}€`, inline: true },
+                        { name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime || 'N/A', inline: true }
+                    )
+                    .setFooter({ text: t('captainChangeNotificationFooter', member) });
+
+                await member.send({ embeds: [embed] });
+                notifiedCount++;
+            } catch (e) {
+                console.warn(`No se pudo notificar al capitán ${team.capitanTag}`);
+            }
         }
     }
     return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
