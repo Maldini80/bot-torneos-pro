@@ -66,5 +66,7 @@
   "rejectionProcessed": "Rechazo procesado.",
   "rejectionReasonMessage": "❌ Verificación rechazada por <@{adminId}>. Motivo: {reason}. Este canal se cerrará en 10 segundos.",
   "rejectionReasonInactivity": "Inactividad",
-  "rejectionReasonProof": "Pruebas insuficientes"
+  "rejectionReasonProof": "Pruebas insuficientes",
+  "errorUserNotVerified": "❌ Este usuario no tiene un perfil verificado en la base de datos.",
+  "errorUserNotInDraftOrVerified": "❌ El usuario {userTag} no está ni verificado ni inscrito en este draft."
 }
