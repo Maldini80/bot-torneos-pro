@@ -24,5 +24,12 @@
   "errorPickNoPlayers": "❌ There are no available players to select.",
   "errorGeneric": "❌ There was an error processing your request.",
   "unregisteredSuccess": "✅ Team unregistration processed.",
-  "unregisteredRejected": "❌ Unregister request rejected."
+  "unregisteredRejected": "❌ Unregister request rejected.",
+  "errorNotCaptainTitle": "❌ You are not a Manager or Captain",
+  "errorNotCaptainDescription": "To enroll in a tournament, you must first be a **manager or captain** of a team **registered on this Discord**.",
+  "errorNotCaptainManagerGuideTitle": "👉 If you are the Manager of your team:",
+  "errorNotCaptainManagerGuideValue": "1. Go to the #🏠・registra-equipo-o-unete channel.\n2. Use the command or button for **Manager Actions**.\n3. Follow the system steps.\n4. Once registered, come back here and press the registration button again.",
+  "errorNotCaptainPlayerGuideTitle": "👉 If you are a Player or Captain (and not the manager):",
+  "errorNotCaptainPlayerGuideValue": "1. Ask your team's **manager** to register the club.\n2. Once registered, the manager can **invite you** or you can **request to join**.\n3. When you are on the roster, the manager can **promote you to captain**.\n4. As a captain, you can then enroll the team in tournaments!",
+  "errorNotCaptainFooter": "This system ensures all teams are correctly registered."
 }
