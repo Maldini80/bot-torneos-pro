@@ -71,5 +71,7 @@
   "errorUserNotInDraftOrVerified": "❌ The user {userTag} is neither verified nor registered in this draft.",
   "dmVerificationRejected": "❌ **Verification Rejected**\n\n{reason}",
   "dmVerificationRejectedInactivity": "Your request has been rejected due to inactivity. You did not provide the necessary proof in time.",
-  "dmVerificationRejectedProof": "Your request has been rejected because the provided proof was insufficient or invalid."
+  "dmVerificationRejectedProof": "Your request has been rejected because the provided proof was insufficient or invalid.",
+  "simulationNoPendingMatches": "✅ There are no pending matches to simulate.",
+  "simulationSuccess": "✅ Simulation complete. {count} matches have been processed."
 }
