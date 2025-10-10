@@ -71,5 +71,7 @@
   "errorUserNotInDraftOrVerified": "❌ L'utilisateur {userTag} n'est ni vérifié ni inscrit à ce draft.",
 "dmVerificationRejected": "❌ Vérification Rejetée\n\n{reason}",
 "dmVerificationRejectedInactivity": "Votre demande a été rejetée pour inactivité. Vous n'avez pas fourni les preuves nécessaires à temps.",
-"dmVerificationRejectedProof": "Votre demande a été rejetée car les preuves fournies étaient insuffisantes ou non valides."
+"dmVerificationRejectedProof": "Votre demande a été rejetée car les preuves fournies étaient insuffisantes ou non valides.",
+  "simulationNoPendingMatches": "✅ Aucune partie en attente à simuler.", 
+  "simulationSuccess": "✅ Simulation terminée. {count} parties ont été traitées."
 }
