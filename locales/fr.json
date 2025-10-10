@@ -68,5 +68,8 @@
   "rejectionReasonInactivity": "Inactivité",
   "rejectionReasonProof": "Preuves insuffisantes",
   "errorUserNotVerified": "❌ Cet utilisateur n'a pas de profil vérifié dans la base de données.",
-  "errorUserNotInDraftOrVerified": "❌ L'utilisateur {userTag} n'est ni vérifié ni inscrit à ce draft."
+  "errorUserNotInDraftOrVerified": "❌ L'utilisateur {userTag} n'est ni vérifié ni inscrit à ce draft.",
+"dmVerificationRejected": "❌ Vérification Rejetée\n\n{reason}",
+"dmVerificationRejectedInactivity": "Votre demande a été rejetée pour inactivité. Vous n'avez pas fourni les preuves nécessaires à temps.",
+"dmVerificationRejectedProof": "Votre demande a été rejetée car les preuves fournies étaient insuffisantes ou non valides."
 }
