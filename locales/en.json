@@ -31,5 +31,16 @@
   "errorNotCaptainManagerGuideValue": "1. Go to the #🏠・registra-equipo-o-unete channel.\n2. Use the command or button for **Manager Actions**.\n3. Follow the system steps.\n4. Once registered, come back here and press the registration button again.",
   "errorNotCaptainPlayerGuideTitle": "👉 If you are a Player or Captain (and not the manager):",
   "errorNotCaptainPlayerGuideValue": "1. Ask your team's **manager** to register the club.\n2. Once registered, the manager can **invite you** or you can **request to join**.\n3. When you are on the roster, the manager can **promote you to captain**.\n4. As a captain, you can then enroll the team in tournaments!",
-  "errorNotCaptainFooter": "This system ensures all teams are correctly registered."
+  "errorNotCaptainFooter": "This system ensures all teams are correctly registered.",
+  "errorTeamOrTournamentNotFound": "❌ The tournament or team no longer exist.",
+  "registrationFinalizedAdminReview": "✅ Your registration for **{teamName}** has been received! An admin will review it shortly.",
+  "errorTeamNameExists": "❌ A team with this name already exists in this tournament.",
+  "registrationWaitlistSuccess": "✅ Registration received! You have been added to the **waitlist**.",
+  "registrationPaidPending": "✅ Registration received! Please check your Direct Messages to complete the payment.",
+  "errorDMBlocked": "❌ I could not send you a DM. Please open your DMs and try again.",
+  "registrationFreeAdminReview": "✅ Your registration has been received! An admin will review it shortly.",
+  "paymentNotified": "✅ Thank you! Your payment has been notified. You will receive an update upon approval.",
+  "errorPendingRegistrationNotFound": "❌ Your pending registration was not found. Please register again.",
+  "kickRequestSent": "✅ Your request to kick the player has been sent to the administrators for review.",
+  "errorRequestFailed": "❌ Error processing request: {error}"
 }
