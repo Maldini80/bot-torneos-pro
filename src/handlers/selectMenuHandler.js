@@ -952,41 +952,36 @@ if (action === 'draft_pick_by_position') {
         const db = getDb();
         const ticket = await db.collection('verificationtickets').findOne({ channelId });
 
-        // --- AÑADE ESTE BLOQUE PARA BORRAR LA NOTIFICACIÓN ---
-    if (ticket.adminNotificationMessageId) {
-        try {
-            const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
-            const notificationMessage = await adminApprovalChannel.messages.fetch(ticket.adminNotificationMessageId);
-            await notificationMessage.delete();
-        } catch (error) {
-            console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}. Puede que ya no existiera.`, error.message);
+        if (ticket.adminNotificationMessageId) {
+            try {
+                const adminApprovalChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID);
+                await adminApprovalChannel.messages.delete(ticket.adminNotificationMessageId).catch(() => {});
+            } catch (error) {
+                console.warn(`[CLEANUP] No se pudo borrar el mensaje de notificación del ticket ${ticket._id}.`);
+            }
         }
-    }
-    // --- FIN DEL BLOQUE A AÑADIR ---
 
-        let reasonText = '';
-        if (reason === 'inactivity') {
-            reasonText = 'Tu solicitud de verificación ha sido rechazada debido a inactividad. No has proporcionado las pruebas necesarias en el tiempo establecido.';
-        } else {
-            reasonText = 'Tu solicitud de verificación ha sido rechazada porque las pruebas proporcionadas eran insuficientes o no válidas. Por favor, asegúrate de seguir las instrucciones correctamente si lo intentas de nuevo.';
-        }
-        
+        // 1. Obtenemos la clave de traducción para el motivo
+        const reasonKeyForLog = reason === 'inactivity' ? 'rejectionReasonInactivity' : 'rejectionReasonProof';
+        // 2. Obtenemos el texto traducido en el idioma del ADMIN (para el mensaje público del canal)
+        const reasonTextForChannel = t(reasonKeyForLog, interaction.member);
+
         const user = await client.users.fetch(ticket.userId).catch(() => null);
         if (user) {
             try {
-                await user.send(`❌ **Verificación Rechazada**\n\n${reasonText}`);
+                // 3. Obtenemos el objeto `member` del usuario para traducir el MD a SU idioma
+                const userMember = await guild.members.fetch(ticket.userId);
+                const reasonKeyForDM = reason === 'inactivity' ? 'dmVerificationRejectedInactivity' : 'dmVerificationRejectedProof';
+                const reasonTextForUser = t(reasonKeyForDM, userMember);
+                await user.send({ content: t('dmVerificationRejected', userMember, { reason: reasonTextForUser }) });
             } catch(e) { console.warn(`No se pudo enviar MD de rechazo al usuario ${user.id}`); }
         }
 
         await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
         const channel = await client.channels.fetch(channelId);
         
-        // Obtenemos el texto del motivo traducido (para el usuario, aunque aquí se usa para el admin)
-        const reasonKey = reason === 'inactivity' ? 'rejectionReasonInactivity' : 'rejectionReasonProof';
-        const reasonText = t(reasonKey, interaction.member); // Usamos el idioma del admin para el log
-        
-        // Mensaje PÚBLICO en el ticket, bilingüe manual
-        await channel.send(`❌ Verificación rechazada por <@${interaction.user.id}>. / Verification rejected by <@${interaction.user.id}>.\nMotivo / Reason: **${reasonText}**.\nEste canal se cerrará en 10 segundos. / This channel will close in 10 seconds.`);
+        // 4. Enviamos el mensaje PÚBLICO bilingüe al canal del ticket
+        await channel.send(`❌ Verificación rechazada por <@${interaction.user.id}>. / Verification rejected by <@${interaction.user.id}>.\nMotivo / Reason: **${reasonTextForChannel}**.\nEste canal se cerrará en 10 segundos. / This channel will close in 10 seconds.`);
         
         const originalMessage = await channel.messages.fetch(interaction.message.reference.messageId);
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
@@ -995,7 +990,7 @@ if (action === 'draft_pick_by_position') {
         finalEmbed.data.fields.find(f => f.name === 'Estado').value = `❌ **Rechazado por:** <@${interaction.user.id}>`;
         await originalMessage.edit({ embeds: [finalEmbed], components: [disabledRow] });
         
-        // Respuesta PRIVADA para el admin, traducida
+        // 5. Enviamos la respuesta PRIVADA traducida al admin
         await interaction.editReply({ content: t('rejectionProcessed', interaction.member), components: [] });
         setTimeout(() => channel.delete().catch(console.error), 10000);
     }
