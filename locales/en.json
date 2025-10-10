@@ -51,5 +51,20 @@
   "captainChangeNotificationBody": "The tournament configuration has changed.",
   "captainChangeNotificationFooter": "If you have questions, contact an administrator.",
   "draftPlayerSelectedTitle": "You have been selected in the Draft!",
-  "draftPlayerSelectedBody": "Congratulations! You have been chosen by the team **{teamName}** (Captain: {captainTag}) in the **{draftName}** draft."
+  "draftPlayerSelectedBody": "Congratulations! You have been chosen by the team **{teamName}** (Captain: {captainTag}) in the **{draftName}** draft.",
+  "errorCaptainNotFound": "❌ Error: That captain could not be found.",
+  "errorNoFreeAgentsForPosition": "❌ No free agents found for the **{position}** position.",
+  "showingFreeAgentsForPosition": "Showing free agents for **{position}**. There are a total of {count} players.",
+  "draftHasNoCaptainsError": "❌ The draft **{draftName}** has no approved captains. There are no rosters to manage.",
+  "managingDraftMessage": "Managing **{draftName}**. Select a team:",
+  "invitationSentSuccess": "✅ Invitation sent to the replacement player.",
+  "formatSelectedMessage": "Format selected: **{formatLabel}**. Now, the type:",
+  "formatUpdatedSuccess": "✅ Format updated to: **{formatLabel}**.",
+  "typeUpdatedToFree": "✅ Tournament updated to: **Free**.",
+  "teamPromotedSuccess": "✅ The team **{teamName}** has been approved and moved from the waitlist to the tournament.",
+  "errorTeamNotInWaitlist": "❌ Error: This team is no longer on the waitlist.",
+  "rejectionProcessed": "Rejection processed.",
+  "rejectionReasonMessage": "❌ Verification rejected by <@{adminId}>. Reason: {reason}. This channel will close in 10 seconds.",
+  "rejectionReasonInactivity": "Inactivity",
+  "rejectionReasonProof": "Insufficient proof"
 }
