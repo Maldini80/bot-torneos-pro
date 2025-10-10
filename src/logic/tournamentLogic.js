@@ -10,6 +10,7 @@ import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 import { visualizerStateHandler } from '../../visualizerServer.js';
+import { t } from '../utils/translator.js';
 
 export async function notifyVisualizer(draft) {
     // Enriquece los datos del draft con los strikes persistentes
@@ -1263,13 +1264,18 @@ export async function approveTeam(client, tournament, teamData) {
         if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
         
         if (/^\d+$/.test(teamData.capitanId)) {
-            try {
-                const user = await client.users.fetch(teamData.capitanId);
-                const embed = new EmbedBuilder()
-                    .setColor('#2ecc71')
-                    .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
-                    .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado** y ya forma parte del torneo.\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved** and is now part of the tournament.`);
-                await user.send({ embeds: [embed] });
+        try {
+            // Obtenemos el objeto Guild y luego el Member para detectar su idioma
+            const guild = await client.guilds.fetch(latestTournament.guildId);
+            const member = await guild.members.fetch(teamData.capitanId);
+            
+            // Usamos el traductor con el 'member' del capitán
+            const embed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle(t('dmApprovalTitle', member, { tournamentName: latestTournament.nombre }))
+                .setDescription(t('dmApprovalBody', member, { teamName: teamData.nombre }));
+                
+            await member.send({ embeds: [embed] });
 
                 const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
                 const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
