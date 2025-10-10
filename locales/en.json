@@ -68,5 +68,8 @@
   "rejectionReasonInactivity": "Inactivity",
   "rejectionReasonProof": "Insufficient proof",
   "errorUserNotVerified": "❌ This user does not have a verified profile in the database.",
-  "errorUserNotInDraftOrVerified": "❌ The user {userTag} is neither verified nor registered in this draft."
+  "errorUserNotInDraftOrVerified": "❌ The user {userTag} is neither verified nor registered in this draft.",
+  "dmVerificationRejected": "❌ **Verification Rejected**\n\n{reason}",
+  "dmVerificationRejectedInactivity": "Your request has been rejected due to inactivity. You did not provide the necessary proof in time.",
+  "dmVerificationRejectedProof": "Your request has been rejected because the provided proof was insufficient or invalid."
 }
