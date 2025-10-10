@@ -81,5 +81,14 @@
   "dmVerificationRejectedInactivity": "Deine Anfrage wurde wegen Inaktivität abgelehnt. Du hast die erforderlichen Nachweise nicht rechtzeitig erbracht.",
   "dmVerificationRejectedProof": "Deine Anfrage wurde abgelehnt, da die bereitgestellten Nachweise unzureichend oder ungültig waren.",
   "simulationNoPendingMatches": "✅ Keine ausstehenden Spiele zu simulieren.",
-  "simulationSuccess": "✅ Simulation abgeschlossen. {count} Spiele wurden verarbeitet."
+  "simulationSuccess": "✅ Simulation abgeschlossen. {count} Spiele wurden verarbeitet.",
+  "autoRegistrationTitle": "Automatische Anmeldebestätigung",
+  "autoRegistrationBody": "Wir haben festgestellt, dass du ein Anführer des Teams **{teamName}** bist. Möchtest du es für das Turnier **{tournamentName}** mit den gespeicherten Daten anmelden?",
+  "autoRegistrationFooter": "Du musst keine Formulare ausfüllen.",
+  "yesEnrollMyTeamButton": "Ja, mein Team anmelden",
+  "cancelButtonLabel": "Abbrechen",
+  "teamConfirmedSelectStream": "✅ Team bestätigt. Bitte wähle jetzt deine Haupt-Streaming-Plattform für die Turnierspiele aus.",
+  "finalizeStreamRegistrationModalTitle": "Anmeldung abschließen (Stream)",
+  "yourUsernameInPlatformLabel": "Dein Benutzername auf {platform}",
+  "errorNotMatchCaptain": "❌ Fehler: Du scheinst kein Kapitän oder Co-Kapitän dieses Spiels zu sein."
 }
