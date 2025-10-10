@@ -31,5 +31,16 @@
   "errorNotCaptainManagerGuideValue": "1. Ve al canal #🏠・registra-equipo-o-unete.\n2. Usa el comando o botón para **Acciones de manager**.\n3. Sigue los pasos del sistema.\n4. Una vez registrado, vuelve aquí y pulsa de nuevo el botón de inscripción.",
   "errorNotCaptainPlayerGuideTitle": "👉 Si eres Capitán o Jugador (y no el mánager):",
   "errorNotCaptainPlayerGuideValue": "1. Pídele al **mánager** de tu equipo que lo registre.\n2. Una vez registrado, el mánager podrá **invitarte** o podrás **solicitar unirte**.\n3. Cuando formes parte de la plantilla, el mánager podrá **ascenderte a capitán**.\n4. ¡Como capitán, ya podrás inscribir al equipo!",
-  "errorNotCaptainFooter": "Este sistema asegura que todos los equipos estén correctamente registrados."
+  "errorNotCaptainFooter": "Este sistema asegura que todos los equipos estén correctamente registrados.",
+  "errorTeamOrTournamentNotFound": "❌ El torneo o el equipo ya no existen.",
+  "registrationFinalizedAdminReview": "✅ ¡Tu inscripción para **{teamName}** ha sido recibida! Un admin la revisará pronto.",
+  "errorTeamNameExists": "❌ Ya existe un equipo con este nombre en este torneo.",
+  "registrationWaitlistSuccess": "✅ ¡Inscripción recibida! Has sido añadido a la **lista de reserva**.",
+  "registrationPaidPending": "✅ ¡Inscripción recibida! Revisa tus Mensajes Directos para completar el pago.",
+  "errorDMBlocked": "❌ No he podido enviarte un MD. Por favor, abre tus MDs y vuelve a intentarlo.",
+  "registrationFreeAdminReview": "✅ ¡Tu inscripción ha sido recibida! Un admin la revisará pronto.",
+  "paymentNotified": "✅ ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.",
+  "errorPendingRegistrationNotFound": "❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.",
+  "kickRequestSent": "✅ Tu solicitud para expulsar al jugador ha sido enviada a los administradores para su revisión.",
+  "errorRequestFailed": "❌ Error al procesar la solicitud: {error}"
 }
