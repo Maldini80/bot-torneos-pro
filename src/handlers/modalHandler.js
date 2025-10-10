@@ -989,7 +989,7 @@ if (action === 'create_tournament') {
             opponentMention += ` o <@${opponentTeam.coCaptainId}>`;
         }
         
-        await interaction.editReply({content: '✅ Tu resultado ha sido enviado. Esperando el reporte de tu oponente.'});
+        await interaction.editReply({content: t('resultSubmittedWaiting', interaction.member)});
         await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado un resultado de / has reported a result of **${reportedResult}**. Esperando la confirmación de / Waiting for confirmation from ${opponentMention}.`);
     }
     return;
