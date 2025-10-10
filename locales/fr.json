@@ -81,5 +81,14 @@
   "dmVerificationRejectedInactivity": "Votre demande a été rejetée pour inactivité. Vous n'avez pas fourni les preuves nécessaires à temps.",
   "dmVerificationRejectedProof": "Votre demande a été rejetée car les preuves fournies étaient insuffisantes ou non valides.",
   "simulationNoPendingMatches": "✅ Aucune partie en attente à simuler.",
-  "simulationSuccess": "✅ Simulation terminée. {count} parties ont été traitées."
+  "simulationSuccess": "✅ Simulation terminée. {count} parties ont été traitées.",
+  "autoRegistrationTitle": "Confirmation d'Inscription Automatique",
+  "autoRegistrationBody": "Nous avons détecté que vous êtes un leader de l'équipe **{teamName}**. Souhaitez-vous l'inscrire au tournoi **{tournamentName}** en utilisant ses données sauvegardées ?",
+  "autoRegistrationFooter": "Vous n'aurez aucun formulaire à remplir.",
+  "yesEnrollMyTeamButton": "Oui, Inscrire mon Équipe",
+  "cancelButtonLabel": "Annuler",
+  "teamConfirmedSelectStream": "✅ Équipe confirmée. Veuillez maintenant sélectionner votre plateforme de streaming principale pour les matchs du tournoi.",
+  "finalizeStreamRegistrationModalTitle": "Finaliser l'Inscription (Stream)",
+  "yourUsernameInPlatformLabel": "Votre nom d'utilisateur sur {platform}",
+  "errorNotMatchCaptain": "❌ Erreur : Vous ne semblez pas être un capitaine ou co-capitaine de ce match."
 }
