@@ -672,29 +672,29 @@ export function createTournamentStatusEmbed(tournament) {
     const embed = new EmbedBuilder()
         .setColor(tournament.status === 'inscripcion_abierta' ? '#2ecc71' : '#3498db')
         .setTitle(`${statusIcon} ${tournament.nombre}`)
-        .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
+        .setFooter({ text: `ID: ${tournament.shortId}` });
 
-    // --- LÓGICA MODIFICADA PARA UN SOLO IDIOMA Y MÁS CLARIDAD ---
+    // Descripción bilingüe
+    const formatDescriptionES = TOURNAMENT_FORMATS[tournament.config.formatId].description;
+    const formatDescriptionEN = TOURNAMENT_FORMATS[tournament.config.formatId].description_en;
+    embed.setDescription(`🇪🇸 ${formatDescriptionES}\n🇬🇧 ${formatDescriptionEN}`);
 
-    const formatDescription = TOURNAMENT_FORMATS[tournament.config.formatId].description;
-    embed.setDescription(formatDescription);
-
+    // Campos bilingües
     embed.addFields(
-        { name: 'Formato', value: format.label, inline: true },
-        { name: 'Rondas', value: tournament.config.matchType === 'idavuelta' ? 'Ida y Vuelta' : 'Solo Ida', inline: true },
-        { name: 'Equipos', value: `${teamsCount} / ${format.size}`, inline: true }
+        { name: 'Formato / Format', value: format.label, inline: true },
+        { name: 'Rondas / Rounds', value: tournament.config.matchType === 'idavuelta' ? 'Ida y Vuelta / Two Legs' : 'Solo Ida / One Leg', inline: true },
+        { name: 'Equipos / Teams', value: `${teamsCount} / ${format.size}`, inline: true }
     );
 
     if (tournament.config.isPaid) {
-        embed.addFields({ name: 'Inscripción', value: `**${tournament.config.entryFee}€**`, inline: true });
+        embed.addFields({ name: 'Inscripción / Entry Fee', value: `**${tournament.config.entryFee}€**`, inline: true });
         
-        let prizePool = `🏆 **Campeón:** ${tournament.config.prizeCampeon}€`;
+        let prizePool = `🏆 **Campeón / Champion:** ${tournament.config.prizeCampeon}€`;
         if (tournament.config.prizeFinalista > 0) {
-            prizePool += `\n🥈 **Finalista:** ${tournament.config.prizeFinalista}€`;
+            prizePool += `\n🥈 **Finalista / Runner-up:** ${tournament.config.prizeFinalista}€`;
         }
-        embed.addFields({ name: 'Premios', value: prizePool, inline: true });
+        embed.addFields({ name: 'Premios / Prizes', value: prizePool, inline: true });
 
-        // Añadimos los métodos de pago si existen
         let paymentMethods = '';
         if (tournament.config.paypalEmail) {
             paymentMethods += `\n**PayPal:** \`${tournament.config.paypalEmail}\``;
@@ -703,38 +703,37 @@ export function createTournamentStatusEmbed(tournament) {
             paymentMethods += `\n**Bizum:** \`${tournament.config.bizumNumber}\``;
         }
         if (paymentMethods) {
-            embed.addFields({ name: 'Métodos de Pago', value: paymentMethods.trim(), inline: false });
+            embed.addFields({ name: 'Métodos de Pago / Payment Methods', value: paymentMethods.trim(), inline: false });
         }
 
     } else {
-        embed.addFields({ name: 'Inscripción', value: 'Gratuito', inline: true });
+        embed.addFields({ name: 'Inscripción / Entry Fee', value: 'Gratuito / Free', inline: true });
     }
 
     if (tournament.config.startTime) {
-        embed.addFields({ name: 'Inicio Programado', value: tournament.config.startTime, inline: false });
+        embed.addFields({ name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime, inline: false });
     }
     
-    // El resto de la lógica de los botones permanece igual
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
     const isFull = format.size > 0 && teamsCount >= format.size;
 
     if (tournament.status === 'inscripcion_abierta') {
         if (!isFull) {
-            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme').setStyle(ButtonStyle.Success).setEmoji('📝'));
+            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
         } else if (!tournament.config.isPaid) {
-            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_reserva_start:${tournament.shortId}`).setLabel('Inscribirme en Reserva').setStyle(ButtonStyle.Primary).setEmoji('📋'));
+            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_reserva_start:${tournament.shortId}`).setLabel('Lista de Reserva / Waitlist').setStyle(ButtonStyle.Primary).setEmoji('📋'));
         }
-        row1.addComponents(new ButtonBuilder().setCustomId(`darse_baja_start:${tournament.shortId}`).setLabel('Darse de Baja').setStyle(ButtonStyle.Danger).setEmoji('👋'));
+        row1.addComponents(new ButtonBuilder().setCustomId(`darse_baja_start:${tournament.shortId}`).setLabel('Darse de Baja / Unregister').setStyle(ButtonStyle.Danger).setEmoji('👋'));
     }
 
     row2.addComponents(
-        new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
-        new ButtonBuilder().setLabel('Normas').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
+        new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes / View Participants').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
+        new ButtonBuilder().setLabel('Normas / Rules').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
     );
 
     if (tournament.status === 'finalizado') {
-        embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado)`);
+        embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado / Finished)`);
     }
 
     const components = [];
