@@ -1286,18 +1286,16 @@ export async function approveTeam(client, tournament, teamData) {
         if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
         
         if (/^\d+$/.test(teamData.capitanId)) {
-        try {
-            // Obtenemos el objeto Guild y luego el Member para detectar su idioma
-            const guild = await client.guilds.fetch(latestTournament.guildId);
-            const member = await guild.members.fetch(teamData.capitanId);
-            
-            // Usamos el traductor con el 'member' del capitán
-            const embed = new EmbedBuilder()
-                .setColor('#2ecc71')
-                .setTitle(t('dmApprovalTitle', member, { tournamentName: latestTournament.nombre }))
-                .setDescription(t('dmApprovalBody', member, { teamName: teamData.nombre }));
+            try {
+                const guild = await client.guilds.fetch(latestTournament.guildId);
+                const member = await guild.members.fetch(teamData.capitanId);
                 
-            await member.send({ embeds: [embed] });
+                const embed = new EmbedBuilder()
+                    .setColor('#2ecc71')
+                    .setTitle(t('dmApprovalTitle', member, { tournamentName: latestTournament.nombre }))
+                    .setDescription(t('dmApprovalBody', member, { teamName: teamData.nombre }));
+                    
+                await member.send({ embeds: [embed] });
 
                 const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
                 const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
