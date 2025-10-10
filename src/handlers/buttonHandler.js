@@ -20,6 +20,7 @@ import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
+import { t } from '../utils/translator.js';
 
 export async function handleButton(interaction) {
     const customId = interaction.customId;
@@ -1230,16 +1231,16 @@ if (action === 'admin_invite_replacement_start') {
     const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
     if (modalActions.includes(action)) {
         if (action === 'admin_modify_result_start') {
-            const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
-            const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+    const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
 
-            if (!isAdmin && !isReferee) {
-                return interaction.reply({
-                    content: '❌ No tienes permiso para usar esta función. Requiere ser Administrador o Árbitro.',
-                    flags: [MessageFlags.Ephemeral]
-                });
-            }
-        }
+    if (!isAdmin && !isReferee) {
+        return interaction.reply({
+            content: t('errorNoPermission', interaction.member),
+            flags: [MessageFlags.Ephemeral]
+        });
+    }
+}
 
         const [p1, p2] = params;
         
