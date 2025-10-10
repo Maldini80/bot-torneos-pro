@@ -68,5 +68,8 @@
   "rejectionReasonInactivity": "Hareketsizlik",
   "rejectionReasonProof": "Yetersiz kanıt",
   "errorUserNotVerified": "❌ Bu kullanıcının veritabanında doğrulanmış bir profili yok.",
-  "errorUserNotInDraftOrVerified": "❌ {userTag} kullanıcısı ne doğrulanmış ne de bu draft'a kayıtlı."
+  "errorUserNotInDraftOrVerified": "❌ {userTag} kullanıcısı ne doğrulanmış ne de bu draft'a kayıtlı.",
+  "dmVerificationRejected": "❌ **Doğrulama Reddedildi**\n\n{reason}",
+  "dmVerificationRejectedInactivity": "Talebiniz hareketsizlik nedeniyle reddedildi. Gerekli kanıtları zamanında sunmadınız.",
+  "dmVerificationRejectedProof": "Talebiniz, sunulan kanıtların yetersiz veya geçersiz olması nedeniyle reddedildi."
 }
