@@ -952,7 +952,7 @@ if (action === 'create_tournament') {
         myTeam = partido.equipoB;
         opponentTeam = partido.equipoA;
     } else {
-        return interaction.editReply({ content: 'Error: No pareces ser un capitán o co-capitán de este partido.' });
+        return interaction.editReply({ content: t('errorNotMatchCaptain', interaction.member) });
     }
 
     partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date() };
@@ -980,7 +980,7 @@ if (action === 'create_tournament') {
             
             const opponentReporterId = opponentCaptainReport ? opponentTeam.capitanId : opponentTeam.coCaptainId;
             
-            await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentReporterId}> ha reportado: \`${opponentReport.score}\` `});
+            await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden / Results do not match!\n- <@${reporterId}> reportó / reported: \`${reportedResult}\`\n- <@${opponentReporterId}> reportó / reported: \`${opponentReport.score}\` `});
         }
     } else {
         // FIX 2 (cont.): Construimos el mensaje mencionando a capitán Y co-capitán si existe.
@@ -990,7 +990,7 @@ if (action === 'create_tournament') {
         }
         
         await interaction.editReply({content: '✅ Tu resultado ha sido enviado. Esperando el reporte de tu oponente.'});
-        await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado un resultado de **${reportedResult}**. Esperando la confirmación de ${opponentMention}.`);
+        await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado un resultado de / has reported a result of **${reportedResult}**. Esperando la confirmación de / Waiting for confirmation from ${opponentMention}.`);
     }
     return;
 }
