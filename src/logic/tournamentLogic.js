@@ -1280,16 +1280,18 @@ export async function approveTeam(client, tournament, teamData) {
     const maxTeams = latestTournament.config.format.size;
     const currentApprovedTeamsCount = Object.keys(latestTournament.teams.aprobados).length;
 
+    // Obtenemos el `guild` y el `member` fuera del `if` para poder usarlo en ambos casos (aprobado o lista de reserva)
+    const guild = await client.guilds.fetch(latestTournament.guildId);
+    const member = /^\d+$/.test(teamData.capitanId) ? await guild.members.fetch(teamData.capitanId).catch(() => null) : null;
+
     if (latestTournament.config.format.size === 0 || currentApprovedTeamsCount < maxTeams) {
+        // --- CASO 1: HAY SITIO, EL EQUIPO ES APROBADO ---
         latestTournament.teams.aprobados[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
         if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
         
-        if (/^\d+$/.test(teamData.capitanId)) {
+        if (member) { // Solo si el miembro existe en el servidor
             try {
-                const guild = await client.guilds.fetch(latestTournament.guildId);
-                const member = await guild.members.fetch(teamData.capitanId);
-                
                 const embed = new EmbedBuilder()
                     .setColor('#2ecc71')
                     .setTitle(t('dmApprovalTitle', member, { tournamentName: latestTournament.nombre }))
@@ -1312,7 +1314,7 @@ export async function approveTeam(client, tournament, teamData) {
                 );
 
                 await chatChannel.send({
-                    content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
+                    content: `👋 ¡Bienvenido / Welcome, <@${teamData.capitanId}>! (${teamData.nombre})\n\nPuedes usar el botón de abajo para invitar a tu co-capitán.\nYou can use the button below to invite your co-captain.`,
                     components: [inviteButtonRow]
                 });
 
@@ -1323,18 +1325,18 @@ export async function approveTeam(client, tournament, teamData) {
         await notifyCastersOfNewTeam(client, latestTournament, teamData);
 
     } else {
+        // --- CASO 2: NO HAY SITIO, EL EQUIPO VA A LA LISTA DE RESERVA ---
         latestTournament.teams.reserva[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
         if (latestTournament.teams.aprobados[teamData.capitanId]) delete latestTournament.teams.aprobados[teamData.capitanId];
 
-        if (/^\d+$/.test(teamData.capitanId)) {
+        if (member) { // Solo si el miembro existe en el servidor
             try {
-                const user = await client.users.fetch(teamData.capitanId);
                 const embed = new EmbedBuilder()
                     .setColor('#f1c40f')
-                    .setTitle(`⚠️ En Lista de Reserva para ${latestTournament.nombre}`)
-                    .setDescription(`🇪🇸 ¡Hola! Tu equipo **${teamData.nombre}** ha sido añadido a la **lista de reserva** para el torneo **${latestTournament.nombre}**.\nActualmente, el torneo está completo, pero si se libera un espacio, tu equipo será considerado automáticamente.\n\n🇬🇧 Hello! Your team **${teamData.nombre}** has been added to the **reserve list** for the **${latestTournament.nombre}** tournament.\nThe tournament is currently full, but if a spot opens up, your team will be automatically considered.`);
-                await user.send({ embeds: [embed] });
+                    .setTitle(t('dmWaitlistTitle', member, { tournamentName: latestTournament.nombre }))
+                    .setDescription(t('dmWaitlistBody', member, { teamName: teamData.nombre }));
+                await member.send({ embeds: [embed] });
             } catch(e) { 
                 console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la lista de reserva:`, e); 
             }
