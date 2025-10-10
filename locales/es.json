@@ -12,5 +12,17 @@
   "streamerWarningField3": "🔴 3. NORMAS DE RETRANSMISIÓN",
   "streamerWarningBody": "Para que los casters puedan trabajar, es **OBLIGATORIO**:\n- **Tener las IDs visibles** en el juego.\n- **Desactivar el audio de los comentaristas** del juego.",
   "understoodButton": "Entendido, continuar",
-  "cancelButton": "Cancelar"
+  "cancelButton": "Cancelar",
+  "errorTournamentNotFound": "❌ Error: No se encontró este torneo.",
+  "errorAlreadyRegistered": "❌ Ya estás inscrito o en la lista de reserva de este torneo.",
+  "errorNotCaptain": "❌ No eres Mánager o Capitán de ningún equipo registrado en el Discord.",
+  "registrationCanceled": "Inscripción cancelada.",
+  "errorDraftNotFound": "❌ Error: No se encontró este draft.",
+  "errorAlreadyInDraft": "❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.",
+  "errorMustVerify": "❌ Debes verificar tu cuenta primero usando el botón \"Verificar Cuenta\".",
+  "errorPickNotYourTurn": "❌ No es tu turno de elegir o no tienes permiso.",
+  "errorPickNoPlayers": "❌ No hay jugadores disponibles para seleccionar.",
+  "errorGeneric": "❌ Hubo un error al procesar tu solicitud.",
+  "unregisteredSuccess": "✅ Baja del equipo procesada.",
+  "unregisteredRejected": "❌ Solicitud de baja rechazada."
 }
