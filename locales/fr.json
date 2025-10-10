@@ -96,5 +96,7 @@
   "inviteCoCaptainMessage": "Puedes usar el botón de abajo para invitar a tu co-capitán.\nYou can use the button below to invite your co-captain.",
   "inviteCoCaptainButton": "Invitar Co-Capitán / Invite Co-Captain",
   "coCaptainWelcomeMessage": "🤝 ¡El equipo **{teamName}** da la bienvenida a su nuevo co-capitán, {mention}! / The team **{teamName}** welcomes its new co-captain, {mention}!",
-  "coCaptainAddedToThread": "ℹ️ {mention} ha sido añadido a este hilo como co-capitán. / has been added to this thread as co-captain."
+  "coCaptainAddedToThread": "ℹ️ {mention} ha sido añadido a este hilo como co-capitán. / has been added to this thread as co-captain.",
+  "dmWaitlistTitle": "⚠️ Sur la Liste d'Attente pour {tournamentName}",
+  "dmWaitlistBody": "Bonjour ! Votre équipe **{teamName}** a été ajoutée à la **liste d'attente**.\nLe tournoi est actuellement complet, mais si une place se libère, votre équipe sera automatiquement considérée."
 }
