@@ -71,5 +71,7 @@
   "errorUserNotInDraftOrVerified": "❌ Der Benutzer {userTag} ist weder verifiziert noch in diesem Draft registriert.",
   "dmVerificationRejected": "❌ **Verifizierung Abgelehnt**\n\n{reason}",
   "dmVerificationRejectedInactivity": "Deine Anfrage wurde wegen Inaktivität abgelehnt. Du hast die erforderlichen Nachweise nicht rechtzeitig erbracht.",
-  "dmVerificationRejectedProof": "Deine Anfrage wurde abgelehnt, da die bereitgestellten Nachweise unzureichend oder ungültig waren."
+  "dmVerificationRejectedProof": "Deine Anfrage wurde abgelehnt, da die bereitgestellten Nachweise unzureichend oder ungültig waren.",
+  "simulationNoPendingMatches": "✅ Keine ausstehenden Spiele zu simulieren.", 
+  "simulationSuccess": "✅ Simulation abgeschlossen. {count} Spiele wurden verarbeitet."
 }
