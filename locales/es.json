@@ -81,5 +81,14 @@
   "dmVerificationRejectedInactivity": "Tu solicitud ha sido rechazada debido a inactividad. No has proporcionado las pruebas necesarias a tiempo.",
   "dmVerificationRejectedProof": "Tu solicitud ha sido rechazada porque las pruebas proporcionadas eran insuficientes o no válidas.",
   "simulationNoPendingMatches": "✅ No hay partidos pendientes para simular.",
-  "simulationSuccess": "✅ Simulación completada. Se han procesado {count} partidos."
+  "simulationSuccess": "✅ Simulación completada. Se han procesado {count} partidos.",
+  "autoRegistrationTitle": "Confirmación de Inscripción Automática",
+  "autoRegistrationBody": "Hemos detectado que eres un líder del equipo **{teamName}**. ¿Deseas inscribirlo en el torneo **{tournamentName}** usando sus datos guardados?",
+  "autoRegistrationFooter": "No tendrás que rellenar ningún formulario.",
+  "yesEnrollMyTeamButton": "Sí, Inscribir mi Equipo",
+  "cancelButtonLabel": "Cancelar",
+  "teamConfirmedSelectStream": "✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.",
+  "finalizeStreamRegistrationModalTitle": "Finalizar Inscripción (Stream)",
+  "yourUsernameInPlatformLabel": "Tu usuario en {platform}",
+  "errorNotMatchCaptain": "❌ Error: No pareces ser un capitán o co-capitán de este partido."
 }
