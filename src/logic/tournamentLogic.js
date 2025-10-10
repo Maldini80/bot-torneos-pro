@@ -1468,7 +1468,7 @@ export async function kickTeam(client, tournament, captainId) {
     try {
         const casterThread = await client.channels.fetch(updatedTournament.discordMessageIds.casterThreadId).catch(()=>null);
         if (casterThread) {
-            await casterThread.send({ content: - Equipo / Team **${teamData.nombre}** (Cap: ${teamData.capitanTag}) ha sido eliminado / has been removed. });
+            await casterThread.send({ content: `- Equipo / Team **${teamData.nombre}** (Cap: ${teamData.capitanTag}) ha sido eliminado / has been removed.` });
         }
     } catch (e) {
         console.warn(`No se pudo notificar la expulsión en el hilo de casters para el torneo ${tournament.shortId}`);
