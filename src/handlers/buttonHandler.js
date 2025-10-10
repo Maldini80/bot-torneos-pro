@@ -1583,15 +1583,17 @@ if (action === 'admin_simulate_matches') {
     // Ejecutamos la simulación y NO esperamos a que termine (trabajo en segundo plano)
     simulateAllPendingMatches(client, tournamentShortId)
         .then(result => {
-            // Cuando termina, intentamos editar la respuesta inicial
-            interaction.editReply(`✅ Simulación completada. ${result.message}`).catch(() => {
-                // Si falla (porque ha pasado mucho tiempo), enviamos un nuevo mensaje al canal
-                interaction.channel.send(`✅ La simulación para el torneo \`${tournamentShortId}\` ha finalizado. ${result.message}`);
+            // Traducimos el mensaje usando la clave y las variables devueltas
+            const translatedMessage = t(result.messageKey, interaction.member, { count: result.count });
+            
+            interaction.editReply(translatedMessage).catch(() => {
+                interaction.channel.send(`✅ La simulación para el torneo \`${tournamentShortId}\` ha finalizado. ${translatedMessage}`);
             });
         })
         .catch(error => {
             console.error("Error crítico durante la simulación de partidos:", error);
-            interaction.editReply(`❌ Ocurrió un error crítico durante la simulación: ${error.message}`).catch(() => {
+            const errorMessage = t('errorRequestFailed', interaction.member, { error: error.message });
+            interaction.editReply(errorMessage).catch(() => {
                 interaction.channel.send(`❌ Ocurrió un error crítico durante la simulación para el torneo \`${tournamentShortId}\`.`);
             });
         });
