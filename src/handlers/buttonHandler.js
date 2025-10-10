@@ -147,14 +147,14 @@ export async function handleButton(interaction) {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) {
-            return interaction.editReply({ content: 'Error: No se encontró este torneo.' });
+            return interaction.editReply({ content: t('errorTournamentNotFound', interaction.member) });
         }
 
         const managerId = interaction.user.id;
         
         const isAlreadyRegistered = tournament.teams.aprobados[managerId] || tournament.teams.pendientes[managerId] || (tournament.teams.reserva && tournament.teams.reserva[managerId]);
         if (isAlreadyRegistered) {
-            return interaction.editReply({ content: '❌ Ya estás inscrito o en la lista de reserva de este torneo.' });
+            return interaction.editReply({ content: t('errorAlreadyRegistered', interaction.member) });
         }
 
         if (mongoose.connection.readyState === 0) {
@@ -247,7 +247,7 @@ export async function handleButton(interaction) {
     }
 	
     if (action === 'cancel_registration') {
-        await interaction.update({ content: 'Inscripción cancelada.', embeds: [], components: [] });
+        await interaction.update({ content: t('registrationCanceled', interaction.member), embeds: [], components: [] });
         return;
     }
     
@@ -704,12 +704,12 @@ if (action === 'admin_invite_replacement_start') {
 
     const isVerified = await checkVerification(interaction.user.id);
     if (!isVerified) {
-        return interaction.reply({ content: '❌ Debes verificar tu cuenta primero usando el botón "Verificar Cuenta".', flags: [MessageFlags.Ephemeral] });
+        return interaction.reply({ content: t('errorMustVerify', interaction.member), flags: [MessageFlags.Ephemeral] });
     }
     
     const [draftShortId, channelId] = params;
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-    if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
+    if (!draft) return interaction.reply({ content: t('errorDraftNotFound', interaction.member), flags: [MessageFlags.Ephemeral] });
 
     const userId = interaction.user.id;
     const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
@@ -717,7 +717,7 @@ if (action === 'admin_invite_replacement_start') {
                               draft.players.some(p => p.userId === userId) ||
                               (draft.pendingPayments && draft.pendingPayments[userId]);
     if (isAlreadyRegistered) {
-        return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
+        return interaction.reply({ content: t('errorAlreadyInDraft', interaction.member), flags: [MessageFlags.Ephemeral] });
     }
     
     // --- CORRECCIÓN CLAVE ---
@@ -1039,7 +1039,7 @@ if (action === 'admin_invite_replacement_start') {
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
         if (interaction.user.id !== currentCaptainId && !isAdmin) {
-            return interaction.reply({ content: 'No es tu turno de elegir o no tienes permiso.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: t('errorPickNotYourTurn', interaction.member), flags: [MessageFlags.Ephemeral] });
         }
         
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.isPicking": true } });
@@ -1054,7 +1054,7 @@ if (action === 'admin_invite_replacement_start') {
             .map(([key, value]) => ({ label: value, value: key }));
 
         if (positionOptions.length === 0) {
-            return interaction.reply({ content: 'No hay jugadores disponibles para seleccionar.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: t('errorPickNoPlayers', interaction.member), flags: [MessageFlags.Ephemeral] });
         }
 
         const positionMenu = new StringSelectMenuBuilder()
@@ -1749,7 +1749,7 @@ if (action === 'admin_simulate_matches') {
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
-        await interaction.editReply(`✅ Baja del equipo **${team.nombre}** procesada.`);
+        await interaction.editReply(t('unregisteredSuccess', interaction.member));
         return;
     }
 
@@ -1769,7 +1769,7 @@ if (action === 'admin_simulate_matches') {
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
-        await interaction.editReply({ content: `❌ Solicitud de baja rechazada.`, flags: [MessageFlags.Ephemeral] });
+        await interaction.editReply({ content: t('unregisteredRejected', interaction.member), flags: [MessageFlags.Ephemeral] });
         return;
     }
 
