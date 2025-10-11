@@ -1259,8 +1259,8 @@ if (action === 'admin_invite_replacement_start') {
             const matchId = p1;
             const { partido } = findMatch(tournament, matchId);
             if (!partido) return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
-            modal = new ModalBuilder().setCustomId(`report_result_modal:${matchId}:${tournament.shortId}`).setTitle('Reportar Resultado');
-            const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
+            modal = new ModalBuilder().setCustomId(`report_result_modal:${matchId}:${tournament.shortId}`).setTitle(t('reportResultModalTitle', interaction.member));
+const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(t('goalsForTeamLabel', interaction.member, { teamName: partido.equipoA.nombre })).setStyle(TextInputStyle.Short).setRequired(true);
             const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
         } else if (action === 'admin_modify_result_start') {
