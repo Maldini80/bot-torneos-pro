@@ -974,7 +974,7 @@ if (action === 'create_tournament') {
             await finalizeMatchThread(client, processedMatch, reportedResult);
         } else {
             // Resultados NO coinciden, avisamos a árbitros.
-            await interaction.editReply({content: '❌ Los resultados reportados no coinciden. Se ha notificado a los árbitros.'});
+            await interaction.editReply({content: t('resultsMismatchError', interaction.member)});
             const thread = interaction.channel;
             if(thread.isThread()) await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅🔵]-/g, '')}`.slice(0,100));
             
