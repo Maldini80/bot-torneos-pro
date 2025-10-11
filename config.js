@@ -34,16 +34,15 @@ export const PAYMENT_CONFIG = {
 
 // Configuración para el sistema de Draft
 export const DRAFT_POSITIONS = {
-    GK: 'Portero (GK)',
-    DFC: 'Defensa Central (DFC)',
-    CARR: 'Carrilero (CARR)',
-    MCD: 'Mediocentro Defensivo (MCD)',
-    'MV/MCO': 'Mediocentro/Ofensivo (MV/MCO)',
-    DC: 'Delantero Centro (DC)'
+    GK: 'Portero',
+    DFC: 'Defensa',
+    CARR: 'Carrilero',
+    MED: 'Medio',
+    DC: 'Delantero'
 };
 
 // Orden de visualización de las posiciones en las tablas del Draft
-export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
+export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'CARR', 'MED', 'DC'];
 
 // Configuración de los formatos de torneo CON TRADUCCIONES
 export const TOURNAMENT_FORMATS = {
