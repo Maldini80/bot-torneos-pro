@@ -1261,8 +1261,8 @@ if (action === 'admin_invite_replacement_start') {
             if (!partido) return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
             modal = new ModalBuilder().setCustomId(`report_result_modal:${matchId}:${tournament.shortId}`).setTitle(t('reportResultModalTitle', interaction.member));
 const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(t('goalsForTeamLabel', interaction.member, { teamName: partido.equipoA.nombre })).setStyle(TextInputStyle.Short).setRequired(true);
-            const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
+const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(t('goalsForTeamLabel', interaction.member, { teamName: partido.equipoB.nombre })).setStyle(TextInputStyle.Short).setRequired(true);
+modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
         } else if (action === 'admin_modify_result_start') {
             const matchId = p1;
             const { partido } = findMatch(tournament, matchId);
@@ -1551,9 +1551,12 @@ const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(t('go
         await kickTeam(client, tournament, captainId);
         
         try {
-            const user = await client.users.fetch(captainId);
-            await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have sido **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
-        } catch (e) { console.warn(`No se pudo enviar MD de expulsión al usuario ${captainId}`); }
+    const user = await client.users.fetch(captainId);
+    // La variable 'user' aquí es el objeto de usuario, no el 'member'. 
+    // Para que la traducción funcione, necesitamos el 'member' para acceder a sus roles.
+    const member = await guild.members.fetch(captainId);
+    await user.send(t('kickNotification', member, { tournamentName: tournament.nombre }));
+} catch (e) { console.warn(`No se pudo enviar MD de expulsión al usuario ${captainId}`); }
         
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
