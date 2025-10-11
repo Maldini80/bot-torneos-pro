@@ -1314,9 +1314,9 @@ export async function approveTeam(client, tournament, teamData) {
                 );
 
                 await chatChannel.send({
-                    content: `👋 ¡Bienvenido / Welcome, <@${teamData.capitanId}>! (${teamData.nombre})\n\nPuedes usar el botón de abajo para invitar a tu co-capitán.\nYou can use the button below to invite your co-captain.`,
-                    components: [inviteButtonRow]
-                });
+    content: t('welcomeMessage', member, { mention: `<@${teamData.capitanId}>`, teamName: teamData.nombre }) + `\n\n` + t('inviteCoCaptainMessage', member),
+    components: [inviteButtonRow]
+});
 
             } catch(e) { 
                 console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la aprobación o al dar permisos:`, e); 
@@ -1411,7 +1411,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                 if (thread) {
                     await thread.members.add(coCaptainId);
                     // --- MENSAJE PÚBLICO EN HILO (Bilingüe Manual) ---
-                    await thread.send(`ℹ️ <@${coCaptainId}> ha sido añadido a este hilo como co-capitán. / has been added to this thread as co-captain.`);
+                    await thread.send(t('coCaptainAddedToThread', interaction.member, { mention: `<@${coCaptainId}>` }));
                 }
             } catch (error) {
                 if (error.code !== 10003) { 
@@ -1426,7 +1426,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     // 4. Anunciamos la incorporación en el chat general (Público -> Bilingüe Manual)
     try {
         const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
-        const announcementMessage = `🤝 ¡El equipo **${team.nombre}** da la bienvenida a su nuevo co-capitán, <@${coCaptainId}>! / The team **${team.nombre}** welcomes its new co-captain, <@${coCaptainId}>!`;
+        const announcementMessage = t('coCaptainWelcomeMessage', interaction.member, { teamName: team.nombre, mention: `<@${coCaptainId}>` });
         await chatChannel.send({ content: announcementMessage });
     } catch (e) {
         console.error(`No se pudo enviar el anuncio de nuevo co-capitán al chat general:`, e);
