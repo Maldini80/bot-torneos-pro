@@ -35,8 +35,9 @@ const defaultBotSettings = {
     translationEnabled: true,
     twitterEnabled: true,
     // --- INICIO DE LAS NUEVAS REGLAS ---
-    draftMinQuotas: 'GK:1,DFC:2,CARR:2,MCD:2,MV/MCO:2,DC:2', // Mínimo para iniciar selección
-    draftMaxQuotas: 'GK:1,DFC:2,CARR:2,MCD:2,MV/MCO:2,DC:2'  // Máximo por equipo
+    // Se unifica MCD y MV/MCO en MED (Medios)
+    draftMinQuotas: 'GK:1,DFC:2,CARR:2,MED:4,DC:2', // Mínimo para iniciar selección
+    draftMaxQuotas: 'GK:1,DFC:2,CARR:2,MED:4,DC:2'  // Máximo por equipo
     // --- FIN DE LAS NUEVAS REGLAS ---
 };
 
