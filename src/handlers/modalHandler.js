@@ -966,7 +966,7 @@ if (action === 'create_tournament') {
     if (opponentReport) {
         if (opponentReport && opponentReport.score === reportedResult) {
             // FIX 3: Respondemos INMEDIATAMENTE para evitar el error de "Unknown Message".
-            await interaction.editReply({content: '✅ Resultados coinciden. Finalizando el partido...'});
+            await interaction.editReply({content: t('resultsMatchSuccess', interaction.member)});
 
             // Y ahora realizamos las tareas lentas en segundo plano.
             tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -990,7 +990,11 @@ if (action === 'create_tournament') {
         }
         
         await interaction.editReply({content: t('resultSubmittedWaiting', interaction.member)});
-        await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado un resultado de / has reported a result of **${reportedResult}**. Esperando la confirmación de / Waiting for confirmation from ${opponentMention}.`);
+        await interaction.channel.send(t('resultReportedPublic', interaction.member, {
+    reporterId: reporterId,
+    reportedResult: reportedResult,
+    opponentMention: opponentMention
+}));
     }
     return;
 }
