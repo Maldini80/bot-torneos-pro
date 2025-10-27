@@ -105,6 +105,47 @@ client.on(Events.MessageCreate, async message => {
     if (message.author.bot || !message.guild) return;
     await handleMessageTranslation(message);
 
+    // Handle Spanish greetings
+    try {
+        const content = message.content.toLowerCase().trim();
+        const greetingPatterns = [
+            /^hola\s+(buenas|buenos?(\s+d[ií]as?)?|tardes?)$/,
+            /^buenas?(\s+(tardes?|d[ií]as?|noches?))?$/,
+            /^hola$/,
+            /^buenos?\s+d[ií]as?$/,
+            /^buenas?\s+tardes?$/,
+            /^buenas?\s+noches?$/
+        ];
+
+        const isGreeting = greetingPatterns.some(pattern => pattern.test(content));
+        
+        if (isGreeting && !message.channel.isThread()) {
+            // Don't respond in management or special channels
+            const channel = message.channel;
+            const channelName = channel.name ? channel.name.toLowerCase() : '';
+            const isSpecialChannel = channelName.includes('admin') || 
+                                   channelName.includes('management') || 
+                                   channelName.includes('gestion') ||
+                                   channel.id === CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT ||
+                                   channel.id === CHANNELS.TOURNAMENTS_APPROVALS_PARENT;
+            
+            if (!isSpecialChannel) {
+                const responses = [
+                    '¡Hola! 👋 ¡Bienvenido al servidor de torneos!',
+                    '¡Buenas! 😊 ¡Qué tal todo!',
+                    '¡Hola buenas! ¡Espero que tengas un buen día! 🌟',
+                    '¡Saludos! ¡Bienvenido al mundo de los torneos pro! ⚔️',
+                    '¡Hola! ¿Todo bien? ¡Aquí para ayudarte con los torneos! 🏆'
+                ];
+                
+                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                await message.reply(randomResponse);
+            }
+        }
+    } catch (error) {
+        console.error("Error en el detector de saludos:", error);
+    }
+
     try {
         const channel = message.channel;
         if (!channel.isThread() || message.author.bot) return;
