@@ -7,6 +7,7 @@ import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCr
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
+import { setBotBusy } from '../../index.js';
 
 export async function finalizeMatchThread(client, partido, resultString) {
     if (!partido || !partido.threadId) return;
