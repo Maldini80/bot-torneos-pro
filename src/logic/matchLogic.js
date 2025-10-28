@@ -26,46 +26,57 @@ export async function finalizeMatchThread(client, partido, resultString) {
 }
 
 export async function processMatchResult(client, guild, tournament, matchId, resultString) {
-    const db = getDb();
-    let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    // ----> 1. AÑADE ESTA LÍNEA
+    await setBotBusy(true);
 
-    const { partido, fase } = findMatch(currentTournament, matchId);
-    if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
+    // ----> 2. AÑADE ESTA LÍNEA
+    try {
+        // --- TODO TU CÓDIGO ORIGINAL VA AQUÍ DENTRO, NO LO BORRES ---
+        const db = getDb();
+        let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
-    // Si ya había un resultado, primero lo revertimos.
-    if (partido.resultado) {
-        await revertStats(currentTournament, partido);
-    }
-    
-    partido.resultado = resultString;
-    partido.status = 'finalizado';
+        const { partido, fase } = findMatch(currentTournament, matchId);
+        if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
 
-    await updateMatchThreadName(client, partido);
-    
-    if (fase === 'grupos') {
-        await updateGroupStageStats(currentTournament, partido);
-        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
+        // Si ya había un resultado, primero lo revertimos.
+        if (partido.resultado) {
+            await revertStats(currentTournament, partido);
+        }
         
-        let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
-        
-        updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats);
+        partido.resultado = resultString;
+        partido.status = 'finalizado';
 
-    } else {
-        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
-        let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats);
+        await updateMatchThreadName(client, partido);
+        
+        if (fase === 'grupos') {
+            await updateGroupStageStats(currentTournament, partido);
+            await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
+            
+            let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
+            await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
+            
+            updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
+            await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats);
+
+        } else {
+            await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
+            let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
+            await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats);
+        }
+        
+        const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+        await updatePublicMessages(client, finalTournamentState);
+        await updateTournamentManagementThread(client, finalTournamentState);
+        await notifyTournamentVisualizer(finalTournamentState);
+        
+        return partido;
+        // --- FIN DE TU CÓDIGO ORIGINAL ---
+
+    // ----> 3. AÑADE ESTE BLOQUE FINAL
+    } finally {
+        await setBotBusy(false);
     }
-    
-    const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
-    await updatePublicMessages(client, finalTournamentState);
-    await updateTournamentManagementThread(client, finalTournamentState);
-    await notifyTournamentVisualizer(finalTournamentState);
-    
-    return partido;
 }
-
 export async function simulateAllPendingMatches(client, tournamentShortId) {
     const db = getDb();
     let initialTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
