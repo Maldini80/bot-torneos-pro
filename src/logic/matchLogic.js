@@ -1,13 +1,12 @@
-// --- INICIO DEL ARCHIVO matchLogic.js (VERSIÓN FINAL Y CORREGIDA) ---
-
+// src/logic/matchLogic.js
 import { getDb } from '../../database.js';
 import { TOURNAMENT_FORMATS, CHANNELS } from '../../config.js';
 import { updatePublicMessages, endTournament, notifyTournamentVisualizer } from './tournamentLogic.js';
+
 import { createMatchThread, updateMatchThreadName, createMatchObject, checkAndCreateNextRoundThreads } from '../utils/tournamentUtils.js';
 import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
-import { setBotBusy } from '../../index.js';
 
 export async function finalizeMatchThread(client, partido, resultString) {
     if (!partido || !partido.threadId) return;
@@ -15,7 +14,8 @@ export async function finalizeMatchThread(client, partido, resultString) {
     try {
         const thread = await client.channels.fetch(partido.threadId).catch(() => null);
         if (thread) {
-            const finalMessage = `✅ **Resultado final confirmado / Final result confirmed:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}.\n\nEste hilo se eliminará en 10 segundos. / This thread will be deleted in 10 seconds.`;
+            const finalMessage = `✅ **Resultado final confirmado:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}.\n\nEste hilo se eliminará automáticamente en 10 segundos.`;
+            await thread.send(finalMessage);
             await new Promise(resolve => setTimeout(resolve, 10000));
             await thread.delete('Partido finalizado.').catch(() => {});
         }
@@ -27,57 +27,46 @@ export async function finalizeMatchThread(client, partido, resultString) {
 }
 
 export async function processMatchResult(client, guild, tournament, matchId, resultString) {
-    // ----> 1. AÑADE ESTA LÍNEA
-    await setBotBusy(true);
+    const db = getDb();
+    let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
-    // ----> 2. AÑADE ESTA LÍNEA
-    try {
-        // --- TODO TU CÓDIGO ORIGINAL VA AQUÍ DENTRO, NO LO BORRES ---
-        const db = getDb();
-        let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    const { partido, fase } = findMatch(currentTournament, matchId);
+    if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
 
-        const { partido, fase } = findMatch(currentTournament, matchId);
-        if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
-
-        // Si ya había un resultado, primero lo revertimos.
-        if (partido.resultado) {
-            await revertStats(currentTournament, partido);
-        }
-        
-        partido.resultado = resultString;
-        partido.status = 'finalizado';
-
-        await updateMatchThreadName(client, partido);
-        
-        if (fase === 'grupos') {
-            await updateGroupStageStats(currentTournament, partido);
-            await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
-            
-            let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
-            await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
-            
-            updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
-            await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats);
-
-        } else {
-            await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
-            let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
-            await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats);
-        }
-        
-        const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
-        await updatePublicMessages(client, finalTournamentState);
-        await updateTournamentManagementThread(client, finalTournamentState);
-        await notifyTournamentVisualizer(finalTournamentState);
-        
-        return partido;
-        // --- FIN DE TU CÓDIGO ORIGINAL ---
-
-    // ----> 3. AÑADE ESTE BLOQUE FINAL
-    } finally {
-        await setBotBusy(false);
+    if (partido.resultado) {
+        await revertStats(currentTournament, partido);
     }
+    
+    partido.resultado = resultString;
+    partido.status = 'finalizado';
+
+    await updateMatchThreadName(client, partido);
+    
+    if (fase === 'grupos') {
+        await updateGroupStageStats(currentTournament, partido);
+        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
+        
+        let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
+        
+        updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats);
+
+    } else {
+        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
+        let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats);
+    }
+    
+    const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+    await updatePublicMessages(client, finalTournamentState);
+    await updateTournamentManagementThread(client, finalTournamentState);
+    await notifyTournamentVisualizer(finalTournamentState);
+    
+    return partido;
 }
+
+
 export async function simulateAllPendingMatches(client, tournamentShortId) {
     const db = getDb();
     let initialTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -85,6 +74,7 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
 
     const guild = await client.guilds.fetch(initialTournament.guildId);
     
+    // Creamos una lista estática de partidos a simular al principio
     let allMatchesToSimulate = [];
     if (initialTournament.structure.calendario) {
         allMatchesToSimulate.push(...Object.values(initialTournament.structure.calendario).flat());
@@ -101,13 +91,15 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
     const pendingMatches = allMatchesToSimulate.filter(p => p && (p.status === 'pendiente' || p.status === 'en_curso'));
 
     if (pendingMatches.length === 0) {
-        // Devolvemos la CLAVE de traducción
-        return { messageKey: 'simulationNoPendingMatches', count: 0 };
+        return { message: 'No hay partidos pendientes para simular.' };
     }
 
     let simulatedCount = 0;
     for (const match of pendingMatches) {
+        // ¡COMPROBACIÓN DE SEGURIDAD!
+        // Antes de procesar cada partido, volvemos a leer el estado actual del torneo.
         let currentTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        // Si el torneo ha sido finalizado (por un partido anterior en este mismo bucle), nos detenemos.
         if (!currentTournamentState || currentTournamentState.status === 'finalizado') {
             console.log(`[SIMULATION] Simulación detenida porque el torneo ${tournamentShortId} ha finalizado.`);
             break;
@@ -121,10 +113,8 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
         simulatedCount++;
     }
     
-    // Devolvemos la CLAVE de traducción y la variable
-    return { messageKey: 'simulationSuccess', count: simulatedCount };
+    return { message: `Se han simulado con éxito ${simulatedCount} partidos.`};
 }
-
 export function findMatch(tournament, matchId) {
     for (const groupName in tournament.structure.calendario) {
         const match = tournament.structure.calendario[groupName].find(p => p.matchId === matchId);
@@ -147,6 +137,7 @@ export function findMatch(tournament, matchId) {
 async function updateGroupStageStats(tournament, partido) {
     const [golesA, golesB] = partido.resultado.split('-').map(Number);
     
+    // ¡CORRECCIÓN CLAVE! Buscamos los equipos en la referencia correcta del objeto del torneo.
     const equipoA = tournament.structure.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoA.id);
     const equipoB = tournament.structure.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
 
@@ -173,24 +164,26 @@ async function updateGroupStageStats(tournament, partido) {
         equipoB.stats.pts += 1;
     }
 }
+// --- REEMPLAZA LA FUNCIÓN checkForGroupStageAdvancement ENTERA CON ESTA VERSIÓN ---
 
 async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allGroupMatches = Object.values(tournament.structure.calendario).flat();
-    
     if (allGroupMatches.length === 0 || tournament.status !== 'fase_de_grupos') return;
 
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
-    
     if (allFinished) {
-        console.log(`[ADVANCEMENT] Fase de liguilla/grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
+        console.log(`[ADVANCEMENT] Fase de grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
         
         postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
+
         await startNextKnockoutRound(client, guild, tournament);
 
         const finalTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
+        
         await updatePublicMessages(client, finalTournamentState);
         await updateTournamentManagementThread(client, finalTournamentState);
         await notifyTournamentVisualizer(finalTournamentState);
+
     }
 }
 
@@ -222,106 +215,78 @@ async function startNextKnockoutRound(client, guild, tournament) {
 
     const format = currentTournament.config.format;
     const rondaActual = currentTournament.structure.eliminatorias.rondaActual;
-    
-    let siguienteRondaKey;
+    const indiceRondaActual = rondaActual ? format.knockoutStages.indexOf(rondaActual) : -1;
+    const siguienteRonda = format.knockoutStages[indiceRondaActual + 1];
 
-    if (rondaActual) {
-        const indiceRondaActual = format.knockoutStages.indexOf(rondaActual);
-        siguienteRondaKey = format.knockoutStages[indiceRondaActual + 1];
-    } else {
-        if (currentTournament.config.formatId === 'flexible_league') {
-            const numQualifiers = currentTournament.config.qualifiers;
-            if (numQualifiers === 2) siguienteRondaKey = 'final';
-            else if (numQualifiers === 4) siguienteRondaKey = 'semifinales';
-            else if (numQualifiers === 8) siguienteRondaKey = 'cuartos';
-            else if (numQualifiers === 16) siguienteRondaKey = 'octavos';
-            else {
-                console.error(`[ERROR] Número de clasificados no válido (${numQualifiers}) para el torneo ${currentTournament.shortId}`);
-                return;
-            }
-        } else {
-            siguienteRondaKey = format.knockoutStages[0];
-        }
-    }
-
-    if (!siguienteRondaKey) {
+    if (!siguienteRonda) {
         console.log(`[ADVANCEMENT] No hay más rondas eliminatorias para ${tournament.shortId}.`);
         return;
     }
+    if (currentTournament.status === siguienteRonda) return;
 
-    if (currentTournament.status === siguienteRondaKey) return;
+    currentTournament.status = siguienteRonda;
+    currentTournament.structure.eliminatorias.rondaActual = siguienteRonda;
 
-    let clasificados = [];
-    
-    if (!rondaActual) { 
-        if (currentTournament.config.formatId === 'flexible_league') {
-            const leagueTeams = [...currentTournament.structure.grupos['Liga'].equipos];
-            leagueTeams.sort((a, b) => sortTeams(a, b, currentTournament, 'Liga'));
-            clasificados = leagueTeams.slice(0, currentTournament.config.qualifiers);
-        } else {
-            const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
-            if (format.qualifiersPerGroup === 1) {
-                for (const groupName of gruposOrdenados) {
-                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
-                    if (grupoOrdenado[0]) clasificados.push(JSON.parse(JSON.stringify(grupoOrdenado[0])));
+    let partidos;
+    if (indiceRondaActual === -1) {
+        const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
+        
+        if (format.qualifiersPerGroup === 1) {
+            const clasificados = [];
+            for (const groupName of gruposOrdenados) {
+                const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
+                if (grupoOrdenado[0]) {
+                    clasificados.push(JSON.parse(JSON.stringify(grupoOrdenado[0])));
                 }
-            } else if (currentTournament.config.formatId === '8_teams_semis_classic') {
-                const grupoA = [...currentTournament.structure.grupos['Grupo A'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo A'));
-                const grupoB = [...currentTournament.structure.grupos['Grupo B'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo B'));
-                clasificados.push(grupoA[0], grupoB[1], grupoB[0], grupoA[1]);
-            } else {
-                const bombo1 = []; const bombo2 = [];
-                for (const groupName of gruposOrdenados) {
-                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
-                    if (grupoOrdenado[0]) bombo1.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[0])), group: groupName });
-                    if (grupoOrdenado[1]) bombo2.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[1])), group: groupName });
-                }
-                const partidos = crearPartidosEvitandoMismoGrupo(bombo1, bombo2, siguienteRondaKey);
-                currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
-                clasificados = null; 
             }
+            partidos = crearPartidosEliminatoria(clasificados, siguienteRonda);
+
+        } else if (currentTournament.config.formatId === '8_teams_semis_classic') {
+            const grupoA = [...currentTournament.structure.grupos['Grupo A'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo A'));
+            const grupoB = [...currentTournament.structure.grupos['Grupo B'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo B'));
+            partidos = [
+                createMatchObject(null, siguienteRonda, grupoA[0], grupoB[1]),
+                createMatchObject(null, siguienteRonda, grupoB[0], grupoA[1])
+            ];
+        } else {
+            const bombo1 = [];
+            const bombo2 = [];
+            for (const groupName of gruposOrdenados) {
+                const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
+                if (grupoOrdenado[0]) bombo1.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[0])), group: groupName });
+                if (format.qualifiersPerGroup > 1 && grupoOrdenado[1]) {
+                    bombo2.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[1])), group: groupName });
+                }
+            }
+            partidos = crearPartidosEvitandoMismoGrupo(bombo1, bombo2, siguienteRonda);
         }
     } else {
         const partidosRondaAnterior = currentTournament.structure.eliminatorias[rondaActual];
-        clasificados = partidosRondaAnterior.map(p => {
+        const clasificados = partidosRondaAnterior.map(p => {
             const [golesA, golesB] = p.resultado.split('-').map(Number);
             return golesA > golesB ? p.equipoA : p.equipoB;
         });
-    }
-
-    let partidos;
-    if (clasificados) {
-        if (currentTournament.config.formatId === '8_teams_semis_classic' && clasificados.length === 4) {
-             partidos = [
-                createMatchObject(null, siguienteRondaKey, clasificados[0], clasificados[1]),
-                createMatchObject(null, siguienteRondaKey, clasificados[2], clasificados[3])
-            ];
-        } else {
-            partidos = crearPartidosEliminatoria(clasificados, siguienteRondaKey);
-        }
-    } else {
-        partidos = currentTournament.structure.eliminatorias[siguienteRondaKey];
+        partidos = crearPartidosEliminatoria(clasificados, siguienteRonda);
     }
 
     if (!partidos || partidos.length === 0) {
-        console.error(`[FATAL ERROR] No se generaron partidos para la ronda '${siguienteRondaKey}' del torneo ${currentTournament.shortId}.`);
+        console.error(`[FATAL ERROR] No se generaron partidos para la ronda '${siguienteRonda}' del torneo ${currentTournament.shortId}. Abortando avance.`);
+        currentTournament.status = rondaActual || 'fase_de_grupos';
+        currentTournament.structure.eliminatorias.rondaActual = rondaActual;
+        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "status": currentTournament.status, "structure.eliminatorias.rondaActual": currentTournament.structure.eliminatorias.rondaActual }});
         return;
     }
 
-    const siguienteRondaNombre = siguienteRondaKey.charAt(0).toUpperCase() + siguienteRondaKey.slice(1);
-    currentTournament.status = siguienteRondaKey;
-    currentTournament.structure.eliminatorias.rondaActual = siguienteRondaKey;
-
-    if (siguienteRondaKey === 'final') {
+    if (siguienteRonda === 'final') {
         currentTournament.structure.eliminatorias.final = partidos[0];
     } else {
-        currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
+        currentTournament.structure.eliminatorias[siguienteRonda] = partidos;
     }
     
-    postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRondaKey, tournament: currentTournament }).catch(console.error);
+    postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRonda, tournament: currentTournament }).catch(console.error);
 
     const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
-    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRondaNombre}! 🔥`).setFooter({text: '¡Mucha suerte!'});
+    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRonda.charAt(0).toUpperCase() + siguienteRonda.slice(1)}! 🔥`).setFooter({text: '¡Mucha suerte!'});
 
     for(const [i, p] of partidos.entries()) {
         const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
@@ -346,14 +311,7 @@ async function handleFinalResult(client, guild, tournament) {
     
     const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
     if(infoChannel) {
-        // --- LÍNEA CORREGIDA ---
-        const embedCampeon = new EmbedBuilder()
-            .setColor('#ffd700')
-            .setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`)
-            .setDescription(`🇪🇸 **¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**\n\n🇬🇧 **Congratulations to <@${campeon.capitanId}> (${campeon.nombre}) for winning the ${tournament.nombre} tournament!**`)
-            .setThumbnail('https://i.imgur.com/C5mJg1s.png')
-            .setTimestamp();
-        
+        const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();
         await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
     }
     
@@ -385,20 +343,19 @@ async function handleFinalResult(client, guild, tournament) {
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado. Esperando cierre manual por parte de un admin.`);
 }
+
 function crearPartidosEliminatoria(equipos, ronda) {
     let partidos = [];
-    const numEquipos = equipos.length;
-
-    for (let i = 0; i < numEquipos / 2; i++) {
-        const equipoA = equipos[i];
-        const equipoB = equipos[numEquipos - 1 - i];
-
-        if (equipoA && equipoB) {
-            const partido = createMatchObject(null, ronda, equipoA, equipoB);
-            partidos.push(partido);
-        }
+    for (let i = equipos.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [equipos[i], equipos[j]] = [equipos[j], equipos[i]];
     }
-    
+
+    for(let i = 0; i < equipos.length; i += 2) {
+        if (!equipos[i] || !equipos[i+1]) continue;
+        const partido = createMatchObject(null, ronda, equipos[i], equipos[i+1]);
+        partidos.push(partido);
+    }
     return partidos;
 }
 
@@ -457,7 +414,7 @@ function sortTeams(a, b, tournament, groupName) {
     return Math.random() - 0.5;
 }
 
-export async function revertStats(tournament, partido) {
+async function revertStats(tournament, partido) {
     if (!partido.nombreGrupo || !partido.resultado) return;
     
     const [oldGolesA, oldGolesB] = partido.resultado.split('-').map(Number);
@@ -482,52 +439,3 @@ export async function revertStats(tournament, partido) {
         equipoB.stats.pts -= 1;
     }
 }
-
-export async function checkOverdueMatches(client) {
-    const db = getDb();
-    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
-
-    const activeTournaments = await db.collection('tournaments').find({
-        status: { $nin: ['finalizado', 'inscripcion_abierta', 'cancelado'] }
-    }).toArray();
-
-    if (activeTournaments.length === 0) return;
-
-    for (const tournament of activeTournaments) {
-        const allMatches = [
-            ...Object.values(tournament.structure.calendario || {}).flat(),
-            ...Object.values(tournament.structure.eliminatorias || {}).flat()
-        ];
-
-        const guild = await client.guilds.fetch(tournament.guildId).catch(() => null);
-        if (!guild) continue;
-
-        for (const match of allMatches) {
-            if (!match || !match.reportedScores || typeof match.reportedScores !== 'object') continue;
-
-            const reportKeys = Object.keys(match.reportedScores);
-
-            if (reportKeys.length === 1 && match.status !== 'finalizado' && match.reportedScores[reportKeys[0]].reportedAt < threeMinutesAgo) {
-                
-                console.log(`[VIGILANTE] Partido atascado detectado: ${match.matchId} en el torneo ${tournament.shortId}. Validando automáticamente.`);
-
-                const resultString = match.reportedScores[reportKeys[0]].score;
-
-                try {
-                    const processedMatch = await processMatchResult(client, guild, tournament, match.matchId, resultString);
-
-                    const thread = await client.channels.fetch(processedMatch.threadId).catch(() => null);
-                    if (thread) {
-                        await thread.send(`⚠️ **Partido validado automáticamente / Match automatically validated**\n🇪🇸 El resultado se ha confirmado porque uno de los equipos no reportó a tiempo.\n🇬🇧 The result has been confirmed because one of the teams did not report in time.`);
-                    }
-                    await finalizeMatchThread(client, processedMatch, resultString);
-
-                } catch (error) {
-                    console.error(`[VIGILANTE] Error al procesar automáticamente el partido ${match.matchId}:`, error);
-                }
-            }
-        }
-    }
-}
-
-// --- FIN DEL ARCHIVO ---
