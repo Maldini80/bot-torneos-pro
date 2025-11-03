@@ -51,13 +51,15 @@ export const TOURNAMENT_FORMATS = {
         label: '8 Equipos (Clásico - Semifinales)',
         description: '2 grupos de 4. Los 2 primeros de cada grupo a semifinales.',
         description_en: '2 groups of 4. The top 2 from each group advance to semifinals.',
-        size: 8, groups: 2, qualifiersPerGroup: 2, knockoutStages: ['semifinales', 'final']
+        size: 8, groups: 2, qualifiersPerGroup: 2, knockoutStages: ['semifinales', 'final'],
+        isDraftCompatible: true // <--- AÑADIDO
     },
     '8_teams_final': {
         label: '8 Equipos (Nuevo - Final Directa)',
         description: '2 grupos de 4. El 1º de cada grupo va a la final.',
         description_en: '2 groups of 4. The 1st of each group goes to the final.',
-        size: 8, groups: 2, qualifiersPerGroup: 1, knockoutStages: ['final']
+        size: 8, groups: 2, qualifiersPerGroup: 1, knockoutStages: ['final'],
+        isDraftCompatible: true // <--- AÑADIDO
     },
     '16_teams_quarters_classic': {
         label: '16 Equipos (Clásico - Semis Directas)',
@@ -65,13 +67,15 @@ export const TOURNAMENT_FORMATS = {
         description_en: '4 groups of 4. The 1st of each group advances to semifinals.',
         size: 16, groups: 4,
         qualifiersPerGroup: 1,
-        knockoutStages: ['semifinales', 'final']
+        knockoutStages: ['semifinales', 'final'],
+        isDraftCompatible: true // <--- AÑADIDO
     },
     '16_teams_quarters_new': {
         label: '16 Equipos (Nuevo - Cuartos)',
         description: '4 grupos de 4. Los 2 primeros de cada grupo a cuartos.',
         description_en: '4 groups of 4. The top 2 from each group advance to quarterfinals.',
-        size: 16, groups: 4, qualifiersPerGroup: 2, knockoutStages: ['cuartos', 'semifinales', 'final']
+        size: 16, groups: 4, qualifiersPerGroup: 2, knockoutStages: ['cuartos', 'semifinales', 'final'],
+        isDraftCompatible: true // <--- AÑADIDO
     },
     '32_teams_quarters': {
         label: '32 Equipos (Cuartos de Final)',
@@ -84,6 +88,16 @@ export const TOURNAMENT_FORMATS = {
         description: '8 grupos de 4. Los 2 primeros clasifican a octavos.',
         description_en: '8 groups of 4. The top 2 qualify for the round of 16.',
         size: 32, groups: 8, qualifiersPerGroup: 2, knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final']
+    },
+    'flexible_league': {
+        label: 'Liguilla Flexible (Equipos Impares/Pares)',
+        description: 'Una única liga donde se juegan 3 jornadas. El número de clasificados es personalizable.',
+        description_en: 'A single league where 3 rounds are played. The number of qualifiers is customizable.',
+        size: 0, // 0 indica que el tamaño es variable
+        groups: 1, 
+        qualifiersPerGroup: 0, // 0 indica que es variable
+        knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final'],
+        isDraftCompatible: true // Es compatible con drafts
     }
 };
 
