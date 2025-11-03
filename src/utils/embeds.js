@@ -57,8 +57,9 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
         case 'tournaments':
             embed.setTitle('Gestión de Torneos');
             const tournamentActionsRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Nuevo Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy)
-            );
+    new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo (Grupos)').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
+    new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear Liguilla Flexible').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy)
+);
             components.push(tournamentActionsRow, backButtonRow);
             break;
 
@@ -127,7 +128,13 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         .setLabel('Añadir Equipo Registrado')
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('➕')
-        .setDisabled(isBusy)
+        .setDisabled(isBusy),
+        new ButtonBuilder()
+            .setCustomId(`admin_manage_results_start:${tournament.shortId}`)
+            .setLabel('Gestionar Resultados')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🗂️')
+            .setDisabled(isBusy)
 );
     const row3 = new ActionRowBuilder();
 
@@ -224,7 +231,7 @@ export function createDraftStatusEmbed(draft) {
         .setColor(embedColor)
         .setTitle(`${statusIcon} Draft: ${draft.name}`)
         .addFields(
-            { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
+            { name: 'Capitanes / Captains', value: `${captainCount}`, inline: true },
             { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount}`, inline: true },
             { name: 'Total', value: `${totalParticipants}`, inline: true }
         )
@@ -302,21 +309,41 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     }
 
     if (draft.status === 'finalizado') {
-        row1.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`draft_force_tournament_classic:${draft.shortId}`)
-                .setLabel('Sorteo Clásico (Instantáneo)')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('🎲')
-                .setDisabled(isBusy),
-            new ButtonBuilder()
-                .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
-                .setLabel('Sorteo con Ruleta (Visual)')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('🎡')
-                .setDisabled(isBusy)
-        );
+    const captainCount = draft.captains.length;
+
+    // Buscamos TODOS los formatos compatibles, incluyendo la liguilla
+    let compatibleFormats = Object.entries(TOURNAMENT_FORMATS)
+        .filter(([, format]) => format.isDraftCompatible && (format.size === captainCount || format.size === 0))
+        .map(([key, format]) => ({
+            label: format.label,
+            description: format.description.slice(0, 100),
+            value: key
+        }));
+
+    if (compatibleFormats.length > 0) {
+        embed.addFields({ name: 'Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. Por favor, selecciona el formato de torneo que deseas crear.` });
+        const formatMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_create_tournament_format:${draft.shortId}`)
+            .setPlaceholder('Selecciona el formato para el torneo resultante')
+            .addOptions(compatibleFormats);
+        row1.addComponents(formatMenu);
+
+        // La comprobación de la ruleta se hace independientemente de los formatos encontrados
+        if (captainCount === 8 || captainCount === 16) {
+            row2.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
+                    .setLabel('Alternativa: Sorteo con Ruleta')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🎡')
+                    .setDisabled(isBusy)
+            );
+        }
+    } else {
+        embed.setColor('#e74c3c')
+             .addFields({ name: '⚠️ Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. No hay formatos de torneo compatibles configurados.` });
     }
+}
 
     row2.addComponents(new ButtonBuilder()
         .setCustomId(`draft_end:${draft.shortId}`)
@@ -398,18 +425,24 @@ export function createDraftMainInterface(draft) {
         teamFields[index % 3].push(teamString);
     });
 
-    if (teamFields[0].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[0].join('\n\n'), inline: true });
-    if (teamFields[1].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[1].join('\n\n'), inline: true });
-    if (teamFields[2].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[2].join('\n\n'), inline: true });
-
+    teamFields.forEach((col, i) => {
+    if (col.length > 0) {
+        let colString = col.join('\n\n');
+        // Esta es la protección que faltaba. Si el texto es muy largo, lo corta.
+        if (colString.length > 1024) {
+            colString = colString.substring(0, 1021) + '...';
+        }
+        teamsEmbed.addFields({ name: '\u200B', value: colString, inline: true });
+    }
+});
     const turnOrderEmbed = new EmbedBuilder()
         .setColor('#e67e22')
         .setTitle('🐍 Orden de Selección del Draft');
 
     if (draft.status === 'seleccion' && draft.selection.order.length > 0) {
-        const picksList = [];
-        const totalPicks = 80;
-        const numCaptains = draft.selection.order.length;
+    const picksList = [];
+    const numCaptains = draft.selection.order.length;
+    const totalPicks = numCaptains * 10;
         const captainMap = new Map(draft.captains.map(c => [c.userId, c.teamName]));
 
         const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
@@ -458,12 +491,13 @@ export function createCaptainControlPanel(draft) {
         .setColor('#f1c40f')
         .setTitle('🕹️ Panel de Control de Capitanes');
 
-    if (draft.status === 'seleccion' && draft.selection.currentPick <= 80) {
+    const totalPicks = draft.captains.length * 10;
+if (draft.status === 'seleccion' && draft.selection.currentPick <= totalPicks) {
         const currentCaptainId = draft.selection.order[draft.selection.turn];
         const captain = draft.captains.find(c => c.userId === currentCaptainId);
 
         embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
-        embed.setFooter({ text: `Pick #${draft.selection.currentPick} de 80` });
+        embed.setFooter({ text: `Pick #${draft.selection.currentPick} de ${totalPicks}` });
 
         const isPicking = draft.selection.isPicking || false;
 
@@ -683,7 +717,7 @@ export function createTournamentStatusEmbed(tournament) {
     // El resto de la lógica de los botones permanece igual
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
-    const isFull = teamsCount >= format.size;
+    const isFull = format.size > 0 && teamsCount >= format.size;
 
     if (tournament.status === 'inscripcion_abierta') {
         if (!isFull) {
