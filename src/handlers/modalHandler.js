@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import Team from '../../src/models/team.js';
 import { getDb, updateBotSettings } from '../../database.js';
 // --- CÓDIGO MODIFICADO Y CORRECTO ---
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer } from '../logic/tournamentLogic.js';
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer, createTournamentFromDraft } from '../logic/tournamentLogic.js';
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 // --- LÍNEA CORREGIDA Y COMPLETA ---
@@ -269,86 +269,90 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'add_draft_test_players_modal') {
-        await interaction.reply({ content: '✅ Orden recibida. Añadiendo participantes de prueba...', flags: [MessageFlags.Ephemeral] });
-        const [draftShortId] = params;
-        const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [draftShortId] = params;
+    
+    // Leemos los DOS nuevos campos de la ventana
+    const targetCaptains = parseInt(interaction.fields.getTextInputValue('target_captains_input'));
+    const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
 
-        if (isNaN(amount) || amount <= 0) {
-            return interaction.followUp({ content: '❌ La cantidad debe ser un número mayor que cero.', flags: [MessageFlags.Ephemeral] });
-        }
-
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        if (!draft) {
-            return interaction.followUp({ content: '❌ No se encontró el draft.' });
-        }
-        
-        const amountToAdd = amount;
-        const positions = Object.keys(DRAFT_POSITIONS);
-        const bulkCaptains = [];
-        const bulkPlayers = [];
-
-        for (let i = 0; i < amountToAdd; i++) {
-            const uniqueId = `test_${Date.now()}_${i}`;
-            const currentCaptainCount = draft.captains.length + bulkCaptains.length;
-
-            if (currentCaptainCount < 8) {
-                const teamName = `E-Prueba-${currentCaptainCount + 1}`;
-                const captainData = {
-                    userId: uniqueId, userName: `TestCaptain#${1000 + i}`, teamName: teamName,
-                    streamChannel: 'https://twitch.tv/test', psnId: `Capi-Prueba-${currentCaptainCount + 1}`, eafcTeamName: `EAFC-Test-${currentCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
-                };
-                
-                const captainAsPlayerData = {
-                    userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
-                    primaryPosition: captainData.position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: uniqueId
-                };
-                bulkCaptains.push(captainData);
-                bulkPlayers.push(captainAsPlayerData);
-            } else {
-                const currentPlayerCount = draft.players.length + bulkPlayers.length;
-                const primaryPos = positions[Math.floor(Math.random() * positions.length)];
-                let secondaryPos = positions[Math.floor(Math.random() * positions.length)];
-                if (primaryPos === secondaryPos) {
-                   secondaryPos = 'NONE';
-                }
-
-                const playerData = {
-                    userId: uniqueId,
-                    userName: `TestPlayer#${2000 + i}`,
-                    psnId: `Jugador-Prueba-${currentPlayerCount + 1}`,
-                    twitter: 'test_player',
-                    primaryPosition: primaryPos,
-                    secondaryPosition: secondaryPos,
-                    currentTeam: 'Libre',
-                    isCaptain: false,
-                    captainId: null
-                };
-                bulkPlayers.push(playerData);
-            }
-        }
-
-        const updateQuery = {};
-        if (bulkCaptains.length > 0) {
-            updateQuery.$push = { ...updateQuery.$push, captains: { $each: bulkCaptains } };
-        }
-        if (bulkPlayers.length > 0) {
-            updateQuery.$push = { ...updateQuery.$push, players: { $each: bulkPlayers } };
-        }
-
-        if (Object.keys(updateQuery).length > 0) {
-            await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
-        }
-
-        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-        await updateDraftMainInterface(client, updatedDraft.shortId);
-        await updatePublicMessages(client, updatedDraft);
-        await updateDraftManagementPanel(client, updatedDraft);
-        await notifyVisualizer(updatedDraft);
-        
-        const nonCaptainPlayersAdded = bulkPlayers.length - bulkCaptains.length;
-        await interaction.editReply({ content: `✅ ¡Operación completada! Se han añadido **${bulkCaptains.length} capitanes** y **${nonCaptainPlayersAdded} jugadores** de prueba.` });
-        return;
+    // Verificamos que ambos campos sean números válidos
+    if (isNaN(targetCaptains) || targetCaptains <= 0 || isNaN(amount) || amount <= 0) {
+        return interaction.editReply({ content: '❌ Los valores deben ser números mayores que cero.' });
     }
+
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) {
+        return interaction.editReply({ content: '❌ No se encontró el draft.' });
+    }
+    
+    const currentCaptainCount = draft.captains.length;
+    
+    // --- INICIO DE LA NUEVA LÓGICA DE CÁLCULO ---
+    const captainsNeeded = Math.max(0, targetCaptains - currentCaptainCount);
+    const captainsToAdd = Math.min(captainsNeeded, amount); // No podemos crear más capitanes que el total pedido
+    const playersToAdd = amount - captainsToAdd; // El resto serán jugadores libres
+    // --- FIN DE LA NUEVA LÓGICA DE CÁLCULO ---
+
+    const positions = Object.keys(DRAFT_POSITIONS);
+    const bulkCaptains = [];
+    const bulkPlayers = [];
+
+    // Bucle para crear los capitanes necesarios
+    for (let i = 0; i < captainsToAdd; i++) {
+        const uniqueId = `test_cap_${Date.now()}_${i}`;
+        const newCaptainCount = currentCaptainCount + bulkCaptains.length;
+        const teamName = `E-Prueba-${newCaptainCount + 1}`;
+        
+        const captainData = {
+            userId: uniqueId, userName: `TestCaptain#${1000 + i}`, teamName: teamName,
+            streamChannel: 'https://twitch.tv/test', psnId: `Capi-Test-${newCaptainCount + 1}`, eafcTeamName: `EAFC-Test-${newCaptainCount + 1}`, twitter: 'test_captain', position: "DC"
+        };
+        const captainAsPlayerData = {
+            userId: uniqueId, userName: captainData.userName, psnId: captainData.psnId, twitter: captainData.twitter,
+            primaryPosition: captainData.position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: uniqueId
+        };
+        bulkCaptains.push(captainData);
+        bulkPlayers.push(captainAsPlayerData);
+    }
+
+    // Bucle para crear los jugadores libres restantes
+    for (let i = 0; i < playersToAdd; i++) {
+        const uniqueId = `test_plr_${Date.now()}_${i}`;
+        const primaryPos = positions[Math.floor(Math.random() * positions.length)];
+        let secondaryPos = positions[Math.floor(Math.random() * positions.length)];
+        if (primaryPos === secondaryPos) secondaryPos = 'NONE';
+        
+        const playerData = {
+            userId: uniqueId, userName: `TestPlayer#${2000 + i}`, psnId: `Jugador-Test-${i + 1}`,
+            twitter: 'test_player', primaryPosition: primaryPos, secondaryPosition: secondaryPos,
+            currentTeam: 'Libre', isCaptain: false, captainId: null
+        };
+        bulkPlayers.push(playerData);
+    }
+    
+    const updateQuery = {};
+    if (bulkCaptains.length > 0) {
+        updateQuery.$push = { ...updateQuery.$push, captains: { $each: bulkCaptains } };
+    }
+    if (bulkPlayers.length > 0) {
+        updateQuery.$push = { ...updateQuery.$push, players: { $each: bulkPlayers } };
+    }
+
+    if (Object.keys(updateQuery).length > 0) {
+        await db.collection('drafts').updateOne({ _id: draft._id }, updateQuery);
+    }
+
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
+    
+    // Mensaje final mucho más claro
+    await interaction.editReply({ content: `✅ ¡Operación completada! Se han añadido **${bulkCaptains.length} capitanes** y **${playersToAdd} jugadores** de prueba.` });
+    return;
+}
 
     if (action === 'create_draft_paid_modal') {
         await interaction.reply({ content: '⏳ Creando el draft de pago...', flags: [MessageFlags.Ephemeral] });
@@ -535,8 +539,6 @@ export async function handleModal(interaction) {
         const twitter = interaction.fields.getTextInputValue('twitter_input');
 
         if (isRegisteringAsCaptain) {
-            const totalCaptains = draft.captains.length + (draft.pendingCaptains ? Object.keys(draft.pendingCaptains).length : 0);
-            if (totalCaptains >= 8) return interaction.editReply('❌ Ya se ha alcanzado el número máximo de solicitudes de capitán.');
             
             const teamName = interaction.fields.getTextInputValue('team_name_input');
             const eafcTeamName = interaction.fields.getTextInputValue('eafc_team_name_input');
@@ -667,7 +669,6 @@ export async function handleModal(interaction) {
     }
 
 if (action === 'create_tournament') {
-    // 1. Respondemos INMEDIATAMENTE para evitar el timeout.
     await interaction.reply({ 
         content: '⏳ ¡Recibido! Creando el torneo en segundo plano. Esto puede tardar unos segundos...', 
         flags: [MessageFlags.Ephemeral] 
@@ -681,35 +682,31 @@ if (action === 'create_tournament') {
     config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
 
     if (config.isPaid) {
-    config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
+        config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
+        const [prizeC = '0', prizeF = '0'] = interaction.fields.getTextInputValue('torneo_prizes').split('/');
+        config.prizeCampeon = parseFloat(prizeC.trim());
+        config.prizeFinalista = parseFloat(prizeF.trim());
+        const paymentMethods = interaction.fields.getTextInputValue('torneo_payment_methods') || '/';
+        const [paypal = null, bizum = null] = paymentMethods.split('/');
+        config.paypalEmail = paypal ? paypal.trim() : null;
+        config.bizumNumber = bizum ? bizum.trim() : null;
+    }
     
-    // Lógica para separar los premios
-    const [prizeC = '0', prizeF = '0'] = interaction.fields.getTextInputValue('torneo_prizes').split('/');
-    config.prizeCampeon = parseFloat(prizeC.trim());
-    config.prizeFinalista = parseFloat(prizeF.trim());
-
-    // Lógica para separar los métodos de pago
-    const paymentMethods = interaction.fields.getTextInputValue('torneo_payment_methods') || '/';
-    const [paypal = null, bizum = null] = paymentMethods.split('/');
-    config.paypalEmail = paypal ? paypal.trim() : null;
-    config.bizumNumber = bizum ? bizum.trim() : null;
-}
-    
-    // 2. AHORA, hacemos el trabajo lento sin prisa.
+    // --- INICIO DE LA CORRECCIÓN CLAVE ---
     try {
         const result = await createNewTournament(client, guild, nombre, shortId, config);
 
-        // 3. Cuando termina, editamos nuestra respuesta inicial.
+        // Ahora usamos followUp para enviar un mensaje nuevo en lugar de editar.
         if (result.success) {
-            await interaction.editReply({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.` });
+            await interaction.followUp({ content: `✅ ¡Éxito! El torneo **"${nombre}"** ha sido creado.`, flags: [MessageFlags.Ephemeral] });
         } else {
-            console.error("Error capturado por el handler al crear el torneo:", result.message);
-            await interaction.editReply({ content: `❌ Ocurrió un error al crear el torneo: ${result.message}` });
+            await interaction.followUp({ content: `❌ Ocurrió un error al crear el torneo: ${result.message}`, flags: [MessageFlags.Ephemeral] });
         }
     } catch (error) {
         console.error("Error CRÍTICO durante la creación del torneo:", error);
-        await interaction.editReply({ content: `❌ Ocurrió un error muy grave al crear el torneo. Revisa los logs.` });
+        await interaction.followUp({ content: `❌ Ocurrió un error muy grave al crear el torneo. Revisa los logs.`, flags: [MessageFlags.Ephemeral] });
     }
+    // --- FIN DE LA CORRECCIÓN CLAVE ---
     return;
 }
 
@@ -883,30 +880,46 @@ if (action === 'create_tournament') {
         return;
     }
     if (action === 'add_test_teams_modal') {
-        await interaction.reply({ content: '✅ Orden recibida. Añadiendo equipos de prueba en segundo plano...', flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
-        if (isNaN(amount) || amount <= 0) return;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return;
-        const teamsCount = Object.keys(tournament.teams.aprobados).length;
+    await interaction.reply({ content: '✅ Orden recibida. Añadiendo equipos de prueba en segundo plano...', flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const amount = parseInt(interaction.fields.getTextInputValue('amount_input'));
+    if (isNaN(amount) || amount <= 0) return;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) return;
+
+    // --- INICIO DE LA LÓGICA CORREGIDA ---
+    const teamsCount = Object.keys(tournament.teams.aprobados).length;
+    let amountToAdd;
+
+    if (tournament.config.format.size > 0) {
+        // Lógica antigua y correcta para torneos con límite (8, 16...)
         const availableSlots = tournament.config.format.size - teamsCount;
-        const amountToAdd = Math.min(amount, availableSlots);
-        if (amountToAdd <= 0) return;
-        let bulkOps = [];
-        for (let i = 0; i < amountToAdd; i++) {
-            const teamId = `test_${Date.now()}_${i}`;
-            const teamData = { id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`, capitanId: teamId, capitanTag: `TestUser#${1000 + i}`, bandera: '🧪', paypal: 'admin@test.com', streamChannel: 'https://twitch.tv/test', twitter: 'test', inscritoEn: new Date() };
-            bulkOps.push({ updateOne: { filter: { _id: tournament._id }, update: { $set: { [`teams.aprobados.${teamId}`]: teamData } } } });
-        }
-        if (bulkOps.length > 0) await db.collection('tournaments').bulkWrite(bulkOps);
-        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        await updatePublicMessages(client, updatedTournament);
-        await updateTournamentManagementThread(client, updatedTournament);
-        await notifyTournamentVisualizer(updatedTournament);
-     
-        return;
+        amountToAdd = Math.min(amount, availableSlots);
+    } else {
+        // Nueva lógica para la liguilla, que no tiene límite de slots
+        amountToAdd = amount;
     }
+    
+    if (amountToAdd <= 0) {
+        // Añadimos una respuesta clara para el admin si no se puede añadir a nadie
+        return interaction.editReply({ content: 'ℹ️ No se pueden añadir más equipos de prueba. El torneo ya está lleno o la cantidad introducida es cero.' });
+    }
+    // --- FIN DE LA LÓGICA CORREGIDA ---
+
+    let bulkOps = [];
+    for (let i = 0; i < amountToAdd; i++) {
+        const teamId = `test_${Date.now()}_${i}`;
+        const teamData = { id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`, capitanId: teamId, capitanTag: `TestUser#${1000 + i}`, bandera: '🧪', paypal: 'admin@test.com', streamChannel: 'https://twitch.tv/test', twitter: 'test', inscritoEn: new Date() };
+        bulkOps.push({ updateOne: { filter: { _id: tournament._id }, update: { $set: { [`teams.aprobados.${teamId}`]: teamData } } } });
+    }
+    if (bulkOps.length > 0) await db.collection('tournaments').bulkWrite(bulkOps);
+    const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    await updatePublicMessages(client, updatedTournament);
+    await updateTournamentManagementThread(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
+ 
+    return;
+}
     if (action === 'report_result_modal') {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     const [matchId, tournamentShortId] = params;
@@ -940,7 +953,7 @@ if (action === 'create_tournament') {
         return interaction.editReply({ content: 'Error: No pareces ser un capitán o co-capitán de este partido.' });
     }
 
-    partido.reportedScores[reporterId] = reportedResult;
+    partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date() };
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
 
     // FIX 2 (cont.): Comprobamos si el capitán O el co-capitán del otro equipo ya han reportado.
@@ -949,7 +962,7 @@ if (action === 'create_tournament') {
     const opponentReport = opponentCaptainReport || opponentCoCaptainReport;
 
     if (opponentReport) {
-        if (opponentReport === reportedResult) {
+        if (opponentReport && opponentReport.score === reportedResult) {
             // FIX 3: Respondemos INMEDIATAMENTE para evitar el error de "Unknown Message".
             await interaction.editReply({content: '✅ Resultados coinciden. Finalizando el partido...'});
 
@@ -965,7 +978,7 @@ if (action === 'create_tournament') {
             
             const opponentReporterId = opponentCaptainReport ? opponentTeam.capitanId : opponentTeam.coCaptainId;
             
-            await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentReporterId}> ha reportado: \`${opponentReport}\` `});
+            await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentReporterId}> ha reportado: \`${opponentReport.score}\` `});
         }
     } else {
         // FIX 2 (cont.): Construimos el mensaje mencionando a capitán Y co-capitán si existe.
@@ -1255,6 +1268,107 @@ if (action === 'register_draft_player_team_name_modal') {
     // Ahora `userId` tiene el valor correcto y esta línea funcionará.
     const user = await client.users.fetch(userId);
     await interaction.editReply({ content: `✅ El campo \`${fieldToEdit}\` de **${user.tag}** ha sido actualizado a \`${newValue}\` y sincronizado.` });
+    return;
+}
+    if (action === 'create_flexible_league_modal') {
+    await interaction.reply({ 
+        content: '⏳ ¡Recibido! Creando la liguilla flexible en segundo plano...', 
+        flags: [MessageFlags.Ephemeral] 
+    });
+
+    const [type] = params;
+    const nombre = interaction.fields.getTextInputValue('torneo_nombre');
+    const qualifiers = parseInt(interaction.fields.getTextInputValue('torneo_qualifiers'));
+    const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    if (isNaN(qualifiers) || ![2, 4, 8, 16, 32].includes(qualifiers)) {
+        return interaction.editReply({ content: '❌ Error: El número de equipos clasificatorios debe ser una potencia de 2 (2, 4, 8, 16...).' });
+    }
+
+    const config = { 
+        formatId: 'flexible_league', 
+        isPaid: type === 'pago',
+        // Añadimos los datos específicos de la liguilla a la configuración
+        qualifiers: qualifiers,
+        totalRounds: 3 // Jornadas fijas
+    };
+    
+    if (config.isPaid) {
+        config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
+        const [prizeC = '0', prizeF = '0'] = interaction.fields.getTextInputValue('torneo_prizes').split('/');
+        config.prizeCampeon = parseFloat(prizeC.trim());
+        config.prizeFinalista = parseFloat(prizeF.trim());
+        const paymentMethods = interaction.fields.getTextInputValue('torneo_payment_methods') || '/';
+        const [paypal = null, bizum = null] = paymentMethods.split('/');
+        config.paypalEmail = paypal ? paypal.trim() : null;
+        config.bizumNumber = bizum ? bizum.trim() : null;
+    }
+
+    try {
+        const result = await createNewTournament(client, guild, nombre, shortId, config);
+        if (result.success) {
+            await interaction.editReply({ content: `✅ ¡Éxito! La liguilla **"${nombre}"** ha sido creada.` });
+        } else {
+            await interaction.editReply({ content: `❌ Ocurrió un error al crear la liguilla: ${result.message}` });
+        }
+    } catch (error) {
+        console.error("Error crítico durante la creación de la liguilla:", error);
+        await interaction.editReply({ content: `❌ Ocurrió un error muy grave. Revisa los logs.` });
+    }
+    return;
+}
+    if (action === 'create_draft_league_qualifiers_modal') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [draftShortId] = params;
+    const qualifiers = parseInt(interaction.fields.getTextInputValue('torneo_qualifiers'));
+
+    if (isNaN(qualifiers) || ![2, 4, 8, 16, 32].includes(qualifiers)) {
+        return interaction.editReply({ content: '❌ Error: El número de equipos clasificatorios debe ser 2, 4, 8, o 16.' });
+    }
+    
+    // Preparamos la configuración específica de la liguilla
+    const leagueConfig = {
+        qualifiers: qualifiers,
+        totalRounds: 3
+    };
+
+    try {
+        // Llamamos a la función de creación, pasándole la nueva configuración
+        const newTournament = await createTournamentFromDraft(client, guild, draftShortId, 'flexible_league', leagueConfig);
+        await interaction.editReply({
+            content: `✅ ¡Liguilla **"${newTournament.nombre}"** creada con éxito a partir del draft! Ya puedes gestionarla desde su hilo.`,
+            components: []
+        });
+    } catch (error) {
+        console.error(error);
+        await interaction.editReply({ content: `❌ Hubo un error crítico: ${error.message}`, components: [] });
+    }
+    return;
+}
+    // Bloque 3: Lógica para procesar el formulario de Modificar Resultado
+if (action === 'admin_modify_final_result_modal') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId, matchId] = params;
+    
+    let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    // ¡Importante! Aquí no llamamos a revertStats porque processMatchResult ya lo hace internamente.
+    
+    const golesA = interaction.fields.getTextInputValue('goles_a');
+    const golesB = interaction.fields.getTextInputValue('goles_b');
+    const newResultString = `${golesA}-${golesB}`;
+
+    // processMatchResult es lo suficientemente inteligente como para revertir el resultado anterior antes de aplicar el nuevo.
+    await processMatchResult(client, guild, tournament, matchId, newResultString);
+    // --- INICIO DEL BLOQUE DE REFUERZO ---
+// Volvemos a leer el estado final del torneo desde la DB para asegurar que tenemos los datos más frescos.
+const finalTournamentState = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+// Y ahora, forzamos la notificación al visualizador.
+if (finalTournamentState) {
+    await notifyTournamentVisualizer(finalTournamentState);
+}
+// --- FIN DEL BLOQUE DE REFUERZO ---
+
+    await interaction.editReply({ content: `✅ ¡Resultado modificado con éxito a **${newResultString}**! La clasificación y las rondas han sido actualizadas.` });
     return;
 }
 }
