@@ -10,7 +10,6 @@ import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 import { visualizerStateHandler } from '../../visualizerServer.js';
-import { t } from '../utils/translator.js';
 
 export async function notifyVisualizer(draft) {
     // Enriquece los datos del draft con los strikes persistentes
@@ -41,7 +40,7 @@ async function publishDraftVisualizerURL(client, draft) {
             .setColor('#2ecc71')
             .setTitle('🔴 Visualizador del Draft EN VIVO')
             .setDescription(`¡El visualizador para el draft **${draft.name}** ya está disponible!\n\nUtiliza el botón de abajo para abrirlo en tu navegador. Esta es la URL que debes capturar en tu software de streaming (OBS, Streamlabs, etc.).`)
-            .setImage('https://i.imgur.com/959tU0e.png')
+            .setImage('https://i.imgur.com/kxFTXFg.jpeg')
             .setTimestamp()
             .setFooter({ text: 'VPG Lightnings - Sistema de Drafts' });
 
@@ -85,7 +84,7 @@ async function publishTournamentVisualizerURL(client, tournament) {
             .setColor('#2ecc71')
             .setTitle('🏆 Visualizador del Torneo EN VIVO')
             .setDescription(`¡El visualizador para el torneo **${tournament.nombre}** ya está disponible!\n\nUtiliza el botón de abajo para abrirlo y seguir toda la acción en tiempo real.`)
-            .setImage('https://i.imgur.com/959tU0e.png')
+            .setImage('https://i.imgur.com/kxFTXFg.jpeg')
             .setTimestamp()
             .setFooter({ text: 'VPG Lightnings - Sistema de Torneos' });
 
@@ -198,20 +197,12 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         
         if (/^\d+$/.test(selectedPlayerId)) {
             try {
-                // Obtenemos el objeto `member` del jugador para saber su idioma
-                const guild = await client.guilds.fetch(draft.guildId);
-                const playerMember = await guild.members.fetch(selectedPlayerId);
-
-                // Construimos el embed usando el traductor
+                const playerUser = await client.users.fetch(selectedPlayerId);
                 const embed = new EmbedBuilder()
                     .setColor('#2ecc71')
-                    .setTitle(t('draftPlayerSelectedTitle', playerMember))
-                    .setDescription(t('draftPlayerSelectedBody', playerMember, {
-                        teamName: captain.teamName,
-                        captainTag: captain.userName,
-                        draftName: draft.name
-                    }));
-                await playerMember.send({ embeds: [embed] });
+                    .setTitle(`¡Has sido seleccionado en el Draft!`)
+                    .setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
+                await playerUser.send({ embeds: [embed] });
             } catch (e) {
                 console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`);
             }
@@ -286,19 +277,9 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
         
         if (/^\d+$/.test(selectedPlayerId)) {
             try {
-                // La lógica es idéntica a la anterior
-                const guild = await client.guilds.fetch(draft.guildId);
-                const playerMember = await guild.members.fetch(selectedPlayerId);
-
-                const embed = new EmbedBuilder()
-                    .setColor('#2ecc71')
-                    .setTitle(t('draftPlayerSelectedTitle', playerMember))
-                    .setDescription(t('draftPlayerSelectedBody', playerMember, {
-                        teamName: captain.teamName,
-                        captainTag: captain.userName,
-                        draftName: draft.name
-                    }));
-                await playerMember.send({ embeds: [embed] });
+                const playerUser = await client.users.fetch(selectedPlayerId);
+                const embed = new EmbedBuilder().setColor('#2ecc71').setTitle(`¡Has sido seleccionado en el Draft!`).setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
+                await playerUser.send({ embeds: [embed] });
             } catch (e) { console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`); }
         }
 
@@ -621,7 +602,7 @@ export async function simulateDraftPicks(client, draftShortId) {
     }
 }
 
-export async function createTournamentFromDraft(client, guild, draftShortId, formatId, leagueConfig = {}) {
+export async function createTournamentFromDraft(client, guild, draftShortId, formatId) {
     await setBotBusy(true);
     const db = getDb();
 
@@ -650,11 +631,10 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         if (!format) throw new Error(`Formato de torneo inválido: ${formatId}`);
 
         const config = {
-    formatId: formatId, format: format, isPaid: draft.config.isPaid,
-    entryFee: draft.config.entryFee, prizeCampeon: draft.config.prizeCampeon,
-    prizeFinalista: draft.config.prizeFinalista, startTime: null,
-    ...leagueConfig // <-- ESTA LÍNEA FUSIONA LOS DATOS NUEVOS (qualifiers y totalRounds)
-};
+            formatId: formatId, format: format, isPaid: draft.config.isPaid,
+            entryFee: draft.config.entryFee, prizeCampeon: draft.config.prizeCampeon,
+            prizeFinalista: draft.config.prizeFinalista, startTime: null
+        };
         
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
@@ -787,12 +767,8 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
 export async function confirmPrizePayment(client, userId, prizeType, tournament) {
     if (/^\d+$/.test(userId)) {
         try {
-            const guild = await client.guilds.fetch(tournament.guildId);
-            const member = await guild.members.fetch(userId);
-            await member.send(t('prizePaidNotification', member, {
-                prizeType: prizeType,
-                tournamentName: tournament.nombre
-            }));
+            const user = await client.users.fetch(userId);
+            await user.send(`💰 ¡Buenas noticias! Tu premio de **${prizeType}** del torneo **${tournament.nombre}** ha sido marcado como **pagado**. ¡Gracias por participar!`);
             return { success: true };
         } catch (e) {
             console.warn(`No se pudo notificar al usuario ${userId} del pago del premio.`);
@@ -1038,7 +1014,7 @@ export async function advanceDraftTurn(client, draftShortId) {
     const db = getDb();
     let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
-    const totalPicks = draft.captains.length * 10;
+    const totalPicks = 80;
     if (draft.selection.currentPick >= totalPicks) {
          await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado', "selection.isPicking": false, "selection.activeInteractionId": null } });
          const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
@@ -1108,20 +1084,28 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             return { success: false, message: "Fallo al crear los canales base del torneo." };
         }
 
-        // --- INICIO DE LA LÓGICA CORREGIDA ---
         const newTournament = {
             _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta',
-            config: {
-                ...config, // Copia TODA la configuración que llega (incl. qualifiers y totalRounds)
-                format: format, // Añade el objeto de formato completo
-                matchType: config.matchType || 'ida',
+            config: { 
+                formatId: config.formatId, 
+                format, 
+                isPaid: config.isPaid, 
+                matchType: config.matchType || 'ida', 
+                entryFee: config.isPaid ? config.entryFee : 0, 
+                prizeCampeon: config.isPaid ? config.prizeCampeon : 0, 
+                prizeFinalista: config.isPaid ? config.prizeFinalista : 0, 
+                // --- INICIO DE LA MODIFICACIÓN ---
+                // Guardamos los nuevos campos que vienen desde el modalHandler
+                paypalEmail: config.isPaid ? config.paypalEmail : null,
+                bizumNumber: config.isPaid ? config.bizumNumber : null,
+                // --- FIN DE LA MODIFICACIÓN ---
+                startTime: config.startTime || null 
             },
             teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
             discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null, casterThreadId: null }
         };
-        // --- FIN DE LA LÓGICA CORREGIDA ---
 
         const globalStatusChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS);
         const statusMsg = await globalStatusChannel.send(createTournamentStatusEmbed(newTournament));
@@ -1221,56 +1205,63 @@ export async function startGroupStage(client, guild, tournament) {
     await setBotBusy(true);
     try {
         const db = getDb();
-        let tournamentData = await db.collection('tournaments').findOne({ _id: tournament._id });
-        if (tournamentData.status !== 'inscripcion_abierta') { return; }
-
-        // Paso 1: Generar el calendario y guardarlo en la base de datos
-        if (tournamentData.config.formatId === 'flexible_league') {
-            await generateFlexibleLeagueSchedule(tournamentData);
-        } else {
-            await generateGroupBasedSchedule(tournamentData);
+        let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+        if (currentTournament.status !== 'inscripcion_abierta') { return; }
+        currentTournament.status = 'fase_de_grupos';
+        const format = currentTournament.config.format;
+        let teams = Object.values(currentTournament.teams.aprobados);
+        for (let i = teams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[teams[i], teams[j]] = [teams[j], teams[i]]; }
+        const grupos = {}; const numGrupos = format.groups; const tamanoGrupo = format.size / numGrupos;
+        for (let i = 0; i < teams.length; i++) {
+            const grupoIndex = Math.floor(i / tamanoGrupo); const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
+            if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
+            teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
+            grupos[nombreGrupo].equipos.push(teams[i]);
         }
-        
-        // --- INICIO DE LA LÓGICA CORREGIDA Y DEFINITIVA ---
-        // Paso 2: Volver a cargar la versión MÁS RECIENTE del torneo desde la DB
-        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournamentData._id });
-        
-        // Paso 3: Ahora sí, crear los hilos de la Jornada 1
-        const allMatches = Object.values(updatedTournament.structure.calendario).flat();
-        for (const match of allMatches) {
-            if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
-                const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
+        currentTournament.structure.grupos = grupos;
+        const calendario = {};
+        for (const nombreGrupo in grupos) {
+            const equiposGrupo = grupos[nombreGrupo].equipos; 
+            calendario[nombreGrupo] = [];
+            if (equiposGrupo.length === 4) {
+                const [t1, t2, t3, t4] = equiposGrupo;
                 
-                const groupKey = match.nombreGrupo;
-                const matchIndex = updatedTournament.structure.calendario[groupKey].findIndex(m => m.matchId === match.matchId);
-
-                if (matchIndex > -1) {
-                    await db.collection('tournaments').updateOne(
-                        { _id: updatedTournament._id },
-                        { $set: { 
-                            [`structure.calendario.${groupKey}.${matchIndex}.threadId`]: threadId, 
-                            [`structure.calendario.${groupKey}.${matchIndex}.status`]: 'en_curso' 
-                        }}
-                    );
+                // --- INICIO DE LA LÓGICA DE CALENDARIO CORRECTA ---
+                // Jornadas de IDA
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t4), createMatchObject(nombreGrupo, 1, t2, t3));
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t4, t2));
+                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t2), createMatchObject(nombreGrupo, 3, t3, t4));
+                
+                // Jornadas de VUELTA (si está configurado)
+                if (currentTournament.config.matchType === 'idavuelta') {
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t4, t1), createMatchObject(nombreGrupo, 4, t3, t2));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t2, t4));
+                    calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t2, t1), createMatchObject(nombreGrupo, 6, t4, t3));
                 }
+                // --- FIN DE LA LÓGICA DE CALENDARIO CORRECTA ---
             }
         }
-        // --- FIN DE LA LÓGICA CORREGIDA ---
-
-        // Paso 4: Actualizar todas las interfaces públicas
-        const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournamentData._id });
+        currentTournament.structure.calendario = calendario;
+        for (const nombreGrupo in calendario) {
+            for (const partido of calendario[nombreGrupo].filter(p => p.jornada === 1)) {
+                const threadId = await createMatchThread(client, guild, partido, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
+                partido.threadId = threadId; partido.status = 'en_curso';
+            }
+        }
+        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
+        const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
         await updatePublicMessages(client, finalTournamentState); 
         await updateTournamentManagementThread(client, finalTournamentState);
         
         postTournamentUpdate('GROUP_STAGE_START', finalTournamentState).catch(console.error);
         await notifyTournamentVisualizer(finalTournamentState);
 
-    } catch (error) { 
-        console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
+    } catch (error) { console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
     } finally { 
         await setBotBusy(false); 
     }
 }
+
 export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
@@ -1280,24 +1271,19 @@ export async function approveTeam(client, tournament, teamData) {
     const maxTeams = latestTournament.config.format.size;
     const currentApprovedTeamsCount = Object.keys(latestTournament.teams.aprobados).length;
 
-    // Obtenemos el `guild` y el `member` fuera del `if` para poder usarlo en ambos casos (aprobado o lista de reserva)
-    const guild = await client.guilds.fetch(latestTournament.guildId);
-    const member = /^\d+$/.test(teamData.capitanId) ? await guild.members.fetch(teamData.capitanId).catch(() => null) : null;
-
-    if (latestTournament.config.format.size === 0 || currentApprovedTeamsCount < maxTeams) {
-        // --- CASO 1: HAY SITIO, EL EQUIPO ES APROBADO ---
+    if (currentApprovedTeamsCount < maxTeams) {
         latestTournament.teams.aprobados[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
         if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
         
-        if (member) { // Solo si el miembro existe en el servidor
+        if (/^\d+$/.test(teamData.capitanId)) {
             try {
+                const user = await client.users.fetch(teamData.capitanId);
                 const embed = new EmbedBuilder()
                     .setColor('#2ecc71')
-                    .setTitle(t('dmApprovalTitle', member, { tournamentName: latestTournament.nombre }))
-                    .setDescription(t('dmApprovalBody', member, { teamName: teamData.nombre }));
-                    
-                await member.send({ embeds: [embed] });
+                    .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
+                    .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado** y ya forma parte del torneo.\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved** and is now part of the tournament.`);
+                await user.send({ embeds: [embed] });
 
                 const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
                 const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
@@ -1314,9 +1300,9 @@ export async function approveTeam(client, tournament, teamData) {
                 );
 
                 await chatChannel.send({
-    content: t('welcomeMessage', member, { mention: `<@${teamData.capitanId}>`, teamName: teamData.nombre }) + `\n\n` + t('inviteCoCaptainMessage', member),
-    components: [inviteButtonRow]
-});
+                    content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
+                    components: [inviteButtonRow]
+                });
 
             } catch(e) { 
                 console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la aprobación o al dar permisos:`, e); 
@@ -1325,18 +1311,18 @@ export async function approveTeam(client, tournament, teamData) {
         await notifyCastersOfNewTeam(client, latestTournament, teamData);
 
     } else {
-        // --- CASO 2: NO HAY SITIO, EL EQUIPO VA A LA LISTA DE RESERVA ---
         latestTournament.teams.reserva[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
         if (latestTournament.teams.aprobados[teamData.capitanId]) delete latestTournament.teams.aprobados[teamData.capitanId];
 
-        if (member) { // Solo si el miembro existe en el servidor
+        if (/^\d+$/.test(teamData.capitanId)) {
             try {
+                const user = await client.users.fetch(teamData.capitanId);
                 const embed = new EmbedBuilder()
                     .setColor('#f1c40f')
-                    .setTitle(t('dmWaitlistTitle', member, { tournamentName: latestTournament.nombre }))
-                    .setDescription(t('dmWaitlistBody', member, { teamName: teamData.nombre }));
-                await member.send({ embeds: [embed] });
+                    .setTitle(`⚠️ En Lista de Reserva para ${latestTournament.nombre}`)
+                    .setDescription(`🇪🇸 ¡Hola! Tu equipo **${teamData.nombre}** ha sido añadido a la **lista de reserva** para el torneo **${latestTournament.nombre}**.\nActualmente, el torneo está completo, pero si se libera un espacio, tu equipo será considerado automáticamente.\n\n🇬🇧 Hello! Your team **${teamData.nombre}** has been added to the **reserve list** for the **${latestTournament.nombre}** tournament.\nThe tournament is currently full, but if a spot opens up, your team will be automatically considered.`);
+                await user.send({ embeds: [embed] });
             } catch(e) { 
                 console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la lista de reserva:`, e); 
             }
@@ -1358,7 +1344,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const coCaptainUser = await client.users.fetch(coCaptainId);
     const team = tournament.teams.aprobados[captainId];
     
-    // 1. Actualizamos la base de datos (lógica completa)
+    // 1. Actualizamos la base de datos
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
         {
@@ -1372,14 +1358,16 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     );
 
-    // 2. Damos permisos en los canales (lógica completa)
+    // 2. Damos permisos en los canales PRINCIPALES y de EQUIPO
     if (/^\d+$/.test(coCaptainId)) {
         try {
+            // Canales generales del torneo
             const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
             await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
             const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
             await matchesChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: false });
 
+            // Canales privados del equipo (si es un torneo de draft)
             if (team.players && team.players.length > 0) {
                 const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
                 const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
@@ -1394,7 +1382,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     }
 
-    // 3. Sincronizamos con los hilos de partido (lógica completa)
+    // 3. Sincronizamos con los hilos de partido YA CREADOS
     const allMatches = [
         ...Object.values(tournament.structure.calendario).flat(),
         ...Object.values(tournament.structure.eliminatorias).flat()
@@ -1410,8 +1398,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                 const thread = await client.channels.fetch(threadId);
                 if (thread) {
                     await thread.members.add(coCaptainId);
-                    // --- MENSAJE PÚBLICO EN HILO (Bilingüe Manual) ---
-                    await thread.send(t('coCaptainAddedToThread', interaction.member, { mention: `<@${coCaptainId}>` }));
+                    await thread.send(`ℹ️ <@${coCaptainId}> ha sido añadido a este hilo como co-capitán.`);
                 }
             } catch (error) {
                 if (error.code !== 10003) { 
@@ -1421,28 +1408,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     }
 
-    // --- LÓGICA DE TRADUCCIÓN APLICADA ---
-
-    // 4. Anunciamos la incorporación en el chat general (Público -> Bilingüe Manual)
-    try {
-        const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
-        const announcementMessage = t('coCaptainWelcomeMessage', interaction.member, { teamName: team.nombre, mention: `<@${coCaptainId}>` });
-        await chatChannel.send({ content: announcementMessage });
-    } catch (e) {
-        console.error(`No se pudo enviar el anuncio de nuevo co-capitán al chat general:`, e);
-    }
-    
-    // 5. Notificamos por MD al capitán original (Privado -> Traducción Dinámica)
-    try {
-        const captainMember = await guild.members.fetch(captainId);
-        await captainMember.send(t('dmCaptainNotifiedOfAcceptance', captainMember, {
-            userTag: coCaptainUser.tag
-        }));
-    } catch (e) {
-        console.warn(`No se pudo enviar MD al capitán original ${captainId}.`);
-    }
-
-    // 6. Actualizamos los mensajes públicos y visualizador (lógica completa)
+    // 4. Actualizamos los mensajes públicos y visualizador
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     await updatePublicMessages(client, updatedTournament);
     await notifyTournamentVisualizer(updatedTournament);
@@ -1478,7 +1444,7 @@ export async function kickTeam(client, tournament, captainId) {
     try {
         const casterThread = await client.channels.fetch(updatedTournament.discordMessageIds.casterThreadId).catch(()=>null);
         if (casterThread) {
-            await casterThread.send({ content: `- Equipo / Team **${teamData.nombre}** (Cap: ${teamData.capitanTag}) ha sido eliminado / has been removed.` });
+            await casterThread.send(`- Equipo **${teamData.nombre}** (Capitán: ${teamData.capitanTag}) ha sido eliminado del torneo.`);
         }
     } catch (e) {
         console.warn(`No se pudo notificar la expulsión en el hilo de casters para el torneo ${tournament.shortId}`);
@@ -1827,33 +1793,24 @@ export async function notifyCaptainsOfChanges(client, tournament) {
     if (approvedCaptains.length === 0) {
         return { success: true, message: "✅ No hay capitanes inscritos a los que notificar." };
     }
+    const embed = new EmbedBuilder()
+        .setColor('#f1c40f')
+        .setTitle(`📢 Actualización del Torneo / Tournament Update: ${tournament.nombre}`)
+        .setDescription('🇪🇸 La configuración del torneo ha cambiado.\n🇬🇧 The tournament configuration has changed.')
+        .addFields(
+            { name: 'Formato / Format', value: tournament.config.format.label, inline: true },
+            { name: 'Tipo / Type', value: tournament.config.isPaid ? 'De Pago / Paid' : 'Gratuito / Free', inline: true },
+            { name: 'Entry', value: `${tournament.config.entryFee}€`, inline: true },
+            { name: 'Premio Campeón / Champion Prize', value: `${tournament.config.prizeCampeon}€`, inline: true },
+            { name: 'Premio Finalista / Runner-up Prize', value: `${tournament.config.prizeFinalista}€`, inline: true },
+            { name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime || 'No especificado / Not specified', inline: true }
+        )
+        .setFooter({ text: 'Si tienes dudas, contacta a un administrador.' });
     let notifiedCount = 0;
-    const guild = await client.guilds.fetch(tournament.guildId);
-
     for (const team of approvedCaptains) {
         if (/^\d+$/.test(team.capitanId)) {
-            try {
-                const member = await guild.members.fetch(team.capitanId);
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#f1c40f')
-                    .setTitle(t('captainChangeNotificationTitle', member, { tournamentName: tournament.nombre }))
-                    .setDescription(t('captainChangeNotificationBody', member))
-                    .addFields(
-                        { name: 'Formato / Format', value: tournament.config.format.label, inline: true },
-                        { name: 'Tipo / Type', value: tournament.config.isPaid ? 'De Pago / Paid' : 'Gratuito / Free', inline: true },
-                        { name: 'Entry', value: `${tournament.config.entryFee}€`, inline: true },
-                        { name: 'Premio Campeón / Champion Prize', value: `${tournament.config.prizeCampeon}€`, inline: true },
-                        { name: 'Premio Finalista / Runner-up Prize', value: `${tournament.config.prizeFinalista}€`, inline: true },
-                        { name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime || 'N/A', inline: true }
-                    )
-                    .setFooter({ text: t('captainChangeNotificationFooter', member) });
-
-                await member.send({ embeds: [embed] });
-                notifiedCount++;
-            } catch (e) {
-                console.warn(`No se pudo notificar al capitán ${team.capitanTag}`);
-            }
+            try { const user = await client.users.fetch(team.capitanId); await user.send({ embeds: [embed] }); notifiedCount++;
+            } catch (e) { console.warn(`No se pudo notificar al capitán ${team.capitanTag}`); }
         }
     }
     return { success: true, message: `✅ Se ha enviado la notificación a ${notifiedCount} de ${approvedCaptains.length} capitanes.` };
@@ -2313,16 +2270,7 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
     const tournament = await db.collection('tournaments').findOne({ shortId: session.tournamentShortId });
     if (!tournament) return;
 
-    let nextGroup;
-    const totalTeams = session.teams.length;
-    const drawnCount = session.drawnTeams.length;
-
-    if (totalTeams <= 8) { // Mantiene la lógica para 8 o menos equipos
-        nextGroup = drawnCount % 2 === 0 ? 'A' : 'B';
-    } else { // Nueva lógica para más de 8 equipos (ej. 16)
-        const groupLetters = ['A', 'B', 'C', 'D'];
-        nextGroup = groupLetters[drawnCount % 4];
-    }
+    const nextGroup = session.drawnTeams.length % 2 === 0 ? 'A' : 'B';
     const groupName = `Grupo ${nextGroup}`;
     
     const draft = await db.collection('drafts').findOne({ shortId: tournament.shortId.replace('draft-', '') });
@@ -2435,111 +2383,4 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     await updatePublicMessages(client, finalTournament);
     await updateTournamentManagementThread(client, finalTournament);
     await notifyTournamentVisualizer(finalTournament);
-}
-async function generateGroupBasedSchedule(tournament) {
-    const db = getDb();
-    tournament.status = 'fase_de_grupos';
-    const format = tournament.config.format;
-    let teams = Object.values(tournament.teams.aprobados);
-    teams.sort(() => Math.random() - 0.5);
-
-    const grupos = {};
-    const numGrupos = format.groups;
-    const tamanoGrupo = format.size / numGrupos;
-
-    for (let i = 0; i < teams.length; i++) {
-        const grupoIndex = Math.floor(i / tamanoGrupo);
-        const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
-        if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
-        teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
-        grupos[nombreGrupo].equipos.push(teams[i]);
-    }
-    tournament.structure.grupos = grupos;
-
-    const calendario = {};
-    for (const nombreGrupo in grupos) {
-        calendario[nombreGrupo] = [];
-        const equiposGrupo = grupos[nombreGrupo].equipos;
-        if (equiposGrupo.length === 4) {
-            const [t1, t2, t3, t4] = equiposGrupo;
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 1, t1, t4), createMatchObject(nombreGrupo, 1, t2, t3));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 2, t1, t3), createMatchObject(nombreGrupo, 2, t4, t2));
-            calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 3, t1, t2), createMatchObject(nombreGrupo, 3, t3, t4));
-            if (tournament.config.matchType === 'idavuelta') {
-                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 4, t4, t1), createMatchObject(nombreGrupo, 4, t3, t2));
-                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 5, t3, t1), createMatchObject(nombreGrupo, 5, t2, t4));
-                calendario[nombreGrupo].push(createMatchObject(nombreGrupo, 6, t2, t1), createMatchObject(nombreGrupo, 6, t4, t3));
-            }
-        }
-    }
-    tournament.structure.calendario = calendario;
-    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
-}
-
-async function generateFlexibleLeagueSchedule(tournament) {
-    const db = getDb();
-    console.log(`[DEBUG LIGA] 1. Iniciando la generación de calendario para ${tournament.shortId}`);
-    tournament.status = 'fase_de_grupos';
-    let teams = Object.values(tournament.teams.aprobados);
-
-    if (teams.length % 2 !== 0) {
-        const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
-        teams.push(ghostTeam);
-    }
-
-    console.log(`[DEBUG LIGA] 2. Número de equipos para el sorteo: ${teams.length}`);
-
-    teams.forEach(team => {
-        if (team.id !== 'ghost') team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
-    });
-
-    tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
-    tournament.structure.calendario['Liga'] = [];
-
-    const numTeams = teams.length;
-    // --- LA CORRECCIÓN CLAVE ESTÁ AQUÍ ---
-    const totalRoundsToGenerate = tournament.config.totalRounds || 3; // Leemos el dato correcto
-    
-    // Creamos una copia que rotará
-    let rotatingTeams = [...teams];
-    rotatingTeams.shift(); // Sacamos al primer equipo que no rota
-
-    for (let round = 0; round < totalRoundsToGenerate; round++) {
-        const teamA = teams[0]; // El primer equipo siempre juega
-        const teamB = rotatingTeams[0]; // contra el primer equipo del array rotativo
-        
-        const homeTeam = round % 2 === 0 ? teamA : teamB;
-        const awayTeam = round % 2 === 0 ? teamB : teamA;
-        tournament.structure.calendario['Liga'].push(createMatchObject('Liga', round + 1, homeTeam, awayTeam));
-
-        // Emparejamos el resto
-        for (let i = 1; i < numTeams / 2; i++) {
-            const teamC = rotatingTeams[i];
-            const teamD = rotatingTeams[numTeams - 1 - i];
-            tournament.structure.calendario['Liga'].push(createMatchObject('Liga', round + 1, teamC, teamD));
-        }
-        
-        // Rotamos el array para la siguiente jornada
-        rotatingTeams.push(rotatingTeams.shift());
-    }
-    
-    console.log(`[DEBUG LIGA] 3. Total de partidos generados: ${tournament.structure.calendario['Liga'].length}`);
-
-    for (const match of tournament.structure.calendario['Liga']) {
-        if (match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost') {
-            match.status = 'finalizado';
-            const realTeamIsA = match.equipoA.id !== 'ghost';
-            match.resultado = realTeamIsA ? '1-0' : '0-1';
-            const realTeam = realTeamIsA ? match.equipoA : match.equipoB;
-            const groupTeam = tournament.structure.grupos['Liga'].equipos.find(t => t.id === realTeam.id);
-            if (groupTeam) {
-                groupTeam.stats.pj += 1;
-                groupTeam.stats.pts += 3;
-                groupTeam.stats.gf += 1;
-                groupTeam.stats.dg += 1;
-            }
-        }
-    }
-    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
-    console.log(`[DEBUG LIGA] 4. Calendario guardado en la DB.`);
 }
