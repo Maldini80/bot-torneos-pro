@@ -17,10 +17,9 @@ import {
 } from '../logic/verificationLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
-import { t } from '../utils/translator.js';
 
 export async function handleButton(interaction) {
     const customId = interaction.customId;
@@ -147,14 +146,14 @@ export async function handleButton(interaction) {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) {
-            return interaction.editReply({ content: t('errorTournamentNotFound', interaction.member) });
+            return interaction.editReply({ content: 'Error: No se encontró este torneo.' });
         }
 
         const managerId = interaction.user.id;
         
         const isAlreadyRegistered = tournament.teams.aprobados[managerId] || tournament.teams.pendientes[managerId] || (tournament.teams.reserva && tournament.teams.reserva[managerId]);
         if (isAlreadyRegistered) {
-            return interaction.editReply({ content: t('errorAlreadyRegistered', interaction.member) });
+            return interaction.editReply({ content: '❌ Ya estás inscrito o en la lista de reserva de este torneo.' });
         }
 
         if (mongoose.connection.readyState === 0) {
@@ -169,43 +168,47 @@ export async function handleButton(interaction) {
         // --- INICIO DE LA MODIFICACIÓN: GUÍA DE INSCRIPCIÓN ---
         if (!team) {
             const embed = new EmbedBuilder()
-                .setColor('#e74c3c')
-                .setTitle(t('errorNotCaptainTitle', interaction.member))
-                .setDescription(t('errorNotCaptainDescription', interaction.member))
+                .setColor('#e74c3c') // Rojo de error
+                .setTitle('❌ No eres Manager o Capitán de ningún equipo en el Discord')
+                .setDescription('Para poder inscribirte en un torneo, primero debes ser **mánager o capitán** de un equipo **registrado en este Discord**.')
                 .addFields(
                     {
-                        name: t('errorNotCaptainManagerGuideTitle', interaction.member),
-                        value: t('errorNotCaptainManagerGuideValue', interaction.member)
+                        name: '👉 Si eres el Mánager de tu equipo (y aún no lo has registrado):',
+                        value: '1. Ve al canal #🏠・registra-equipo-o-unete.\n' +
+                               '2. Usa el comando o botón para **Acciones de manager**.\n' +
+                               '3. Sigue los pasos del sistema.\n' +
+                               '4. Una vez registrado, vuelve aquí y pulsa de nuevo el botón de inscripción al torneo.'
                     },
                     {
-                        name: t('errorNotCaptainPlayerGuideTitle', interaction.member),
-                        value: t('errorNotCaptainPlayerGuideValue', interaction.member)
+                        name: '👉 Si eres Capitán o Jugador (y no el mánager):',
+                        value: '1. Pídele al **mánager** de tu equipo que siga los pasos de arriba para registrar el club en el Discord.\n' +
+                               '2. Una vez el equipo esté registrado, el mánager podrá **invitarte** o tú podrás **solicitar unirte** desde el canal #🏠・registra-equipo-o-unete .\n' +
+                               '3. Cuando ya formes parte de la plantilla, el mánager podrá **ascenderte a capitán**.\n' +
+                               '4. ¡Como capitán, ya podrás inscribir al equipo en torneos!'
                     }
                 )
-                .setFooter({ text: t('errorNotCaptainFooter', interaction.member) });
+                .setFooter({ text: 'Este sistema asegura que todos los equipos y capitanes estén correctamente registrados.' });
 
             return interaction.editReply({ embeds: [embed] });
         }
         // --- FIN DE LA MODIFICACIÓN ---
 
         const embed = new EmbedBuilder()
-            .setTitle(t('autoRegistrationTitle', interaction.member))
-            .setDescription(t('autoRegistrationBody', interaction.member, { teamName: team.name, tournamentName: tournament.nombre }))
+            .setTitle('Confirmación de Inscripción Automática')
+            .setDescription(`Hemos detectado que eres un líder del equipo **${team.name}**. ¿Deseas inscribirlo en el torneo **${tournament.nombre}** usando sus datos guardados?`)
             .setThumbnail(team.logoUrl)
             .setColor('Green')
-            .setFooter({ text: t('autoRegistrationFooter', interaction.member) });
+            .setFooter({ text: 'No tendrás que rellenar ningún formulario.' });
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`confirm_team_registration:${tournamentShortId}:${team._id}`)
-                .setLabel(t('yesEnrollMyTeamButton', interaction.member))
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('✅'),
+                .setLabel('✅ Sí, Inscribir mi Equipo')
+                .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId('cancel_registration')
-                .setLabel(t('cancelButtonLabel', interaction.member))
+                .setLabel('❌ Cancelar')
                 .setStyle(ButtonStyle.Danger)
-                .setEmoji('❌')
         );
 
         await interaction.editReply({ embeds: [embed], components: [row] });
@@ -213,31 +216,29 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'confirm_team_registration') {
-const [tournamentShortId, teamId] = params;
-		const originalAction = 'register_team_from_db'; 
+        const [tournamentShortId, teamId] = params;
+        
+        // CORRECCIÓN: Pasamos 'register_team_from_db' como una palabra clave
+        // y el teamId como un parámetro separado para evitar errores de 'split'.
+        const originalAction = 'register_team_from_db'; 
 
-    // --- ESTE ES EL BLOQUE CRÍTICO QUE FALTABA ---
-    // Aquí es donde realmente creamos la variable `platformButtons`.
-    // Sin este bloque, la línea de abajo siempre dará el error "platformButtons is not defined".
-    const platformButtons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-    );
-    // --- FIN DEL BLOQUE CRÍTICO ---
+        const platformButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
+        );
 
-    // Ahora, esta línea puede usar `platformButtons` porque ya ha sido creada.
-    await interaction.update({
-        content: t('teamConfirmedSelectStream', interaction.member),
-        embeds: [],
-        components: [platformButtons]
-    });
-    return;
-}
+        await interaction.update({
+            content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
+            embeds: [],
+            components: [platformButtons]
+        });
+        return;
+    }
 	if (action === 'select_stream_platform') {
         const [platform, originalAction, entityId, position] = params;
         
         // Esta función crea el embed de advertencia que debería aparecer después
-        const warningContent = createStreamerWarningEmbed(interaction.member, platform, originalAction, entityId, position);
+        const warningContent = createStreamerWarningEmbed(platform, originalAction, entityId, position);
 
         // Actualizamos la interacción para mostrar la advertencia
         await interaction.update(warningContent);
@@ -245,7 +246,7 @@ const [tournamentShortId, teamId] = params;
     }
 	
     if (action === 'cancel_registration') {
-        await interaction.update({ content: t('registrationCanceled', interaction.member), embeds: [], components: [] });
+        await interaction.update({ content: 'Inscripción cancelada.', embeds: [], components: [] });
         return;
     }
     
@@ -315,12 +316,7 @@ const [tournamentShortId, teamId] = params;
                 const tournamentShortId = entityId;
                 const teamId = teamIdOrPosition;
                 finalActionId = `inscripcion_final_modal:${tournamentShortId}:${platform}:${teamId}`;
-                
-                // --- MODIFICADO ---
-                streamUsernameInput.setLabel(t('yourUsernameInPlatformLabel', interaction.member, { platform: platform.charAt(0).toUpperCase() + platform.slice(1) }));
-                modal.setTitle(t('finalizeStreamRegistrationModalTitle', interaction.member));
-                // --- FIN MODIFICADO ---
-
+                modal.setTitle('Finalizar Inscripción (Stream)');
                 modal.addComponents(new ActionRowBuilder().addComponents(streamUsernameInput));
             } else {
                 finalActionId = `inscripcion_modal:${entityId}:${platform}`;
@@ -707,12 +703,12 @@ if (action === 'admin_invite_replacement_start') {
 
     const isVerified = await checkVerification(interaction.user.id);
     if (!isVerified) {
-        return interaction.reply({ content: t('errorMustVerify', interaction.member), flags: [MessageFlags.Ephemeral] });
+        return interaction.reply({ content: '❌ Debes verificar tu cuenta primero usando el botón "Verificar Cuenta".', flags: [MessageFlags.Ephemeral] });
     }
     
     const [draftShortId, channelId] = params;
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-    if (!draft) return interaction.reply({ content: t('errorDraftNotFound', interaction.member), flags: [MessageFlags.Ephemeral] });
+    if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
 
     const userId = interaction.user.id;
     const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) || 
@@ -720,7 +716,7 @@ if (action === 'admin_invite_replacement_start') {
                               draft.players.some(p => p.userId === userId) ||
                               (draft.pendingPayments && draft.pendingPayments[userId]);
     if (isAlreadyRegistered) {
-        return interaction.reply({ content: t('errorAlreadyInDraft', interaction.member), flags: [MessageFlags.Ephemeral] });
+        return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
     }
     
     // --- CORRECCIÓN CLAVE ---
@@ -866,34 +862,22 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'draft_add_test_players') {
-    const [draftShortId] = params;
-    const modal = new ModalBuilder()
-        .setCustomId(`add_draft_test_players_modal:${draftShortId}`)
-        .setTitle('Añadir Jugadores y Capitanes de Prueba');
-    
-    // <-- El nuevo campo para el objetivo de capitanes
-    const targetCaptainsInput = new TextInputBuilder()
-        .setCustomId('target_captains_input')
-        .setLabel("Objetivo de Capitanes Totales")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setPlaceholder("Ej: 8 o 16");
-
-    // <-- El campo de siempre, pero con una etiqueta más clara
-    const amountInput = new TextInputBuilder()
-        .setCustomId('amount_input')
-        .setLabel("¿Cuántos jugadores de prueba añadir en total?")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setPlaceholder("Ej: 20");
-        
-    modal.addComponents(
-        new ActionRowBuilder().addComponents(targetCaptainsInput),
-        new ActionRowBuilder().addComponents(amountInput)
-    );
-    await interaction.showModal(modal);
-    return;
-}
+        const [draftShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`add_draft_test_players_modal:${draftShortId}`)
+            .setTitle('Añadir Jugadores de Prueba');
+            
+        const amountInput = new TextInputBuilder()
+            .setCustomId('amount_input')
+            .setLabel("¿Cuántos jugadores de prueba quieres añadir?")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue('1');
+            
+        modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
+        await interaction.showModal(modal);
+        return;
+    }
 
     if (action === 'draft_simulate_picks') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -1042,7 +1026,7 @@ if (action === 'admin_invite_replacement_start') {
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
         if (interaction.user.id !== currentCaptainId && !isAdmin) {
-            return interaction.reply({ content: t('errorPickNotYourTurn', interaction.member), flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: 'No es tu turno de elegir o no tienes permiso.', flags: [MessageFlags.Ephemeral] });
         }
         
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.isPicking": true } });
@@ -1057,7 +1041,7 @@ if (action === 'admin_invite_replacement_start') {
             .map(([key, value]) => ({ label: value, value: key }));
 
         if (positionOptions.length === 0) {
-            return interaction.reply({ content: t('errorPickNoPlayers', interaction.member), flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: 'No hay jugadores disponibles para seleccionar.', flags: [MessageFlags.Ephemeral] });
         }
 
         const positionMenu = new StringSelectMenuBuilder()
@@ -1234,16 +1218,16 @@ if (action === 'admin_invite_replacement_start') {
     const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
     if (modalActions.includes(action)) {
         if (action === 'admin_modify_result_start') {
-    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
-    const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+            const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+            const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
 
-    if (!isAdmin && !isReferee) {
-        return interaction.reply({
-            content: t('errorNoPermission', interaction.member),
-            flags: [MessageFlags.Ephemeral]
-        });
-    }
-}
+            if (!isAdmin && !isReferee) {
+                return interaction.reply({
+                    content: '❌ No tienes permiso para usar esta función. Requiere ser Administrador o Árbitro.',
+                    flags: [MessageFlags.Ephemeral]
+                });
+            }
+        }
 
         const [p1, p2] = params;
         
@@ -1259,10 +1243,10 @@ if (action === 'admin_invite_replacement_start') {
             const matchId = p1;
             const { partido } = findMatch(tournament, matchId);
             if (!partido) return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
-            modal = new ModalBuilder().setCustomId(`report_result_modal:${matchId}:${tournament.shortId}`).setTitle(t('reportResultModalTitle', interaction.member));
-const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(t('goalsForTeamLabel', interaction.member, { teamName: partido.equipoA.nombre })).setStyle(TextInputStyle.Short).setRequired(true);
-const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(t('goalsForTeamLabel', interaction.member, { teamName: partido.equipoB.nombre })).setStyle(TextInputStyle.Short).setRequired(true);
-modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
+            modal = new ModalBuilder().setCustomId(`report_result_modal:${matchId}:${tournament.shortId}`).setTitle('Reportar Resultado');
+            const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
+            const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
         } else if (action === 'admin_modify_result_start') {
             const matchId = p1;
             const { partido } = findMatch(tournament, matchId);
@@ -1283,7 +1267,7 @@ modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new Actio
             const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.startTime || '');
             modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(startTimeInput));
         } else if (action === 'payment_confirm_start') {
-            modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle(t('paymentModalTitle', interaction.member));
+            modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
             const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(paypalInput));
         }
@@ -1416,7 +1400,7 @@ modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new Actio
         
         const embed = new EmbedBuilder()
             .setColor('#3498db')
-            .setTitle(t('participantsTitle', interaction.member, { tournamentName: tournament.nombre }))
+            .setTitle(`Participantes: ${tournament.nombre}`)
             .setDescription(description);
 
         try {
@@ -1451,29 +1435,10 @@ modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new Actio
     }
 
     if (action === 'admin_create_tournament_start') {
-    // --- INICIO DE LA LÓGICA CORREGIDA ---
-    // Filtramos la lista para mostrar solo los formatos de grupos (con tamaño fijo > 0)
-    const groupFormats = Object.entries(TOURNAMENT_FORMATS)
-        .filter(([, format]) => format.size > 0)
-        .map(([key, format]) => ({
-            label: format.label,
-            value: key
-        }));
-
-    // Comprobación de seguridad: si no hay formatos, no continuamos.
-    if (groupFormats.length === 0) {
-        return interaction.reply({ content: '❌ No hay formatos de torneo de grupos configurados.', flags: [MessageFlags.Ephemeral] });
+        const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, value: key })));
+        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
+        return;
     }
-
-    const formatMenu = new StringSelectMenuBuilder()
-        .setCustomId('admin_create_format')
-        .setPlaceholder('Paso 1: Selecciona el formato del torneo')
-        .addOptions(groupFormats); // Usamos la lista ya filtrada
-    
-    await interaction.reply({ content: 'Iniciando creación de torneo de grupos...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
-    // --- FIN DE LA LÓGICA CORREGIDA ---
-    return;
-}
     
     if (action === 'admin_undo_draw') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -1551,12 +1516,9 @@ modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new Actio
         await kickTeam(client, tournament, captainId);
         
         try {
-    const user = await client.users.fetch(captainId);
-    // La variable 'user' aquí es el objeto de usuario, no el 'member'. 
-    // Para que la traducción funcione, necesitamos el 'member' para acceder a sus roles.
-    const member = await guild.members.fetch(captainId);
-    await user.send(t('kickNotification', member, { tournamentName: tournament.nombre }));
-} catch (e) { console.warn(`No se pudo enviar MD de expulsión al usuario ${captainId}`); }
+            const user = await client.users.fetch(captainId);
+            await user.send(`🚨 🇪🇸 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.\n🇬🇧 You have sido **kicked** from the **${tournament.nombre}** tournament by an administrator.`);
+        } catch (e) { console.warn(`No se pudo enviar MD de expulsión al usuario ${captainId}`); }
         
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
@@ -1595,17 +1557,15 @@ if (action === 'admin_simulate_matches') {
     // Ejecutamos la simulación y NO esperamos a que termine (trabajo en segundo plano)
     simulateAllPendingMatches(client, tournamentShortId)
         .then(result => {
-            // Traducimos el mensaje usando la clave y las variables devueltas
-            const translatedMessage = t(result.messageKey, interaction.member, { count: result.count });
-            
-            interaction.editReply(translatedMessage).catch(() => {
-                interaction.channel.send(`✅ La simulación para el torneo \`${tournamentShortId}\` ha finalizado. ${translatedMessage}`);
+            // Cuando termina, intentamos editar la respuesta inicial
+            interaction.editReply(`✅ Simulación completada. ${result.message}`).catch(() => {
+                // Si falla (porque ha pasado mucho tiempo), enviamos un nuevo mensaje al canal
+                interaction.channel.send(`✅ La simulación para el torneo \`${tournamentShortId}\` ha finalizado. ${result.message}`);
             });
         })
         .catch(error => {
             console.error("Error crítico durante la simulación de partidos:", error);
-            const errorMessage = t('errorRequestFailed', interaction.member, { error: error.message });
-            interaction.editReply(errorMessage).catch(() => {
+            interaction.editReply(`❌ Ocurrió un error crítico durante la simulación: ${error.message}`).catch(() => {
                 interaction.channel.send(`❌ Ocurrió un error crítico durante la simulación para el torneo \`${tournamentShortId}\`.`);
             });
         });
@@ -1641,26 +1601,12 @@ if (action === 'admin_simulate_matches') {
             return interaction.editReply({ content: "Esta invitación ya no es válida." });
         }
         
-        // La función que hace los cambios en la base de datos no se modifica.
         await addCoCaptain(client, tournament, captainId, coCaptainId);
         
-        // --- LÓGICA DE TRADUCCIÓN AÑADIDA ---
+        const captainUser = await client.users.fetch(captainId);
+        await captainUser.send(`✅ **${interaction.user.tag}** ha aceptado tu invitación y ahora es tu co-capitán.`);
+        await interaction.editReply({ content: "✅ ¡Has aceptado la invitación! Ahora eres co-capitán." });
 
-        // 1. Obtenemos el objeto `member` del capitán original para saber su idioma.
-        const guild = await client.guilds.fetch(tournament.guildId);
-        const captainMember = await guild.members.fetch(captainId);
-
-        // 2. Enviamos el MD al capitán, traducido a SU idioma.
-        await captainMember.send(t('dmCaptainNotifiedOfAcceptance', captainMember, {
-            userTag: interaction.user.tag
-        }));
-        
-        // 3. Enviamos la respuesta efímera al usuario que aceptó, traducida a SU idioma.
-        await interaction.editReply({ content: t('coCaptainAcceptedConfirmation', interaction.member) });
-
-        // --- FIN DE LA LÓGICA DE TRADUCCIÓN ---
-
-        // El resto del código para desactivar los botones no cambia.
         const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ components: [disabledRow] });
@@ -1689,7 +1635,7 @@ if (action === 'admin_simulate_matches') {
         if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
 
         const result = await requestUnregister(client, tournament, interaction.user.id);
-        await interaction.editReply({ content: t(result.messageKey, interaction.member) });
+        await interaction.editReply({ content: result.message });
     }
 
     if (action === 'darse_baja_draft_start') {
@@ -1731,7 +1677,7 @@ if (action === 'admin_simulate_matches') {
     } else {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const result = await requestUnregisterFromDraft(client, draft, interaction.user.id, "Agente Libre (no fichado)");
-        await interaction.editReply({ content: t(result.messageKey, interaction.member) });
+        await interaction.editReply({ content: result.message });
     }
 }
     
@@ -1757,7 +1703,7 @@ if (action === 'admin_simulate_matches') {
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
-        await interaction.editReply(t('unregisteredSuccess', interaction.member));
+        await interaction.editReply(`✅ Baja del equipo **${team.nombre}** procesada.`);
         return;
     }
 
@@ -1777,7 +1723,7 @@ if (action === 'admin_simulate_matches') {
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
-        await interaction.editReply({ content: t('unregisteredRejected', interaction.member), flags: [MessageFlags.Ephemeral] });
+        await interaction.editReply({ content: `❌ Solicitud de baja rechazada.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
 
@@ -2413,135 +2359,4 @@ if (action === 'captain_view_free_agents') {
         });
         return;
     }
-	if (action === 'create_flexible_league_start') {
-    const modal = new ModalBuilder()
-        .setCustomId('create_flexible_league_modal')
-        .setTitle('Configuración de la Liguilla Flexible');
-
-    const nameInput = new TextInputBuilder()
-        .setCustomId('torneo_nombre')
-        .setLabel("Nombre del Torneo")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-    
-    const qualifiersInput = new TextInputBuilder()
-        .setCustomId('torneo_qualifiers')
-        .setLabel("Nº de Equipos que se Clasifican")
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder("Ej: 4 (para semis), 8 (para cuartos)...")
-        .setRequired(true);
-
-    const typeMenu = new StringSelectMenuBuilder()
-        .setCustomId('admin_create_type:flexible_league') // Usamos el ID del formato
-        .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
-        .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
-    
-    // NOTA: Por simplicidad, la liguilla será siempre a 'ida'.
-    // El modal para los datos de pago se gestionará en el handler de menús.
-
-    modal.addComponents(
-        new ActionRowBuilder().addComponents(nameInput),
-        new ActionRowBuilder().addComponents(qualifiersInput)
-    );
-
-    // La respuesta inicial ahora incluye un menú para elegir el tipo
-    return interaction.reply({
-        content: "Has elegido crear una Liguilla Flexible. Por favor, rellena los datos básicos y selecciona el tipo de inscripción.",
-        components: [new ActionRowBuilder().addComponents(typeMenu)],
-        flags: [MessageFlags.Ephemeral]
-    });
-}
-	// Muestra el submenú para gestionar resultados de partidos finalizados
-if (action === 'admin_manage_results_start') {
-    await interaction.deferUpdate();
-    const [tournamentShortId] = params;
-    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-
-    const embed = new EmbedBuilder()
-        .setColor('#e67e22')
-        .setTitle(`Gestión de Resultados: ${tournament.nombre}`)
-        .setDescription('Selecciona una acción para corregir un partido que ya ha finalizado.')
-        .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
-
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`admin_reopen_match_start:${tournamentShortId}`)
-            .setLabel('Reabrir Partido Cerrado')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('⏪'),
-        new ButtonBuilder()
-            .setCustomId(`admin_modify_final_result_start:${tournamentShortId}`)
-            .setLabel('Modificar Resultado Final')
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('✍️'),
-        new ButtonBuilder()
-            .setCustomId(`admin_return_to_main_panel:${tournamentShortId}`)
-            .setLabel('<< Volver')
-            .setStyle(ButtonStyle.Secondary)
-    );
-
-    await interaction.editReply({ embeds: [embed], components: [row] });
-    return;
-}
-
-// Devuelve al usuario al panel de gestión principal del torneo
-if (action === 'admin_return_to_main_panel') {
-    await interaction.deferUpdate();
-    const [tournamentShortId] = params;
-    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-    const panelContent = createTournamentManagementPanel(tournament);
-    await interaction.editReply(panelContent);
-    return;
-}
-	// Muestra la lista de partidos para reabrir o modificar
-if (action === 'admin_reopen_match_start' || action === 'admin_modify_final_result_start') {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-    const [tournamentShortId] = params;
-    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-
-    const allMatches = [
-        ...Object.values(tournament.structure.calendario || {}).flat(),
-        ...Object.values(tournament.structure.eliminatorias || {}).flat()
-    ];
-    
-    const completedMatches = allMatches.filter(match => match && match.status === 'finalizado' && match.id !== 'ghost');
-
-    if (completedMatches.length === 0) {
-        return interaction.editReply({ content: 'No hay partidos finalizados para gestionar en este torneo.' });
-    }
-    
-    // Creamos las opciones para el menú desplegable
-    const matchOptions = completedMatches.map(match => {
-        const stage = match.nombreGrupo ? `${match.nombreGrupo} - J${match.jornada}` : match.jornada;
-        return {
-            label: `${stage}: ${match.equipoA.nombre} vs ${match.equipoB.nombre}`,
-            description: `Resultado actual: ${match.resultado}`,
-            value: match.matchId,
-        };
-    }).slice(0, 25); // Discord solo permite 25 opciones por menú
-
-    // Definimos un ID diferente para cada acción
-    const selectMenuId = action === 'admin_reopen_match_start' 
-        ? `admin_reopen_match_select:${tournamentShortId}` 
-        : `admin_modify_final_result_select:${tournamentShortId}`;
-
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId(selectMenuId)
-        .setPlaceholder('Selecciona el partido que quieres gestionar...')
-        .addOptions(matchOptions);
-
-    let content = action === 'admin_reopen_match_start'
-        ? 'Selecciona el partido que deseas reabrir. Esto revertirá sus estadísticas y creará un nuevo hilo.'
-        : 'Selecciona el partido cuyo resultado final deseas modificar directamente.';
-    
-    if (completedMatches.length > 25) {
-        content += '\n\n⚠️ **Atención:** Solo se muestran los primeros 25 partidos finalizados.';
-    }
-
-    await interaction.editReply({
-        content: content,
-        components: [new ActionRowBuilder().addComponents(selectMenu)],
-    });
-    return;
-}
 }
