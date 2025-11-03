@@ -1,13 +1,13 @@
 /* --- INICIO DEL ARCHIVO style.css (VERSIÓN FINAL CORREGIDA PARA MÓVILES) --- */
 
 :root {
-    --primary-color: #ff9c00;
+    --primary-color: #e62429;
     --background-color: #141414;
     --surface-color: rgba(10, 10, 10, 0.85);
     --text-color: #f1f1f1;
-    --border-color: rgba(255, 156, 0, 0.3);
+    --border-color: rgba(230, 36, 41, 0.3);
     --winner-color: #ffc107;
-    --glow-color: rgba(255, 156, 0, 0.7);
+    --glow-color: rgba(230, 36, 41, 0.7);
     --font-bebas: 'Bebas Neue', sans-serif;
     --font-roboto: 'Roboto', sans-serif;
 }
@@ -24,7 +24,7 @@
 body {
     background-color: var(--background-color);
     /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
-    background-image: url('https://i.imgur.com/aKTLoUl.png');
+    background-image: url('https://i.imgur.com/mxtcWwu.jpeg');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -44,25 +44,16 @@ header {
     /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
     background: 
         linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), /* Capa oscura para legibilidad */
-        url('https://i.imgur.com/Fj4iFjP.png'); /* Tu imagen de fondo */
+        url('https://i.imgur.com/S8lm70s.jpeg'); /* Tu imagen de fondo */
     background-size: cover; /* Asegura que la imagen cubra todo el espacio */
     background-position: center; /* Centra la imagen */
     
     margin-bottom: 20px; position: relative; animation: neon-glow 1.5s infinite alternate; flex-shrink: 0;
 }
-.header-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 40px; /* Aumentamos el espacio entre el logo y el texto */
-    max-width: 1400px; /* Un ancho máximo para que no se separe demasiado en pantallas grandes */
-    margin: 0 auto; /* Centra el contenido en la página */
-    padding: 0 20px; /* Añade un poco de espacio en los bordes */
-    box-sizing: border-box;
-}
+.header-content { display: flex; align-items: center; justify-content: center; gap: 20px; }
 .header-logo { height: 110px; width: auto; }
-.header-text { text-align: left; }
-header h1 { font-family: var(--font-bebas); font-size: 2.8em; color: var(--primary-color); margin: 0; text-transform: uppercase; }
+.header-text { text-align: center; }
+header h1 { font-family: var(--font-bebas); font-size: 3.5em; color: var(--primary-color); margin: 0; text-transform: uppercase; text-shadow: 0 0 10px var(--primary-color), 2px 2px 8px rgba(0,0,0,0.7); }
 header p { font-size: 1.1em; color: #aaa; margin: 5px 0 0 0; }
 
 #last-pick-banner {
@@ -102,7 +93,7 @@ footer {
 main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: column; overflow: hidden; }
 #main-view-content, #live-matches-list, #team-list-container, #groups-container, #calendar-container, #bracket-container { overflow-y: auto; flex-grow: 1; padding-right: 10px;}
 
-.view-pane h2, aside h2 { font-family: var(--font-bebas); font-size: 2.2em; color: var(--text-color); text-shadow: 1px 1px 5px rgba(0,0,0,0.5); text-align: center; }
+.view-pane h2, aside h2 { font-family: var(--font-bebas); font-size: 2.2em; color: var(--text-color); text-shadow: 1px 1px 5px rgba(0,0,0,0.5); }
 .view-switcher { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
 .view-btn { font-family: var(--font-bebas); font-size: 1.5em; padding: 10px 20px; border: none; background-color: transparent; color: #888; cursor: pointer; transition: color 0.2s, border-bottom 0.2s; border-bottom: 3px solid transparent; }
 .view-btn.active { color: var(--primary-color); border-bottom: 3px solid var(--primary-color); }
@@ -655,7 +646,7 @@ main#main-panel, aside#live-match-sidebar { display: flex; flex-direction: colum
     padding: 0;
     margin: 0;
 }
-#group-a-list li, #group-b-list li, #group-c-list li, #group-d-list li {
+#group-a-list li, #group-b-list li {
     font-size: 1.2em;
     padding: 8px;
     background-color: rgba(255,255,255,0.05);
