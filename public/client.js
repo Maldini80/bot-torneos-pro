@@ -827,6 +827,8 @@ function initializeRouletteView(sessionId) {
     const statusEl = document.getElementById('roulette-status');
     const groupAList = document.getElementById('group-a-list');
     const groupBList = document.getElementById('group-b-list');
+    const groupCList = document.getElementById('group-c-list');
+    const groupDList = document.getElementById('group-d-list');
     const ctx = canvas.getContext('2d');
 
     let teams = [];
@@ -881,6 +883,9 @@ function initializeRouletteView(sessionId) {
     function updateGroupDisplay(groups) {
         groupAList.innerHTML = '';
         groupBList.innerHTML = '';
+        groupCList.innerHTML = ''; // <-- AÑADIDO
+        groupDList.innerHTML = ''; // <-- AÑADIDO
+
         if (groups['Grupo A']) {
             groups['Grupo A'].equipos.forEach(team => {
                 const li = document.createElement('li');
@@ -895,6 +900,22 @@ function initializeRouletteView(sessionId) {
                 groupBList.appendChild(li);
             });
         }
+        // --- BLOQUE AÑADIDO ---
+        if (groups['Grupo C']) {
+            groups['Grupo C'].equipos.forEach(team => {
+                const li = document.createElement('li');
+                li.textContent = team.nombre;
+                groupCList.appendChild(li);
+            });
+        }
+        if (groups['Grupo D']) {
+            groups['Grupo D'].equipos.forEach(team => {
+                const li = document.createElement('li');
+                li.textContent = team.nombre;
+                groupDList.appendChild(li);
+            });
+        }
+        // --- FIN DEL BLOQUE ---
     }
 
     function drawRoulette() {
@@ -903,7 +924,13 @@ function initializeRouletteView(sessionId) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
-        ctx.font = 'bold 24px Bebas Neue';
+        if (teams.length > 12) {
+    // Si hay muchos equipos (ej. 16), usamos una fuente más pequeña
+    ctx.font = 'bold 16px Bebas Neue';
+} else {
+    // Si hay pocos equipos (ej. 8), usamos la fuente grande de siempre
+    ctx.font = 'bold 24px Bebas Neue';
+}
         teams.forEach((team, i) => {
             const angle = startAngle + i * arc;
             ctx.fillStyle = colors[i % colors.length];
