@@ -5,10 +5,12 @@ import mongoose from 'mongoose';
 import Team from '../../src/models/team.js';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
-import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam, updateDraftMainInterface, updatePublicMessages, notifyVisualizer, kickTeam } from '../logic/tournamentLogic.js';
+import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam, updateDraftMainInterface, updatePublicMessages, notifyVisualizer, kickTeam, notifyTournamentVisualizer } from '../logic/tournamentLogic.js';
 import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection, checkVerification } from '../logic/verificationLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
+import { createMatchThread } from '../utils/tournamentUtils.js';
+import { processMatchResult, findMatch, finalizeMatchThread, revertStats } from '../logic/matchLogic.js';
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
@@ -268,28 +270,65 @@ export async function handleSelectMenu(interaction) {
     }
 
     if (action === 'draft_create_tournament_format') {
-        await interaction.deferUpdate();
-        const [draftShortId] = params;
-        const selectedFormatId = interaction.values[0];
+    const [draftShortId] = params;
+    const selectedFormatId = interaction.values[0];
 
+    // --- INICIO DE LA LÓGICA UNIFICADA Y CORREGIDA ---
+
+    if (selectedFormatId === 'flexible_league') {
+        // CAMINO A: Si es una liguilla, detenemos todo y mostramos el modal para pedir los clasificados.
+        const modal = new ModalBuilder()
+            .setCustomId(`create_draft_league_qualifiers_modal:${draftShortId}`)
+            .setTitle('Configurar Liguilla del Draft');
+
+        const qualifiersInput = new TextInputBuilder()
+            .setCustomId('torneo_qualifiers')
+            .setLabel("Nº de Equipos que se Clasifican")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: 4 (semis), 8 (cuartos)...")
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(qualifiersInput));
+        return interaction.showModal(modal);
+
+    } else {
+        // CAMINO B: Si es un torneo normal (8 o 16), lo creamos y luego enviamos los botones de sorteo.
+        await interaction.deferUpdate();
         try {
-            const newTournament = await createTournamentFromDraft(client, guild, draftShortId, selectedFormatId);
+            const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+            const captainCount = draft.captains.length;
+
+            const newTournament = await createTournamentFromDraft(client, guild, draftShortId, selectedFormatId, {});
+            
             await interaction.editReply({
-                content: `✅ ¡Torneo **"${newTournament.nombre}"** creado con éxito a partir del draft! Ya puedes gestionarlo desde su propio hilo en el canal de administración.`,
+                content: `✅ ¡Torneo **"${newTournament.nombre}"** creado con éxito a partir del draft!`,
                 components: []
             });
 
             const managementThread = await client.channels.fetch(newTournament.discordMessageIds.managementThreadId);
-            const startDrawButton = new ActionRowBuilder().addComponents(
+            const actionRow = new ActionRowBuilder();
+
+            actionRow.addComponents(
                 new ButtonBuilder()
                     .setCustomId(`admin_force_draw:${newTournament.shortId}`)
-                    .setLabel('Iniciar Sorteo Inmediatamente')
+                    .setLabel('Iniciar Sorteo Clásico')
                     .setStyle(ButtonStyle.Success)
                     .setEmoji('🎲')
             );
+
+            if (captainCount === 8 || captainCount === 16) {
+                actionRow.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
+                        .setLabel('Iniciar Sorteo con Ruleta')
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji('🎡')
+                );
+            }
+
             await managementThread.send({
-                content: 'El torneo ha sido poblado con los equipos del draft. ¿Quieres iniciar el sorteo de la fase de grupos ahora?',
-                components: [startDrawButton]
+                content: 'El torneo ha sido poblado con los equipos del draft. Por favor, elige el método de sorteo:',
+                components: [actionRow]
             });
 
         } catch (error) {
@@ -299,9 +338,10 @@ export async function handleSelectMenu(interaction) {
                 components: []
             });
         }
-        return;
     }
-
+    // --- FIN DE LA LÓGICA UNIFICADA ---
+    return;
+}
     if (action === 'create_draft_type') {
         const [name] = params;
         const type = interaction.values[0];
@@ -717,7 +757,29 @@ if (action === 'draft_pick_by_position') {
     const [formatId] = params;
     const type = interaction.values[0];
 
-    // Volvemos a mostrar el menú de tipo de partido como un paso intermedio
+    // Si es la liguilla flexible, mostramos su modal específico
+    if (formatId === 'flexible_league') {
+        const modal = new ModalBuilder()
+            .setCustomId(`create_flexible_league_modal:${type}`)
+            .setTitle('Finalizar Creación de Liguilla');
+        
+        const nameInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+        const qualifiersInput = new TextInputBuilder().setCustomId('torneo_qualifiers').setLabel("Nº de Equipos Clasificatorios (2, 4, 8...)").setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(nameInput), new ActionRowBuilder().addComponents(qualifiersInput));
+        
+        if (type === 'pago') {
+            modal.setTitle('Finalizar Liguilla (De Pago)');
+            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizesInput = new TextInputBuilder().setCustomId('torneo_prizes').setLabel("Premios: Campeón / Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Ej: 100/50');
+            const paymentMethodsInput = new TextInputBuilder().setCustomId('torneo_payment_methods').setLabel("Métodos Pago: PayPal / Bizum").setStyle(TextInputStyle.Short).setRequired(false);
+            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizesInput), new ActionRowBuilder().addComponents(paymentMethodsInput));
+        }
+        
+        return interaction.showModal(modal);
+    }
+    
+    // --- INICIO DE LA CORRECCIÓN CLAVE ---
+    // Para CUALQUIER OTRO formato (los de grupos), mostramos el menú de tipo de partido
     const matchTypeMenu = new StringSelectMenuBuilder()
         .setCustomId(`admin_create_match_type:${formatId}:${type}`)
         .setPlaceholder('Paso 3: Selecciona el tipo de partidos')
@@ -734,11 +796,11 @@ if (action === 'draft_pick_by_position') {
             }
         ]);
     
-    // La clave es usar .update() para responder a la interacción del menú anterior
     await interaction.update({
         content: `Tipo seleccionado: **${type === 'pago' ? 'De Pago' : 'Gratuito'}**. Ahora, define las rondas:`,
         components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
     });
+    // --- FIN DE LA CORRECCIÓN CLAVE ---
     return;
 }
      else if (action === 'admin_change_format_select') {
@@ -1340,4 +1402,61 @@ if (action === 'admin_select_registered_team_to_add') {
         });
         return;
     }
+    // Bloque 1: Lógica para Reabrir Partido
+if (action === 'admin_reopen_match_select') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const matchId = interaction.values[0];
+
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const { partido } = findMatch(tournament, matchId);
+
+    if (!partido) {
+        return interaction.editReply({ content: '❌ Error: El partido seleccionado ya no existe.' });
+    }
+
+    await revertStats(tournament, partido);
+
+    partido.resultado = null;
+    partido.status = 'pendiente';
+    partido.reportedScores = {};
+    
+    const newThreadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+    partido.threadId = newThreadId;
+    partido.status = 'en_curso';
+
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
+    
+    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    await updatePublicMessages(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
+
+    await interaction.editReply({ content: `✅ ¡Partido reabierto! Se ha creado un nuevo hilo para el encuentro: <#${newThreadId}>` });
+    return;
+}
+
+// Bloque 2: Lógica para mostrar el formulario de Modificar Resultado
+if (action === 'admin_modify_final_result_select') {
+    const [tournamentShortId] = params;
+    const matchId = interaction.values[0];
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const { partido } = findMatch(tournament, matchId);
+
+    if (!partido) {
+        return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    const [golesA_actual = '', golesB_actual = ''] = partido.resultado ? partido.resultado.split('-') : [];
+
+    const modal = new ModalBuilder()
+        .setCustomId(`admin_modify_final_result_modal:${tournamentShortId}:${matchId}`)
+        .setTitle('Modificar Resultado Final');
+
+    const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setValue(golesA_actual).setRequired(true);
+    const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setValue(golesB_actual).setRequired(true);
+    
+    modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
+    await interaction.showModal(modal);
+    return;
+}
 }
