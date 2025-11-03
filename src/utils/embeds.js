@@ -2,7 +2,6 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
 import { getBotSettings, getDb } from '../../database.js';
-import { t } from '../utils/translator.js';
 
 const ruleEmbeds = [
     new EmbedBuilder()
@@ -58,9 +57,8 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
         case 'tournaments':
             embed.setTitle('Gestión de Torneos');
             const tournamentActionsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo (Grupos)').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
-    new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear Liguilla Flexible').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy)
-);
+                new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Nuevo Torneo').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy)
+            );
             components.push(tournamentActionsRow, backButtonRow);
             break;
 
@@ -129,13 +127,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         .setLabel('Añadir Equipo Registrado')
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('➕')
-        .setDisabled(isBusy),
-        new ButtonBuilder()
-            .setCustomId(`admin_manage_results_start:${tournament.shortId}`)
-            .setLabel('Gestionar Resultados')
-            .setStyle(ButtonStyle.Primary)
-            .setEmoji('🗂️')
-            .setDisabled(isBusy)
+        .setDisabled(isBusy)
 );
     const row3 = new ActionRowBuilder();
 
@@ -232,7 +224,7 @@ export function createDraftStatusEmbed(draft) {
         .setColor(embedColor)
         .setTitle(`${statusIcon} Draft: ${draft.name}`)
         .addFields(
-            { name: 'Capitanes / Captains', value: `${captainCount}`, inline: true },
+            { name: 'Capitanes / Captains', value: `${captainCount} / 8`, inline: true },
             { name: 'Jugadores / Players', value: `${nonCaptainPlayerCount}`, inline: true },
             { name: 'Total', value: `${totalParticipants}`, inline: true }
         )
@@ -310,41 +302,21 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     }
 
     if (draft.status === 'finalizado') {
-    const captainCount = draft.captains.length;
-
-    // Buscamos TODOS los formatos compatibles, incluyendo la liguilla
-    let compatibleFormats = Object.entries(TOURNAMENT_FORMATS)
-        .filter(([, format]) => format.isDraftCompatible && (format.size === captainCount || format.size === 0))
-        .map(([key, format]) => ({
-            label: format.label,
-            description: format.description.slice(0, 100),
-            value: key
-        }));
-
-    if (compatibleFormats.length > 0) {
-        embed.addFields({ name: 'Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. Por favor, selecciona el formato de torneo que deseas crear.` });
-        const formatMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_create_tournament_format:${draft.shortId}`)
-            .setPlaceholder('Selecciona el formato para el torneo resultante')
-            .addOptions(compatibleFormats);
-        row1.addComponents(formatMenu);
-
-        // La comprobación de la ruleta se hace independientemente de los formatos encontrados
-        if (captainCount === 8 || captainCount === 16) {
-            row2.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
-                    .setLabel('Alternativa: Sorteo con Ruleta')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('🎡')
-                    .setDisabled(isBusy)
-            );
-        }
-    } else {
-        embed.setColor('#e74c3c')
-             .addFields({ name: '⚠️ Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. No hay formatos de torneo compatibles configurados.` });
+        row1.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`draft_force_tournament_classic:${draft.shortId}`)
+                .setLabel('Sorteo Clásico (Instantáneo)')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🎲')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
+                .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
+                .setLabel('Sorteo con Ruleta (Visual)')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🎡')
+                .setDisabled(isBusy)
+        );
     }
-}
 
     row2.addComponents(new ButtonBuilder()
         .setCustomId(`draft_end:${draft.shortId}`)
@@ -426,24 +398,18 @@ export function createDraftMainInterface(draft) {
         teamFields[index % 3].push(teamString);
     });
 
-    teamFields.forEach((col, i) => {
-    if (col.length > 0) {
-        let colString = col.join('\n\n');
-        // Esta es la protección que faltaba. Si el texto es muy largo, lo corta.
-        if (colString.length > 1024) {
-            colString = colString.substring(0, 1021) + '...';
-        }
-        teamsEmbed.addFields({ name: '\u200B', value: colString, inline: true });
-    }
-});
+    if (teamFields[0].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[0].join('\n\n'), inline: true });
+    if (teamFields[1].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[1].join('\n\n'), inline: true });
+    if (teamFields[2].length > 0) teamsEmbed.addFields({ name: '\u200B', value: teamFields[2].join('\n\n'), inline: true });
+
     const turnOrderEmbed = new EmbedBuilder()
         .setColor('#e67e22')
         .setTitle('🐍 Orden de Selección del Draft');
 
     if (draft.status === 'seleccion' && draft.selection.order.length > 0) {
-    const picksList = [];
-    const numCaptains = draft.selection.order.length;
-    const totalPicks = numCaptains * 10;
+        const picksList = [];
+        const totalPicks = 80;
+        const numCaptains = draft.selection.order.length;
         const captainMap = new Map(draft.captains.map(c => [c.userId, c.teamName]));
 
         const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
@@ -492,13 +458,12 @@ export function createCaptainControlPanel(draft) {
         .setColor('#f1c40f')
         .setTitle('🕹️ Panel de Control de Capitanes');
 
-    const totalPicks = draft.captains.length * 10;
-if (draft.status === 'seleccion' && draft.selection.currentPick <= totalPicks) {
+    if (draft.status === 'seleccion' && draft.selection.currentPick <= 80) {
         const currentCaptainId = draft.selection.order[draft.selection.turn];
         const captain = draft.captains.find(c => c.userId === currentCaptainId);
 
         embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
-        embed.setFooter({ text: `Pick #${draft.selection.currentPick} de ${totalPicks}` });
+        embed.setFooter({ text: `Pick #${draft.selection.currentPick} de 80` });
 
         const isPicking = draft.selection.isPicking || false;
 
@@ -637,17 +602,17 @@ export async function createPlayerManagementEmbed(client, player, draft, teamId,
 
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
-    const ruleEmbed = ruleEmbeds[step - 1]; // Los embeds de reglas ya están en español, los dejamos así por simplicidad.
+    const ruleEmbed = ruleEmbeds[step - 1];
     
+    // --- LÓGICA DE ROBUSTEZ AÑADIDA ---
+    // Aseguramos que originalAction sea siempre un string para evitar errores.
     const safeOriginalAction = originalAction || ''; 
     const isPlayer = safeOriginalAction.includes('player');
     const finalTotalSteps = isPlayer ? 1 : 3;
 
-    // --- MODIFICADO: Footer bilingüe ---
-    ruleEmbed.setFooter({ text: `Paso ${step} de ${finalTotalSteps} / Step ${step} of ${finalTotalSteps}\nDebes aceptar todas las normas. / You must accept all rules.` });
+    ruleEmbed.setFooter({ text: `Paso ${step} de ${finalTotalSteps} - Debes aceptar todas las normas para poder inscribirte.` });
 
     const row = new ActionRowBuilder().addComponents(
-        // --- MODIFICADO: Botones bilingües ---
         new ButtonBuilder()
             .setCustomId(`rules_accept:${step}:${originalAction}:${entityId}`)
             .setLabel('Acepto / I Accept')
@@ -673,29 +638,29 @@ export function createTournamentStatusEmbed(tournament) {
     const embed = new EmbedBuilder()
         .setColor(tournament.status === 'inscripcion_abierta' ? '#2ecc71' : '#3498db')
         .setTitle(`${statusIcon} ${tournament.nombre}`)
-        .setFooter({ text: `ID: ${tournament.shortId}` });
+        .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
 
-    // --- MODIFICADO: Descripción bilingüe ---
-    const formatDescriptionES = TOURNAMENT_FORMATS[tournament.config.formatId].description;
-    const formatDescriptionEN = TOURNAMENT_FORMATS[tournament.config.formatId].description_en;
-    embed.setDescription(`🇪🇸 ${formatDescriptionES}\n🇬🇧 ${formatDescriptionEN}`);
+    // --- LÓGICA MODIFICADA PARA UN SOLO IDIOMA Y MÁS CLARIDAD ---
 
-    // --- MODIFICADO: Campos bilingües ---
+    const formatDescription = TOURNAMENT_FORMATS[tournament.config.formatId].description;
+    embed.setDescription(formatDescription);
+
     embed.addFields(
-        { name: 'Formato / Format', value: format.label, inline: true },
-        { name: 'Rondas / Rounds', value: tournament.config.matchType === 'idavuelta' ? 'Ida y Vuelta / Two Legs' : 'Solo Ida / One Leg', inline: true },
-        { name: 'Equipos / Teams', value: `${teamsCount} / ${format.size}`, inline: true }
+        { name: 'Formato', value: format.label, inline: true },
+        { name: 'Rondas', value: tournament.config.matchType === 'idavuelta' ? 'Ida y Vuelta' : 'Solo Ida', inline: true },
+        { name: 'Equipos', value: `${teamsCount} / ${format.size}`, inline: true }
     );
 
     if (tournament.config.isPaid) {
-        embed.addFields({ name: 'Inscripción / Entry Fee', value: `**${tournament.config.entryFee}€**`, inline: true });
+        embed.addFields({ name: 'Inscripción', value: `**${tournament.config.entryFee}€**`, inline: true });
         
-        let prizePool = `🏆 **Campeón / Champion:** ${tournament.config.prizeCampeon}€`;
+        let prizePool = `🏆 **Campeón:** ${tournament.config.prizeCampeon}€`;
         if (tournament.config.prizeFinalista > 0) {
-            prizePool += `\n🥈 **Finalista / Runner-up:** ${tournament.config.prizeFinalista}€`;
+            prizePool += `\n🥈 **Finalista:** ${tournament.config.prizeFinalista}€`;
         }
-        embed.addFields({ name: 'Premios / Prizes', value: prizePool, inline: true });
+        embed.addFields({ name: 'Premios', value: prizePool, inline: true });
 
+        // Añadimos los métodos de pago si existen
         let paymentMethods = '';
         if (tournament.config.paypalEmail) {
             paymentMethods += `\n**PayPal:** \`${tournament.config.paypalEmail}\``;
@@ -704,39 +669,38 @@ export function createTournamentStatusEmbed(tournament) {
             paymentMethods += `\n**Bizum:** \`${tournament.config.bizumNumber}\``;
         }
         if (paymentMethods) {
-            embed.addFields({ name: 'Métodos de Pago / Payment Methods', value: paymentMethods.trim(), inline: false });
+            embed.addFields({ name: 'Métodos de Pago', value: paymentMethods.trim(), inline: false });
         }
 
     } else {
-        embed.addFields({ name: 'Inscripción / Entry Fee', value: 'Gratuito / Free', inline: true });
+        embed.addFields({ name: 'Inscripción', value: 'Gratuito', inline: true });
     }
 
     if (tournament.config.startTime) {
-        embed.addFields({ name: 'Inicio Programado / Scheduled Start', value: tournament.config.startTime, inline: false });
+        embed.addFields({ name: 'Inicio Programado', value: tournament.config.startTime, inline: false });
     }
     
+    // El resto de la lógica de los botones permanece igual
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
-    const isFull = format.size > 0 && teamsCount >= format.size;
+    const isFull = teamsCount >= format.size;
 
     if (tournament.status === 'inscripcion_abierta') {
         if (!isFull) {
-            // --- MODIFICADO: Botón bilingüe ---
-            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme / Register').setStyle(ButtonStyle.Success).setEmoji('📝'));
+            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_equipo_start:${tournament.shortId}`).setLabel('Inscribirme').setStyle(ButtonStyle.Success).setEmoji('📝'));
         } else if (!tournament.config.isPaid) {
-            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_reserva_start:${tournament.shortId}`).setLabel('Lista de Reserva / Waitlist').setStyle(ButtonStyle.Primary).setEmoji('📋'));
+            row1.addComponents(new ButtonBuilder().setCustomId(`inscribir_reserva_start:${tournament.shortId}`).setLabel('Inscribirme en Reserva').setStyle(ButtonStyle.Primary).setEmoji('📋'));
         }
-        row1.addComponents(new ButtonBuilder().setCustomId(`darse_baja_start:${tournament.shortId}`).setLabel('Darse de Baja / Unregister').setStyle(ButtonStyle.Danger).setEmoji('👋'));
+        row1.addComponents(new ButtonBuilder().setCustomId(`darse_baja_start:${tournament.shortId}`).setLabel('Darse de Baja').setStyle(ButtonStyle.Danger).setEmoji('👋'));
     }
 
-    // --- MODIFICADO: Botones bilingües ---
     row2.addComponents(
-        new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes / View Participants').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
-        new ButtonBuilder().setLabel('Normas / Rules').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
+        new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
+        new ButtonBuilder().setLabel('Normas').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
     );
 
     if (tournament.status === 'finalizado') {
-        embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado / Finished)`);
+        embed.setColor('#95a5a6').setTitle(`🏁 ${tournament.nombre} (Finalizado)`);
     }
 
     const components = [];
@@ -886,13 +850,13 @@ export function createCalendarEmbed(tournament) {
 export function createCasterInfoEmbed(teamData, tournament) {
     const embed = new EmbedBuilder()
         .setColor('#1abc9c')
-        .setTitle(`📢 Nuevo Equipo Inscrito / New Team Registered: ${teamData.nombre}`)
-        .setAuthor({ name: `Torneo / Tournament: ${tournament.nombre}`})
+        .setTitle(`📢 Nuevo Equipo Inscrito: ${teamData.nombre}`)
+        .setAuthor({ name: `Torneo: ${tournament.nombre}`})
         .addFields(
-            { name: 'Capitán / Captain', value: teamData.capitanTag, inline: true },
-            { name: 'ID Capitán / Captain ID', value: `\`${teamData.capitanId}\``, inline: true },
-            { name: 'Twitter', value: teamData.twitter ? `[Ver / View](${teamData.twitter.startsWith('http') ? '' : 'https://twitter.com/'}${teamData.twitter})` : 'N/A', inline: true },
-            { name: 'Canal de Stream / Stream Channel', value: teamData.streamChannel || 'N/A', inline: false }
+            { name: 'Capitán', value: teamData.capitanTag, inline: true },
+            { name: 'ID Capitán', value: `\`${teamData.capitanId}\``, inline: true },
+            { name: 'Twitter', value: teamData.twitter ? `[Ver Twitter](${teamData.twitter.startsWith('http') ? '' : 'https://twitter.com/'}${teamData.twitter})` : 'No proporcionado', inline: true },
+            { name: 'Canal de Transmisión', value: teamData.streamChannel || 'No proporcionado', inline: false }
         )
         .setTimestamp();
 
@@ -902,25 +866,34 @@ export function createCasterInfoEmbed(teamData, tournament) {
 /**
  * NUEVO: Crea el embed de advertencia para capitanes sobre la importancia de su stream.
  */
-export function createStreamerWarningEmbed(member, platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
+export function createStreamerWarningEmbed(platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
     const embed = new EmbedBuilder()
-        .setColor('#E67E22')
-        .setTitle(t('streamerWarningTitle', member))
+        .setColor('#E67E22') // Naranja de advertencia
+        .setTitle('⚠️ ANTES DE RELLENAR EL FORMULARIO IMPORTANTE PARA STREAMERS')
         .addFields(
-            { name: t('streamerWarningField1', member), value: '\u200B' },
-            { name: t('streamerWarningField2', member), value: '\u200B' },
-            { name: t('streamerWarningField3', member), value: t('streamerWarningBody', member) }
+            {
+                name: '🔴 1. EN EL SIGUIENTE FORMULARIO ESCRIBE SOLO TU USUARIO DE STREAM',
+                value: '\u200B' 
+            },
+            {
+                name: '🔴 2. RETRANSMITE EL TORNEO EN EL CANAL DEL USUARIO QUE PONDRAS',
+                value: '\u200B' 
+            },
+            {
+                name: '🔴 3. NORMAS DE RETRANSMISION',
+                value: 'Para que los casters puedan trabajar, durante tus partidos es **OBLIGATORIO**:\n- **Tener las IDs visibles** en el juego.\n- **Desactivar el audio de los comentaristas** del juego.'
+            }
         );
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`streamer_warning_accept:${platform}:${originalAction}:${entityId}:${teamIdOrPosition}`)
-            .setLabel(t('understoodButton', member))
+            .setLabel('Entendido, continuar con la inscripción')
             .setStyle(ButtonStyle.Success)
             .setEmoji('✅'),
         new ButtonBuilder()
             .setCustomId('rules_reject')
-            .setLabel(t('cancelButton', member))
+            .setLabel('Cancelar')
             .setStyle(ButtonStyle.Danger)
     );
     
