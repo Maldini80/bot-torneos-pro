@@ -17,7 +17,7 @@ import {
 } from '../logic/verificationLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 
@@ -862,22 +862,34 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'draft_add_test_players') {
-        const [draftShortId] = params;
-        const modal = new ModalBuilder()
-            .setCustomId(`add_draft_test_players_modal:${draftShortId}`)
-            .setTitle('Añadir Jugadores de Prueba');
-            
-        const amountInput = new TextInputBuilder()
-            .setCustomId('amount_input')
-            .setLabel("¿Cuántos jugadores de prueba quieres añadir?")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setValue('1');
-            
-        modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
-        await interaction.showModal(modal);
-        return;
-    }
+    const [draftShortId] = params;
+    const modal = new ModalBuilder()
+        .setCustomId(`add_draft_test_players_modal:${draftShortId}`)
+        .setTitle('Añadir Jugadores y Capitanes de Prueba');
+    
+    // <-- El nuevo campo para el objetivo de capitanes
+    const targetCaptainsInput = new TextInputBuilder()
+        .setCustomId('target_captains_input')
+        .setLabel("Objetivo de Capitanes Totales")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder("Ej: 8 o 16");
+
+    // <-- El campo de siempre, pero con una etiqueta más clara
+    const amountInput = new TextInputBuilder()
+        .setCustomId('amount_input')
+        .setLabel("¿Cuántos jugadores de prueba añadir en total?")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder("Ej: 20");
+        
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(targetCaptainsInput),
+        new ActionRowBuilder().addComponents(amountInput)
+    );
+    await interaction.showModal(modal);
+    return;
+}
 
     if (action === 'draft_simulate_picks') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -1435,10 +1447,29 @@ if (action === 'admin_invite_replacement_start') {
     }
 
     if (action === 'admin_create_tournament_start') {
-        const formatMenu = new StringSelectMenuBuilder().setCustomId('admin_create_format').setPlaceholder('Paso 1: Selecciona el formato del torneo').addOptions(Object.keys(TOURNAMENT_FORMATS).map(key => ({ label: TOURNAMENT_FORMATS[key].label, value: key })));
-        await interaction.reply({ content: 'Iniciando creación de torneo...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
-        return;
+    // --- INICIO DE LA LÓGICA CORREGIDA ---
+    // Filtramos la lista para mostrar solo los formatos de grupos (con tamaño fijo > 0)
+    const groupFormats = Object.entries(TOURNAMENT_FORMATS)
+        .filter(([, format]) => format.size > 0)
+        .map(([key, format]) => ({
+            label: format.label,
+            value: key
+        }));
+
+    // Comprobación de seguridad: si no hay formatos, no continuamos.
+    if (groupFormats.length === 0) {
+        return interaction.reply({ content: '❌ No hay formatos de torneo de grupos configurados.', flags: [MessageFlags.Ephemeral] });
     }
+
+    const formatMenu = new StringSelectMenuBuilder()
+        .setCustomId('admin_create_format')
+        .setPlaceholder('Paso 1: Selecciona el formato del torneo')
+        .addOptions(groupFormats); // Usamos la lista ya filtrada
+    
+    await interaction.reply({ content: 'Iniciando creación de torneo de grupos...', components: [new ActionRowBuilder().addComponents(formatMenu)], flags: [MessageFlags.Ephemeral] });
+    // --- FIN DE LA LÓGICA CORREGIDA ---
+    return;
+}
     
     if (action === 'admin_undo_draw') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -2359,4 +2390,135 @@ if (action === 'captain_view_free_agents') {
         });
         return;
     }
+	if (action === 'create_flexible_league_start') {
+    const modal = new ModalBuilder()
+        .setCustomId('create_flexible_league_modal')
+        .setTitle('Configuración de la Liguilla Flexible');
+
+    const nameInput = new TextInputBuilder()
+        .setCustomId('torneo_nombre')
+        .setLabel("Nombre del Torneo")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+    
+    const qualifiersInput = new TextInputBuilder()
+        .setCustomId('torneo_qualifiers')
+        .setLabel("Nº de Equipos que se Clasifican")
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder("Ej: 4 (para semis), 8 (para cuartos)...")
+        .setRequired(true);
+
+    const typeMenu = new StringSelectMenuBuilder()
+        .setCustomId('admin_create_type:flexible_league') // Usamos el ID del formato
+        .setPlaceholder('Paso 2: Selecciona el tipo de torneo')
+        .addOptions([{ label: 'Gratuito', value: 'gratis' }, { label: 'De Pago', value: 'pago' }]);
+    
+    // NOTA: Por simplicidad, la liguilla será siempre a 'ida'.
+    // El modal para los datos de pago se gestionará en el handler de menús.
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(nameInput),
+        new ActionRowBuilder().addComponents(qualifiersInput)
+    );
+
+    // La respuesta inicial ahora incluye un menú para elegir el tipo
+    return interaction.reply({
+        content: "Has elegido crear una Liguilla Flexible. Por favor, rellena los datos básicos y selecciona el tipo de inscripción.",
+        components: [new ActionRowBuilder().addComponents(typeMenu)],
+        flags: [MessageFlags.Ephemeral]
+    });
+}
+	// Muestra el submenú para gestionar resultados de partidos finalizados
+if (action === 'admin_manage_results_start') {
+    await interaction.deferUpdate();
+    const [tournamentShortId] = params;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+    const embed = new EmbedBuilder()
+        .setColor('#e67e22')
+        .setTitle(`Gestión de Resultados: ${tournament.nombre}`)
+        .setDescription('Selecciona una acción para corregir un partido que ya ha finalizado.')
+        .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`admin_reopen_match_start:${tournamentShortId}`)
+            .setLabel('Reabrir Partido Cerrado')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('⏪'),
+        new ButtonBuilder()
+            .setCustomId(`admin_modify_final_result_start:${tournamentShortId}`)
+            .setLabel('Modificar Resultado Final')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('✍️'),
+        new ButtonBuilder()
+            .setCustomId(`admin_return_to_main_panel:${tournamentShortId}`)
+            .setLabel('<< Volver')
+            .setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.editReply({ embeds: [embed], components: [row] });
+    return;
+}
+
+// Devuelve al usuario al panel de gestión principal del torneo
+if (action === 'admin_return_to_main_panel') {
+    await interaction.deferUpdate();
+    const [tournamentShortId] = params;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const panelContent = createTournamentManagementPanel(tournament);
+    await interaction.editReply(panelContent);
+    return;
+}
+	// Muestra la lista de partidos para reabrir o modificar
+if (action === 'admin_reopen_match_start' || action === 'admin_modify_final_result_start') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+    const allMatches = [
+        ...Object.values(tournament.structure.calendario || {}).flat(),
+        ...Object.values(tournament.structure.eliminatorias || {}).flat()
+    ];
+    
+    const completedMatches = allMatches.filter(match => match && match.status === 'finalizado' && match.id !== 'ghost');
+
+    if (completedMatches.length === 0) {
+        return interaction.editReply({ content: 'No hay partidos finalizados para gestionar en este torneo.' });
+    }
+    
+    // Creamos las opciones para el menú desplegable
+    const matchOptions = completedMatches.map(match => {
+        const stage = match.nombreGrupo ? `${match.nombreGrupo} - J${match.jornada}` : match.jornada;
+        return {
+            label: `${stage}: ${match.equipoA.nombre} vs ${match.equipoB.nombre}`,
+            description: `Resultado actual: ${match.resultado}`,
+            value: match.matchId,
+        };
+    }).slice(0, 25); // Discord solo permite 25 opciones por menú
+
+    // Definimos un ID diferente para cada acción
+    const selectMenuId = action === 'admin_reopen_match_start' 
+        ? `admin_reopen_match_select:${tournamentShortId}` 
+        : `admin_modify_final_result_select:${tournamentShortId}`;
+
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId(selectMenuId)
+        .setPlaceholder('Selecciona el partido que quieres gestionar...')
+        .addOptions(matchOptions);
+
+    let content = action === 'admin_reopen_match_start'
+        ? 'Selecciona el partido que deseas reabrir. Esto revertirá sus estadísticas y creará un nuevo hilo.'
+        : 'Selecciona el partido cuyo resultado final deseas modificar directamente.';
+    
+    if (completedMatches.length > 25) {
+        content += '\n\n⚠️ **Atención:** Solo se muestran los primeros 25 partidos finalizados.';
+    }
+
+    await interaction.editReply({
+        content: content,
+        components: [new ActionRowBuilder().addComponents(selectMenu)],
+    });
+    return;
+}
 }
