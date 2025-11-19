@@ -16,6 +16,10 @@ const wss = new WebSocketServer({ noServer: true });
 
 const PORT = process.env.PORT || 3000;
 
+app.get('/healthz', (req, res) => {
+    res.status(200).send('OK');
+});
+
 app.set('trust proxy', 1);
 
 const draftStates = new Map();
