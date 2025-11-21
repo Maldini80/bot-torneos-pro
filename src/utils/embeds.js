@@ -1,5 +1,4 @@
-// --- INICIO DEL ARCHIVO src/utils/embeds.js ---
-
+// src/utils/embeds.js
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
 import { getBotSettings, getDb } from '../../database.js';
@@ -47,15 +46,13 @@ switch (view) {
     case 'tournaments':
         embed.setTitle('Gestión de Torneos');
         const tournamentActionsRow = new ActionRowBuilder().addComponents(
-new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo (Grupos)').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
-new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear Liguilla Flexible').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy)
-);
-components.push(tournamentActionsRow, backButtonRow);
-break;
+            new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo (Grupos)').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear Liguilla Flexible').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy)
+        );
+        components.push(tournamentActionsRow, backButtonRow);
+        break;
 
-
-
-case 'drafts':
+    case 'drafts':
         embed.setTitle('Gestión de Drafts');
         const draftActionsRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('admin_create_draft_start').setLabel('Crear Nuevo Draft').setStyle(ButtonStyle.Success).setEmoji('📝').setDisabled(isBusy),
@@ -114,12 +111,12 @@ const embed = new EmbedBuilder()
 const row1 = new ActionRowBuilder();
 const row2 = new ActionRowBuilder();
 row2.addComponents(
-new ButtonBuilder()
-    .setCustomId(`admin_add_registered_team_start:${tournament.shortId}`)
-    .setLabel('Añadir Equipo Registrado')
-    .setStyle(ButtonStyle.Secondary)
-    .setEmoji('➕')
-    .setDisabled(isBusy),
+    new ButtonBuilder()
+        .setCustomId(`admin_add_registered_team_start:${tournament.shortId}`)
+        .setLabel('Añadir Equipo Registrado')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('➕')
+        .setDisabled(isBusy),
     new ButtonBuilder()
         .setCustomId(`admin_manage_results_start:${tournament.shortId}`)
         .setLabel('Gestionar Resultados')
@@ -128,8 +125,6 @@ new ButtonBuilder()
         .setDisabled(isBusy)
 );
 const row3 = new ActionRowBuilder();
-
-
 
 const isBeforeDraw = tournament.status === 'inscripcion_abierta';
 const isGroupStage = tournament.status === 'fase_de_grupos';
@@ -186,9 +181,10 @@ row2.addComponents(
 );
 
 row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
-if (hasCaptains) { row3.addComponents(new ButtonBuilder().setCustomId(admin_kick_team_start:${tournament.shortId}).setLabel("Expulsar Equipo").setStyle(ButtonStyle.Danger).setEmoji('✖️').setDisabled(isBusy)); }
 
-
+if (hasCaptains) { 
+    row3.addComponents(new ButtonBuilder().setCustomId(`admin_kick_team_start:${tournament.shortId}`).setLabel("Expulsar Equipo").setStyle(ButtonStyle.Danger).setEmoji('✖️').setDisabled(isBusy)); 
+}
 
 const components = [];
 if (row1.components.length > 0) components.push(row1);
@@ -262,7 +258,7 @@ if (draft.status === 'inscripcion') {
 
 const components = [];
 if (row.components.length > 0) {
-components.push(row);
+    components.push(row);
 }
 
 return { embeds: [embed], components };
@@ -283,22 +279,20 @@ const row1 = new ActionRowBuilder();
 const row2 = new ActionRowBuilder();
 
 if (draft.status === 'inscripcion') {
-row1.addComponents(
-    new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️'),
-    new ButtonBuilder().setCustomId(`admin_edit_draft_captain_start:${draft.shortId}`).setLabel('Editar Capitán').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy),
-    new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
-    new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
-);
+    row1.addComponents(
+        new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️'),
+        new ButtonBuilder().setCustomId(`admin_edit_draft_captain_start:${draft.shortId}`).setLabel('Editar Capitán').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
+    );
 }
 const dataAccessRow = new ActionRowBuilder().addComponents(
-new ButtonBuilder()
-.setCustomId(consult_player_data_start:${draft.shortId})
-.setLabel('Consultar Datos de Jugador')
-.setStyle(ButtonStyle.Primary)
-.setEmoji('ℹ️')
+    new ButtonBuilder()
+        .setCustomId(`consult_player_data_start:${draft.shortId}`)
+        .setLabel('Consultar Datos de Jugador')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('ℹ️')
 );
-
-
 
 if (draft.status === 'seleccion') {
     row1.addComponents(
@@ -307,41 +301,39 @@ if (draft.status === 'seleccion') {
 }
 
 if (draft.status === 'finalizado') {
-const captainCount = draft.captains.length;
+    const captainCount = draft.captains.length;
 
-let compatibleFormats = Object.entries(TOURNAMENT_FORMATS)
-    .filter(([, format]) => format.isDraftCompatible && (format.size === captainCount || format.size === 0))
-    .map(([key, format]) => ({
-        label: format.label,
-        description: format.description.slice(0, 100),
-        value: key
-    }));
+    let compatibleFormats = Object.entries(TOURNAMENT_FORMATS)
+        .filter(([, format]) => format.isDraftCompatible && (format.size === captainCount || format.size === 0))
+        .map(([key, format]) => ({
+            label: format.label,
+            description: format.description.slice(0, 100),
+            value: key
+        }));
 
-if (compatibleFormats.length > 0) {
-    embed.addFields({ name: 'Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. Por favor, selecciona el formato de torneo que deseas crear.` });
-    const formatMenu = new StringSelectMenuBuilder()
-        .setCustomId(`draft_create_tournament_format:${draft.shortId}`)
-        .setPlaceholder('Selecciona el formato para el torneo resultante')
-        .addOptions(compatibleFormats);
-    row1.addComponents(formatMenu);
+    if (compatibleFormats.length > 0) {
+        embed.addFields({ name: 'Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. Por favor, selecciona el formato de torneo que deseas crear.` });
+        const formatMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_create_tournament_format:${draft.shortId}`)
+            .setPlaceholder('Selecciona el formato para el torneo resultante')
+            .addOptions(compatibleFormats);
+        row1.addComponents(formatMenu);
 
-    if (captainCount === 8 || captainCount === 16) {
-        row2.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
-                .setLabel('Alternativa: Sorteo con Ruleta')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('🎡')
-                .setDisabled(isBusy)
-        );
+        if (captainCount === 8 || captainCount === 16) {
+            row2.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
+                    .setLabel('Alternativa: Sorteo con Ruleta')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🎡')
+                    .setDisabled(isBusy)
+            );
+        }
+    } else {
+        embed.setColor('#e74c3c')
+             .addFields({ name: '⚠️ Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. No hay formatos de torneo compatibles configurados.` });
     }
-} else {
-    embed.setColor('#e74c3c')
-         .addFields({ name: '⚠️ Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. No hay formatos de torneo compatibles configurados.` });
 }
-}
-
-
 
 row2.addComponents(new ButtonBuilder()
     .setCustomId(`draft_end:${draft.shortId}`)
@@ -426,24 +418,23 @@ draft.captains.forEach((captain, index) => {
 });
 
 teamFields.forEach((col, i) => {
-if (col.length > 0) {
-    let colString = col.join('\n\n');
-    if (colString.length > 1024) {
-        colString = colString.substring(0, 1021) + '...';
+    if (col.length > 0) {
+        let colString = col.join('\n\n');
+        if (colString.length > 1024) {
+            colString = colString.substring(0, 1021) + '...';
+        }
+        teamsEmbed.addFields({ name: '\u200B', value: colString, inline: true });
     }
-    teamsEmbed.addFields({ name: '\u200B', value: colString, inline: true });
-}
 });
+
 const turnOrderEmbed = new EmbedBuilder()
-.setColor('#e67e22')
-.setTitle('🐍 Orden de Selección del Draft');
-
-
+    .setColor('#e67e22')
+    .setTitle('🐍 Orden de Selección del Draft');
 
 if (draft.status === 'seleccion' && draft.selection.order.length > 0) {
-const picksList = [];
-const numCaptains = draft.selection.order.length;
-const totalPicks = numCaptains * 10;
+    const picksList = [];
+    const numCaptains = draft.selection.order.length;
+    const totalPicks = numCaptains * 10;
     const captainMap = new Map(draft.captains.map(c => [c.userId, c.teamName]));
 
     const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
@@ -496,12 +487,10 @@ const embed = new EmbedBuilder()
 
 const totalPicks = draft.captains.length * 10;
 if (draft.status === 'seleccion' && draft.selection.currentPick <= totalPicks) {
-const currentCaptainId = draft.selection.order[draft.selection.turn];
-const captain = draft.captains.find(c => c.userId === currentCaptainId);
+    const currentCaptainId = draft.selection.order[draft.selection.turn];
+    const captain = draft.captains.find(c => c.userId === currentCaptainId);
 
-
-
-embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
+    embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
     embed.setFooter({ text: `Pick #${draft.selection.currentPick} de ${totalPicks}` });
 
     const isPicking = draft.selection.isPicking || false;
@@ -523,23 +512,21 @@ if (draft.status === 'finalizado') {
 }
 
 if (draft.status === 'torneo_generado') {
-embed.setDescription('**El torneo ha sido generado.**\nUsa los botones de abajo para gestionar tu plantilla o consultar jugadores libres.');
-const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-        .setCustomId(`captain_manage_roster_start:${draft.shortId}`)
-        .setLabel('Gestionar Mi Plantilla')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('📋'),
-    new ButtonBuilder()
-        .setCustomId(`captain_view_free_agents:${draft.shortId}`)
-        .setLabel('Ver Agentes Libres')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🔎')
-);
-return { embeds: [embed], components: [row] };
+    embed.setDescription('**El torneo ha sido generado.**\nUsa los botones de abajo para gestionar tu plantilla o consultar jugadores libres.');
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`captain_manage_roster_start:${draft.shortId}`)
+            .setLabel('Gestionar Mi Plantilla')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('📋'),
+        new ButtonBuilder()
+            .setCustomId(`captain_view_free_agents:${draft.shortId}`)
+            .setLabel('Ver Agentes Libres')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🔎')
+    );
+    return { embeds: [embed], components: [row] };
 }
-
-
 
 embed.setDescription('Este panel de control está inactivo.');
 return { embeds: [embed], components: [] };
