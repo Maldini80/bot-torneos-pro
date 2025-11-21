@@ -2580,3 +2580,304 @@ async function generateFlexibleLeagueSchedule(tournament) {
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
     console.log(`[DEBUG LIGA] Calendario guardado.`);
 }
+// =====================================================================
+// === LÓGICA DE PROGRESIÓN DEL TORNEO (Copiar al final del archivo) ===
+// =====================================================================
+
+export async function checkForGroupStageAdvancement(client, guild, tournament) {
+    const allGroupMatches = Object.values(tournament.structure.calendario).flat();
+    
+    if (allGroupMatches.length === 0 || tournament.status !== 'fase_de_grupos') return;
+
+    const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
+    
+    if (allFinished) {
+        console.log(`[ADVANCEMENT] Fase de liguilla/grupos finalizada para ${tournament.shortId}. Iniciando siguiente fase.`);
+        
+        postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
+        await startNextKnockoutRound(client, guild, tournament);
+
+        const finalTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
+        await updatePublicMessages(client, finalTournamentState);
+        await updateTournamentManagementThread(client, finalTournamentState);
+        await notifyTournamentVisualizer(finalTournamentState);
+    }
+}
+
+export async function checkForKnockoutAdvancement(client, guild, tournament) {
+    const rondaActual = tournament.structure.eliminatorias.rondaActual;
+    if (!rondaActual) return;
+
+    if (rondaActual === 'final') {
+        const finalMatch = tournament.structure.eliminatorias.final;
+        if (finalMatch && finalMatch.status === 'finalizado') {
+            await handleFinalResult(client, guild, tournament);
+        }
+        return;
+    }
+
+    const partidosRonda = tournament.structure.eliminatorias[rondaActual];
+    const allFinished = partidosRonda && partidosRonda.every(p => p && p.status === 'finalizado');
+
+    if (allFinished) {
+        console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
+        postTournamentUpdate('KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament }).catch(console.error);
+        await startNextKnockoutRound(client, guild, tournament);
+    }
+}
+
+export async function startNextKnockoutRound(client, guild, tournament) {
+    const db = getDb();
+    let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+
+    const format = currentTournament.config.format;
+    const rondaActual = currentTournament.structure.eliminatorias.rondaActual;
+    
+    let siguienteRondaKey;
+
+    if (rondaActual) {
+        const indiceRondaActual = format.knockoutStages.indexOf(rondaActual);
+        siguienteRondaKey = format.knockoutStages[indiceRondaActual + 1];
+    } else {
+        if (currentTournament.config.formatId === 'flexible_league') {
+            const numQualifiers = currentTournament.config.qualifiers;
+
+            // --- LÓGICA DE LIGA PURA (0 Clasificados) ---
+            if (numQualifiers === 0) {
+                console.log(`[LIGA] Modo Liga Pura detectado. Finalizando torneo con el líder de la tabla.`);
+                
+                const leagueTeams = [...currentTournament.structure.grupos['Liga'].equipos];
+                leagueTeams.sort((a, b) => sortTeams(a, b, currentTournament, 'Liga'));
+                const campeon = leagueTeams[0];
+                const subcampeon = leagueTeams[1];
+
+                currentTournament.structure.eliminatorias.final = {
+                    matchId: 'final_virtual',
+                    resultado: '1-0',
+                    equipoA: campeon,
+                    equipoB: subcampeon || campeon, 
+                    status: 'finalizado'
+                };
+                currentTournament.structure.eliminatorias.rondaActual = 'final'; 
+                
+                await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
+                await handleFinalResult(client, guild, currentTournament);
+                return;
+            }
+            // -------------------------------------------
+
+            if (numQualifiers === 2) siguienteRondaKey = 'final';
+            else if (numQualifiers === 4) siguienteRondaKey = 'semifinales';
+            else if (numQualifiers === 8) siguienteRondaKey = 'cuartos';
+            else if (numQualifiers === 16) siguienteRondaKey = 'octavos';
+            else {
+                console.error(`[ERROR] Número de clasificados no válido (${numQualifiers})`);
+                return;
+            }
+        } else {
+            siguienteRondaKey = format.knockoutStages[0];
+        }
+    }
+
+    if (!siguienteRondaKey) {
+        console.log(`[ADVANCEMENT] No hay más rondas eliminatorias.`);
+        return;
+    }
+
+    if (currentTournament.status === siguienteRondaKey) return;
+
+    let clasificados = [];
+    
+    if (!rondaActual) { 
+        if (currentTournament.config.formatId === 'flexible_league') {
+            const leagueTeams = [...currentTournament.structure.grupos['Liga'].equipos];
+            leagueTeams.sort((a, b) => sortTeams(a, b, currentTournament, 'Liga'));
+            clasificados = leagueTeams.slice(0, currentTournament.config.qualifiers);
+        } else {
+            const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
+            if (format.qualifiersPerGroup === 1) {
+                for (const groupName of gruposOrdenados) {
+                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
+                    if (grupoOrdenado[0]) clasificados.push(JSON.parse(JSON.stringify(grupoOrdenado[0])));
+                }
+            } else if (currentTournament.config.formatId === '8_teams_semis_classic') {
+                const grupoA = [...currentTournament.structure.grupos['Grupo A'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo A'));
+                const grupoB = [...currentTournament.structure.grupos['Grupo B'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo B'));
+                clasificados.push(grupoA[0], grupoB[1], grupoB[0], grupoA[1]);
+            } else {
+                const bombo1 = []; const bombo2 = [];
+                for (const groupName of gruposOrdenados) {
+                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
+                    if (grupoOrdenado[0]) bombo1.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[0])), group: groupName });
+                    if (grupoOrdenado[1]) bombo2.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[1])), group: groupName });
+                }
+                const partidos = crearPartidosEvitandoMismoGrupo(bombo1, bombo2, siguienteRondaKey);
+                currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
+                clasificados = null; 
+            }
+        }
+    } else {
+        const partidosRondaAnterior = currentTournament.structure.eliminatorias[rondaActual];
+        clasificados = partidosRondaAnterior.map(p => {
+            const [golesA, golesB] = p.resultado.split('-').map(Number);
+            return golesA > golesB ? p.equipoA : p.equipoB;
+        });
+    }
+
+    let partidos;
+    if (clasificados) {
+        if (currentTournament.config.formatId === '8_teams_semis_classic' && clasificados.length === 4 && !rondaActual) {
+             partidos = [
+                createMatchObject(null, siguienteRondaKey, clasificados[0], clasificados[1]),
+                createMatchObject(null, siguienteRondaKey, clasificados[2], clasificados[3])
+            ];
+        } else {
+            partidos = crearPartidosEliminatoria(clasificados, siguienteRondaKey);
+        }
+    } else {
+        partidos = currentTournament.structure.eliminatorias[siguienteRondaKey];
+    }
+
+    if (!partidos || partidos.length === 0) return;
+
+    const siguienteRondaNombre = siguienteRondaKey.charAt(0).toUpperCase() + siguienteRondaKey.slice(1);
+    currentTournament.status = siguienteRondaKey;
+    currentTournament.structure.eliminatorias.rondaActual = siguienteRondaKey;
+
+    if (siguienteRondaKey === 'final') {
+        currentTournament.structure.eliminatorias.final = partidos[0];
+    } else {
+        currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
+    }
+    
+    postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRondaKey, tournament: currentTournament }).catch(console.error);
+
+    const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
+    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRondaNombre}! 🔥`).setFooter({text: '¡Mucha suerte!'});
+
+    for(const [i, p] of partidos.entries()) {
+        const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
+        p.threadId = threadId;
+        p.status = 'en_curso';
+        embedAnuncio.addFields({ name: `Enfrentamiento ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
+    }
+    if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
+    
+    await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
+    const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+    await notifyTournamentVisualizer(finalTournamentState);
+    await updatePublicMessages(client, finalTournamentState);
+    await updateTournamentManagementThread(client, finalTournamentState);
+}
+
+export async function handleFinalResult(client, guild, tournament) {
+    const final = tournament.structure.eliminatorias.final;
+    const [golesA, golesB] = final.resultado.split('-').map(Number);
+    const campeon = golesA > golesB ? final.equipoA : final.equipoB;
+    const finalista = golesA > golesB ? final.equipoB : final.equipoA;
+    
+    const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
+    if(infoChannel) {
+        const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();
+        await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
+    }
+    
+    if (tournament.config.isPaid) {
+        const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
+        if (notificationsThread) {
+            const embedPagoCampeon = new EmbedBuilder().setColor('#ffd700').setTitle('🏆 PAGO PENDIENTE: CAMPEÓN').addFields({ name: 'Equipo', value: campeon.nombre }, { name: 'Capitán', value: campeon.capitanTag }, { name: 'PayPal a Pagar', value: `\`${campeon.paypal}\`` }, { name: 'Premio', value: `${tournament.config.prizeCampeon}€` });
+            const rowCampeon = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`admin_prize_paid:${tournament.shortId}:${campeon.capitanId}:campeon`).setLabel('Marcar Premio Campeón Pagado').setStyle(ButtonStyle.Success).setEmoji('💰')
+            );
+            await notificationsThread.send({ embeds: [embedPagoCampeon], components: [rowCampeon] });
+        
+            if (tournament.config.prizeFinalista > 0) {
+                const embedPagoFinalista = new EmbedBuilder().setColor('#C0C0C0').setTitle('🥈 PAGO PENDIENTE: FINALISTA').addFields({ name: 'Equipo', value: finalista.nombre }, { name: 'Capitán', value: finalista.capitanTag }, { name: 'PayPal a Pagar', value: `\`${finalista.paypal}\`` }, { name: 'Premio', value: `${tournament.config.prizeFinalista}€` });
+                const rowFinalista = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`admin_prize_paid:${tournament.shortId}:${finalista.capitanId}:finalista`).setLabel('Marcar Premio Finalista Pagado').setStyle(ButtonStyle.Success).setEmoji('💰')
+                );
+                await notificationsThread.send({ embeds: [embedPagoFinalista], components: [rowFinalista] });
+            }
+        }
+    }
+    
+    const db = getDb();
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
+    const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
+
+    postTournamentUpdate('FINALIZADO', updatedTournament).catch(console.error);
+
+    await updateTournamentManagementThread(client, updatedTournament);
+    console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado.`);
+}
+
+function crearPartidosEliminatoria(equipos, ronda) {
+    let partidos = [];
+    const numEquipos = equipos.length;
+
+    for (let i = 0; i < numEquipos / 2; i++) {
+        const equipoA = equipos[i];
+        const equipoB = equipos[numEquipos - 1 - i];
+
+        if (equipoA && equipoB) {
+            const partido = createMatchObject(null, ronda, equipoA, equipoB);
+            partidos.push(partido);
+        }
+    }
+    return partidos;
+}
+
+function crearPartidosEvitandoMismoGrupo(bombo1_data, bombo2_data, ronda) {
+    const partidos = [];
+    for (let i = bombo2_data.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bombo2_data[i], bombo2_data[j]] = [bombo2_data[j], bombo2_data[i]];
+    }
+
+    for (const data1 of bombo1_data) {
+        let opponentData = null;
+        let opponentIndex = -1;
+
+        for (let i = 0; i < bombo2_data.length; i++) {
+            if (data1.group !== bombo2_data[i].group) {
+                opponentData = bombo2_data[i];
+                opponentIndex = i;
+                break;
+            }
+        }
+
+        if (!opponentData && bombo2_data.length > 0) {
+            opponentData = bombo2_data[0];
+            opponentIndex = 0;
+        }
+        
+        if (opponentData) {
+            partidos.push(createMatchObject(null, ronda, data1.team, opponentData.team));
+            bombo2_data.splice(opponentIndex, 1);
+        }
+    }
+    return partidos;
+}
+
+function sortTeams(a, b, tournament, groupName) {
+    if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
+    if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
+    if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
+    
+    const enfrentamiento = tournament.structure.calendario[groupName]?.find(p => 
+        p.resultado && 
+        ((p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id))
+    );
+
+    if (enfrentamiento) {
+        const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
+        if (enfrentamiento.equipoA.id === a.id) {
+            if (golesA > golesB) return -1;
+            if (golesB > golesA) return 1;
+        } else {
+            if (golesB > golesA) return -1;
+            if (golesA > golesB) return 1;
+        }
+    }
+    return Math.random() - 0.5;
+}
