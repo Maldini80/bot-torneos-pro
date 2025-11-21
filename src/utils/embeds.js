@@ -674,10 +674,26 @@ export function createTournamentStatusEmbed(tournament) {
         .setTitle(`${statusIcon} ${tournament.nombre}`)
         .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
 
-    // --- LÓGICA MODIFICADA PARA UN SOLO IDIOMA Y MÁS CLARIDAD ---
+    // --- LÓGICA DINÁMICA DE DESCRIPCIÓN ---
+    let formatDescription = TOURNAMENT_FORMATS[tournament.config.formatId].description;
 
-    const formatDescription = TOURNAMENT_FORMATS[tournament.config.formatId].description;
+    // Si es una Liga Flexible, ignoramos la descripción por defecto y creamos una real
+    if (tournament.config.formatId === 'flexible_league') {
+        const mode = tournament.config.leagueMode === 'all_vs_all' 
+            ? "🔄 **Todos contra Todos**" 
+            : `🔢 **Personalizado (${tournament.config.customRounds} partidos/equipo)**`;
+            
+        const qualifiers = tournament.config.qualifiers === 0 
+            ? "🏆 **Liga Pura** (Gana el líder, sin eliminatorias)" 
+            : `🔥 **Eliminatorias:** Clasifican los ${tournament.config.qualifiers} primeros`;
+
+        const legs = tournament.config.matchType === 'idavuelta' ? "Ida y Vuelta" : "Solo Ida";
+
+        formatDescription = `${mode}\n${qualifiers}\n⚙️ **Rondas:** ${legs}`;
+    }
+    
     embed.setDescription(formatDescription);
+    // --- FIN LÓGICA DINÁMICA ---
 
     embed.addFields(
         { name: 'Formato', value: format.label, inline: true },
