@@ -754,55 +754,37 @@ if (action === 'draft_pick_by_position') {
         await interaction.update({ content: `Formato seleccionado: **${TOURNAMENT_FORMATS[formatId].label}**. Ahora, el tipo:`, components: [new ActionRowBuilder().addComponents(typeMenu)] });
 
     } else if (action === 'admin_create_type') {
-    const [formatId] = params;
-    const type = interaction.values[0];
+        const [formatId] = params;
+        const type = interaction.values[0];
 
-    // Si es la liguilla flexible, mostramos su modal específico
-    if (formatId === 'flexible_league') {
-        const modal = new ModalBuilder()
-            .setCustomId(`create_flexible_league_modal:${type}`)
-            .setTitle('Finalizar Creación de Liguilla');
-        
-        const nameInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-        const qualifiersInput = new TextInputBuilder().setCustomId('torneo_qualifiers').setLabel("Nº de Equipos Clasificatorios (2, 4, 8...)").setStyle(TextInputStyle.Short).setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(nameInput), new ActionRowBuilder().addComponents(qualifiersInput));
-        
-        if (type === 'pago') {
-            modal.setTitle('Finalizar Liguilla (De Pago)');
-            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
-            const prizesInput = new TextInputBuilder().setCustomId('torneo_prizes').setLabel("Premios: Campeón / Finalista (€)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Ej: 100/50');
-            const paymentMethodsInput = new TextInputBuilder().setCustomId('torneo_payment_methods').setLabel("Métodos Pago: PayPal / Bizum").setStyle(TextInputStyle.Short).setRequired(false);
-            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput), new ActionRowBuilder().addComponents(prizesInput), new ActionRowBuilder().addComponents(paymentMethodsInput));
+        // --- NUEVA LÓGICA PARA LIGA FLEXIBLE ---
+        if (formatId === 'flexible_league') {
+            // En lugar de ir directo al modal, preguntamos el MODO de liga
+            const modeMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_select_league_mode:${type}`) // Pasamos si es 'pago' o 'gratis'
+                .setPlaceholder('Paso 3: Configuración de Enfrentamientos')
+                .addOptions([
+                    {
+                        label: '🔄 Todos contra Todos (Liga Completa)',
+                        description: 'Juegan todos contra todos. El bot calcula las jornadas automáticamente.',
+                        value: 'all_vs_all',
+                        emoji: '⚔️'
+                    },
+                    {
+                        label: '🔢 Número de Partidos Fijo',
+                        description: 'Elige tú cuántos partidos juega cada equipo (Ej: solo 3 partidos).',
+                        value: 'custom_rounds',
+                        emoji: '🎲'
+                    }
+                ]);
+
+            await interaction.update({
+                content: `Has seleccionado Liguilla Flexible (${type === 'pago' ? 'Pago' : 'Gratis'}).\n¿Cómo quieres que sean los enfrentamientos?`,
+                components: [new ActionRowBuilder().addComponents(modeMenu)]
+            });
+            return;
         }
-        
-        return interaction.showModal(modal);
-    }
-    
-    // --- INICIO DE LA CORRECCIÓN CLAVE ---
-    // Para CUALQUIER OTRO formato (los de grupos), mostramos el menú de tipo de partido
-    const matchTypeMenu = new StringSelectMenuBuilder()
-        .setCustomId(`admin_create_match_type:${formatId}:${type}`)
-        .setPlaceholder('Paso 3: Selecciona el tipo de partidos')
-        .addOptions([
-            {
-                label: 'Solo Ida (3 Jornadas)',
-                description: 'Los equipos de cada grupo se enfrentan una vez.',
-                value: 'ida'
-            },
-            {
-                label: 'Ida y Vuelta (6 Jornadas)',
-                description: 'Los equipos de cada grupo se enfrentan dos veces.',
-                value: 'idavuelta'
-            }
-        ]);
-    
-    await interaction.update({
-        content: `Tipo seleccionado: **${type === 'pago' ? 'De Pago' : 'Gratuito'}**. Ahora, define las rondas:`,
-        components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
-    });
-    // --- FIN DE LA CORRECCIÓN CLAVE ---
-    return;
-}
+        // --- FIN NUEVA LÓGICA ---
      else if (action === 'admin_change_format_select') {
         await interaction.deferUpdate();
         
@@ -1459,4 +1441,51 @@ if (action === 'admin_modify_final_result_select') {
     await interaction.showModal(modal);
     return;
 }
+        if (action === 'admin_select_league_mode') {
+        const [type] = params; // 'pago' o 'gratis'
+        const leagueMode = interaction.values[0]; // 'all_vs_all' o 'custom_rounds'
+
+        const modal = new ModalBuilder()
+            .setCustomId(`create_flexible_league_submit:${type}:${leagueMode}`)
+            .setTitle('Configurar Liguilla');
+
+        const nameInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+        const qualifiersInput = new TextInputBuilder().setCustomId('torneo_qualifiers').setLabel("Nº Clasifican a Playoff (2, 4, 8...)").setStyle(TextInputStyle.Short).setRequired(true);
+        
+        modal.addComponents(new ActionRowBuilder().addComponents(nameInput), new ActionRowBuilder().addComponents(qualifiersInput));
+
+        // Si es "custom_rounds", necesitamos preguntar cuántas rondas
+        if (leagueMode === 'custom_rounds') {
+            const roundsInput = new TextInputBuilder()
+                .setCustomId('custom_rounds_input')
+                .setLabel("Nº de Partidos por Equipo")
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder("Ej: 3")
+                .setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(roundsInput));
+        }
+
+        // Preguntamos Ida o Vuelta (siempre, para ambos modos)
+        // NOTA: En un modal no podemos poner un select menu.
+        // Truco: Usaremos un Input de texto simple: "IDA" o "VUELTA" (o "1" o "2")
+        const legsInput = new TextInputBuilder()
+            .setCustomId('match_legs_input')
+            .setLabel("¿Ida y Vuelta? (Escribe SI o NO)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("SI = Ida y Vuelta, NO = Solo Ida")
+            .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(legsInput));
+
+        if (type === 'pago') {
+            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true);
+            const prizesInput = new TextInputBuilder().setCustomId('torneo_prizes').setLabel("Premios Camp/Sub (€)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('100/50');
+            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput)); // Nota: Discord solo permite 5 inputs.
+            // Si necesitas más campos, tendrás que dividir el proceso o asumir valores por defecto.
+            // Aquí sacrificamos el campo de "Métodos de pago" en el modal para que quepa todo, o combinamos fee/prizes.
+            modal.addComponents(new ActionRowBuilder().addComponents(prizesInput));
+        }
+
+        await interaction.showModal(modal);
+        return;
+    }
 }
