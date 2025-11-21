@@ -1292,8 +1292,8 @@ if (action === 'register_draft_player_team_name_modal') {
             }
         }
 
-        if (isNaN(qualifiers) || ![2, 4, 8, 16, 32].includes(qualifiers)) {
-            return interaction.editReply({ content: '❌ Error: El número de clasificados debe ser potencia de 2 (2, 4, 8...).' });
+        if (isNaN(qualifiers) || ![0, 2, 4, 8, 16, 32].includes(qualifiers)) {
+            return interaction.editReply({ content: '❌ Error: El número de clasificados debe ser 0 (Liga Pura) o potencia de 2 (2, 4, 8...).' });
         }
 
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
