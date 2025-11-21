@@ -1,4 +1,5 @@
-// src/utils/embeds.js
+// --- INICIO DEL ARCHIVO src/utils/embeds.js ---
+
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
 import { getBotSettings, getDb } from '../../database.js';
@@ -31,6 +32,8 @@ const settings = await getBotSettings();
 const translationEnabled = settings.translationEnabled;
 const twitterEnabled = settings.twitterEnabled;
 
+
+
 const embed = new EmbedBuilder()
     .setColor(isBusy ? '#e74c3c' : '#2c3e50')
     .setFooter({ text: 'Bot de Torneos v3.2.0' });
@@ -49,6 +52,8 @@ new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear 
 );
 components.push(tournamentActionsRow, backButtonRow);
 break;
+
+
 
 case 'drafts':
         embed.setTitle('Gestión de Drafts');
@@ -104,6 +109,8 @@ const embed = new EmbedBuilder()
 {tournament.shortId}`\nEstado: ${tournament.status.replace(/_/g, ' ')}`
 ).setFooter({ text: 'Panel de control exclusivo para este torneo.' });
 
+
+
 const row1 = new ActionRowBuilder();
 const row2 = new ActionRowBuilder();
 row2.addComponents(
@@ -121,6 +128,8 @@ new ButtonBuilder()
         .setDisabled(isBusy)
 );
 const row3 = new ActionRowBuilder();
+
+
 
 const isBeforeDraw = tournament.status === 'inscripcion_abierta';
 const isGroupStage = tournament.status === 'fase_de_grupos';
@@ -179,6 +188,8 @@ row2.addComponents(
 row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
 if (hasCaptains) { row3.addComponents(new ButtonBuilder().setCustomId(admin_kick_team_start:${tournament.shortId}).setLabel("Expulsar Equipo").setStyle(ButtonStyle.Danger).setEmoji('✖️').setDisabled(isBusy)); }
 
+
+
 const components = [];
 if (row1.components.length > 0) components.push(row1);
 if (row2.components.length > 0) components.push(row2);
@@ -191,6 +202,8 @@ export function createDraftStatusEmbed(draft) {
 const captainCount = draft.captains.length;
 const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
 const totalParticipants = captainCount + nonCaptainPlayerCount;
+
+
 
 const statusMap = {
     inscripcion: 'inscripcion_abierta',
@@ -264,6 +277,8 @@ const embed = new EmbedBuilder()
 {draft.shortId}`\nEstado: ${draft.status.replace(/_/g, ' ')}`
 ).setFooter({ text: 'Panel de control exclusivo para este draft.' });
 
+
+
 const row1 = new ActionRowBuilder();
 const row2 = new ActionRowBuilder();
 
@@ -282,6 +297,8 @@ new ButtonBuilder()
 .setStyle(ButtonStyle.Primary)
 .setEmoji('ℹ️')
 );
+
+
 
 if (draft.status === 'seleccion') {
     row1.addComponents(
@@ -324,6 +341,8 @@ if (compatibleFormats.length > 0) {
 }
 }
 
+
+
 row2.addComponents(new ButtonBuilder()
     .setCustomId(`draft_end:${draft.shortId}`)
     .setLabel('Finalizar Draft (Borrar)')
@@ -341,6 +360,8 @@ return { embeds: [embed], components };
 
 export function createDraftMainInterface(draft) {
 const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
+
+
 
 const playersEmbed = new EmbedBuilder()
     .setColor('#3498db')
@@ -417,6 +438,8 @@ const turnOrderEmbed = new EmbedBuilder()
 .setColor('#e67e22')
 .setTitle('🐍 Orden de Selección del Draft');
 
+
+
 if (draft.status === 'seleccion' && draft.selection.order.length > 0) {
 const picksList = [];
 const numCaptains = draft.selection.order.length;
@@ -469,10 +492,14 @@ const embed = new EmbedBuilder()
 .setColor('#f1c40f')
 .setTitle('🕹️ Panel de Control de Capitanes');
 
+
+
 const totalPicks = draft.captains.length * 10;
 if (draft.status === 'seleccion' && draft.selection.currentPick <= totalPicks) {
 const currentCaptainId = draft.selection.order[draft.selection.turn];
 const captain = draft.captains.find(c => c.userId === currentCaptainId);
+
+
 
 embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
     embed.setFooter({ text: `Pick #${draft.selection.currentPick} de ${totalPicks}` });
@@ -512,6 +539,8 @@ const row = new ActionRowBuilder().addComponents(
 return { embeds: [embed], components: [row] };
 }
 
+
+
 embed.setDescription('Este panel de control está inactivo.');
 return { embeds: [embed], components: [] };
 }
@@ -521,6 +550,8 @@ const embed = new EmbedBuilder()
 .setColor('#1abc9c')
 .setTitle(Gestión de Plantilla: ${team.teamName || team.nombre})
 .setDescription('Selecciona un jugador de la lista para ver sus detalles y gestionarlo.');
+
+
 
 const playerOptions = players.map(p => ({
     label: p.psnId,
@@ -542,6 +573,8 @@ const db = getDb();
 const verifiedData = await db.collection('verified_users').findOne({ discordId: player.userId });
 let playerRecord = await db.collection('player_records').findOne({ userId: player.userId });
 if (!playerRecord) playerRecord = { userId: player.userId, strikes: 0, history: [] };
+
+
 
 const embed = new EmbedBuilder()
     .setColor('#3498db')
@@ -611,6 +644,8 @@ return { embeds: [embed], components, flags: [MessageFlags.Ephemeral] };
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
 const ruleEmbed = ruleEmbeds[step - 1];
 
+
+
 const safeOriginalAction = originalAction || ''; 
 const isPlayer = safeOriginalAction.includes('player');
 const finalTotalSteps = isPlayer ? 1 : 3;
@@ -640,12 +675,14 @@ if (tournament.status === 'inscripcion_abierta' && teamsCount >= format.size && 
 statusIcon = TOURNAMENT_STATUS_ICONS['cupo_lleno'];
 }
 
+
+
 const embed = new EmbedBuilder()
     .setColor(tournament.status === 'inscripcion_abierta' ? '#2ecc71' : '#3498db')
     .setTitle(`${statusIcon} ${tournament.nombre}`)
     .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
 
-// --- LÓGICA DINÁMICA DE DESCRIPCIÓN MEJORADA (LA SOLUCIÓN) ---
+// --- LÓGICA DINÁMICA DE DESCRIPCIÓN ---
 let formatDescription = TOURNAMENT_FORMATS[tournament.config.formatId].description;
 
 if (tournament.config.formatId === 'flexible_league') {
@@ -663,7 +700,7 @@ if (tournament.config.formatId === 'flexible_league') {
 }
 
 embed.setDescription(formatDescription);
-// ------------------------------------------------------------
+// --------------------------------------
 
 embed.addFields(
     { name: 'Formato', value: format.label, inline: true },
@@ -733,6 +770,8 @@ const approvedTeams = Object.values(tournament.teams.aprobados);
 const format = tournament.config.format;
 let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
 
+
+
 if (approvedTeams.length > 0) {
     description = approvedTeams.map((team, index) => {
         let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}`;
@@ -784,13 +823,15 @@ embed.addFields({ name: **${groupName}**, value: "\n" + header + "\n" + table + 
 return { embeds: [embed] };
 }
 
-// --- ESTA ES LA FUNCIÓN CRÍTICA CORREGIDA PARA EVITAR EL CRASH ---
+// --- FUNCIÓN DE CALENDARIO MEJORADA CON PAGINACIÓN ---
 export function createCalendarEmbed(tournament) {
 const embed = new EmbedBuilder().setColor('#9b59b6').setTitle(🗓️ Calendario / Schedule).setTimestamp();
 const hasGroupStage = Object.keys(tournament.structure.calendario).length > 0;
 const hasKnockoutStage = tournament.config.format.knockoutStages.some(
 stage => tournament.structure.eliminatorias && tournament.structure.eliminatorias[stage]
 );
+
+
 
 if (!hasGroupStage && !hasKnockoutStage) {
     embed.setDescription('🇪🇸 El calendario de partidos se mostrará aquí.\n🇬🇧 The match schedule will be displayed here.');
@@ -802,6 +843,7 @@ if(hasGroupStage) {
     for (const groupName of sortedGroups) {
         const partidosDelGrupo = tournament.structure.calendario[groupName];
         
+        // 1. Agrupamos partidos por jornada
         const partidosPorJornada = {};
         for (const partido of partidosDelGrupo) { 
             if (!partidosPorJornada[partido.jornada]) {
@@ -810,6 +852,7 @@ if(hasGroupStage) {
             partidosPorJornada[partido.jornada].push(partido); 
         }
         
+        // 2. Variables para controlar la paginación
         let currentFieldText = '';
         let part = 1;
         const nameWidth = 15, centerWidth = 6;
@@ -830,7 +873,8 @@ if(hasGroupStage) {
                 roundText += `${equipoA}${paddedCenter}${equipoB}\n`;
             }
 
-            // Si añadir esta jornada supera el límite de Discord (1024), cerramos el campo y abrimos otro
+            // 3. LÓGICA DE PAGINACIÓN: Si añadir esta jornada supera los 1000 caracteres (margen de seguridad),
+            // cerramos el campo actual y abrimos uno nuevo.
             if (currentFieldText.length + roundText.length > 1000) {
                 embed.addFields({ 
                     name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`, 
@@ -843,7 +887,7 @@ if(hasGroupStage) {
             }
         }
         
-        // Añadimos lo que quede en el buffer
+        // 4. Añadimos lo que quede en el buffer al final del bucle
         if (currentFieldText.length > 0) {
              embed.addFields({ 
                 name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`, 
@@ -898,6 +942,8 @@ const embed = new EmbedBuilder()
 )
 .setTimestamp();
 
+
+
 return { embeds: [embed] };
 }
 
@@ -920,6 +966,8 @@ value: 'Para que los casters puedan trabajar, durante tus partidos es OBLIGATORI
 }
 );
 
+
+
 const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
         .setCustomId(`streamer_warning_accept:${platform}:${originalAction}:${entityId}:${teamIdOrPosition}`)
@@ -934,3 +982,5 @@ const row = new ActionRowBuilder().addComponents(
 
 return { embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] };
 }
+
+// --- FIN DEL ARCHIVO ---
