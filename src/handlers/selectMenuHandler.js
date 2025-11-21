@@ -1476,7 +1476,12 @@ if (action === 'admin_select_league_mode') {
         .setTitle('Configurar Liguilla');
 
     const nameInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-    const qualifiersInput = new TextInputBuilder().setCustomId('torneo_qualifiers').setLabel("Nº Clasifican a Playoff (2, 4, 8...)").setStyle(TextInputStyle.Short).setRequired(true);
+    const qualifiersInput = new TextInputBuilder()
+    .setCustomId('torneo_qualifiers')
+    .setLabel("Nº Clasifican (Pon 0 para Liga Pura)") // <--- CAMBIO AQUÍ
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder("0 = Gana el 1º. Si no: 2, 4, 8, 16...") // <--- AYUDA VISUAL
+    .setRequired(true);
     
     modal.addComponents(new ActionRowBuilder().addComponents(nameInput), new ActionRowBuilder().addComponents(qualifiersInput));
 
