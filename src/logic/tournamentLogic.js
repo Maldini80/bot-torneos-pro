@@ -31,10 +31,10 @@ export async function notifyTournamentVisualizer(tournament) {
 }
 
 async function publishDraftVisualizerURL(client, draft) {
-    if (!process.env.BASE_URL) return; // <-- CORREGIDO
+    if (!process.env.BASE_URL) return; 
 
     try {
-        const visualizerLink = `${process.env.BASE_URL}/?draftId=${draft.shortId}`; // <-- CORREGIDO
+        const visualizerLink = `${process.env.BASE_URL}/?draftId=${draft.shortId}`;
 
         const embed = new EmbedBuilder()
             .setColor('#2ecc71')
@@ -76,9 +76,9 @@ async function publishDraftVisualizerURL(client, draft) {
 }
 
 async function publishTournamentVisualizerURL(client, tournament) {
-    if (!process.env.BASE_URL) return; // <-- CORREGIDO
+    if (!process.env.BASE_URL) return;
     try {
-        const visualizerLink = `${process.env.BASE_URL}/?tournamentId=${tournament.shortId}`; // <-- CORREGIDO
+        const visualizerLink = `${process.env.BASE_URL}/?tournamentId=${tournament.shortId}`;
 
         const embed = new EmbedBuilder()
             .setColor('#2ecc71')
@@ -175,7 +175,6 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
 
         if (maxQuotas[positionToCheck]) {
             const max = parseInt(maxQuotas[positionToCheck]);
-            // Contamos la posición primaria de TODOS los jugadores del equipo (incluido el capitán)
             const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
             if (currentCount >= max) {
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
@@ -231,14 +230,13 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         }
     } catch (error) {
         console.error(`[PICK DISCORD] Fallo en el pick del capitán ${captainId}: ${error.message}`);
-        // Volvemos a lanzar el error para que buttonHandler lo capture y pueda mostrar un mensaje claro.
         throw error;
     }
 }
 export async function handlePlayerSelectionFromWeb(client, draftShortId, captainId, selectedPlayerId, pickedForPosition) {
     const db = getDb();
     
-    try { // --- INICIO DE LA MODIFICACIÓN (AÑADIR TRY) ---
+    try {
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
         const currentCaptainTurnId = draft.selection.order[draft.selection.turn];
@@ -255,12 +253,10 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
         );
         const teamPlayers = draft.players.filter(p => p.captainId === captainId);
         
-        // La regla de cuotas se aplica a la posición para la que se ficha
         const positionToCheck = pickedForPosition;
 
         if (maxQuotas[positionToCheck]) {
             const max = parseInt(maxQuotas[positionToCheck]);
-            // Contamos la posición primaria de TODOS los jugadores del equipo (incluido el capitán)
             const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
             if (currentCount >= max) {
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
@@ -290,11 +286,9 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
             setTimeout(() => announcementMessage.delete().catch(() => {}), 60000);
         } catch (e) { console.error("No se pudo enviar el anuncio de pick:", e); }
 
-    } catch (error) { // --- FIN DE LA MODIFICACIÓN (AÑADIR CATCH) ---
+    } catch (error) {
         console.error(`[PICK WEB] Fallo en el pick del capitán ${captainId}: ${error.message}`);
-        // Enviamos el mensaje de error de vuelta al navegador del capitán
         visualizerStateHandler.sendToUser(captainId, { type: 'pick_error', message: error.message });
-        // Volvemos a lanzar el error para que el servidor sepa que algo falló
         throw error;
     }
 }
@@ -330,12 +324,9 @@ export async function approveDraftCaptain(client, draft, captainData) {
     if (/^\d+$/.test(captainData.userId)) {
     try {
         const user = await client.users.fetch(captainData.userId);
-        
         const settings = await getBotSettings();
         const maxQuotasText = settings.draftMaxQuotas.split(',').join('\n').replace(/:/g, ': ');
         
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Creamos el enlace de login y el botón
         const loginUrl = `${process.env.BASE_URL}/login?returnTo=${encodeURIComponent(`/?draftId=${draft.shortId}`)}`;
         const loginButtonRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -345,7 +336,6 @@ export async function approveDraftCaptain(client, draft, captainData) {
                 .setEmoji('🌐')
         );
 
-        // Actualizamos el embed con la guía completa
         const embed = new EmbedBuilder()
             .setColor('#2ecc71')
             .setTitle(`👑 ¡Felicidades, Capitán! Has sido aprobado para el Draft "${draft.name}"`)
@@ -371,9 +361,7 @@ export async function approveDraftCaptain(client, draft, captainData) {
                 }
             );
 
-        // Enviamos el embed y el botón
         await user.send({ embeds: [embed], components: [loginButtonRow] });
-        // --- FIN DE LA MODIFICACIÓN ---
 
     } catch (e) { console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message); }
 }
@@ -414,7 +402,6 @@ export async function approveUnregisterFromDraft(client, draft, userIdToUnregist
 
     await kickPlayerFromDraft(client, draft, userIdToUnregister);
     
-    // Notificar al jugador
     if (/^\d+$/.test(userIdToUnregister)) {
         try {
             const user = await client.users.fetch(userIdToUnregister);
@@ -422,7 +409,6 @@ export async function approveUnregisterFromDraft(client, draft, userIdToUnregist
         } catch (e) { console.warn('No se pudo notificar al usuario de la baja de draft aprobada'); }
     }
 
-    // Notificar al capitán y darle opción de reemplazar
     if (captainId && /^\d+$/.test(captainId)) {
          try {
             const captainUser = await client.users.fetch(captainId);
@@ -466,20 +452,17 @@ export async function requestUnregisterFromDraft(client, draft, userId, reason) 
         .addFields({ name: 'Motivo / Estado', value: reason })
         .setFooter({ text: `Draft: ${draft.name} | ID del Jugador: ${userId}`});
     
-    // Añadimos el equipo actual solo si el jugador está fichado
     if (player.captainId) {
         embed.addFields({ name: 'Equipo Actual', value: `Equipo de <@${player.captainId}>` });
     }
 
     const row = new ActionRowBuilder().addComponents(
-        // El customId NO incluye el motivo, para evitar el error de 100 caracteres
         new ButtonBuilder().setCustomId(`admin_unregister_draft_approve:${draft.shortId}:${userId}`).setLabel('Aprobar Baja (Eliminar)').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`admin_unregister_draft_reject:${draft.shortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
     );
 
     await notificationsThread.send({ embeds: [embed], components: [row] });
 
-    // Notificamos al capitán solo si el jugador estaba fichado
     if (player.captainId) {
         try {
             const captainUser = await client.users.fetch(player.captainId);
@@ -525,8 +508,6 @@ async function fullCleanupDraft(client, draft) {
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.warRoomVoiceChannelId);
 
     try {
-        // --- CORRECCIÓN CLAVE ---
-        // Ahora busca en el canal correcto para los drafts
         const globalChannel = await client.channels.fetch(CHANNELS.DRAFTS_STATUS);
         await deleteResourceSafe(globalChannel.messages.fetch.bind(globalChannel.messages), discordMessageIds.statusMessageId);
     } catch(e) {
@@ -631,11 +612,11 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         if (!format) throw new Error(`Formato de torneo inválido: ${formatId}`);
 
         const config = {
-    formatId: formatId, format: format, isPaid: draft.config.isPaid,
-    entryFee: draft.config.entryFee, prizeCampeon: draft.config.prizeCampeon,
-    prizeFinalista: draft.config.prizeFinalista, startTime: null,
-    ...leagueConfig // <-- ESTA LÍNEA FUSIONA LOS DATOS NUEVOS (qualifiers y totalRounds)
-};
+            formatId: formatId, format: format, isPaid: draft.config.isPaid,
+            entryFee: draft.config.entryFee, prizeCampeon: draft.config.prizeCampeon,
+            prizeFinalista: draft.config.prizeFinalista, startTime: null,
+            ...leagueConfig
+        };
         
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
@@ -683,7 +664,6 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
         if (teamCategory) {
     for (const team of Object.values(newTournament.teams.aprobados)) {
-        // Filtramos solo los jugadores con IDs de Discord reales para los permisos
         const realPlayerIds = team.players.map(p => p.userId).filter(id => /^\d+$/.test(id));
         
         const textPermissions = [
@@ -710,11 +690,9 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             parent: teamCategory, permissionOverwrites: voicePermissions
         });
         
-        // Para el mensaje de bienvenida, podemos mencionar a todos los reales
         const mentionString = realPlayerIds.map(id => `<@${id}>`).join(' ');
         await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
         
-        // Solo mostramos el botón de invitar co-capitán al capitán real
         if (/^\d+$/.test(team.capitanId)) {
             await chatChannel.send({
                 content: `<@${team.capitanId}>, puedes invitar a tu co-capitán desde aquí:`,
@@ -2580,6 +2558,7 @@ async function generateFlexibleLeagueSchedule(tournament) {
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
     console.log(`[DEBUG LIGA] Calendario guardado.`);
 }
+
 // =====================================================================
 // === LÓGICA DE PROGRESIÓN DEL TORNEO (Copiar al final del archivo) ===
 // =====================================================================
