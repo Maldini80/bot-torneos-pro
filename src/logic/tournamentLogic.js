@@ -1328,11 +1328,14 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const db = getDb();
     const guild = await client.guilds.fetch(tournament.guildId);
     const coCaptainUser = await client.users.fetch(coCaptainId);
-    const team = tournament.teams.aprobados[captainId];
     
-    // 1. Actualizamos la base de datos
+    // Obtenemos el torneo más actualizado para evitar conflictos
+    const latestTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    const team = latestTournament.teams.aprobados[captainId];
+    
+    // 1. Actualizamos la ficha general del equipo en la base de datos
     await db.collection('tournaments').updateOne(
-        { _id: tournament._id },
+        { _id: latestTournament._id },
         {
             $set: { 
                 [`teams.aprobados.${captainId}.coCaptainId`]: coCaptainId,
@@ -1344,14 +1347,48 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     );
 
-    // 2. Damos permisos en los canales
+    // 2. CRÍTICO: Actualizamos los partidos YA EXISTENTES en el calendario
+    // Esto soluciona que no puedan reportar o no sean reconocidos en partidos ya creados.
+    if (latestTournament.structure && latestTournament.structure.calendario) {
+        const updatedCalendario = { ...latestTournament.structure.calendario };
+        let needsUpdate = false;
+
+        for (const groupName in updatedCalendario) {
+            updatedCalendario[groupName] = updatedCalendario[groupName].map(match => {
+                // Si el equipo A es el nuestro, le inyectamos el co-capitán
+                if (match.equipoA.capitanId === captainId) {
+                    match.equipoA.coCaptainId = coCaptainId;
+                    match.equipoA.coCaptainTag = coCaptainUser.tag;
+                    needsUpdate = true;
+                }
+                // Si el equipo B es el nuestro, lo mismo
+                if (match.equipoB.capitanId === captainId) {
+                    match.equipoB.coCaptainId = coCaptainId;
+                    match.equipoB.coCaptainTag = coCaptainUser.tag;
+                    needsUpdate = true;
+                }
+                return match;
+            });
+        }
+
+        if (needsUpdate) {
+            await db.collection('tournaments').updateOne(
+                { _id: latestTournament._id },
+                { $set: { 'structure.calendario': updatedCalendario } }
+            );
+            console.log(`[SYNC] Co-Capitán ${coCaptainId} inyectado en los partidos existentes del torneo ${latestTournament.shortId}`);
+        }
+    }
+
+    // 3. Damos permisos en los canales (Chat y Logs)
     if (/^\d+$/.test(coCaptainId)) {
         try {
-            const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
+            const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
             await chatChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: true });
-            const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
+            const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
             await matchesChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, SendMessages: false });
 
+            // Permisos en canales privados de equipo (si existen)
             if (team.players && team.players.length > 0) {
                 const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
                 const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
@@ -1362,14 +1399,15 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
             }
 
         } catch (e) {
-            console.error(`No se pudieron dar permisos al co-capitán ${coCaptainId}:`, e);
+            console.error(`No se pudieron dar permisos globales al co-capitán ${coCaptainId}:`, e);
         }
     }
 
-    // 3. Sincronizamos con los hilos de partido
+    // 4. Añadimos al usuario a los HILOS de partidos ya creados
+    const freshTournament = await db.collection('tournaments').findOne({ _id: latestTournament._id });
     const allMatches = [
-        ...Object.values(tournament.structure.calendario).flat(),
-        ...Object.values(tournament.structure.eliminatorias).flat()
+        ...Object.values(freshTournament.structure.calendario || {}).flat(),
+        ...Object.values(freshTournament.structure.eliminatorias || {}).flat()
     ];
 
     const teamMatchThreads = allMatches
@@ -1382,7 +1420,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                 const thread = await client.channels.fetch(threadId);
                 if (thread) {
                     await thread.members.add(coCaptainId);
-                    await thread.send(`ℹ️ <@${coCaptainId}> ha sido añadido a este hilo como co-capitán.`);
+                    await thread.send(`ℹ️ <@${coCaptainId}> ha sido añadido a este hilo como co-capitán y ahora puede reportar resultados.`);
                 }
             } catch (error) {
                 if (error.code !== 10003) { 
@@ -1392,22 +1430,17 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     }
 
-    // --- INICIO DEL BLOQUE AÑADIDO ---
-    // 4. Anunciamos la incorporación en el chat general
+    // 5. Anunciamos la incorporación
     try {
-        const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
-        // Creamos un mensaje de texto simple en lugar de un embed
-        const announcementMessage = `🤝 ¡El equipo **${team.nombre}** da la bienvenida a su nuevo co-capitán, <@${coCaptainId}>!`;
-        await chatChannel.send({ content: announcementMessage });
+        const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
+        await chatChannel.send({ content: `🤝 ¡El equipo **${team.nombre}** da la bienvenida a su nuevo co-capitán, <@${coCaptainId}>!` });
     } catch (e) {
-        console.error(`No se pudo enviar el anuncio de nuevo co-capitán al chat general:`, e);
+        console.error(`Error anuncio chat general:`, e);
     }
-    // --- FIN DEL BLOQUE AÑADIDO ---
 
-    // 5. Actualizamos los mensajes públicos y visualizador
-    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-    await updatePublicMessages(client, updatedTournament);
-    await notifyTournamentVisualizer(updatedTournament);
+    // 6. Actualizamos interfaces
+    await updatePublicMessages(client, freshTournament);
+    await notifyTournamentVisualizer(freshTournament);
 }
 
 export async function kickTeam(client, tournament, captainId) {
@@ -2431,17 +2464,22 @@ async function generateGroupBasedSchedule(tournament) {
 
 async function generateFlexibleLeagueSchedule(tournament) {
     const db = getDb();
-    console.log(`[DEBUG LIGA] 1. Iniciando la generación de calendario para ${tournament.shortId}`);
+    console.log(`[DEBUG LIGA] 1. Iniciando calendario LIGA para ${tournament.shortId}`);
     tournament.status = 'fase_de_grupos';
+    
     let teams = Object.values(tournament.teams.aprobados);
-
+    
+    // Si es impar, añadimos el equipo fantasma (Descanso)
     if (teams.length % 2 !== 0) {
         const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
         teams.push(ghostTeam);
     }
 
-    console.log(`[DEBUG LIGA] 2. Número de equipos para el sorteo: ${teams.length}`);
+    const numTeams = teams.length; // Este número ahora es siempre PAR (gracias al ghost)
 
+    console.log(`[DEBUG LIGA] 2. Equipos (incluyendo ghost): ${numTeams}`);
+
+    // Inicializar stats
     teams.forEach(team => {
         if (team.id !== 'ghost') team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
     });
@@ -2449,43 +2487,88 @@ async function generateFlexibleLeagueSchedule(tournament) {
     tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
     tournament.structure.calendario['Liga'] = [];
 
-    const numTeams = teams.length;
-    // --- LA CORRECCIÓN CLAVE ESTÁ AQUÍ ---
-    const totalRoundsToGenerate = tournament.config.totalRounds || 3; // Leemos el dato correcto
-    
-    // Creamos una copia que rotará
-    let rotatingTeams = [...teams];
-    rotatingTeams.shift(); // Sacamos al primer equipo que no rota
+    // --- LÓGICA DE CÁLCULO DE RONDAS ---
+    let totalRoundsToGenerate;
 
-    for (let round = 0; round < totalRoundsToGenerate; round++) {
-        const teamA = teams[0]; // El primer equipo siempre juega
-        const teamB = rotatingTeams[0]; // contra el primer equipo del array rotativo
+    if (tournament.config.leagueMode === 'all_vs_all') {
+        // Todos contra todos: N-1 rondas
+        totalRoundsToGenerate = numTeams - 1;
         
-        const homeTeam = round % 2 === 0 ? teamA : teamB;
-        const awayTeam = round % 2 === 0 ? teamB : teamA;
-        tournament.structure.calendario['Liga'].push(createMatchObject('Liga', round + 1, homeTeam, awayTeam));
+        // Si es Ida y Vuelta, multiplicamos por 2
+        if (tournament.config.matchType === 'idavuelta') {
+            totalRoundsToGenerate = totalRoundsToGenerate * 2;
+        }
+    } else {
+        // Modo personalizado (número fijo de partidos)
+        // Si el usuario puso más rondas de las posibles matemáticamente, las limitamos
+        const maxPossibleRounds = (tournament.config.matchType === 'idavuelta') ? (numTeams - 1) * 2 : (numTeams - 1);
+        totalRoundsToGenerate = Math.min(tournament.config.customRounds || 3, maxPossibleRounds);
+    }
 
-        // Emparejamos el resto
+    console.log(`[DEBUG LIGA] Generando ${totalRoundsToGenerate} rondas. (Modo: ${tournament.config.leagueMode})`);
+
+    // Algoritmo Round Robin (Rotación de polígono)
+    let rotatingTeams = [...teams];
+    rotatingTeams.shift(); // Sacamos al primer equipo (pivote fijo)
+
+    // Generamos todas las rondas posibles primero (un ciclo completo de ida)
+    const baseRounds = numTeams - 1;
+    
+    for (let round = 0; round < totalRoundsToGenerate; round++) {
+        const jornadaNum = round + 1;
+        // Detectamos si estamos en la "vuelta" (cuando round >= baseRounds)
+        const isSecondLeg = round >= baseRounds;
+        
+        // Si es vuelta, invertimos local/visitante respecto a la ida correspondiente
+        // La ida correspondiente es: round % baseRounds
+        
+        const teamA = teams[0]; 
+        const teamB = rotatingTeams[0];
+
+        // Lógica de local/visitante
+        let home, away;
+        
+        if (isSecondLeg) {
+            // En la vuelta, invertimos la lógica de la ida
+            if (round % 2 === 0) { home = teamB; away = teamA; } else { home = teamA; away = teamB; }
+        } else {
+            // En la ida normal
+            if (round % 2 === 0) { home = teamA; away = teamB; } else { home = teamB; away = teamA; }
+        }
+
+        tournament.structure.calendario['Liga'].push(createMatchObject('Liga', jornadaNum, home, away));
+
         for (let i = 1; i < numTeams / 2; i++) {
             const teamC = rotatingTeams[i];
             const teamD = rotatingTeams[numTeams - 1 - i];
-            tournament.structure.calendario['Liga'].push(createMatchObject('Liga', round + 1, teamC, teamD));
+            
+            // Misma lógica de local/visitante para el resto
+            if (isSecondLeg) {
+                 // Vuelta: lógica inversa a la ida (simplificada aquí para variedad)
+                 tournament.structure.calendario['Liga'].push(createMatchObject('Liga', jornadaNum, teamD, teamC));
+            } else {
+                 tournament.structure.calendario['Liga'].push(createMatchObject('Liga', jornadaNum, teamC, teamD));
+            }
         }
-        
-        // Rotamos el array para la siguiente jornada
+
+        // Rotamos el array
         rotatingTeams.push(rotatingTeams.shift());
     }
     
-    console.log(`[DEBUG LIGA] 3. Total de partidos generados: ${tournament.structure.calendario['Liga'].length}`);
-
+    // Gestionar partidos contra "ghost" (Descanso)
     for (const match of tournament.structure.calendario['Liga']) {
         if (match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost') {
             match.status = 'finalizado';
+            match.matchId = 'ghost'; // Marcamos como ghost para filtrar
+            
             const realTeamIsA = match.equipoA.id !== 'ghost';
-            match.resultado = realTeamIsA ? '1-0' : '0-1';
+            match.resultado = realTeamIsA ? '1-0' : '0-1'; // Gana el equipo real
+            
             const realTeam = realTeamIsA ? match.equipoA : match.equipoB;
             const groupTeam = tournament.structure.grupos['Liga'].equipos.find(t => t.id === realTeam.id);
             if (groupTeam) {
+                // En fútbol real, descansar NO suma puntos, pero en algunos torneos online se da por ganado.
+                // Si prefieres que NO sume puntos (solo cuente como jornada pasada), comenta estas líneas:
                 groupTeam.stats.pj += 1;
                 groupTeam.stats.pts += 3;
                 groupTeam.stats.gf += 1;
@@ -2493,6 +2576,7 @@ async function generateFlexibleLeagueSchedule(tournament) {
             }
         }
     }
+
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
-    console.log(`[DEBUG LIGA] 4. Calendario guardado en la DB.`);
+    console.log(`[DEBUG LIGA] Calendario guardado.`);
 }
