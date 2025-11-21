@@ -1270,53 +1270,68 @@ if (action === 'register_draft_player_team_name_modal') {
     await interaction.editReply({ content: `✅ El campo \`${fieldToEdit}\` de **${user.tag}** ha sido actualizado a \`${newValue}\` y sincronizado.` });
     return;
 }
-    if (action === 'create_flexible_league_modal') {
-    await interaction.reply({ 
-        content: '⏳ ¡Recibido! Creando la liguilla flexible en segundo plano...', 
-        flags: [MessageFlags.Ephemeral] 
-    });
+    if (action === 'create_flexible_league_submit') {
+        await interaction.reply({ 
+            content: '⏳ ¡Recibido! Creando la liga personalizada...', 
+            flags: [MessageFlags.Ephemeral] 
+        });
 
-    const [type] = params;
-    const nombre = interaction.fields.getTextInputValue('torneo_nombre');
-    const qualifiers = parseInt(interaction.fields.getTextInputValue('torneo_qualifiers'));
-    const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const [type, leagueMode] = params;
+        const nombre = interaction.fields.getTextInputValue('torneo_nombre');
+        const qualifiers = parseInt(interaction.fields.getTextInputValue('torneo_qualifiers'));
+        const legsRaw = interaction.fields.getTextInputValue('match_legs_input').toLowerCase();
+        
+        const isDoubleLeg = legsRaw.includes('si') || legsRaw.includes('yes') || legsRaw === '2';
+        const matchType = isDoubleLeg ? 'idavuelta' : 'ida';
 
-    if (isNaN(qualifiers) || ![2, 4, 8, 16, 32].includes(qualifiers)) {
-        return interaction.editReply({ content: '❌ Error: El número de equipos clasificatorios debe ser una potencia de 2 (2, 4, 8, 16...).' });
-    }
-
-    const config = { 
-        formatId: 'flexible_league', 
-        isPaid: type === 'pago',
-        // Añadimos los datos específicos de la liguilla a la configuración
-        qualifiers: qualifiers,
-        totalRounds: 3 // Jornadas fijas
-    };
-    
-    if (config.isPaid) {
-        config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
-        const [prizeC = '0', prizeF = '0'] = interaction.fields.getTextInputValue('torneo_prizes').split('/');
-        config.prizeCampeon = parseFloat(prizeC.trim());
-        config.prizeFinalista = parseFloat(prizeF.trim());
-        const paymentMethods = interaction.fields.getTextInputValue('torneo_payment_methods') || '/';
-        const [paypal = null, bizum = null] = paymentMethods.split('/');
-        config.paypalEmail = paypal ? paypal.trim() : null;
-        config.bizumNumber = bizum ? bizum.trim() : null;
-    }
-
-    try {
-        const result = await createNewTournament(client, guild, nombre, shortId, config);
-        if (result.success) {
-            await interaction.editReply({ content: `✅ ¡Éxito! La liguilla **"${nombre}"** ha sido creada.` });
-        } else {
-            await interaction.editReply({ content: `❌ Ocurrió un error al crear la liguilla: ${result.message}` });
+        let customRounds = 0;
+        if (leagueMode === 'custom_rounds') {
+            customRounds = parseInt(interaction.fields.getTextInputValue('custom_rounds_input'));
+            if (isNaN(customRounds) || customRounds < 1) {
+                return interaction.editReply('❌ El número de rondas debe ser un número válido mayor a 0.');
+            }
         }
-    } catch (error) {
-        console.error("Error crítico durante la creación de la liguilla:", error);
-        await interaction.editReply({ content: `❌ Ocurrió un error muy grave. Revisa los logs.` });
+
+        if (isNaN(qualifiers) || ![2, 4, 8, 16, 32].includes(qualifiers)) {
+            return interaction.editReply({ content: '❌ Error: El número de clasificados debe ser potencia de 2 (2, 4, 8...).' });
+        }
+
+        const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+        const config = { 
+            formatId: 'flexible_league', 
+            isPaid: type === 'pago',
+            qualifiers: qualifiers,
+            leagueMode: leagueMode, // 'all_vs_all' o 'custom_rounds'
+            customRounds: customRounds,
+            matchType: matchType
+        };
+        
+        if (config.isPaid) {
+            config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
+            const [prizeC = '0', prizeF = '0'] = interaction.fields.getTextInputValue('torneo_prizes').split('/');
+            config.prizeCampeon = parseFloat(prizeC.trim());
+            config.prizeFinalista = parseFloat(prizeF.trim());
+            // Valores por defecto para métodos de pago ya que no caben en el modal
+            config.paypalEmail = PAYMENT_CONFIG.PAYPAL_EMAIL; 
+            config.bizumNumber = null; 
+        }
+
+        try {
+            const result = await createNewTournament(client, guild, nombre, shortId, config);
+            if (result.success) {
+                let modeText = leagueMode === 'all_vs_all' ? "Todos contra Todos" : `${customRounds} Partidos por equipo`;
+                let legsText = isDoubleLeg ? "Ida y Vuelta" : "Solo Ida";
+                await interaction.editReply({ content: `✅ ¡Éxito! Liga **"${nombre}"** creada.\n⚙️ Config: ${modeText}, ${legsText}, clasifican ${qualifiers}.` });
+            } else {
+                await interaction.editReply({ content: `❌ Ocurrió un error: ${result.message}` });
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            await interaction.editReply({ content: `❌ Ocurrió un error crítico.` });
+        }
+        return;
     }
-    return;
-}
     if (action === 'create_draft_league_qualifiers_modal') {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     const [draftShortId] = params;
