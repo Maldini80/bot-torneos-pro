@@ -90,7 +90,7 @@ export const TOURNAMENT_FORMATS = {
         size: 32, groups: 8, qualifiersPerGroup: 2, knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final']
     },
     'flexible_league': {
-        label: 'Liguilla Flexible (Equipos Impares/Pares)',
+        label: 'Liguilla',
         description: 'Una única liga donde se juegan 3 jornadas. El número de clasificados es personalizable.',
         description_en: 'A single league where 3 rounds are played. The number of qualifiers is customizable.',
         size: 0, // 0 indica que el tamaño es variable
