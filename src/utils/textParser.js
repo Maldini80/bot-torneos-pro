@@ -27,26 +27,10 @@ export function parsePlayerList(text) {
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
 
-        // 1. Detectar cambio de posición (Cabeceras)
-        const upperLine = line.toUpperCase().replace(/[^A-Z]/g, ''); // Solo letras para comparar
-        let isHeader = false;
-
-        // Revisamos si la línea contiene alguna de las claves de posición
-        for (const [key, value] of Object.entries(positionMap)) {
-            // Comprobación más laxa: si la línea "limpia" contiene la clave (ej: "LOS PORTEROS" -> "LOSPORTEROS" contiene "PORTEROS")
-            // Y la línea original no es muy larga (para evitar falsos positivos en frases largas)
-            if (upperLine.includes(key) && line.length < 40) {
-                currentPosition = value;
-                isHeader = true;
-                break;
-            }
-        }
-        if (isHeader) continue;
-
-        // 2. Ignorar líneas que no parecen jugadores
+        // 1. Ignorar líneas que no parecen jugadores ni cabeceras útiles
         if (line.includes('CIERRE DE LISTA') || line.includes('ENCUESTA') || line.includes('DIRECTO EN TWITCH')) continue;
 
-        // 3. Intento 1: Todo en una línea (ID + WhatsApp)
+        // 2. Intento 1: Todo en una línea (ID + WhatsApp)
         const singleLineMatch = line.match(/^(?:\d+[\.\)\-\s]*)?\s*(.+?)\s+(\+?\d[\d\s\-\.]{8,})$/);
 
         if (singleLineMatch) {
@@ -78,7 +62,7 @@ export function parsePlayerList(text) {
             continue;
         }
 
-        // 4. Intento 2: Multilínea (Nombre en línea actual, WhatsApp en la siguiente)
+        // 3. Intento 2: Multilínea (Nombre en línea actual, WhatsApp en la siguiente)
         if (i + 1 < lines.length) {
             const nextLine = lines[i + 1];
             // Regex estricta para la siguiente línea: SOLO debe ser un número de teléfono (con posibles espacios/puntos)
@@ -116,6 +100,22 @@ export function parsePlayerList(text) {
                 }
             }
         }
+
+        // 4. Detectar cambio de posición (Cabeceras) - AHORA AL FINAL Y MÁS ESTRICTO
+        const upperLine = line.toUpperCase().replace(/[^A-Z0-9\s]/g, ''); // Mantener espacios y números
+        let isHeader = false;
+
+        // Revisamos si la línea contiene alguna de las claves de posición como PALABRA COMPLETA
+        for (const [key, value] of Object.entries(positionMap)) {
+            // Usamos regex con word boundaries (\b) para evitar falsos positivos (ej: "PEDRO" contiene "ED")
+            const regex = new RegExp(`\\b${key}\\b`, 'i');
+            if (regex.test(upperLine) && line.length < 40) {
+                currentPosition = value;
+                isHeader = true;
+                break;
+            }
+        }
+        if (isHeader) continue;
     }
 
     return players;
