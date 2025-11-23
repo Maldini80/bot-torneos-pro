@@ -15,9 +15,6 @@ import { parsePlayerList } from '../utils/textParser.js';
 const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO'];
 const isMidfielder = (pos) => MIDFIELDER_POSITIONS.includes(pos);
 
-const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO'];
-const isMidfielder = (pos) => MIDFIELDER_POSITIONS.includes(pos);
-
 export async function notifyVisualizer(draft) {
     // Enriquece los datos del draft con los strikes persistentes
     const db = getDb();
