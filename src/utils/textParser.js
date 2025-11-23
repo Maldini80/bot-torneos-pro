@@ -7,19 +7,15 @@ export function parsePlayerList(text) {
     const positionMap = {
         // Porteros
         'PORTEROS': 'GK', 'PORTERO': 'GK', 'GK': 'GK',
-
         // Defensas Centrales
         'DEFENSAS': 'DFC', 'DEFENSA': 'DFC', 'DFC': 'DFC', 'CENTRALES': 'DFC',
-
         // Carrileros / Laterales -> CARR
         'CARRILEROS': 'CARR', 'LATERALES': 'CARR', 'LTD': 'CARR', 'LTI': 'CARR', 'CARR': 'CARR',
-
         // Medios (Unificado) -> MC
         'MCD': 'MC', 'PIVOTES': 'MC', 'DEFENSIVOS': 'MC',
         'MEDIOS': 'MC', 'MEDIO': 'MC', 'MEDIOCAMPISTAS': 'MC', 'MC': 'MC',
         'MCO': 'MC', 'OFENSIVOS': 'MC', 'MP': 'MC',
         'EXTREMOS': 'MC', 'EI': 'MC', 'ED': 'MC', 'EXTREMO': 'MC',
-
         // Delanteros -> DC
         'DELANTEROS': 'DC', 'DELANTERO': 'DC', 'DC': 'DC', 'ARIETES': 'DC'
     };
@@ -31,7 +27,8 @@ export function parsePlayerList(text) {
         if (line.includes('CIERRE DE LISTA') || line.includes('ENCUESTA') || line.includes('DIRECTO EN TWITCH')) continue;
 
         // 2. Intento 1: Todo en una línea (ID + WhatsApp)
-        const singleLineMatch = line.match(/^(?:\d+[\.\)\-\s]*)?\s*(.+?)\s+(\+?\d[\d\s\-\.]{8,})$/);
+        // Relaxed regex: \s* before phone number to handle cases like "...(DFC)634..."
+        const singleLineMatch = line.match(/^(?:\d+[\.\)\-\s]*)?\s*(.+?)\s*(\+?\d[\d\s\-\.]{8,})$/);
 
         if (singleLineMatch) {
             let gameId = singleLineMatch[1].trim();
@@ -54,7 +51,6 @@ export function parsePlayerList(text) {
 
                 // Quitar la posición del nombre
                 gameId = gameId.replace(positionRegex, '').trim();
-                // Limpiar caracteres extra que puedan quedar (ej: "Pepe -")
                 gameId = gameId.replace(/[\-\|]+$/, '').trim();
             }
 

@@ -374,6 +374,29 @@ function initializeDraftView(draftId) {
     }
 
     async function checkUserSession() {
+        try {
+            const response = await fetch('/api/user');
+            currentUser = await response.json();
+            const userSessionEl = document.getElementById('user-session');
+            const loginControlEl = document.getElementById('login-control');
+
+            if (currentUser) {
+                document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
+                userSessionEl.classList.remove('hidden');
+                if (loginControlEl) loginControlEl.classList.add('hidden');
+            } else {
+                userSessionEl.classList.add('hidden');
+                if (loginControlEl) loginControlEl.classList.remove('hidden');
+            }
+        } catch (e) {
+            console.error("Error al verificar la sesión:", e);
+        }
+    }
+
+    function renderAvailablePlayers(draft) {
+        playersTableBodyEl.innerHTML = '';
+        const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
+        const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
 
         // --- NUEVA LÓGICA DE VISIBILIDAD DE DETALLES ---
         const canViewDetails = currentUser && (draft.status === 'finalizado' || draft.status === 'torneo_generado');
