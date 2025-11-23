@@ -3267,3 +3267,49 @@ export async function undoLastPick(client, draftShortId, adminName) {
 
     console.log(`[ADMIN] Pick deshecho por ${adminName}. Jugador ${lastPlayer.psnId} devuelto a la pool. Turno devuelto a ${previousCaptainId}.`);
 }
+
+export async function addSinglePlayerToDraft(client, draftShortId, playerData) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
+    const { gameId, whatsapp, position, discordId } = playerData;
+
+    // 1. Check duplicates
+    const alreadyInDraft = draft.players.some(dp =>
+        dp.psnId.toLowerCase() === gameId.toLowerCase() ||
+        (dp.whatsapp && dp.whatsapp === whatsapp) ||
+        (dp.userId && dp.userId === discordId)
+    );
+
+    if (alreadyInDraft) {
+        return { success: false, message: `El jugador ${gameId} (o su WhatsApp/Discord) ya está en el draft.` };
+    }
+
+    // 2. Create player object
+    const newPlayer = {
+        userId: discordId || `ext-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        psnId: gameId,
+        whatsapp: whatsapp || null,
+        primaryPosition: position,
+        secondaryPosition: 'NONE',
+        currentTeam: 'Libre',
+        captainId: null,
+        isCaptain: false,
+        stats: { pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, dg: 0, pts: 0, mvp: 0, cs: 0, cards: { yellow: 0, red: 0 } }
+    };
+
+    // 3. Add to draft
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $push: { players: newPlayer } }
+    );
+
+    // 4. Update interfaces
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft);
+
+    return { success: true, message: `Jugador ${gameId} añadido correctamente.` };
+}
