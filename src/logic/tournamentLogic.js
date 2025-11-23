@@ -3119,3 +3119,41 @@ export async function handleImportedPlayers(client, draftShortId, text) {
             : `✅ Jugador Externo **${playerData.psnId}** añadido correctamente.`
     };
 }
+
+export async function adminAddPlayerFromWeb(client, draftShortId, teamId, playerId, adminName) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
+    const team = draft.teams.find(t => t.id === teamId);
+    if (!team) throw new Error('Equipo no encontrado.');
+
+    const player = draft.players.find(p => p.userId === playerId);
+    if (!player) throw new Error('Jugador no encontrado en la pool.');
+
+    if (player.currentTeam !== 'Libre') throw new Error('El jugador ya tiene equipo.');
+
+    // Asignar al equipo
+    player.currentTeam = team.name;
+    player.captainId = team.userId; // Asumiendo que team.userId es el ID del capitán
+    team.players.push(player);
+
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        {
+            $set: {
+                players: draft.players,
+                teams: draft.teams
+            }
+        }
+    );
+
+    // Update interfaces
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
+
+    console.log(`[ADMIN] Jugador ${player.psnId} añadido a ${team.name} por ${adminName} desde web.`);
+}
