@@ -2995,6 +2995,31 @@ export async function handleImportedPlayers(client, draftShortId, text) {
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
 
+    const summary = `**Resumen de Importación:**\n` +
+        `✅ Añadidos: ${addedCount}\n` +
+        `🔗 Vinculados: ${linkedCount}\n` +
+        `👤 Externos: ${externalCount}\n` +
+        `♻️ Mantenidos: ${keptCount}\n` +
+        `🗑️ Eliminados: ${removedCount}`;
+
+    return {
+        success: true,
+        message: summary,
+        stats: {
+            added: addedCount,
+            linked: linkedCount,
+            external: externalCount,
+            kept: keptCount,
+            removed: removedCount
+        }
+    };
+}
+
+export async function addSinglePlayerToDraft(client, draftShortId, data) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
     const { gameId, whatsapp, position, discordId } = data;
 
     // 1. Check duplicates
