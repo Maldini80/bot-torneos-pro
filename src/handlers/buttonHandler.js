@@ -2514,12 +2514,8 @@ export async function handleButton(interaction) {
             .setLabel('🔍 Buscar Equipo')
             .setStyle(ButtonStyle.Secondary);
 
-        // Añadimos el botón de búsqueda a la última fila o creamos una nueva si está llena
-        if (components.length > 0 && components[components.length - 1].components.length < 5) {
-            components[components.length - 1].addComponents(searchButton);
-        } else {
-            components.push(new ActionRowBuilder().addComponents(searchButton));
-        }
+        // Añadimos el botón de búsqueda SIEMPRE en una nueva fila para evitar conflictos con SelectMenus
+        components.push(new ActionRowBuilder().addComponents(searchButton));
         // -------------------------
 
         await interaction.editReply({
