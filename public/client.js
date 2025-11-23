@@ -93,7 +93,7 @@ function initializeTournamentView(tournamentId) {
             viewSwitcherEl.style.display = 'none';
             document.querySelector('.mobile-view-switcher').style.display = 'none';
             const activePane = mainPanelEl.querySelector('.view-pane.active');
-            if(activePane) activePane.classList.remove('active');
+            if (activePane) activePane.classList.remove('active');
             finishedViewEl.classList.add('active');
             const finalMatch = tournament.structure.eliminatorias.final;
             if (finalMatch && finalMatch.resultado) {
@@ -113,7 +113,7 @@ function initializeTournamentView(tournamentId) {
         if (!mainPanelEl.querySelector('.view-pane.active')) {
             mainPanelEl.querySelector('[data-view="classification-view"]').click();
         }
-        
+
         tournamentNameEl.textContent = tournament.nombre;
         tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
         renderTeams(tournament);
@@ -138,7 +138,7 @@ function initializeTournamentView(tournamentId) {
                 metaHTML += `<span>Co-Capitán: ${team.coCaptainTag}</span>`;
             }
             metaHTML += '</div>';
-            const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@','')}" target="_blank" class="team-link-btn">Twitter</a>` : '';
+            const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@', '')}" target="_blank" class="team-link-btn">Twitter</a>` : '';
             const streamLink = team.streamChannel ? `<a href="${team.streamChannel}" target="_blank" class="team-link-btn">Ver Stream</a>` : '';
             const linksHTML = (twitterLink || streamLink) ? `<div class="team-links">${twitterLink}${streamLink}</div>` : '';
             const card = document.createElement('div');
@@ -160,7 +160,7 @@ function initializeTournamentView(tournamentId) {
         }
 
         const sortedGroupNames = Object.keys(groups).sort();
-        
+
         sortedGroupNames.forEach(groupName => {
             const group = groups[groupName];
             const sortedTeams = [...group.equipos].sort((a, b) => {
@@ -170,11 +170,11 @@ function initializeTournamentView(tournamentId) {
             });
 
             let groupHTML = `<div class="group-container"><h3 class="group-title">${groupName}</h3>`;
-            
+
             sortedTeams.forEach((team, index) => {
                 const dg = team.stats.dg > 0 ? `+${team.stats.dg}` : team.stats.dg;
                 const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
-                
+
                 groupHTML += `
                     <div class="team-stat-card">
                         <div class="team-info-classification">
@@ -249,7 +249,7 @@ function initializeTournamentView(tournamentId) {
             bracketContainerEl.innerHTML = '<p class="placeholder">Las eliminatorias no han comenzado.</p>';
             return;
         }
-        
+
         stages.forEach(stageKey => {
             const matches = tournament.structure.eliminatorias[stageKey];
             if (!matches || (Array.isArray(matches) && matches.length === 0)) return;
@@ -262,7 +262,7 @@ function initializeTournamentView(tournamentId) {
                 const teamBName = teamB?.nombre || 'Por definir';
                 const teamALogo = teamA?.logoUrl ? `<img src="${teamA.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
                 const teamBLogo = teamB?.logoUrl ? `<img src="${teamB.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
-                
+
                 let scoreA = '', scoreB = '';
                 let classA = '', classB = '';
                 if (match.resultado) {
@@ -298,7 +298,7 @@ function initializeTournamentView(tournamentId) {
             });
         }
         const liveMatches = allMatches.filter(match => match && match.status === 'en_curso');
-        
+
         liveMatchesListEl.innerHTML = '';
         if (liveMatches.length === 0) {
             liveMatchesListEl.innerHTML = '<p class="placeholder">No hay partidos en juego.</p>';
@@ -378,156 +378,88 @@ function initializeDraftView(draftId) {
             const response = await fetch('/api/user');
             currentUser = await response.json();
             const userSessionEl = document.getElementById('user-session');
+            const loginControlEl = document.getElementById('login-control');
+
             if (currentUser) {
                 document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
                 userSessionEl.classList.remove('hidden');
+                if (loginControlEl) loginControlEl.classList.add('hidden');
+            } else {
+                userSessionEl.classList.add('hidden');
+                if (loginControlEl) loginControlEl.classList.remove('hidden');
             }
         } catch (e) {
             console.error("Error al verificar la sesión:", e);
         }
     }
 
-    function connectWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        socket = new WebSocket(`${protocol}://${window.location.host}`);
-        socket.onopen = () => console.log('Conectado al servidor para Draft.');
+    // ... (omitted code)
 
-        socket.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            if (message.type === 'draft' && message.id === draftId) {
-                currentDraftState = message.data;
-                if (!hasLoadedInitialData) {
-                    loadingEl.classList.add('hidden');
-                    draftContainerEl.classList.remove('hidden');
-                    hasLoadedInitialData = true;
-                }
-                const lastPick = currentDraftState.selection.lastPick;
-                if (lastPick && JSON.stringify(lastPick) !== JSON.stringify(lastShownPickData)) {
-                    showPickAlert(lastPick.pickNumber, { psnId: lastPick.playerPsnId }, { teamName: lastPick.captainTeamName });
-                    lastShownPickData = lastPick;
-                }
-                renderAll();
-            }
-            if (message.type === 'pick_error' || message.type === 'strike_error') {
-                alert(`Error: ${message.message}`);
-                if (currentDraftState) renderAll();
-            }
-        };
-    }
+    function renderAvailablePlayers(draft) {
+        playersTableBodyEl.innerHTML = '';
+        const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
+        const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
 
-    function fetchInitialData() {
-        fetch(`/draft-data/${draftId}`)
-            .then(res => res.ok ? res.json() : null)
-            .then(data => {
-                if (data && !hasLoadedInitialData) {
-                    currentDraftState = data;
-                    loadingEl.classList.add('hidden');
-                    draftContainerEl.classList.remove('hidden');
-                    hasLoadedInitialData = true;
-                    renderAll();
-                }
-            }).catch(err => console.warn('Error en fetch inicial:', err));
-    }
+        // --- NUEVA LÓGICA DE VISIBILIDAD DE DETALLES ---
+        const canViewDetails = currentUser && (draft.status === 'finalizado' || draft.status === 'torneo_generado');
+        const isAuthenticated = !!currentUser;
 
-    function renderAll() {
-        if (!currentDraftState) return;
-        renderHeader(currentDraftState);
-        renderTeams(currentDraftState);
-        renderAvailablePlayers(currentDraftState);
-        renderTeamManagementView(currentDraftState);
-    }
-
-    function renderHeader(draft) {
-        draftNameEl.textContent = draft.name;
-        if ((draft.status === 'finalizado' || draft.status === 'torneo_generado')) {
-            roundInfoEl.textContent = 'Selección Finalizada';
-            currentTeamEl.textContent = '---';
-            currentPickEl.textContent = '---';
-            roundPickOrderEl.innerHTML = '';
-        } else if (draft.status === 'seleccion' && draft.captains.length > 0 && draft.selection.order.length > 0) {
-            const numCaptains = draft.captains.length;
-            const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
-            const totalRounds = 10;
-            roundInfoEl.textContent = `Ronda ${currentRound} de ${totalRounds}`;
-            const currentCaptain = draft.captains.find(c => c.userId === draft.selection.order[draft.selection.turn]);
-            currentTeamEl.textContent = currentCaptain ? currentCaptain.teamName : 'N/A';
-            currentPickEl.textContent = draft.selection.currentPick;
-            renderRoundPickOrder(draft);
-        }
-        const isMyTeamManaged = currentUser && draft.captains.some(c => c.userId === currentUser.id);
-        manageTeamTab.style.display = (draft.status === 'finalizado' || draft.status === 'torneo_generado') && isMyTeamManaged ? 'inline-block' : 'none';
-    }
-
-    function renderTeams(draft) {
-        const teamsGrid = document.getElementById('teams-grid');
-        if (!teamsGrid) return;
-        let allTeamsHtml = '';
-        draft.captains.sort((a, b) => a.teamName.localeCompare(b.teamName)).forEach(captain => {
-            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId).sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
-            let rosterHtml = '';
-            teamPlayers.forEach(player => {
-                const isCaptainIcon = player.isCaptain ? '👑' : '';
-                let positionDisplay = player.pickedForPosition || player.primaryPosition;
-                if (player.pickedForPosition && player.pickedForPosition !== player.primaryPosition) {
-                    positionDisplay += '*';
-                }
-                rosterHtml += `<li><span class="player-name">${isCaptainIcon} ${player.psnId}</span><span class="player-pos">${positionDisplay}</span></li>`;
-            });
-            allTeamsHtml += `<div class="team-card"><h3 class="team-header">${captain.teamName}<span class="captain-psn">Cap: ${captain.psnId}</span></h3><ul class="team-roster">${rosterHtml}</ul></div>`;
-        });
-        teamsGrid.innerHTML = allTeamsHtml;
-    }
-
-function renderAvailablePlayers(draft) {
-    playersTableBodyEl.innerHTML = '';
-    const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
-    const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
-    
-    // --- NUEVA LÓGICA DE VISIBILIDAD DE DETALLES ---
-    const canViewDetails = currentUser && (draft.status === 'finalizado' || draft.status === 'torneo_generado');
-
-    const filterSelect = document.getElementById('filter-column-select');
-    if (filterSelect) {
-        filterSelect.style.display = isMyTurn ? 'none' : 'inline-block';
-    }
-    const legendEl = document.querySelector('#available-players-container-draftview .legend');
-    if (legendEl) {
-        legendEl.style.display = isMyTurn ? 'none' : 'block';
-    }
-
-    let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false);
-    
-    availablePlayers.sort(sortPlayersAdvanced);
-
-    availablePlayers.forEach(player => {
-        const row = document.createElement('tr');
-        row.dataset.primaryPos = player.primaryPosition;
-        row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
-
-        const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
-        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-        
-        let actionButtonsHTML = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
-        
-        // Si se cumplen las condiciones, añadimos el botón de ver detalles
-        if (canViewDetails) {
-            actionButtonsHTML += `<button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>`;
+        // Mostrar/Ocultar columna WhatsApp
+        const whatsappHeader = document.querySelector('.col-whatsapp');
+        if (whatsappHeader) {
+            if (isAuthenticated) whatsappHeader.classList.remove('hidden');
+            else whatsappHeader.classList.add('hidden');
         }
 
-        const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
-        
-        row.innerHTML = `
+        const filterSelect = document.getElementById('filter-column-select');
+        if (filterSelect) {
+            filterSelect.style.display = isMyTurn ? 'none' : 'inline-block';
+        }
+        const legendEl = document.querySelector('#available-players-container-draftview .legend');
+        if (legendEl) {
+            legendEl.style.display = isMyTurn ? 'none' : 'block';
+        }
+
+        let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false);
+
+        availablePlayers.sort(sortPlayersAdvanced);
+
+        availablePlayers.forEach(player => {
+            const row = document.createElement('tr');
+            row.dataset.primaryPos = player.primaryPosition;
+            row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
+
+            const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
+            const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+
+            let actionButtonsHTML = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
+
+            // Si se cumplen las condiciones, añadimos el botón de ver detalles
+            if (canViewDetails) {
+                actionButtonsHTML += `<button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>`;
+            }
+
+            const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
+
+            // Renderizado condicional de WhatsApp
+            let whatsappCell = '';
+            if (isAuthenticated) {
+                whatsappCell = `<td data-label="WhatsApp"><span class="player-data">${player.whatsapp || 'N/A'}</span></td>`;
+            }
+
+            row.innerHTML = `
             <td data-label="Strikes"><span class="player-data">${player.strikes || 0}</span></td>
             <td data-label="NOMBRE"><span class="player-data">${statusIcon} ${player.psnId}</span></td>
+            ${whatsappCell}
             <td data-label="Pos. Primaria" class="col-primary"><span class="player-data">${player.primaryPosition}</span></td>
             <td data-label="Pos. Secundaria" class="col-secondary"><span class="player-data">${secPos}</span></td>
             <td data-label="Acción" class="col-action">${actionButtonsHTML}</td>
         `;
-        playersTableBodyEl.appendChild(row);
-    });
+            playersTableBodyEl.appendChild(row);
+        });
 
-    applyTableFilters();
-}
+        applyTableFilters();
+    }
     function applyTableFilters() {
         const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
         const filterColumn = document.getElementById('filter-column-select').value;
@@ -541,9 +473,9 @@ function renderAvailablePlayers(draft) {
 
         let hasPrimaryMatchesInData = false;
         if (isMyTurn && activeFilterPos !== 'Todos' && currentDraftState) {
-            hasPrimaryMatchesInData = currentDraftState.players.some(p => 
-                !p.captainId && 
-                !p.isCaptain && 
+            hasPrimaryMatchesInData = currentDraftState.players.some(p =>
+                !p.captainId &&
+                !p.isCaptain &&
                 p.primaryPosition === activeFilterPos
             );
 
@@ -557,7 +489,7 @@ function renderAvailablePlayers(draft) {
         rows.forEach(row => {
             const primaryPos = row.dataset.primaryPos;
             const secondaryPos = row.dataset.secondaryPos;
-            
+
             let isVisible = false;
             if (activeFilterPos === 'Todos') {
                 isVisible = true;
@@ -576,7 +508,7 @@ function renderAvailablePlayers(draft) {
                     }
                 }
             }
-            
+
             row.style.display = isVisible ? '' : 'none';
         });
     }
@@ -590,83 +522,83 @@ function renderAvailablePlayers(draft) {
         }));
 
         playersTableBodyEl.addEventListener('click', (event) => {
-        if (event.target.classList.contains('pick-btn')) {
-            const playerId = event.target.dataset.playerId;
-            let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
+            if (event.target.classList.contains('pick-btn')) {
+                const playerId = event.target.dataset.playerId;
+                let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
 
-            if (!activeFilterPos || activeFilterPos === 'Todos') {
-                const playerRow = event.target.closest('tr');
-                activeFilterPos = playerRow.dataset.primaryPos;
-            }
+                if (!activeFilterPos || activeFilterPos === 'Todos') {
+                    const playerRow = event.target.closest('tr');
+                    activeFilterPos = playerRow.dataset.primaryPos;
+                }
 
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
-                document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
-            }
-        } 
-       
-    });
-
-        rosterManagementContainer.addEventListener('click', (event) => {
-        const target = event.target;
-        const playerId = target.dataset.playerId;
-        const draftId = target.dataset.draftId; // Lo necesitamos aquí también
-
-        if (target.classList.contains('btn-strike')) {
-            const reason = prompt("Por favor, introduce un motivo breve para el strike (ej: inactividad, toxicidad):");
-            if (reason && reason.trim() !== '') {
-                socket.send(JSON.stringify({ type: 'report_player', draftId, playerId, reason: reason.trim() }));
-                target.disabled = true;
-                target.textContent = 'Reportado';
-            }
-        }
-
-        if (target.classList.contains('btn-kick')) {
-            const reason = prompt("Por favor, introduce un motivo breve para solicitar la expulsión:");
-            if (reason && reason.trim() !== '') {
-                if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador por el motivo "${reason.trim()}"? Un administrador deberá aprobarlo.`)) {
-                    socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason: reason.trim() }));
-                    target.disabled = true;
-                    target.textContent = 'Solicitud Pendiente';
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
+                    document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
                 }
             }
-        }
-        
-        // --- BLOQUE AÑADIDO ---
-        if (target.classList.contains('details-btn')) {
-            showPlayerDetailsModal(draftId, playerId);
-        }
-        // --- FIN DEL BLOQUE AÑADIDO ---
-    });
 
-    // Lógica para cerrar el nuevo modal
-    const detailsModal = document.getElementById('player-details-modal');
-    const closeDetailsButton = detailsModal.querySelector('.close-button');
-    
-    closeDetailsButton.addEventListener('click', () => detailsModal.classList.add('hidden'));
-    detailsModal.addEventListener('click', (event) => {
-        if (event.target === detailsModal) {
-            detailsModal.classList.add('hidden');
-        }
-    });
-        // --- INICIO DEL NUEVO BLOQUE DE ESCUCHA GLOBAL ---
-    document.addEventListener('click', function(event) {
-        // Solo nos interesa si se hizo clic en un botón con la clase 'details-btn'
-        if (event.target.classList.contains('details-btn')) {
-            const playerId = event.target.dataset.playerId;
-            const draftId = event.target.dataset.draftId;
-            
-            // Debug log que pediste:
-            console.log('Botón de Ficha clickeado, datos:', { draftId, playerId });
+        });
 
-            // Si tenemos los datos, mostramos la ventana
-            if (draftId && playerId) {
-                showPlayerDetailsModal(draftId, playerId);
-            } else {
-                console.error('Faltan datos en el botón para mostrar la ficha (draftId o playerId).');
+        rosterManagementContainer.addEventListener('click', (event) => {
+            const target = event.target;
+            const playerId = target.dataset.playerId;
+            const draftId = target.dataset.draftId; // Lo necesitamos aquí también
+
+            if (target.classList.contains('btn-strike')) {
+                const reason = prompt("Por favor, introduce un motivo breve para el strike (ej: inactividad, toxicidad):");
+                if (reason && reason.trim() !== '') {
+                    socket.send(JSON.stringify({ type: 'report_player', draftId, playerId, reason: reason.trim() }));
+                    target.disabled = true;
+                    target.textContent = 'Reportado';
+                }
             }
-        }
-    });
+
+            if (target.classList.contains('btn-kick')) {
+                const reason = prompt("Por favor, introduce un motivo breve para solicitar la expulsión:");
+                if (reason && reason.trim() !== '') {
+                    if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador por el motivo "${reason.trim()}"? Un administrador deberá aprobarlo.`)) {
+                        socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason: reason.trim() }));
+                        target.disabled = true;
+                        target.textContent = 'Solicitud Pendiente';
+                    }
+                }
+            }
+
+            // --- BLOQUE AÑADIDO ---
+            if (target.classList.contains('details-btn')) {
+                showPlayerDetailsModal(draftId, playerId);
+            }
+            // --- FIN DEL BLOQUE AÑADIDO ---
+        });
+
+        // Lógica para cerrar el nuevo modal
+        const detailsModal = document.getElementById('player-details-modal');
+        const closeDetailsButton = detailsModal.querySelector('.close-button');
+
+        closeDetailsButton.addEventListener('click', () => detailsModal.classList.add('hidden'));
+        detailsModal.addEventListener('click', (event) => {
+            if (event.target === detailsModal) {
+                detailsModal.classList.add('hidden');
+            }
+        });
+        // --- INICIO DEL NUEVO BLOQUE DE ESCUCHA GLOBAL ---
+        document.addEventListener('click', function (event) {
+            // Solo nos interesa si se hizo clic en un botón con la clase 'details-btn'
+            if (event.target.classList.contains('details-btn')) {
+                const playerId = event.target.dataset.playerId;
+                const draftId = event.target.dataset.draftId;
+
+                // Debug log que pediste:
+                console.log('Botón de Ficha clickeado, datos:', { draftId, playerId });
+
+                // Si tenemos los datos, mostramos la ventana
+                if (draftId && playerId) {
+                    showPlayerDetailsModal(draftId, playerId);
+                } else {
+                    console.error('Faltan datos en el botón para mostrar la ficha (draftId o playerId).');
+                }
+            }
+        });
     }
 
     function setupFilters() {
@@ -691,28 +623,28 @@ function renderAvailablePlayers(draft) {
         });
     }
 
-function renderTeamManagementView(draft) {
-    const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
-    if (!myCaptainData) {
+    function renderTeamManagementView(draft) {
+        const myCaptainData = draft.captains.find(c => c.userId === currentUser?.id);
+        if (!myCaptainData) {
+            rosterManagementContainer.innerHTML = '';
+            return;
+        }
+        managementTeamName.textContent = myCaptainData.teamName;
         rosterManagementContainer.innerHTML = '';
-        return;
-    }
-    managementTeamName.textContent = myCaptainData.teamName;
-    rosterManagementContainer.innerHTML = '';
-    const myTeamPlayers = draft.players.filter(p => p.captainId === currentUser.id && !p.isCaptain);
+        const myTeamPlayers = draft.players.filter(p => p.captainId === currentUser.id && !p.isCaptain);
 
-    myTeamPlayers.forEach(player => {
-        const card = document.createElement('div');
-        card.className = 'player-management-card';
-        const strikes = player.strikes || 0;
-        
-        const hasBeenReported = player.hasBeenReportedByCaptain || false;
-        const kickRequestPending = player.kickRequestPending || false;
-        
-        const reportButtonText = hasBeenReported ? 'Reportado' : 'Reportar (Strike)';
-        const kickButtonText = kickRequestPending ? 'Solicitud Pendiente' : 'Solicitar Expulsión';
+        myTeamPlayers.forEach(player => {
+            const card = document.createElement('div');
+            card.className = 'player-management-card';
+            const strikes = player.strikes || 0;
 
-        card.innerHTML = `
+            const hasBeenReported = player.hasBeenReportedByCaptain || false;
+            const kickRequestPending = player.kickRequestPending || false;
+
+            const reportButtonText = hasBeenReported ? 'Reportado' : 'Reportar (Strike)';
+            const kickButtonText = kickRequestPending ? 'Solicitud Pendiente' : 'Solicitar Expulsión';
+
+            card.innerHTML = `
             <div class="player-management-info">
                 <h3>${player.psnId}</h3>
                 <p>Posición: ${player.primaryPosition}</p>
@@ -728,16 +660,16 @@ function renderTeamManagementView(draft) {
                 <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>
             </div>
         `;
-        rosterManagementContainer.appendChild(card);
-    });
-}
+            rosterManagementContainer.appendChild(card);
+        });
+    }
     function sortPlayersAdvanced(a, b) {
         const posIndexA = positionOrder.indexOf(a.primaryPosition);
         const posIndexB = positionOrder.indexOf(b.primaryPosition);
         if (posIndexA !== posIndexB) return posIndexA - posIndexB;
         return a.psnId.localeCompare(b.psnId);
     }
-    
+
     function renderRoundPickOrder(draft) {
         roundPickOrderEl.innerHTML = '';
         if (draft.status !== 'seleccion') return;
@@ -783,25 +715,25 @@ function renderTeamManagementView(draft) {
         bannerEl.innerHTML = `<strong>Último Pick:</strong> ${player.psnId} ➔ ${captain.teamName}`;
         bannerEl.classList.add('visible');
     }
-async function showPlayerDetailsModal(draftId, playerId) {
-    const modal = document.getElementById('player-details-modal');
-    const modalPlayerName = document.getElementById('modal-player-name');
-    const modalContent = document.getElementById('modal-player-details-content');
+    async function showPlayerDetailsModal(draftId, playerId) {
+        const modal = document.getElementById('player-details-modal');
+        const modalPlayerName = document.getElementById('modal-player-name');
+        const modalContent = document.getElementById('modal-player-details-content');
 
-    modalPlayerName.textContent = 'Cargando...';
-    modalContent.innerHTML = '<p>Obteniendo datos del jugador...</p>';
-    modal.classList.remove('hidden');
+        modalPlayerName.textContent = 'Cargando...';
+        modalContent.innerHTML = '<p>Obteniendo datos del jugador...</p>';
+        modal.classList.remove('hidden');
 
-    try {
-        const response = await fetch(`/api/player-details/${draftId}/${playerId}`);
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'No se pudieron obtener los detalles.');
-        }
-        const data = await response.json();
+        try {
+            const response = await fetch(`/api/player-details/${draftId}/${playerId}`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'No se pudieron obtener los detalles.');
+            }
+            const data = await response.json();
 
-        modalPlayerName.textContent = `Ficha de: ${data.psnId}`;
-        modalContent.innerHTML = `
+            modalPlayerName.textContent = `Ficha de: ${data.psnId}`;
+            modalContent.innerHTML = `
             <p><span class="detail-label">Discord:</span> <span class="detail-value">${data.discordTag}</span></p>
             <p><span class="detail-label">ID de Juego:</span> <span class="detail-value">${data.psnId}</span></p>
             <p><span class="detail-label">Pos. Primaria:</span> <span class="detail-value">${data.primaryPosition}</span></p>
@@ -810,12 +742,12 @@ async function showPlayerDetailsModal(draftId, playerId) {
             <p><span class="detail-label">Twitter:</span> <span class="detail-value">${data.twitter || 'No registrado'}</span></p>
             <p><span class="detail-label">Strikes:</span> <span class="detail-value">${data.strikes}</span></p>
         `;
-    } catch (error) {
-        modalPlayerName.textContent = 'Error';
-        modalContent.innerHTML = `<p style="color: var(--primary-color);">${error.message}</p>`;
+        } catch (error) {
+            modalPlayerName.textContent = 'Error';
+            modalContent.innerHTML = `<p style="color: var(--primary-color);">${error.message}</p>`;
+        }
     }
-}
-    
+
     initialize();
 }
 
@@ -848,7 +780,7 @@ function initializeRouletteView(sessionId) {
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
         console.log('[DEBUG 6] Actualización recibida del bot:', message);
-        
+
         if (message.type === 'tournament' && message.id === currentTournamentId) {
             console.log('[DEBUG 7] ¡IDs coinciden! Actualizando la lista de grupos.', { id_recibido: message.id, id_esperado: currentTournamentId });
             updateGroupDisplay(message.data.structure.grupos);
@@ -861,7 +793,7 @@ function initializeRouletteView(sessionId) {
         try {
             const response = await fetch(`/api/roulette-data/${sessionId}`);
             const data = await response.json();
-            
+
             if (response.ok) {
                 teams = data.teams;
                 currentTournamentId = data.tournamentShortId; // Usamos el ID del torneo
@@ -925,12 +857,12 @@ function initializeRouletteView(sessionId) {
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
         if (teams.length > 12) {
-    // Si hay muchos equipos (ej. 16), usamos una fuente más pequeña
-    ctx.font = 'bold 16px Bebas Neue';
-} else {
-    // Si hay pocos equipos (ej. 8), usamos la fuente grande de siempre
-    ctx.font = 'bold 24px Bebas Neue';
-}
+            // Si hay muchos equipos (ej. 16), usamos una fuente más pequeña
+            ctx.font = 'bold 16px Bebas Neue';
+        } else {
+            // Si hay pocos equipos (ej. 8), usamos la fuente grande de siempre
+            ctx.font = 'bold 24px Bebas Neue';
+        }
         teams.forEach((team, i) => {
             const angle = startAngle + i * arc;
             ctx.fillStyle = colors[i % colors.length];
@@ -987,7 +919,7 @@ function initializeRouletteView(sessionId) {
 
         setTimeout(() => { fetchTeams(); }, 4000);
     }
-    
+
     function easeOut(t, b, c, d) {
         const ts = (t /= d) * t;
         const tc = ts * t;

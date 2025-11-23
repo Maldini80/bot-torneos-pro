@@ -28,10 +28,14 @@ export function parsePlayerList(text) {
         let line = lines[i];
 
         // 1. Detectar cambio de posición (Cabeceras)
-        const upperLine = line.toUpperCase();
+        const upperLine = line.toUpperCase().replace(/[^A-Z]/g, ''); // Solo letras para comparar
         let isHeader = false;
+
+        // Revisamos si la línea contiene alguna de las claves de posición
         for (const [key, value] of Object.entries(positionMap)) {
-            if (upperLine.includes(key) && (upperLine.includes('🥅') || upperLine.includes('🧱') || upperLine.includes('⚡') || upperLine.includes('⚽') || upperLine.includes('🏟️') || line.length < 30)) {
+            // Comprobación más laxa: si la línea "limpia" contiene la clave (ej: "LOS PORTEROS" -> "LOSPORTEROS" contiene "PORTEROS")
+            // Y la línea original no es muy larga (para evitar falsos positivos en frases largas)
+            if (upperLine.includes(key) && line.length < 40) {
                 currentPosition = value;
                 isHeader = true;
                 break;
@@ -50,7 +54,27 @@ export function parsePlayerList(text) {
             let whatsapp = singleLineMatch[2].replace(/[\s\-\.]/g, '');
             gameId = gameId.replace(/\s*\(.*\)$/, '').trim(); // Quitar paréntesis extra
 
-            players.push({ gameId, whatsapp, position: currentPosition });
+            // Intentar extraer posición del nombre (ej: "Pepe DC")
+            let position = currentPosition;
+            const positionRegex = /\b(GK|PORTERO|DFC|DF|CENTRAL|LTD|LTI|LATERAL|CARR|CARRILERO|MCD|MC|MCO|MEDIO|MP|EI|ED|EXTREMO|DC|DELANTERO|ARIETE)\b/i;
+            const posMatch = gameId.match(positionRegex);
+
+            if (posMatch) {
+                const rawPos = posMatch[1].toUpperCase();
+                // Mapear a estándar
+                if (['GK', 'PORTERO'].includes(rawPos)) position = 'GK';
+                else if (['DFC', 'DF', 'CENTRAL'].includes(rawPos)) position = 'DFC';
+                else if (['LTD', 'LTI', 'LATERAL', 'CARR', 'CARRILERO'].includes(rawPos)) position = 'CARR';
+                else if (['MCD', 'MC', 'MCO', 'MEDIO', 'MP', 'EI', 'ED', 'EXTREMO'].includes(rawPos)) position = 'MC';
+                else if (['DC', 'DELANTERO', 'ARIETE'].includes(rawPos)) position = 'DC';
+
+                // Quitar la posición del nombre
+                gameId = gameId.replace(positionRegex, '').trim();
+                // Limpiar caracteres extra que puedan quedar (ej: "Pepe -")
+                gameId = gameId.replace(/[\-\|]+$/, '').trim();
+            }
+
+            players.push({ gameId, whatsapp, position });
             continue;
         }
 
@@ -65,9 +89,28 @@ export function parsePlayerList(text) {
                 let whatsapp = phoneMatch[1].replace(/[\s\-\.]/g, '');
                 gameId = gameId.replace(/\s*\(.*\)$/, '').trim();
 
+                // Intentar extraer posición del nombre (ej: "Pepe DC")
+                let position = currentPosition;
+                const positionRegex = /\b(GK|PORTERO|DFC|DF|CENTRAL|LTD|LTI|LATERAL|CARR|CARRILERO|MCD|MC|MCO|MEDIO|MP|EI|ED|EXTREMO|DC|DELANTERO|ARIETE)\b/i;
+                const posMatch = gameId.match(positionRegex);
+
+                if (posMatch) {
+                    const rawPos = posMatch[1].toUpperCase();
+                    // Mapear a estándar
+                    if (['GK', 'PORTERO'].includes(rawPos)) position = 'GK';
+                    else if (['DFC', 'DF', 'CENTRAL'].includes(rawPos)) position = 'DFC';
+                    else if (['LTD', 'LTI', 'LATERAL', 'CARR', 'CARRILERO'].includes(rawPos)) position = 'CARR';
+                    else if (['MCD', 'MC', 'MCO', 'MEDIO', 'MP', 'EI', 'ED', 'EXTREMO'].includes(rawPos)) position = 'MC';
+                    else if (['DC', 'DELANTERO', 'ARIETE'].includes(rawPos)) position = 'DC';
+
+                    // Quitar la posición del nombre
+                    gameId = gameId.replace(positionRegex, '').trim();
+                    gameId = gameId.replace(/[\-\|]+$/, '').trim();
+                }
+
                 // Evitar falsos positivos si el "nombre" parece basura o muy corto y numérico
                 if (gameId.length > 1) {
-                    players.push({ gameId, whatsapp, position: currentPosition });
+                    players.push({ gameId, whatsapp, position });
                     i++; // Saltar la siguiente línea ya que la hemos consumido
                     continue;
                 }

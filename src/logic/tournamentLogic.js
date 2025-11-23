@@ -2994,6 +2994,7 @@ export async function handleImportedPlayers(client, draftShortId, text) {
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
 
     const summary = `**Resumen de Importación:**\n` +
         `✅ Añadidos: ${addedCount}\n` +

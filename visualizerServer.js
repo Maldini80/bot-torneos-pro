@@ -25,15 +25,40 @@ app.set('trust proxy', 1);
 const draftStates = new Map();
 const tournamentStates = new Map();
 
+function sanitizeDraftForPublic(draft) {
+    // Copia profunda para no mutar el original
+    const cleanDraft = JSON.parse(JSON.stringify(draft));
+    if (cleanDraft.players) {
+        cleanDraft.players.forEach(p => {
+            delete p.whatsapp;
+            delete p.phoneNumber; // Por si acaso
+        });
+    }
+    return cleanDraft;
+}
+
 function broadcastUpdate(type, id, data) {
     console.log(`[DEBUG 5] Enviando actualización a todos los clientes. Tipo: ${type}, ID: ${id}`);
-    const payload = JSON.stringify({ type, id, data });
+
+    // Preparamos las dos versiones del payload
+    const publicData = (type === 'draft') ? sanitizeDraftForPublic(data) : data;
+    const privatePayload = JSON.stringify({ type, id, data }); // Data completa
+    const publicPayload = JSON.stringify({ type, id, data: publicData });
+
     wss.clients.forEach(client => {
-        if (client.readyState === client.OPEN) client.send(payload);
+        if (client.readyState === client.OPEN) {
+            // Si el usuario está autenticado (client.user existe), enviamos todo. Si no, sanitizado.
+            if (client.user) {
+                client.send(privatePayload);
+            } else {
+                client.send(publicPayload);
+            }
+        }
     });
 }
 
 function sendToUser(userId, payload) {
+    // Si enviamos a un usuario específico, asumimos que es privado/seguro, pero verificamos auth del socket
     const message = JSON.stringify(payload);
     for (const client of wss.clients) {
         if (client.user && String(client.user.id) === String(userId) && client.readyState === client.OPEN) {
