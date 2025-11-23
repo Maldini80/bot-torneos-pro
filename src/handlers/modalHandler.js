@@ -1420,4 +1420,68 @@ export async function handleModal(interaction) {
         await interaction.editReply({ content: `✅ ¡Resultado modificado con éxito a **${newResultString}**! La clasificación y las rondas han sido actualizadas.` });
         return;
     }
+    if (customId.startsWith('admin_search_team_modal')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [_, tournamentShortId] = customId.split(':');
+        const searchQuery = interaction.fields.getTextInputValue('search_query').toLowerCase();
+
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect(process.env.DATABASE_URL);
+        }
+
+        const allTeams = await Team.find({ guildId: interaction.guildId }).lean();
+        // Filtramos por nombre (case-insensitive)
+        const filteredTeams = allTeams.filter(t => t.name.toLowerCase().includes(searchQuery));
+
+        if (filteredTeams.length === 0) {
+            return interaction.editReply({ content: `❌ No se encontraron equipos que contengan "**${searchQuery}**".` });
+        }
+
+        filteredTeams.sort((a, b) => a.name.localeCompare(b.name));
+
+        const pageSize = 25;
+        const pageCount = Math.ceil(filteredTeams.length / pageSize);
+        const page = 0;
+        const startIndex = page * pageSize;
+        const teamsOnPage = filteredTeams.slice(startIndex, startIndex + pageSize);
+
+        const teamOptions = teamsOnPage.map(team => ({
+            label: team.name,
+            description: `Manager ID: ${team.managerId}`,
+            value: team._id.toString()
+        }));
+
+        const teamSelectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_registered_team_to_add:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el equipo a inscribir')
+            .addOptions(teamOptions);
+
+        const components = [new ActionRowBuilder().addComponents(teamSelectMenu)];
+
+        if (pageCount > 1) {
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const startNum = i * pageSize + 1;
+                const endNum = Math.min((i + 1) * pageSize, filteredTeams.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (${startNum}-${endNum})`,
+                    value: `page_${i}`
+                });
+            }
+            // Usamos un customId diferente para la paginación de búsqueda
+            // Pasamos la query en los parámetros para no perderla al cambiar de página
+            const pageSelectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_search_team_page_select:${tournamentShortId}:${searchQuery}`)
+                .setPlaceholder('Paso 2: Cambiar de página')
+                .addOptions(pageOptions);
+
+            components.push(new ActionRowBuilder().addComponents(pageSelectMenu));
+        }
+
+        await interaction.editReply({
+            content: `✅ Encontrados **${filteredTeams.length}** equipos para "**${searchQuery}**".\nSelecciona uno:`,
+            components
+        });
+        return;
+    }
 }

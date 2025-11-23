@@ -2508,10 +2508,42 @@ export async function handleButton(interaction) {
             components.push(new ActionRowBuilder().addComponents(pageSelectMenu));
         }
 
+        // --- BOTÓN DE BÚSQUEDA ---
+        const searchButton = new ButtonBuilder()
+            .setCustomId(`admin_search_team_start:${tournamentShortId}`)
+            .setLabel('🔍 Buscar Equipo')
+            .setStyle(ButtonStyle.Secondary);
+
+        // Añadimos el botón de búsqueda a la última fila o creamos una nueva si está llena
+        if (components.length > 0 && components[components.length - 1].components.length < 5) {
+            components[components.length - 1].addComponents(searchButton);
+        } else {
+            components.push(new ActionRowBuilder().addComponents(searchButton));
+        }
+        // -------------------------
+
         await interaction.editReply({
             content: `Mostrando ${teamsOnPage.length} de ${allTeams.length} equipos registrados. Por favor, selecciona un equipo:`,
             components
         });
+        return;
+    }
+
+    if (action === 'admin_search_team_start') {
+        const [tournamentShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_search_team_modal:${tournamentShortId}`)
+            .setTitle('Buscar Equipo Registrado');
+
+        const searchInput = new TextInputBuilder()
+            .setCustomId('search_query')
+            .setLabel("Nombre del equipo (o parte)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: Real, City, United...")
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(searchInput));
+        await interaction.showModal(modal);
         return;
     }
     if (action === 'admin_kick_team_start') {

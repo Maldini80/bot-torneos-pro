@@ -1398,138 +1398,196 @@ export async function handleSelectMenu(interaction) {
         });
         return;
     }
-    if (action === 'admin_kick_team_select') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const captainIdToKick = interaction.values[0];
+    return;
+}
 
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const teamData = tournament.teams.aprobados[captainIdToKick];
+if (action === 'admin_search_team_page_select') {
+    await interaction.deferUpdate();
+    const [tournamentShortId, searchQuery] = params;
+    const selectedPage = parseInt(interaction.values[0].replace('page_', ''));
 
-        if (!teamData) {
-            return interaction.editReply({ content: '❌ Error: Este equipo ya no parece estar en el torneo.' });
-        }
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(process.env.DATABASE_URL);
+    }
 
-        await kickTeam(client, tournament, captainIdToKick);
+    const allTeams = await Team.find({ guildId: interaction.guildId }).lean();
+    // Filtramos de nuevo usando la query guardada
+    const filteredTeams = allTeams.filter(t => t.name.toLowerCase().includes(searchQuery));
+    filteredTeams.sort((a, b) => a.name.localeCompare(b.name));
 
-        try {
-            const user = await client.users.fetch(captainIdToKick);
-            await user.send(`🚨 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.`);
-        } catch (e) {
-            console.warn(`No se pudo enviar MD de expulsión al usuario ${captainIdToKick}`);
-        }
+    const pageSize = 25;
+    const pageCount = Math.ceil(filteredTeams.length / pageSize);
 
-        await interaction.editReply({
-            content: `✅ El equipo **${teamData.nombre}** ha sido expulsado con éxito del torneo.`,
-            components: [] // Quitamos el menú desplegable
+    const startIndex = selectedPage * pageSize;
+    const teamsOnPage = filteredTeams.slice(startIndex, startIndex + pageSize);
+
+    const teamOptions = teamsOnPage.map(team => ({
+        label: team.name,
+        description: `Manager ID: ${team.managerId}`,
+        value: team._id.toString()
+    }));
+
+    const teamSelectMenu = new StringSelectMenuBuilder()
+        .setCustomId(`admin_select_registered_team_to_add:${tournamentShortId}`)
+        .setPlaceholder(`Paso 1: Selecciona equipo (Pág. ${selectedPage + 1})`)
+        .addOptions(teamOptions);
+
+    const pageOptions = [];
+    for (let i = 0; i < pageCount; i++) {
+        const startNum = i * pageSize + 1;
+        const endNum = Math.min((i + 1) * pageSize, filteredTeams.length);
+        pageOptions.push({
+            label: `Página ${i + 1} (${startNum}-${endNum})`,
+            value: `page_${i}`
         });
-        return;
     }
-    // Bloque 1: Lógica para Reabrir Partido
-    if (action === 'admin_reopen_match_select') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const matchId = interaction.values[0];
+    const pageSelectMenu = new StringSelectMenuBuilder()
+        .setCustomId(`admin_search_team_page_select:${tournamentShortId}:${searchQuery}`)
+        .setPlaceholder('Paso 2: Cambiar de página')
+        .addOptions(pageOptions);
 
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const { partido } = findMatch(tournament, matchId);
+    await interaction.editReply({
+        content: `Mostrando ${teamsOnPage.length} de ${filteredTeams.length} equipos para "**${searchQuery}**".`,
+        components: [
+            new ActionRowBuilder().addComponents(teamSelectMenu),
+            new ActionRowBuilder().addComponents(pageSelectMenu)
+        ]
+    });
+    return;
+}
 
-        if (!partido) {
-            return interaction.editReply({ content: '❌ Error: El partido seleccionado ya no existe.' });
-        }
+if (action === 'admin_kick_team_select') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const captainIdToKick = interaction.values[0];
 
-        await revertStats(tournament, partido);
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const teamData = tournament.teams.aprobados[captainIdToKick];
 
-        partido.resultado = null;
-        partido.status = 'pendiente';
-        partido.reportedScores = {};
-
-        const newThreadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
-        partido.threadId = newThreadId;
-        partido.status = 'en_curso';
-
-        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
-
-        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await updatePublicMessages(client, updatedTournament);
-        await notifyTournamentVisualizer(updatedTournament);
-
-        await interaction.editReply({ content: `✅ ¡Partido reabierto! Se ha creado un nuevo hilo para el encuentro: <#${newThreadId}>` });
-        return;
+    if (!teamData) {
+        return interaction.editReply({ content: '❌ Error: Este equipo ya no parece estar en el torneo.' });
     }
 
-    // Bloque 2: Lógica para mostrar el formulario de Modificar Resultado
-    if (action === 'admin_modify_final_result_select') {
-        const [tournamentShortId] = params;
-        const matchId = interaction.values[0];
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const { partido } = findMatch(tournament, matchId);
+    await kickTeam(client, tournament, captainIdToKick);
 
-        if (!partido) {
-            return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
-        }
-
-        const [golesA_actual = '', golesB_actual = ''] = partido.resultado ? partido.resultado.split('-') : [];
-
-        const modal = new ModalBuilder()
-            .setCustomId(`admin_modify_final_result_modal:${tournamentShortId}:${matchId}`)
-            .setTitle('Modificar Resultado Final');
-
-        const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setValue(golesA_actual).setRequired(true);
-        const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setValue(golesB_actual).setRequired(true);
-
-        modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
-        await interaction.showModal(modal);
-        return;
+    try {
+        const user = await client.users.fetch(captainIdToKick);
+        await user.send(`🚨 Has sido **expulsado** del torneo **${tournament.nombre}** por un administrador.`);
+    } catch (e) {
+        console.warn(`No se pudo enviar MD de expulsión al usuario ${captainIdToKick}`);
     }
 
-    if (action === 'admin_select_league_mode') {
-        const [type] = params; // 'pago' o 'gratis'
-        const leagueMode = interaction.values[0]; // 'all_vs_all' o 'custom_rounds'
+    await interaction.editReply({
+        content: `✅ El equipo **${teamData.nombre}** ha sido expulsado con éxito del torneo.`,
+        components: [] // Quitamos el menú desplegable
+    });
+    return;
+}
+// Bloque 1: Lógica para Reabrir Partido
+if (action === 'admin_reopen_match_select') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const matchId = interaction.values[0];
 
-        const modal = new ModalBuilder()
-            .setCustomId(`create_flexible_league_submit:${type}:${leagueMode}`)
-            .setTitle('Configurar Liguilla');
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const { partido } = findMatch(tournament, matchId);
 
-        const nameInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-        const qualifiersInput = new TextInputBuilder()
-            .setCustomId('torneo_qualifiers')
-            .setLabel("Nº Clasifican (Pon 0 para Liga Pura)") // <--- CAMBIO AQUÍ
+    if (!partido) {
+        return interaction.editReply({ content: '❌ Error: El partido seleccionado ya no existe.' });
+    }
+
+    await revertStats(tournament, partido);
+
+    partido.resultado = null;
+    partido.status = 'pendiente';
+    partido.reportedScores = {};
+
+    const newThreadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+    partido.threadId = newThreadId;
+    partido.status = 'en_curso';
+
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
+
+    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    await updatePublicMessages(client, updatedTournament);
+    await notifyTournamentVisualizer(updatedTournament);
+
+    await interaction.editReply({ content: `✅ ¡Partido reabierto! Se ha creado un nuevo hilo para el encuentro: <#${newThreadId}>` });
+    return;
+}
+
+// Bloque 2: Lógica para mostrar el formulario de Modificar Resultado
+if (action === 'admin_modify_final_result_select') {
+    const [tournamentShortId] = params;
+    const matchId = interaction.values[0];
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const { partido } = findMatch(tournament, matchId);
+
+    if (!partido) {
+        return interaction.reply({ content: 'Error: Partido no encontrado.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    const [golesA_actual = '', golesB_actual = ''] = partido.resultado ? partido.resultado.split('-') : [];
+
+    const modal = new ModalBuilder()
+        .setCustomId(`admin_modify_final_result_modal:${tournamentShortId}:${matchId}`)
+        .setTitle('Modificar Resultado Final');
+
+    const golesAInput = new TextInputBuilder().setCustomId('goles_a').setLabel(`Goles de ${partido.equipoA.nombre}`).setStyle(TextInputStyle.Short).setValue(golesA_actual).setRequired(true);
+    const golesBInput = new TextInputBuilder().setCustomId('goles_b').setLabel(`Goles de ${partido.equipoB.nombre}`).setStyle(TextInputStyle.Short).setValue(golesB_actual).setRequired(true);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(golesAInput), new ActionRowBuilder().addComponents(golesBInput));
+    await interaction.showModal(modal);
+    return;
+}
+
+if (action === 'admin_select_league_mode') {
+    const [type] = params; // 'pago' o 'gratis'
+    const leagueMode = interaction.values[0]; // 'all_vs_all' o 'custom_rounds'
+
+    const modal = new ModalBuilder()
+        .setCustomId(`create_flexible_league_submit:${type}:${leagueMode}`)
+        .setTitle('Configurar Liguilla');
+
+    const nameInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+    const qualifiersInput = new TextInputBuilder()
+        .setCustomId('torneo_qualifiers')
+        .setLabel("Nº Clasifican (Pon 0 para Liga Pura)") // <--- CAMBIO AQUÍ
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder("0 = Gana el 1º. Si no: 2, 4, 8, 16...") // <--- AYUDA VISUAL
+        .setRequired(true);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(nameInput), new ActionRowBuilder().addComponents(qualifiersInput));
+
+    // Si es "custom_rounds", necesitamos preguntar cuántas rondas
+    if (leagueMode === 'custom_rounds') {
+        const roundsInput = new TextInputBuilder()
+            .setCustomId('custom_rounds_input')
+            .setLabel("Nº de Partidos por Equipo")
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder("0 = Gana el 1º. Si no: 2, 4, 8, 16...") // <--- AYUDA VISUAL
+            .setPlaceholder("Ej: 3")
             .setRequired(true);
-
-        modal.addComponents(new ActionRowBuilder().addComponents(nameInput), new ActionRowBuilder().addComponents(qualifiersInput));
-
-        // Si es "custom_rounds", necesitamos preguntar cuántas rondas
-        if (leagueMode === 'custom_rounds') {
-            const roundsInput = new TextInputBuilder()
-                .setCustomId('custom_rounds_input')
-                .setLabel("Nº de Partidos por Equipo")
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder("Ej: 3")
-                .setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(roundsInput));
-        }
-
-        // Preguntamos Ida o Vuelta
-        const legsInput = new TextInputBuilder()
-            .setCustomId('match_legs_input')
-            .setLabel("¿Ida y Vuelta? (Escribe SI o NO)")
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder("SI = Ida y Vuelta, NO = Solo Ida")
-            .setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(legsInput));
-
-        if (type === 'pago') {
-            const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true);
-            const prizesInput = new TextInputBuilder().setCustomId('torneo_prizes').setLabel("Premios Camp/Sub (€)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('100/50');
-            modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput));
-            modal.addComponents(new ActionRowBuilder().addComponents(prizesInput));
-        }
-
-        await interaction.showModal(modal);
-        return;
+        modal.addComponents(new ActionRowBuilder().addComponents(roundsInput));
     }
+
+    // Preguntamos Ida o Vuelta
+    const legsInput = new TextInputBuilder()
+        .setCustomId('match_legs_input')
+        .setLabel("¿Ida y Vuelta? (Escribe SI o NO)")
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder("SI = Ida y Vuelta, NO = Solo Ida")
+        .setRequired(true);
+    modal.addComponents(new ActionRowBuilder().addComponents(legsInput));
+
+    if (type === 'pago') {
+        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true);
+        const prizesInput = new TextInputBuilder().setCustomId('torneo_prizes').setLabel("Premios Camp/Sub (€)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('100/50');
+        modal.addComponents(new ActionRowBuilder().addComponents(entryFeeInput));
+        modal.addComponents(new ActionRowBuilder().addComponents(prizesInput));
+    }
+
+    await interaction.showModal(modal);
+    return;
+}
 }
 
