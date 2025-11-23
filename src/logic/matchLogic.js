@@ -173,15 +173,33 @@ async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
 
     if (allFinished) {
-        console.log(`[ADVANCEMENT] Fase de liguilla/grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
+        // Intentar bloquear la transición de fase atómicamente
+        const db = getDb();
+        const lockResult = await db.collection('tournaments').updateOne(
+            { _id: tournament._id, status: 'fase_de_grupos', advancementLock: { $ne: true } },
+            { $set: { advancementLock: true } }
+        );
 
-        postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
-        await startNextKnockoutRound(client, guild, tournament);
+        if (lockResult.modifiedCount === 0) {
+            console.log(`[ADVANCEMENT] Salteado para ${tournament.shortId} (ya en progreso o finalizado).`);
+            return;
+        }
 
-        const finalTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
-        await updatePublicMessages(client, finalTournamentState);
-        await updateTournamentManagementThread(client, finalTournamentState);
-        await notifyTournamentVisualizer(finalTournamentState);
+        try {
+            console.log(`[ADVANCEMENT] Fase de liguilla/grupos finalizada para ${tournament.shortId}. Iniciando fase eliminatoria.`);
+
+            postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
+            await startNextKnockoutRound(client, guild, tournament);
+
+            const finalTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
+            await updatePublicMessages(client, finalTournamentState);
+            await updateTournamentManagementThread(client, finalTournamentState);
+            await notifyTournamentVisualizer(finalTournamentState);
+        } catch (error) {
+            console.error(`[ADVANCEMENT ERROR] Fallo al avanzar fase de grupos para ${tournament.shortId}:`, error);
+            // Liberar el bloqueo si falla para permitir reintento
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { advancementLock: "" } });
+        }
     }
 }
 
@@ -201,9 +219,27 @@ async function checkForKnockoutAdvancement(client, guild, tournament) {
     const allFinished = partidosRonda && partidosRonda.every(p => p && p.status === 'finalizado');
 
     if (allFinished) {
-        console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
-        postTournamentUpdate('KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament }).catch(console.error);
-        await startNextKnockoutRound(client, guild, tournament);
+        // Intentar bloquear la transición de ronda atómicamente
+        const db = getDb();
+        const lockResult = await db.collection('tournaments').updateOne(
+            { _id: tournament._id, status: rondaActual, advancementLock: { $ne: true } },
+            { $set: { advancementLock: true } }
+        );
+
+        if (lockResult.modifiedCount === 0) {
+            console.log(`[ADVANCEMENT] Salteado para ${tournament.shortId} (ronda ${rondaActual} ya en progreso o finalizada).`);
+            return;
+        }
+
+        try {
+            console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
+            postTournamentUpdate('KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament }).catch(console.error);
+            await startNextKnockoutRound(client, guild, tournament);
+        } catch (error) {
+            console.error(`[ADVANCEMENT ERROR] Fallo al avanzar ronda ${rondaActual} para ${tournament.shortId}:`, error);
+            // Liberar el bloqueo si falla
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { advancementLock: "" } });
+        }
     }
 }
 

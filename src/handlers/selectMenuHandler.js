@@ -720,7 +720,19 @@ export async function handleSelectMenu(interaction) {
         if (!team) return interaction.editReply({ content: 'Error: El equipo seleccionado ya no existe.', components: [] });
         if (team.coCaptainId) return interaction.editReply({ content: 'Error: Este equipo ya tiene un co-capitán.', components: [] });
 
-        const coCaptainUser = await client.users.fetch(coCaptainId);
+        let coCaptainUser;
+        if (/^\d+$/.test(coCaptainId)) {
+            coCaptainUser = await client.users.fetch(coCaptainId);
+        } else {
+            // Es un usuario de prueba/simulado
+            coCaptainUser = {
+                id: coCaptainId,
+                tag: `TestUser_${coCaptainId}`,
+                bot: false,
+                send: async () => { } // Mock send
+            };
+        }
+
         if (coCaptainUser.bot) {
             return interaction.editReply({ content: 'No puedes asignar a un bot como co-capitán.', components: [] });
         }
@@ -733,10 +745,14 @@ export async function handleSelectMenu(interaction) {
         try {
             await addCoCaptain(client, tournament, captainId, coCaptainId);
 
-            const captainUser = await client.users.fetch(captainId);
-            await captainUser.send(`ℹ️ Un administrador te ha asignado a **${coCaptainUser.tag}** como co-capitán de tu equipo **${team.nombre}**.`);
+            const captainUser = await client.users.fetch(captainId).catch(() => null);
+            if (captainUser) {
+                await captainUser.send(`ℹ️ Un administrador te ha asignado a **${coCaptainUser.tag}** como co-capitán de tu equipo **${team.nombre}**.`);
+            }
 
-            await coCaptainUser.send(`ℹ️ Un administrador te ha asignado como co-capitán del equipo **${team.nombre}** (Capitán: ${captainUser.tag}) en el torneo **${tournament.nombre}**.`);
+            if (coCaptainUser.send) { // Check if it's a real user or our mock with send method
+                await coCaptainUser.send(`ℹ️ Un administrador te ha asignado como co-capitán del equipo **${team.nombre}** (Capitán: ${captainUser ? captainUser.tag : 'Desconocido'}) en el torneo **${tournament.nombre}**.`);
+            }
 
             await interaction.editReply({ content: `✅ **${coCaptainUser.tag}** ha sido asignado como co-capitán del equipo **${team.nombre}**.`, components: [] });
         } catch (error) {
