@@ -41,10 +41,13 @@ export async function startVerificationWizard(interaction) {
  * Maneja la selección de plataforma del usuario (Consola o PC).
  */
 export async function handlePlatformSelection(interaction) {
+    const parts = interaction.customId.split(':');
+    const draftShortId = parts.length > 1 ? parts[1] : null;
     const platform = interaction.values[0];
+
     if (platform === 'pc') {
         const pcMenu = new StringSelectMenuBuilder()
-            .setCustomId('verify_select_pc_launcher')
+            .setCustomId(draftShortId ? `verify_select_pc_launcher:${draftShortId}` : 'verify_select_pc_launcher')
             .setPlaceholder('Selecciona tu lanzador de PC')
             .addOptions([{ label: '🔵 Steam', value: 'steam' }, { label: '🟠 EA App', value: 'ea_app' }]);
         const row = new ActionRowBuilder().addComponents(pcMenu);
@@ -54,8 +57,9 @@ export async function handlePlatformSelection(interaction) {
         });
     } else {
         const platformName = platform === 'psn' ? 'PlayStation' : 'Xbox';
+        const nextCustomId = draftShortId ? `verify_show_modal:${platform}:${draftShortId}` : `verify_show_modal:${platform}`;
         const continueButton = new ButtonBuilder()
-            .setCustomId(`verify_show_modal:${platform}`)
+            .setCustomId(nextCustomId)
             .setLabel('✅ Continuar')
             .setStyle(ButtonStyle.Success);
         const row = new ActionRowBuilder().addComponents(continueButton);
@@ -67,8 +71,12 @@ export async function handlePlatformSelection(interaction) {
  * Maneja la selección de lanzador de PC (Steam o EA App).
  */
 export async function handlePCLauncherSelection(interaction) {
+    const parts = interaction.customId.split(':');
+    const draftShortId = parts.length > 1 ? parts[1] : null;
     const launcher = interaction.values[0];
-    const continueButton = new ButtonBuilder().setCustomId(`verify_show_modal:${launcher}`).setLabel('✅ Continuar').setStyle(ButtonStyle.Success);
+
+    const nextCustomId = draftShortId ? `verify_show_modal:${launcher}:${draftShortId}` : `verify_show_modal:${launcher}`;
+    const continueButton = new ButtonBuilder().setCustomId(nextCustomId).setLabel('✅ Continuar').setStyle(ButtonStyle.Success);
     const row = new ActionRowBuilder().addComponents(continueButton);
     await interaction.update({ content: `### Asistente de Verificación - Paso 2 de 3 (${launcher.toUpperCase()})\nPulsa el botón para introducir tus datos.`, embeds: [], components: [row] });
 }
@@ -76,9 +84,10 @@ export async function handlePCLauncherSelection(interaction) {
 /**
  * Muestra el formulario final para introducir el ID de Juego y Twitter.
  */
-export async function showVerificationModal(interaction, platform) {
+export async function showVerificationModal(interaction, platform, draftShortId = null) {
     const platformNames = { psn: 'PSN ID', xbox: 'Xbox Gamertag', steam: 'Perfil de Steam', ea_app: 'EA ID' };
-    const modal = new ModalBuilder().setCustomId(`verify_submit_data:${platform}`).setTitle('Verificación - Paso Final');
+    const modalCustomId = draftShortId ? `verification_ticket_submit:${platform}:${draftShortId}` : `verification_ticket_submit:${platform}`;
+    const modal = new ModalBuilder().setCustomId(modalCustomId).setTitle('Verificación - Paso Final');
     const gameIdInput = new TextInputBuilder().setCustomId('game_id_input').setLabel(`Tu ${platformNames[platform]}`).setPlaceholder('Escríbelo exactamente como aparece en tu perfil').setStyle(TextInputStyle.Short).setRequired(true);
     const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu usuario de Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
     const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu número de WhatsApp").setPlaceholder("Incluye el prefijo (ej: +34...)").setStyle(TextInputStyle.Short).setRequired(true);

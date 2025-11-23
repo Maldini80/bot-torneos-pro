@@ -112,8 +112,8 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'verify_show_modal') {
-        const [platform] = params;
-        await showVerificationModal(interaction, platform);
+        const [platform, draftShortId] = params;
+        await showVerificationModal(interaction, platform, draftShortId);
         return;
     }
 
