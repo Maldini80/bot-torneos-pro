@@ -3195,3 +3195,75 @@ export async function adminKickPlayerFromWeb(client, draftShortId, teamId, playe
 
     console.log(`[ADMIN] Jugador ${playerId} ELIMINADO COMPLETAMENTE del draft ${draftShortId} por ${adminName} desde web.`);
 }
+
+export async function forcePickFromWeb(client, draftShortId, playerId, adminName) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
+    const currentCaptainId = draft.selection.order[draft.selection.turn];
+    if (!currentCaptainId) throw new Error('No hay turno activo.');
+
+    // Reutilizamos la lógica existente de selección
+    // Nota: 'pickedForPosition' lo dejamos vacío o 'NONE' si no es crítico, 
+    // o intentamos deducirlo. Por ahora pasamos 'NONE' para simplificar.
+    await handlePlayerSelectionFromWeb(client, draftShortId, currentCaptainId, playerId, 'NONE');
+
+    console.log(`[ADMIN] Pick forzado por ${adminName} para el capitán ${currentCaptainId} con el jugador ${playerId}`);
+}
+
+export async function undoLastPick(client, draftShortId, adminName) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
+    if (draft.selection.currentPick === 0) throw new Error('No hay picks para deshacer.');
+
+    // 1. Identificar el pick anterior
+    const previousTurnIndex = draft.selection.turn > 0 ? draft.selection.turn - 1 : draft.selection.order.length - 1;
+    const previousCaptainId = draft.selection.order[previousTurnIndex];
+
+    // Necesitamos saber QUÉ jugador se pickeó. Esto es complejo porque no guardamos un historial de "picks" per se,
+    // sino que añadimos al equipo.
+    // ESTRATEGIA: Buscar el último jugador añadido al equipo del capitán anterior.
+    // Asumimos que el último en el array 'players' del equipo es el último pick.
+
+    const team = draft.teams.find(t => t.userId === previousCaptainId);
+    if (!team || team.players.length === 0) throw new Error('No se pudo encontrar el último pick para deshacer.');
+
+    const lastPlayer = team.players.pop(); // Sacamos al último jugador
+
+    // 2. Devolver al jugador a la pool (resetear sus datos)
+    // Buscamos al jugador en la lista global 'draft.players' y lo actualizamos
+    const playerInPool = draft.players.find(p => p.userId === lastPlayer.userId);
+    if (playerInPool) {
+        playerInPool.currentTeam = 'Libre';
+        playerInPool.captainId = null;
+    }
+
+    // 3. Retroceder el turno
+    const newCurrentPick = draft.selection.currentPick - 1;
+
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        {
+            $set: {
+                players: draft.players,
+                teams: draft.teams,
+                "selection.turn": previousTurnIndex,
+                "selection.currentPick": newCurrentPick,
+                "selection.isPicking": false, // Reseteamos estado de picking
+                "selection.activeInteractionId": null
+            }
+        }
+    );
+
+    // Update interfaces
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
+
+    console.log(`[ADMIN] Pick deshecho por ${adminName}. Jugador ${lastPlayer.psnId} devuelto a la pool. Turno devuelto a ${previousCaptainId}.`);
+}
