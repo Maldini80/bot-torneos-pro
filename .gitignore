@@ -1,0 +1,6 @@
+node_modules/
+.env
+.DS_Store
+mock_server_test.js
+update_settings.js
+verify_quotas.js

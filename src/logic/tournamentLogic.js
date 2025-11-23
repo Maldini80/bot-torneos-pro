@@ -15,6 +15,9 @@ import { parsePlayerList } from '../utils/textParser.js';
 const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO'];
 const isMidfielder = (pos) => MIDFIELDER_POSITIONS.includes(pos);
 
+const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO'];
+const isMidfielder = (pos) => MIDFIELDER_POSITIONS.includes(pos);
+
 export async function notifyVisualizer(draft) {
     // Enriquece los datos del draft con los strikes persistentes
     const db = getDb();
@@ -916,16 +919,6 @@ export async function startDraftSelection(client, guild, draftShortId) {
         const missingPositions = [];
         for (const pos in minQuotas) {
             const required = parseInt(minQuotas[pos]);
-            let current = positionCounts[pos] || 0;
-
-            // Lógica de agrupación para "Medios"
-            if (pos === 'Medios') {
-                current = 0;
-                MIDFIELDER_POSITIONS.forEach(midPos => {
-                    current += positionCounts[midPos] || 0;
-                });
-            }
-
             if (current < required) {
                 missingPositions.push(`${pos} (necesarios: ${required}, disponibles: ${current})`);
             }

@@ -394,6 +394,101 @@ function initializeDraftView(draftId) {
         }
     }
 
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        socket = new WebSocket(`${protocol}://${window.location.host}`);
+        socket.onopen = () => console.log('Conectado al servidor para Draft.');
+        socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type === 'draft_update' && message.draftId === draftId) {
+                if (!hasLoadedInitialData) {
+                    loadingEl.classList.add('hidden');
+                    draftContainerEl.classList.remove('hidden');
+                    hasLoadedInitialData = true;
+                }
+                renderDraftState(message.data);
+            }
+        };
+    }
+
+    function fetchInitialData() {
+        fetch(`/api/draft/${draftId}`)
+            .then(response => response.ok ? response.json() : Promise.resolve(null))
+            .then(data => {
+                if (data) {
+                    loadingEl.classList.add('hidden');
+                    draftContainerEl.classList.remove('hidden');
+                    renderDraftState(data);
+                    hasLoadedInitialData = true;
+                } else {
+                    loadingEl.textContent = 'No se encontraron datos para este Draft.';
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching initial data:', err);
+                loadingEl.textContent = 'Error al cargar datos.';
+            });
+    }
+
+    function renderDraftState(draft) {
+        currentDraftState = draft;
+        draftNameEl.textContent = draft.config?.name || 'Draft';
+
+        // Update status info
+        if (draft.status === 'seleccion') {
+            const currentPick = draft.selection.currentPick;
+            const totalPicks = draft.selection.totalPicks;
+            roundInfoEl.textContent = `Ronda ${Math.ceil(currentPick / draft.captains.length)}`;
+            currentPickEl.textContent = currentPick;
+
+            const captainIdInTurn = draft.selection.order[draft.selection.turn];
+            const captainInTurn = draft.captains.find(c => c.userId === captainIdInTurn);
+            currentTeamEl.textContent = captainInTurn ? captainInTurn.teamName : 'Desconocido';
+
+            renderRoundPickOrder(draft);
+        } else {
+            roundInfoEl.textContent = draft.status === 'finalizado' ? 'Finalizado' : 'Esperando inicio';
+            currentPickEl.textContent = '-';
+            currentTeamEl.textContent = '-';
+        }
+
+        // Check for new picks to show alert
+        if (draft.lastPick && (!lastShownPickData || lastShownPickData.pickNumber !== draft.lastPick.pickNumber)) {
+            const captain = draft.captains.find(c => c.userId === draft.lastPick.captainId);
+            const player = draft.players.find(p => p.userId === draft.lastPick.playerId);
+            if (captain && player) {
+                showPickAlert(draft.lastPick.pickNumber, player, captain);
+                lastShownPickData = draft.lastPick;
+            }
+        }
+
+        renderAvailablePlayers(draft);
+        renderTeamManagementView(draft);
+
+        // Render teams grid
+        const teamsGridEl = document.getElementById('teams-grid');
+        teamsGridEl.innerHTML = '';
+        draft.captains.forEach(captain => {
+            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
+            const teamCard = document.createElement('div');
+            teamCard.className = 'team-card-draftview';
+
+            let playersListHTML = '<ul class="team-roster-compact">';
+            teamPlayers.forEach(p => {
+                const isSecondary = p.pickedForPosition && p.pickedForPosition !== p.primaryPosition;
+                playersListHTML += `<li>${p.psnId} <span class="pos-badge">${p.pickedForPosition || p.primaryPosition}${isSecondary ? '*' : ''}</span></li>`;
+            });
+            playersListHTML += '</ul>';
+
+            teamCard.innerHTML = `
+                <h3>${captain.teamName}</h3>
+                <div class="captain-name">Capi: ${captain.username}</div>
+                ${playersListHTML}
+            `;
+            teamsGridEl.appendChild(teamCard);
+        });
+    }
+
     function renderAvailablePlayers(draft) {
         playersTableBodyEl.innerHTML = '';
         const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
