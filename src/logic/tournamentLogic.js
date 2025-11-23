@@ -3157,3 +3157,41 @@ export async function adminAddPlayerFromWeb(client, draftShortId, teamId, player
 
     console.log(`[ADMIN] Jugador ${player.psnId} añadido a ${team.name} por ${adminName} desde web.`);
 }
+
+export async function adminKickPlayerFromWeb(client, draftShortId, teamId, playerId, adminName) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
+    // 1. Eliminar de la lista global de jugadores (Pool)
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $pull: { players: { userId: playerId } } }
+    );
+
+    // 2. Eliminar del equipo específico (si estaba en uno)
+    if (teamId) {
+        await db.collection('drafts').updateOne(
+            { _id: draft._id, "teams.id": teamId },
+            { $pull: { "teams.$.players": { userId: playerId } } }
+        );
+    }
+
+    // 3. Por seguridad, eliminar de CUALQUIER equipo (por si el teamId venía mal o estaba duplicado)
+    // Esto es una operación más costosa pero segura: iterar todos los equipos y hacer pull.
+    // Pero MongoDB permite actualizar todos los elementos de un array que cumplan condición.
+    // "teams.$[].players" actualiza todos los equipos.
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $pull: { "teams.$[].players": { userId: playerId } } }
+    );
+
+    // Update interfaces
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
+
+    console.log(`[ADMIN] Jugador ${playerId} ELIMINADO COMPLETAMENTE del draft ${draftShortId} por ${adminName} desde web.`);
+}
