@@ -10,6 +10,7 @@ import { ObjectId } from 'mongodb';
 import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 import { visualizerStateHandler } from '../../visualizerServer.js';
+import { parsePlayerList } from '../utils/textParser.js';
 
 export async function notifyVisualizer(draft) {
     // Enriquece los datos del draft con los strikes persistentes
@@ -31,7 +32,7 @@ export async function notifyTournamentVisualizer(tournament) {
 }
 
 async function publishDraftVisualizerURL(client, draft) {
-    if (!process.env.BASE_URL) return; 
+    if (!process.env.BASE_URL) return;
 
     try {
         const visualizerLink = `${process.env.BASE_URL}/?draftId=${draft.shortId}`;
@@ -51,7 +52,7 @@ async function publishDraftVisualizerURL(client, draft) {
                 .setURL(visualizerLink)
                 .setEmoji('🔗')
         );
-        
+
         if (draft.discordMessageIds.casterTextChannelId) {
             const casterChannel = await client.channels.fetch(draft.discordMessageIds.casterTextChannelId);
             const casterRole = await casterChannel.guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
@@ -70,8 +71,8 @@ async function publishDraftVisualizerURL(client, draft) {
             });
         }
 
-    } catch (e) { 
-        console.error(`[Visualizer] Fallo al publicar URL de draft para ${draft.shortId}:`, e); 
+    } catch (e) {
+        console.error(`[Visualizer] Fallo al publicar URL de draft para ${draft.shortId}:`, e);
     }
 }
 
@@ -105,7 +106,7 @@ async function publishTournamentVisualizerURL(client, tournament) {
                 components: [row]
             });
         }
-        
+
         if (tournament.discordChannelIds.infoChannelId) {
             const publicInfoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId);
             await publicInfoChannel.send({
@@ -114,8 +115,8 @@ async function publishTournamentVisualizerURL(client, tournament) {
             });
         }
 
-    } catch (e) { 
-        console.error(`[Visualizer] Fallo al publicar URL de torneo para ${tournament.shortId}:`, e); 
+    } catch (e) {
+        console.error(`[Visualizer] Fallo al publicar URL de torneo para ${tournament.shortId}:`, e);
     }
 }
 
@@ -140,7 +141,7 @@ export async function updateDraftMainInterface(client, draftShortId) {
             const playerMsg = await channel.messages.fetch(discordMessageIds.mainInterfacePlayerMessageId).catch(() => null);
             if (playerMsg) await playerMsg.edit({ embeds: [playersEmbed] });
         }
-        
+
         if (discordMessageIds.mainInterfaceTeamsMessageId) {
             const teamMsg = await channel.messages.fetch(discordMessageIds.mainInterfaceTeamsMessageId).catch(() => null);
             if (teamMsg) await teamMsg.edit({ embeds: [teamsEmbed] });
@@ -171,7 +172,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         );
         const teamPlayers = draft.players.filter(p => p.captainId === captainId);
 
-        const positionToCheck = pickedForPosition; 
+        const positionToCheck = pickedForPosition;
 
         if (maxQuotas[positionToCheck]) {
             const max = parseInt(maxQuotas[positionToCheck]);
@@ -180,12 +181,12 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
             }
         }
-        
+
         await db.collection('drafts').updateOne(
             { shortId: draftShortId, "players.userId": selectedPlayerId },
             { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": pickedForPosition } }
         );
-        
+
         const lastPickInfo = {
             pickNumber: draft.selection.currentPick,
             playerPsnId: player.psnId,
@@ -193,7 +194,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
             position: pickedForPosition
         };
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
-        
+
         if (/^\d+$/.test(selectedPlayerId)) {
             try {
                 const playerUser = await client.users.fetch(selectedPlayerId);
@@ -223,7 +224,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         } catch (e) {
             console.error("No se pudo enviar o programar el borrado del anuncio de pick:", e);
         }
-        
+
         const updatedTeamPlayers = [...teamPlayers, player];
         if (updatedTeamPlayers.length === 11) {
             postTournamentUpdate('ROSTER_COMPLETE', { captain, players: updatedTeamPlayers, draft }).catch(console.error);
@@ -235,7 +236,7 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
 }
 export async function handlePlayerSelectionFromWeb(client, draftShortId, captainId, selectedPlayerId, pickedForPosition) {
     const db = getDb();
-    
+
     try {
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
@@ -252,7 +253,7 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
             settings.draftMaxQuotas.split(',').map(q => q.split(':'))
         );
         const teamPlayers = draft.players.filter(p => p.captainId === captainId);
-        
+
         const positionToCheck = pickedForPosition;
 
         if (maxQuotas[positionToCheck]) {
@@ -262,15 +263,15 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
             }
         }
-        
+
         await db.collection('drafts').updateOne(
             { shortId: draftShortId, "players.userId": selectedPlayerId },
             { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": pickedForPosition } }
         );
-        
+
         const lastPickInfo = { pickNumber: draft.selection.currentPick, playerPsnId: player.psnId, captainTeamName: captain.teamName, position: pickedForPosition };
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
-        
+
         if (/^\d+$/.test(selectedPlayerId)) {
             try {
                 const playerUser = await client.users.fetch(selectedPlayerId);
@@ -283,7 +284,7 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
             const draftChannel = await client.channels.fetch(draft.discordChannelId);
             const announcementEmbed = new EmbedBuilder().setColor('#3498db').setDescription(`**Pick #${draft.selection.currentPick}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}**`);
             const announcementMessage = await draftChannel.send({ embeds: [announcementEmbed] });
-            setTimeout(() => announcementMessage.delete().catch(() => {}), 60000);
+            setTimeout(() => announcementMessage.delete().catch(() => { }), 60000);
         } catch (e) { console.error("No se pudo enviar el anuncio de pick:", e); }
 
     } catch (error) {
@@ -322,50 +323,50 @@ export async function approveDraftCaptain(client, draft, captainData) {
     );
 
     if (/^\d+$/.test(captainData.userId)) {
-    try {
-        const user = await client.users.fetch(captainData.userId);
-        const settings = await getBotSettings();
-        const maxQuotasText = settings.draftMaxQuotas.split(',').join('\n').replace(/:/g, ': ');
-        
-        const loginUrl = `${process.env.BASE_URL}/login?returnTo=${encodeURIComponent(`/?draftId=${draft.shortId}`)}`;
-        const loginButtonRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setLabel('Iniciar Sesión en el Visualizador Web')
-                .setStyle(ButtonStyle.Link)
-                .setURL(loginUrl)
-                .setEmoji('🌐')
-        );
+        try {
+            const user = await client.users.fetch(captainData.userId);
+            const settings = await getBotSettings();
+            const maxQuotasText = settings.draftMaxQuotas.split(',').join('\n').replace(/:/g, ': ');
 
-        const embed = new EmbedBuilder()
-            .setColor('#2ecc71')
-            .setTitle(`👑 ¡Felicidades, Capitán! Has sido aprobado para el Draft "${draft.name}"`)
-            .setDescription(
-                `¡Bienvenido a bordo! Eres oficialmente el capitán del equipo **"${captainData.teamName}"**. Aquí tienes tu guía de referencia:`
-            )
-            .addFields(
-                {
-                    name: "1️⃣ Tu Panel de Control Web (¡MUY IMPORTANTE!)",
-                    value: "Para poder fichar jugadores desde la web (incluso desde el móvil), **debes iniciar sesión una vez** usando tu enlace personal a continuación. Hazlo antes de que empiece el draft."
-                },
-                {
-                    name: "2️⃣ Durante la Fase de Selección",
-                    value: "Cuando sea tu turno, los botones para \"Elegir\" se activarán para ti en la web. La interfaz es inteligente y te mostrará a los especialistas (posición primaria) primero."
-                },
-                {
-                    name: "3️⃣ Reglas de Fichaje (Cuotas)",
-                    value: "Recuerda que debes respetar los límites de jugadores por posición. Si un fichaje falla, la web te avisará con un error. Los límites son:\n```\n" + maxQuotasText + "\n```"
-                },
-                {
-                    name: "4️⃣ Gestión de tu Equipo (Después del Draft)",
-                    value: "Una vez finalizada la selección, podrás acceder a la sección **\"Gestionar Mi Equipo\"** desde la web (estando logueado)."
-                }
+            const loginUrl = `${process.env.BASE_URL}/login?returnTo=${encodeURIComponent(`/?draftId=${draft.shortId}`)}`;
+            const loginButtonRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setLabel('Iniciar Sesión en el Visualizador Web')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL(loginUrl)
+                    .setEmoji('🌐')
             );
 
-        await user.send({ embeds: [embed], components: [loginButtonRow] });
+            const embed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle(`👑 ¡Felicidades, Capitán! Has sido aprobado para el Draft "${draft.name}"`)
+                .setDescription(
+                    `¡Bienvenido a bordo! Eres oficialmente el capitán del equipo **"${captainData.teamName}"**. Aquí tienes tu guía de referencia:`
+                )
+                .addFields(
+                    {
+                        name: "1️⃣ Tu Panel de Control Web (¡MUY IMPORTANTE!)",
+                        value: "Para poder fichar jugadores desde la web (incluso desde el móvil), **debes iniciar sesión una vez** usando tu enlace personal a continuación. Hazlo antes de que empiece el draft."
+                    },
+                    {
+                        name: "2️⃣ Durante la Fase de Selección",
+                        value: "Cuando sea tu turno, los botones para \"Elegir\" se activarán para ti en la web. La interfaz es inteligente y te mostrará a los especialistas (posición primaria) primero."
+                    },
+                    {
+                        name: "3️⃣ Reglas de Fichaje (Cuotas)",
+                        value: "Recuerda que debes respetar los límites de jugadores por posición. Si un fichaje falla, la web te avisará con un error. Los límites son:\n```\n" + maxQuotasText + "\n```"
+                    },
+                    {
+                        name: "4️⃣ Gestión de tu Equipo (Después del Draft)",
+                        value: "Una vez finalizada la selección, podrás acceder a la sección **\"Gestionar Mi Equipo\"** desde la web (estando logueado)."
+                    }
+                );
 
-    } catch (e) { console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message); }
-}
-    
+            await user.send({ embeds: [embed], components: [loginButtonRow] });
+
+        } catch (e) { console.warn(`No se pudo enviar MD de aprobación de draft al capitán ${captainData.userId}:`, e.message); }
+    }
+
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
@@ -401,7 +402,7 @@ export async function approveUnregisterFromDraft(client, draft, userIdToUnregist
     const captainId = player.captainId;
 
     await kickPlayerFromDraft(client, draft, userIdToUnregister);
-    
+
     if (/^\d+$/.test(userIdToUnregister)) {
         try {
             const user = await client.users.fetch(userIdToUnregister);
@@ -410,13 +411,13 @@ export async function approveUnregisterFromDraft(client, draft, userIdToUnregist
     }
 
     if (captainId && /^\d+$/.test(captainId)) {
-         try {
+        try {
             const captainUser = await client.users.fetch(captainId);
             const embed = new EmbedBuilder()
                 .setColor('#2ecc71')
                 .setTitle('ℹ️ Jugador Dado de Baja de tu Equipo')
                 .setDescription(`La solicitud de baja de **${player.psnId}** ha sido **aprobada** por un administrador. Tienes una plaza libre en tu plantilla.\n\nPuedes usar el botón de abajo para invitar a un agente libre como reemplazo.`);
-            
+
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId(`admin_invite_replacement_start:${draft.shortId}:${captainId}:${userIdToUnregister}`)
@@ -426,7 +427,7 @@ export async function approveUnregisterFromDraft(client, draft, userIdToUnregist
             );
 
             await captainUser.send({ embeds: [embed], components: [row] });
-        } catch(e) { console.warn(`No se pudo notificar al capitán ${captainId} de la baja aprobada.`); }
+        } catch (e) { console.warn(`No se pudo notificar al capitán ${captainId} de la baja aprobada.`); }
     }
 }
 export async function requestUnregisterFromDraft(client, draft, userId, reason) {
@@ -450,8 +451,8 @@ export async function requestUnregisterFromDraft(client, draft, userId, reason) 
         .setTitle('👋 Solicitud de Baja de Jugador')
         .setDescription(`El jugador **${player.userName}** (${player.psnId}) solicita darse de baja del draft.`)
         .addFields({ name: 'Motivo / Estado', value: reason })
-        .setFooter({ text: `Draft: ${draft.name} | ID del Jugador: ${userId}`});
-    
+        .setFooter({ text: `Draft: ${draft.name} | ID del Jugador: ${userId}` });
+
     if (player.captainId) {
         embed.addFields({ name: 'Equipo Actual', value: `Equipo de <@${player.captainId}>` });
     }
@@ -467,7 +468,7 @@ export async function requestUnregisterFromDraft(client, draft, userId, reason) 
         try {
             const captainUser = await client.users.fetch(player.captainId);
             await captainUser.send(`⚠️ **Alerta de Plantilla:** El jugador **${player.psnId}** ha solicitado darse de baja de tu equipo. Un administrador revisará la solicitud.`);
-        } catch(e) { console.warn(`No se pudo notificar al capitán ${player.captainId} de la solicitud de baja.`); }
+        } catch (e) { console.warn(`No se pudo notificar al capitán ${player.captainId} de la solicitud de baja.`); }
     }
 
     return { success: true, message: "✅ Tu solicitud de baja ha sido enviada a los administradores para su revisión." };
@@ -500,7 +501,7 @@ async function fullCleanupDraft(client, draft) {
             }
         }
     };
-    
+
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordChannelId);
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.managementThreadId);
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.notificationsThreadId);
@@ -510,7 +511,7 @@ async function fullCleanupDraft(client, draft) {
     try {
         const globalChannel = await client.channels.fetch(CHANNELS.DRAFTS_STATUS);
         await deleteResourceSafe(globalChannel.messages.fetch.bind(globalChannel.messages), discordMessageIds.statusMessageId);
-    } catch(e) {
+    } catch (e) {
         console.warn("No se pudo encontrar o borrar el mensaje de estado del draft.");
     }
 }
@@ -544,7 +545,7 @@ export async function simulateDraftPicks(client, draftShortId) {
 
             for (let i = 0; i < playersNeeded; i++) {
                 const playerToAssign = availablePlayers.pop();
-                if (!playerToAssign) break; 
+                if (!playerToAssign) break;
                 bulkOps.push({
                     updateOne: {
                         filter: { _id: draft._id, "players.userId": playerToAssign.userId },
@@ -569,10 +570,10 @@ export async function simulateDraftPicks(client, draftShortId) {
         await updatePublicMessages(client, finalDraftState);
         await updateCaptainControlPanel(client, finalDraftState);
         await notifyVisualizer(finalDraftState);
-        
+
         const draftChannel = await client.channels.fetch(finalDraftState.discordChannelId);
         if (draftChannel) {
-             await draftChannel.send('**✅ LA SELECCIÓN HA SIDO COMPLETADA POR SIMULACIÓN DE UN ADMIN.**');
+            await draftChannel.send('**✅ LA SELECCIÓN HA SIDO COMPLETADA POR SIMULACIÓN DE UN ADMIN.**');
         }
 
     } catch (error) {
@@ -599,9 +600,9 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             const teamData = {
                 id: captain.userId, nombre: captain.teamName, eafcTeamName: captain.eafcTeamName,
                 capitanId: captain.userId, capitanTag: captain.userName,
-                coCaptainId: null, coCaptainTag: null, bandera: '🏳️', paypal: null, 
+                coCaptainId: null, coCaptainTag: null, bandera: '🏳️', paypal: null,
                 streamChannel: captain.streamChannel, twitter: captain.twitter,
-                inscritoEn: new Date(), players: teamPlayers 
+                inscritoEn: new Date(), players: teamPlayers
             };
             approvedTeams[captain.userId] = teamData;
         }
@@ -617,7 +618,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             prizeFinalista: draft.config.prizeFinalista, startTime: null,
             ...leagueConfig
         };
-        
+
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
 
@@ -646,90 +647,92 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         newTournament.discordMessageIds.statusMessageId = statusMsg.id;
         newTournament.discordMessageIds.classificationMessageId = classificationMsg.id;
         newTournament.discordMessageIds.calendarMessageId = calendarMsg.id;
-        
+
         const managementParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
         const managementThread = await managementParentChannel.threads.create({ name: `Gestión - ${tournamentName.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
         newTournament.discordMessageIds.managementThreadId = managementThread.id;
-        
+
         const notificationsParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT);
         const notificationsThread = await notificationsParentChannel.threads.create({ name: `Avisos - ${tournamentName.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
         newTournament.discordMessageIds.notificationsThreadId = notificationsThread.id;
-        
+
         const casterParentChannel = await client.channels.fetch(CHANNELS.CASTER_HUB_ID);
         const casterThread = await casterParentChannel.threads.create({ name: `Casters - ${tournamentName.slice(0, 50)}`, type: ChannelType.PrivateThread, autoArchiveDuration: 10080 });
         newTournament.discordMessageIds.casterThreadId = casterThread.id;
 
         await db.collection('tournaments').insertOne(newTournament);
-        
+
         const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
         if (teamCategory) {
-    for (const team of Object.values(newTournament.teams.aprobados)) {
-        const realPlayerIds = team.players.map(p => p.userId).filter(id => /^\d+$/.test(id));
-        
-        const textPermissions = [
-            { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-            { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-            ...realPlayerIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
-        ];
-        
-        const voicePermissions = [
-            { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-            { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-            ...realPlayerIds.map(id => ({ id, allow: [
-                PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
-            ]}))
-        ];
-        
-        const textChannel = await guild.channels.create({
-            name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`, type: ChannelType.GuildText,
-            parent: teamCategory, permissionOverwrites: textPermissions
-        });
+            for (const team of Object.values(newTournament.teams.aprobados)) {
+                const realPlayerIds = team.players.map(p => p.userId).filter(id => /^\d+$/.test(id));
 
-        await guild.channels.create({
-            name: `🔊 ${team.nombre}`, type: ChannelType.GuildVoice,
-            parent: teamCategory, permissionOverwrites: voicePermissions
-        });
-        
-        const mentionString = realPlayerIds.map(id => `<@${id}>`).join(' ');
-        await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
-        
-        if (/^\d+$/.test(team.capitanId)) {
-            await chatChannel.send({
-                content: `<@${team.capitanId}>, puedes invitar a tu co-capitán desde aquí:`,
-                components: [new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`invite_cocaptain_start:${newTournament.shortId}`)
-                        .setLabel('Invitar Co-Capitán')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setEmoji('🤝')
-                )],
-                flags: [MessageFlags.Ephemeral]
-            });
+                const textPermissions = [
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
+                    ...realPlayerIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
+                ];
+
+                const voicePermissions = [
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
+                    ...realPlayerIds.map(id => ({
+                        id, allow: [
+                            PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
+                        ]
+                    }))
+                ];
+
+                const textChannel = await guild.channels.create({
+                    name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`, type: ChannelType.GuildText,
+                    parent: teamCategory, permissionOverwrites: textPermissions
+                });
+
+                await guild.channels.create({
+                    name: `🔊 ${team.nombre}`, type: ChannelType.GuildVoice,
+                    parent: teamCategory, permissionOverwrites: voicePermissions
+                });
+
+                const mentionString = realPlayerIds.map(id => `<@${id}>`).join(' ');
+                await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
+
+                if (/^\d+$/.test(team.capitanId)) {
+                    await chatChannel.send({
+                        content: `<@${team.capitanId}>, puedes invitar a tu co-capitán desde aquí:`,
+                        components: [new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`invite_cocaptain_start:${newTournament.shortId}`)
+                                .setLabel('Invitar Co-Capitán')
+                                .setStyle(ButtonStyle.Secondary)
+                                .setEmoji('🤝')
+                        )],
+                        flags: [MessageFlags.Ephemeral]
+                    });
+                }
+            }
         }
-    }
-}
-        
-        for (const member of arbitroRole.members.values()) { await managementThread.members.add(member.id).catch(()=>{}); await notificationsThread.members.add(member.id).catch(()=>{}); }
-        if (casterRole) { for (const member of casterRole.members.values()) { await casterThread.members.add(member.id).catch(()=>{}); } }
-        
+
+        for (const member of arbitroRole.members.values()) { await managementThread.members.add(member.id).catch(() => { }); await notificationsThread.members.add(member.id).catch(() => { }); }
+        if (casterRole) { for (const member of casterRole.members.values()) { await casterThread.members.add(member.id).catch(() => { }); } }
+
         await managementThread.send(createTournamentManagementPanel(newTournament, true));
 
         await publishTournamentVisualizerURL(client, newTournament);
 
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'torneo_generado' } });
-        
+
         const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
         await notifyTournamentVisualizer(finalTournament);
         for (const teamData of Object.values(finalTournament.teams.aprobados)) {
             await notifyCastersOfNewTeam(client, finalTournament, teamData);
         }
-        
+
         const draftChannel = await client.channels.fetch(draft.discordChannelId).catch(() => null);
         if (draftChannel) {
-             await draftChannel.send('✅ **Torneo generado con éxito.** Este canal permanecerá como archivo para consultar las plantillas de los equipos.');
+            await draftChannel.send('✅ **Torneo generado con éxito.** Este canal permanecerá como archivo para consultar las plantillas de los equipos.');
         }
 
-        const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
+        const finalDraftState = await db.collection('drafts').findOne({ _id: draft._id });
         await updateCaptainControlPanel(client, finalDraftState);
         await updateDraftManagementPanel(client, finalDraftState);
 
@@ -783,13 +786,13 @@ export async function createNewDraft(client, guild, name, shortId, config) {
 
         const newDraft = {
             _id: new ObjectId(), shortId, guildId: guild.id, name, status: 'inscripcion',
-            config: { 
-                isPaid: config.isPaid, 
-                entryFee: config.isPaid ? config.entryFee : 0, 
+            config: {
+                isPaid: config.isPaid,
+                entryFee: config.isPaid ? config.entryFee : 0,
                 prizeCampeon: config.isPaid ? config.prizeCampeon : 0,
                 prizeFinalista: config.isPaid ? config.prizeFinalista : 0,
             },
-            captains: [], pendingCaptains: {}, players: [], pendingPayments: {}, 
+            captains: [], pendingCaptains: {}, players: [], pendingPayments: {},
             selection: { turn: 0, order: [], currentPick: 1, isPicking: false, activeInteractionId: null },
             discordChannelId: draftChannel.id,
             discordMessageIds: {
@@ -797,20 +800,20 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 mainInterfacePlayerMessageId: null, mainInterfaceTeamsMessageId: null,
                 turnOrderMessageId: null, notificationsThreadId: null,
                 captainControlPanelMessageId: null,
-                casterTextChannelId: null, 
-                warRoomVoiceChannelId: null 
+                casterTextChannelId: null,
+                warRoomVoiceChannelId: null
             }
         };
-        
+
         const [playersEmbed, teamsEmbed, turnOrderEmbed] = createDraftMainInterface(newDraft);
         const playersMessage = await draftChannel.send({ embeds: [playersEmbed] });
         const teamsMessage = await draftChannel.send({ embeds: [teamsEmbed] });
         const turnOrderMessage = await draftChannel.send({ embeds: [turnOrderEmbed] });
-        
+
         newDraft.discordMessageIds.mainInterfacePlayerMessageId = playersMessage.id;
         newDraft.discordMessageIds.mainInterfaceTeamsMessageId = teamsMessage.id;
         newDraft.discordMessageIds.turnOrderMessageId = turnOrderMessage.id;
-        
+
         const globalStatusChannel = await client.channels.fetch(CHANNELS.DRAFTS_STATUS);
         const statusMsg = await globalStatusChannel.send(createDraftStatusEmbed(newDraft));
         newDraft.discordMessageIds.statusMessageId = statusMsg.id;
@@ -821,15 +824,15 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             type: ChannelType.PrivateThread, autoArchiveDuration: 10080
         });
         newDraft.discordMessageIds.managementThreadId = managementThread.id;
-        
+
         const notificationsParentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT);
         const notificationsThread = await notificationsParentChannel.threads.create({
             name: `Avisos Draft - ${name.slice(0, 40)}`,
             type: ChannelType.PrivateThread,
-            autoArchiveDuration: 10080 
+            autoArchiveDuration: 10080
         });
         newDraft.discordMessageIds.notificationsThreadId = notificationsThread.id;
-        
+
         const basePermissions = [
             { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
             { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
@@ -849,23 +852,23 @@ export async function createNewDraft(client, guild, name, shortId, config) {
 
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
-                await managementThread.members.add(member.id).catch(() => {});
-                await notificationsThread.members.add(member.id).catch(() => {});
-                await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => {});
+                await managementThread.members.add(member.id).catch(() => { });
+                await notificationsThread.members.add(member.id).catch(() => { });
+                await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => { });
             }
         }
         if (casterRole) {
-             for (const member of casterRole.members.values()) {
-                await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => {});
+            for (const member of casterRole.members.values()) {
+                await casterTextChannel.permissionOverwrites.edit(member.id, { ViewChannel: true }).catch(() => { });
             }
         }
-        
+
         await managementThread.send(createDraftManagementPanel(newDraft, true));
 
         const finalDraft = await db.collection('drafts').findOne({ _id: newDraft._id });
         if (finalDraft) {
             await notifyVisualizer(finalDraft);
-            await publishDraftVisualizerURL(client, finalDraft); 
+            await publishDraftVisualizerURL(client, finalDraft);
         }
 
     } catch (error) {
@@ -883,7 +886,7 @@ export async function startDraftSelection(client, guild, draftShortId) {
         let draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) throw new Error('Draft no encontrado.');
         if (draft.status !== 'inscripcion') throw new Error('El draft no está en fase de inscripción.');
-        
+
         const settings = await getBotSettings();
         const minQuotas = Object.fromEntries(settings.draftMinQuotas.split(',').map(q => q.split(':')));
         const positionCounts = {};
@@ -892,7 +895,7 @@ export async function startDraftSelection(client, guild, draftShortId) {
         for (const player of allPlayers) {
             if (positionCounts[player.primaryPosition] !== undefined) positionCounts[player.primaryPosition]++;
             if (player.secondaryPosition && player.secondaryPosition !== 'NONE' && player.secondaryPosition !== player.primaryPosition) {
-                 if (positionCounts[player.secondaryPosition] !== undefined) positionCounts[player.secondaryPosition]++;
+                if (positionCounts[player.secondaryPosition] !== undefined) positionCounts[player.secondaryPosition]++;
             }
         }
         const missingPositions = [];
@@ -906,16 +909,16 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (missingPositions.length > 0) {
             throw new Error(`No se cumplen las cuotas mínimas. Faltan jugadores para: ${missingPositions.join(', ')}.`);
         }
-        
+
         const captainIds = draft.captains.map(c => c.userId);
         for (let i = captainIds.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [captainIds[i], captainIds[j]] = [captainIds[j], captainIds[i]];
         }
-        
+
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
-        
+
         const voicePermissions = [
             { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
             { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel] }
@@ -923,9 +926,9 @@ export async function startDraftSelection(client, guild, draftShortId) {
         if (casterRole) voicePermissions.push({ id: casterRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
         if (arbitroRole) voicePermissions.push({ id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
         draft.captains.forEach(c => {
-             if (/^\d+$/.test(c.userId)) {
+            if (/^\d+$/.test(c.userId)) {
                 voicePermissions.push({ id: c.userId, allow: [PermissionsBitField.Flags.ViewChannel] });
-             }
+            }
         });
 
         const warRoomVoiceChannel = await guild.channels.create({
@@ -934,22 +937,24 @@ export async function startDraftSelection(client, guild, draftShortId) {
             parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
             permissionOverwrites: voicePermissions
         });
-        
+
         await db.collection('drafts').updateOne(
             { _id: draft._id },
-            { $set: { 
-                status: 'seleccion', 
-                'selection.order': captainIds, 
-                'selection.turn': 0, 
-                'selection.currentPick': 1, 
-                'selection.isPicking': false, 
-                'selection.activeInteractionId': null,
-                'discordMessageIds.warRoomVoiceChannelId': warRoomVoiceChannel.id
-            }}
+            {
+                $set: {
+                    status: 'seleccion',
+                    'selection.order': captainIds,
+                    'selection.turn': 0,
+                    'selection.currentPick': 1,
+                    'selection.isPicking': false,
+                    'selection.activeInteractionId': null,
+                    'discordMessageIds.warRoomVoiceChannelId': warRoomVoiceChannel.id
+                }
+            }
         );
-        
+
         draft = await db.collection('drafts').findOne({ _id: draft._id });
-        
+
         const draftChannel = await client.channels.fetch(draft.discordChannelId);
         const panelContent = createCaptainControlPanel(draft);
         const panelMessage = await draftChannel.send(panelContent);
@@ -958,7 +963,7 @@ export async function startDraftSelection(client, guild, draftShortId) {
             { _id: draft._id },
             { $set: { 'discordMessageIds.captainControlPanelMessageId': panelMessage.id } }
         );
-        
+
         await updateDraftManagementPanel(client, draft);
         await updatePublicMessages(client, draft);
         await updateDraftMainInterface(client, draft.shortId);
@@ -979,12 +984,12 @@ export async function updateCaptainControlPanel(client, draft) {
     try {
         const channel = await client.channels.fetch(draft.discordChannelId);
         const message = await channel.messages.fetch(draft.discordMessageIds.captainControlPanelMessageId);
-        
+
         const content = createCaptainControlPanel(draft);
         await message.edit(content);
     } catch (e) {
         if (e.code !== 10008 && e.code !== 10003) {
-             console.error(`Error al actualizar el panel de control de capitanes para el draft ${draft.shortId}:`, e);
+            console.error(`Error al actualizar el panel de control de capitanes para el draft ${draft.shortId}:`, e);
         }
     }
 }
@@ -995,14 +1000,14 @@ export async function advanceDraftTurn(client, draftShortId) {
 
     const totalPicks = draft.captains.length * 10;
     if (draft.selection.currentPick >= totalPicks) {
-         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado', "selection.isPicking": false, "selection.activeInteractionId": null } });
-         const finalDraftState = await db.collection('drafts').findOne({_id: draft._id});
-         
-         await updateDraftManagementPanel(client, finalDraftState);
-         await updateDraftMainInterface(client, finalDraftState.shortId);
-         await updatePublicMessages(client, finalDraftState);
-         await updateCaptainControlPanel(client, finalDraftState);
-         return;
+        await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado', "selection.isPicking": false, "selection.activeInteractionId": null } });
+        const finalDraftState = await db.collection('drafts').findOne({ _id: draft._id });
+
+        await updateDraftManagementPanel(client, finalDraftState);
+        await updateDraftMainInterface(client, finalDraftState.shortId);
+        await updatePublicMessages(client, finalDraftState);
+        await updateCaptainControlPanel(client, finalDraftState);
+        return;
     }
 
     const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
@@ -1017,7 +1022,7 @@ export async function advanceDraftTurn(client, draftShortId) {
             nextTurnIndex--;
         }
     }
-    
+
     await db.collection('drafts').updateOne(
         { _id: draft._id },
         {
@@ -1025,8 +1030,8 @@ export async function advanceDraftTurn(client, draftShortId) {
             $inc: { "selection.currentPick": 1 },
         }
     );
-    
-   const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await notifyVisualizer(updatedDraft);
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updateCaptainControlPanel(client, updatedDraft);
@@ -1042,7 +1047,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const db = getDb();
         const format = TOURNAMENT_FORMATS[config.formatId];
         if (!format) return { success: false, message: `Formato de torneo inválido: ${config.formatId}` };
-        
+
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
         if (!arbitroRole) return { success: false, message: "El rol de Árbitro no fue encontrado." };
         const casterRole = await guild.roles.fetch(CASTER_ROLE_ID).catch(() => null);
@@ -1103,23 +1108,23 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             await cleanupFailedCreation(client, createdResources);
             return { success: false, message: "Fallo al crear los hilos de gestión." };
         }
-        
+
         await db.collection('tournaments').insertOne(newTournament);
 
         if (arbitroRole) {
             for (const member of arbitroRole.members.values()) {
-                await managementThread.members.add(member.id).catch(()=>{});
-                await notificationsThread.members.add(member.id).catch(()=>{});
+                await managementThread.members.add(member.id).catch(() => { });
+                await notificationsThread.members.add(member.id).catch(() => { });
             }
         }
         if (casterRole) {
             for (const member of casterRole.members.values()) {
-                 await casterThread.members.add(member.id).catch(()=>{});
+                await casterThread.members.add(member.id).catch(() => { });
             }
         }
-        
+
         await managementThread.send(createTournamentManagementPanel(newTournament, false));
-        
+
         const finalTournament = await db.collection('tournaments').findOne({ _id: newTournament._id });
         if (finalTournament) {
             await notifyTournamentVisualizer(finalTournament);
@@ -1140,7 +1145,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
                 console.error("Fallo en postTournamentUpdate:", result?.error);
             }
         })();
-        
+
         await setBotBusy(false);
         return { success: true, tournament: finalTournament };
 
@@ -1156,18 +1161,18 @@ async function cleanupFailedCreation(client, resources) {
     const deleteChannel = async (id) => {
         if (!id) return;
         try {
-            const channel = await client.channels.fetch(id).catch(()=>null);
+            const channel = await client.channels.fetch(id).catch(() => null);
             if (channel) await channel.delete('Limpieza por creación de torneo fallida.');
-        } catch(e) { console.warn(`No se pudo limpiar el canal ${id}: ${e.message}`); }
+        } catch (e) { console.warn(`No se pudo limpiar el canal ${id}: ${e.message}`); }
     };
-    for(const id of [...resources.channels, ...resources.threads]) {
+    for (const id of [...resources.channels, ...resources.threads]) {
         await deleteChannel(id);
     }
-    for(const msg of resources.messages) {
+    for (const msg of resources.messages) {
         try {
-            const channel = await client.channels.fetch(msg.channelId).catch(()=>null);
-            if(channel) await channel.messages.delete(msg.messageId).catch(()=>{});
-        } catch(e) { console.warn(`No se pudo limpiar el mensaje ${msg.messageId}`); }
+            const channel = await client.channels.fetch(msg.channelId).catch(() => null);
+            if (channel) await channel.messages.delete(msg.messageId).catch(() => { });
+        } catch (e) { console.warn(`No se pudo limpiar el mensaje ${msg.messageId}`); }
     }
     console.log("[CLEANUP] Limpieza completada.");
 }
@@ -1185,27 +1190,29 @@ export async function startGroupStage(client, guild, tournament) {
         } else {
             await generateGroupBasedSchedule(tournamentData);
         }
-        
+
         // --- INICIO DE LA LÓGICA CORREGIDA Y DEFINITIVA ---
         // Paso 2: Volver a cargar la versión MÁS RECIENTE del torneo desde la DB
         const updatedTournament = await db.collection('tournaments').findOne({ _id: tournamentData._id });
-        
+
         // Paso 3: Ahora sí, crear los hilos de la Jornada 1
         const allMatches = Object.values(updatedTournament.structure.calendario).flat();
         for (const match of allMatches) {
             if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
                 const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
-                
+
                 const groupKey = match.nombreGrupo;
                 const matchIndex = updatedTournament.structure.calendario[groupKey].findIndex(m => m.matchId === match.matchId);
 
                 if (matchIndex > -1) {
                     await db.collection('tournaments').updateOne(
                         { _id: updatedTournament._id },
-                        { $set: { 
-                            [`structure.calendario.${groupKey}.${matchIndex}.threadId`]: threadId, 
-                            [`structure.calendario.${groupKey}.${matchIndex}.status`]: 'en_curso' 
-                        }}
+                        {
+                            $set: {
+                                [`structure.calendario.${groupKey}.${matchIndex}.threadId`]: threadId,
+                                [`structure.calendario.${groupKey}.${matchIndex}.status`]: 'en_curso'
+                            }
+                        }
                     );
                 }
             }
@@ -1214,21 +1221,21 @@ export async function startGroupStage(client, guild, tournament) {
 
         // Paso 4: Actualizar todas las interfaces públicas
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournamentData._id });
-        await updatePublicMessages(client, finalTournamentState); 
+        await updatePublicMessages(client, finalTournamentState);
         await updateTournamentManagementThread(client, finalTournamentState);
-        
+
         postTournamentUpdate('GROUP_STAGE_START', finalTournamentState).catch(console.error);
         await notifyTournamentVisualizer(finalTournamentState);
 
-    } catch (error) { 
+    } catch (error) {
         console.error(`Error durante el sorteo del torneo ${tournament.shortId}:`, error);
-    } finally { 
-        await setBotBusy(false); 
+    } finally {
+        await setBotBusy(false);
     }
 }
 export async function approveTeam(client, tournament, teamData) {
     const db = getDb();
-    let latestTournament = await db.collection('tournaments').findOne({_id: tournament._id});
+    let latestTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     if (!latestTournament.teams.aprobados) latestTournament.teams.aprobados = {};
     if (!latestTournament.teams.reserva) latestTournament.teams.reserva = {};
 
@@ -1239,7 +1246,7 @@ export async function approveTeam(client, tournament, teamData) {
         latestTournament.teams.aprobados[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
         if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
-        
+
         if (/^\d+$/.test(teamData.capitanId)) {
             try {
                 const user = await client.users.fetch(teamData.capitanId);
@@ -1268,8 +1275,8 @@ export async function approveTeam(client, tournament, teamData) {
                     components: [inviteButtonRow]
                 });
 
-            } catch(e) { 
-                console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la aprobación o al dar permisos:`, e); 
+            } catch (e) {
+                console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la aprobación o al dar permisos:`, e);
             }
         }
         await notifyCastersOfNewTeam(client, latestTournament, teamData);
@@ -1287,16 +1294,16 @@ export async function approveTeam(client, tournament, teamData) {
                     .setTitle(`⚠️ En Lista de Reserva para ${latestTournament.nombre}`)
                     .setDescription(`🇪🇸 ¡Hola! Tu equipo **${teamData.nombre}** ha sido añadido a la **lista de reserva** para el torneo **${latestTournament.nombre}**.\nActualmente, el torneo está completo, pero si se libera un espacio, tu equipo será considerado automáticamente.\n\n🇬🇧 Hello! Your team **${teamData.nombre}** has been added to the **reserve list** for the **${latestTournament.nombre}** tournament.\nThe tournament is currently full, but if a spot opens up, your team will be automatically considered.`);
                 await user.send({ embeds: [embed] });
-            } catch(e) { 
-                console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la lista de reserva:`, e); 
+            } catch (e) {
+                console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la lista de reserva:`, e);
             }
         }
     }
 
-    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes, 'teams.reserva': latestTournament.teams.reserva }});
-    
-    const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
-    
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes, 'teams.reserva': latestTournament.teams.reserva } });
+
+    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
     await notifyTournamentVisualizer(updatedTournament);
@@ -1306,16 +1313,16 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     const db = getDb();
     const guild = await client.guilds.fetch(tournament.guildId);
     const coCaptainUser = await client.users.fetch(coCaptainId);
-    
+
     // Obtenemos el torneo más actualizado para evitar conflictos
     const latestTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     const team = latestTournament.teams.aprobados[captainId];
-    
+
     // 1. Actualizamos la ficha general del equipo en la base de datos
     await db.collection('tournaments').updateOne(
         { _id: latestTournament._id },
         {
-            $set: { 
+            $set: {
                 [`teams.aprobados.${captainId}.coCaptainId`]: coCaptainId,
                 [`teams.aprobados.${captainId}.coCaptainTag`]: coCaptainUser.tag
             },
@@ -1371,7 +1378,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                 const teamNameFormatted = team.nombre.replace(/\s+/g, '-').toLowerCase();
                 const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
                 const voiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${team.nombre}`);
-                
+
                 if (textChannel) await textChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true });
                 if (voiceChannel) await voiceChannel.permissionOverwrites.edit(coCaptainId, { ViewChannel: true, Connect: true, Speak: true });
             }
@@ -1401,7 +1408,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                     await thread.send(`ℹ️ <@${coCaptainId}> ha sido añadido a este hilo como co-capitán y ahora puede reportar resultados.`);
                 }
             } catch (error) {
-                if (error.code !== 10003) { 
+                if (error.code !== 10003) {
                     console.warn(`No se pudo añadir al co-capitán ${coCaptainId} al hilo ${threadId}: ${error.message}`);
                 }
             }
@@ -1443,13 +1450,13 @@ export async function kickTeam(client, tournament, captainId) {
             await matchesChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo');
         } catch (e) { console.error(`No se pudieron revocar los permisos para el co-capitán ${teamData.coCaptainId}:`, e); }
     }
-    
-    await db.collection('tournaments').updateOne( { _id: tournament._id }, { $unset: { [`teams.aprobados.${captainId}`]: "" } } );
-    
+
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.aprobados.${captainId}`]: "" } });
+
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
     try {
-        const casterThread = await client.channels.fetch(updatedTournament.discordMessageIds.casterThreadId).catch(()=>null);
+        const casterThread = await client.channels.fetch(updatedTournament.discordMessageIds.casterThreadId).catch(() => null);
         if (casterThread) {
             await casterThread.send(`- Equipo **${teamData.nombre}** (Capitán: ${teamData.capitanTag}) ha sido eliminado del torneo.`);
         }
@@ -1465,7 +1472,7 @@ export async function kickTeam(client, tournament, captainId) {
 export async function undoGroupStageDraw(client, tournamentShortId) {
     await setBotBusy(true);
     const db = getDb();
-    
+
     try {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || tournament.status !== 'fase_de_grupos') {
@@ -1481,17 +1488,17 @@ export async function undoGroupStageDraw(client, tournamentShortId) {
                 }
             }
         }
-        
+
         const updateQuery = {
             $set: {
                 status: 'inscripcion_abierta',
-                'structure.grupos': {}, 
-                'structure.calendario': {}, 
+                'structure.grupos': {},
+                'structure.calendario': {},
                 'structure.eliminatorias': { rondaActual: null },
             }
         };
         await db.collection('tournaments').updateOne({ _id: tournament._id }, updateQuery);
-        
+
         const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
         await updatePublicMessages(client, updatedTournament);
         await updateTournamentManagementThread(client, updatedTournament);
@@ -1527,7 +1534,7 @@ export async function endTournament(client, tournament) {
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
         await notifyTournamentVisualizer(finalTournamentState);
         await updateTournamentManagementThread(client, finalTournamentState);
-        
+
         // --- INICIO DE LA NUEVA LÓGICA DE RECOMPENSAS ---
         if (finalTournamentState.shortId.startsWith('draft-')) {
             console.log(`[STRIKE REDUCTION] Torneo de draft finalizado. Revisando jugadores para recompensa...`);
@@ -1543,7 +1550,7 @@ export async function endTournament(client, tournament) {
                             { userId: player.userId },
                             { $inc: { strikes: -1 } }
                         );
-                        
+
                         if (/^\d+$/.test(player.userId)) {
                             try {
                                 const user = await client.users.fetch(player.userId);
@@ -1556,7 +1563,7 @@ export async function endTournament(client, tournament) {
                     }
                 }
             } else {
-                 console.warn(`[STRIKE REDUCTION] No se encontró el draft original ${draftShortId} para aplicar la reducción de strikes.`);
+                console.warn(`[STRIKE REDUCTION] No se encontró el draft original ${draftShortId} para aplicar la reducción de strikes.`);
             }
         }
         // --- FIN DE LA NUEVA LÓGICA DE RECOMPENSAS ---
@@ -1578,44 +1585,44 @@ export async function endTournament(client, tournament) {
             }
         }
 
-    } catch (error) { 
+    } catch (error) {
         console.error(`Error crítico al finalizar torneo ${tournament.shortId}:`, error);
-    } finally { 
-        await setBotBusy(false); 
+    } finally {
+        await setBotBusy(false);
     }
 }
 
 async function cleanupTournament(client, tournament) {
     const { discordChannelIds, discordMessageIds } = tournament;
-    
+
     const deleteResourceSafe = async (resourceId) => {
         if (!resourceId) return;
-        try { 
-            const resource = await client.channels.fetch(resourceId).catch(() => null); 
-            if(resource) await resource.delete(); 
-        } 
-        catch (err) { 
-            if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`); 
+        try {
+            const resource = await client.channels.fetch(resourceId).catch(() => null);
+            if (resource) await resource.delete();
+        }
+        catch (err) {
+            if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`);
         }
     };
 
-    for (const channelId of Object.values(discordChannelIds)) { 
-        await deleteResourceSafe(channelId); 
+    for (const channelId of Object.values(discordChannelIds)) {
+        await deleteResourceSafe(channelId);
     }
-    for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) { 
-        await deleteResourceSafe(threadId); 
+    for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) {
+        await deleteResourceSafe(threadId);
     }
-    
+
     // --- INICIO DE LA CORRECCIÓN ---
     // Ahora, también borramos el mensaje de estado del canal público.
-    try { 
-        const globalChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS); 
+    try {
+        const globalChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS);
         if (discordMessageIds.statusMessageId) {
             await globalChannel.messages.delete(discordMessageIds.statusMessageId);
         }
-    } catch(e) { 
+    } catch (e) {
         // Ignoramos el error si el mensaje ya no existe (10008)
-        if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global"); 
+        if (e.code !== 10008) console.error("Fallo al borrar mensaje de estado global");
     }
     // --- FIN DE LA CORRECCIÓN ---
 }
@@ -1669,7 +1676,7 @@ export async function updatePublicMessages(client, entity) {
     const isDraft = entity.players !== undefined;
     const collectionName = isDraft ? 'drafts' : 'tournaments';
     const latestState = await db.collection(collectionName).findOne({ _id: entity._id });
-    
+
     if (!latestState || !latestState.discordMessageIds || !latestState.discordMessageIds.statusMessageId) return;
 
     const editMessageSafe = async (channelId, messageId, content) => {
@@ -1729,44 +1736,44 @@ export async function updateTournamentConfig(client, tournamentShortId, newConfi
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     if (!tournament) throw new Error('Torneo no encontrado');
-    
+
     const oldSize = tournament.config.format.size;
-    
+
     const updatedConfig = { ...tournament.config, ...newConfig };
-    if (newConfig.formatId) { 
-        updatedConfig.format = TOURNAMENT_FORMATS[newConfig.formatId]; 
+    if (newConfig.formatId) {
+        updatedConfig.format = TOURNAMENT_FORMATS[newConfig.formatId];
     }
-    
+
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { config: updatedConfig } });
-    
+
     const newSize = updatedConfig.format.size;
 
     if (newSize > oldSize && !tournament.config.isPaid) {
         const slotsToFill = newSize - oldSize;
         await promoteFromWaitlist(client, tournamentShortId, slotsToFill);
     }
-    
+
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-    await updatePublicMessages(client, updatedTournament); 
+    await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
     await notifyTournamentVisualizer(updatedTournament);
 }
 
 export async function addTeamToWaitlist(client, tournament, teamData) {
     const db = getDb();
-    
+
     await db.collection('tournaments').updateOne(
         { _id: tournament._id },
         { $set: { [`teams.reserva.${teamData.capitanId}`]: teamData } }
     );
-    
+
     const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
     if (notificationsThread) {
         const embed = new EmbedBuilder()
             .setColor('#f1c40f')
             .setTitle('📝 Nueva Inscripción en Reserva')
             .setDescription(`El equipo **${teamData.nombre}** (Cap: ${teamData.capitanTag}) se ha inscrito en la lista de reserva.`)
-            .setFooter({ text: `Torneo: ${tournament.nombre}`});
+            .setFooter({ text: `Torneo: ${tournament.nombre}` });
         await notificationsThread.send({ embeds: [embed] });
     }
 }
@@ -1783,7 +1790,7 @@ export async function requestUnregister(client, tournament, userId) {
         .setColor('#e67e22')
         .setTitle('👋 Solicitud de Baja')
         .setDescription(`El capitán **${team.capitanTag}** del equipo **${team.nombre}** solicita darse de baja del torneo.`)
-        .setFooter({ text: `ID del Capitán: ${userId}`});
+        .setFooter({ text: `ID del Capitán: ${userId}` });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`admin_unregister_approve:${tournament.shortId}:${userId}`).setLabel('Aprobar Baja').setStyle(ButtonStyle.Success),
@@ -1816,7 +1823,8 @@ export async function notifyCaptainsOfChanges(client, tournament) {
     let notifiedCount = 0;
     for (const team of approvedCaptains) {
         if (/^\d+$/.test(team.capitanId)) {
-            try { const user = await client.users.fetch(team.capitanId); await user.send({ embeds: [embed] }); notifiedCount++;
+            try {
+                const user = await client.users.fetch(team.capitanId); await user.send({ embeds: [embed] }); notifiedCount++;
             } catch (e) { console.warn(`No se pudo notificar al capitán ${team.capitanTag}`); }
         }
     }
@@ -1873,7 +1881,7 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
             new ButtonBuilder().setCustomId(`admin_strike_approve:${draft.shortId}:${reportedPlayerId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Aprobar Strike').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId(`admin_strike_reject:${draft.shortId}:${reporter.userId}:${disputeChannel.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
         );
-        
+
         // 4. Enviar el mensaje con los botones al canal de disputa
         await disputeChannel.send({
             content: `Atención <@&${ARBITRO_ROLE_ID}>, <@${reporter.userId}>, <@${reportedPlayerId}>. Se ha abierto este canal para resolver una disputa.`,
@@ -1888,7 +1896,7 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
                 content: `🚨 **Has sido reportado en el draft "${draft.name}"** 🚨\n\nTu capitán ha solicitado un strike en tu contra. Tienes la oportunidad de explicar tu versión de los hechos en el siguiente canal privado antes de que un administrador tome una decisión:\n\n${disputeChannel.toString()}`
             }).catch(e => console.warn(`No se pudo enviar MD de disputa al jugador ${reportedPlayerId}`));
         }
-        
+
         // --- LÓGICA DE PERSISTENCIA PARA SOLUCIONAR EL F5 ---
         // 6. Marcamos al jugador como reportado EN LA BASE DE DATOS
         await db.collection('drafts').updateOne(
@@ -1900,7 +1908,7 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         await notifyVisualizer(updatedDraft);
         // --- FIN DE LA LÓGICA DE PERSISTENCIA ---
-        
+
         return { success: true };
 
     } catch (error) {
@@ -1945,7 +1953,7 @@ export async function requestPlayerKick(client, draft, captainId, playerIdToKick
     );
 
     await notificationsThread.send({ embeds: [embed], components: [row] });
-    
+
     // Notificamos al visualizador para que el botón se desactive
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await notifyVisualizer(updatedDraft);
@@ -1962,7 +1970,7 @@ export async function handleKickApproval(client, draft, captainId, playerIdToKic
     if (wasApproved) {
         // Esta función ahora elimina al jugador por completo gracias al cambio anterior
         await forceKickPlayer(client, draft.shortId, captainId, playerIdToKick);
-        
+
         // Mensaje al capitán
         if (captain) {
             await captain.send(`✅ Tu solicitud para expulsar a **${playerName}** ha sido **aprobada**. El jugador ha sido eliminado del draft.`);
@@ -1977,7 +1985,7 @@ export async function handleKickApproval(client, draft, captainId, playerIdToKic
             { $unset: { "players.$.kickRequestPending": "" } }
         );
         if (captain) await captain.send(`❌ Tu solicitud para expulsar a **${playerName}** ha sido **rechazada** por un administrador.`);
-        
+
         // Notificamos al visualizador para que el botón se reactive
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         await notifyVisualizer(updatedDraft);
@@ -1985,6 +1993,7 @@ export async function handleKickApproval(client, draft, captainId, playerIdToKic
         return { success: true, message: "Expulsión rechazada." };
     }
 }
+
 export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKick) {
     const db = getDb();
     const guild = await client.guilds.fetch(process.env.GUILD_ID);
@@ -2001,7 +2010,7 @@ export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKi
             const teamNameFormatted = team.teamName.replace(/\s+/g, '-').toLowerCase();
             const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
             const voiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${team.teamName}`);
-            
+
             if (textChannel) await textChannel.permissionOverwrites.delete(playerIdToKick, 'Jugador expulsado del draft');
             if (voiceChannel) await voiceChannel.permissionOverwrites.delete(playerIdToKick, 'Jugador expulsado del draft');
         } catch (e) {
@@ -2031,7 +2040,7 @@ export async function forceKickPlayer(client, draftShortId, teamId, playerIdToKi
     if (/^\d+$/.test(playerIdToKick)) {
         try {
             const kickedUser = await client.users.fetch(playerIdToKick);
-             // Mensaje actualizado
+            // Mensaje actualizado
             await kickedUser.send(`🚨 Has sido **expulsado del draft "${draft.name}"** por un administrador.`);
         } catch (e) {
             console.warn(`No se pudo notificar al jugador expulsado ${playerIdToKick}.`);
@@ -2067,7 +2076,7 @@ export async function inviteReplacementPlayer(client, draft, captainId, kickedPl
     if (!player || player.captainId) throw new Error("Este jugador no está disponible o ya tiene equipo.");
 
     const captain = draft.captains.find(c => c.userId === captainId);
-    
+
     if (/^\d+$/.test(replacementPlayerId)) {
         const replacementUser = await client.users.fetch(replacementPlayerId);
         const embed = new EmbedBuilder()
@@ -2075,7 +2084,7 @@ export async function inviteReplacementPlayer(client, draft, captainId, kickedPl
             .setDescription(`El capitán **${captain.userName}** del equipo **${captain.teamName}** te ha invitado a unirte a su plantilla en el draft **${draft.name}** como reemplazo.`)
             .setColor('#3498db')
             .setFooter({ text: 'Si aceptas, ocuparás una plaza vacante en el equipo.' });
-        
+
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`draft_accept_replacement:${draft.shortId}:${captainId}:${kickedPlayerId}:${replacementPlayerId}`)
@@ -2086,7 +2095,7 @@ export async function inviteReplacementPlayer(client, draft, captainId, kickedPl
                 .setLabel('Rechazar')
                 .setStyle(ButtonStyle.Danger)
         );
-        
+
         await replacementUser.send({ embeds: [embed], components: [row] });
     }
 }
@@ -2099,11 +2108,11 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
     // Paso 1: Limpiamos al jugador expulsado
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": kickedPlayerId },
-        { 
+        {
             $set: { "players.$.captainId": null },
-            $unset: { 
+            $unset: {
                 "players.$.kickRequestPending": "",
-                "players.$.hasBeenReportedByCaptain": "" 
+                "players.$.hasBeenReportedByCaptain": ""
             }
         }
     );
@@ -2120,7 +2129,7 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
             const teamNameFormatted = captain.teamName.replace(/\s+/g, '-').toLowerCase();
             const textChannel = guild.channels.cache.find(c => c.name === `💬-${teamNameFormatted}`);
             const voiceChannel = guild.channels.cache.find(c => c.name === `🔊 ${captain.teamName}`);
-            
+
             if (textChannel) {
                 await textChannel.permissionOverwrites.edit(replacementPlayerId, {
                     ViewChannel: true
@@ -2147,7 +2156,7 @@ export async function acceptReplacement(client, guild, draft, captainId, kickedP
             console.warn(`No se pudo notificar al capitán ${captainId} de la aceptación del reemplazo.`);
         }
     }
-    
+
     // Paso 5: Actualizamos todas las interfaces
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
@@ -2160,7 +2169,7 @@ export async function requestStrikeFromWeb(client, draftId, captainId, playerId,
         const draft = await getDb().collection('drafts').findOne({ shortId: draftId });
         // --- CORRECCIÓN CLAVE ---
         // El 'teamId' en un draft es el mismo que el 'captainId'.
-        const teamId = captainId; 
+        const teamId = captainId;
         await requestStrike(client, draft, captainId, teamId, playerId, reason);
     } catch (error) {
         console.error(`[STRIKE WEB] Fallo en el strike del capitán ${captainId}: ${error.message}`);
@@ -2208,7 +2217,7 @@ export async function prepareRouletteDraw(client, draftShortId) {
             formatId, format, isPaid: draft.config.isPaid, matchType: 'ida',
             entryFee: draft.config.entryFee, prizeCampeon: draft.config.prizeCampeon, prizeFinalista: draft.config.prizeFinalista,
         };
-        
+
         // Creamos la estructura del torneo en la base de datos pero con equipos y grupos vacíos.
         const newTournament = await createNewTournament(client, guild, tournamentName, tournamentShortId, config);
         if (!newTournament.success) {
@@ -2288,10 +2297,10 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
         nextGroup = groupLetters[drawnCount % 4];
     }
     const groupName = `Grupo ${nextGroup}`;
-    
+
     const draft = await db.collection('drafts').findOne({ shortId: tournament.shortId.replace('draft-', '') });
     const captainData = draft.captains.find(c => c.userId === teamId);
-    
+
     const teamObject = {
         id: captainData.userId, nombre: captainData.teamName, capitanId: captainData.userId,
         logoUrl: captainData.logoUrl, eafcTeamName: captainData.eafcTeamName,
@@ -2323,7 +2332,7 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ _id: new ObjectId(tournamentId) });
     const guild = await client.guilds.fetch(tournament.guildId);
-    
+
     // --- INICIO DEL BLOQUE AÑADIDO: CREACIÓN DE CANALES DE EQUIPO ---
     const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
     const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID);
@@ -2335,21 +2344,23 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
             // Buscamos la plantilla completa del equipo en el draft original
             const teamPlayers = draft.players.filter(p => p.captainId === team.capitanId);
             const realPlayerIds = teamPlayers.map(p => p.userId).filter(id => /^\d+$/.test(id));
-            
+
             const textPermissions = [
                 { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                 { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
                 ...realPlayerIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
             ];
-            
+
             const voicePermissions = [
                 { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                 { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-                ...realPlayerIds.map(id => ({ id, allow: [
-                    PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
-                ]}))
+                ...realPlayerIds.map(id => ({
+                    id, allow: [
+                        PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
+                    ]
+                }))
             ];
-            
+
             const textChannel = await guild.channels.create({
                 name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`,
                 type: ChannelType.GuildText,
@@ -2363,7 +2374,7 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
                 parent: teamCategory,
                 permissionOverwrites: voicePermissions
             });
-            
+
             const mentionString = realPlayerIds.map(id => `<@${id}>`).join(' ');
             await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
         }
@@ -2444,9 +2455,9 @@ async function generateFlexibleLeagueSchedule(tournament) {
     const db = getDb();
     console.log(`[DEBUG LIGA] 1. Iniciando calendario LIGA para ${tournament.shortId}`);
     tournament.status = 'fase_de_grupos';
-    
+
     let teams = Object.values(tournament.teams.aprobados);
-    
+
     // Si es impar, añadimos el equipo fantasma (Descanso)
     if (teams.length % 2 !== 0) {
         const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
@@ -2471,7 +2482,7 @@ async function generateFlexibleLeagueSchedule(tournament) {
     if (tournament.config.leagueMode === 'all_vs_all') {
         // Todos contra todos: N-1 rondas
         totalRoundsToGenerate = numTeams - 1;
-        
+
         // Si es Ida y Vuelta, multiplicamos por 2
         if (tournament.config.matchType === 'idavuelta') {
             totalRoundsToGenerate = totalRoundsToGenerate * 2;
@@ -2491,21 +2502,21 @@ async function generateFlexibleLeagueSchedule(tournament) {
 
     // Generamos todas las rondas posibles primero (un ciclo completo de ida)
     const baseRounds = numTeams - 1;
-    
+
     for (let round = 0; round < totalRoundsToGenerate; round++) {
         const jornadaNum = round + 1;
         // Detectamos si estamos en la "vuelta" (cuando round >= baseRounds)
         const isSecondLeg = round >= baseRounds;
-        
+
         // Si es vuelta, invertimos local/visitante respecto a la ida correspondiente
         // La ida correspondiente es: round % baseRounds
-        
-        const teamA = teams[0]; 
+
+        const teamA = teams[0];
         const teamB = rotatingTeams[0];
 
         // Lógica de local/visitante
         let home, away;
-        
+
         if (isSecondLeg) {
             // En la vuelta, invertimos la lógica de la ida
             if (round % 2 === 0) { home = teamB; away = teamA; } else { home = teamA; away = teamB; }
@@ -2519,29 +2530,29 @@ async function generateFlexibleLeagueSchedule(tournament) {
         for (let i = 1; i < numTeams / 2; i++) {
             const teamC = rotatingTeams[i];
             const teamD = rotatingTeams[numTeams - 1 - i];
-            
+
             // Misma lógica de local/visitante para el resto
             if (isSecondLeg) {
-                 // Vuelta: lógica inversa a la ida (simplificada aquí para variedad)
-                 tournament.structure.calendario['Liga'].push(createMatchObject('Liga', jornadaNum, teamD, teamC));
+                // Vuelta: lógica inversa a la ida (simplificada aquí para variedad)
+                tournament.structure.calendario['Liga'].push(createMatchObject('Liga', jornadaNum, teamD, teamC));
             } else {
-                 tournament.structure.calendario['Liga'].push(createMatchObject('Liga', jornadaNum, teamC, teamD));
+                tournament.structure.calendario['Liga'].push(createMatchObject('Liga', jornadaNum, teamC, teamD));
             }
         }
 
         // Rotamos el array
         rotatingTeams.push(rotatingTeams.shift());
     }
-    
+
     // Gestionar partidos contra "ghost" (Descanso)
     for (const match of tournament.structure.calendario['Liga']) {
         if (match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost') {
             match.status = 'finalizado';
             match.matchId = 'ghost'; // Marcamos como ghost para filtrar
-            
+
             const realTeamIsA = match.equipoA.id !== 'ghost';
             match.resultado = realTeamIsA ? '1-0' : '0-1'; // Gana el equipo real
-            
+
             const realTeam = realTeamIsA ? match.equipoA : match.equipoB;
             const groupTeam = tournament.structure.grupos['Liga'].equipos.find(t => t.id === realTeam.id);
             if (groupTeam) {
@@ -2565,14 +2576,14 @@ async function generateFlexibleLeagueSchedule(tournament) {
 
 export async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allGroupMatches = Object.values(tournament.structure.calendario).flat();
-    
+
     if (allGroupMatches.length === 0 || tournament.status !== 'fase_de_grupos') return;
 
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
-    
+
     if (allFinished) {
         console.log(`[ADVANCEMENT] Fase de liguilla/grupos finalizada para ${tournament.shortId}. Iniciando siguiente fase.`);
-        
+
         postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
         await startNextKnockoutRound(client, guild, tournament);
 
@@ -2611,7 +2622,7 @@ export async function startNextKnockoutRound(client, guild, tournament) {
 
     const format = currentTournament.config.format;
     const rondaActual = currentTournament.structure.eliminatorias.rondaActual;
-    
+
     let siguienteRondaKey;
 
     if (rondaActual) {
@@ -2624,7 +2635,7 @@ export async function startNextKnockoutRound(client, guild, tournament) {
             // --- LÓGICA DE LIGA PURA (0 Clasificados) ---
             if (numQualifiers === 0) {
                 console.log(`[LIGA] Modo Liga Pura detectado. Finalizando torneo con el líder de la tabla.`);
-                
+
                 const leagueTeams = [...currentTournament.structure.grupos['Liga'].equipos];
                 leagueTeams.sort((a, b) => sortTeams(a, b, currentTournament, 'Liga'));
                 const campeon = leagueTeams[0];
@@ -2634,11 +2645,11 @@ export async function startNextKnockoutRound(client, guild, tournament) {
                     matchId: 'final_virtual',
                     resultado: '1-0',
                     equipoA: campeon,
-                    equipoB: subcampeon || campeon, 
+                    equipoB: subcampeon || campeon,
                     status: 'finalizado'
                 };
-                currentTournament.structure.eliminatorias.rondaActual = 'final'; 
-                
+                currentTournament.structure.eliminatorias.rondaActual = 'final';
+
                 await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
                 await handleFinalResult(client, guild, currentTournament);
                 return;
@@ -2666,8 +2677,8 @@ export async function startNextKnockoutRound(client, guild, tournament) {
     if (currentTournament.status === siguienteRondaKey) return;
 
     let clasificados = [];
-    
-    if (!rondaActual) { 
+
+    if (!rondaActual) {
         if (currentTournament.config.formatId === 'flexible_league') {
             const leagueTeams = [...currentTournament.structure.grupos['Liga'].equipos];
             leagueTeams.sort((a, b) => sortTeams(a, b, currentTournament, 'Liga'));
@@ -2676,7 +2687,7 @@ export async function startNextKnockoutRound(client, guild, tournament) {
             const gruposOrdenados = Object.keys(currentTournament.structure.grupos).sort();
             if (format.qualifiersPerGroup === 1) {
                 for (const groupName of gruposOrdenados) {
-                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
+                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a, b) => sortTeams(a, b, currentTournament, groupName));
                     if (grupoOrdenado[0]) clasificados.push(JSON.parse(JSON.stringify(grupoOrdenado[0])));
                 }
             } else if (currentTournament.config.formatId === '8_teams_semis_classic') {
@@ -2686,13 +2697,13 @@ export async function startNextKnockoutRound(client, guild, tournament) {
             } else {
                 const bombo1 = []; const bombo2 = [];
                 for (const groupName of gruposOrdenados) {
-                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a,b) => sortTeams(a,b, currentTournament, groupName));
+                    const grupoOrdenado = [...currentTournament.structure.grupos[groupName].equipos].sort((a, b) => sortTeams(a, b, currentTournament, groupName));
                     if (grupoOrdenado[0]) bombo1.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[0])), group: groupName });
                     if (grupoOrdenado[1]) bombo2.push({ team: JSON.parse(JSON.stringify(grupoOrdenado[1])), group: groupName });
                 }
                 const partidos = crearPartidosEvitandoMismoGrupo(bombo1, bombo2, siguienteRondaKey);
                 currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
-                clasificados = null; 
+                clasificados = null;
             }
         }
     } else {
@@ -2706,7 +2717,7 @@ export async function startNextKnockoutRound(client, guild, tournament) {
     let partidos;
     if (clasificados) {
         if (currentTournament.config.formatId === '8_teams_semis_classic' && clasificados.length === 4 && !rondaActual) {
-             partidos = [
+            partidos = [
                 createMatchObject(null, siguienteRondaKey, clasificados[0], clasificados[1]),
                 createMatchObject(null, siguienteRondaKey, clasificados[2], clasificados[3])
             ];
@@ -2728,20 +2739,20 @@ export async function startNextKnockoutRound(client, guild, tournament) {
     } else {
         currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
     }
-    
+
     postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRondaKey, tournament: currentTournament }).catch(console.error);
 
     const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
-    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRondaNombre}! 🔥`).setFooter({text: '¡Mucha suerte!'});
+    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRondaNombre}! 🔥`).setFooter({ text: '¡Mucha suerte!' });
 
-    for(const [i, p] of partidos.entries()) {
+    for (const [i, p] of partidos.entries()) {
         const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
         p.threadId = threadId;
         p.status = 'en_curso';
-        embedAnuncio.addFields({ name: `Enfrentamiento ${i+1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
+        embedAnuncio.addFields({ name: `Enfrentamiento ${i + 1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
     }
     if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
-    
+
     await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
     await notifyTournamentVisualizer(finalTournamentState);
@@ -2754,13 +2765,13 @@ export async function handleFinalResult(client, guild, tournament) {
     const [golesA, golesB] = final.resultado.split('-').map(Number);
     const campeon = golesA > golesB ? final.equipoA : final.equipoB;
     const finalista = golesA > golesB ? final.equipoB : final.equipoA;
-    
+
     const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
-    if(infoChannel) {
+    if (infoChannel) {
         const embedCampeon = new EmbedBuilder().setColor('#ffd700').setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`).setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${tournament.nombre}!**`).setThumbnail('https://i.imgur.com/C5mJg1s.png').setTimestamp();
         await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
     }
-    
+
     if (tournament.config.isPaid) {
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (notificationsThread) {
@@ -2769,7 +2780,7 @@ export async function handleFinalResult(client, guild, tournament) {
                 new ButtonBuilder().setCustomId(`admin_prize_paid:${tournament.shortId}:${campeon.capitanId}:campeon`).setLabel('Marcar Premio Campeón Pagado').setStyle(ButtonStyle.Success).setEmoji('💰')
             );
             await notificationsThread.send({ embeds: [embedPagoCampeon], components: [rowCampeon] });
-        
+
             if (tournament.config.prizeFinalista > 0) {
                 const embedPagoFinalista = new EmbedBuilder().setColor('#C0C0C0').setTitle('🥈 PAGO PENDIENTE: FINALISTA').addFields({ name: 'Equipo', value: finalista.nombre }, { name: 'Capitán', value: finalista.capitanTag }, { name: 'PayPal a Pagar', value: `\`${finalista.paypal}\`` }, { name: 'Premio', value: `${tournament.config.prizeFinalista}€` });
                 const rowFinalista = new ActionRowBuilder().addComponents(
@@ -2779,10 +2790,10 @@ export async function handleFinalResult(client, guild, tournament) {
             }
         }
     }
-    
+
     const db = getDb();
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { status: 'finalizado' } });
-    const updatedTournament = await db.collection('tournaments').findOne({_id: tournament._id});
+    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
     postTournamentUpdate('FINALIZADO', updatedTournament).catch(console.error);
 
@@ -2829,7 +2840,7 @@ function crearPartidosEvitandoMismoGrupo(bombo1_data, bombo2_data, ronda) {
             opponentData = bombo2_data[0];
             opponentIndex = 0;
         }
-        
+
         if (opponentData) {
             partidos.push(createMatchObject(null, ronda, data1.team, opponentData.team));
             bombo2_data.splice(opponentIndex, 1);
@@ -2842,9 +2853,9 @@ function sortTeams(a, b, tournament, groupName) {
     if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
     if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
     if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
-    
-    const enfrentamiento = tournament.structure.calendario[groupName]?.find(p => 
-        p.resultado && 
+
+    const enfrentamiento = tournament.structure.calendario[groupName]?.find(p =>
+        p.resultado &&
         ((p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id))
     );
 
@@ -2859,4 +2870,252 @@ function sortTeams(a, b, tournament, groupName) {
         }
     }
     return Math.random() - 0.5;
+}
+
+export async function handleImportedPlayers(client, draftShortId, text) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
+    const parsedPlayers = parsePlayerList(text);
+    if (parsedPlayers.length === 0) return { success: false, message: 'No se detectaron jugadores válidos en el texto.' };
+
+    let addedCount = 0;
+    let linkedCount = 0;
+    let externalCount = 0;
+    let removedCount = 0;
+    let keptCount = 0;
+
+    // 1. Identificar jugadores a MANTENER y a ELIMINAR
+    // La lista de texto es la fuente de verdad.
+    // Excepción: Capitanes (isCaptain: true) NO se tocan, a menos que estén explícitamente en la lista (lo cual es raro, pero bueno).
+    // Estrategia:
+    // - Recorrer los jugadores actuales del draft.
+    // - Si es capitán -> MANTENER.
+    // - Si NO es capitán:
+    //    - Buscar si aparece en la lista importada (por WhatsApp o GameID).
+    //    - Si aparece -> MANTENER (y actualizar datos si es necesario? Por ahora solo mantener).
+    //    - Si NO aparece -> ELIMINAR.
+
+    const newPlayersList = [];
+
+    // Mapa para búsqueda rápida de la lista importada
+    // Normalizamos IDs y WhatsApps para comparar
+    const importedMap = new Map();
+    parsedPlayers.forEach(p => {
+        if (p.whatsapp) importedMap.set(p.whatsapp, p);
+        if (p.gameId) importedMap.set(p.gameId.toLowerCase(), p);
+    });
+
+    // Filtrar jugadores actuales
+    for (const currentP of draft.players) {
+        if (currentP.isCaptain) {
+            newPlayersList.push(currentP); // Los capitanes siempre se quedan
+            continue;
+        }
+
+        const matchInImport = importedMap.get(currentP.whatsapp) || importedMap.get(currentP.psnId.toLowerCase());
+
+        if (matchInImport) {
+            // El jugador está en la lista importada -> SE QUEDA
+            // Podríamos actualizar la posición si ha cambiado en la lista
+            if (matchInImport.position !== 'NONE') {
+                currentP.primaryPosition = matchInImport.position;
+            }
+            newPlayersList.push(currentP);
+            keptCount++;
+            // Lo marcamos como procesado en el mapa para no añadirlo de nuevo como nuevo
+            matchInImport._processed = true;
+        } else {
+            // El jugador NO está en la lista importada -> SE VA
+            removedCount++;
+        }
+    }
+
+    // 2. Identificar jugadores NUEVOS (los que quedan en parsedPlayers sin procesar)
+    for (const p of parsedPlayers) {
+        if (p._processed) continue; // Ya estaba en el draft
+
+        // Try to link with verified user
+        const verifiedUser = await db.collection('verified_users').findOne({
+            $or: [
+                { gameId: { $regex: new RegExp(`^${p.gameId}$`, 'i') } },
+                { whatsapp: p.whatsapp }
+            ]
+        });
+
+        let playerData;
+
+        if (verifiedUser) {
+            linkedCount++;
+            playerData = {
+                userId: verifiedUser.discordId,
+                userName: verifiedUser.discordTag,
+                psnId: verifiedUser.gameId, // Use verified ID
+                twitter: verifiedUser.twitter,
+                whatsapp: verifiedUser.whatsapp,
+                primaryPosition: p.position,
+                secondaryPosition: 'NONE',
+                currentTeam: 'Libre',
+                isCaptain: false,
+                captainId: null,
+                isExternal: false
+            };
+        } else {
+            externalCount++;
+            const randomId = Math.random().toString(36).substring(2, 10);
+            playerData = {
+                userId: `ext_${randomId}`,
+                userName: `Externo (${p.gameId})`,
+                psnId: p.gameId,
+                twitter: 'N/A',
+                whatsapp: p.whatsapp,
+                primaryPosition: p.position,
+                secondaryPosition: 'NONE',
+                currentTeam: 'Libre',
+                isCaptain: false,
+                captainId: null,
+                isExternal: true
+            };
+        }
+
+        newPlayersList.push(playerData);
+        addedCount++;
+    }
+
+    // 3. Guardar cambios
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $set: { players: newPlayersList } }
+    );
+
+    // Update interfaces
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft);
+
+    const { gameId, whatsapp, position, discordId } = data;
+
+    // 1. Check duplicates
+    const alreadyInDraft = draft.players.some(dp =>
+        dp.psnId.toLowerCase() === gameId.toLowerCase() ||
+        (dp.whatsapp && dp.whatsapp === whatsapp) ||
+        (discordId && dp.userId === discordId)
+    );
+
+    if (alreadyInDraft) {
+        return { success: false, message: '❌ El jugador ya está inscrito en este draft (por ID, WhatsApp o Discord ID).' };
+    }
+
+    let playerData;
+    let linked = false;
+
+    // 2. Try to link
+    if (discordId) {
+        // Explicit link requested
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: discordId });
+        if (verifiedUser) {
+            playerData = {
+                userId: verifiedUser.discordId,
+                userName: verifiedUser.discordTag,
+                psnId: verifiedUser.gameId, // Prefer verified ID
+                twitter: verifiedUser.twitter,
+                whatsapp: verifiedUser.whatsapp || whatsapp, // Update if missing? For now just use what we have
+                primaryPosition: position,
+                secondaryPosition: 'NONE',
+                currentTeam: 'Libre',
+                isCaptain: false,
+                captainId: null,
+                isExternal: false
+            };
+            linked = true;
+        } else {
+            // Discord ID provided but not verified -> Add as external but with that ID? Or warn?
+            // Better to warn, as we want verified users.
+            // But maybe the admin just wants to link a user who is in the server but not verified?
+            // For now, let's treat as external but use the provided ID if valid snowflake, else random.
+            // Actually, if admin provides ID, they probably want to tag them.
+            // Let's fetch the user from client to get username.
+            try {
+                const user = await client.users.fetch(discordId);
+                playerData = {
+                    userId: discordId,
+                    userName: user.username,
+                    psnId: gameId,
+                    twitter: 'N/A',
+                    whatsapp: whatsapp,
+                    primaryPosition: position,
+                    secondaryPosition: 'NONE',
+                    currentTeam: 'Libre',
+                    isCaptain: false,
+                    captainId: null,
+                    isExternal: false // It is a real discord user
+                };
+                linked = true;
+            } catch (e) {
+                return { success: false, message: '❌ El ID de Discord proporcionado no es válido o el bot no puede encontrar al usuario.' };
+            }
+        }
+    } else {
+        // Auto-link attempt
+        const verifiedUser = await db.collection('verified_users').findOne({
+            $or: [
+                { gameId: { $regex: new RegExp(`^${gameId}$`, 'i') } },
+                { whatsapp: whatsapp }
+            ]
+        });
+
+        if (verifiedUser) {
+            playerData = {
+                userId: verifiedUser.discordId,
+                userName: verifiedUser.discordTag,
+                psnId: verifiedUser.gameId,
+                twitter: verifiedUser.twitter,
+                whatsapp: verifiedUser.whatsapp,
+                primaryPosition: position,
+                secondaryPosition: 'NONE',
+                currentTeam: 'Libre',
+                isCaptain: false,
+                captainId: null,
+                isExternal: false
+            };
+            linked = true;
+        } else {
+            // External
+            const randomId = Math.random().toString(36).substring(2, 10);
+            playerData = {
+                userId: `ext_${randomId}`,
+                userName: `Externo (${gameId})`,
+                psnId: gameId,
+                twitter: 'N/A',
+                whatsapp: whatsapp,
+                primaryPosition: position,
+                secondaryPosition: 'NONE',
+                currentTeam: 'Libre',
+                isCaptain: false,
+                captainId: null,
+                isExternal: true
+            };
+        }
+    }
+
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $push: { players: playerData } }
+    );
+
+    // Update interfaces
+    const updatedDraftAfterAdd = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraftAfterAdd.shortId);
+    await updatePublicMessages(client, updatedDraftAfterAdd);
+    await updateDraftManagementPanel(client, updatedDraftAfterAdd);
+    await notifyVisualizer(updatedDraftAfterAdd);
+
+    return {
+        success: true,
+        message: linked
+            ? `✅ Jugador **${playerData.psnId}** añadido y vinculado correctamente (<@${playerData.userId}>).`
+            : `✅ Jugador Externo **${playerData.psnId}** añadido correctamente.`
+    };
 }

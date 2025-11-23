@@ -37,13 +37,12 @@ export const DRAFT_POSITIONS = {
     GK: 'Portero (GK)',
     DFC: 'Defensa Central (DFC)',
     CARR: 'Carrilero (CARR)',
-    MCD: 'Mediocentro Defensivo (MCD)',
-    'MV/MCO': 'Mediocentro/Ofensivo (MV/MCO)',
+    MC: 'Medio',
     DC: 'Delantero Centro (DC)'
 };
 
 // Orden de visualización de las posiciones en las tablas del Draft
-export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
+export const DRAFT_POSITION_ORDER = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
 
 // Configuración de los formatos de torneo CON TRADUCCIONES
 export const TOURNAMENT_FORMATS = {
@@ -94,7 +93,7 @@ export const TOURNAMENT_FORMATS = {
         description: 'Una única liga donde se juegan 3 jornadas. El número de clasificados es personalizable.',
         description_en: 'A single league where 3 rounds are played. The number of qualifiers is customizable.',
         size: 0, // 0 indica que el tamaño es variable
-        groups: 1, 
+        groups: 1,
         qualifiersPerGroup: 0, // 0 indica que es variable
         knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final'],
         isDraftCompatible: true // Es compatible con drafts

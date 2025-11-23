@@ -7,7 +7,7 @@ import session from 'express-session';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
-import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult } from './src/logic/tournamentLogic.js';
+import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
 
 const app = express();
@@ -112,7 +112,7 @@ app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
         if (!draft) {
             return res.status(404).send({ error: 'Draft no encontrado.' });
         }
-        
+
         // 2. ¡ELIMINAMOS LA RESTRICCIÓN DE SER CAPITÁN! Ahora cualquiera logueado puede ver.
 
         const draftPlayerData = draft.players.find(p => p.userId === playerId);
@@ -142,7 +142,7 @@ app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
 
             if (!verifiedData) {
                 // Puede que un jugador real se inscribiera sin estar verificado, tenemos un fallback.
-                 responseData = {
+                responseData = {
                     psnId: draftPlayerData.psnId,
                     discordTag: draftPlayerData.userName,
                     primaryPosition: draftPlayerData.primaryPosition,
@@ -181,7 +181,7 @@ export async function startVisualizerServer(client) {
         if (data) res.json(data);
         else res.status(404).send({ error: 'Draft data not found' });
     });
-    
+
     app.get('/tournament-data/:tournamentId', (req, res) => {
         const data = tournamentStates.get(req.params.tournamentId);
         if (data) res.json(data);
@@ -193,11 +193,11 @@ export async function startVisualizerServer(client) {
             const { sessionId } = req.params;
             const db = getDb();
             const session = await db.collection('roulette_sessions').findOne({ sessionId });
-            
+
             if (!session) {
                 return res.status(404).send({ error: 'Sesión de sorteo no encontrada.' });
             }
-            
+
             // Enviamos solo los equipos que aún no han sido sorteados
             const teamsToDraw = session.teams.filter(t => !session.drawnTeams.includes(t.id));
             res.json({ teams: teamsToDraw, tournamentShortId: session.tournamentShortId }); // Enviamos también el ID para futuras referencias
@@ -206,6 +206,68 @@ export async function startVisualizerServer(client) {
             console.error(`[API Roulette Data Error]: ${error.message}`);
             res.status(500).send({ error: 'Error interno del servidor.' });
         }
+    });
+
+    // --- MIDDLEWARE ADMIN ---
+    async function isAdmin(req, res, next) {
+        if (!req.user) return res.status(401).send({ error: 'No autenticado' });
+        // Aquí deberíamos verificar si el usuario tiene rol de admin en el servidor de Discord
+        // Por simplicidad y seguridad, verificamos contra la DB de settings o hardcoded IDs si es necesario
+        // O mejor, usamos la guild de Discord para verificar roles.
+        // Como no tenemos acceso fácil a la guild desde aquí sin hacer fetch,
+        // vamos a confiar en que el usuario tenga el rol de admin en la DB si lo tuviéramos guardado.
+        // ALTERNATIVA: Verificar si es el creador del bot o está en una lista de admins en config.js
+        // Por ahora, vamos a permitir a cualquiera que esté logueado y sea admin en la DB (si tuviéramos flag).
+        // VAMOS A HACERLO BIEN: Usar el cliente de Discord para verificar el miembro.
+
+        try {
+            const guild = await client.guilds.fetch(process.env.GUILD_ID);
+            const member = await guild.members.fetch(req.user.id);
+            // Asumimos que el rol de admin está en process.env.ADMIN_ROLE_ID o similar, 
+            // pero como no lo tengo a mano, voy a usar permisos de administrador nativos.
+            if (member.permissions.has('Administrator')) {
+                next();
+            } else {
+                res.status(403).send({ error: 'No tienes permisos de administrador.' });
+            }
+        } catch (e) {
+            console.error('Error verificando admin:', e);
+            res.status(500).send({ error: 'Error interno verificando permisos.' });
+        }
+    }
+
+    // --- API ADMIN ENDPOINTS ---
+
+    app.post('/api/admin/force-pick', isAdmin, async (req, res) => {
+        try {
+            const { draftId, playerId } = req.body;
+            await forcePickFromWeb(client, draftId, playerId, req.user.username);
+            res.json({ success: true });
+        } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+
+    app.post('/api/admin/undo-pick', isAdmin, async (req, res) => {
+        try {
+            const { draftId } = req.body;
+            await undoLastPick(client, draftId, req.user.username);
+            res.json({ success: true });
+        } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+
+    app.post('/api/admin/kick-player', isAdmin, async (req, res) => {
+        try {
+            const { draftId, teamId, playerId } = req.body;
+            await adminKickPlayerFromWeb(client, draftId, teamId, playerId, req.user.username);
+            res.json({ success: true });
+        } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+
+    app.post('/api/admin/add-player', isAdmin, async (req, res) => {
+        try {
+            const { draftId, teamId, playerId } = req.body;
+            await adminAddPlayerFromWeb(client, draftId, teamId, playerId, req.user.username);
+            res.json({ success: true });
+        } catch (e) { res.status(400).json({ error: e.message }); }
     });
 
     server.on('upgrade', (request, socket, head) => {
@@ -246,7 +308,7 @@ export async function startVisualizerServer(client) {
                         await handlePlayerSelectionFromWeb(client, draftId, captainId, playerId, position);
                         await advanceDraftTurn(client, draftId);
                         break;
-                    
+
                     case 'report_player':
                         await requestStrikeFromWeb(client, draftId, captainId, playerId, reason);
                         break;

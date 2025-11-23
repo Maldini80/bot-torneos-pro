@@ -91,10 +91,10 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
 
         default:
             embed.setTitle('Panel de Creación y Gestión Global')
-                 .setDescription(isBusy
+                .setDescription(isBusy
                     ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
                     : `✅ **ESTADO: LISTO**\nTraducción: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}** | Twitter: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**`
-                 );
+                );
             const mainRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_panel_tournaments').setLabel('Gestionar Torneos').setStyle(ButtonStyle.Success).setEmoji('🏆'),
                 new ButtonBuilder().setCustomId('admin_panel_drafts').setLabel('Gestionar Drafts').setStyle(ButtonStyle.Primary).setEmoji('📝'),
@@ -151,10 +151,10 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             );
         }
         row2.addComponents(
-             new ButtonBuilder().setCustomId(`admin_add_test_teams:${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
+            new ButtonBuilder().setCustomId(`admin_add_test_teams:${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
     } else {
-         row1.addComponents( new ButtonBuilder().setCustomId(`admin_simulate_matches:${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy) );
+        row1.addComponents(new ButtonBuilder().setCustomId(`admin_simulate_matches:${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy));
     }
 
     if (hasCaptains) {
@@ -167,7 +167,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
                 .setDisabled(isBusy)
         );
     }
-    
+
     if (isGroupStage) {
         row2.addComponents(
             new ButtonBuilder()
@@ -188,12 +188,12 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setDisabled(isBusy || !hasCaptains)
     );
 
-    row3.addComponents( new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy) );
+    row3.addComponents(new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy));
 
-    if (hasCaptains) { 
-        row3.addComponents(new ButtonBuilder().setCustomId(`admin_kick_team_start:${tournament.shortId}`).setLabel("Expulsar Equipo").setStyle(ButtonStyle.Danger).setEmoji('✖️').setDisabled(isBusy)); 
+    if (hasCaptains) {
+        row3.addComponents(new ButtonBuilder().setCustomId(`admin_kick_team_start:${tournament.shortId}`).setLabel("Expulsar Equipo").setStyle(ButtonStyle.Danger).setEmoji('✖️').setDisabled(isBusy));
     }
-    
+
     const components = [];
     if (row1.components.length > 0) components.push(row1);
     if (row2.components.length > 0) components.push(row2);
@@ -206,7 +206,7 @@ export function createDraftStatusEmbed(draft) {
     const captainCount = draft.captains.length;
     const nonCaptainPlayerCount = draft.players.filter(p => !p.isCaptain).length;
     const totalParticipants = captainCount + nonCaptainPlayerCount;
-    
+
     const statusMap = {
         inscripcion: 'inscripcion_abierta',
         seleccion: 'fase_de_grupos',
@@ -283,20 +283,21 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     const row2 = new ActionRowBuilder();
 
     if (draft.status === 'inscripcion') {
-    row1.addComponents(
-        new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️'),
-        new ButtonBuilder().setCustomId(`admin_edit_draft_captain_start:${draft.shortId}`).setLabel('Editar Capitán').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy),
-        new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Gestionar Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
-        new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
-    );
-}
+        row1.addComponents(
+            new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️'),
+            new ButtonBuilder().setCustomId(`admin_edit_draft_captain_start:${draft.shortId}`).setLabel('Editar Capitán').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Expulsar Jugador').setStyle(ButtonStyle.Secondary).setEmoji('✖️').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`admin_import_players_start:${draft.shortId}`).setLabel('Importar desde WhatsApp').setStyle(ButtonStyle.Success).setEmoji('📥').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
+        );
+    }
     const dataAccessRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-        .setCustomId(`consult_player_data_start:${draft.shortId}`)
-        .setLabel('Consultar Datos de Jugador')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('ℹ️')
-);
+        new ButtonBuilder()
+            .setCustomId(`consult_player_data_start:${draft.shortId}`)
+            .setLabel('Consultar Datos de Jugador')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('ℹ️')
+    );
 
     if (draft.status === 'seleccion') {
         row1.addComponents(
@@ -305,39 +306,39 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     }
 
     if (draft.status === 'finalizado') {
-    const captainCount = draft.captains.length;
+        const captainCount = draft.captains.length;
 
-    let compatibleFormats = Object.entries(TOURNAMENT_FORMATS)
-        .filter(([, format]) => format.isDraftCompatible && (format.size === captainCount || format.size === 0))
-        .map(([key, format]) => ({
-            label: format.label,
-            description: format.description.slice(0, 100),
-            value: key
-        }));
+        let compatibleFormats = Object.entries(TOURNAMENT_FORMATS)
+            .filter(([, format]) => format.isDraftCompatible && (format.size === captainCount || format.size === 0))
+            .map(([key, format]) => ({
+                label: format.label,
+                description: format.description.slice(0, 100),
+                value: key
+            }));
 
-    if (compatibleFormats.length > 0) {
-        embed.addFields({ name: 'Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. Por favor, selecciona el formato de torneo que deseas crear.` });
-        const formatMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_create_tournament_format:${draft.shortId}`)
-            .setPlaceholder('Selecciona el formato para el torneo resultante')
-            .addOptions(compatibleFormats);
-        row1.addComponents(formatMenu);
+        if (compatibleFormats.length > 0) {
+            embed.addFields({ name: 'Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. Por favor, selecciona el formato de torneo que deseas crear.` });
+            const formatMenu = new StringSelectMenuBuilder()
+                .setCustomId(`draft_create_tournament_format:${draft.shortId}`)
+                .setPlaceholder('Selecciona el formato para el torneo resultante')
+                .addOptions(compatibleFormats);
+            row1.addComponents(formatMenu);
 
-        if (captainCount === 8 || captainCount === 16) {
-            row2.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
-                    .setLabel('Alternativa: Sorteo con Ruleta')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('🎡')
-                    .setDisabled(isBusy)
-            );
+            if (captainCount === 8 || captainCount === 16) {
+                row2.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`draft_force_tournament_roulette:${draft.shortId}`)
+                        .setLabel('Alternativa: Sorteo con Ruleta')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('🎡')
+                        .setDisabled(isBusy)
+                );
+            }
+        } else {
+            embed.setColor('#e74c3c')
+                .addFields({ name: '⚠️ Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. No hay formatos de torneo compatibles configurados.` });
         }
-    } else {
-        embed.setColor('#e74c3c')
-             .addFields({ name: '⚠️ Acción Requerida', value: `El draft ha finalizado con **${captainCount} equipos**. No hay formatos de torneo compatibles configurados.` });
     }
-}
 
     row2.addComponents(new ButtonBuilder()
         .setCustomId(`draft_end:${draft.shortId}`)
@@ -363,7 +364,7 @@ export function createDraftMainInterface(draft) {
 
     if (availablePlayers.length > 0) {
         playersEmbed.setDescription('🔎 = Agente Libre\n🛡️ = Con Equipo');
-        
+
         const groupedPlayers = {};
         DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
 
@@ -382,11 +383,11 @@ export function createDraftMainInterface(draft) {
             const columnContent = `**${DRAFT_POSITIONS[pos]}**\n` + (groupedPlayers[pos].length > 0 ? groupedPlayers[pos].join('\n') : '*Vacío*');
             columns[index % 3].push(columnContent);
         });
-        
+
         columns.forEach((col, i) => {
             let colString = col.join('\n\n');
             if (colString.length > 1024) {
-                 colString = colString.substring(0, 1021) + '...';
+                colString = colString.substring(0, 1021) + '...';
             }
             columns[i] = colString;
         });
@@ -441,7 +442,7 @@ export function createDraftMainInterface(draft) {
 
         const currentRound = Math.floor((draft.selection.currentPick - 1) / numCaptains) + 1;
         const totalRounds = Math.ceil(totalPicks / numCaptains);
-        
+
         const startPickOfRound = (currentRound - 1) * numCaptains;
         const endPickOfRound = Math.min(startPickOfRound + numCaptains, totalPicks);
 
@@ -467,7 +468,7 @@ export function createDraftMainInterface(draft) {
                 picksList.push(`⏳ ${pickNumber}. ${teamName}`);
             }
         }
-        
+
         turnOrderEmbed.setDescription(`Turno actual: **Pick ${draft.selection.currentPick} de ${totalPicks}**`);
         turnOrderEmbed.addFields(
             { name: `Ronda ${currentRound} de ${totalRounds}`, value: picksList.join('\n') || 'N/A' }
@@ -490,19 +491,6 @@ export function createCaptainControlPanel(draft) {
         const currentCaptainId = draft.selection.order[draft.selection.turn];
         const captain = draft.captains.find(c => c.userId === currentCaptainId);
 
-        embed.setDescription(`Es el turno de <@${currentCaptainId}> para el equipo **${captain.teamName}**.\n\n*Solo el capitán del turno (o un admin) puede usar los botones.*`);
-        embed.setFooter({ text: `Pick #${draft.selection.currentPick} de ${totalPicks}` });
-
-        const isPicking = draft.selection.isPicking || false;
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`captain_pick_start:${draft.shortId}`).setLabel('Elegir Jugador').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(isPicking),
-            new ButtonBuilder().setCustomId(`captain_cancel_pick:${draft.shortId}:${currentCaptainId}`).setLabel('Cancelar mi Selección').setStyle(ButtonStyle.Danger).setDisabled(!isPicking)
-        );
-        return { embeds: [embed], components: [row] };
-    }
-    
-    if (draft.status === 'finalizado') {
         embed.setDescription('**La fase de selección ha finalizado.**\nUn administrador debe pulsar "Forzar Torneo" en el panel de gestión para continuar.');
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('captain_pick_start_disabled').setLabel('Elegir Jugador').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(true),
@@ -598,11 +586,11 @@ export async function createPlayerManagementEmbed(client, player, draft, teamId,
                 new ButtonBuilder().setCustomId(`captain_request_kick:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Solicitar Expulsión').setStyle(ButtonStyle.Danger).setEmoji('🚫')
             );
         }
-        
+
         row1.addComponents(
             new ButtonBuilder().setCustomId(`captain_report_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Reportar (Strike)').setStyle(ButtonStyle.Danger).setEmoji('⚠️')
         );
-        
+
         components.push(row1);
 
         if (isAdmin) {
@@ -612,7 +600,7 @@ export async function createPlayerManagementEmbed(client, player, draft, teamId,
                 new ButtonBuilder().setCustomId(`admin_pardon_player:${player.userId}`).setLabel('Perdonar (Quitar todos)').setStyle(ButtonStyle.Success).setEmoji('♻️').setDisabled(playerRecord.strikes === 0)
             );
             if (!player.isCaptain) {
-                 adminRow.addComponents(
+                adminRow.addComponents(
                     new ButtonBuilder().setCustomId(`admin_force_kick_player:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Forzar Expulsión').setStyle(ButtonStyle.Danger),
                     new ButtonBuilder().setCustomId(`admin_invite_replacement_start:${draft.shortId}:${teamId}:${player.userId}`).setLabel('Invitar Reemplazo').setStyle(ButtonStyle.Primary).setEmoji('🔄')
                 );
@@ -627,8 +615,8 @@ export async function createPlayerManagementEmbed(client, player, draft, teamId,
 
 export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, entityId) {
     const ruleEmbed = ruleEmbeds[step - 1];
-    
-    const safeOriginalAction = originalAction || ''; 
+
+    const safeOriginalAction = originalAction || '';
     const isPlayer = safeOriginalAction.includes('player');
     const finalTotalSteps = isPlayer ? 1 : 3;
 
@@ -666,19 +654,19 @@ export function createTournamentStatusEmbed(tournament) {
     let formatDescription = TOURNAMENT_FORMATS[tournament.config.formatId].description;
 
     if (tournament.config.formatId === 'flexible_league') {
-        const mode = tournament.config.leagueMode === 'all_vs_all' 
-            ? "🔄 **Todos contra Todos**" 
+        const mode = tournament.config.leagueMode === 'all_vs_all'
+            ? "🔄 **Todos contra Todos**"
             : `🔢 **Personalizado (${tournament.config.customRounds} partidos/equipo)**`;
-            
-        const qualifiers = tournament.config.qualifiers === 0 
-            ? "🏆 **Liga Pura** (Gana el líder, sin eliminatorias)" 
+
+        const qualifiers = tournament.config.qualifiers === 0
+            ? "🏆 **Liga Pura** (Gana el líder, sin eliminatorias)"
             : `🔥 **Eliminatorias:** Clasifican los ${tournament.config.qualifiers} primeros`;
 
         const legs = tournament.config.matchType === 'idavuelta' ? "Ida y Vuelta" : "Solo Ida";
 
         formatDescription = `${mode}\n${qualifiers}\n⚙️ **Rondas:** ${legs}`;
     }
-    
+
     embed.setDescription(formatDescription);
     // --------------------------------------
 
@@ -690,7 +678,7 @@ export function createTournamentStatusEmbed(tournament) {
 
     if (tournament.config.isPaid) {
         embed.addFields({ name: 'Inscripción', value: `**${tournament.config.entryFee}€**`, inline: true }); // Backticks aqui
-        
+
         let prizePool = `🏆 **Campeón:** ${tournament.config.prizeCampeon}€`; // Backticks aqui
         if (tournament.config.prizeFinalista > 0) {
             prizePool += `\n🥈 **Finalista:** ${tournament.config.prizeFinalista}€`; // Backticks aqui
@@ -715,7 +703,7 @@ export function createTournamentStatusEmbed(tournament) {
     if (tournament.config.startTime) {
         embed.addFields({ name: 'Inicio Programado', value: tournament.config.startTime, inline: false });
     }
-    
+
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
     const isFull = format.size > 0 && teamsCount >= format.size;
@@ -739,8 +727,8 @@ export function createTournamentStatusEmbed(tournament) {
     }
 
     const components = [];
-    if(row1.components.length > 0) components.push(row1);
-    if(row2.components.length > 0) components.push(row2);
+    if (row1.components.length > 0) components.push(row1);
+    if (row2.components.length > 0) components.push(row2);
 
     return { embeds: [embed], components };
 }
@@ -814,20 +802,20 @@ export function createCalendarEmbed(tournament) {
         return { embeds: [embed] };
     }
 
-    if(hasGroupStage) {
+    if (hasGroupStage) {
         const sortedGroups = Object.keys(tournament.structure.calendario).sort();
         for (const groupName of sortedGroups) {
             const partidosDelGrupo = tournament.structure.calendario[groupName];
-            
+
             // 1. Agrupamos partidos por jornada
             const partidosPorJornada = {};
-            for (const partido of partidosDelGrupo) { 
+            for (const partido of partidosDelGrupo) {
                 if (!partidosPorJornada[partido.jornada]) {
                     partidosPorJornada[partido.jornada] = [];
                 }
-                partidosPorJornada[partido.jornada].push(partido); 
+                partidosPorJornada[partido.jornada].push(partido);
             }
-            
+
             // 2. Variables para controlar la paginación
             let currentFieldText = '';
             let part = 1;
@@ -837,10 +825,10 @@ export function createCalendarEmbed(tournament) {
 
             for (const jornadaNum of roundNumbers) {
                 let roundText = `Jornada / Round ${jornadaNum}\n`; // Backticks aqui
-                
+
                 for (const partido of partidosPorJornada[jornadaNum]) {
                     const centerText = partido.resultado ? partido.resultado : 'vs';
-                    const paddingTotal = centerWidth - centerText.length; 
+                    const paddingTotal = centerWidth - centerText.length;
                     const paddingInicio = Math.ceil(paddingTotal / 2);
                     const paddingFin = Math.floor(paddingTotal / 2);
                     const paddedCenter = ' '.repeat(paddingInicio) + centerText + ' '.repeat(paddingFin);
@@ -852,7 +840,7 @@ export function createCalendarEmbed(tournament) {
                 // 3. LÓGICA DE PAGINACIÓN: Si añadir esta jornada supera los 1000 caracteres (margen de seguridad),
                 // cerramos el campo actual y abrimos uno nuevo.
                 if (currentFieldText.length + roundText.length > 1000) {
-                    embed.addFields({ 
+                    embed.addFields({
                         name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`, // Backticks aqui
                         value: `\`\`\`\n${currentFieldText.trim()}\n\`\`\`` // Backticks aqui
                     });
@@ -862,10 +850,10 @@ export function createCalendarEmbed(tournament) {
                     currentFieldText += roundText;
                 }
             }
-            
+
             // 4. Añadimos lo que quede en el buffer al final del bucle
             if (currentFieldText.length > 0) {
-                 embed.addFields({ 
+                embed.addFields({
                     name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`, // Backticks aqui
                     value: `\`\`\`\n${currentFieldText.trim()}\n\`\`\`` // Backticks aqui
                 });
@@ -873,7 +861,7 @@ export function createCalendarEmbed(tournament) {
         }
     }
 
-    if(hasKnockoutStage) {
+    if (hasKnockoutStage) {
         for (const stageKey of tournament.config.format.knockoutStages) {
             const stageMatches = tournament.structure.eliminatorias[stageKey];
             if (!stageMatches || (Array.isArray(stageMatches) && stageMatches.length === 0)) continue;
@@ -909,7 +897,7 @@ export function createCasterInfoEmbed(teamData, tournament) {
     const embed = new EmbedBuilder()
         .setColor('#1abc9c')
         .setTitle(`📢 Nuevo Equipo Inscrito: ${teamData.nombre}`) // Backticks aqui
-        .setAuthor({ name: `Torneo: ${tournament.nombre}`}) // Backticks aqui
+        .setAuthor({ name: `Torneo: ${tournament.nombre}` }) // Backticks aqui
         .addFields(
             { name: 'Capitán', value: teamData.capitanTag, inline: true },
             { name: 'ID Capitán', value: `\`${teamData.capitanId}\``, inline: true }, // Backticks aqui
@@ -920,7 +908,7 @@ export function createCasterInfoEmbed(teamData, tournament) {
 
     return { embeds: [embed] };
 }
-    
+
 export function createStreamerWarningEmbed(platform, originalAction, entityId, teamIdOrPosition = 'NONE') {
     const embed = new EmbedBuilder()
         .setColor('#E67E22')
@@ -928,11 +916,11 @@ export function createStreamerWarningEmbed(platform, originalAction, entityId, t
         .addFields(
             {
                 name: '🔴 1. EN EL SIGUIENTE FORMULARIO ESCRIBE SOLO TU USUARIO DE STREAM',
-                value: '\u200B' 
+                value: '\u200B'
             },
             {
                 name: '🔴 2. RETRANSMITE EL TORNEO EN EL CANAL DEL USUARIO QUE PONDRAS',
-                value: '\u200B' 
+                value: '\u200B'
             },
             {
                 name: '🔴 3. NORMAS DE RETRANSMISION',
@@ -951,6 +939,6 @@ export function createStreamerWarningEmbed(platform, originalAction, entityId, t
             .setLabel('Cancelar')
             .setStyle(ButtonStyle.Danger)
     );
-    
+
     return { embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] };
 }

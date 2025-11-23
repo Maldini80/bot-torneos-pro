@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin - Draft</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #eab308;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #334155;
+        }
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2, h3 { margin-top: 0; }
+        button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: black; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .team-card {
+            border: 1px solid #334155;
+        }
+        .player-list {
+            list-style: none;
+            padding: 0;
+        }
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid #334155;
+            align-items: center;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        #status-bar {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: var(--card);
+            border: 1px solid #334155;
+            display: none;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: var(--card);
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+        }
+        select, input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: white;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Panel de Administración - Draft</h1>
+            <div id="user-info">Cargando...</div>
+        </header>
+
+        <div id="draft-selector" class="card">
+            <h3>Seleccionar Draft Activo</h3>
+            <input type="text" id="draft-id-input" placeholder="ID Corto del Draft (ej: ab12cd)">
+            <button class="btn-primary" onclick="loadDraft()">Cargar Draft</button>
+        </div>
+
+        <div id="admin-controls" style="display:none;">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>Estado del Draft: <span id="draft-status">...</span></h2>
+                    <div class="controls">
+                        <button class="btn-warning" onclick="undoLastPick()">↩️ Deshacer Último Pick</button>
+                        <button class="btn-danger" onclick="forcePause()">⏸️ Pausar</button>
+                        <button class="btn-success" onclick="forceResume()">▶️ Reanudar</button>
+                    </div>
+                </div>
+                <div id="current-turn-info" style="margin-top: 15px; padding: 10px; background: rgba(99, 102, 241, 0.1); border-radius: 6px;">
+                    Turno actual: <strong id="current-turn-team">...</strong>
+                    <button class="btn-primary" style="margin-left: 10px;" onclick="openForcePickModal()">⚡ Forzar Pick para este equipo</button>
+                </div>
+            </div>
+
+            <div class="grid" id="teams-container">
+                <!-- Teams will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Force Pick Modal -->
+    <div id="force-pick-modal" class="modal">
+        <div class="modal-content">
+            <h3>Forzar Pick</h3>
+            <p>Selecciona un jugador para fichar por <strong id="modal-team-name">...</strong></p>
+            <input type="text" id="player-search" placeholder="Buscar jugador (Nombre/ID)..." onkeyup="filterPlayers()">
+            <select id="player-select" size="10"></select>
+            <div style="margin-top: 20px; text-align: right;">
+                <button onclick="closeModal('force-pick-modal')">Cancelar</button>
+                <button class="btn-primary" onclick="confirmForcePick()">Confirmar Fichaje</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Team Modal (Kick/Add) -->
+    <div id="manage-team-modal" class="modal">
+        <div class="modal-content">
+            <h3>Gestionar Equipo: <span id="manage-team-name"></span></h3>
+            <div style="margin-bottom: 20px;">
+                <h4>Añadir Jugador (Post-Draft)</h4>
+                <input type="text" id="add-player-id" placeholder="ID de Discord o GameID">
+                <button class="btn-success" onclick="adminAddPlayer()">Añadir</button>
+            </div>
+            <div style="border-top: 1px solid #334155; padding-top: 20px;">
+                <h4>Expulsar Jugador</h4>
+                <select id="kick-player-select"></select>
+                <button class="btn-danger" onclick="adminKickPlayer()">Expulsar</button>
+            </div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button onclick="closeModal('manage-team-modal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="status-bar"></div>
+
+    <script>
+        let currentDraft = null;
+        let availablePlayers = [];
+
+        async function checkAuth() {
+            const res = await fetch('/api/user');
+            const user = await res.json();
+            if (!user) {
+                window.location.href = '/login?returnTo=/admin.html';
+            } else {
+                document.getElementById('user-info').innerHTML = `Admin: <strong>${user.username}</strong>`;
+            }
+        }
+
+        async function loadDraft() {
+            const id = document.getElementById('draft-id-input').value;
+            if (!id) return;
+            
+            try {
+                const res = await fetch(`/draft-data/${id}`);
+                if (!res.ok) throw new Error('Draft no encontrado');
+                currentDraft = await res.json();
+                renderDraft();
+                document.getElementById('admin-controls').style.display = 'block';
+                
+                // Connect WS for updates
+                connectWS(id);
+            } catch (e) {
+                showStatus(e.message, 'error');
+            }
+        }
+
+        function renderDraft() {
+            document.getElementById('draft-status').innerText = currentDraft.status;
+            
+            // Current Turn
+            if (currentDraft.status === 'active') {
+                const turn = currentDraft.order[currentDraft.currentPickIndex];
+                const team = currentDraft.teams.find(t => t.id === turn.teamId);
+                document.getElementById('current-turn-team').innerText = team ? team.name : 'Desconocido';
+            } else {
+                document.getElementById('current-turn-team').innerText = '-';
+            }
+
+            // Teams
+            const container = document.getElementById('teams-container');
+            container.innerHTML = '';
+            
+            currentDraft.teams.forEach(team => {
+                const card = document.createElement('div');
+                card.className = 'card team-card';
+                let playersHtml = team.players.map(p => `
+                    <li class="player-item">
+                        <span>${p.psnId} (${p.position})</span>
+                    </li>
+                `).join('');
+                
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between;">
+                        <h3>${team.name}</h3>
+                        <button class="btn-warning" style="font-size:0.8em;" onclick="openManageTeam('${team.id}')">⚙️</button>
+                    </div>
+                    <p>Capitán: ${team.captainName}</p>
+                    <ul class="player-list">${playersHtml}</ul>
+                `;
+                container.appendChild(card);
+            });
+
+            // Update available players for modal
+            availablePlayers = currentDraft.players.filter(p => p.currentTeam === 'Libre');
+        }
+
+        function openForcePickModal() {
+            if (!currentDraft || currentDraft.status !== 'active') return showStatus('El draft no está activo', 'error');
+            
+            const turn = currentDraft.order[currentDraft.currentPickIndex];
+            const team = currentDraft.teams.find(t => t.id === turn.teamId);
+            document.getElementById('modal-team-name').innerText = team.name;
+            
+            updatePlayerSelect(availablePlayers);
+            document.getElementById('force-pick-modal').style.display = 'flex';
+        }
+
+        function updatePlayerSelect(players) {
+            const select = document.getElementById('player-select');
+            select.innerHTML = '';
+            players.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.userId;
+                opt.text = `[${p.primaryPosition}] ${p.psnId} (${p.userName})`;
+                select.appendChild(opt);
+            });
+        }
+
+        function filterPlayers() {
+            const term = document.getElementById('player-search').value.toLowerCase();
+            const filtered = availablePlayers.filter(p => 
+                p.psnId.toLowerCase().includes(term) || 
+                p.userName.toLowerCase().includes(term)
+            );
+            updatePlayerSelect(filtered);
+        }
+
+        async function confirmForcePick() {
+            const playerId = document.getElementById('player-select').value;
+            if (!playerId) return;
+
+            try {
+                const res = await fetch('/api/admin/force-pick', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ draftId: currentDraft.shortId, playerId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showStatus('Pick forzado con éxito', 'success');
+                    closeModal('force-pick-modal');
+                } else {
+                    showStatus(data.error, 'error');
+                }
+            } catch (e) { showStatus(e.message, 'error'); }
+        }
+
+        async function undoLastPick() {
+            if (!confirm('¿Seguro que quieres deshacer el último pick?')) return;
+            try {
+                const res = await fetch('/api/admin/undo-pick', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ draftId: currentDraft.shortId })
+                });
+                const data = await res.json();
+                if (data.success) showStatus('Pick deshecho', 'success');
+                else showStatus(data.error, 'error');
+            } catch (e) { showStatus(e.message, 'error'); }
+        }
+
+        // --- Manage Team Modal ---
+        let managingTeamId = null;
+        function openManageTeam(teamId) {
+            managingTeamId = teamId;
+            const team = currentDraft.teams.find(t => t.id === teamId);
+            document.getElementById('manage-team-name').innerText = team.name;
+            
+            const kickSelect = document.getElementById('kick-player-select');
+            kickSelect.innerHTML = '';
+            team.players.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.userId;
+                opt.text = p.psnId;
+                kickSelect.appendChild(opt);
+            });
+            
+            document.getElementById('manage-team-modal').style.display = 'flex';
+        }
+
+        async function adminKickPlayer() {
+            const playerId = document.getElementById('kick-player-select').value;
+            if (!playerId) return;
+            
+            try {
+                const res = await fetch('/api/admin/kick-player', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ draftId: currentDraft.shortId, teamId: managingTeamId, playerId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showStatus('Jugador expulsado', 'success');
+                    closeModal('manage-team-modal');
+                } else {
+                    showStatus(data.error, 'error');
+                }
+            } catch (e) { showStatus(e.message, 'error'); }
+        }
+
+        async function adminAddPlayer() {
+            const playerId = document.getElementById('add-player-id').value;
+            if (!playerId) return;
+
+            try {
+                const res = await fetch('/api/admin/add-player', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ draftId: currentDraft.shortId, teamId: managingTeamId, playerId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showStatus('Jugador añadido', 'success');
+                    closeModal('manage-team-modal');
+                } else {
+                    showStatus(data.error, 'error');
+                }
+            } catch (e) { showStatus(e.message, 'error'); }
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function showStatus(msg, type) {
+            const bar = document.getElementById('status-bar');
+            bar.innerText = msg;
+            bar.style.display = 'block';
+            bar.style.color = type === 'error' ? '#ef4444' : '#22c55e';
+            setTimeout(() => bar.style.display = 'none', 3000);
+        }
+
+        function connectWS(draftId) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}`);
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'draft' && msg.id === draftId) {
+                    currentDraft = msg.data;
+                    renderDraft();
+                }
+            };
+        }
+
+        checkAuth();
+    </script>
+</body>
+</html>
