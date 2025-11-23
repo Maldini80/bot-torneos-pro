@@ -12,6 +12,9 @@ import { postTournamentUpdate } from '../utils/twitter.js';
 import { visualizerStateHandler } from '../../visualizerServer.js';
 import { parsePlayerList } from '../utils/textParser.js';
 
+const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO'];
+const isMidfielder = (pos) => MIDFIELDER_POSITIONS.includes(pos);
+
 export async function notifyVisualizer(draft) {
     // Enriquece los datos del draft con los strikes persistentes
     const db = getDb();
@@ -180,6 +183,12 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
             if (currentCount >= max) {
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
             }
+        } else if (isMidfielder(positionToCheck) && maxQuotas['Medios']) {
+            const max = parseInt(maxQuotas['Medios']);
+            const currentCount = teamPlayers.filter(p => isMidfielder(p.primaryPosition)).length;
+            if (currentCount >= max) {
+                throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición Medios.`);
+            }
         }
 
         await db.collection('drafts').updateOne(
@@ -261,6 +270,12 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
             const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
             if (currentCount >= max) {
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
+            }
+        } else if (isMidfielder(positionToCheck) && maxQuotas['Medios']) {
+            const max = parseInt(maxQuotas['Medios']);
+            const currentCount = teamPlayers.filter(p => isMidfielder(p.primaryPosition)).length;
+            if (currentCount >= max) {
+                throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición Medios.`);
             }
         }
 
@@ -901,7 +916,16 @@ export async function startDraftSelection(client, guild, draftShortId) {
         const missingPositions = [];
         for (const pos in minQuotas) {
             const required = parseInt(minQuotas[pos]);
-            const current = positionCounts[pos] || 0;
+            let current = positionCounts[pos] || 0;
+
+            // Lógica de agrupación para "Medios"
+            if (pos === 'Medios') {
+                current = 0;
+                MIDFIELDER_POSITIONS.forEach(midPos => {
+                    current += positionCounts[midPos] || 0;
+                });
+            }
+
             if (current < required) {
                 missingPositions.push(`${pos} (necesarios: ${required}, disponibles: ${current})`);
             }

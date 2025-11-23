@@ -359,6 +359,7 @@ function initializeDraftView(draftId) {
     const managementTeamName = document.getElementById('management-team-name');
 
     const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
+    const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO'];
     let hasLoadedInitialData = false;
     let currentUser = null;
     let currentDraftState = null;
@@ -491,6 +492,21 @@ function initializeDraftView(draftId) {
             let isVisible = false;
             if (activeFilterPos === 'Todos') {
                 isVisible = true;
+            } else if (activeFilterPos === 'Medios') {
+                // Lógica especial para el filtro de Medios
+                if (isMyTurn) {
+                    if (hasPrimaryMatchesInData) {
+                        if (MIDFIELDER_POSITIONS.includes(primaryPos)) isVisible = true;
+                    } else {
+                        if (MIDFIELDER_POSITIONS.includes(secondaryPos)) isVisible = true;
+                    }
+                } else {
+                    if (filterColumn === 'primary' && MIDFIELDER_POSITIONS.includes(primaryPos)) {
+                        isVisible = true;
+                    } else if (filterColumn === 'secondary' && MIDFIELDER_POSITIONS.includes(secondaryPos)) {
+                        isVisible = true;
+                    }
+                }
             } else {
                 if (isMyTurn) {
                     if (hasPrimaryMatchesInData) {
@@ -605,7 +621,7 @@ function initializeDraftView(draftId) {
         const select = document.getElementById('filter-column-select');
         select.addEventListener('change', applyTableFilters);
 
-        const allPositions = ['Todos', ...positionOrder];
+        const allPositions = ['Todos', 'Medios', ...positionOrder];
         allPositions.forEach(pos => {
             const btn = document.createElement('button');
             btn.className = 'filter-btn';
