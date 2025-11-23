@@ -768,6 +768,23 @@ export async function handleButton(interaction) {
 
     if (action === 'admin_import_players_start') {
         const [draftShortId] = params;
+
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle('📥 Importar Jugadores')
+            .setDescription('Selecciona el método de importación:\n\n📝 **Pegar Texto:** Para listas pequeñas (hasta ~150 jugadores).\n📁 **Subir Archivo:** Para listas grandes (sin límite, archivo .txt).');
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_import_players_text_start:${draftShortId}`).setLabel('Pegar Texto').setStyle(ButtonStyle.Primary).setEmoji('📝'),
+            new ButtonBuilder().setCustomId(`admin_import_players_file_start:${draftShortId}`).setLabel('Subir Archivo (.txt)').setStyle(ButtonStyle.Secondary).setEmoji('📁')
+        );
+
+        await interaction.reply({ embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'admin_import_players_text_start') {
+        const [draftShortId] = params;
         const modal = new ModalBuilder()
             .setCustomId(`admin_import_players_modal:${draftShortId}`)
             .setTitle('Importar Jugadores desde Texto');
@@ -781,6 +798,67 @@ export async function handleButton(interaction) {
 
         modal.addComponents(new ActionRowBuilder().addComponents(listInput));
         await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_import_players_file_start') {
+        const [draftShortId] = params;
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        await interaction.editReply({
+            content: '📁 **Por favor, sube ahora el archivo `.txt` con la lista de jugadores.**\n\nEl formato debe ser igual que en texto:\n`1. Jugador1 600123456`\n`2. Jugador2 +34600000000`\n\n⏳ Tienes 60 segundos para subir el archivo.',
+            components: []
+        });
+
+        const filter = m => m.author.id === interaction.user.id && m.attachments.size > 0;
+        const collector = interaction.channel.createMessageCollector({ filter, time: 60000, max: 1 });
+
+        collector.on('collect', async m => {
+            const attachment = m.attachments.first();
+            if (!attachment.name.endsWith('.txt')) {
+                await interaction.followUp({ content: '❌ El archivo debe ser un `.txt`. Inténtalo de nuevo.', flags: [MessageFlags.Ephemeral] });
+                return;
+            }
+
+            try {
+                const response = await fetch(attachment.url);
+                if (!response.ok) throw new Error('Error al descargar el archivo.');
+                const text = await response.text();
+
+                // Procesar el texto con la misma lógica que el modal
+                const result = await handleImportedPlayers(client, draftShortId, text);
+
+                if (result.success) {
+                    const successEmbed = new EmbedBuilder()
+                        .setColor('#2ecc71')
+                        .setTitle('✅ Importación Completada (Archivo)')
+                        .setDescription(result.message)
+                        .addFields(
+                            { name: 'Nuevos', value: `${result.stats.added}`, inline: true },
+                            { name: 'Vinculados', value: `${result.stats.linked}`, inline: true },
+                            { name: 'Externos', value: `${result.stats.external}`, inline: true },
+                            { name: 'Mantenidos', value: `${result.stats.kept}`, inline: true },
+                            { name: 'Eliminados', value: `${result.stats.removed}`, inline: true }
+                        );
+                    await interaction.followUp({ embeds: [successEmbed], flags: [MessageFlags.Ephemeral] });
+                } else {
+                    await interaction.followUp({ content: `❌ Error en la importación: ${result.message}`, flags: [MessageFlags.Ephemeral] });
+                }
+
+                // Intentar borrar el mensaje del usuario con el archivo para mantener limpieza
+                try { await m.delete(); } catch (e) { /* Ignorar si no hay permisos */ }
+
+            } catch (error) {
+                console.error("Error procesando archivo de importación:", error);
+                await interaction.followUp({ content: '❌ Ocurrió un error al procesar el archivo.', flags: [MessageFlags.Ephemeral] });
+            }
+        });
+
+        collector.on('end', collected => {
+            if (collected.size === 0) {
+                interaction.followUp({ content: '⏱️ Se acabó el tiempo. No se detectó ningún archivo.', flags: [MessageFlags.Ephemeral] });
+            }
+        });
         return;
     }
 
