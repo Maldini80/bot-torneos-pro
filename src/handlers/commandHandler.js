@@ -144,17 +144,16 @@ export async function handleCommand(interaction) {
             await interaction.editReply({ content: '❌ Ocurrió un error crítico al ejecutar el comando.' });
         }
     }
-}
+    if (commandName === 'panel-web') {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ content: '❌ Solo administradores.', flags: [MessageFlags.Ephemeral] });
+        }
 
-if (commandName === 'panel-web') {
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: '❌ Solo administradores.', flags: [MessageFlags.Ephemeral] });
+        const url = `${process.env.BASE_URL}/admin.html`;
+        await interaction.reply({
+            content: `🔗 **Panel de Administración Web**\nAccede aquí para gestionar drafts en tiempo real:\n${url}`,
+            flags: [MessageFlags.Ephemeral]
+        });
     }
-
-    const url = `${process.env.BASE_URL}/admin.html`;
-    await interaction.reply({
-        content: `🔗 **Panel de Administración Web**\nAccede aquí para gestionar drafts en tiempo real:\n${url}`,
-        flags: [MessageFlags.Ephemeral]
-    });
 }
 
