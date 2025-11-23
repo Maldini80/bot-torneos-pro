@@ -358,7 +358,16 @@ async function startNextKnockoutRound(client, guild, tournament) {
     }
     if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
 
-    await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
+    // Limpiar el bloqueo de avance antes de guardar
+    delete currentTournament.advancementLock;
+
+    await db.collection('tournaments').updateOne(
+        { _id: currentTournament._id },
+        {
+            $set: currentTournament,
+            $unset: { advancementLock: "" }
+        }
+    );
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
     await notifyTournamentVisualizer(finalTournamentState);
     await updatePublicMessages(client, finalTournamentState);
