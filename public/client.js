@@ -1,14 +1,11 @@
-// --- INICIO DEL ARCHIVO client.js (VERSIÓN FINAL Y COMPLETA) ---
-
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const tournamentId = urlParams.get('tournamentId');
     const draftId = urlParams.get('draftId');
-    const rouletteSessionId = urlParams.get('rouletteSessionId'); // <-- Línea nueva
+    const rouletteSessionId = urlParams.get('rouletteSessionId');
 
     if (rouletteSessionId) {
-        // Si hay un ID de ruleta, iniciamos esa vista
-        document.body.classList.add('draft-view-style'); // Reutilizamos un estilo para el fondo
+        document.body.classList.add('draft-view-style');
         initializeRouletteView(rouletteSessionId);
     } else if (tournamentId) {
         document.body.classList.remove('draft-view-style');
