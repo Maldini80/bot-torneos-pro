@@ -716,7 +716,7 @@ function initializeDraftView(draftId) {
         const select = document.getElementById('filter-column-select');
         select.addEventListener('change', applyTableFilters);
 
-        const allPositions = ['Todos', 'Medios', ...positionOrder];
+        const allPositions = ['Todos', 'GK', 'DFC', 'CARR', 'Medios', 'DC'];
         allPositions.forEach(pos => {
             const btn = document.createElement('button');
             btn.className = 'filter-btn';
