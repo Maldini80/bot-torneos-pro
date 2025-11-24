@@ -201,14 +201,39 @@ export async function startVisualizerServer(client) {
     app.use(express.json());
     app.use(express.static('public'));
 
-    app.get('/draft-data/:draftId', (req, res) => {
-        const data = draftStates.get(req.params.draftId);
-        if (data) res.json(data);
-        else res.status(404).send({ error: 'Draft data not found' });
+    app.get('/draft-data/:draftId', async (req, res) => {
+        let data = draftStates.get(req.params.draftId);
+        if (!data) {
+            try {
+                const db = getDb();
+                data = await db.collection('drafts').findOne({ shortId: req.params.draftId });
+                if (data) draftStates.set(data.shortId, data); // Repopulate cache
+            } catch (error) {
+                console.error(`[API Error] Error fetching draft ${req.params.draftId} from DB:`, error);
+            }
+        }
+
+        if (data) {
+            // Consistent privacy logic with WebSocket
+            if (req.user) res.json(data);
+            else res.json(sanitizeDraftForPublic(data));
+        } else {
+            res.status(404).send({ error: 'Draft data not found' });
+        }
     });
 
-    app.get('/tournament-data/:tournamentId', (req, res) => {
-        const data = tournamentStates.get(req.params.tournamentId);
+    app.get('/tournament-data/:tournamentId', async (req, res) => {
+        let data = tournamentStates.get(req.params.tournamentId);
+        if (!data) {
+            try {
+                const db = getDb();
+                data = await db.collection('tournaments').findOne({ shortId: req.params.tournamentId });
+                if (data) tournamentStates.set(data.shortId, data); // Repopulate cache
+            } catch (error) {
+                console.error(`[API Error] Error fetching tournament ${req.params.tournamentId} from DB:`, error);
+            }
+        }
+
         if (data) res.json(data);
         else res.status(404).send({ error: 'Tournament data not found' });
     });

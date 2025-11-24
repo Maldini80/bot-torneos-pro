@@ -412,7 +412,7 @@ function initializeDraftView(draftId) {
     }
 
     function fetchInitialData() {
-        fetch(`/api/draft/${draftId}`)
+        fetch(`/draft-data/${draftId}`)
             .then(response => response.ok ? response.json() : Promise.resolve(null))
             .then(data => {
                 if (data) {
