@@ -148,13 +148,21 @@ client.on(Events.MessageDelete, async message => {
     console.log(`[SYNC] Panel de torneo borrado en el canal de estado. Forzando actualización de icono.`);
 });
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { startVpgBot } = require('./src/vpg_bot/index.js');
+
 async function startBot() {
     await connectDb();
     await startVisualizerServer(client, advanceDraftTurn, handlePlayerSelectionFromWeb);
     client.login(process.env.DISCORD_TOKEN);
+
+    // Iniciar el segundo bot (VPG)
+    startVpgBot().catch(err => console.error('Error al iniciar el bot VPG:', err));
+
     setInterval(() => {
-    checkOverdueMatches(client);
-}, 60000);
+        checkOverdueMatches(client);
+    }, 60000);
 }
 
 startBot();
