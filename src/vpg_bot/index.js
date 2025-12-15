@@ -21,9 +21,9 @@ async function startVpgBot() {
     // La conexión a MongoDB ya debería estar manejada por el bot principal o ser compartida.
     // Si usan la misma DB, no hace falta reconectar si ya está conectada, pero por seguridad lo dejamos con catch.
     if (mongoose.connection.readyState === 0) {
-         mongoose.connect(process.env.DATABASE_URL)
-        .then(() => console.log('[VPG] Conectado a MongoDB.'))
-        .catch(err => console.error('[VPG] Error de conexión con MongoDB:', err));
+        mongoose.connect(process.env.DATABASE_URL)
+            .then(() => console.log('[VPG] Conectado a MongoDB.'))
+            .catch(err => console.error('[VPG] Error de conexión con MongoDB:', err));
     }
 
     const client = new Client({
@@ -90,41 +90,41 @@ async function startVpgBot() {
     // == INICIO DE BIENVENIDA POR MENSAJE DIRECTO (MD) - CÓDIGO NUEVO ==
     // =================================================================
     client.on(Events.GuildMemberAdd, async member => {
-         if (member.user.bot) return;
-     
-         // Comprobamos si ya tiene un rol de equipo (por si salió y volvió a entrar)
-         const hasTeamRole = member.roles.cache.some(role => [
-             process.env.PLAYER_ROLE_ID,
-             process.env.CAPTAIN_ROLE_ID,
-             process.env.MANAGER_ROLE_ID
-         ].includes(role.id));
-         if (hasTeamRole) return;
-     
-         // Usamos el traductor para construir el mensaje
-         const welcomeEmbed = new EmbedBuilder()
-             .setTitle(t('welcomeTitle', member).replace('{userName}', member.displayName))
-             .setDescription(t('welcomeDescription', member))
-             .setColor('Green')
-             .setImage('https://i.imgur.com/Ode1MEI.jpeg'); // La imagen para nuevos miembros
-     
-         const registerButton = new ActionRowBuilder().addComponents(
-             new ButtonBuilder()
-                 .setCustomId('start_player_registration')
-                 .setLabel(t('startRegistrationButton', member))
-                 .setStyle(ButtonStyle.Success)
-         );
-     
-         // Intentamos enviar el MD. Si falla, lo registramos en la consola.
-         try {
-             await member.send({ embeds: [welcomeEmbed], components: [registerButton] });
-         } catch (error) {
-             console.log(`[VPG] AVISO: No se pudo enviar el MD de bienvenida a ${member.user.tag}. Posiblemente los tiene desactivados.`);
-         }
-     });
+        if (member.user.bot) return;
+
+        // Comprobamos si ya tiene un rol de equipo (por si salió y volvió a entrar)
+        const hasTeamRole = member.roles.cache.some(role => [
+            process.env.PLAYER_ROLE_ID,
+            process.env.CAPTAIN_ROLE_ID,
+            process.env.MANAGER_ROLE_ID
+        ].includes(role.id));
+        if (hasTeamRole) return;
+
+        // Usamos el traductor para construir el mensaje
+        const welcomeEmbed = new EmbedBuilder()
+            .setTitle(t('welcomeTitle', member).replace('{userName}', member.displayName))
+            .setDescription(t('welcomeDescription', member))
+            .setColor('Green')
+            .setImage('https://i.imgur.com/Ode1MEI.jpeg'); // La imagen para nuevos miembros
+
+        const registerButton = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('start_player_registration')
+                .setLabel(t('startRegistrationButton', member))
+                .setStyle(ButtonStyle.Success)
+        );
+
+        // Intentamos enviar el MD. Si falla, lo registramos en la consola.
+        try {
+            await member.send({ embeds: [welcomeEmbed], components: [registerButton] });
+        } catch (error) {
+            console.log(`[VPG] AVISO: No se pudo enviar el MD de bienvenida a ${member.user.tag}. Posiblemente los tiene desactivados.`);
+        }
+    });
     // =================================================================
     // == FIN DE BIENVENIDA POR MENSAJE DIRECTO (MD) ===================
     // =================================================================
-    
+
     client.on(Events.MessageCreate, async message => {
         if (message.author.bot || !message.inGuild()) return;
         const activeChannel = await TeamChatChannel.findOne({ channelId: message.channel.id, guildId: message.guildId });
@@ -152,78 +152,87 @@ async function startVpgBot() {
             }
         }
     });
-    
+
     client.on(Events.InteractionCreate, async interaction => {
         let handler;
         let handlerName = '';
-    
+
         try {
-        if (interaction.isChatInputCommand()) {
-            handlerName = 'comando';
-            handler = client.commands.get(interaction.commandName);
-            if (handler) await handler.execute(interaction);
-    
-        } else if (interaction.isButton()) {
-        handlerName = 'buttonHandler';
-        handler = client.handlers.get('buttonHandler');
-        if (handler) await handler(client, interaction);
-    
-    } else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) {
-        handlerName = 'selectMenuHandler';
-        handler = client.handlers.get('selectMenuHandler');
-        if (handler) await handler(client, interaction);
-    
-    } else if (interaction.isModalSubmit()) {
-        handlerName = 'modalHandler';
-        handler = client.handlers.get('modalHandler');
-        if (handler) await handler(client, interaction);
-    
-        } else if (interaction.isAutocomplete()) {
-            handlerName = 'autocompleteHandler';
-            handler = client.handlers.get('autocompleteHandler');
-            if (handler) await handler(client, interaction);
-        }
-    
-        } catch (error) {
-        // Si el error es "Unknown Interaction" (código 10062), es probable que sea por un "arranque en frío" de Render.
-        // En este caso, simplemente lo registramos en la consola y no intentamos responder al usuario,
-        // porque la interacción ya ha expirado y causaría otro error.
-        if (error.code === 10062) {
-            console.warn(`[VPG] Se ignoró un error de "Interacción Desconocida" (código 10062), probablemente debido a un arranque en frío.`);
-            return; // Detenemos la ejecución aquí para este caso específico.
-        }
-    
-        // Para todos los demás errores, mantenemos la lógica de notificar al usuario.
-        console.error(`[VPG] Fallo crítico durante el procesamiento de una interacción de tipo [${handlerName}]:`, error);
-        
-        const errorMessage = { 
-            content: 'Ha ocurrido un error al procesar esta solicitud. Por favor, inténtalo de nuevo.', 
-            flags: MessageFlags.Ephemeral 
-        };
-        
-        try {
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp(errorMessage);
-            } else {
-                await interaction.reply(errorMessage);
+            if (interaction.isChatInputCommand()) {
+                handlerName = 'comando';
+                handler = client.commands.get(interaction.commandName);
+                if (handler) await handler.execute(interaction);
+
+            } else if (interaction.isButton()) {
+                handlerName = 'buttonHandler';
+                handler = client.handlers.get('buttonHandler');
+                if (handler) await handler(client, interaction);
+
+            } else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) {
+                handlerName = 'selectMenuHandler';
+                handler = client.handlers.get('selectMenuHandler');
+                if (handler) await handler(client, interaction);
+
+            } else if (interaction.isModalSubmit()) {
+                handlerName = 'modalHandler';
+                handler = client.handlers.get('modalHandler');
+                if (handler) await handler(client, interaction);
+
+            } else if (interaction.isAutocomplete()) {
+                handlerName = 'autocompleteHandler';
+                handler = client.handlers.get('autocompleteHandler');
+                if (handler) await handler(client, interaction);
             }
-        } catch (followUpError) {
-            // Este catch interno previene un crash si el envío del mensaje de error también falla.
-            console.error("[VPG] No se pudo enviar el mensaje de error al usuario:", followUpError);
+
+        } catch (error) {
+            // Si el error es "Unknown Interaction" (código 10062), es probable que sea por un "arranque en frío" de Render.
+            // En este caso, simplemente lo registramos en la consola y no intentamos responder al usuario,
+            // porque la interacción ya ha expirado y causaría otro error.
+            if (error.code === 10062) {
+                console.warn(`[VPG] Se ignoró un error de "Interacción Desconocida" (código 10062), probablemente debido a un arranque en frío.`);
+                return; // Detenemos la ejecución aquí para este caso específico.
+            }
+
+            // Para todos los demás errores, mantenemos la lógica de notificar al usuario.
+            console.error(`[VPG] Fallo crítico durante el procesamiento de una interacción de tipo [${handlerName}]:`, error);
+
+            const errorMessage = {
+                content: 'Ha ocurrido un error al procesar esta solicitud. Por favor, inténtalo de nuevo.',
+                flags: MessageFlags.Ephemeral
+            };
+
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp(errorMessage);
+                } else {
+                    await interaction.reply(errorMessage);
+                }
+            } catch (followUpError) {
+                // Este catch interno previene un crash si el envío del mensaje de error también falla.
+                console.error("[VPG] No se pudo enviar el mensaje de error al usuario:", followUpError);
+            }
         }
-    }
     });
-    
+
     // DESPERTADOR INTERNO
     // Nota: El bot principal ya tiene su propio mecanismo de keep-alive si es un web service, 
     // pero mantenemos este si es necesario para endpoints específicos o lo eliminamos si es redundante.
     const selfPingUrl = `https://bot-vpg-pro.onrender.com`;
     setInterval(() => {
-        axios.get(selfPingUrl).catch(() => {}); // Simplemente hacemos la petición, ignoramos el error 404
+        axios.get(selfPingUrl).catch(() => { }); // Simplemente hacemos la petición, ignoramos el error 404
     }, 2 * 60 * 1000); // Cada 2 minutos
-    
+
     // IMPORTANTE: Usamos una variable de entorno DIFERENTE para el token de este bot
-    client.login(process.env.DISCORD_TOKEN_VPG);
+    const vpgToken = process.env.DISCORD_TOKEN_VPG;
+
+    if (!vpgToken) {
+        console.error('❌ [VPG] ERROR FATAL: No se encontró la variable de entorno DISCORD_TOKEN_VPG.');
+        console.error('⚠️ Por favor, ve a Render -> Environment y asegúrate de añadir DISCORD_TOKEN_VPG.');
+        return;
+    }
+
+    console.log(`[VPG] Intentando conectar con token: ${vpgToken.substring(0, 10)}...`);
+    client.login(vpgToken.trim());
 }
 
 module.exports = { startVpgBot };
