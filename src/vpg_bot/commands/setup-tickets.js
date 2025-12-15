@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
-const TicketConfig = require('../../src/models/ticketConfig'); // Ruta relativa al modelo
+const TicketConfig = require('../models/ticketConfig'); // Ruta relativa al modelo
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -49,10 +49,10 @@ module.exports = {
             );
 
             await interaction.editReply({
-                content: `✅ Sistema de tickets configurado:\n` + 
-                         `Canal de logs: <#${logChannel.id}>
-` + 
-                         `Rol de soporte: <@&${supportRole.id}>`
+                content: `✅ Sistema de tickets configurado:\n` +
+                    `Canal de logs: <#${logChannel.id}>
+` +
+                    `Rol de soporte: <@&${supportRole.id}>`
             });
         } catch (error) {
             console.error('Error al configurar el sistema de tickets:', error);
