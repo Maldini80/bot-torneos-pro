@@ -379,8 +379,9 @@ const handler = async (client, interaction) => {
     const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
 
     if (customId === 'admin_create_team_button') {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        console.log('[DEBUG] Botón admin_create_team_button presionado.');
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
 
         const userSelectMenu = new UserSelectMenuBuilder()
             .setCustomId('admin_select_manager_for_creation')
