@@ -26,20 +26,20 @@ async function sendPaginatedPlayerMenu(interaction, members, page) {
     const endIndex = startIndex + ITEMS_PER_PAGE;
     const currentMembers = members.slice(startIndex, endIndex);
     if (currentMembers.length === 0) { return interaction.editReply({ content: t('errorNoEligibleMembers', member), components: [] }); }
-    
+
     const memberOptions = currentMembers.map(m => ({ label: m.user.username, description: m.nickname || m.user.id, value: m.id }));
-    
+
     const placeholder = t('invitePlayerMenuPlaceholder', member)
         .replace('{currentPage}', page + 1)
         .replace('{totalPages}', totalPages);
 
     const selectMenu = new StringSelectMenuBuilder().setCustomId('invite_player_select').setPlaceholder(placeholder).addOptions(memberOptions);
-    
+
     // Dejamos los botones de navegación sin traducir ya que son universales
     const navigationRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`paginate_invitePlayer_${page - 1}`).setLabel(`◀️ ${t('paginationPrevious', member)}`).setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-    new ButtonBuilder().setCustomId(`paginate_invitePlayer_${page + 1}`).setLabel(`${t('paginationNext', member)} ▶️`).setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1)
-);
+        new ButtonBuilder().setCustomId(`paginate_invitePlayer_${page - 1}`).setLabel(`◀️ ${t('paginationPrevious', member)}`).setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId(`paginate_invitePlayer_${page + 1}`).setLabel(`${t('paginationNext', member)} ▶️`).setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1)
+    );
     const components = [new ActionRowBuilder().addComponents(selectMenu)];
     if (totalPages > 1) { components.push(navigationRow); }
     await interaction.editReply({ content: t('invitePlayerMenuHeader', member), components });
@@ -56,9 +56,9 @@ async function sendPaginatedTeamMenu(interaction, teams, baseCustomId, paginatio
     const placeholder = t('paginationSelectTeamPlaceholder', interaction.member).replace('{currentPage}', page + 1).replace('{totalPages}', totalPages);
     const selectMenu = new StringSelectMenuBuilder().setCustomId(baseCustomId).setPlaceholder(placeholder).addOptions(teamOptions);
     const navigationRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`paginate_${paginationId}_${page - 1}`).setLabel(`◀️ ${t('paginationPrevious', interaction.member)}`).setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-    new ButtonBuilder().setCustomId(`paginate_${paginationId}_${page + 1}`).setLabel(`${t('paginationNext', interaction.member)} ▶️`).setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1)
-);
+        new ButtonBuilder().setCustomId(`paginate_${paginationId}_${page - 1}`).setLabel(`◀️ ${t('paginationPrevious', interaction.member)}`).setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId(`paginate_${paginationId}_${page + 1}`).setLabel(`${t('paginationNext', interaction.member)} ▶️`).setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1)
+    );
     const components = [new ActionRowBuilder().addComponents(selectMenu)];
     if (totalPages > 1) { components.push(navigationRow); }
     if (interaction.deferred || interaction.replied) { await interaction.editReply({ content: contentMessage, components }); }
@@ -96,7 +96,7 @@ async function updatePanelMessage(client, panelId) {
                 components.push(currentRow);
                 currentRow = new ActionRowBuilder();
                 continue;
-            } else { 
+            } else {
                 const label = slot.time === 'INSTANT' ? `⚔️ Desafiar Ahora` : `⚔️ Desafiar (${slot.time})`;
                 const pendingText = slot.pendingChallenges.length > 0 ? ` (${slot.pendingChallenges.length} ⏳)` : '';
                 const challengeButton = new ButtonBuilder().setCustomId(`challenge_slot_${panel._id}_${slot.time}`).setLabel(label + pendingText).setStyle(ButtonStyle.Success);
@@ -149,60 +149,61 @@ async function sendApprovalRequest(interaction, client, { vpgUsername, teamName,
 
 const handler = async (client, interaction) => {
     const { customId, user } = interaction;
-    
+
     if (customId === 'start_player_registration') {
-    let member = interaction.member;
-    let guild = interaction.guild; // <== AÑADE ESTA LÍNEA
-if (!member) {
-    try {
-        guild = await client.guilds.fetch(process.env.GUILD_ID); // <== QUITA EL 'const'
-        member = await guild.members.fetch(user.id);
-    } catch (e) {
-            return interaction.reply({ content: 'No pude encontrarte en el servidor. Asegúrate de estar dentro antes de registrarte.', flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        let member = interaction.member;
+        let guild = interaction.guild; // <== AÑADE ESTA LÍNEA
+        if (!member) {
+            try {
+                guild = await client.guilds.fetch(process.env.GUILD_ID); // <== QUITA EL 'const'
+                member = await guild.members.fetch(user.id);
+            } catch (e) {
+                return interaction.editReply({ content: 'No pude encontrarte en el servidor. Asegúrate de estar dentro antes de registrarte.' });
+            }
         }
+
+        const platformMenu = new StringSelectMenuBuilder()
+            .setCustomId('registration_select_platform_step1')
+            .setPlaceholder(t('registrationPlatformPlaceholder', member))
+            .addOptions([
+                { label: t('platformPlayStation', member), value: 'psn', emoji: '🎮' },
+                { label: t('platformXbox', member), value: 'xbox', emoji: '❎' },
+                { label: t('platformPC', member), value: 'pc', emoji: '🖥️' },
+            ]);
+
+        const row = new ActionRowBuilder().addComponents(platformMenu);
+
+        await interaction.editReply({ content: t('registrationPlatformStep1Title', member), components: [row] });
+
+        return;
     }
 
-    const platformMenu = new StringSelectMenuBuilder()
-        .setCustomId('registration_select_platform_step1')
-        .setPlaceholder(t('registrationPlatformPlaceholder', member))
-        .addOptions([
-            { label: t('platformPlayStation', member), value: 'psn', emoji: '🎮' },
-            { label: t('platformXbox', member), value: 'xbox', emoji: '❎' },
-            { label: t('platformPC', member), value: 'pc', emoji: '🖥️' },
-        ]);
-    
-    const row = new ActionRowBuilder().addComponents(platformMenu);
-
-    await interaction.reply({ content: t('registrationPlatformStep1Title', member), components: [row], flags: MessageFlags.Ephemeral });
-    
-    return;
-}
-    
 
     // ===========================================================================
     // =================== LÓGICA DE INTERACCIONES EN MD =========================
     // ===========================================================================
-        if (!interaction.inGuild()) {
+    if (!interaction.inGuild()) {
         await interaction.deferUpdate();
         const { message } = interaction;
-        
+
         if (customId.startsWith('accept_challenge_') || customId.startsWith('reject_challenge_')) {
             // ESTE CÓDIGO YA ESTÁ TRADUCIDO DE LA RESPUESTA ANTERIOR
             const parts = customId.split('_');
-            const action = parts[0]; 
+            const action = parts[0];
             const panelId = parts[2];
             const time = parts[3];
             const challengeId = parts[4];
-            
+
             const panel = await AvailabilityPanel.findById(panelId).populate('teamId');
             if (!panel) return interaction.editReply({ content: 'Este panel de amistosos ya no existe.', components: [] });
-            
+
             const slot = panel.timeSlots.find(s => s.time === time);
             if (!slot) {
                 await message.edit({ content: 'Este horario de partido ya no existe en el panel.', components: [] });
                 return interaction.followUp({ content: 'El horario ya no existe.', flags: MessageFlags.Ephemeral });
             }
-            
+
             // Necesitamos el guild para poder obtener el 'member' del que responde
             const guild = await client.guilds.fetch(panel.guildId);
             const hostMember = await guild.members.fetch(user.id);
@@ -225,16 +226,16 @@ if (!member) {
             if (action === 'accept') {
                 slot.status = 'CONFIRMED';
                 slot.challengerTeamId = acceptedChallenge.teamId;
-                
+
                 const winnerTeam = await Team.findById(acceptedChallenge.teamId);
                 const winnerUser = await client.users.fetch(acceptedChallenge.userId);
                 const winnerMember = await guild.members.fetch(acceptedChallenge.userId);
-                
+
                 const acceptedNotification = t('challengeAcceptedNotification', winnerMember)
                     .replace('{hostTeamName}', panel.teamId.name)
                     .replace('{time}', time);
-                await winnerUser.send(acceptedNotification).catch(()=>{});
-                
+                await winnerUser.send(acceptedNotification).catch(() => { });
+
                 const hostConfirmation = t('hostAcceptedConfirmation', hostMember).replace('{challengerTeamName}', winnerTeam.name);
                 await message.edit({ content: hostConfirmation, components: [], embeds: [] });
 
@@ -245,7 +246,7 @@ if (!member) {
                         const lostNotification = t('challengeLostNotification', loserMember)
                             .replace('{hostTeamName}', panel.teamId.name)
                             .replace('{time}', time);
-                        await loserUser.send(lostNotification).catch(()=>{});
+                        await loserUser.send(lostNotification).catch(() => { });
                     }
                 }
 
@@ -262,13 +263,13 @@ if (!member) {
                 }
 
             } else { // REJECT
-                 await message.edit({ content: t('hostRejectedConfirmation', hostMember), components: [], embeds: [] });
-                 const rejectedUser = await client.users.fetch(acceptedChallenge.userId);
-                 const rejectedMember = await guild.members.fetch(acceptedChallenge.userId);
-                 const rejectedNotification = t('challengeRejectedNotification', rejectedMember)
+                await message.edit({ content: t('hostRejectedConfirmation', hostMember), components: [], embeds: [] });
+                const rejectedUser = await client.users.fetch(acceptedChallenge.userId);
+                const rejectedMember = await guild.members.fetch(acceptedChallenge.userId);
+                const rejectedNotification = t('challengeRejectedNotification', rejectedMember)
                     .replace('{hostTeamName}', panel.teamId.name)
                     .replace('{time}', time);
-                 await rejectedUser.send(rejectedNotification).catch(()=>{});
+                await rejectedUser.send(rejectedNotification).catch(() => { });
             }
 
             await panel.save();
@@ -277,34 +278,34 @@ if (!member) {
         } else if (customId.startsWith('accept_application_') || customId.startsWith('reject_application_')) {
             const applicationId = customId.split('_')[2];
             const application = await PlayerApplication.findById(applicationId).populate('teamId');
-            if(!application || application.status !== 'pending') return interaction.editReply({ content: 'This application is no longer valid or has already been handled. / Esta solicitud ya no es válida o ya ha sido gestionada.', components: [], embeds: [] });
-            
+            if (!application || application.status !== 'pending') return interaction.editReply({ content: 'This application is no longer valid or has already been handled. / Esta solicitud ya no es válida o ya ha sido gestionada.', components: [], embeds: [] });
+
             const guild = await client.guilds.fetch(application.teamId.guildId);
-            const applicantUser = await client.users.fetch(application.userId).catch(()=>null);
+            const applicantUser = await client.users.fetch(application.userId).catch(() => null);
             const managerMember = await guild.members.fetch(user.id);
 
             if (customId.startsWith('accept_application_')) {
                 application.status = 'accepted';
                 if (applicantUser) {
-                    const applicantMember = await guild.members.fetch(application.userId).catch(()=>null);
+                    const applicantMember = await guild.members.fetch(application.userId).catch(() => null);
                     if (applicantMember) {
                         await applicantMember.roles.add(process.env.PLAYER_ROLE_ID);
-                        await applicantMember.setNickname(`${application.teamId.abbreviation} ${applicantUser.username}`).catch(()=>{});
+                        await applicantMember.setNickname(`${application.teamId.abbreviation} ${applicantUser.username}`).catch(() => { });
                         application.teamId.players.push(applicantUser.id);
 
                         const notification = t('applicationAcceptedNotification', applicantMember).replace('{teamName}', application.teamId.name);
-                        await applicantUser.send(notification).catch(() => {});
+                        await applicantUser.send(notification).catch(() => { });
                     }
                 }
                 const confirmation = t('managerAcceptedPlayer', managerMember).replace('{playerName}', applicantUser ? applicantUser.tag : 'a user');
                 await interaction.editReply({ content: confirmation, components: [], embeds: [] });
             } else {
                 application.status = 'rejected';
-                if(applicantUser) {
-                    const applicantMember = await guild.members.fetch(application.userId).catch(()=>null);
+                if (applicantUser) {
+                    const applicantMember = await guild.members.fetch(application.userId).catch(() => null);
                     if (applicantMember) {
                         const notification = t('applicationRejectedNotification', applicantMember).replace('{teamName}', application.teamId.name);
-                        await applicantUser.send(notification).catch(() => {});
+                        await applicantUser.send(notification).catch(() => { });
                     }
                 }
                 const confirmation = t('managerRejectedPlayer', managerMember).replace('{playerName}', applicantUser ? applicantUser.tag : 'a user');
@@ -320,7 +321,7 @@ if (!member) {
             const playerId = parts[3];
 
             if (interaction.user.id !== playerId) {
-               return interaction.followUp({ content: 'This invitation is not for you. / Esta invitación no es para ti.', flags: MessageFlags.Ephemeral });
+                return interaction.followUp({ content: 'This invitation is not for you. / Esta invitación no es para ti.', flags: MessageFlags.Ephemeral });
             }
 
             const team = await Team.findById(teamId);
@@ -344,25 +345,25 @@ if (!member) {
                     const errorMessage = t('errorAlreadyInTeam', playerMember).replace('{teamName}', existingTeam.name);
                     return interaction.editReply({ content: errorMessage, components: [], embeds: [] });
                 }
-                
+
                 team.players.push(playerId);
                 await team.save();
 
                 await playerMember.roles.add(process.env.PLAYER_ROLE_ID);
-                await playerMember.setNickname(`${team.abbreviation} ${playerMember.user.username}`).catch(()=>{});
-                
+                await playerMember.setNickname(`${team.abbreviation} ${playerMember.user.username}`).catch(() => { });
+
                 if (manager && managerMember) {
                     const notification = t('playerJoinedNotification', managerMember).replace('{playerName}', playerMember.user.tag).replace('{teamName}', team.name);
-                    await manager.send(notification).catch(() => {});
+                    await manager.send(notification).catch(() => { });
                 }
-                
+
                 const successMessage = t('applicationAcceptedNotification', playerMember).replace('{teamName}', team.name);
                 await interaction.editReply({ content: successMessage, components: [], embeds: [] });
 
-            } else { 
+            } else {
                 if (manager && managerMember) {
                     const notification = t('playerRejectedNotification', managerMember).replace('{playerName}', interaction.user.tag).replace('{teamName}', team.name);
-                    await manager.send(notification).catch(() => {});
+                    await manager.send(notification).catch(() => { });
                 }
                 const successMessage = t('applicationRejectedNotification', playerMember).replace('{teamName}', team.name);
                 await interaction.editReply({ content: successMessage, components: [], embeds: [] });
@@ -378,128 +379,128 @@ if (!member) {
     const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
 
     if (customId === 'admin_create_team_button') {
-    if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const userSelectMenu = new UserSelectMenuBuilder()
-        .setCustomId('admin_select_manager_for_creation')
-        .setPlaceholder('Selecciona al futuro mánager del equipo')
-        .setMinValues(1)
-        .setMaxValues(1);
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId('admin_select_manager_for_creation')
+            .setPlaceholder('Selecciona al futuro mánager del equipo')
+            .setMinValues(1)
+            .setMaxValues(1);
 
-    await interaction.reply({
-        content: '**Paso 1 de 3:** Selecciona al miembro del servidor que será el Mánager de este nuevo equipo.',
-        components: [new ActionRowBuilder().addComponents(userSelectMenu)],
-        flags: MessageFlags.Ephemeral
-    });
-    return;
-}
+        await interaction.editReply({
+            content: '**Paso 1 de 3:** Selecciona al miembro del servidor que será el Mánager de este nuevo equipo.',
+            components: [new ActionRowBuilder().addComponents(userSelectMenu)]
+        });
+        return;
+    }
 
-if (customId.startsWith('admin_add_captains_') || customId.startsWith('admin_add_players_')) {
-    if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+    if (customId.startsWith('admin_add_captains_') || customId.startsWith('admin_add_players_')) {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const isAddingCaptains = customId.startsWith('admin_add_captains_');
-    const teamId = customId.substring(customId.lastIndexOf('_') + 1);
-    
-    const userSelectMenu = new UserSelectMenuBuilder()
-        .setCustomId(`admin_select_members_${isAddingCaptains ? 'captains' : 'players'}_${teamId}`)
-        .setPlaceholder(`Selecciona los ${isAddingCaptains ? 'capitanes' : 'jugadores'} a añadir`)
-        .setMinValues(1)
-        .setMaxValues(25);
+        const isAddingCaptains = customId.startsWith('admin_add_captains_');
+        const teamId = customId.substring(customId.lastIndexOf('_') + 1);
 
-    await interaction.reply({
-        content: `Selecciona los **${isAddingCaptains ? 'capitanes' : 'jugadores'}** que quieres añadir al equipo desde el menú de abajo.`,
-        components: [new ActionRowBuilder().addComponents(userSelectMenu)],
-        flags: MessageFlags.Ephemeral
-    });
-    return;
-}
-if (customId.startsWith('admin_change_manager_')) {
-    if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
-    
-    const teamId = customId.split('_')[3];
-    const team = await Team.findById(teamId);
-    if (!team) return interaction.reply({ content: 'Equipo no encontrado.', flags: MessageFlags.Ephemeral });
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId(`admin_select_members_${isAddingCaptains ? 'captains' : 'players'}_${teamId}`)
+            .setPlaceholder(`Selecciona los ${isAddingCaptains ? 'capitanes' : 'jugadores'} a añadir`)
+            .setMinValues(1)
+            .setMaxValues(25);
 
-    const userSelectMenu = new UserSelectMenuBuilder()
-        .setCustomId(`admin_select_new_manager_${teamId}`)
-        .setPlaceholder('Selecciona al miembro que será el nuevo mánager')
-        .setMinValues(1)
-        .setMaxValues(1);
+        await interaction.editReply({
+            content: `Selecciona los **${isAddingCaptains ? 'capitanes' : 'jugadores'}** que quieres añadir al equipo desde el menú de abajo.`,
+            components: [new ActionRowBuilder().addComponents(userSelectMenu)]
+        });
+        return;
+    }
+    if (customId.startsWith('admin_change_manager_')) {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    await interaction.reply({
-        content: `Estás a punto de cambiar el mánager del equipo **${team.name}**. El mánager actual es <@${team.managerId}>.\n\nPor favor, selecciona al nuevo mánager en el menú de abajo.`,
-        components: [new ActionRowBuilder().addComponents(userSelectMenu)],
-        flags: MessageFlags.Ephemeral
-    });
-    return;
-}
+        const teamId = customId.split('_')[3];
+        const team = await Team.findById(teamId);
+        if (!team) return interaction.editReply({ content: 'Equipo no encontrado.' });
+
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId(`admin_select_new_manager_${teamId}`)
+            .setPlaceholder('Selecciona al miembro que será el nuevo mánager')
+            .setMinValues(1)
+            .setMaxValues(1);
+
+        await interaction.editReply({
+            content: `Estás a punto de cambiar el mánager del equipo **${team.name}**. El mánager actual es <@${team.managerId}>.\n\nPor favor, selecciona al nuevo mánager en el menú de abajo.`,
+            components: [new ActionRowBuilder().addComponents(userSelectMenu)]
+        });
+        return;
+    }
     if (customId.startsWith('admin_set_logo_custom_')) {
-    const teamId = customId.split('_')[4];
-    const modal = new ModalBuilder()
-        .setCustomId(`admin_submit_logo_modal_${teamId}`)
-        .setTitle('Añadir Logo Personalizado');
-    const logoUrlInput = new TextInputBuilder().setCustomId('logoUrl').setLabel("URL de la imagen del logo").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('https://i.imgur.com/logo.png');
-    modal.addComponents(new ActionRowBuilder().addComponents(logoUrlInput));
-    await interaction.showModal(modal);
-    return;
-}
+        const teamId = customId.split('_')[4];
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_submit_logo_modal_${teamId}`)
+            .setTitle('Añadir Logo Personalizado');
+        const logoUrlInput = new TextInputBuilder().setCustomId('logoUrl').setLabel("URL de la imagen del logo").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('https://i.imgur.com/logo.png');
+        modal.addComponents(new ActionRowBuilder().addComponents(logoUrlInput));
+        await interaction.showModal(modal);
+        return;
+    }
 
-if (customId.startsWith('admin_continue_no_logo_')) {
-    const teamId = customId.split('_')[4];
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`admin_add_captains_${teamId}`).setLabel('Añadir Capitanes').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(`admin_add_players_${teamId}`).setLabel('Añadir Jugadores').setStyle(ButtonStyle.Success)
-    );
-    await interaction.update({
-        content: `✅ Logo por defecto asignado. Ahora puedes añadir miembros a la plantilla.`,
-        components: [row]
-    });
-    return;
-}
+    if (customId.startsWith('admin_continue_no_logo_')) {
+        const teamId = customId.split('_')[4];
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_add_captains_${teamId}`).setLabel('Añadir Capitanes').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`admin_add_players_${teamId}`).setLabel('Añadir Jugadores').setStyle(ButtonStyle.Success)
+        );
+        await interaction.update({
+            content: `✅ Logo por defecto asignado. Ahora puedes añadir miembros a la plantilla.`,
+            components: [row]
+        });
+        return;
+    }
 
     if (customId.startsWith('paginate_')) {
-    await interaction.deferUpdate();
-    const parts = customId.split('_');
-    const paginationId = parts[1];
-    const newPage = parseInt(parts[2], 10);
+        await interaction.deferUpdate();
+        const parts = customId.split('_');
+        const paginationId = parts[1];
+        const newPage = parseInt(parts[2], 10);
 
-    // --- LÓGICA AÑADIDA PARA LA PAGINACIÓN DE JUGADORES ---
-    if (paginationId === 'invitePlayer') {
-        const allMembers = await guild.members.fetch();
-        const teamsInServer = await Team.find({ guildId: guild.id }).select('managerId captains players').lean();
-        const playersInTeams = new Set(teamsInServer.flatMap(t => [t.managerId, ...t.captains, ...t.players]));
-        const eligibleMembers = allMembers.filter(m => !m.user.bot && !playersInTeams.has(m.id));
-        const sortedMembers = Array.from(eligibleMembers.values()).sort((a, b) => a.user.username.localeCompare(b.user.username));
-        await sendPaginatedPlayerMenu(interaction, sortedMembers, newPage);
-    } 
-    // --- FIN DE LA LÓGICA AÑADIDA ---
-    else {
-        let teams, baseCustomId, contentMessage;
-        if (paginationId === 'view') {
-            teams = await Team.find({ guildId: guild.id }).sort({ name: 1 }).lean();
-            baseCustomId = 'view_team_roster_select';
-            contentMessage = 'Elige un equipo para ver su plantilla:';
-        } else if (paginationId === 'apply') {
-            teams = await Team.find({ guildId: guild.id, recruitmentOpen: true }).sort({ name: 1 }).lean();
-            baseCustomId = 'apply_to_team_select';
-            contentMessage = 'Selecciona el equipo al que quieres aplicar:';
-        } else if (paginationId === 'manage') {
-            teams = await Team.find({ guildId: interaction.guildId }).sort({ name: 1 }).lean();
-            baseCustomId = 'admin_select_team_to_manage';
-            contentMessage = 'Selecciona el equipo que deseas gestionar:';
+        // --- LÓGICA AÑADIDA PARA LA PAGINACIÓN DE JUGADORES ---
+        if (paginationId === 'invitePlayer') {
+            const allMembers = await guild.members.fetch();
+            const teamsInServer = await Team.find({ guildId: guild.id }).select('managerId captains players').lean();
+            const playersInTeams = new Set(teamsInServer.flatMap(t => [t.managerId, ...t.captains, ...t.players]));
+            const eligibleMembers = allMembers.filter(m => !m.user.bot && !playersInTeams.has(m.id));
+            const sortedMembers = Array.from(eligibleMembers.values()).sort((a, b) => a.user.username.localeCompare(b.user.username));
+            await sendPaginatedPlayerMenu(interaction, sortedMembers, newPage);
         }
-        if (teams) {
-            await sendPaginatedTeamMenu(interaction, teams, baseCustomId, paginationId, newPage, contentMessage);
+        // --- FIN DE LA LÓGICA AÑADIDA ---
+        else {
+            let teams, baseCustomId, contentMessage;
+            if (paginationId === 'view') {
+                teams = await Team.find({ guildId: guild.id }).sort({ name: 1 }).lean();
+                baseCustomId = 'view_team_roster_select';
+                contentMessage = 'Elige un equipo para ver su plantilla:';
+            } else if (paginationId === 'apply') {
+                teams = await Team.find({ guildId: guild.id, recruitmentOpen: true }).sort({ name: 1 }).lean();
+                baseCustomId = 'apply_to_team_select';
+                contentMessage = 'Selecciona el equipo al que quieres aplicar:';
+            } else if (paginationId === 'manage') {
+                teams = await Team.find({ guildId: interaction.guildId }).sort({ name: 1 }).lean();
+                baseCustomId = 'admin_select_team_to_manage';
+                contentMessage = 'Selecciona el equipo que deseas gestionar:';
+            }
+            if (teams) {
+                await sendPaginatedTeamMenu(interaction, teams, baseCustomId, paginationId, newPage, contentMessage);
+            }
         }
+        return;
     }
-    return;
-}
 
     // ===========================================================================
     // =================== LÓGICA DE PANELES Y BOTONES ===========================
     // ===========================================================================
-    
-    
+
+
     if (customId === 'manager_actions_button') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const team = await Team.findOne({ guildId: interaction.guildId, managerId: interaction.user.id });
@@ -507,46 +508,46 @@ if (customId.startsWith('admin_continue_no_logo_')) {
             // Ahora también traducimos el mensaje de error
             return interaction.editReply({ content: t('errorAlreadyManager', member) });
         }
-        
+
         // Usamos la función 't' para obtener los textos en el idioma del usuario
         const subMenuEmbed = new EmbedBuilder()
             .setTitle(t('managerActionsTitle', member))
             .setDescription(t('managerActionsDescription', member))
             .setColor('Green');
-            
+
         const subMenuRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('request_manager_role_button')
                 .setLabel(t('registerTeamButton', member))
                 .setStyle(ButtonStyle.Success)
         );
-        
+
         return interaction.editReply({ embeds: [subMenuEmbed], components: [subMenuRow] });
     }
 
-        if (customId === 'request_manager_role_button') {
+    if (customId === 'request_manager_role_button') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const existingTeam = await Team.findOne({ $or: [{ managerId: user.id }, { captains: user.id }, { players: user.id }], guildId: guild.id });
         if (existingTeam) {
             const errorMessage = t('errorAlreadyInTeam', member).replace('{teamName}', existingTeam.name);
             return interaction.editReply({ content: errorMessage });
         }
-        
+
         const leagues = await League.find({ guildId: guild.id });
-        if(leagues.length === 0) {
+        if (leagues.length === 0) {
             return interaction.editReply({ content: t('errorNoLeaguesConfigured', member) });
         }
-        
+
         const leagueOptions = leagues.map(l => ({ label: l.name, value: l.name }));
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('select_league_for_registration')
             .setPlaceholder(t('selectLeaguePlaceholder', member))
             .addOptions(leagueOptions);
-        
-        return interaction.editReply({ content: t('promptSelectLeagueStep1', member), components: [new ActionRowBuilder().addComponents(selectMenu)]});
+
+        return interaction.editReply({ content: t('promptSelectLeagueStep1', member), components: [new ActionRowBuilder().addComponents(selectMenu)] });
     }
 
-        if (customId.startsWith('ask_logo_yes_')) {
+    if (customId.startsWith('ask_logo_yes_')) {
         const pendingTeamId = customId.split('_')[3];
         // --- CORRECCIÓN: Usamos el traductor ---
         const modal = new ModalBuilder()
@@ -561,8 +562,8 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         modal.addComponents(new ActionRowBuilder().addComponents(teamLogoUrlInput));
         return interaction.showModal(modal);
     }
-    
-        if (customId.startsWith('ask_logo_no_')) {
+
+    if (customId.startsWith('ask_logo_no_')) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const pendingTeamId = customId.split('_')[3];
 
@@ -578,71 +579,71 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         // --- CORRECCIÓN: Usamos el traductor ---
         return interaction.editReply({ content: t('requestSentDefaultLogo', member), components: [] });
     }
-    
+
     // ===========================================================================
     // =================== BLOQUE DE APROBACIÓN/RECHAZO CORREGIDO =================
     // ===========================================================================
     if (customId.startsWith('approve_request_')) {
-     await interaction.deferUpdate();
-     const esAprobador = member.permissions.has(PermissionFlagsBits.Administrator) || member.roles.cache.has(process.env.APPROVER_ROLE_ID);
-     if (!esAprobador) return interaction.followUp({ content: 'No tienes permisos para esta acción.', flags: MessageFlags.Ephemeral });
+        await interaction.deferUpdate();
+        const esAprobador = member.permissions.has(PermissionFlagsBits.Administrator) || member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        if (!esAprobador) return interaction.followUp({ content: 'No tienes permisos para esta acción.', flags: MessageFlags.Ephemeral });
 
-     const parts = customId.split('_');
-     const applicantId = parts[2];
-     const leagueName = parts.slice(3).join('_').replace(/_/g, ' '); 
+        const parts = customId.split('_');
+        const applicantId = parts[2];
+        const leagueName = parts.slice(3).join('_').replace(/_/g, ' ');
 
-     const originalEmbed = interaction.message.embeds[0];
-     if (!originalEmbed) return interaction.followUp({ content: 'Error: No se pudo encontrar el embed de la solicitud original.', flags: MessageFlags.Ephemeral });
-     
-     const teamName = originalEmbed.fields.find(f => f.name === 'Nombre del Equipo').value;
-     const teamAbbr = originalEmbed.fields.find(f => f.name === 'Abreviatura').value;
-     const teamTwitter = originalEmbed.fields.find(f => f.name === 'Twitter del Equipo').value;
-     const logoUrl = originalEmbed.thumbnail ? originalEmbed.thumbnail.url : 'https://i.imgur.com/V4J2Fcf.png';
+        const originalEmbed = interaction.message.embeds[0];
+        if (!originalEmbed) return interaction.followUp({ content: 'Error: No se pudo encontrar el embed de la solicitud original.', flags: MessageFlags.Ephemeral });
 
-     const applicantMember = await guild.members.fetch(applicantId).catch(() => null);
-     if (!applicantMember) return interaction.followUp({ content: `El usuario solicitante ya no está en el servidor.`, flags: MessageFlags.Ephemeral });
+        const teamName = originalEmbed.fields.find(f => f.name === 'Nombre del Equipo').value;
+        const teamAbbr = originalEmbed.fields.find(f => f.name === 'Abreviatura').value;
+        const teamTwitter = originalEmbed.fields.find(f => f.name === 'Twitter del Equipo').value;
+        const logoUrl = originalEmbed.thumbnail ? originalEmbed.thumbnail.url : 'https://i.imgur.com/V4J2Fcf.png';
 
-     const existingTeam = await Team.findOne({ $or: [{ name: teamName }, { managerId: applicantId }], guildId: guild.id });
-     if (existingTeam) return interaction.followUp({ content: `Error: Ya existe un equipo con el nombre "${teamName}" o el usuario ya es mánager.`, flags: MessageFlags.Ephemeral });
+        const applicantMember = await guild.members.fetch(applicantId).catch(() => null);
+        if (!applicantMember) return interaction.followUp({ content: `El usuario solicitante ya no está en el servidor.`, flags: MessageFlags.Ephemeral });
 
-     const newTeam = new Team({
-         name: teamName,
-         abbreviation: teamAbbr,
-         guildId: guild.id,
-         league: leagueName,
-         logoUrl: logoUrl,
-         twitterHandle: teamTwitter === 'No especificado' ? null : teamTwitter,
-         managerId: applicantId,
-     });
-     await newTeam.save();
+        const existingTeam = await Team.findOne({ $or: [{ name: teamName }, { managerId: applicantId }], guildId: guild.id });
+        if (existingTeam) return interaction.followUp({ content: `Error: Ya existe un equipo con el nombre "${teamName}" o el usuario ya es mánager.`, flags: MessageFlags.Ephemeral });
 
-     await applicantMember.roles.add(process.env.MANAGER_ROLE_ID);
-     await applicantMember.roles.add(process.env.PLAYER_ROLE_ID);
-     await applicantMember.setNickname(`|MG| ${teamAbbr} ${applicantMember.user.username}`).catch(err => console.log(`No se pudo cambiar apodo: ${err.message}`));
+        const newTeam = new Team({
+            name: teamName,
+            abbreviation: teamAbbr,
+            guildId: guild.id,
+            league: leagueName,
+            logoUrl: logoUrl,
+            twitterHandle: teamTwitter === 'No especificado' ? null : teamTwitter,
+            managerId: applicantId,
+        });
+        await newTeam.save();
 
-     const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
-     disabledRow.components.forEach(c => c.setDisabled(true));
-     await interaction.message.edit({ components: [disabledRow] });
+        await applicantMember.roles.add(process.env.MANAGER_ROLE_ID);
+        await applicantMember.roles.add(process.env.PLAYER_ROLE_ID);
+        await applicantMember.setNickname(`|MG| ${teamAbbr} ${applicantMember.user.username}`).catch(err => console.log(`No se pudo cambiar apodo: ${err.message}`));
 
-     try {
-         // Usamos el traductor para la guía del mánager
-         const managerGuideEmbed = new EmbedBuilder()
-             .setTitle(t('managerGuideTitle', applicantMember).replace('{teamName}', teamName))
-             .setColor('Gold')
-             .setImage('https://i.imgur.com/KjamtCg.jpeg')
-             .setDescription(t('managerGuideDescription', applicantMember))
-             .addFields(
-                 { name: t('managerGuideStep1Title', applicantMember), value: t('managerGuideStep1Value', applicantMember) },
-                 { name: t('managerGuideStep2Title', applicantMember), value: t('managerGuideStep2Value', applicantMember) },
-                 { name: t('managerGuideStep3Title', applicantMember), value: t('managerGuideStep3Value', applicantMember) }
-             );
-         await applicantMember.send({ embeds: [managerGuideEmbed] });
-     } catch (dmError) {
-         console.log(`AVISO: No se pudo enviar el MD de guía al nuevo mánager ${applicantMember.user.tag}.`);
-     }
-     
-     return interaction.followUp({ content: `✅ Equipo **${teamName}** creado. ${applicantMember.user.tag} es ahora Mánager.`, flags: MessageFlags.Ephemeral });
- }
+        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        await interaction.message.edit({ components: [disabledRow] });
+
+        try {
+            // Usamos el traductor para la guía del mánager
+            const managerGuideEmbed = new EmbedBuilder()
+                .setTitle(t('managerGuideTitle', applicantMember).replace('{teamName}', teamName))
+                .setColor('Gold')
+                .setImage('https://i.imgur.com/KjamtCg.jpeg')
+                .setDescription(t('managerGuideDescription', applicantMember))
+                .addFields(
+                    { name: t('managerGuideStep1Title', applicantMember), value: t('managerGuideStep1Value', applicantMember) },
+                    { name: t('managerGuideStep2Title', applicantMember), value: t('managerGuideStep2Value', applicantMember) },
+                    { name: t('managerGuideStep3Title', applicantMember), value: t('managerGuideStep3Value', applicantMember) }
+                );
+            await applicantMember.send({ embeds: [managerGuideEmbed] });
+        } catch (dmError) {
+            console.log(`AVISO: No se pudo enviar el MD de guía al nuevo mánager ${applicantMember.user.tag}.`);
+        }
+
+        return interaction.followUp({ content: `✅ Equipo **${teamName}** creado. ${applicantMember.user.tag} es ahora Mánager.`, flags: MessageFlags.Ephemeral });
+    }
     if (customId.startsWith('reject_request_')) {
         await interaction.deferUpdate();
         const esAprobador = member.permissions.has(PermissionFlagsBits.Administrator) || member.roles.cache.has(process.env.APPROVER_ROLE_ID);
@@ -656,47 +657,47 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         await interaction.message.edit({ components: [disabledRow] });
 
         if (applicant) {
-            await applicant.send('Lo sentimos, tu solicitud para registrar un equipo ha sido rechazada por un administrador.').catch(() => {});
+            await applicant.send('Lo sentimos, tu solicitud para registrar un equipo ha sido rechazada por un administrador.').catch(() => { });
         }
-        
+
         return interaction.followUp({ content: `Solicitud de ${applicant ? applicant.user.tag : 'un usuario'} rechazada.`, flags: MessageFlags.Ephemeral });
     }
     // ===========================================================================
     // ================== BLOQUE DE CÓDIGO FALTANTE (AHORA PRESENTE) ==============
     // ===========================================================================
-            if (customId.startsWith('promote_player_') || customId.startsWith('demote_captain_') || customId.startsWith('kick_player_') || customId.startsWith('toggle_mute_player_')) {
+    if (customId.startsWith('promote_player_') || customId.startsWith('demote_captain_') || customId.startsWith('kick_player_') || customId.startsWith('toggle_mute_player_')) {
         await interaction.deferUpdate();
-    
+
         const targetId = customId.substring(customId.lastIndexOf('_') + 1);
-        
+
         let team = await Team.findOne({ guildId: interaction.guildId, $or: [{ managerId: user.id }, { captains: user.id }] });
-        
+
         if (!team) {
             team = await Team.findOne({ guildId: interaction.guildId, $or: [{ managerId: targetId }, { captains: targetId }, { players: targetId }] });
         }
-    
+
         if (!team) return interaction.editReply({ content: 'No se pudo encontrar el equipo del jugador seleccionado.', components: [] });
-    
+
         const isManager = team.managerId === user.id;
         const isCaptain = team.captains.includes(user.id);
         if (!isAdmin && !isManager && !isCaptain) {
             return interaction.editReply({ content: 'No tienes permisos para gestionar este equipo.', components: [] });
         }
-    
+
         const targetMember = await interaction.guild.members.fetch(targetId).catch(() => null);
         if (!targetMember) return interaction.editReply({ content: 'Miembro no encontrado en el servidor.', components: [] });
-    
+
         const canManage = isAdmin || isManager;
         const isTargetCaptain = team.captains.includes(targetId);
-    
+
         if (customId.startsWith('kick_player_')) {
             if (isTargetCaptain && !canManage) return interaction.editReply({ content: 'Un capitán no puede expulsar a otro capitán.', components: [] });
             if (team.managerId === targetId) return interaction.editReply({ content: 'No puedes expulsar al mánager del equipo.', components: [] });
-    
+
             team.players = team.players.filter(p => p !== targetId);
             team.captains = team.captains.filter(c => c !== targetId);
-            await targetMember.roles.remove([process.env.PLAYER_ROLE_ID, process.env.CAPTAIN_ROLE_ID, process.env.MUTED_ROLE_ID]).catch(() => {});
-            if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(targetMember.user.username).catch(()=>{});
+            await targetMember.roles.remove([process.env.PLAYER_ROLE_ID, process.env.CAPTAIN_ROLE_ID, process.env.MUTED_ROLE_ID]).catch(() => { });
+            if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(targetMember.user.username).catch(() => { });
 
             const successMessage = t('playerKicked', member).replace('{playerName}', targetMember.user.username);
             await interaction.editReply({ content: successMessage, components: [] });
@@ -705,10 +706,10 @@ if (customId.startsWith('admin_continue_no_logo_')) {
             if (!canManage) return interaction.editReply({ content: 'Solo el Mánager o un Administrador pueden ascender jugadores.', components: [] });
             team.players = team.players.filter(p => p !== targetId);
             team.captains.push(targetId);
-            await targetMember.roles.remove(process.env.PLAYER_ROLE_ID).catch(()=>{});
-            await targetMember.roles.add(process.env.CAPTAIN_ROLE_ID).catch(()=>{});
-            if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(`|C| ${team.abbreviation} ${targetMember.user.username}`).catch(()=>{});
-    
+            await targetMember.roles.remove(process.env.PLAYER_ROLE_ID).catch(() => { });
+            await targetMember.roles.add(process.env.CAPTAIN_ROLE_ID).catch(() => { });
+            if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(`|C| ${team.abbreviation} ${targetMember.user.username}`).catch(() => { });
+
             try {
                 const captainGuideEmbed = new EmbedBuilder()
                     .setTitle(t('captainGuideTitle', targetMember).replace('{teamName}', team.name))
@@ -730,9 +731,9 @@ if (customId.startsWith('admin_continue_no_logo_')) {
             if (!canManage) return interaction.editReply({ content: 'Solo el Mánager o un Administrador pueden degradar capitanes.', components: [] });
             team.captains = team.captains.filter(c => c !== targetId);
             team.players.push(targetId);
-            await targetMember.roles.remove(process.env.CAPTAIN_ROLE_ID).catch(()=>{});
-            await targetMember.roles.add(process.env.PLAYER_ROLE_ID).catch(()=>{});
-            if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(`${team.abbreviation} ${targetMember.user.username}`).catch(()=>{});
+            await targetMember.roles.remove(process.env.CAPTAIN_ROLE_ID).catch(() => { });
+            await targetMember.roles.add(process.env.PLAYER_ROLE_ID).catch(() => { });
+            if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(`${team.abbreviation} ${targetMember.user.username}`).catch(() => { });
 
             const successMessage = t('playerDemoted', member).replace('{playerName}', targetMember.user.username);
             await interaction.editReply({ content: successMessage, components: [] });
@@ -763,26 +764,27 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         await sendPaginatedTeamMenu(interaction, teams, 'view_team_roster_select', 'view', 0, t('viewTeamsPrompt', member));
         return;
     }
-    
+
     if (customId === 'player_actions_button') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const canLeaveTeam = member.roles.cache.has(process.env.PLAYER_ROLE_ID) || member.roles.cache.has(process.env.CAPTAIN_ROLE_ID);
-        
+
         // Usamos la función 't' para obtener los textos en el idioma del usuario
         const subMenuEmbed = new EmbedBuilder()
             .setTitle(t('playerActionsTitle', member))
             .setDescription(t('playerActionsDescription', member))
             .setColor('Blue');
-            
+
         const subMenuRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('edit_profile_button').setLabel(t('editProfileButton', member)).setStyle(ButtonStyle.Primary),
             new ButtonBuilder().setCustomId('apply_to_team_button').setLabel(t('applyToTeamButton', member)).setStyle(ButtonStyle.Secondary),
             new ButtonBuilder().setCustomId('leave_team_button').setLabel(t('leaveTeamButton', member)).setStyle(ButtonStyle.Danger).setDisabled(!canLeaveTeam)
         );
-        
-        return interaction.reply({ embeds: [subMenuEmbed], components: [subMenuRow], flags: MessageFlags.Ephemeral });
+
+        return interaction.editReply({ embeds: [subMenuEmbed], components: [subMenuRow] });
     }
 
-        if (customId.startsWith('team_submenu_')) {
+    if (customId.startsWith('team_submenu_')) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         // MÁS ADELANTE TRADUCIREMOS ESTE ERROR
@@ -822,7 +824,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
                 await interaction.editReply({ embeds: [embed], components: [row1] });
                 break;
         }
-        return; 
+        return;
     }
     if (customId === 'admin_create_league_button') {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
@@ -831,7 +833,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         modal.addComponents(new ActionRowBuilder().addComponents(leagueNameInput));
         return interaction.showModal(modal);
     }
-    
+
     if (customId === 'admin_delete_league_button') {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -859,7 +861,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         await sendPaginatedTeamMenu(interaction, teams, 'admin_select_team_to_manage', 'manage', 0, 'Selecciona el equipo que deseas gestionar:');
         return;
     }
-    
+
     if (customId.startsWith('admin_manage_members_')) {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -867,7 +869,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         const teamId = customId.split('_')[3];
         const team = await Team.findById(teamId);
         if (!team) return interaction.editReply({ content: 'Equipo no encontrado.' });
-        
+
         const memberIds = [team.managerId, ...team.captains, ...team.players].filter(Boolean);
         if (memberIds.length === 0) {
             return interaction.editReply({ content: 'Este equipo no tiene miembros.' });
@@ -877,7 +879,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         if (!memberObjects || memberObjects.size === 0) {
             return interaction.editReply({ content: 'No se pudo encontrar a ningún miembro de este equipo en el servidor.' });
         }
-        
+
         const memberOptions = memberObjects.map(m => ({
             label: m.displayName,
             description: `Rol: ${team.managerId === m.id ? 'Mánager' : (team.captains.includes(m.id) ? 'Capitán' : 'Jugador')}`,
@@ -888,11 +890,11 @@ if (customId.startsWith('admin_continue_no_logo_')) {
             .setCustomId(`roster_management_menu`)
             .setPlaceholder('Selecciona un miembro para gestionar')
             .addOptions(memberOptions);
-        
+
         await interaction.editReply({ content: `Gestionando miembros de **${team.name}**. Selecciona uno:`, components: [new ActionRowBuilder().addComponents(selectMenu)] });
         return;
     }
-    
+
     if (customId.startsWith('admin_change_data_')) {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
         const teamId = customId.split('_')[3];
@@ -904,7 +906,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         const newAbbrInput = new TextInputBuilder().setCustomId('newAbbr').setLabel("Nueva Abreviatura (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setValue(team.abbreviation).setMinLength(3).setMaxLength(3);
         const newLogoInput = new TextInputBuilder().setCustomId('newLogo').setLabel("Nueva URL del Logo (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setValue(team.logoUrl);
         const newTwitterInput = new TextInputBuilder().setCustomId('newTwitter').setLabel("Twitter del equipo (sin @)").setStyle(TextInputStyle.Short).setRequired(false).setValue(team.twitterHandle || '');
-        
+
         modal.addComponents(
             new ActionRowBuilder().addComponents(newNameInput),
             new ActionRowBuilder().addComponents(newAbbrInput),
@@ -913,13 +915,13 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         );
         return interaction.showModal(modal);
     }
-    
+
     if (customId.startsWith('admin_dissolve_team_')) {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
         const teamId = customId.split('_')[3];
         const team = await Team.findById(teamId);
         if (!team) return interaction.reply({ content: 'Equipo no encontrado.', flags: MessageFlags.Ephemeral });
-        
+
         const modal = new ModalBuilder().setCustomId(`confirm_dissolve_modal_${teamId}`).setTitle(`Disolver Equipo: ${team.name}`);
         const confirmationInput = new TextInputBuilder().setCustomId('confirmation_text').setLabel(`Escribe "${team.name}" para confirmar`).setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder(team.name);
         modal.addComponents(new ActionRowBuilder().addComponents(confirmationInput));
@@ -934,9 +936,9 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         }
         return interaction.reply({ content: `Todas las solicitudes de registro de equipo pendientes se encuentran en el canal <#${approvalChannelId}>.`, flags: MessageFlags.Ephemeral });
     }
-    
+
     // --- Lógica para los botones de GESTIÓN DE PLANTILLA ---
-        if (customId === 'team_invite_player_button') {
+    if (customId === 'team_invite_player_button') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const team = await Team.findOne({ guildId: guild.id, managerId: user.id });
         if (!team) {
@@ -957,14 +959,14 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         await sendPaginatedPlayerMenu(interaction, sortedMembers, 0);
         return;
     }
-    
-        if (customId === 'team_manage_roster_button') {
+
+    if (customId === 'team_manage_roster_button') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) {
             return interaction.editReply({ content: t('errorTeamNotFound', member) });
         }
-        
+
         const isManager = team.managerId === user.id;
         let memberIds = isManager ? [...team.captains, ...team.players] : team.players;
 
@@ -989,34 +991,34 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         return;
     }
 
-        if (customId === 'team_view_roster_button') {
+    if (customId === 'team_view_roster_button') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const teamToView = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }, { players: user.id }] });
         if (!teamToView) return interaction.editReply({ content: t('errorNotInAnyTeam', member) });
-        
+
         const allMemberIds = [teamToView.managerId, ...teamToView.captains, ...teamToView.players].filter(id => id);
         if (allMemberIds.length === 0) return interaction.editReply({ content: t('errorTeamHasNoMembers', member) });
-        
+
         const memberProfiles = await VPGUser.find({ discordId: { $in: allMemberIds } }).lean();
         const memberMap = new Map(memberProfiles.map(p => [p.discordId, p]));
-        
+
         let rosterString = '';
         const fetchMemberInfo = async (ids, roleNameKey) => {
             if (!ids || ids.length === 0) return;
             rosterString += `\n**${t(roleNameKey, member)}**\n`; // Usamos la clave de traducción
             for (const memberId of ids) {
                 try {
-                   const memberData = await guild.members.fetch(memberId);
-                   const vpgUser = memberMap.get(memberId)?.vpgUsername || 'N/A';
-                   rosterString += `> ${memberData.user.username} (${vpgUser})\n`;
+                    const memberData = await guild.members.fetch(memberId);
+                    const vpgUser = memberMap.get(memberId)?.vpgUsername || 'N/A';
+                    rosterString += `> ${memberData.user.username} (${vpgUser})\n`;
                 } catch (error) { rosterString += `> *Usuario no encontrado (ID: ${memberId})*\n`; }
             }
         };
-        
+
         await fetchMemberInfo([teamToView.managerId].filter(Boolean), 'rosterManager');
         await fetchMemberInfo(teamToView.captains, 'rosterCaptains');
         await fetchMemberInfo(teamToView.players, 'rosterPlayers');
-        
+
         const embedTitle = t('rosterEmbedTitle', member).replace('{teamName}', teamToView.name);
         const embedFooter = t('rosterLeague', member).replace('{leagueName}', teamToView.league);
 
@@ -1026,7 +1028,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
             .setColor('#3498db')
             .setThumbnail(teamToView.logoUrl)
             .setFooter({ text: embedFooter });
-            
+
         return interaction.editReply({ embeds: [embed] });
     }
 
@@ -1041,45 +1043,45 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         const description = (team.recruitmentOpen ? t('recruitmentStatusOpen', member) : t('recruitmentStatusClosed', member))
             .replace('{teamName}', team.name);
         const color = team.recruitmentOpen ? 'Green' : 'Red';
-        
+
         const embed = new EmbedBuilder()
             .setTitle(t('recruitmentStatusTitle', member))
             .setDescription(description)
             .setColor(color);
-        
+
         await interaction.editReply({ embeds: [embed] });
         return;
     }
-    
+
     if (customId === 'team_edit_data_button') {
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.reply({ content: 'No se encontró tu equipo o no tienes permisos.', flags: MessageFlags.Ephemeral });
-        
+
         const isManager = team.managerId === user.id;
         if (!isManager) return interaction.reply({ content: 'Solo el mánager del equipo puede editar sus datos.', flags: MessageFlags.Ephemeral });
 
         const modal = new ModalBuilder()
             .setCustomId(`edit_data_modal_${team._id}`)
             .setTitle(`Editar Datos de ${team.name}`);
-        
+
         const newNameInput = new TextInputBuilder().setCustomId('newName').setLabel("Nuevo Nombre (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setValue(team.name);
         const newAbbrInput = new TextInputBuilder().setCustomId('newAbbr').setLabel("Nueva Abreviatura (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setValue(team.abbreviation).setMinLength(3).setMaxLength(3);
         const newLogoInput = new TextInputBuilder().setCustomId('newLogo').setLabel("Nueva URL del Logo (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setValue(team.logoUrl);
         const newTwitterInput = new TextInputBuilder().setCustomId('newTwitter').setLabel("Twitter del equipo (sin @)").setStyle(TextInputStyle.Short).setRequired(false).setValue(team.twitterHandle || '');
-        
+
         modal.addComponents(
             new ActionRowBuilder().addComponents(newNameInput),
             new ActionRowBuilder().addComponents(newAbbrInput),
             new ActionRowBuilder().addComponents(newLogoInput),
             new ActionRowBuilder().addComponents(newTwitterInput)
         );
-        
+
         return interaction.showModal(modal);
     }
-    
+
     // --- Lógica para el Panel de Amistosos ---
 
-            if (customId === 'post_scheduled_panel') {
+    if (customId === 'post_scheduled_panel') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.editReply({ content: t('errorTeamNotFound', member) });
@@ -1090,7 +1092,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
             const errorMessage = t('errorExistingScheduledPanel', member).replace('{channel}', channel || 'un canal');
             return interaction.editReply({ content: errorMessage });
         }
-        
+
         const leagues = await League.find({ guildId: guild.id }).lean();
         const leagueOptions = leagues.map(l => ({ label: l.name, value: l.name }));
 
@@ -1105,19 +1107,19 @@ if (customId.startsWith('admin_continue_no_logo_')) {
             .setCustomId('continue_panel_creation_SCHEDULED_all')
             .setLabel(t('continueButtonLabel', member))
             .setStyle(ButtonStyle.Primary);
-        
+
         const components = [new ActionRowBuilder().addComponents(continueButton)];
-        if(leagueOptions.length > 0) {
+        if (leagueOptions.length > 0) {
             components.unshift(new ActionRowBuilder().addComponents(leaguesMenu));
         }
 
         await interaction.editReply({ content: t('friendlyStep1Header', member), components });
         return;
     }
-        if (customId.startsWith('continue_panel_creation_')) {
+    if (customId.startsWith('continue_panel_creation_')) {
         const panelType = customId.split('_')[3];
         const leaguesString = customId.split('_').slice(4).join('_');
-        
+
         if (panelType === 'SCHEDULED') {
             const timeSlots = ['22:00', '22:20', '22:40', '23:00', '23:20', '23:40'];
             const timeOptions = timeSlots.map(t => ({ label: t, value: t }));
@@ -1128,7 +1130,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
                 .addOptions(timeOptions)
                 .setMinValues(1)
                 .setMaxValues(timeSlots.length);
-            
+
             await interaction.update({
                 content: t('friendlyStep2Header', member),
                 components: [new ActionRowBuilder().addComponents(timeMenu)]
@@ -1136,12 +1138,12 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         }
         return;
     }
-    
+
     if (customId === 'post_instant_panel') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.editReply({ content: t('errorTeamNotFound', member) });
-        
+
         const existingPanel = await AvailabilityPanel.findOne({ teamId: team._id, panelType: 'INSTANT' });
         if (existingPanel) {
             const channel = guild.channels.cache.get(existingPanel.channelId);
@@ -1156,7 +1158,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
 
         const webhook = await getOrCreateWebhook(channel, client);
         const message = await webhook.send({ content: 'Creando panel...', username: team.name, avatarURL: team.logoUrl });
-        
+
         const panel = new AvailabilityPanel({
             guildId: guild.id,
             channelId,
@@ -1166,22 +1168,22 @@ if (customId.startsWith('admin_continue_no_logo_')) {
             panelType: 'INSTANT',
             timeSlots: [{ time: 'INSTANT', status: 'AVAILABLE' }]
         });
-        
+
         await panel.save();
         await updatePanelMessage(client, panel._id);
-        
+
         const successMessage = t('instantPanelCreatedSuccess', member).replace('{channel}', channel.toString());
         return interaction.editReply({ content: successMessage });
     }
 
-        if (customId === 'delete_friendly_panel') {
+    if (customId === 'delete_friendly_panel') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.editReply({ content: t('errorTeamNotFound', member) });
-        
+
         const panels = await AvailabilityPanel.find({ teamId: team._id });
-        if(panels.length === 0) return interaction.editReply({ content: t('errorNoPanelsToDelete', member) });
-        
+        if (panels.length === 0) return interaction.editReply({ content: t('errorNoPanelsToDelete', member) });
+
         let deletedCount = 0;
         for (const panel of panels) {
             try {
@@ -1194,220 +1196,220 @@ if (customId.startsWith('admin_continue_no_logo_')) {
             await AvailabilityPanel.findByIdAndDelete(panel._id);
             deletedCount++;
         }
-        
+
         const successMessage = t('panelsDeletedSuccess', member).replace('{count}', deletedCount);
         return interaction.editReply({ content: successMessage });
     }
 
-        if (customId.startsWith('challenge_slot_')) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    
-    const challengerTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
-    if (!challengerTeam) return interaction.editReply({ content: t('errorMustBeManagerOrCaptain', member) });
+    if (customId.startsWith('challenge_slot_')) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const [, , panelId, time] = customId.split('_');
+        const challengerTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
+        if (!challengerTeam) return interaction.editReply({ content: t('errorMustBeManagerOrCaptain', member) });
 
-    const existingMatch = await AvailabilityPanel.findOne({
-        guildId: guild.id,
-        "timeSlots.time": time,
-        "timeSlots.status": "CONFIRMED",
-        $or: [ { teamId: challengerTeam._id }, { "timeSlots.challengerTeamId": challengerTeam._id } ]
-    }).populate('teamId timeSlots.challengerTeamId');
+        const [, , panelId, time] = customId.split('_');
 
-    if (existingMatch) {
-        const opponentTeam = existingMatch.teamId._id.equals(challengerTeam._id) ? existingMatch.timeSlots.find(s=>s.time === time).challengerTeamId : existingMatch.teamId;
-        const opponentName = opponentTeam ? opponentTeam.name : '...';
-        return interaction.editReply({ content: t('errorChallengeMatchConfirmed', member).replace('{time}', time).replace('{opponentName}', opponentName) });
-    }
+        const existingMatch = await AvailabilityPanel.findOne({
+            guildId: guild.id,
+            "timeSlots.time": time,
+            "timeSlots.status": "CONFIRMED",
+            $or: [{ teamId: challengerTeam._id }, { "timeSlots.challengerTeamId": challengerTeam._id }]
+        }).populate('teamId timeSlots.challengerTeamId');
 
-    const panel = await AvailabilityPanel.findById(panelId).populate('teamId');
-    if (!panel) return interaction.editReply({ content: t('errorPanelNoLongerExists', member) });
-    if (panel.teamId._id.equals(challengerTeam._id)) return interaction.editReply({ content: t('errorChallengeOwnTeam', member) });
-    if (panel.leagues && panel.leagues.length > 0 && !panel.leagues.includes(challengerTeam.league)) {
-        return interaction.editReply({ content: t('errorChallengeLeagueFilter', member).replace('{leagues}', panel.leagues.join(', ')) });
-    }
-    const slot = panel.timeSlots.find(s => s.time === time);
-    if (!slot || slot.status === 'CONFIRMED') return interaction.editReply({ content: t('errorChallengeUnavailable', member) });
-    if (slot.pendingChallenges.some(c => c.teamId.equals(challengerTeam._id))) {
-        return interaction.editReply({ content: t('errorChallengeAlreadyPending', member) });
-    }
-    
-    const newChallenge = { teamId: challengerTeam._id, userId: user.id };
-    slot.pendingChallenges.push(newChallenge);
-    
-    await panel.save();
-    
-    const updatedPanel = await AvailabilityPanel.findById(panelId);
-    const updatedSlot = updatedPanel.timeSlots.find(s => s.time === time);
-    const savedChallenge = updatedSlot.pendingChallenges.find(c => c.userId === user.id && c.teamId.equals(challengerTeam._id));
-
-    if (!savedChallenge) {
-        // Este es un mensaje de error interno, no necesita traducción.
-        return interaction.editReply({ content: 'Hubo un error al procesar tu desafío. Inténtalo de nuevo.' });
-    }
-    
-    const hostManagerId = panel.teamId.managerId;
-    const hostCaptains = await Team.findById(panel.teamId).select('captains').lean();
-
-    const recipients = [hostManagerId, ...hostCaptains.captains];
-    const uniqueRecipients = [...new Set(recipients)];
-
-    // Botones bilingües para el MD, ya que no sabemos el idioma del receptor con certeza.
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`accept_challenge_${panel._id}_${time}_${savedChallenge._id}`).setLabel('Accept / Aceptar').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`reject_challenge_${panel._id}_${time}_${savedChallenge._id}`).setLabel('Decline / Rechazar').setStyle(ButtonStyle.Danger)
-    );
-
-    let notified = false;
-    for(const recipientId of uniqueRecipients) {
-        try {
-            const recipientUser = await client.users.fetch(recipientId);
-            // Obtenemos el 'member' para traducir el MD a su idioma.
-            const recipientMember = await guild.members.fetch(recipientId);
-            
-            const embed = new EmbedBuilder()
-                .setTitle(t('challengeReceivedTitle', recipientMember))
-                .setDescription(t('challengeReceivedDescription', recipientMember)
-                    .replace('{challengerTeamName}', challengerTeam.name)
-                    .replace('{time}', time))
-                .setColor('Gold')
-                .setThumbnail(challengerTeam.logoUrl);
-
-            await recipientUser.send({ embeds: [embed], components: [row] });
-            notified = true;
-        } catch (error) {
-            console.log(`No se pudo notificar a ${recipientId}`);
+        if (existingMatch) {
+            const opponentTeam = existingMatch.teamId._id.equals(challengerTeam._id) ? existingMatch.timeSlots.find(s => s.time === time).challengerTeamId : existingMatch.teamId;
+            const opponentName = opponentTeam ? opponentTeam.name : '...';
+            return interaction.editReply({ content: t('errorChallengeMatchConfirmed', member).replace('{time}', time).replace('{opponentName}', opponentName) });
         }
-    }
 
-    if(!notified) {
-        panel.timeSlots.find(s => s.time === time).pendingChallenges = panel.timeSlots.find(s => s.time === time).pendingChallenges.filter(c => !c._id.equals(savedChallenge._id));
+        const panel = await AvailabilityPanel.findById(panelId).populate('teamId');
+        if (!panel) return interaction.editReply({ content: t('errorPanelNoLongerExists', member) });
+        if (panel.teamId._id.equals(challengerTeam._id)) return interaction.editReply({ content: t('errorChallengeOwnTeam', member) });
+        if (panel.leagues && panel.leagues.length > 0 && !panel.leagues.includes(challengerTeam.league)) {
+            return interaction.editReply({ content: t('errorChallengeLeagueFilter', member).replace('{leagues}', panel.leagues.join(', ')) });
+        }
+        const slot = panel.timeSlots.find(s => s.time === time);
+        if (!slot || slot.status === 'CONFIRMED') return interaction.editReply({ content: t('errorChallengeUnavailable', member) });
+        if (slot.pendingChallenges.some(c => c.teamId.equals(challengerTeam._id))) {
+            return interaction.editReply({ content: t('errorChallengeAlreadyPending', member) });
+        }
+
+        const newChallenge = { teamId: challengerTeam._id, userId: user.id };
+        slot.pendingChallenges.push(newChallenge);
+
         await panel.save();
-        await interaction.editReply({ content: t('errorDMChallengeFailed', member) });
+
+        const updatedPanel = await AvailabilityPanel.findById(panelId);
+        const updatedSlot = updatedPanel.timeSlots.find(s => s.time === time);
+        const savedChallenge = updatedSlot.pendingChallenges.find(c => c.userId === user.id && c.teamId.equals(challengerTeam._id));
+
+        if (!savedChallenge) {
+            // Este es un mensaje de error interno, no necesita traducción.
+            return interaction.editReply({ content: 'Hubo un error al procesar tu desafío. Inténtalo de nuevo.' });
+        }
+
+        const hostManagerId = panel.teamId.managerId;
+        const hostCaptains = await Team.findById(panel.teamId).select('captains').lean();
+
+        const recipients = [hostManagerId, ...hostCaptains.captains];
+        const uniqueRecipients = [...new Set(recipients)];
+
+        // Botones bilingües para el MD, ya que no sabemos el idioma del receptor con certeza.
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`accept_challenge_${panel._id}_${time}_${savedChallenge._id}`).setLabel('Accept / Aceptar').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`reject_challenge_${panel._id}_${time}_${savedChallenge._id}`).setLabel('Decline / Rechazar').setStyle(ButtonStyle.Danger)
+        );
+
+        let notified = false;
+        for (const recipientId of uniqueRecipients) {
+            try {
+                const recipientUser = await client.users.fetch(recipientId);
+                // Obtenemos el 'member' para traducir el MD a su idioma.
+                const recipientMember = await guild.members.fetch(recipientId);
+
+                const embed = new EmbedBuilder()
+                    .setTitle(t('challengeReceivedTitle', recipientMember))
+                    .setDescription(t('challengeReceivedDescription', recipientMember)
+                        .replace('{challengerTeamName}', challengerTeam.name)
+                        .replace('{time}', time))
+                    .setColor('Gold')
+                    .setThumbnail(challengerTeam.logoUrl);
+
+                await recipientUser.send({ embeds: [embed], components: [row] });
+                notified = true;
+            } catch (error) {
+                console.log(`No se pudo notificar a ${recipientId}`);
+            }
+        }
+
+        if (!notified) {
+            panel.timeSlots.find(s => s.time === time).pendingChallenges = panel.timeSlots.find(s => s.time === time).pendingChallenges.filter(c => !c._id.equals(savedChallenge._id));
+            await panel.save();
+            await interaction.editReply({ content: t('errorDMChallengeFailed', member) });
+            await updatePanelMessage(client, panel._id);
+            return;
+        }
+
         await updatePanelMessage(client, panel._id);
-        return;
+        return interaction.editReply({ content: t('challengeSent', member) });
     }
 
-    await updatePanelMessage(client, panel._id);
-    return interaction.editReply({ content: t('challengeSent', member) });
-}
-    
     if (customId.startsWith('cancel_all_challenges_')) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const panelId = customId.split('_')[3];
-    const panel = await AvailabilityPanel.findById(panelId).populate('teamId');
-    if (!panel) return interaction.editReply({ content: t('errorPanelNoLongerExists', member) });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const panelId = customId.split('_')[3];
+        const panel = await AvailabilityPanel.findById(panelId).populate('teamId');
+        if (!panel) return interaction.editReply({ content: t('errorPanelNoLongerExists', member) });
 
-    const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
-    if (!userTeam || !userTeam._id.equals(panel.teamId._id)) {
-        return interaction.editReply({ content: t('errorNoPermissionCancel', member) });
-    }
-
-    const challengesToNotify = [];
-    panel.timeSlots.forEach(slot => {
-        if (slot.pendingChallenges && slot.pendingChallenges.length > 0) {
-            challengesToNotify.push(...slot.pendingChallenges);
-            slot.pendingChallenges = [];
+        const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
+        if (!userTeam || !userTeam._id.equals(panel.teamId._id)) {
+            return interaction.editReply({ content: t('errorNoPermissionCancel', member) });
         }
-    });
 
-    if (challengesToNotify.length === 0) {
-        return interaction.editReply({ content: t('errorNoPendingToCancel', member) });
-    }
+        const challengesToNotify = [];
+        panel.timeSlots.forEach(slot => {
+            if (slot.pendingChallenges && slot.pendingChallenges.length > 0) {
+                challengesToNotify.push(...slot.pendingChallenges);
+                slot.pendingChallenges = [];
+            }
+        });
 
-    await panel.save();
-
-    for (const challenge of challengesToNotify) {
-        const userToNotify = await client.users.fetch(challenge.userId).catch(() => null);
-        if (userToNotify) {
-            // Mensaje bilingüe fijo para el MD, es la solución más robusta.
-            await userToNotify.send(`The team **${panel.teamId.name}** has cancelled all their pending challenges, including yours.\nEl equipo **${panel.teamId.name}** ha cancelado todas sus peticiones de desafío pendientes, incluyendo la tuya.`).catch(() => {});
+        if (challengesToNotify.length === 0) {
+            return interaction.editReply({ content: t('errorNoPendingToCancel', member) });
         }
+
+        await panel.save();
+
+        for (const challenge of challengesToNotify) {
+            const userToNotify = await client.users.fetch(challenge.userId).catch(() => null);
+            if (userToNotify) {
+                // Mensaje bilingüe fijo para el MD, es la solución más robusta.
+                await userToNotify.send(`The team **${panel.teamId.name}** has cancelled all their pending challenges, including yours.\nEl equipo **${panel.teamId.name}** ha cancelado todas sus peticiones de desafío pendientes, incluyendo la tuya.`).catch(() => { });
+            }
+        }
+
+        await updatePanelMessage(client, panel._id);
+        return interaction.editReply({ content: t('successCancelledAll', member) });
     }
-    
-    await updatePanelMessage(client, panel._id);
-    return interaction.editReply({ content: t('successCancelledAll', member) });
-}
 
     if (customId.startsWith('abandon_challenge_')) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const [, , panelId, time] = customId.split('_');
-    const panel = await AvailabilityPanel.findById(panelId);
-    if (!panel) return interaction.editReply({ content: t('errorPanelNoLongerExists', member) });
-    
-    const slot = panel.timeSlots.find(s => s.time === time);
-    if (!slot || slot.status !== 'CONFIRMED') return interaction.editReply({ content: t('errorNoMatchToAbandon', member) });
-    
-    const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
-    const isHost = userTeam?._id.equals(panel.teamId);
-    const isChallenger = userTeam?._id.equals(slot.challengerTeamId);
-    if (!isHost && !isChallenger) return interaction.editReply({ content: t('errorNotInMatch', member) });
-    
-    const otherTeamId = isHost ? slot.challengerTeamId : panel.teamId;
-    const otherTeam = await Team.findById(otherTeamId);
-    if (!otherTeam) {
-         // Si el otro equipo no existe, simplemente limpiamos nuestro panel.
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const [, , panelId, time] = customId.split('_');
+        const panel = await AvailabilityPanel.findById(panelId);
+        if (!panel) return interaction.editReply({ content: t('errorPanelNoLongerExists', member) });
+
+        const slot = panel.timeSlots.find(s => s.time === time);
+        if (!slot || slot.status !== 'CONFIRMED') return interaction.editReply({ content: t('errorNoMatchToAbandon', member) });
+
+        const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
+        const isHost = userTeam?._id.equals(panel.teamId);
+        const isChallenger = userTeam?._id.equals(slot.challengerTeamId);
+        if (!isHost && !isChallenger) return interaction.editReply({ content: t('errorNotInMatch', member) });
+
+        const otherTeamId = isHost ? slot.challengerTeamId : panel.teamId;
+        const otherTeam = await Team.findById(otherTeamId);
+        if (!otherTeam) {
+            // Si el otro equipo no existe, simplemente limpiamos nuestro panel.
+            slot.status = 'AVAILABLE';
+            slot.challengerTeamId = null;
+            await panel.save();
+            await updatePanelMessage(client, panel._id);
+            return interaction.editReply({ content: t('successMatchAbandoned', member) });
+        }
+
         slot.status = 'AVAILABLE';
         slot.challengerTeamId = null;
         await panel.save();
-        await updatePanelMessage(client, panel._id);
-        return interaction.editReply({ content: t('successMatchAbandoned', member) });
-    }
-    
-    slot.status = 'AVAILABLE';
-    slot.challengerTeamId = null;
-    await panel.save();
-    
-    const otherTeamPanel = await AvailabilityPanel.findOne({ teamId: otherTeamId, panelType: panel.panelType });
-    if (otherTeamPanel) {
-        const otherTeamSlot = otherTeamPanel.timeSlots.find(s => s.time === time);
-        if (otherTeamSlot && otherTeamSlot.status === 'CONFIRMED') {
-            otherTeamSlot.status = 'AVAILABLE';
-            otherTeamSlot.challengerTeamId = null;
-            await otherTeamPanel.save();
-            await updatePanelMessage(client, otherTeamPanel._id);
-        }
-    }
-    
-    await updatePanelMessage(client, panel._id);
-    await interaction.editReply({ content: t('successMatchAbandoned', member) });
 
-    const otherTeamLeaders = [otherTeam.managerId, ...otherTeam.captains];
-    for(const leaderId of otherTeamLeaders){
-        const otherLeader = await client.users.fetch(leaderId).catch(() => null);
-        if (otherLeader) {
-            try {
-                const otherLeaderMember = await guild.members.fetch(leaderId);
-                const notification = t('dmMatchAbandonedNotification', otherLeaderMember).replace('{teamName}', userTeam.name).replace('{time}', time);
-                await otherLeader.send(notification).catch(()=>{});
-            } catch (e) { /* El miembro ya no está en el servidor, ignorar */ }
+        const otherTeamPanel = await AvailabilityPanel.findOne({ teamId: otherTeamId, panelType: panel.panelType });
+        if (otherTeamPanel) {
+            const otherTeamSlot = otherTeamPanel.timeSlots.find(s => s.time === time);
+            if (otherTeamSlot && otherTeamSlot.status === 'CONFIRMED') {
+                otherTeamSlot.status = 'AVAILABLE';
+                otherTeamSlot.challengerTeamId = null;
+                await otherTeamPanel.save();
+                await updatePanelMessage(client, otherTeamPanel._id);
+            }
         }
+
+        await updatePanelMessage(client, panel._id);
+        await interaction.editReply({ content: t('successMatchAbandoned', member) });
+
+        const otherTeamLeaders = [otherTeam.managerId, ...otherTeam.captains];
+        for (const leaderId of otherTeamLeaders) {
+            const otherLeader = await client.users.fetch(leaderId).catch(() => null);
+            if (otherLeader) {
+                try {
+                    const otherLeaderMember = await guild.members.fetch(leaderId);
+                    const notification = t('dmMatchAbandonedNotification', otherLeaderMember).replace('{teamName}', userTeam.name).replace('{time}', time);
+                    await otherLeader.send(notification).catch(() => { });
+                } catch (e) { /* El miembro ya no está en el servidor, ignorar */ }
+            }
+        }
+        return;
     }
-    return;
-}
     if (customId.startsWith('contact_opponent_')) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const [, , teamId1, teamId2] = customId.split('_');
-    
-    const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
-    if (!userTeam) return interaction.editReply({ content: t('errorMustBeManagerOrCaptain', member) });
-    
-    let opponentTeamId = null;
-    if (userTeam._id.equals(teamId1)) {
-        opponentTeamId = teamId2;
-    } else if (userTeam._id.equals(teamId2)) {
-        opponentTeamId = teamId1;
-    } else {
-        return interaction.editReply({ content: t('errorNotInMatch', member) });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const [, , teamId1, teamId2] = customId.split('_');
+
+        const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
+        if (!userTeam) return interaction.editReply({ content: t('errorMustBeManagerOrCaptain', member) });
+
+        let opponentTeamId = null;
+        if (userTeam._id.equals(teamId1)) {
+            opponentTeamId = teamId2;
+        } else if (userTeam._id.equals(teamId2)) {
+            opponentTeamId = teamId1;
+        } else {
+            return interaction.editReply({ content: t('errorNotInMatch', member) });
+        }
+
+        const opponentTeam = await Team.findById(opponentTeamId).lean();
+        if (!opponentTeam) return interaction.editReply({ content: t('errorOpponentNotFound', member) });
+
+        return interaction.editReply({ content: t('contactOpponentMessage', member).replace('{managerId}', opponentTeam.managerId) });
     }
-    
-    const opponentTeam = await Team.findById(opponentTeamId).lean();
-    if (!opponentTeam) return interaction.editReply({ content: t('errorOpponentNotFound', member) });
-    
-    return interaction.editReply({ content: t('contactOpponentMessage', member).replace('{managerId}', opponentTeam.managerId) });
-}
-    
-        if (customId === 'team_view_confirmed_matches') {
+
+    if (customId === 'team_view_confirmed_matches') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }, { players: user.id }] });
         if (!userTeam) return interaction.editReply({ content: t('errorNotInAnyTeam', member) });
@@ -1415,16 +1417,16 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         const confirmedPanels = await AvailabilityPanel.find({
             guildId: guild.id,
             "timeSlots.status": "CONFIRMED",
-            $or: [ { teamId: userTeam._id }, { "timeSlots.challengerTeamId": userTeam._id } ]
+            $or: [{ teamId: userTeam._id }, { "timeSlots.challengerTeamId": userTeam._id }]
         }).populate('teamId timeSlots.challengerTeamId').lean();
 
         let description = '';
         const allConfirmedSlots = [];
         for (const panel of confirmedPanels) {
-             for (const slot of panel.timeSlots) {
+            for (const slot of panel.timeSlots) {
                 if (slot.status === 'CONFIRMED') {
                     const isHost = panel.teamId._id.equals(userTeam._id);
-                     if (isHost || (slot.challengerTeamId && userTeam._id.equals(slot.challengerTeamId._id))) {
+                    if (isHost || (slot.challengerTeamId && userTeam._id.equals(slot.challengerTeamId._id))) {
                         const opponent = isHost ? slot.challengerTeamId : panel.teamId;
                         if (opponent) { allConfirmedSlots.push({ time: slot.time, opponent }); }
                     }
@@ -1433,16 +1435,16 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         }
 
         const uniqueMatches = [...new Map(allConfirmedSlots.map(item => [item.time, item])).values()];
-        uniqueMatches.sort((a,b) => a.time.localeCompare(b.time));
+        uniqueMatches.sort((a, b) => a.time.localeCompare(b.time));
 
-        for(const match of uniqueMatches) {
+        for (const match of uniqueMatches) {
             description += t('matchInfoLine', member)
                 .replace('{time}', match.time)
                 .replace('{opponentName}', match.opponent.name)
                 .replace('{managerId}', match.opponent.managerId);
         }
-        
-        if (description === '') { 
+
+        if (description === '') {
             description = t('noConfirmedMatches', member);
         }
 
@@ -1458,18 +1460,18 @@ if (customId.startsWith('admin_continue_no_logo_')) {
     }
     // --- Lógica de Mercado de Fichajes y Perfil de Jugador ---
 
-        if (customId === 'edit_profile_button') {
-        const positionOptions = POSITION_KEYS.map(p => ({ 
-            label: t(`pos_${p}`, member), 
-            value: p 
+    if (customId === 'edit_profile_button') {
+        const positionOptions = POSITION_KEYS.map(p => ({
+            label: t(`pos_${p}`, member),
+            value: p
         }));
-        
+
         const primaryMenu = new StringSelectMenuBuilder()
-            .setCustomId('update_select_primary_position') 
+            .setCustomId('update_select_primary_position')
             .setPlaceholder(t('primaryPositionPlaceholder', member))
             .addOptions(positionOptions);
-        
-        await interaction.reply({ 
+
+        await interaction.reply({
             content: t('updateProfilePrompt', member),
             components: [new ActionRowBuilder().addComponents(primaryMenu)],
             flags: MessageFlags.Ephemeral
@@ -1477,7 +1479,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         return;
     }
 
-        if (customId === 'apply_to_team_button') {
+    if (customId === 'apply_to_team_button') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const isManager = await Team.findOne({ guildId: guild.id, managerId: user.id });
         if (isManager) {
@@ -1487,7 +1489,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         if (existingApplication) {
             return interaction.editReply({ content: t('errorApplicationPending', member) });
         }
-        
+
         const openTeams = await Team.find({ guildId: guild.id, recruitmentOpen: true }).sort({ name: 1 }).lean();
         if (openTeams.length === 0) {
             return interaction.editReply({ content: t('errorNoRecruitingTeams', member) });
@@ -1502,17 +1504,17 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         if (!teamToLeave) {
             return interaction.editReply({ content: t('errorNotInTeamToLeave', member) });
         }
-        
+
         teamToLeave.players = teamToLeave.players.filter(p => p !== user.id);
         teamToLeave.captains = teamToLeave.captains.filter(c => c !== user.id);
         await teamToLeave.save();
-        
-        await member.roles.remove([process.env.PLAYER_ROLE_ID, process.env.CAPTAIN_ROLE_ID, process.env.MUTED_ROLE_ID]).catch(() => {});
-        if (member.id !== guild.ownerId) await member.setNickname(member.user.username).catch(()=>{});
-        
+
+        await member.roles.remove([process.env.PLAYER_ROLE_ID, process.env.CAPTAIN_ROLE_ID, process.env.MUTED_ROLE_ID]).catch(() => { });
+        if (member.id !== guild.ownerId) await member.setNickname(member.user.username).catch(() => { });
+
         const successMessage = t('leaveTeamSuccess', member).replace('{teamName}', teamToLeave.name);
         await interaction.editReply({ content: successMessage });
-        
+
         // El MD al mánager se envía bilingüe, ya que no sabemos su idioma.
         const manager = await client.users.fetch(teamToLeave.managerId).catch(() => null);
         if (manager) {
@@ -1520,122 +1522,122 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         }
         return;
     }
-    
+
     if (customId.startsWith('market_')) {
-    if (customId === 'market_post_agent') {
-        const hasRequiredRole = member.roles.cache.has(process.env.PLAYER_ROLE_ID) || member.roles.cache.has(process.env.CAPTAIN_ROLE_ID);
-        if (!hasRequiredRole) {
-            return interaction.reply({ content: t('errorPlayerRoleNeeded', member), flags: MessageFlags.Ephemeral });
+        if (customId === 'market_post_agent') {
+            const hasRequiredRole = member.roles.cache.has(process.env.PLAYER_ROLE_ID) || member.roles.cache.has(process.env.CAPTAIN_ROLE_ID);
+            if (!hasRequiredRole) {
+                return interaction.reply({ content: t('errorPlayerRoleNeeded', member), flags: MessageFlags.Ephemeral });
+            }
+            const modal = new ModalBuilder().setCustomId('market_agent_modal').setTitle(t('agentModalTitle', member));
+            const experienceInput = new TextInputBuilder().setCustomId('experienceInput').setLabel(t('agentModalExperienceLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
+            const seekingInput = new TextInputBuilder().setCustomId('seekingInput').setLabel(t('agentModalSeekingLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
+            const availabilityInput = new TextInputBuilder().setCustomId('availabilityInput').setLabel(t('agentModalAvailabilityLabel', member)).setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(200);
+            modal.addComponents(new ActionRowBuilder().addComponents(experienceInput), new ActionRowBuilder().addComponents(seekingInput), new ActionRowBuilder().addComponents(availabilityInput));
+            await interaction.showModal(modal);
+
+        } else if (customId === 'market_post_offer') {
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
+            if (!team) return interaction.editReply({ content: t('errorMustBeManagerOrCaptain', member) });
+
+            const positionOptions = POSITION_KEYS.map(p => ({ label: t(`pos_${p}`, member), value: p }));
+            const positionMenu = new StringSelectMenuBuilder()
+                .setCustomId(`offer_select_positions_${team._id}`)
+                .setPlaceholder(t('offerPositionsPlaceholder', member))
+                .addOptions(positionOptions)
+                .setMinValues(1)
+                .setMaxValues(positionOptions.length);
+
+            await interaction.editReply({
+                content: t('offerStep1Header', member),
+                components: [new ActionRowBuilder().addComponents(positionMenu)],
+            });
+
+        } else if (customId === 'market_search_teams') {
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            const leagues = await League.find({ guildId: guild.id }).lean();
+            const leagueOptions = leagues.map(l => ({ label: l.name, value: l.name }));
+            const positionOptions = POSITION_KEYS.map(p => ({ label: t(`pos_${p}`, member), value: p }));
+
+            const positionMenu = new StringSelectMenuBuilder()
+                .setCustomId('search_team_pos_filter')
+                .setPlaceholder(t('filterTeamPosPlaceholder', member))
+                .addOptions({ label: t('filterAnyPosition', member), value: 'ANY' }, ...positionOptions);
+
+            const leagueMenu = new StringSelectMenuBuilder()
+                .setCustomId('search_team_league_filter')
+                .setPlaceholder(t('filterTeamLeaguePlaceholder', member))
+                .addOptions({ label: t('filterAnyLeague', member), value: 'ANY' }, ...leagueOptions);
+
+            await interaction.editReply({ content: t('filterMenuPrompt', member), components: [new ActionRowBuilder().addComponents(positionMenu), new ActionRowBuilder().addComponents(leagueMenu)] });
+
+        } else if (customId === 'market_manage_ad') {
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            const existingAd = await FreeAgent.findOne({ userId: user.id });
+
+            if (!existingAd) {
+                return interaction.editReply({ content: t('errorNoActiveAd', member) });
+            }
+
+            const notSpecified = t('valueNotSpecified', member);
+            const embed = new EmbedBuilder()
+                .setTitle(t('manageAdEmbedTitle', member))
+                .setDescription(t('manageAdEmbedDescription', member))
+                .addFields(
+                    { name: t('manageAdFieldExperience', member), value: existingAd.experience || notSpecified },
+                    { name: t('manageAdFieldSeeking', member), value: existingAd.seeking || notSpecified },
+                    { name: t('manageAdFieldAvailability', member), value: existingAd.availability || notSpecified }
+                )
+                .setColor('Orange');
+
+            const managementRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('market_edit_ad_button').setLabel(t('editAdButton', member)).setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('market_delete_ad_button').setLabel(t('deleteAdButton', member)).setStyle(ButtonStyle.Danger)
+            );
+
+            await interaction.editReply({ embeds: [embed], components: [managementRow] });
+
+        } else if (customId === 'market_delete_ad_button') {
+            await interaction.deferUpdate();
+            const adToDelete = await FreeAgent.findOne({ userId: user.id });
+
+            if (adToDelete && adToDelete.messageId) {
+                try {
+                    const channel = await client.channels.fetch(process.env.PLAYERS_AD_CHANNEL_ID);
+                    await channel.messages.delete(adToDelete.messageId);
+                } catch (error) { }
+            }
+
+            await FreeAgent.deleteOne({ userId: user.id });
+
+            await interaction.editReply({
+                content: t('adDeletedSuccess', member),
+                embeds: [],
+                components: []
+            });
+
+        } else if (customId === 'market_edit_ad_button') {
+            const existingAd = await FreeAgent.findOne({ userId: user.id });
+            if (!existingAd) {
+                return interaction.reply({ content: t('errorAdNotFoundForEdit', member), flags: MessageFlags.Ephemeral });
+            }
+            const modal = new ModalBuilder().setCustomId(`market_agent_modal_edit:${existingAd._id}`).setTitle(t('editAdModalTitle', member));
+            const experienceInput = new TextInputBuilder().setCustomId('experienceInput').setLabel(t('agentModalExperienceLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500).setValue(existingAd.experience || '');
+            const seekingInput = new TextInputBuilder().setCustomId('seekingInput').setLabel(t('agentModalSeekingLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500).setValue(existingAd.seeking || '');
+            const availabilityInput = new TextInputBuilder().setCustomId('availabilityInput').setLabel(t('agentModalAvailabilityLabel', member)).setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(200).setValue(existingAd.availability || '');
+            modal.addComponents(new ActionRowBuilder().addComponents(experienceInput), new ActionRowBuilder().addComponents(seekingInput), new ActionRowBuilder().addComponents(availabilityInput));
+            await interaction.showModal(modal);
         }
-        const modal = new ModalBuilder().setCustomId('market_agent_modal').setTitle(t('agentModalTitle', member));
-        const experienceInput = new TextInputBuilder().setCustomId('experienceInput').setLabel(t('agentModalExperienceLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
-        const seekingInput = new TextInputBuilder().setCustomId('seekingInput').setLabel(t('agentModalSeekingLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
-        const availabilityInput = new TextInputBuilder().setCustomId('availabilityInput').setLabel(t('agentModalAvailabilityLabel', member)).setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(200);
-        modal.addComponents(new ActionRowBuilder().addComponents(experienceInput), new ActionRowBuilder().addComponents(seekingInput), new ActionRowBuilder().addComponents(availabilityInput));
-        await interaction.showModal(modal);
-
-    } else if (customId === 'market_post_offer') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
-        if (!team) return interaction.editReply({ content: t('errorMustBeManagerOrCaptain', member) });
-        
-        const positionOptions = POSITION_KEYS.map(p => ({ label: t(`pos_${p}`, member), value: p }));
-        const positionMenu = new StringSelectMenuBuilder()
-            .setCustomId(`offer_select_positions_${team._id}`)
-            .setPlaceholder(t('offerPositionsPlaceholder', member))
-            .addOptions(positionOptions)
-            .setMinValues(1)
-            .setMaxValues(positionOptions.length);
-
-        await interaction.editReply({
-            content: t('offerStep1Header', member),
-            components: [new ActionRowBuilder().addComponents(positionMenu)],
-        });
-
-    } else if (customId === 'market_search_teams') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const leagues = await League.find({ guildId: guild.id }).lean();
-        const leagueOptions = leagues.map(l => ({ label: l.name, value: l.name }));
-        const positionOptions = POSITION_KEYS.map(p => ({ label: t(`pos_${p}`, member), value: p }));
-        
-        const positionMenu = new StringSelectMenuBuilder()
-            .setCustomId('search_team_pos_filter')
-            .setPlaceholder(t('filterTeamPosPlaceholder', member))
-            .addOptions({ label: t('filterAnyPosition', member), value: 'ANY' }, ...positionOptions);
-        
-        const leagueMenu = new StringSelectMenuBuilder()
-            .setCustomId('search_team_league_filter')
-            .setPlaceholder(t('filterTeamLeaguePlaceholder', member))
-            .addOptions({ label: t('filterAnyLeague', member), value: 'ANY' }, ...leagueOptions);
-            
-        await interaction.editReply({ content: t('filterMenuPrompt', member), components: [new ActionRowBuilder().addComponents(positionMenu), new ActionRowBuilder().addComponents(leagueMenu)]});
-
-    } else if (customId === 'market_manage_ad') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const existingAd = await FreeAgent.findOne({ userId: user.id });
-
-        if (!existingAd) {
-            return interaction.editReply({ content: t('errorNoActiveAd', member) });
-        }
-        
-        const notSpecified = t('valueNotSpecified', member);
-        const embed = new EmbedBuilder()
-            .setTitle(t('manageAdEmbedTitle', member))
-            .setDescription(t('manageAdEmbedDescription', member))
-            .addFields(
-                { name: t('manageAdFieldExperience', member), value: existingAd.experience || notSpecified },
-                { name: t('manageAdFieldSeeking', member), value: existingAd.seeking || notSpecified },
-                { name: t('manageAdFieldAvailability', member), value: existingAd.availability || notSpecified }
-            )
-            .setColor('Orange');
-
-        const managementRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('market_edit_ad_button').setLabel(t('editAdButton', member)).setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('market_delete_ad_button').setLabel(t('deleteAdButton', member)).setStyle(ButtonStyle.Danger)
-        );
-        
-        await interaction.editReply({ embeds: [embed], components: [managementRow] });
-
-    } else if (customId === 'market_delete_ad_button') {
-        await interaction.deferUpdate(); 
-        const adToDelete = await FreeAgent.findOne({ userId: user.id });
-
-        if (adToDelete && adToDelete.messageId) {
-            try {
-                const channel = await client.channels.fetch(process.env.PLAYERS_AD_CHANNEL_ID);
-                await channel.messages.delete(adToDelete.messageId);
-            } catch (error) {}
-        }
-        
-        await FreeAgent.deleteOne({ userId: user.id });
-        
-        await interaction.editReply({ 
-            content: t('adDeletedSuccess', member),
-            embeds: [], 
-            components: [] 
-        });
-
-    } else if (customId === 'market_edit_ad_button') {
-        const existingAd = await FreeAgent.findOne({ userId: user.id });
-        if (!existingAd) {
-            return interaction.reply({ content: t('errorAdNotFoundForEdit', member), flags: MessageFlags.Ephemeral });
-        }
-        const modal = new ModalBuilder().setCustomId(`market_agent_modal_edit:${existingAd._id}`).setTitle(t('editAdModalTitle', member));
-        const experienceInput = new TextInputBuilder().setCustomId('experienceInput').setLabel(t('agentModalExperienceLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500).setValue(existingAd.experience || '');
-        const seekingInput = new TextInputBuilder().setCustomId('seekingInput').setLabel(t('agentModalSeekingLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500).setValue(existingAd.seeking || '');
-        const availabilityInput = new TextInputBuilder().setCustomId('availabilityInput').setLabel(t('agentModalAvailabilityLabel', member)).setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(200).setValue(existingAd.availability || '');
-        modal.addComponents(new ActionRowBuilder().addComponents(experienceInput), new ActionRowBuilder().addComponents(seekingInput), new ActionRowBuilder().addComponents(availabilityInput));
-        await interaction.showModal(modal);
+        return;
     }
-    return;
-}
-    
-        if (customId === 'team_manage_offer_button') {
+
+    if (customId === 'team_manage_offer_button') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        
+
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.editReply({ content: t('errorTeamNotFound', member) });
-        
+
         const existingOffer = await TeamOffer.findOne({ teamId: team._id });
 
         if (!existingOffer) {
@@ -1654,14 +1656,14 @@ if (customId.startsWith('admin_continue_no_logo_')) {
 
         const managementRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`market_post_offer`).setLabel(t('editReplaceOfferButton', member)).setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`delete_team_offer_button_${existingOffer._id}`).setLabel(t('deleteOfferButton', member)).setStyle(ButtonStyle.Danger) 
+            new ButtonBuilder().setCustomId(`delete_team_offer_button_${existingOffer._id}`).setLabel(t('deleteOfferButton', member)).setStyle(ButtonStyle.Danger)
         );
-        
+
         await interaction.editReply({ embeds: [embed], components: [managementRow] });
         return;
     }
 
-        if (customId.startsWith('delete_team_offer_button_')) {
+    if (customId.startsWith('delete_team_offer_button_')) {
         await interaction.deferUpdate();
         const offerId = customId.split('_')[4];
 
@@ -1679,7 +1681,7 @@ if (customId.startsWith('admin_continue_no_logo_')) {
         }
 
         await TeamOffer.findByIdAndDelete(offerId);
-        
+
         await interaction.editReply({
             content: t('offerDeletedSuccess', member),
             embeds: [],
@@ -1690,191 +1692,191 @@ if (customId.startsWith('admin_continue_no_logo_')) {
 
     // --- SISTEMA DE TICKETS ---
     if (customId === 'create_ticket_button') {
-    await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
 
-    const ticketConfig = await TicketConfig.findOne({ guildId: guild.id });
-    if (!ticketConfig) {
-        return interaction.editReply({ content: t('errorTicketsNotConfigured', member) });
-    }
-
-    const existingTicket = await Ticket.findOne({ userId: user.id, status: { $in: ['open', 'claimed'] } });
-    if (existingTicket) {
-        return interaction.editReply({ content: t('errorTicketAlreadyOpen', member).replace('{channelId}', existingTicket.channelId) });
-    }
-
-    try {
-        const ticketChannel = await guild.channels.create({
-            name: `ticket-${user.username.replace(/[^a-z0-9-]/g, '')}`,
-            type: ChannelType.GuildText,
-            parent: process.env.TICKET_CATEGORY_ID || null,
-            permissionOverwrites: [
-                { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-                { id: ticketConfig.supportRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-            ],
-        });
-
-        // --- CONTENIDO BILINGÜE Y FIJO PARA EL TICKET ---
-        const ticketEmbed = new EmbedBuilder()
-            .setTitle('🇪🇸 Ticket de Soporte / 🇬🇧 Support Ticket')
-            .setDescription(`¡Hola <@${user.id}>! Tu ticket ha sido creado.\n\nPor favor, describe tu problema o duda con el mayor detalle posible. Un miembro del staff te atenderá pronto.\n\n---\n\nHello <@${user.id}>! Your ticket has been created.\n\nPlease describe your problem or question in as much detail as possible. A staff member will assist you shortly.`)
-            .setColor('Blue')
-            .setFooter({ text: 'Puedes cerrar este ticket en cualquier momento pulsando el botón 🔒. / You can close this ticket at any time by pressing the 🔒 button.' });
-
-        const ticketButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`attend_ticket`).setLabel('Atender / Handle').setStyle(ButtonStyle.Primary).setEmoji('✅'),
-            new ButtonBuilder().setCustomId(`close_ticket`).setLabel('Cerrar / Close').setStyle(ButtonStyle.Danger).setEmoji('🔒')
-        );
-        // --------------------------------------------------
-
-        const ticketMessage = await ticketChannel.send({ embeds: [ticketEmbed], components: [ticketButtons] });
-        const newTicket = new Ticket({ userId: user.id, channelId: ticketChannel.id, guildId: guild.id, messageId: ticketMessage.id, status: 'open' });
-
-        const logChannel = await guild.channels.fetch(ticketConfig.logChannelId);
-        if (logChannel) {
-            // El log también es mejor que sea bilingüe
-            const staffNotificationEmbed = new EmbedBuilder()
-                .setTitle('🔔 Nuevo Ticket Abierto / New Ticket Opened')
-                .setDescription(`Abierto por / Opened by <@${user.id}>.`)
-                .addFields(
-                    { name: 'Ticket', value: `<#${ticketChannel.id}>`, inline: true }, 
-                    { name: 'Estado / Status', value: 'Abierto / Open', inline: true }
-                )
-                .setColor('Green').setTimestamp();
-            
-            const staffNotificationButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Ir al Ticket / Go to Ticket').setStyle(ButtonStyle.Link).setURL(ticketChannel.url));
-            const logMessage = await logChannel.send({ embeds: [staffNotificationEmbed], components: [staffNotificationButtons] });
-            
-            newTicket.logMessageId = logMessage.id;
+        const ticketConfig = await TicketConfig.findOne({ guildId: guild.id });
+        if (!ticketConfig) {
+            return interaction.editReply({ content: t('errorTicketsNotConfigured', member) });
         }
 
-        await newTicket.save();
+        const existingTicket = await Ticket.findOne({ userId: user.id, status: { $in: ['open', 'claimed'] } });
+        if (existingTicket) {
+            return interaction.editReply({ content: t('errorTicketAlreadyOpen', member).replace('{channelId}', existingTicket.channelId) });
+        }
 
-        // --- RESPUESTA EFÍMERA TRADUCIDA ---
-        await interaction.editReply({ content: `✅ ${t('ticketCreatedSuccess', member).replace('{channelId}', ticketChannel.id)}` });
-
-    } catch (error) {
-        console.error('Error al crear el ticket:', error);
-        await interaction.editReply({ content: '❌ Hubo un error al intentar crear tu ticket. Por favor, inténtalo de nuevo más tarde.' });
-    }
-    return;
-}
-    if (customId === 'attend_ticket') {
-    await interaction.deferReply({ ephemeral: true });
-    const ticket = await Ticket.findOne({ channelId: interaction.channel.id });
-    const ticketConfig = await TicketConfig.findOne({ guildId: guild.id });
-
-    if (!ticket) { return interaction.editReply({ content: t('errorTicketInvalid', member) }); }
-    if (ticket.status !== 'open') { 
-        const errorMessage = ticket.status === 'claimed' ? t('errorTicketAlreadyClaimed', member) : t('errorTicketAlreadyClosed', member);
-        return interaction.editReply({ content: errorMessage });
-    }
-    if (!member.roles.cache.has(ticketConfig.supportRoleId) && !isAdmin) { return interaction.editReply({ content: t('errorTicketNoPermission', member) }); }
-
-    ticket.status = 'claimed';
-    ticket.claimedBy = user.id;
-    await ticket.save();
-
-    const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setColor('Orange').addFields({ name: t('ticketFieldAttendedBy', member), value: `<@${user.id}>` });
-    const updatedButtons = ActionRowBuilder.from(interaction.message.components[0]);
-    updatedButtons.components[0].setDisabled(true);
-
-    await interaction.message.edit({ embeds: [updatedEmbed], components: [updatedButtons] });
-    await interaction.editReply({ content: t('ticketTakenConfirmation', member).replace('{userId}', ticket.userId) });
-
-    if (ticket.logMessageId) {
         try {
+            const ticketChannel = await guild.channels.create({
+                name: `ticket-${user.username.replace(/[^a-z0-9-]/g, '')}`,
+                type: ChannelType.GuildText,
+                parent: process.env.TICKET_CATEGORY_ID || null,
+                permissionOverwrites: [
+                    { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                    { id: ticketConfig.supportRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                ],
+            });
+
+            // --- CONTENIDO BILINGÜE Y FIJO PARA EL TICKET ---
+            const ticketEmbed = new EmbedBuilder()
+                .setTitle('🇪🇸 Ticket de Soporte / 🇬🇧 Support Ticket')
+                .setDescription(`¡Hola <@${user.id}>! Tu ticket ha sido creado.\n\nPor favor, describe tu problema o duda con el mayor detalle posible. Un miembro del staff te atenderá pronto.\n\n---\n\nHello <@${user.id}>! Your ticket has been created.\n\nPlease describe your problem or question in as much detail as possible. A staff member will assist you shortly.`)
+                .setColor('Blue')
+                .setFooter({ text: 'Puedes cerrar este ticket en cualquier momento pulsando el botón 🔒. / You can close this ticket at any time by pressing the 🔒 button.' });
+
+            const ticketButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`attend_ticket`).setLabel('Atender / Handle').setStyle(ButtonStyle.Primary).setEmoji('✅'),
+                new ButtonBuilder().setCustomId(`close_ticket`).setLabel('Cerrar / Close').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+            );
+            // --------------------------------------------------
+
+            const ticketMessage = await ticketChannel.send({ embeds: [ticketEmbed], components: [ticketButtons] });
+            const newTicket = new Ticket({ userId: user.id, channelId: ticketChannel.id, guildId: guild.id, messageId: ticketMessage.id, status: 'open' });
+
             const logChannel = await guild.channels.fetch(ticketConfig.logChannelId);
-            const logMessage = await logChannel.messages.fetch(ticket.logMessageId);
-            const updatedLogEmbed = EmbedBuilder.from(logMessage.embeds[0])
-                .setTitle(t('ticketLogClaimedTitle', member))
-                .setColor('Orange')
-                .spliceFields(1, 1, { name: t('ticketLogFieldStatus', member), value: t('ticketLogStatusClaimedBy', member).replace('{staffId}', user.id), inline: true });
-            await logMessage.edit({ embeds: [updatedLogEmbed] });
-        } catch (error) { console.error("Error al editar el mensaje de log (atender):", error); }
+            if (logChannel) {
+                // El log también es mejor que sea bilingüe
+                const staffNotificationEmbed = new EmbedBuilder()
+                    .setTitle('🔔 Nuevo Ticket Abierto / New Ticket Opened')
+                    .setDescription(`Abierto por / Opened by <@${user.id}>.`)
+                    .addFields(
+                        { name: 'Ticket', value: `<#${ticketChannel.id}>`, inline: true },
+                        { name: 'Estado / Status', value: 'Abierto / Open', inline: true }
+                    )
+                    .setColor('Green').setTimestamp();
+
+                const staffNotificationButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Ir al Ticket / Go to Ticket').setStyle(ButtonStyle.Link).setURL(ticketChannel.url));
+                const logMessage = await logChannel.send({ embeds: [staffNotificationEmbed], components: [staffNotificationButtons] });
+
+                newTicket.logMessageId = logMessage.id;
+            }
+
+            await newTicket.save();
+
+            // --- RESPUESTA EFÍMERA TRADUCIDA ---
+            await interaction.editReply({ content: `✅ ${t('ticketCreatedSuccess', member).replace('{channelId}', ticketChannel.id)}` });
+
+        } catch (error) {
+            console.error('Error al crear el ticket:', error);
+            await interaction.editReply({ content: '❌ Hubo un error al intentar crear tu ticket. Por favor, inténtalo de nuevo más tarde.' });
+        }
+        return;
     }
-    return;
-}
+    if (customId === 'attend_ticket') {
+        await interaction.deferReply({ ephemeral: true });
+        const ticket = await Ticket.findOne({ channelId: interaction.channel.id });
+        const ticketConfig = await TicketConfig.findOne({ guildId: guild.id });
+
+        if (!ticket) { return interaction.editReply({ content: t('errorTicketInvalid', member) }); }
+        if (ticket.status !== 'open') {
+            const errorMessage = ticket.status === 'claimed' ? t('errorTicketAlreadyClaimed', member) : t('errorTicketAlreadyClosed', member);
+            return interaction.editReply({ content: errorMessage });
+        }
+        if (!member.roles.cache.has(ticketConfig.supportRoleId) && !isAdmin) { return interaction.editReply({ content: t('errorTicketNoPermission', member) }); }
+
+        ticket.status = 'claimed';
+        ticket.claimedBy = user.id;
+        await ticket.save();
+
+        const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setColor('Orange').addFields({ name: t('ticketFieldAttendedBy', member), value: `<@${user.id}>` });
+        const updatedButtons = ActionRowBuilder.from(interaction.message.components[0]);
+        updatedButtons.components[0].setDisabled(true);
+
+        await interaction.message.edit({ embeds: [updatedEmbed], components: [updatedButtons] });
+        await interaction.editReply({ content: t('ticketTakenConfirmation', member).replace('{userId}', ticket.userId) });
+
+        if (ticket.logMessageId) {
+            try {
+                const logChannel = await guild.channels.fetch(ticketConfig.logChannelId);
+                const logMessage = await logChannel.messages.fetch(ticket.logMessageId);
+                const updatedLogEmbed = EmbedBuilder.from(logMessage.embeds[0])
+                    .setTitle(t('ticketLogClaimedTitle', member))
+                    .setColor('Orange')
+                    .spliceFields(1, 1, { name: t('ticketLogFieldStatus', member), value: t('ticketLogStatusClaimedBy', member).replace('{staffId}', user.id), inline: true });
+                await logMessage.edit({ embeds: [updatedLogEmbed] });
+            } catch (error) { console.error("Error al editar el mensaje de log (atender):", error); }
+        }
+        return;
+    }
 
     if (customId === 'close_ticket') {
-    await interaction.deferReply({ ephemeral: true });
-    const ticket = await Ticket.findOne({ channelId: interaction.channel.id });
-    const ticketConfig = await TicketConfig.findOne({ guildId: guild.id });
+        await interaction.deferReply({ ephemeral: true });
+        const ticket = await Ticket.findOne({ channelId: interaction.channel.id });
+        const ticketConfig = await TicketConfig.findOne({ guildId: guild.id });
 
-    if (!ticket) { return interaction.editReply({ content: t('errorTicketInvalid', member) }); }
-    if (ticket.status === 'closed') { return interaction.editReply({ content: t('errorTicketAlreadyClosed', member) }); }
+        if (!ticket) { return interaction.editReply({ content: t('errorTicketInvalid', member) }); }
+        if (ticket.status === 'closed') { return interaction.editReply({ content: t('errorTicketAlreadyClosed', member) }); }
 
-    const canClose = member.roles.cache.has(ticketConfig.supportRoleId) || isAdmin || ticket.userId === user.id;
-    if (!canClose) { return interaction.editReply({ content: t('errorTicketNoPermission', member) }); }
+        const canClose = member.roles.cache.has(ticketConfig.supportRoleId) || isAdmin || ticket.userId === user.id;
+        if (!canClose) { return interaction.editReply({ content: t('errorTicketNoPermission', member) }); }
 
-    ticket.status = 'closed';
-    await ticket.save();
+        ticket.status = 'closed';
+        await ticket.save();
 
-    await interaction.channel.send({ content: t('ticketClosingMessage', member) });
-    
-    if (ticket.logMessageId) {
-        try {
-            const logChannel = await guild.channels.fetch(ticketConfig.logChannelId);
-            const logMessage = await logChannel.messages.fetch(ticket.logMessageId);
-            const updatedLogEmbed = EmbedBuilder.from(logMessage.embeds[0])
-                .setTitle(t('ticketLogClosedTitle', member))
-                .setColor('Red')
-                .setDescription(t('ticketLogClosedDescription', member).replace('{userId}', ticket.userId).replace('{staffId}', user.id));
-            await logMessage.edit({ embeds: [updatedLogEmbed], components: [] });
-        } catch (error) { console.error("Error al editar el mensaje de log (cerrar):", error); }
-    }
+        await interaction.channel.send({ content: t('ticketClosingMessage', member) });
 
-    setTimeout(async () => {
-        try { await interaction.channel.delete(); } 
-        catch (err) { console.error(`Error al eliminar el canal del ticket ${ticket.channelId}:`, err); }
-    }, 10000);
-    
-    return interaction.editReply({ content: t('ticketClosingConfirmation', member) });
-}
-    if (customId.startsWith('select_lang_')) {
-    await interaction.deferReply({ ephemeral: true });
-
-    const langCode = customId.split('_')[2];
-    
-    const langToRole = {
-        'es': '1392409960322826270',
-        'en': '1392410199490302043',
-        'it': '1392410102706737282',
-        'fr': '1392410295044931746',
-        'pt': '1392410361063276575',
-        'de': '1392410401391775814',
-        'tr': '1392410445578637342',
-    };
-
-    const allLangRoleIds = Object.values(langToRole);
-    const targetRoleId = langToRole[langCode];
-
-    if (!targetRoleId) {
-        return interaction.editReply({ content: 'Error: Código de idioma no válido.' });
-    }
-
-    const rolesToRemove = member.roles.cache
-        .filter(role => allLangRoleIds.includes(role.id))
-        .map(role => role.id);
-
-    try {
-        if (rolesToRemove.length > 0) {
-            await member.roles.remove(rolesToRemove);
+        if (ticket.logMessageId) {
+            try {
+                const logChannel = await guild.channels.fetch(ticketConfig.logChannelId);
+                const logMessage = await logChannel.messages.fetch(ticket.logMessageId);
+                const updatedLogEmbed = EmbedBuilder.from(logMessage.embeds[0])
+                    .setTitle(t('ticketLogClosedTitle', member))
+                    .setColor('Red')
+                    .setDescription(t('ticketLogClosedDescription', member).replace('{userId}', ticket.userId).replace('{staffId}', user.id));
+                await logMessage.edit({ embeds: [updatedLogEmbed], components: [] });
+            } catch (error) { console.error("Error al editar el mensaje de log (cerrar):", error); }
         }
-        await member.roles.add(targetRoleId);
 
-        // Forzamos la obtención del miembro actualizado para que el traductor use el nuevo rol
-        const updatedMember = await interaction.guild.members.fetch(user.id);
-        const confirmationMessage = t('langSetSuccess', updatedMember);
-        
-        await interaction.editReply({ content: confirmationMessage });
+        setTimeout(async () => {
+            try { await interaction.channel.delete(); }
+            catch (err) { console.error(`Error al eliminar el canal del ticket ${ticket.channelId}:`, err); }
+        }, 10000);
 
-    } catch (error) {
-        console.error(`Error al cambiar el rol de idioma para ${user.tag}:`, error);
-        await interaction.editReply({ content: '❌ Ocurrió un error al cambiar tu rol. Por favor, asegúrate de que tengo permisos para gestionar roles.' });
+        return interaction.editReply({ content: t('ticketClosingConfirmation', member) });
     }
-    return;
-}
+    if (customId.startsWith('select_lang_')) {
+        await interaction.deferReply({ ephemeral: true });
+
+        const langCode = customId.split('_')[2];
+
+        const langToRole = {
+            'es': '1392409960322826270',
+            'en': '1392410199490302043',
+            'it': '1392410102706737282',
+            'fr': '1392410295044931746',
+            'pt': '1392410361063276575',
+            'de': '1392410401391775814',
+            'tr': '1392410445578637342',
+        };
+
+        const allLangRoleIds = Object.values(langToRole);
+        const targetRoleId = langToRole[langCode];
+
+        if (!targetRoleId) {
+            return interaction.editReply({ content: 'Error: Código de idioma no válido.' });
+        }
+
+        const rolesToRemove = member.roles.cache
+            .filter(role => allLangRoleIds.includes(role.id))
+            .map(role => role.id);
+
+        try {
+            if (rolesToRemove.length > 0) {
+                await member.roles.remove(rolesToRemove);
+            }
+            await member.roles.add(targetRoleId);
+
+            // Forzamos la obtención del miembro actualizado para que el traductor use el nuevo rol
+            const updatedMember = await interaction.guild.members.fetch(user.id);
+            const confirmationMessage = t('langSetSuccess', updatedMember);
+
+            await interaction.editReply({ content: confirmationMessage });
+
+        } catch (error) {
+            console.error(`Error al cambiar el rol de idioma para ${user.tag}:`, error);
+            await interaction.editReply({ content: '❌ Ocurrió un error al cambiar tu rol. Por favor, asegúrate de que tengo permisos para gestionar roles.' });
+        }
+        return;
+    }
 };
 
 

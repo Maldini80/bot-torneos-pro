@@ -2,6 +2,7 @@
 require('dotenv').config();
 const fs = require('node:fs');
 const path = require('node:path');
+const http = require('http'); // <== AÑADIDO: Módulo http nativo
 // LÍNEA MODIFICADA: Se añaden los componentes necesarios
 const { Client, Collection, GatewayIntentBits, Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, ModalBuilder, TextInputBuilder } = require('discord.js');
 const mongoose = require('mongoose');
@@ -217,10 +218,22 @@ async function startVpgBot() {
     // DESPERTADOR INTERNO
     // Nota: El bot principal ya tiene su propio mecanismo de keep-alive si es un web service, 
     // pero mantenemos este si es necesario para endpoints específicos o lo eliminamos si es redundante.
-    const selfPingUrl = `https://bot-vpg-pro.onrender.com`;
+    const selfPingUrl = `https://bot-vpg-pro.onrender.com`; // Ajusta si es necesario
     setInterval(() => {
-        axios.get(selfPingUrl).catch(() => { }); // Simplemente hacemos la petición, ignoramos el error 404
-    }, 2 * 60 * 1000); // Cada 2 minutos
+        axios.get(selfPingUrl).catch(() => { });
+    }, 5 * 60 * 1000);
+
+    // SERVIDOR HTTP MINIMALISTA PARA RENDER (Solo si este proceso corre aislado)
+    // Si este bot corre junto con otro que ya tiene servidor, esto podría dar error de puerto en uso.
+    // Asumimos que corre en su propio contenedor o que el puerto es asignado dinámicamente.
+    const port = process.env.PORT || 3000;
+    const server = http.createServer((req, res) => {
+        res.writeHead(200);
+        res.end('VPG Bot (Torneos) is running!');
+    });
+    server.listen(port, () => {
+        console.log(`[VPG] Server listening on port ${port}`);
+    });
 
     // IMPORTANTE: Usamos una variable de entorno DIFERENTE para el token de este bot
     const vpgToken = process.env.DISCORD_TOKEN_VPG;
