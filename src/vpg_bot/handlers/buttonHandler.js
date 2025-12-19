@@ -62,7 +62,7 @@ async function sendPaginatedTeamMenu(interaction, teams, baseCustomId, paginatio
     const components = [new ActionRowBuilder().addComponents(selectMenu)];
     if (totalPages > 1) { components.push(navigationRow); }
     if (interaction.deferred || interaction.replied) { await interaction.editReply({ content: contentMessage, components }); }
-    else { await interaction.reply({ content: contentMessage, components, flags: MessageFlags.Ephemeral }); }
+    else { await interaction.reply({ content: contentMessage, components, ephemeral: true }); }
 }
 
 async function updatePanelMessage(client, panelId) {
@@ -151,7 +151,7 @@ const handler = async (client, interaction) => {
     const { customId, user } = interaction;
 
     if (customId === 'start_player_registration') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         let member = interaction.member;
         let guild = interaction.guild; // <== AÑADE ESTA LÍNEA
         if (!member) {
@@ -201,7 +201,7 @@ const handler = async (client, interaction) => {
             const slot = panel.timeSlots.find(s => s.time === time);
             if (!slot) {
                 await message.edit({ content: 'Este horario de partido ya no existe en el panel.', components: [] });
-                return interaction.followUp({ content: 'El horario ya no existe.', flags: MessageFlags.Ephemeral });
+                return interaction.followUp({ content: 'El horario ya no existe.', ephemeral: true });
             }
 
             // Necesitamos el guild para poder obtener el 'member' del que responde
@@ -210,13 +210,13 @@ const handler = async (client, interaction) => {
 
             if (slot.status === 'CONFIRMED') {
                 await message.edit({ content: t('errorChallengeExpired', hostMember), components: [] });
-                return interaction.followUp({ content: t('errorChallengeExpired', hostMember), flags: MessageFlags.Ephemeral });
+                return interaction.followUp({ content: t('errorChallengeExpired', hostMember), ephemeral: true });
             }
 
             const challengeIndex = slot.pendingChallenges.findIndex(c => c._id.toString() === challengeId);
             if (challengeIndex === -1) {
                 await message.edit({ content: 'Esta petición de desafío ya no es válida o ya fue gestionada.', components: [] });
-                return interaction.followUp({ content: 'La petición ya no es válida.', flags: MessageFlags.Ephemeral });
+                return interaction.followUp({ content: 'La petición ya no es válida.', ephemeral: true });
             }
 
             const [acceptedChallenge] = slot.pendingChallenges.splice(challengeIndex, 1);
@@ -321,7 +321,7 @@ const handler = async (client, interaction) => {
             const playerId = parts[3];
 
             if (interaction.user.id !== playerId) {
-                return interaction.followUp({ content: 'This invitation is not for you. / Esta invitación no es para ti.', flags: MessageFlags.Ephemeral });
+                return interaction.followUp({ content: 'This invitation is not for you. / Esta invitación no es para ti.', ephemeral: true });
             }
 
             const team = await Team.findById(teamId);
@@ -379,7 +379,6 @@ const handler = async (client, interaction) => {
     const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
 
     if (customId === 'admin_create_team_button') {
-        console.log('[DEBUG] Botón admin_create_team_button presionado.');
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         await interaction.deferReply({ ephemeral: true });
 
@@ -397,8 +396,8 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('admin_add_captains_') || customId.startsWith('admin_add_players_')) {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
 
         const isAddingCaptains = customId.startsWith('admin_add_captains_');
         const teamId = customId.substring(customId.lastIndexOf('_') + 1);
@@ -416,8 +415,8 @@ const handler = async (client, interaction) => {
         return;
     }
     if (customId.startsWith('admin_change_manager_')) {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
 
         const teamId = customId.split('_')[3];
         const team = await Team.findById(teamId);
@@ -503,7 +502,7 @@ const handler = async (client, interaction) => {
 
 
     if (customId === 'manager_actions_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const team = await Team.findOne({ guildId: interaction.guildId, managerId: interaction.user.id });
         if (team) {
             // Ahora también traducimos el mensaje de error
@@ -527,7 +526,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'request_manager_role_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const existingTeam = await Team.findOne({ $or: [{ managerId: user.id }, { captains: user.id }, { players: user.id }], guildId: guild.id });
         if (existingTeam) {
             const errorMessage = t('errorAlreadyInTeam', member).replace('{teamName}', existingTeam.name);
@@ -565,7 +564,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('ask_logo_no_')) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const pendingTeamId = customId.split('_')[3];
 
         const pendingTeam = await PendingTeam.findById(pendingTeamId);
@@ -587,14 +586,14 @@ const handler = async (client, interaction) => {
     if (customId.startsWith('approve_request_')) {
         await interaction.deferUpdate();
         const esAprobador = member.permissions.has(PermissionFlagsBits.Administrator) || member.roles.cache.has(process.env.APPROVER_ROLE_ID);
-        if (!esAprobador) return interaction.followUp({ content: 'No tienes permisos para esta acción.', flags: MessageFlags.Ephemeral });
+        if (!esAprobador) return interaction.followUp({ content: 'No tienes permisos para esta acción.', ephemeral: true });
 
         const parts = customId.split('_');
         const applicantId = parts[2];
         const leagueName = parts.slice(3).join('_').replace(/_/g, ' ');
 
         const originalEmbed = interaction.message.embeds[0];
-        if (!originalEmbed) return interaction.followUp({ content: 'Error: No se pudo encontrar el embed de la solicitud original.', flags: MessageFlags.Ephemeral });
+        if (!originalEmbed) return interaction.followUp({ content: 'Error: No se pudo encontrar el embed de la solicitud original.', ephemeral: true });
 
         const teamName = originalEmbed.fields.find(f => f.name === 'Nombre del Equipo').value;
         const teamAbbr = originalEmbed.fields.find(f => f.name === 'Abreviatura').value;
@@ -602,10 +601,10 @@ const handler = async (client, interaction) => {
         const logoUrl = originalEmbed.thumbnail ? originalEmbed.thumbnail.url : 'https://i.imgur.com/V4J2Fcf.png';
 
         const applicantMember = await guild.members.fetch(applicantId).catch(() => null);
-        if (!applicantMember) return interaction.followUp({ content: `El usuario solicitante ya no está en el servidor.`, flags: MessageFlags.Ephemeral });
+        if (!applicantMember) return interaction.followUp({ content: `El usuario solicitante ya no está en el servidor.`, ephemeral: true });
 
         const existingTeam = await Team.findOne({ $or: [{ name: teamName }, { managerId: applicantId }], guildId: guild.id });
-        if (existingTeam) return interaction.followUp({ content: `Error: Ya existe un equipo con el nombre "${teamName}" o el usuario ya es mánager.`, flags: MessageFlags.Ephemeral });
+        if (existingTeam) return interaction.followUp({ content: `Error: Ya existe un equipo con el nombre "${teamName}" o el usuario ya es mánager.`, ephemeral: true });
 
         const newTeam = new Team({
             name: teamName,
@@ -643,12 +642,12 @@ const handler = async (client, interaction) => {
             console.log(`AVISO: No se pudo enviar el MD de guía al nuevo mánager ${applicantMember.user.tag}.`);
         }
 
-        return interaction.followUp({ content: `✅ Equipo **${teamName}** creado. ${applicantMember.user.tag} es ahora Mánager.`, flags: MessageFlags.Ephemeral });
+        return interaction.followUp({ content: `✅ Equipo **${teamName}** creado. ${applicantMember.user.tag} es ahora Mánager.`, ephemeral: true });
     }
     if (customId.startsWith('reject_request_')) {
         await interaction.deferUpdate();
         const esAprobador = member.permissions.has(PermissionFlagsBits.Administrator) || member.roles.cache.has(process.env.APPROVER_ROLE_ID);
-        if (!esAprobador) return interaction.followUp({ content: 'No tienes permisos para esta acción.', flags: MessageFlags.Ephemeral });
+        if (!esAprobador) return interaction.followUp({ content: 'No tienes permisos para esta acción.', ephemeral: true });
 
         const applicantId = customId.split('_')[2];
         const applicant = await guild.members.fetch(applicantId).catch(() => null);
@@ -661,7 +660,7 @@ const handler = async (client, interaction) => {
             await applicant.send('Lo sentimos, tu solicitud para registrar un equipo ha sido rechazada por un administrador.').catch(() => { });
         }
 
-        return interaction.followUp({ content: `Solicitud de ${applicant ? applicant.user.tag : 'un usuario'} rechazada.`, flags: MessageFlags.Ephemeral });
+        return interaction.followUp({ content: `Solicitud de ${applicant ? applicant.user.tag : 'un usuario'} rechazada.`, ephemeral: true });
     }
     // ===========================================================================
     // ================== BLOQUE DE CÓDIGO FALTANTE (AHORA PRESENTE) ==============
@@ -757,7 +756,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'view_teams_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const teams = await Team.find({ guildId: guild.id }).sort({ name: 1 }).lean();
         if (teams.length === 0) {
             return interaction.editReply({ content: t('errorNoTeamsRegistered', member) });
@@ -767,7 +766,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'player_actions_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const canLeaveTeam = member.roles.cache.has(process.env.PLAYER_ROLE_ID) || member.roles.cache.has(process.env.CAPTAIN_ROLE_ID);
 
         // Usamos la función 't' para obtener los textos en el idioma del usuario
@@ -786,7 +785,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('team_submenu_')) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         // MÁS ADELANTE TRADUCIREMOS ESTE ERROR
         if (!team) return interaction.editReply({ content: '❌ Debes ser Mánager o Capitán para usar estos menús.' });
@@ -828,7 +827,7 @@ const handler = async (client, interaction) => {
         return;
     }
     if (customId === 'admin_create_league_button') {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         const modal = new ModalBuilder().setCustomId('create_league_modal').setTitle('Crear Nueva Liga');
         const leagueNameInput = new TextInputBuilder().setCustomId('leagueNameInput').setLabel("Nombre de la nueva liga").setStyle(TextInputStyle.Short).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(leagueNameInput));
@@ -836,8 +835,8 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'admin_delete_league_button') {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
         const leagues = await League.find({ guildId: guild.id });
         if (leagues.length === 0) {
             return interaction.editReply({ content: t('errorNoLeaguesToDelete', member) });
@@ -853,8 +852,8 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'admin_manage_team_button') {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
         const teams = await Team.find({ guildId: interaction.guildId }).sort({ name: 1 }).lean();
         if (teams.length === 0) {
             return interaction.editReply({ content: 'No hay equipos registrados en este servidor.' });
@@ -864,8 +863,8 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('admin_manage_members_')) {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
 
         const teamId = customId.split('_')[3];
         const team = await Team.findById(teamId);
@@ -897,10 +896,10 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('admin_change_data_')) {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         const teamId = customId.split('_')[3];
         const team = await Team.findById(teamId);
-        if (!team) return interaction.reply({ content: 'No se encontró el equipo.', flags: MessageFlags.Ephemeral });
+        if (!team) return interaction.reply({ content: 'No se encontró el equipo.', ephemeral: true });
 
         const modal = new ModalBuilder().setCustomId(`edit_data_modal_${team._id}`).setTitle(`Editar Datos de ${team.name}`);
         const newNameInput = new TextInputBuilder().setCustomId('newName').setLabel("Nuevo Nombre (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setValue(team.name);
@@ -918,10 +917,10 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('admin_dissolve_team_')) {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         const teamId = customId.split('_')[3];
         const team = await Team.findById(teamId);
-        if (!team) return interaction.reply({ content: 'Equipo no encontrado.', flags: MessageFlags.Ephemeral });
+        if (!team) return interaction.reply({ content: 'Equipo no encontrado.', ephemeral: true });
 
         const modal = new ModalBuilder().setCustomId(`confirm_dissolve_modal_${teamId}`).setTitle(`Disolver Equipo: ${team.name}`);
         const confirmationInput = new TextInputBuilder().setCustomId('confirmation_text').setLabel(`Escribe "${team.name}" para confirmar`).setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder(team.name);
@@ -930,17 +929,17 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'admin_view_pending_requests') {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
         if (!approvalChannelId) {
-            return interaction.reply({ content: 'La variable de entorno `APPROVAL_CHANNEL_ID` no está configurada.', flags: MessageFlags.Ephemeral });
+            return interaction.reply({ content: 'La variable de entorno `APPROVAL_CHANNEL_ID` no está configurada.', ephemeral: true });
         }
-        return interaction.reply({ content: `Todas las solicitudes de registro de equipo pendientes se encuentran en el canal <#${approvalChannelId}>.`, flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: `Todas las solicitudes de registro de equipo pendientes se encuentran en el canal <#${approvalChannelId}>.`, ephemeral: true });
     }
 
     // --- Lógica para los botones de GESTIÓN DE PLANTILLA ---
     if (customId === 'team_invite_player_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const team = await Team.findOne({ guildId: guild.id, managerId: user.id });
         if (!team) {
             return interaction.editReply({ content: t('errorOnlyManagersCanInvite', member) });
@@ -962,7 +961,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'team_manage_roster_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) {
             return interaction.editReply({ content: t('errorTeamNotFound', member) });
@@ -993,7 +992,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'team_view_roster_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const teamToView = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }, { players: user.id }] });
         if (!teamToView) return interaction.editReply({ content: t('errorNotInAnyTeam', member) });
 
@@ -1034,7 +1033,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'team_toggle_recruitment_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const team = await Team.findOne({ guildId: guild.id, managerId: user.id }); // Solo el mánager puede
         if (!team) return interaction.editReply({ content: t('errorOnlyManagersToggleRecruitment', member) });
 
@@ -1056,10 +1055,10 @@ const handler = async (client, interaction) => {
 
     if (customId === 'team_edit_data_button') {
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
-        if (!team) return interaction.reply({ content: 'No se encontró tu equipo o no tienes permisos.', flags: MessageFlags.Ephemeral });
+        if (!team) return interaction.reply({ content: 'No se encontró tu equipo o no tienes permisos.', ephemeral: true });
 
         const isManager = team.managerId === user.id;
-        if (!isManager) return interaction.reply({ content: 'Solo el mánager del equipo puede editar sus datos.', flags: MessageFlags.Ephemeral });
+        if (!isManager) return interaction.reply({ content: 'Solo el mánager del equipo puede editar sus datos.', ephemeral: true });
 
         const modal = new ModalBuilder()
             .setCustomId(`edit_data_modal_${team._id}`)
@@ -1083,7 +1082,7 @@ const handler = async (client, interaction) => {
     // --- Lógica para el Panel de Amistosos ---
 
     if (customId === 'post_scheduled_panel') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.editReply({ content: t('errorTeamNotFound', member) });
 
@@ -1141,7 +1140,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'post_instant_panel') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.editReply({ content: t('errorTeamNotFound', member) });
 
@@ -1178,7 +1177,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'delete_friendly_panel') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.editReply({ content: t('errorTeamNotFound', member) });
 
@@ -1203,7 +1202,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('challenge_slot_')) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         const challengerTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!challengerTeam) return interaction.editReply({ content: t('errorMustBeManagerOrCaptain', member) });
@@ -1296,7 +1295,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('cancel_all_challenges_')) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const panelId = customId.split('_')[3];
         const panel = await AvailabilityPanel.findById(panelId).populate('teamId');
         if (!panel) return interaction.editReply({ content: t('errorPanelNoLongerExists', member) });
@@ -1333,7 +1332,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('abandon_challenge_')) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const [, , panelId, time] = customId.split('_');
         const panel = await AvailabilityPanel.findById(panelId);
         if (!panel) return interaction.editReply({ content: t('errorPanelNoLongerExists', member) });
@@ -1389,7 +1388,7 @@ const handler = async (client, interaction) => {
         return;
     }
     if (customId.startsWith('contact_opponent_')) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const [, , teamId1, teamId2] = customId.split('_');
 
         const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
@@ -1411,7 +1410,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'team_view_confirmed_matches') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }, { players: user.id }] });
         if (!userTeam) return interaction.editReply({ content: t('errorNotInAnyTeam', member) });
 
@@ -1475,13 +1474,13 @@ const handler = async (client, interaction) => {
         await interaction.reply({
             content: t('updateProfilePrompt', member),
             components: [new ActionRowBuilder().addComponents(primaryMenu)],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return;
     }
 
     if (customId === 'apply_to_team_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const isManager = await Team.findOne({ guildId: guild.id, managerId: user.id });
         if (isManager) {
             return interaction.editReply({ content: t('errorManagerCannotApply', member) });
@@ -1500,7 +1499,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'leave_team_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const teamToLeave = await Team.findOne({ guildId: guild.id, $or: [{ captains: user.id }, { players: user.id }] });
         if (!teamToLeave) {
             return interaction.editReply({ content: t('errorNotInTeamToLeave', member) });
@@ -1528,7 +1527,7 @@ const handler = async (client, interaction) => {
         if (customId === 'market_post_agent') {
             const hasRequiredRole = member.roles.cache.has(process.env.PLAYER_ROLE_ID) || member.roles.cache.has(process.env.CAPTAIN_ROLE_ID);
             if (!hasRequiredRole) {
-                return interaction.reply({ content: t('errorPlayerRoleNeeded', member), flags: MessageFlags.Ephemeral });
+                return interaction.reply({ content: t('errorPlayerRoleNeeded', member), ephemeral: true });
             }
             const modal = new ModalBuilder().setCustomId('market_agent_modal').setTitle(t('agentModalTitle', member));
             const experienceInput = new TextInputBuilder().setCustomId('experienceInput').setLabel(t('agentModalExperienceLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500);
@@ -1538,7 +1537,7 @@ const handler = async (client, interaction) => {
             await interaction.showModal(modal);
 
         } else if (customId === 'market_post_offer') {
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
             const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
             if (!team) return interaction.editReply({ content: t('errorMustBeManagerOrCaptain', member) });
 
@@ -1556,7 +1555,7 @@ const handler = async (client, interaction) => {
             });
 
         } else if (customId === 'market_search_teams') {
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
             const leagues = await League.find({ guildId: guild.id }).lean();
             const leagueOptions = leagues.map(l => ({ label: l.name, value: l.name }));
             const positionOptions = POSITION_KEYS.map(p => ({ label: t(`pos_${p}`, member), value: p }));
@@ -1574,7 +1573,7 @@ const handler = async (client, interaction) => {
             await interaction.editReply({ content: t('filterMenuPrompt', member), components: [new ActionRowBuilder().addComponents(positionMenu), new ActionRowBuilder().addComponents(leagueMenu)] });
 
         } else if (customId === 'market_manage_ad') {
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
             const existingAd = await FreeAgent.findOne({ userId: user.id });
 
             if (!existingAd) {
@@ -1621,7 +1620,7 @@ const handler = async (client, interaction) => {
         } else if (customId === 'market_edit_ad_button') {
             const existingAd = await FreeAgent.findOne({ userId: user.id });
             if (!existingAd) {
-                return interaction.reply({ content: t('errorAdNotFoundForEdit', member), flags: MessageFlags.Ephemeral });
+                return interaction.reply({ content: t('errorAdNotFoundForEdit', member), ephemeral: true });
             }
             const modal = new ModalBuilder().setCustomId(`market_agent_modal_edit:${existingAd._id}`).setTitle(t('editAdModalTitle', member));
             const experienceInput = new TextInputBuilder().setCustomId('experienceInput').setLabel(t('agentModalExperienceLabel', member)).setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500).setValue(existingAd.experience || '');
@@ -1634,7 +1633,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'team_manage_offer_button') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.editReply({ content: t('errorTeamNotFound', member) });
