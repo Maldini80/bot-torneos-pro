@@ -216,24 +216,13 @@ async function startVpgBot() {
     });
 
     // DESPERTADOR INTERNO
-    // Nota: El bot principal ya tiene su propio mecanismo de keep-alive si es un web service, 
-    // pero mantenemos este si es necesario para endpoints específicos o lo eliminamos si es redundante.
+    // Nota: El bot principal ya tiene su propio mecanismo de keep-alive si es un web service.
+    // Eliminamos el servidor HTTP de este bot para evitar el error EADDRINUSE (puerto en uso).
     const selfPingUrl = `https://bot-vpg-pro.onrender.com`; // Ajusta si es necesario
     setInterval(() => {
         axios.get(selfPingUrl).catch(() => { });
     }, 5 * 60 * 1000);
 
-    // SERVIDOR HTTP MINIMALISTA PARA RENDER (Solo si este proceso corre aislado)
-    // Si este bot corre junto con otro que ya tiene servidor, esto podría dar error de puerto en uso.
-    // Asumimos que corre en su propio contenedor o que el puerto es asignado dinámicamente.
-    const port = process.env.PORT || 3000;
-    const server = http.createServer((req, res) => {
-        res.writeHead(200);
-        res.end('VPG Bot (Torneos) is running!');
-    });
-    server.listen(port, () => {
-        console.log(`[VPG] Server listening on port ${port}`);
-    });
 
     // IMPORTANTE: Usamos una variable de entorno DIFERENTE para el token de este bot
     const vpgToken = process.env.DISCORD_TOKEN_VPG;
