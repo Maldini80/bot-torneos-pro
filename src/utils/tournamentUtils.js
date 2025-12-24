@@ -171,7 +171,12 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
     const teamsInCompletedMatch = [completedMatch.equipoA.id, completedMatch.equipoB.id];
     for (const teamId of teamsInCompletedMatch) {
         const nextMatch = allMatchesInGroup.find(p => p.jornada === nextJornadaNum && (p.equipoA.id === teamId || p.equipoB.id === teamId));
-        if (!nextMatch || nextMatch.threadId || nextMatch.status === 'finalizado' || nextMatch.equipoA.id === 'ghost' || nextMatch.equipoB.id === 'ghost') continue;
+        if (!nextMatch) continue;
+        console.log(`[DEBUG NEXT ROUND] Checking match ${nextMatch.matchId} (J${nextMatch.jornada}) for team ${teamId}. Status: ${nextMatch.status}, Thread: ${nextMatch.threadId}`);
+        if (nextMatch.threadId || nextMatch.status === 'finalizado' || nextMatch.equipoA.id === 'ghost' || nextMatch.equipoB.id === 'ghost') {
+            console.log(`[DEBUG NEXT ROUND] Skipping match ${nextMatch.matchId} (Ghost/Finished/Exists)`);
+            continue;
+        }
         const opponentId = nextMatch.equipoA.id === teamId ? nextMatch.equipoB.id : nextMatch.equipoA.id;
         const opponentCurrentMatch = allMatchesInGroup.find(p => p.jornada === completedMatch.jornada && (p.equipoA.id === opponentId || p.equipoB.id === opponentId));
         if (opponentCurrentMatch && opponentCurrentMatch.status === 'finalizado') {
