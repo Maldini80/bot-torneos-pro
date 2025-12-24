@@ -142,7 +142,9 @@ async function updateGroupStageStats(tournament, partido) {
     const equipoB = tournament.structure.grupos[partido.nombreGrupo].equipos.find(e => e.id === partido.equipoB.id);
 
     if (!equipoA || !equipoB) {
-        console.error(`[STATS ERROR] No se encontraron los equipos del partido ${partido.matchId} en el grupo ${partido.nombreGrupo}.`);
+        if (partido.equipoA.id !== 'ghost' && partido.equipoB.id !== 'ghost') {
+            console.error(`[STATS ERROR] No se encontraron los equipos del partido ${partido.matchId} en el grupo ${partido.nombreGrupo}.`);
+        }
         return;
     }
 
