@@ -2627,30 +2627,55 @@ export async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
 
     if (allFinished) {
-        console.log(`[ADVANCEMENT] Todos los partidos actuales finalizados para ${tournament.shortId}.`);
+        // --- BLOQUEO ATÓMICO PARA EVITAR DOBLE AVANCE ---
+        const db = getDb();
+        const lockResult = await db.collection('tournaments').updateOne(
+            { _id: tournament._id, status: 'fase_de_grupos', advancementLock: { $ne: true } },
+            { $set: { advancementLock: true } }
+        );
 
-        // --- LÓGICA SWISS SYSTEM ---
-        if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom') {
-            const totalRounds = tournament.config.customRounds || 3;
-            const currentRound = tournament.currentRound || 1;
-
-            if (currentRound < totalRounds) {
-                console.log(`[SWISS] Avanzando a la Ronda ${currentRound + 1} de ${totalRounds}`);
-                await generateNextSwissRound(client, guild, tournament);
-                return; // IMPORTANTE: No avanzamos a eliminatorias todavía
-            }
+        if (lockResult.modifiedCount === 0) {
+            console.log(`[ADVANCEMENT] Avance ya en curso para ${tournament.shortId}.`);
+            return;
         }
-        // ---------------------------
 
-        console.log(`[ADVANCEMENT] Fase de liguilla/grupos COMPLETADA para ${tournament.shortId}. Iniciando siguiente fase.`);
+        try {
+            console.log(`[ADVANCEMENT] Todos los partidos actuales finalizados para ${tournament.shortId}.`);
 
-        postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
-        await startNextKnockoutRound(client, guild, tournament);
+            // --- LÓGICA SWISS SYSTEM ---
+            if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom') {
+                const totalRounds = parseInt(tournament.config.customRounds) || 3;
+                const currentRound = tournament.currentRound || 1;
 
-        const finalTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
-        await updatePublicMessages(client, finalTournamentState);
-        await updateTournamentManagementThread(client, finalTournamentState);
-        await notifyTournamentVisualizer(finalTournamentState);
+                if (currentRound < totalRounds) {
+                    console.log(`[SWISS] Avanzando a la Ronda ${currentRound + 1} de ${totalRounds}`);
+                    await generateNextSwissRound(client, guild, tournament);
+
+                    // Liberar bloqueo después de generar la siguiente ronda
+                    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { advancementLock: "" } });
+                    return;
+                }
+            }
+            // ---------------------------
+
+            console.log(`[ADVANCEMENT] Fase de liguilla/grupos COMPLETADA para ${tournament.shortId}. Iniciando siguiente fase.`);
+
+            postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
+            await startNextKnockoutRound(client, guild, tournament);
+
+            const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
+            await updatePublicMessages(client, finalTournamentState);
+            await updateTournamentManagementThread(client, finalTournamentState);
+            await notifyTournamentVisualizer(finalTournamentState);
+
+            // Liberar bloqueo al final
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { advancementLock: "" } });
+
+        } catch (error) {
+            console.error(`[ADVANCEMENT ERROR] Error en el avance de fase:`, error);
+            // Liberar bloqueo en caso de error para permitir reintento
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { advancementLock: "" } });
+        }
     }
 }
 
@@ -3078,6 +3103,13 @@ function crearPartidosEvitandoMismoGrupo(bombo1_data, bombo2_data, ronda) {
 
 function sortTeams(a, b, tournament, groupName) {
     if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
+
+    // --- TIE-BREAKS PARA SISTEMA SUIZO ---
+    if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom') {
+        if (a.stats.buchholz !== b.stats.buchholz) return b.stats.buchholz - a.stats.buchholz;
+    }
+    // -------------------------------------
+
     if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
     if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
 
