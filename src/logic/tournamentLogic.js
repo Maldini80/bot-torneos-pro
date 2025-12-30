@@ -1236,7 +1236,7 @@ export async function startGroupStage(client, guild, tournament) {
         // Paso 4: Actualizar todas las interfaces públicas
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournamentData._id });
         await updatePublicMessages(client, finalTournamentState);
-        await updateTournamentManagementThread(client, finalTournamentState);
+        // await updateTournamentManagementThread(client, finalTournamentState); // REMOVED: Managed by finally block via setBotBusy(false)
 
         postTournamentUpdate('GROUP_STAGE_START', finalTournamentState).catch(console.error);
         await notifyTournamentVisualizer(finalTournamentState);

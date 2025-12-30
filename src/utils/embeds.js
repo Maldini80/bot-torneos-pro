@@ -185,7 +185,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    row2.addComponents(
+    row3.addComponents(
         new ButtonBuilder()
             .setCustomId(`admin_assign_cocaptain_start:${tournament.shortId}`)
             .setLabel('Asignar Co-Capitán')
