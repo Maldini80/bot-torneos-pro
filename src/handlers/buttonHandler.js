@@ -365,6 +365,59 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_manual_swap_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        const groups = tournament.structure.grupos;
+        const teamOptions = [];
+
+        for (const [groupName, groupData] of Object.entries(groups)) {
+            groupData.equipos.forEach(team => {
+                teamOptions.push({
+                    label: team.nombre,
+                    description: `Grupo: ${groupName}`,
+                    value: team.id,
+                    emoji: '🛡️'
+                });
+            });
+        }
+
+        if (teamOptions.length < 2) {
+            return interaction.editReply({ content: 'No hay suficientes equipos para intercambiar.' });
+        }
+
+        if (teamOptions.length > 25) {
+            const groupOptions = Object.keys(groups).map(gName => ({
+                label: gName,
+                value: gName
+            }));
+
+            const groupMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_manual_swap_group_1:${tournamentShortId}`)
+                .setPlaceholder('Paso 1: Selecciona el GRUPO del primer equipo')
+                .addOptions(groupOptions);
+
+            await interaction.editReply({
+                content: '🔄 **Intercambio Manual de Equipos**\n\nHay muchos equipos, así que iremos paso a paso.\n**Paso 1:** Selecciona el grupo donde está el primer equipo que quieres mover.',
+                components: [new ActionRowBuilder().addComponents(groupMenu)]
+            });
+            return;
+        }
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_manual_swap_select_1:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el PRIMER equipo a cambiar')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: '🔄 **Intercambio Manual de Equipos**\n\nSelecciona el **primer equipo** que quieres mover:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
     if (action.startsWith('admin_panel_')) {
         try {
             const view = action.split('_')[2];

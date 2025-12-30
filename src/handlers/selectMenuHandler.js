@@ -139,6 +139,153 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
+    // --- MANUAL SWAP LOGIC ---
+    if (action === 'admin_manual_swap_select_1') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const team1Id = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        // Find group of team 1
+        let group1Name;
+        for (const [gName, gData] of Object.entries(tournament.structure.grupos)) {
+            if (gData.equipos.some(t => t.id === team1Id)) {
+                group1Name = gName;
+                break;
+            }
+        }
+
+        // Show available teams in OTHER groups
+        const teamOptions = [];
+        for (const [gName, gData] of Object.entries(tournament.structure.grupos)) {
+            if (gName === group1Name) continue;
+            gData.equipos.forEach(t => {
+                teamOptions.push({
+                    label: t.nombre,
+                    description: `Grupo: ${gName}`,
+                    value: t.id,
+                    emoji: '🔄'
+                });
+            });
+        }
+
+        if (teamOptions.length === 0) {
+            return interaction.editReply({ content: 'No hay otros equipos disponibles para intercambiar.', components: [] });
+        }
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_manual_swap_team_2:${tournamentShortId}:${team1Id}`) // Reuse the final step handler
+            .setPlaceholder('Selecciona el equipo por el que cambiar')
+            .addOptions(teamOptions.slice(0, 25)); // Safety slice
+
+        await interaction.editReply({
+            content: 'Selecciona el equipo por el que quieres realizar el cambio:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'admin_manual_swap_group_1') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const groupName = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        const group = tournament.structure.grupos[groupName];
+        const teamOptions = group.equipos.map(t => ({
+            label: t.nombre,
+            value: t.id,
+            emoji: '🛡️'
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_manual_swap_team_1:${tournamentShortId}:${groupName}`)
+            .setPlaceholder(`Selecciona equipo de ${groupName}`)
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: `Paso 2: Selecciona el equipo del **${groupName}** que quieres mover.`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'admin_manual_swap_team_1') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, group1Name] = params;
+        const team1Id = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        // Filter out the group selected in step 1
+        const otherGroups = Object.keys(tournament.structure.grupos).filter(g => g !== group1Name);
+
+        if (otherGroups.length === 0) {
+            return interaction.editReply({ content: 'Error: No hay otros grupos disponibles para intercambiar.', components: [] });
+        }
+
+        const groupOptions = otherGroups.map(g => ({ label: g, value: g }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_manual_swap_group_2:${tournamentShortId}:${team1Id}`)
+            .setPlaceholder('Paso 3: Selecciona el GRUPO destino')
+            .addOptions(groupOptions);
+
+        await interaction.editReply({
+            content: `Paso 3: Selecciona el grupo con el que quieres hacer el intercambio.`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'admin_manual_swap_group_2') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, team1Id] = params;
+        const group2Name = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        const group = tournament.structure.grupos[group2Name];
+        const teamOptions = group.equipos.map(t => ({
+            label: t.nombre,
+            value: t.id,
+            emoji: '🔄'
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_manual_swap_team_2:${tournamentShortId}:${team1Id}`)
+            .setPlaceholder(`Paso 4: Selecciona equipo de ${group2Name}`)
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: `Paso 4: Selecciona el equipo del **${group2Name}** por el que quieres cambiar.`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'admin_manual_swap_team_2') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, team1Id] = params;
+        const team2Id = interaction.values[0];
+
+        try {
+            // Import swapTeams dynamically to avoid circular dependency issues if any
+            const { swapTeams } = await import('../logic/tournamentLogic.js');
+            const result = await swapTeams(client, tournamentShortId, team1Id, team2Id);
+
+            await interaction.editReply({
+                content: `✅ **Intercambio Realizado**\n${result.message}`,
+                components: []
+            });
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({
+                content: `❌ Error al intercambiar equipos: ${error.message}`,
+                components: []
+            });
+        }
+        return;
+    }
+
     // --- INICIO DE LA LÓGICA AÑADIDA ---
     if (action === 'draft_pick_search_type') {
         await interaction.deferUpdate();

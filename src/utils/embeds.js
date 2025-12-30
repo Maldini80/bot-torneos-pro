@@ -175,6 +175,12 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
                 .setLabel('Eliminar Sorteo')
                 .setStyle(ButtonStyle.Danger)
                 .setEmoji('⏪')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
+                .setCustomId(`admin_manual_swap_start:${tournament.shortId}`)
+                .setLabel('Cambio Manual')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🔀')
                 .setDisabled(isBusy)
         );
     }

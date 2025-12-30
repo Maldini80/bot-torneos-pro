@@ -2472,70 +2472,88 @@ async function generateFlexibleLeagueSchedule(tournament) {
 
     let teams = Object.values(tournament.teams.aprobados);
 
-    // Si es impar, añadimos el equipo fantasma (Descanso)
+    // Mezclar equipos aleatoriamente al inicio para evitar sesgos por orden de inscripción
+    teams.sort(() => Math.random() - 0.5);
+
+    // Inicializar stats
+    teams.forEach(team => {
+        team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0, buchholz: 0 }; // Añadido buchholz
+    });
+
+    // Si es modo SWISS (Custom Rounds), solo generamos la Ronda 1
+    if (tournament.config.leagueMode === 'custom') {
+        console.log(`[SWISS] Iniciando Sistema Suizo para ${tournament.shortId}. Generando Ronda 1.`);
+
+        tournament.structure.grupos['Liga'] = { equipos: teams }; // Guardamos todos (sin ghost aún)
+        tournament.structure.calendario['Liga'] = [];
+        tournament.currentRound = 1;
+
+        // Generar Ronda 1 (Aleatoria)
+        // Si es impar, uno descansa (Ghost)
+        let roundTeams = [...teams];
+        if (roundTeams.length % 2 !== 0) {
+            // En la ronda 1, el descanso es aleatorio (el último tras el shuffle)
+            const byeTeam = roundTeams.pop();
+            console.log(`[SWISS] Equipo con BYE en Ronda 1: ${byeTeam.nombre}`);
+            // Creamos el partido "fantasma" para el historial
+            const ghostMatch = createMatchObject('Liga', 1, byeTeam, { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost' });
+            ghostMatch.status = 'finalizado';
+            ghostMatch.resultado = '1-0';
+
+            // Actualizar stats del equipo que descansa
+            byeTeam.stats.pj += 1;
+            byeTeam.stats.pts += 3;
+            byeTeam.stats.gf += 1;
+            byeTeam.stats.dg += 1;
+
+            tournament.structure.calendario['Liga'].push(ghostMatch);
+        }
+
+        // Emparejar el resto (0-1, 2-3, etc.)
+        for (let i = 0; i < roundTeams.length; i += 2) {
+            const t1 = roundTeams[i];
+            const t2 = roundTeams[i + 1];
+            tournament.structure.calendario['Liga'].push(createMatchObject('Liga', 1, t1, t2));
+        }
+
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
+        console.log(`[SWISS] Ronda 1 generada.`);
+        return;
+    }
+
+    // --- MODO ALL VS ALL (Round Robin Completo) ---
+    // Si es impar, añadimos el equipo fantasma (Descanso) PARA EL ALGORITMO DE POLÍGONO
     if (teams.length % 2 !== 0) {
         const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
         teams.push(ghostTeam);
     }
 
-    const numTeams = teams.length; // Este número ahora es siempre PAR (gracias al ghost)
-
-    console.log(`[DEBUG LIGA] 2. Equipos (incluyendo ghost): ${numTeams}`);
-
-    // Inicializar stats
-    teams.forEach(team => {
-        if (team.id !== 'ghost') team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
-    });
+    const numTeams = teams.length;
 
     tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
     tournament.structure.calendario['Liga'] = [];
 
-    // --- LÓGICA DE CÁLCULO DE RONDAS ---
-    let totalRoundsToGenerate;
-
-    if (tournament.config.leagueMode === 'all_vs_all') {
-        // Todos contra todos: N-1 rondas
-        totalRoundsToGenerate = numTeams - 1;
-
-        // Si es Ida y Vuelta, multiplicamos por 2
-        if (tournament.config.matchType === 'idavuelta') {
-            totalRoundsToGenerate = totalRoundsToGenerate * 2;
-        }
-    } else {
-        // Modo personalizado (número fijo de partidos)
-        // Si el usuario puso más rondas de las posibles matemáticamente, las limitamos
-        const maxPossibleRounds = (tournament.config.matchType === 'idavuelta') ? (numTeams - 1) * 2 : (numTeams - 1);
-        totalRoundsToGenerate = Math.min(tournament.config.customRounds || 3, maxPossibleRounds);
+    let totalRoundsToGenerate = numTeams - 1;
+    if (tournament.config.matchType === 'idavuelta') {
+        totalRoundsToGenerate = totalRoundsToGenerate * 2;
     }
-
-    console.log(`[DEBUG LIGA] Generando ${totalRoundsToGenerate} rondas. (Modo: ${tournament.config.leagueMode})`);
 
     // Algoritmo Round Robin (Rotación de polígono)
     let rotatingTeams = [...teams];
     rotatingTeams.shift(); // Sacamos al primer equipo (pivote fijo)
-
-    // Generamos todas las rondas posibles primero (un ciclo completo de ida)
     const baseRounds = numTeams - 1;
 
     for (let round = 0; round < totalRoundsToGenerate; round++) {
         const jornadaNum = round + 1;
-        // Detectamos si estamos en la "vuelta" (cuando round >= baseRounds)
         const isSecondLeg = round >= baseRounds;
-
-        // Si es vuelta, invertimos local/visitante respecto a la ida correspondiente
-        // La ida correspondiente es: round % baseRounds
 
         const teamA = teams[0];
         const teamB = rotatingTeams[0];
 
-        // Lógica de local/visitante
         let home, away;
-
         if (isSecondLeg) {
-            // En la vuelta, invertimos la lógica de la ida
             if (round % 2 === 0) { home = teamB; away = teamA; } else { home = teamA; away = teamB; }
         } else {
-            // En la ida normal
             if (round % 2 === 0) { home = teamA; away = teamB; } else { home = teamB; away = teamA; }
         }
 
@@ -2545,16 +2563,12 @@ async function generateFlexibleLeagueSchedule(tournament) {
             const teamC = rotatingTeams[i];
             const teamD = rotatingTeams[numTeams - 1 - i];
 
-            // Misma lógica de local/visitante para el resto
             if (isSecondLeg) {
-                // Vuelta: lógica inversa a la ida (simplificada aquí para variedad)
                 tournament.structure.calendario['Liga'].push(createMatchObject('Liga', jornadaNum, teamD, teamC));
             } else {
                 tournament.structure.calendario['Liga'].push(createMatchObject('Liga', jornadaNum, teamC, teamD));
             }
         }
-
-        // Rotamos el array
         rotatingTeams.push(rotatingTeams.shift());
     }
 
@@ -2562,16 +2576,14 @@ async function generateFlexibleLeagueSchedule(tournament) {
     for (const match of tournament.structure.calendario['Liga']) {
         if (match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost') {
             match.status = 'finalizado';
-            match.matchId = 'ghost'; // Marcamos como ghost para filtrar
+            match.matchId = 'ghost';
 
             const realTeamIsA = match.equipoA.id !== 'ghost';
-            match.resultado = realTeamIsA ? '1-0' : '0-1'; // Gana el equipo real
+            match.resultado = realTeamIsA ? '1-0' : '0-1';
 
             const realTeam = realTeamIsA ? match.equipoA : match.equipoB;
             const groupTeam = tournament.structure.grupos['Liga'].equipos.find(t => t.id === realTeam.id);
             if (groupTeam) {
-                // En fútbol real, descansar NO suma puntos, pero en algunos torneos online se da por ganado.
-                // Si prefieres que NO sume puntos (solo cuente como jornada pasada), comenta estas líneas:
                 groupTeam.stats.pj += 1;
                 groupTeam.stats.pts += 3;
                 groupTeam.stats.gf += 1;
@@ -2581,7 +2593,7 @@ async function generateFlexibleLeagueSchedule(tournament) {
     }
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
-    console.log(`[DEBUG LIGA] Calendario guardado.`);
+    console.log(`[DEBUG LIGA] Calendario Round Robin guardado.`);
 }
 
 // =====================================================================
@@ -2596,7 +2608,22 @@ export async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allFinished = allGroupMatches.every(p => p.status === 'finalizado');
 
     if (allFinished) {
-        console.log(`[ADVANCEMENT] Fase de liguilla/grupos finalizada para ${tournament.shortId}. Iniciando siguiente fase.`);
+        console.log(`[ADVANCEMENT] Todos los partidos actuales finalizados para ${tournament.shortId}.`);
+
+        // --- LÓGICA SWISS SYSTEM ---
+        if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom') {
+            const totalRounds = tournament.config.customRounds || 3;
+            const currentRound = tournament.currentRound || 1;
+
+            if (currentRound < totalRounds) {
+                console.log(`[SWISS] Avanzando a la Ronda ${currentRound + 1} de ${totalRounds}`);
+                await generateNextSwissRound(client, guild, tournament);
+                return; // IMPORTANTE: No avanzamos a eliminatorias todavía
+            }
+        }
+        // ---------------------------
+
+        console.log(`[ADVANCEMENT] Fase de liguilla/grupos COMPLETADA para ${tournament.shortId}. Iniciando siguiente fase.`);
 
         postTournamentUpdate('GROUP_STAGE_END', tournament).catch(console.error);
         await startNextKnockoutRound(client, guild, tournament);
@@ -2606,6 +2633,173 @@ export async function checkForGroupStageAdvancement(client, guild, tournament) {
         await updateTournamentManagementThread(client, finalTournamentState);
         await notifyTournamentVisualizer(finalTournamentState);
     }
+}
+
+async function generateNextSwissRound(client, guild, tournament) {
+    const db = getDb();
+    const nextRound = (tournament.currentRound || 0) + 1;
+    const teams = tournament.structure.grupos['Liga'].equipos;
+    const allMatches = tournament.structure.calendario['Liga'];
+
+    // 1. Calcular Buchholz y Ordenar
+    // Buchholz = Suma de puntos de los rivales
+    for (const team of teams) {
+        let buchholz = 0;
+        const playedMatches = allMatches.filter(m =>
+            (m.equipoA.id === team.id || m.equipoB.id === team.id) && m.status === 'finalizado'
+        );
+
+        for (const match of playedMatches) {
+            const rivalId = match.equipoA.id === team.id ? match.equipoB.id : match.equipoA.id;
+            if (rivalId === 'ghost') continue; // Ghost no suma buchholz (o suma 0)
+            const rival = teams.find(t => t.id === rivalId);
+            if (rival) buchholz += rival.stats.pts;
+        }
+        team.stats.buchholz = buchholz;
+    }
+
+    // Ordenar: Puntos > Buchholz > DG > GF
+    teams.sort((a, b) => {
+        if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
+        if (a.stats.buchholz !== b.stats.buchholz) return b.stats.buchholz - a.stats.buchholz;
+        if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
+        return b.stats.gf - a.stats.gf;
+    });
+
+    // 2. Emparejamiento (Pairing)
+    let availableTeams = [...teams];
+    const newMatches = [];
+
+    // Gestión de BYE (Descanso) si es impar
+    if (availableTeams.length % 2 !== 0) {
+        // El descanso se lo lleva el PEOR clasificado que NO haya descansado aún
+        let byeCandidateIndex = availableTeams.length - 1;
+        while (byeCandidateIndex >= 0) {
+            const candidate = availableTeams[byeCandidateIndex];
+            const hasRested = allMatches.some(m =>
+                (m.equipoA.id === candidate.id && m.equipoB.id === 'ghost') ||
+                (m.equipoB.id === candidate.id && m.equipoA.id === 'ghost')
+            );
+
+            if (!hasRested) {
+                // Encontrado
+                const byeTeam = availableTeams.splice(byeCandidateIndex, 1)[0];
+                console.log(`[SWISS] Ronda ${nextRound}: BYE para ${byeTeam.nombre}`);
+
+                const ghostMatch = createMatchObject('Liga', nextRound, byeTeam, { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost' });
+                ghostMatch.status = 'finalizado';
+                ghostMatch.resultado = '1-0';
+
+                // Actualizar stats
+                const teamInDb = teams.find(t => t.id === byeTeam.id);
+                teamInDb.stats.pj += 1;
+                teamInDb.stats.pts += 3;
+                teamInDb.stats.gf += 1;
+                teamInDb.stats.dg += 1;
+
+                newMatches.push(ghostMatch);
+                break;
+            }
+            byeCandidateIndex--;
+        }
+        // Si todos descansaron (raro en swiss corto), le toca al último otra vez
+        if (byeCandidateIndex < 0) {
+            const byeTeam = availableTeams.pop();
+            const ghostMatch = createMatchObject('Liga', nextRound, byeTeam, { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost' });
+            ghostMatch.status = 'finalizado';
+            ghostMatch.resultado = '1-0';
+            // Actualizar stats
+            const teamInDb = teams.find(t => t.id === byeTeam.id);
+            teamInDb.stats.pj += 1; teamInDb.stats.pts += 3; teamInDb.stats.gf += 1; teamInDb.stats.dg += 1;
+            newMatches.push(ghostMatch);
+        }
+    }
+
+    // Emparejar el resto: Top vs Highest Available Non-Played
+    while (availableTeams.length > 0) {
+        const teamA = availableTeams.shift();
+        let opponentIndex = 0;
+        let foundOpponent = false;
+
+        while (opponentIndex < availableTeams.length) {
+            const teamB = availableTeams[opponentIndex];
+
+            // Verificar si ya jugaron
+            const alreadyPlayed = allMatches.some(m =>
+                (m.equipoA.id === teamA.id && m.equipoB.id === teamB.id) ||
+                (m.equipoA.id === teamB.id && m.equipoB.id === teamA.id)
+            );
+
+            if (!alreadyPlayed) {
+                // Match found!
+                availableTeams.splice(opponentIndex, 1);
+                newMatches.push(createMatchObject('Liga', nextRound, teamA, teamB));
+                foundOpponent = true;
+                break;
+            }
+            opponentIndex++;
+        }
+
+        if (!foundOpponent) {
+            // Fallback crítico: Si no encuentra rival (muy raro en swiss grandes, posible en pequeños),
+            // juega con el mejor disponible aunque repita.
+            console.warn(`[SWISS] No se encontró rival único para ${teamA.nombre} en Ronda ${nextRound}. Repitiendo enfrentamiento.`);
+            const teamB = availableTeams.shift();
+            newMatches.push(createMatchObject('Liga', nextRound, teamA, teamB));
+        }
+    }
+
+    // 3. Guardar y Notificar
+    tournament.structure.calendario['Liga'].push(...newMatches);
+    tournament.currentRound = nextRound;
+
+    // Actualizar stats de equipos en DB (por el Buchholz y Byes)
+    tournament.structure.grupos['Liga'].equipos = teams;
+
+    await db.collection('tournaments').updateOne(
+        { _id: tournament._id },
+        {
+            $set: {
+                "structure.calendario.Liga": tournament.structure.calendario['Liga'],
+                "structure.grupos.Liga.equipos": teams,
+                "currentRound": nextRound
+            }
+        }
+    );
+
+    // Crear Hilos para los nuevos partidos
+    const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
+    const embedAnuncio = new EmbedBuilder().setColor('#3498db').setTitle(`📢 ¡Comienza la Jornada ${nextRound}!`).setDescription('Los emparejamientos se han generado basados en la clasificación actual (Sistema Suizo).');
+
+    for (const match of newMatches) {
+        if (match.matchId === 'ghost') continue;
+
+        const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+        match.threadId = threadId;
+        match.status = 'en_curso';
+
+        embedAnuncio.addFields({ name: `Partido`, value: `> ${match.equipoA.nombre} vs ${match.equipoB.nombre}` });
+
+        // Actualizar threadId en DB
+        // (Es un poco ineficiente hacer update por cada uno, pero seguro)
+        // Mejor hacemos un bulk write o actualizamos todo el calendario al final si fuera memoria local,
+        // pero aquí ya guardamos antes. Haremos un update específico.
+        // O simplemente confiamos en que updatePublicMessages refrescará la visual.
+        // Pero necesitamos el threadId en la DB para que funcione el reporte.
+    }
+
+    // Guardar los threadIds
+    await db.collection('tournaments').updateOne(
+        { _id: tournament._id },
+        { $set: { "structure.calendario.Liga": tournament.structure.calendario['Liga'] } }
+    );
+
+    if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
+
+    const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
+    await updatePublicMessages(client, finalTournamentState);
+    await updateTournamentManagementThread(client, finalTournamentState);
+    await notifyTournamentVisualizer(finalTournamentState);
 }
 
 export async function checkForKnockoutAdvancement(client, guild, tournament) {
@@ -3196,6 +3390,104 @@ export async function adminAddPlayerFromWeb(client, draftShortId, teamId, player
     await notifyVisualizer(updatedDraft);
 
     console.log(`[ADMIN] Jugador ${player.psnId} añadido a ${team.name} por ${adminName} desde web.`);
+}
+
+export async function swapTeams(client, tournamentShortId, teamIdA, teamIdB) {
+    const db = getDb();
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) throw new Error('Torneo no encontrado');
+
+    // Verificar estado: Solo si no han empezado o si es inscripción
+    // Si ya hay partidos jugados, es muy peligroso.
+    // Permitiremos hacerlo si NO hay resultados reportados en los partidos de estos equipos.
+
+    // 1. Encontrar equipos y sus grupos
+    let groupA, groupB, indexA, indexB;
+    let teamDataA, teamDataB;
+
+    for (const gName in tournament.structure.grupos) {
+        const g = tournament.structure.grupos[gName];
+        const idx = g.equipos.findIndex(t => t.id === teamIdA);
+        if (idx !== -1) { groupA = gName; indexA = idx; teamDataA = g.equipos[idx]; }
+
+        const idx2 = g.equipos.findIndex(t => t.id === teamIdB);
+        if (idx2 !== -1) { groupB = gName; indexB = idx2; teamDataB = g.equipos[idx2]; }
+    }
+
+    if (!teamDataA || !teamDataB) throw new Error('Uno de los equipos no fue encontrado en los grupos.');
+    if (groupA === groupB) throw new Error('Los equipos ya están en el mismo grupo.');
+
+    // 2. Intercambiar en la estructura de grupos
+    tournament.structure.grupos[groupA].equipos[indexA] = teamDataB;
+    tournament.structure.grupos[groupB].equipos[indexB] = teamDataA;
+
+    // 3. Regenerar Calendario
+    // ADVERTENCIA: Esto borrará los partidos existentes y creará nuevos.
+    // Debemos borrar los hilos antiguos si existen.
+
+    const allMatches = Object.values(tournament.structure.calendario).flat();
+    const hasResults = allMatches.some(m => m.status === 'finalizado' || (m.reportedScores && Object.keys(m.reportedScores).length > 0));
+
+    if (hasResults) {
+        throw new Error('No se pueden intercambiar equipos porque ya hay partidos jugados o reportados. Resetea el torneo primero si es necesario.');
+    }
+
+    // Borrar hilos antiguos
+    for (const match of allMatches) {
+        if (match.threadId) {
+            const thread = await client.channels.fetch(match.threadId).catch(() => null);
+            if (thread) await thread.delete('Regeneración de calendario por intercambio de equipos.').catch(() => { });
+        }
+    }
+
+    // Guardar grupos cambiados
+    await db.collection('tournaments').updateOne(
+        { _id: tournament._id },
+        { $set: { "structure.grupos": tournament.structure.grupos } }
+    );
+
+    // Regenerar calendario llamando a la función existente
+    // Nota: generateGroupBasedSchedule guarda en DB, así que estamos bien.
+    if (tournament.config.formatId === 'flexible_league') {
+        await generateFlexibleLeagueSchedule(tournament);
+    } else {
+        await generateGroupBasedSchedule(tournament);
+    }
+
+    // Re-crear hilos para la jornada 1 (copiado de startGroupStage)
+    const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    const newMatches = Object.values(updatedTournament.structure.calendario).flat();
+    const guild = await client.guilds.fetch(tournament.guildId);
+
+    for (const match of newMatches) {
+        if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
+            const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
+
+            // Actualizar threadId (esto es un poco ineficiente loop, pero seguro)
+            // En generateGroupBasedSchedule ya se guardó el calendario sin threadIds.
+            // Necesitamos actualizarlo.
+            // Para simplificar, buscamos el match en la estructura y lo actualizamos.
+
+            // Hack rápido: Actualizar todo el calendario al final del loop es mejor, pero
+            // createMatchThread tarda tiempo.
+            // Vamos a hacer update one by one por seguridad.
+            const gKey = match.nombreGrupo;
+            const mIdx = updatedTournament.structure.calendario[gKey].findIndex(m => m.matchId === match.matchId);
+            if (mIdx > -1) {
+                await db.collection('tournaments').updateOne(
+                    { _id: updatedTournament._id },
+                    { $set: { [`structure.calendario.${gKey}.${mIdx}.threadId`]: threadId, [`structure.calendario.${gKey}.${mIdx}.status`]: 'en_curso' } }
+                );
+            }
+        }
+    }
+
+    const finalTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    await updatePublicMessages(client, finalTournament);
+    await updateTournamentManagementThread(client, finalTournament);
+    await notifyTournamentVisualizer(finalTournament);
+
+    return { success: true, message: `Equipos intercambiados: ${teamDataA.nombre} <-> ${teamDataB.nombre}` };
 }
 
 export async function adminKickPlayerFromWeb(client, draftShortId, teamId, playerId, adminName) {
