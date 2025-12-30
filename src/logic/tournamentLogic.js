@@ -2494,7 +2494,7 @@ async function generateFlexibleLeagueSchedule(tournament, preserveGroups = false
     }
 
     // Si es modo SWISS (Custom Rounds), solo generamos la Ronda 1
-    if (tournament.config.leagueMode === 'custom') {
+    if (tournament.config.leagueMode === 'custom_rounds') {
         console.log(`[SWISS] Iniciando Sistema Suizo para ${tournament.shortId}. Generando Ronda 1.`);
 
         tournament.structure.grupos['Liga'] = { equipos: teams }; // Guardamos todos (sin ghost aún)
@@ -2643,7 +2643,7 @@ export async function checkForGroupStageAdvancement(client, guild, tournament) {
             console.log(`[ADVANCEMENT] Todos los partidos actuales finalizados para ${tournament.shortId}.`);
 
             // --- LÓGICA SWISS SYSTEM ---
-            if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom') {
+            if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom_rounds') {
                 const totalRounds = parseInt(tournament.config.customRounds) || 3;
                 const currentRound = tournament.currentRound || 1;
 
@@ -3105,7 +3105,7 @@ function sortTeams(a, b, tournament, groupName) {
     if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
 
     // --- TIE-BREAKS PARA SISTEMA SUIZO ---
-    if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom') {
+    if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom_rounds') {
         if (a.stats.buchholz !== b.stats.buchholz) return b.stats.buchholz - a.stats.buchholz;
     }
     // -------------------------------------
