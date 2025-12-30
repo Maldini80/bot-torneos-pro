@@ -365,6 +365,27 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_manual_regenerate') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+
+        try {
+            const { regenerateGroupStage } = await import('../logic/tournamentLogic.js');
+            await regenerateGroupStage(client, tournamentShortId);
+
+            await interaction.editReply({
+                content: '✅ **Calendario Regenerado**\nSe han aplicado todos los cambios y se han creado los nuevos hilos de partido.',
+                components: []
+            });
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({
+                content: `❌ Error al regenerar el calendario: ${error.message}`
+            });
+        }
+        return;
+    }
+
     if (action === 'admin_manual_swap_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;

@@ -268,13 +268,24 @@ export async function handleSelectMenu(interaction) {
         const team2Id = interaction.values[0];
 
         try {
-            // Import swapTeams dynamically to avoid circular dependency issues if any
-            const { swapTeams } = await import('../logic/tournamentLogic.js');
-            const result = await swapTeams(client, tournamentShortId, team1Id, team2Id);
+            // Import dynamically
+            const { swapTeamsDataOnly } = await import('../logic/tournamentLogic.js');
+            const result = await swapTeamsDataOnly(client, tournamentShortId, team1Id, team2Id);
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`admin_manual_swap_start:${tournamentShortId}`)
+                    .setLabel('🔄 Seguir Cambiando')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`admin_manual_regenerate:${tournamentShortId}`)
+                    .setLabel('💾 Guardar y Regenerar Calendario')
+                    .setStyle(ButtonStyle.Success)
+            );
 
             await interaction.editReply({
-                content: `✅ **Intercambio Realizado**\n${result.message}`,
-                components: []
+                content: `✅ **Intercambio Realizado (Solo Datos)**\n${result.message}\n\n⚠️ **IMPORTANTE:** El calendario NO se ha actualizado todavía. Puedes seguir haciendo cambios. Cuando termines, pulsa "Guardar y Regenerar Calendario".`,
+                components: [row]
             });
         } catch (error) {
             console.error(error);

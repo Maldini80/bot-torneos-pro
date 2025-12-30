@@ -2425,25 +2425,32 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     await updateTournamentManagementThread(client, finalTournament);
     await notifyTournamentVisualizer(finalTournament);
 }
-async function generateGroupBasedSchedule(tournament) {
+async function generateGroupBasedSchedule(tournament, preserveGroups = false) {
     const db = getDb();
     tournament.status = 'fase_de_grupos';
     const format = tournament.config.format;
-    let teams = Object.values(tournament.teams.aprobados);
-    teams.sort(() => Math.random() - 0.5);
 
-    const grupos = {};
-    const numGrupos = format.groups;
-    const tamanoGrupo = format.size / numGrupos;
+    let grupos = {};
 
-    for (let i = 0; i < teams.length; i++) {
-        const grupoIndex = Math.floor(i / tamanoGrupo);
-        const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
-        if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
-        teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
-        grupos[nombreGrupo].equipos.push(teams[i]);
+    if (preserveGroups && tournament.structure.grupos) {
+        console.log(`[DEBUG] Regenerando calendario conservando grupos existentes para ${tournament.shortId}`);
+        grupos = tournament.structure.grupos;
+    } else {
+        let teams = Object.values(tournament.teams.aprobados);
+        teams.sort(() => Math.random() - 0.5);
+
+        const numGrupos = format.groups;
+        const tamanoGrupo = format.size / numGrupos;
+
+        for (let i = 0; i < teams.length; i++) {
+            const grupoIndex = Math.floor(i / tamanoGrupo);
+            const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
+            if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
+            teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
+            grupos[nombreGrupo].equipos.push(teams[i]);
+        }
+        tournament.structure.grupos = grupos;
     }
-    tournament.structure.grupos = grupos;
 
     const calendario = {};
     for (const nombreGrupo in grupos) {
@@ -2465,20 +2472,26 @@ async function generateGroupBasedSchedule(tournament) {
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
 }
 
-async function generateFlexibleLeagueSchedule(tournament) {
+async function generateFlexibleLeagueSchedule(tournament, preserveGroups = false) {
     const db = getDb();
     console.log(`[DEBUG LIGA] 1. Iniciando calendario LIGA para ${tournament.shortId}`);
     tournament.status = 'fase_de_grupos';
 
-    let teams = Object.values(tournament.teams.aprobados);
+    let teams;
 
-    // Mezclar equipos aleatoriamente al inicio para evitar sesgos por orden de inscripción
-    teams.sort(() => Math.random() - 0.5);
+    if (preserveGroups && tournament.structure.grupos && tournament.structure.grupos['Liga']) {
+        console.log(`[DEBUG LIGA] Conservando equipos de Liga existentes.`);
+        teams = tournament.structure.grupos['Liga'].equipos;
+    } else {
+        teams = Object.values(tournament.teams.aprobados);
+        // Mezclar equipos aleatoriamente al inicio para evitar sesgos por orden de inscripción
+        teams.sort(() => Math.random() - 0.5);
 
-    // Inicializar stats
-    teams.forEach(team => {
-        team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0, buchholz: 0 }; // Añadido buchholz
-    });
+        // Inicializar stats
+        teams.forEach(team => {
+            team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0, buchholz: 0 }; // Añadido buchholz
+        });
+    }
 
     // Si es modo SWISS (Custom Rounds), solo generamos la Ronda 1
     if (tournament.config.leagueMode === 'custom') {
@@ -2523,6 +2536,10 @@ async function generateFlexibleLeagueSchedule(tournament) {
 
     // --- MODO ALL VS ALL (Round Robin Completo) ---
     // Si es impar, añadimos el equipo fantasma (Descanso) PARA EL ALGORITMO DE POLÍGONO
+    // NOTA: Si preserveGroups es true, el ghostTeam ya podría estar en la lista si se guardó.
+    // Pero en la estructura de grupos NO guardamos al ghost.
+    // Así que siempre hay que recalcular si hace falta ghost para el algoritmo.
+
     if (teams.length % 2 !== 0) {
         const ghostTeam = { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost', stats: {} };
         teams.push(ghostTeam);
@@ -2530,7 +2547,9 @@ async function generateFlexibleLeagueSchedule(tournament) {
 
     const numTeams = teams.length;
 
-    tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
+    if (!preserveGroups) {
+        tournament.structure.grupos['Liga'] = { equipos: teams.filter(t => t.id !== 'ghost') };
+    }
     tournament.structure.calendario['Liga'] = [];
 
     let totalRoundsToGenerate = numTeams - 1;
@@ -3392,14 +3411,18 @@ export async function adminAddPlayerFromWeb(client, draftShortId, teamId, player
     console.log(`[ADMIN] Jugador ${player.psnId} añadido a ${team.name} por ${adminName} desde web.`);
 }
 
-export async function swapTeams(client, tournamentShortId, teamIdA, teamIdB) {
+export async function swapTeamsDataOnly(client, tournamentShortId, teamIdA, teamIdB) {
     const db = getDb();
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     if (!tournament) throw new Error('Torneo no encontrado');
 
     // Verificar estado: Solo si no han empezado o si es inscripción
-    // Si ya hay partidos jugados, es muy peligroso.
-    // Permitiremos hacerlo si NO hay resultados reportados en los partidos de estos equipos.
+    const allMatches = Object.values(tournament.structure.calendario).flat();
+    const hasResults = allMatches.some(m => m.status === 'finalizado' || (m.reportedScores && Object.keys(m.reportedScores).length > 0));
+
+    if (hasResults) {
+        throw new Error('No se pueden intercambiar equipos porque ya hay partidos jugados o reportados. Resetea el torneo primero si es necesario.');
+    }
 
     // 1. Encontrar equipos y sus grupos
     let groupA, groupB, indexA, indexB;
@@ -3421,16 +3444,21 @@ export async function swapTeams(client, tournamentShortId, teamIdA, teamIdB) {
     tournament.structure.grupos[groupA].equipos[indexA] = teamDataB;
     tournament.structure.grupos[groupB].equipos[indexB] = teamDataA;
 
-    // 3. Regenerar Calendario
-    // ADVERTENCIA: Esto borrará los partidos existentes y creará nuevos.
-    // Debemos borrar los hilos antiguos si existen.
+    // 3. Guardar grupos cambiados (SIN REGENERAR CALENDARIO AÚN)
+    await db.collection('tournaments').updateOne(
+        { _id: tournament._id },
+        { $set: { "structure.grupos": tournament.structure.grupos } }
+    );
+
+    return { success: true, message: `Equipos intercambiados: ${teamDataA.nombre} <-> ${teamDataB.nombre}` };
+}
+
+export async function regenerateGroupStage(client, tournamentShortId) {
+    const db = getDb();
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) throw new Error('Torneo no encontrado');
 
     const allMatches = Object.values(tournament.structure.calendario).flat();
-    const hasResults = allMatches.some(m => m.status === 'finalizado' || (m.reportedScores && Object.keys(m.reportedScores).length > 0));
-
-    if (hasResults) {
-        throw new Error('No se pueden intercambiar equipos porque ya hay partidos jugados o reportados. Resetea el torneo primero si es necesario.');
-    }
 
     // Borrar hilos antiguos
     for (const match of allMatches) {
@@ -3440,21 +3468,14 @@ export async function swapTeams(client, tournamentShortId, teamIdA, teamIdB) {
         }
     }
 
-    // Guardar grupos cambiados
-    await db.collection('tournaments').updateOne(
-        { _id: tournament._id },
-        { $set: { "structure.grupos": tournament.structure.grupos } }
-    );
-
     // Regenerar calendario llamando a la función existente
-    // Nota: generateGroupBasedSchedule guarda en DB, así que estamos bien.
     if (tournament.config.formatId === 'flexible_league') {
-        await generateFlexibleLeagueSchedule(tournament);
+        await generateFlexibleLeagueSchedule(tournament, true);
     } else {
-        await generateGroupBasedSchedule(tournament);
+        await generateGroupBasedSchedule(tournament, true);
     }
 
-    // Re-crear hilos para la jornada 1 (copiado de startGroupStage)
+    // Re-crear hilos para la jornada 1
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     const newMatches = Object.values(updatedTournament.structure.calendario).flat();
     const guild = await client.guilds.fetch(tournament.guildId);
@@ -3463,14 +3484,6 @@ export async function swapTeams(client, tournamentShortId, teamIdA, teamIdB) {
         if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
             const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
 
-            // Actualizar threadId (esto es un poco ineficiente loop, pero seguro)
-            // En generateGroupBasedSchedule ya se guardó el calendario sin threadIds.
-            // Necesitamos actualizarlo.
-            // Para simplificar, buscamos el match en la estructura y lo actualizamos.
-
-            // Hack rápido: Actualizar todo el calendario al final del loop es mejor, pero
-            // createMatchThread tarda tiempo.
-            // Vamos a hacer update one by one por seguridad.
             const gKey = match.nombreGrupo;
             const mIdx = updatedTournament.structure.calendario[gKey].findIndex(m => m.matchId === match.matchId);
             if (mIdx > -1) {
@@ -3487,7 +3500,7 @@ export async function swapTeams(client, tournamentShortId, teamIdA, teamIdB) {
     await updateTournamentManagementThread(client, finalTournament);
     await notifyTournamentVisualizer(finalTournament);
 
-    return { success: true, message: `Equipos intercambiados: ${teamDataA.nombre} <-> ${teamDataB.nombre}` };
+    return { success: true, message: 'Calendario regenerado correctamente.' };
 }
 
 export async function adminKickPlayerFromWeb(client, draftShortId, teamId, playerId, adminName) {
