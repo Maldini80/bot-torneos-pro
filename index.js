@@ -51,6 +51,11 @@ client.once(Events.ClientReady, async readyClient => {
         } else {
             console.error(`[CRASH EN READY] No se pudo encontrar el servidor con ID: ${process.env.GUILD_ID}. Verifica las variables de entorno.`);
         }
+
+        // FIX: Force update panels on startup to clear "Busy" state from crashes
+        console.log('[STARTUP] Forzando actualización de paneles para limpiar estados bloqueados...');
+        await setBotBusy(false);
+
     } catch (error) {
         console.error('[CRASH EN READY] Ocurrió un error crítico durante la inicialización:', error);
     }
