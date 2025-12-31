@@ -3128,7 +3128,7 @@ function sortTeams(a, b, tournament, groupName) {
             if (golesA > golesB) return 1;
         }
     }
-    return Math.random() - 0.5;
+    return a.nombre.localeCompare(b.nombre);
 }
 
 export async function handleImportedPlayers(client, draftShortId, text) {
