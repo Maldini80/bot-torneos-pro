@@ -2810,14 +2810,13 @@ async function generateNextSwissRound(client, guild, tournament) {
         }
     }
 
-    // Emparejar el resto: Top vs Highest Available Non-Played
-    while (availableTeams.length > 0) {
-        const teamA = availableTeams.shift();
-        let opponentIndex = 0;
-        let foundOpponent = false;
+    // Emparejar el resto: Búsqueda con Retroceso (Backtracking) para evitar rematches
+    function findPairings(teamsLeft, currentMatches) {
+        if (teamsLeft.length === 0) return currentMatches;
 
-        while (opponentIndex < availableTeams.length) {
-            const teamB = availableTeams[opponentIndex];
+        const teamA = teamsLeft[0];
+        for (let i = 1; i < teamsLeft.length; i++) {
+            const teamB = teamsLeft[i];
 
             // Verificar si ya jugaron
             const alreadyPlayed = allMatches.some(m =>
@@ -2826,21 +2825,47 @@ async function generateNextSwissRound(client, guild, tournament) {
             );
 
             if (!alreadyPlayed) {
-                // Match found!
-                availableTeams.splice(opponentIndex, 1);
-                newMatches.push(createMatchObject('Liga', nextRound, teamA, teamB));
-                foundOpponent = true;
-                break;
+                const remaining = teamsLeft.filter((_, idx) => idx !== 0 && idx !== i);
+                const result = findPairings(remaining, [...currentMatches, createMatchObject('Liga', nextRound, teamA, teamB)]);
+                if (result) return result;
             }
-            opponentIndex++;
         }
+        return null; // No se encontró combinación válida sin repetir
+    }
 
-        if (!foundOpponent) {
-            // Fallback crítico: Si no encuentra rival (muy raro en swiss grandes, posible en pequeños),
-            // juega con el mejor disponible aunque repita.
-            console.warn(`[SWISS] No se encontró rival único para ${teamA.nombre} en Ronda ${nextRound}. Repitiendo enfrentamiento.`);
-            const teamB = availableTeams.shift();
-            newMatches.push(createMatchObject('Liga', nextRound, teamA, teamB));
+    const optimalMatches = findPairings(availableTeams, []);
+
+    if (optimalMatches) {
+        newMatches.push(...optimalMatches);
+    } else {
+        // Fallback crítico: Si no hay solución matemática sin repetir, usamos el greedy antiguo
+        console.warn(`[SWISS] No se encontró una combinación perfecta sin rematches para la Ronda ${nextRound}. Usando fallback.`);
+        let fallbackTeams = [...availableTeams];
+        while (fallbackTeams.length > 0) {
+            const teamA = fallbackTeams.shift();
+            let opponentIndex = 0;
+            let found = false;
+
+            while (opponentIndex < fallbackTeams.length) {
+                const teamB = fallbackTeams[opponentIndex];
+                const alreadyPlayed = allMatches.some(m =>
+                    (m.equipoA.id === teamA.id && m.equipoB.id === teamB.id) ||
+                    (m.equipoA.id === teamB.id && m.equipoB.id === teamA.id)
+                );
+
+                if (!alreadyPlayed) {
+                    fallbackTeams.splice(opponentIndex, 1);
+                    newMatches.push(createMatchObject('Liga', nextRound, teamA, teamB));
+                    found = true;
+                    break;
+                }
+                opponentIndex++;
+            }
+
+            if (!found && fallbackTeams.length > 0) {
+                const teamB = fallbackTeams.shift();
+                newMatches.push(createMatchObject('Liga', nextRound, teamA, teamB));
+            }
         }
     }
 
