@@ -1284,8 +1284,14 @@ export async function approveTeam(client, tournament, teamData) {
                         .setEmoji('🤝')
                 );
 
+                let welcomeContent = `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).`;
+                if (teamData.extraCaptains && teamData.extraCaptains.length > 0) {
+                    const extraPings = teamData.extraCaptains.map(id => `<@${id}>`).join(', ');
+                    welcomeContent = `👋 ¡Bienvenidos, <@${teamData.capitanId}> y ${extraPings}! (${teamData.nombre}).`;
+                }
+
                 await chatChannel.send({
-                    content: `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
+                    content: `${welcomeContent}\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
                     components: [inviteButtonRow]
                 });
 

@@ -1474,13 +1474,7 @@ export async function handleSelectMenu(interaction) {
         const lastStreamUrl = previousTournament ? previousTournament.teams.aprobados[team.managerId]?.streamChannel : null;
 
         // 3. Identificar capitanes adicionales (excluyendo al manager si está en la lista)
-        const allCaptainIds = (team.captains || []).filter(id => id !== team.managerId);
-
-        // El primero será el Co-Capitán oficial (si existe)
-        const coCaptainId = allCaptainIds.length > 0 ? allCaptainIds[0] : null;
-
-        // El resto serán "Extra Captains" con permisos pero sin título oficial de Co-Capitán en DB (por ahora)
-        const extraCaptains = allCaptainIds.length > 1 ? allCaptainIds.slice(1) : [];
+        const extraCaptains = (team.captains || []).filter(id => id !== team.managerId);
         // --- FIN DE LA NUEVA LÓGICA ---
 
 
@@ -1497,29 +1491,17 @@ export async function handleSelectMenu(interaction) {
             streamChannel: lastStreamUrl,
             paypal: null,
             inscritoEn: new Date(),
-            extraCaptains: extraCaptains // Pasamos los capitanes extra
+            extraCaptains: extraCaptains // Pasamos todos los capitanes como extra
         };
 
         try {
             await approveTeam(client, tournament, teamData);
-
-            // Si había un co-capitán identificado, lo añadimos oficialmente ahora
-            if (coCaptainId) {
-                try {
-                    await addCoCaptain(client, tournament, team.managerId, coCaptainId);
-                } catch (err) {
-                    console.error("Error al añadir co-capitán automático:", err);
-                }
-            }
 
             // Mensaje de confirmación mejorado para el admin
             let confirmationMessage = lastStreamUrl
                 ? `✅ El equipo **${team.name}** ha sido inscrito con éxito. Se ha reutilizado su último canal de stream: ${lastStreamUrl}`
                 : `✅ El equipo **${team.name}** ha sido inscrito con éxito. No se encontró un stream anterior para reutilizar.`;
 
-            if (coCaptainId) {
-                confirmationMessage += `\nℹ️ Co-Capitán añadido: <@${coCaptainId}>`;
-            }
             if (extraCaptains.length > 0) {
                 const mentions = extraCaptains.map(id => `<@${id}>`).join(', ');
                 confirmationMessage += `\nℹ️ Capitanes adicionales (permisos): ${mentions}`;
