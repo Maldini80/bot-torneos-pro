@@ -15,19 +15,27 @@ export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
 }
 
 export async function inviteUserToMatchThread(interaction, team) {
-    if (!team.coCaptainId) {
-        return interaction.editReply({ content: 'Tu equipo no tiene un co-capitán asignado.' });
-    }
-
     const thread = interaction.channel;
     if (!thread.isThread()) return;
 
+    const idsToInvite = [];
+    if (team.coCaptainId) idsToInvite.push(team.coCaptainId);
+    if (team.extraCaptains && Array.isArray(team.extraCaptains)) idsToInvite.push(...team.extraCaptains);
+
+    if (idsToInvite.length === 0) {
+        return interaction.editReply({ content: 'Tu equipo no tiene co-capitanes ni capitanes extra asignados.' });
+    }
+
     try {
-        await thread.members.add(team.coCaptainId);
-        await interaction.editReply({ content: `✅ <@${team.coCaptainId}> ha sido invitado a este hilo.` });
+        let invitedCount = 0;
+        for (const id of idsToInvite) {
+            await thread.members.add(id).catch(() => null);
+            invitedCount++;
+        }
+        await interaction.editReply({ content: `✅ Se ha intentado invitar a ${invitedCount} capitanes adicionales al hilo.` });
     } catch (error) {
-        console.error(`Error al invitar al co-capitán ${team.coCaptainId} al hilo ${thread.id}:`, error);
-        await interaction.editReply({ content: '❌ No se pudo invitar al co-capitán. Es posible que ya esté en el hilo.' });
+        console.error(`Error al invitar capitanes al hilo ${thread.id}:`, error);
+        await interaction.editReply({ content: '❌ Hubo un error al invitar a los capitanes.' });
     }
 }
 
@@ -67,34 +75,32 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             }
         };
 
+        // Recopilamos TODOS los IDs de capitanes de ambos equipos
+        const getTeamIds = (team) => {
+            const ids = [];
+            if (team.capitanId) ids.push(team.capitanId);
+            if (team.coCaptainId) ids.push(team.coCaptainId);
+            if (team.extraCaptains && Array.isArray(team.extraCaptains)) {
+                ids.push(...team.extraCaptains);
+            }
+            return ids;
+        };
+
+        const teamAIds = getTeamIds(partido.equipoA);
+        const teamBIds = getTeamIds(partido.equipoB);
+        const allIds = [...teamAIds, ...teamBIds];
+
         // Añadimos a todos los responsables a la vez
-        await Promise.all([
-            addMemberIfReal(partido.equipoA.capitanId),
-            addMemberIfReal(partido.equipoB.capitanId),
-            addMemberIfReal(partido.equipoA.coCaptainId),
-            addMemberIfReal(partido.equipoB.coCaptainId)
-        ]);
+        await Promise.all(allIds.map(id => addMemberIfReal(id)));
 
         // Construimos el string de menciones para el Equipo A
-        let mentionsA = [];
-        if (partido.equipoA.capitanId && /^\d+$/.test(partido.equipoA.capitanId)) {
-            mentionsA.push(`<@${partido.equipoA.capitanId}>`);
-        }
-        if (partido.equipoA.coCaptainId && /^\d+$/.test(partido.equipoA.coCaptainId)) {
-            mentionsA.push(`<@${partido.equipoA.coCaptainId}>`);
-        }
+        const mentionsA = teamAIds.filter(id => /^\d+$/.test(id)).map(id => `<@${id}>`);
 
         // Construimos el string de menciones para el Equipo B
-        let mentionsB = [];
-        if (partido.equipoB.capitanId && /^\d+$/.test(partido.equipoB.capitanId)) {
-            mentionsB.push(`<@${partido.equipoB.capitanId}>`);
-        }
-        if (partido.equipoB.coCaptainId && /^\d+$/.test(partido.equipoB.coCaptainId)) {
-            mentionsB.push(`<@${partido.equipoB.coCaptainId}>`);
-        }
+        const mentionsB = teamBIds.filter(id => /^\d+$/.test(id)).map(id => `<@${id}>`);
 
         // Unimos todo para el mensaje final
-        const mentionString = (mentionsA.join(' y ') || 'Equipo A') + ' vs ' + (mentionsB.join(' y ') || 'Equipo B');
+        const mentionString = (mentionsA.join(' ') || 'Equipo A') + ' vs ' + (mentionsB.join(' ') || 'Equipo B');
         // --- FIN DE LA LÓGICA DE MIEMBROS Y MENCIONES MEJORADA ---
 
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)

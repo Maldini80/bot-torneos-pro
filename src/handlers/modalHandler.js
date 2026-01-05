@@ -975,12 +975,20 @@ export async function handleModal(interaction) {
         const reportedResult = `${golesA}-${golesB}`;
         const reporterId = interaction.user.id;
 
-        // FIX 2: Identificamos correctamente si quien reporta es capitán O co-capitán.
+        // FIX 2: Identificamos correctamente si quien reporta es capitán, co-capitán O capitán extra.
         let myTeam, opponentTeam;
-        if (reporterId === partido.equipoA.capitanId || reporterId === partido.equipoA.coCaptainId) {
+        const isTeamA = reporterId === partido.equipoA.capitanId ||
+            reporterId === partido.equipoA.coCaptainId ||
+            (partido.equipoA.extraCaptains && partido.equipoA.extraCaptains.includes(reporterId));
+
+        const isTeamB = reporterId === partido.equipoB.capitanId ||
+            reporterId === partido.equipoB.coCaptainId ||
+            (partido.equipoB.extraCaptains && partido.equipoB.extraCaptains.includes(reporterId));
+
+        if (isTeamA) {
             myTeam = partido.equipoA;
             opponentTeam = partido.equipoB;
-        } else if (reporterId === partido.equipoB.capitanId || reporterId === partido.equipoB.coCaptainId) {
+        } else if (isTeamB) {
             myTeam = partido.equipoB;
             opponentTeam = partido.equipoA;
         } else {
@@ -990,13 +998,30 @@ export async function handleModal(interaction) {
         partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date() };
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
 
-        // FIX 2 (cont.): Comprobamos si el capitán O el co-capitán del otro equipo ya han reportado.
-        const opponentCaptainReport = partido.reportedScores[opponentTeam.capitanId];
-        const opponentCoCaptainReport = opponentTeam.coCaptainId ? partido.reportedScores[opponentTeam.coCaptainId] : undefined;
-        const opponentReport = opponentCaptainReport || opponentCoCaptainReport;
+        // FIX 2 (cont.): Comprobamos si ALGUIEN del otro equipo ya ha reportado (Capitán, Co-Capitán o Extras).
+        const getTeamCaptainIds = (team) => {
+            const ids = [team.capitanId];
+            if (team.coCaptainId) ids.push(team.coCaptainId);
+            if (team.extraCaptains && Array.isArray(team.extraCaptains)) {
+                ids.push(...team.extraCaptains);
+            }
+            return ids;
+        };
+
+        const opponentCaptainIds = getTeamCaptainIds(opponentTeam);
+        let opponentReport = null;
+        let opponentReporterId = null;
+
+        for (const id of opponentCaptainIds) {
+            if (partido.reportedScores[id]) {
+                opponentReport = partido.reportedScores[id];
+                opponentReporterId = id;
+                break;
+            }
+        }
 
         if (opponentReport) {
-            if (opponentReport && opponentReport.score === reportedResult) {
+            if (opponentReport.score === reportedResult) {
                 // FIX 3: Respondemos INMEDIATAMENTE para evitar el error de "Unknown Message".
                 await interaction.editReply({ content: '✅ Resultados coinciden. Finalizando el partido...' });
 
@@ -1010,19 +1035,14 @@ export async function handleModal(interaction) {
                 const thread = interaction.channel;
                 if (thread.isThread()) await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅🔵]-/g, '')}`.slice(0, 100));
 
-                const opponentReporterId = opponentCaptainReport ? opponentTeam.capitanId : opponentTeam.coCaptainId;
-
                 await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentReporterId}> ha reportado: \`${opponentReport.score}\` ` });
             }
         } else {
-            // FIX 2 (cont.): Construimos el mensaje mencionando a capitán Y co-capitán si existe.
-            let opponentMention = `<@${opponentTeam.capitanId}>`;
-            if (opponentTeam.coCaptainId) {
-                opponentMention += ` o <@${opponentTeam.coCaptainId}>`;
-            }
+            // FIX 2 (cont.): Construimos el mensaje mencionando a todos los líderes del otro equipo.
+            const opponentMentions = opponentCaptainIds.map(id => `<@${id}>`).join(' o ');
 
             await interaction.editReply({ content: '✅ Tu resultado ha sido enviado. Esperando el reporte de tu oponente.' });
-            await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado un resultado de **${reportedResult}**. Esperando la confirmación de ${opponentMention}.`);
+            await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado un resultado de **${reportedResult}**. Esperando la confirmación de ${opponentMentions}.`);
         }
         return;
     }

@@ -1316,6 +1316,34 @@ export async function approveTeam(client, tournament, teamData) {
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes, 'teams.reserva': latestTournament.teams.reserva } });
 
+    // --- INICIO LÓGICA EXTRA CAPTAINS ---
+    if (teamData.extraCaptains && Array.isArray(teamData.extraCaptains) && teamData.extraCaptains.length > 0) {
+        const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
+        const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
+
+        for (const extraCaptainId of teamData.extraCaptains) {
+            if (/^\d+$/.test(extraCaptainId)) {
+                try {
+                    // Dar permisos en los canales del torneo
+                    await chatChannel.permissionOverwrites.edit(extraCaptainId, { ViewChannel: true, SendMessages: true });
+                    await matchesChannel.permissionOverwrites.edit(extraCaptainId, { ViewChannel: true, SendMessages: false });
+
+                    // Notificar al usuario
+                    const user = await client.users.fetch(extraCaptainId);
+                    const embed = new EmbedBuilder()
+                        .setColor('#2ecc71')
+                        .setTitle(`✅ Añadido como Capitán Adicional`)
+                        .setDescription(`Has sido añadido como capitán adicional del equipo **${teamData.nombre}** en el torneo **${latestTournament.nombre}**.\n\nTienes acceso a los canales de chat y partidos para gestionar a tu equipo.`);
+                    await user.send({ embeds: [embed] });
+
+                } catch (e) {
+                    console.error(`Error al procesar extraCaptain ${extraCaptainId}:`, e);
+                }
+            }
+        }
+    }
+    // --- FIN LÓGICA EXTRA CAPTAINS ---
+
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
     await updatePublicMessages(client, updatedTournament);
@@ -1464,6 +1492,23 @@ export async function kickTeam(client, tournament, captainId) {
             await matchesChannel.permissionOverwrites.delete(teamData.coCaptainId, 'Equipo expulsado del torneo');
         } catch (e) { console.error(`No se pudieron revocar los permisos para el co-capitán ${teamData.coCaptainId}:`, e); }
     }
+
+    // --- INICIO LÓGICA EXTRA CAPTAINS (CLEANUP) ---
+    if (teamData.extraCaptains && Array.isArray(teamData.extraCaptains)) {
+        for (const extraCaptainId of teamData.extraCaptains) {
+            if (/^\d+$/.test(extraCaptainId)) {
+                try {
+                    const chatChannel = await client.channels.fetch(tournament.discordChannelIds.chatChannelId);
+                    await chatChannel.permissionOverwrites.delete(extraCaptainId, 'Equipo expulsado del torneo');
+                    const matchesChannel = await client.channels.fetch(tournament.discordChannelIds.matchesChannelId);
+                    await matchesChannel.permissionOverwrites.delete(extraCaptainId, 'Equipo expulsado del torneo');
+                } catch (e) {
+                    console.error(`No se pudieron revocar los permisos para el extraCaptain ${extraCaptainId}:`, e);
+                }
+            }
+        }
+    }
+    // --- FIN LÓGICA EXTRA CAPTAINS (CLEANUP) ---
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.aprobados.${captainId}`]: "" } });
 
