@@ -767,6 +767,13 @@ export function createClassificationEmbed(tournament) {
     }
     const sortTeams = (a, b, groupName) => {
         if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
+
+        // --- TIE-BREAKS PARA SISTEMA SUIZO ---
+        if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom_rounds') {
+            if (a.stats.buchholz !== b.stats.buchholz) return b.stats.buchholz - a.stats.buchholz;
+        }
+        // -------------------------------------
+
         if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
         if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
         const enfrentamiento = tournament.structure.calendario[groupName]?.find(p => p.resultado && ((p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id)));
@@ -775,13 +782,18 @@ export function createClassificationEmbed(tournament) {
             if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
             else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
         }
-        return 0;
+        return a.nombre.localeCompare(b.nombre);
     };
     const sortedGroups = Object.keys(tournament.structure.grupos).sort();
+    const isSwiss = tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom_rounds';
+
     for (const groupName of sortedGroups) {
         const grupo = tournament.structure.grupos[groupName];
         const equiposOrdenados = [...grupo.equipos].sort((a, b) => sortTeams(a, b, groupName));
-        const nameWidth = 16, header = "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  PTS  GF  GC   DG";
+        const nameWidth = 16;
+        const header = isSwiss
+            ? "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  PTS  BH  GF  GC   DG"
+            : "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  PTS  GF  GC   DG";
 
         let currentFieldText = "";
         let part = 1;
@@ -795,7 +807,14 @@ export function createClassificationEmbed(tournament) {
             const dgVal = (e.stats.dg || 0);
             const dg = (dgVal >= 0 ? '+' : '') + dgVal.toString();
             const paddedDg = dg.padStart(4);
-            const row = `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}\n`;
+
+            let row;
+            if (isSwiss) {
+                const bh = (e.stats.buchholz || 0).toString().padStart(3);
+                row = `${teamName}${pj}  ${pts}  ${bh}  ${gf}  ${gc}  ${paddedDg}\n`;
+            } else {
+                row = `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}\n`;
+            }
 
             if (currentFieldText.length + row.length > 900) {
                 embed.addFields({
