@@ -2705,6 +2705,18 @@ export async function checkForGroupStageAdvancement(client, guild, tournament) {
                     // Liberar bloqueo después de generar la siguiente ronda
                     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { advancementLock: "" } });
                     return;
+                } else {
+                    // RECALCULAR BUCHHOLZ FINAL ANTES DE PASAR A ELIMINATORIAS
+                    console.log(`[SWISS] Recalculando Buchholz final para ${tournament.shortId}...`);
+                    const teams = tournament.structure.grupos['Liga'].equipos;
+                    const allMatches = tournament.structure.calendario['Liga'];
+                    calculateBuchholz(teams, allMatches);
+
+                    // Guardar los stats actualizados
+                    await db.collection('tournaments').updateOne(
+                        { _id: tournament._id },
+                        { $set: { "structure.grupos.Liga.equipos": teams } }
+                    );
                 }
             }
             // ---------------------------
@@ -2737,21 +2749,7 @@ async function generateNextSwissRound(client, guild, tournament) {
     const allMatches = tournament.structure.calendario['Liga'];
 
     // 1. Calcular Buchholz y Ordenar
-    // Buchholz = Suma de puntos de los rivales
-    for (const team of teams) {
-        let buchholz = 0;
-        const playedMatches = allMatches.filter(m =>
-            (m.equipoA.id === team.id || m.equipoB.id === team.id) && m.status === 'finalizado'
-        );
-
-        for (const match of playedMatches) {
-            const rivalId = match.equipoA.id === team.id ? match.equipoB.id : match.equipoA.id;
-            if (rivalId === 'ghost') continue; // Ghost no suma buchholz (o suma 0)
-            const rival = teams.find(t => t.id === rivalId);
-            if (rival) buchholz += rival.stats.pts;
-        }
-        team.stats.buchholz = buchholz;
-    }
+    calculateBuchholz(teams, allMatches);
 
     // Ordenar: Puntos > Buchholz > DG > GF
     teams.sort((a, b) => {
@@ -2920,6 +2918,23 @@ async function generateNextSwissRound(client, guild, tournament) {
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
     await notifyTournamentVisualizer(finalTournamentState);
+}
+
+function calculateBuchholz(teams, allMatches) {
+    for (const team of teams) {
+        let buchholz = 0;
+        const playedMatches = allMatches.filter(m =>
+            (m.equipoA.id === team.id || m.equipoB.id === team.id) && m.status === 'finalizado'
+        );
+
+        for (const match of playedMatches) {
+            const rivalId = match.equipoA.id === team.id ? match.equipoB.id : match.equipoA.id;
+            if (rivalId === 'ghost') continue;
+            const rival = teams.find(t => t.id === rivalId);
+            if (rival) buchholz += rival.stats.pts;
+        }
+        team.stats.buchholz = buchholz;
+    }
 }
 
 export async function checkForKnockoutAdvancement(client, guild, tournament) {
