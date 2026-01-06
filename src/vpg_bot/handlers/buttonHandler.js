@@ -466,7 +466,7 @@ const handler = async (client, interaction) => {
 
         // --- LÓGICA AÑADIDA PARA LA PAGINACIÓN DE JUGADORES ---
         if (paginationId === 'invitePlayer') {
-            const allMembers = await guild.members.fetch();
+            const allMembers = guild.members.cache;
             const teamsInServer = await Team.find({ guildId: guild.id }).select('managerId captains players').lean();
             const playersInTeams = new Set(teamsInServer.flatMap(t => [t.managerId, ...t.captains, ...t.players]));
             const eligibleMembers = allMembers.filter(m => !m.user.bot && !playersInTeams.has(m.id));
