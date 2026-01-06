@@ -797,7 +797,7 @@ export function createClassificationEmbed(tournament) {
             const paddedDg = dg.padStart(4);
             const row = `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}\n`;
 
-            if (currentFieldText.length + row.length > 1000) {
+            if (currentFieldText.length + row.length > 900) {
                 embed.addFields({
                     name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`,
                     value: "```\n" + header + "\n" + currentFieldText.trim() + "\n```"
