@@ -782,15 +782,39 @@ export function createClassificationEmbed(tournament) {
         const grupo = tournament.structure.grupos[groupName];
         const equiposOrdenados = [...grupo.equipos].sort((a, b) => sortTeams(a, b, groupName));
         const nameWidth = 16, header = "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  PTS  GF  GC   DG";
-        const table = equiposOrdenados.map(e => {
+
+        let currentFieldText = "";
+        let part = 1;
+
+        for (const e of equiposOrdenados) {
             const teamName = e.nombre.slice(0, nameWidth - 1).padEnd(nameWidth);
-            const pj = (e.stats.pj || 0).toString().padStart(2); const pts = (e.stats.pts || 0).toString().padStart(3);
-            const gf = (e.stats.gf || 0).toString().padStart(3); const gc = (e.stats.gc || 0).toString().padStart(3);
-            const dgVal = (e.stats.dg || 0); const dg = (dgVal >= 0 ? '+' : '') + dgVal.toString();
+            const pj = (e.stats.pj || 0).toString().padStart(2);
+            const pts = (e.stats.pts || 0).toString().padStart(3);
+            const gf = (e.stats.gf || 0).toString().padStart(3);
+            const gc = (e.stats.gc || 0).toString().padStart(3);
+            const dgVal = (e.stats.dg || 0);
+            const dg = (dgVal >= 0 ? '+' : '') + dgVal.toString();
             const paddedDg = dg.padStart(4);
-            return `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}`; // Backticks aqui
-        }).join('\n');
-        embed.addFields({ name: `**${groupName}**`, value: "```\n" + header + "\n" + table + "\n```" }); // Backticks aqui
+            const row = `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}\n`;
+
+            if (currentFieldText.length + row.length > 1000) {
+                embed.addFields({
+                    name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`,
+                    value: "```\n" + header + "\n" + currentFieldText.trim() + "\n```"
+                });
+                currentFieldText = row;
+                part++;
+            } else {
+                currentFieldText += row;
+            }
+        }
+
+        if (currentFieldText.length > 0) {
+            embed.addFields({
+                name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`,
+                value: "```\n" + header + "\n" + currentFieldText.trim() + "\n```"
+            });
+        }
     }
     return { embeds: [embed] };
 }
