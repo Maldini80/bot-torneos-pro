@@ -1386,41 +1386,117 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
     );
 
     // 2. CRÍTICO: Actualizamos los partidos YA EXISTENTES en el calendario
-    if (latestTournament.structure && latestTournament.structure.calendario) {
-        const updatedCalendario = { ...latestTournament.structure.calendario };
+    if (latestTournament.structure) {
         let needsUpdate = false;
-        let updatedCount = 0;
+        const updates = {};
 
-        for (const groupName in updatedCalendario) {
-            updatedCalendario[groupName] = updatedCalendario[groupName].map(match => {
-                let matchUpdated = false;
-                if (match.equipoA.capitanId === captainId) {
-                    match.equipoA.coCaptainId = coCaptainId;
-                    match.equipoA.coCaptainTag = coCaptainUser.tag;
-                    matchUpdated = true;
+        // A. Actualizar Calendario (Fase de Grupos / Liga)
+        if (latestTournament.structure.calendario) {
+            const updatedCalendario = { ...latestTournament.structure.calendario };
+            let calendarUpdated = false;
+
+            for (const groupName in updatedCalendario) {
+                updatedCalendario[groupName] = updatedCalendario[groupName].map(match => {
+                    let matchUpdated = false;
+                    if (match.equipoA.capitanId === captainId) {
+                        match.equipoA.coCaptainId = coCaptainId;
+                        match.equipoA.coCaptainTag = coCaptainUser.tag;
+                        matchUpdated = true;
+                    }
+                    if (match.equipoB.capitanId === captainId) {
+                        match.equipoB.coCaptainId = coCaptainId;
+                        match.equipoB.coCaptainTag = coCaptainUser.tag;
+                        matchUpdated = true;
+                    }
+                    if (matchUpdated) {
+                        calendarUpdated = true;
+                        console.log(`[DEBUG CO-CAPTAIN] Actualizado partido ${match.matchId} (Jornada ${match.jornada}) con nuevo co-capitán ${coCaptainUser.tag}`);
+                    }
+                    return match;
+                });
+            }
+            if (calendarUpdated) {
+                updates["structure.calendario"] = updatedCalendario;
+                needsUpdate = true;
+            }
+        }
+
+        // B. Actualizar Eliminatorias (Knockout Stages)
+        if (latestTournament.structure.eliminatorias) {
+            const updatedEliminatorias = { ...latestTournament.structure.eliminatorias };
+            let eliminatoriasUpdated = false;
+
+            for (const key in updatedEliminatorias) {
+                if (Array.isArray(updatedEliminatorias[key])) { // Es una ronda (ej: 'final', 'semifinales', o array de partidos)
+                    // Nota: 'final' puede ser objeto o array dependiendo de la implementación, pero normalmente las rondas son arrays de partidos.
+                    // Si es objeto único (final), lo metemos en array para procesar igual.
+                    const matches = Array.isArray(updatedEliminatorias[key]) ? updatedEliminatorias[key] : [updatedEliminatorias[key]];
+
+                    const updatedMatches = matches.map(match => {
+                        if (!match) return match;
+                        let matchUpdated = false;
+                        if (match.equipoA && match.equipoA.capitanId === captainId) {
+                            match.equipoA.coCaptainId = coCaptainId;
+                            match.equipoA.coCaptainTag = coCaptainUser.tag;
+                            matchUpdated = true;
+                        }
+                        if (match.equipoB && match.equipoB.capitanId === captainId) {
+                            match.equipoB.coCaptainId = coCaptainId;
+                            match.equipoB.coCaptainTag = coCaptainUser.tag;
+                            matchUpdated = true;
+                        }
+                        if (matchUpdated) eliminatoriasUpdated = true;
+                        return match;
+                    });
+
+                    if (Array.isArray(updatedEliminatorias[key])) {
+                        updatedEliminatorias[key] = updatedMatches;
+                    } else {
+                        updatedEliminatorias[key] = updatedMatches[0];
+                    }
                 }
-                if (match.equipoB.capitanId === captainId) {
-                    match.equipoB.coCaptainId = coCaptainId;
-                    match.equipoB.coCaptainTag = coCaptainUser.tag;
-                    matchUpdated = true;
+            }
+
+            if (eliminatoriasUpdated) {
+                updates["structure.eliminatorias"] = updatedEliminatorias;
+                needsUpdate = true;
+                console.log(`[DEBUG CO-CAPTAIN] Actualizadas eliminatorias con nuevo co-capitán ${coCaptainUser.tag}`);
+            }
+        }
+
+        // C. Actualizar Grupos (Para futuras rondas que copien datos de aquí)
+        if (latestTournament.structure.grupos) {
+            const updatedGrupos = { ...latestTournament.structure.grupos };
+            let gruposUpdated = false;
+
+            for (const groupName in updatedGrupos) {
+                if (updatedGrupos[groupName].equipos) {
+                    updatedGrupos[groupName].equipos = updatedGrupos[groupName].equipos.map(team => {
+                        if (team.capitanId === captainId) {
+                            team.coCaptainId = coCaptainId;
+                            team.coCaptainTag = coCaptainUser.tag;
+                            gruposUpdated = true;
+                        }
+                        return team;
+                    });
                 }
-                if (matchUpdated) {
-                    needsUpdate = true;
-                    updatedCount++;
-                    console.log(`[DEBUG CO-CAPTAIN] Actualizado partido ${match.matchId} (Jornada ${match.jornada}) con nuevo co-capitán ${coCaptainUser.tag}`);
-                }
-                return match;
-            });
+            }
+
+            if (gruposUpdated) {
+                updates["structure.grupos"] = updatedGrupos;
+                needsUpdate = true;
+                console.log(`[DEBUG CO-CAPTAIN] Actualizados grupos con nuevo co-capitán ${coCaptainUser.tag}`);
+            }
         }
 
         if (needsUpdate) {
             await db.collection('tournaments').updateOne(
                 { _id: latestTournament._id },
-                { $set: { "structure.calendario": updatedCalendario } }
+                { $set: updates }
             );
-            console.log(`[SYNC] Co-Capitán ${coCaptainId} inyectado en ${updatedCount} partidos existentes del torneo ${latestTournament.shortId}`);
+            console.log(`[SYNC] Co-Capitán ${coCaptainId} inyectado en todas las estructuras del torneo ${latestTournament.shortId}`);
         } else {
-            console.log(`[SYNC] No se encontraron partidos para actualizar con el co-capitán ${coCaptainId}`);
+            console.log(`[SYNC] No se encontraron estructuras para actualizar con el co-capitán ${coCaptainId}`);
         }
     }
 }
