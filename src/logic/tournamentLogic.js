@@ -1385,6 +1385,21 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     );
 
+    // 1.5. CRÍTICO: Dar permisos al co-capitán en el canal de partidos
+    if (latestTournament.discordChannelIds && latestTournament.discordChannelIds.matchesChannelId) {
+        try {
+            const matchesChannel = await guild.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
+            if (matchesChannel) {
+                await matchesChannel.permissionOverwrites.create(coCaptainId, {
+                    ViewChannel: true
+                });
+                console.log(`[DEBUG] Permisos de ViewChannel otorgados a ${coCaptainUser.tag} en ${matchesChannel.name}`);
+            }
+        } catch (error) {
+            console.error(`[ERROR] No se pudieron actualizar los permisos del canal de partidos para el co-capitán ${coCaptainId}:`, error);
+        }
+    }
+
     // 2. CRÍTICO: Actualizamos los partidos YA EXISTENTES en el calendario
     if (latestTournament.structure) {
         let needsUpdate = false;
