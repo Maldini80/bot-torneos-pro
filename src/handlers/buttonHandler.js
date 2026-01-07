@@ -1599,6 +1599,64 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'create_flexible_league_mode') {
+        const [mode, pendingId] = params;
+
+        if (mode === 'swiss') {
+            const modal = new ModalBuilder()
+                .setCustomId(`create_flexible_league_swiss_rounds:${pendingId}`)
+                .setTitle('Configurar Sistema Suizo');
+
+            const roundsInput = new TextInputBuilder()
+                .setCustomId('swiss_rounds_input')
+                .setLabel('Número de Rondas')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Ej: 3, 4, 5...')
+                .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(roundsInput));
+            await interaction.showModal(modal);
+        } else if (mode === 'round_robin_custom') {
+            const modal = new ModalBuilder()
+                .setCustomId(`create_flexible_league_rr_custom:${pendingId}`)
+                .setTitle('Configurar Liguilla Custom');
+
+            const roundsInput = new TextInputBuilder()
+                .setCustomId('rr_rounds_input')
+                .setLabel('Número de Rondas')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Ej: 5 (Generará 5 jornadas)')
+                .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(roundsInput));
+            await interaction.showModal(modal);
+        } else {
+            // Round Robin Completo (All vs All)
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            const pendingData = await db.collection('pending_tournaments').findOne({ pendingId });
+            if (!pendingData) {
+                return interaction.editReply('❌ Error: Datos no encontrados.');
+            }
+
+            const { nombre, shortId, config } = pendingData;
+            config.leagueMode = 'round_robin';
+
+            try {
+                const result = await createNewTournament(client, guild, nombre, shortId, config);
+                if (result.success) {
+                    await interaction.editReply(`✅ ¡Éxito! El torneo **"${nombre}"** (Liguilla Completa) ha sido creado.`);
+                } else {
+                    await interaction.editReply(`❌ Error: ${result.message}`);
+                }
+                await db.collection('pending_tournaments').deleteOne({ pendingId });
+            } catch (error) {
+                console.error(error);
+                await interaction.editReply('❌ Error crítico.');
+            }
+        }
+        return;
+    }
+
     if (action === 'user_view_participants') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;

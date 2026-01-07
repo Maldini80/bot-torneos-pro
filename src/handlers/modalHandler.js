@@ -726,6 +726,44 @@ export async function handleModal(interaction) {
             config.bizumNumber = bizum ? bizum.trim() : null;
         }
 
+        // --- INTERCEPCIÓN PARA LIGUILLA FLEXIBLE ---
+        if (formatId === 'flexible_league') {
+            const pendingId = `pending_${shortId}_${Date.now()}`;
+            await db.collection('pending_tournaments').insertOne({
+                pendingId,
+                nombre,
+                shortId,
+                config,
+                createdAt: new Date()
+            });
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`create_flexible_league_mode:swiss:${pendingId}`)
+                    .setLabel('Sistema Suizo')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🎲'),
+                new ButtonBuilder()
+                    .setCustomId(`create_flexible_league_mode:round_robin:${pendingId}`)
+                    .setLabel('Liguilla Completa')
+                    .setStyle(ButtonStyle.Success)
+                    .setEmoji('⚔️'),
+                new ButtonBuilder()
+                    .setCustomId(`create_flexible_league_mode:round_robin_custom:${pendingId}`)
+                    .setLabel('Liguilla (Rondas Custom)')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🔢')
+            );
+
+            await interaction.followUp({
+                content: `🛠️ **Configuración de Liguilla Flexible**\nHas elegido el formato flexible. Por favor, selecciona cómo quieres que se juegue:`,
+                components: [row],
+                flags: [MessageFlags.Ephemeral]
+            });
+            return;
+        }
+        // --- FIN INTERCEPCIÓN ---
+
         // --- INICIO DE LA CORRECCIÓN CLAVE ---
         try {
             const result = await createNewTournament(client, guild, nombre, shortId, config);
@@ -1502,6 +1540,64 @@ export async function handleModal(interaction) {
             content: `✅ Encontrados **${filteredTeams.length}** equipos para "**${searchQuery}**".\nSelecciona uno:`,
             components
         });
+        return;
+    }
+
+    if (action === 'create_flexible_league_swiss_rounds') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [pendingId] = params;
+        const rounds = parseInt(interaction.fields.getTextInputValue('swiss_rounds_input'));
+
+        const pendingData = await db.collection('pending_tournaments').findOne({ pendingId });
+        if (!pendingData) {
+            return interaction.editReply('❌ Error: No se encontraron los datos del torneo pendiente.');
+        }
+
+        const { nombre, shortId, config } = pendingData;
+        config.leagueMode = 'custom_rounds';
+        config.customRounds = rounds;
+
+        try {
+            const result = await createNewTournament(client, guild, nombre, shortId, config);
+            if (result.success) {
+                await interaction.editReply(`✅ ¡Éxito! El torneo **"${nombre}"** (Sistema Suizo - ${rounds} rondas) ha sido creado.`);
+            } else {
+                await interaction.editReply(`❌ Error al crear el torneo: ${result.message}`);
+            }
+            await db.collection('pending_tournaments').deleteOne({ pendingId });
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply('❌ Error crítico al crear el torneo.');
+        }
+        return;
+    }
+
+    if (action === 'create_flexible_league_rr_custom') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [pendingId] = params;
+        const rounds = parseInt(interaction.fields.getTextInputValue('rr_rounds_input'));
+
+        const pendingData = await db.collection('pending_tournaments').findOne({ pendingId });
+        if (!pendingData) {
+            return interaction.editReply('❌ Error: No se encontraron los datos del torneo pendiente.');
+        }
+
+        const { nombre, shortId, config } = pendingData;
+        config.leagueMode = 'round_robin_custom';
+        config.customRounds = rounds;
+
+        try {
+            const result = await createNewTournament(client, guild, nombre, shortId, config);
+            if (result.success) {
+                await interaction.editReply(`✅ ¡Éxito! El torneo **"${nombre}"** (Liguilla Custom - ${rounds} rondas) ha sido creado.`);
+            } else {
+                await interaction.editReply(`❌ Error al crear el torneo: ${result.message}`);
+            }
+            await db.collection('pending_tournaments').deleteOne({ pendingId });
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply('❌ Error crítico al crear el torneo.');
+        }
         return;
     }
 }

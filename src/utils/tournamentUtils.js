@@ -91,6 +91,7 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         const allIds = [...teamAIds, ...teamBIds];
 
         // Añadimos a todos los responsables a la vez
+        console.log(`[DEBUG THREAD] Creando hilo para ${partido.matchId}. IDs Equipo A: ${teamAIds.join(', ')}. IDs Equipo B: ${teamBIds.join(', ')}`);
         await Promise.all(allIds.map(id => addMemberIfReal(id)));
 
         // Construimos el string de menciones para el Equipo A
