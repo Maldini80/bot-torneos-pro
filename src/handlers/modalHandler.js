@@ -713,7 +713,13 @@ export async function handleModal(interaction) {
         const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
         const config = { formatId, isPaid: type === 'pago', matchType: matchType };
-        config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
+
+        // Safe read for start time (might be missing in paid flexible leagues)
+        try {
+            config.startTime = interaction.fields.getTextInputValue('torneo_start_time') || null;
+        } catch (e) {
+            config.startTime = null;
+        }
 
         if (config.isPaid) {
             config.entryFee = parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee'));
@@ -728,6 +734,14 @@ export async function handleModal(interaction) {
 
         // --- INTERCEPCIÓN PARA LIGUILLA FLEXIBLE ---
         if (formatId === 'flexible_league') {
+            // Read qualifiers
+            try {
+                const qualifiersVal = interaction.fields.getTextInputValue('torneo_qualifiers');
+                config.qualifiers = parseInt(qualifiersVal) || 0;
+            } catch (e) {
+                config.qualifiers = 0;
+            }
+
             const pendingId = `pending_${shortId}_${Date.now()}`;
             await db.collection('pending_tournaments').insertOne({
                 pendingId,

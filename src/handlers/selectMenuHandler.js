@@ -935,29 +935,52 @@ export async function handleSelectMenu(interaction) {
 
         // --- NUEVA LÓGICA PARA LIGA FLEXIBLE ---
         if (formatId === 'flexible_league') {
-            // En lugar de ir directo al modal, preguntamos el MODO de liga
-            const modeMenu = new StringSelectMenuBuilder()
-                .setCustomId(`admin_select_league_mode:${type}`) // Pasamos si es 'pago' o 'gratis'
-                .setPlaceholder('Paso 3: Configuración de Enfrentamientos')
-                .addOptions([
-                    {
-                        label: '🔄 Todos contra Todos (Liga Completa)',
-                        description: 'Juegan todos contra todos. El bot calcula las jornadas automáticamente.',
-                        value: 'all_vs_all',
-                        emoji: '⚔️'
-                    },
-                    {
-                        label: '🔢 Número de Partidos Fijo',
-                        description: 'Elige tú cuántos partidos juega cada equipo (Ej: solo 3 partidos).',
-                        value: 'custom_rounds',
-                        emoji: '🎲'
-                    }
-                ]);
+            const modal = new ModalBuilder()
+                .setCustomId(`create_tournament:${formatId}:${type}:flexible`)
+                .setTitle('Crear Liguilla Flexible');
 
-            await interaction.update({
-                content: `Has seleccionado Liguilla Flexible (${type === 'pago' ? 'Pago' : 'Gratis'}).\n¿Cómo quieres que sean los enfrentamientos?`,
-                components: [new ActionRowBuilder().addComponents(modeMenu)]
-            });
+            const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+
+            const qualifiersInput = new TextInputBuilder()
+                .setCustomId('torneo_qualifiers')
+                .setLabel("Nº de Equipos que se Clasifican")
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder("Ej: 4 (semis), 8 (cuartos)...")
+                .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
+            modal.addComponents(new ActionRowBuilder().addComponents(qualifiersInput));
+
+            if (type === 'pago') {
+                // Para torneos de pago, sacrificamos el campo de fecha de inicio para que quepan los 5 campos
+                const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
+
+                const prizesInput = new TextInputBuilder()
+                    .setCustomId('torneo_prizes')
+                    .setLabel("Premios: Campeón / Finalista (€)")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+                    .setPlaceholder('Ej: 100/50');
+
+                const paymentMethodsInput = new TextInputBuilder()
+                    .setCustomId('torneo_payment_methods')
+                    .setLabel("Métodos Pago: PayPal / Bizum")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+                    .setPlaceholder('Ej: mi@email.com / 600111222');
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(entryFeeInput),
+                    new ActionRowBuilder().addComponents(prizesInput),
+                    new ActionRowBuilder().addComponents(paymentMethodsInput)
+                );
+            } else {
+                // Si es gratis, sí nos cabe la fecha de inicio
+                const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
+                modal.addComponents(new ActionRowBuilder().addComponents(startTimeInput));
+            }
+
+            await interaction.showModal(modal);
             return;
         }
         // --- FIN NUEVA LÓGICA ---
