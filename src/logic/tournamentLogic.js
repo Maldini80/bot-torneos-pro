@@ -3107,17 +3107,77 @@ export async function startNextKnockoutRound(client, guild, tournament) {
                 const campeon = leagueTeams[0];
                 const subcampeon = leagueTeams[1];
 
-                currentTournament.structure.eliminatorias.final = {
-                    matchId: 'final_virtual',
-                    resultado: '1-0',
-                    equipoA: campeon,
-                    equipoB: subcampeon || campeon,
-                    status: 'finalizado'
-                };
-                currentTournament.structure.eliminatorias.rondaActual = 'final';
+                // Anunciar al campeón directamente sin crear una final
+                const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
+                if (infoChannel) {
+                    const embedCampeon = new EmbedBuilder()
+                        .setColor('#ffd700')
+                        .setTitle(`🎉 ¡Tenemos un Campeón! / We Have a Champion! 🎉`)
+                        .setDescription(`**¡Felicidades a <@${campeon.capitanId}> (${campeon.nombre}) por ganar el torneo ${currentTournament.nombre}!**\n\n🥇 **Campeón:** ${campeon.nombre}\n🥈 **Subcampeón:** ${subcampeon ? subcampeon.nombre : 'N/A'}`)
+                        .setThumbnail('https://i.imgur.com/C5mJg1s.png')
+                        .setTimestamp();
+                    await infoChannel.send({ content: `|| @everyone || <@${campeon.capitanId}>`, embeds: [embedCampeon] });
+                }
 
-                await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
-                await handleFinalResult(client, guild, currentTournament);
+                // Gestionar pagos si es torneo de pago
+                if (currentTournament.config.isPaid) {
+                    const notificationsThread = await client.channels.fetch(currentTournament.discordMessageIds.notificationsThreadId).catch(() => null);
+                    if (notificationsThread) {
+                        const embedPagoCampeon = new EmbedBuilder()
+                            .setColor('#ffd700')
+                            .setTitle('🏆 PAGO PENDIENTE: CAMPEÓN')
+                            .addFields(
+                                { name: 'Equipo', value: campeon.nombre },
+                                { name: 'Capitán', value: campeon.capitanTag },
+                                { name: 'PayPal a Pagar', value: `\`${campeon.paypal}\`` },
+                                { name: 'Premio', value: `${currentTournament.config.prizeCampeon}€` }
+                            );
+                        const rowCampeon = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`admin_prize_paid:${currentTournament.shortId}:${campeon.capitanId}:campeon`)
+                                .setLabel('Marcar Premio Campeón Pagado')
+                                .setStyle(ButtonStyle.Success)
+                                .setEmoji('💰')
+                        );
+                        await notificationsThread.send({ embeds: [embedPagoCampeon], components: [rowCampeon] });
+
+                        if (currentTournament.config.prizeFinalista > 0 && subcampeon) {
+                            const embedPagoFinalista = new EmbedBuilder()
+                                .setColor('#C0C0C0')
+                                .setTitle('🥈 PAGO PENDIENTE: FINALISTA')
+                                .addFields(
+                                    { name: 'Equipo', value: subcampeon.nombre },
+                                    { name: 'Capitán', value: subcampeon.capitanTag },
+                                    { name: 'PayPal a Pagar', value: `\`${subcampeon.paypal}\`` },
+                                    { name: 'Premio', value: `${currentTournament.config.prizeFinalista}€` }
+                                );
+                            const rowFinalista = new ActionRowBuilder().addComponents(
+                                new ButtonBuilder()
+                                    .setCustomId(`admin_prize_paid:${currentTournament.shortId}:${subcampeon.capitanId}:finalista`)
+                                    .setLabel('Marcar Premio Finalista Pagado')
+                                    .setStyle(ButtonStyle.Success)
+                                    .setEmoji('💰')
+                            );
+                            await notificationsThread.send({ embeds: [embedPagoFinalista], components: [rowFinalista] });
+                        }
+                    }
+                }
+
+                // Finalizar el torneo directamente sin crear estructura de final
+                await db.collection('tournaments').updateOne(
+                    { _id: currentTournament._id },
+                    { $set: { status: 'finalizado' } }
+                );
+
+                const updatedTournament = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+
+                postTournamentUpdate('FINALIZADO', updatedTournament).catch(console.error);
+
+                await updateTournamentManagementThread(client, updatedTournament);
+                await updatePublicMessages(client, updatedTournament);
+                await notifyTournamentVisualizer(updatedTournament);
+
+                console.log(`[FINISH] El torneo ${currentTournament.shortId} ha finalizado (Liga Pura - Ganador por liderazgo).`);
                 return;
             }
             // -------------------------------------------
