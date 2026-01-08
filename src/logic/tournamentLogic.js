@@ -1395,18 +1395,33 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         }
     );
 
-    // 1.5. CRÍTICO: Dar permisos al co-capitán en el canal de partidos
-    if (latestTournament.discordChannelIds && latestTournament.discordChannelIds.matchesChannelId) {
+    // 1.5. CRÍTICO: Dar permisos al co-capitán en el canal de partidos y chat
+    if (latestTournament.discordChannelIds) {
+        const { matchesChannelId, chatChannelId } = latestTournament.discordChannelIds;
+
         try {
-            const matchesChannel = await guild.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
-            if (matchesChannel) {
-                await matchesChannel.permissionOverwrites.create(coCaptainId, {
-                    ViewChannel: true
-                });
-                console.log(`[DEBUG] Permisos de ViewChannel otorgados a ${coCaptainUser.tag} en ${matchesChannel.name}`);
+            if (matchesChannelId) {
+                const matchesChannel = await guild.channels.fetch(matchesChannelId).catch(() => null);
+                if (matchesChannel) {
+                    await matchesChannel.permissionOverwrites.create(coCaptainId, { ViewChannel: true });
+                    console.log(`[DEBUG] Permisos de ViewChannel otorgados a ${coCaptainUser.tag} en ${matchesChannel.name}`);
+                }
+            }
+
+            if (chatChannelId) {
+                const chatChannel = await guild.channels.fetch(chatChannelId).catch(() => null);
+                if (chatChannel) {
+                    await chatChannel.permissionOverwrites.create(coCaptainId, { ViewChannel: true, SendMessages: true });
+                    console.log(`[DEBUG] Permisos de Chat otorgados a ${coCaptainUser.tag} en ${chatChannel.name}`);
+
+                    // Mensaje de bienvenida en el chat
+                    await chatChannel.send({
+                        content: `👋 ¡Bienvenido, <@${coCaptainId}>! Has sido añadido como co-capitán del equipo **${team.nombre}**.\n*Welcome! You have been added as co-captain of team **${team.nombre}**.*`
+                    }).catch(() => null);
+                }
             }
         } catch (error) {
-            console.error(`[ERROR] No se pudieron actualizar los permisos del canal de partidos para el co-capitán ${coCaptainId}:`, error);
+            console.error(`[ERROR] No se pudieron actualizar los permisos de canales para el co-capitán ${coCaptainId}:`, error);
         }
     }
 
@@ -1520,6 +1535,46 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                 { $set: updates }
             );
             console.log(`[SYNC] Co-Capitán ${coCaptainId} inyectado en todas las estructuras del torneo ${latestTournament.shortId}`);
+
+            // 3. RETROACTIVO: Añadir al co-capitán a los hilos de partido ya creados
+            const threadIds = new Set();
+
+            // Recopilar hilos de calendario
+            if (updates["structure.calendario"]) {
+                for (const groupName in updates["structure.calendario"]) {
+                    updates["structure.calendario"][groupName].forEach(m => {
+                        if (m.threadId && (m.equipoA.capitanId === captainId || m.equipoB.capitanId === captainId)) {
+                            threadIds.add(m.threadId);
+                        }
+                    });
+                }
+            }
+
+            // Recopilar hilos de eliminatorias
+            if (updates["structure.eliminatorias"]) {
+                for (const key in updates["structure.eliminatorias"]) {
+                    const matches = Array.isArray(updates["structure.eliminatorias"][key]) ? updates["structure.eliminatorias"][key] : [updates["structure.eliminatorias"][key]];
+                    matches.forEach(m => {
+                        if (m && m.threadId && (m.equipoA?.capitanId === captainId || m.equipoB?.capitanId === captainId)) {
+                            threadIds.add(m.threadId);
+                        }
+                    });
+                }
+            }
+
+            if (threadIds.size > 0) {
+                console.log(`[DEBUG CO-CAPTAIN] Añadiendo retroactivamente a ${coCaptainUser.tag} a ${threadIds.size} hilos.`);
+                for (const threadId of threadIds) {
+                    try {
+                        const thread = await client.channels.fetch(threadId).catch(() => null);
+                        if (thread) {
+                            await thread.members.add(coCaptainId).catch(e => console.warn(`No se pudo añadir al co-capitán al hilo ${threadId}: ${e.message}`));
+                        }
+                    } catch (err) {
+                        console.error(`Error al procesar hilo retroactivo ${threadId}:`, err);
+                    }
+                }
+            }
         } else {
             console.log(`[SYNC] No se encontraron estructuras para actualizar con el co-capitán ${coCaptainId}`);
         }
