@@ -113,8 +113,8 @@ export async function simulateAllPendingMatches(client, tournamentShortId) {
 
         const processedMatch = await processMatchResult(client, guild, currentTournamentState, match.matchId, resultString);
 
-        // --- CORRECCIÓN: Eliminar el hilo del partido simulado ---
-        await finalizeMatchThread(client, processedMatch, resultString);
+        // --- CORRECCIÓN: Eliminar el hilo del partido simulado (sin esperar los 10s) ---
+        finalizeMatchThread(client, processedMatch, resultString);
 
         simulatedCount++;
     }
