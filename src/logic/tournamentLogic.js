@@ -1213,21 +1213,51 @@ export async function startGroupStage(client, guild, tournament) {
         const allMatches = Object.values(updatedTournament.structure.calendario).flat();
         for (const match of allMatches) {
             if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
-                const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
-
                 const groupKey = match.nombreGrupo;
                 const matchIndex = updatedTournament.structure.calendario[groupKey].findIndex(m => m.matchId === match.matchId);
 
                 if (matchIndex > -1) {
-                    await db.collection('tournaments').updateOne(
-                        { _id: updatedTournament._id },
+                    const fieldPath = `structure.calendario.${groupKey}.${matchIndex}`;
+
+                    // Bloqueo atómico
+                    const result = await db.collection('tournaments').findOneAndUpdate(
                         {
-                            $set: {
-                                [`structure.calendario.${groupKey}.${matchIndex}.threadId`]: threadId,
-                                [`structure.calendario.${groupKey}.${matchIndex}.status`]: 'en_curso'
-                            }
-                        }
+                            _id: updatedTournament._id,
+                            [`${fieldPath}.threadId`]: null,
+                            [`${fieldPath}.status`]: { $ne: 'en_curso' }
+                        },
+                        { $set: { [`${fieldPath}.status`]: 'creando_hilo' } },
+                        { returnDocument: 'after' }
                     );
+
+                    if (!result) continue;
+
+                    try {
+                        const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
+
+                        if (threadId) {
+                            await db.collection('tournaments').updateOne(
+                                { _id: updatedTournament._id },
+                                {
+                                    $set: {
+                                        [`${fieldPath}.threadId`]: threadId,
+                                        [`${fieldPath}.status`]: 'en_curso'
+                                    }
+                                }
+                            );
+                        } else {
+                            await db.collection('tournaments').updateOne(
+                                { _id: updatedTournament._id },
+                                { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                            );
+                        }
+                    } catch (error) {
+                        console.error(`[ERROR] Fallo al crear hilo en startGroupStage para ${match.matchId}:`, error);
+                        await db.collection('tournaments').updateOne(
+                            { _id: updatedTournament._id },
+                            { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                        );
+                    }
                 }
             }
         }
@@ -2574,9 +2604,33 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
     }
 
     for (const partido of Object.values(calendario).flat().filter(p => p.jornada === 1)) {
-        const threadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
-        partido.threadId = threadId;
-        partido.status = 'en_curso';
+        const fieldPath = `structure.calendario.${partido.nombreGrupo}.${calendario[partido.nombreGrupo].findIndex(m => m.matchId === partido.matchId)}`;
+
+        // Bloqueo atómico
+        const result = await db.collection('tournaments').findOneAndUpdate(
+            {
+                _id: tournament._id,
+                [`${fieldPath}.threadId`]: null,
+                [`${fieldPath}.status`]: { $ne: 'en_curso' }
+            },
+            { $set: { [`${fieldPath}.status`]: 'creando_hilo' } },
+            { returnDocument: 'after' }
+        );
+
+        if (!result) continue;
+
+        try {
+            const threadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+            if (threadId) {
+                partido.threadId = threadId;
+                partido.status = 'en_curso';
+            } else {
+                partido.status = 'pendiente';
+            }
+        } catch (error) {
+            console.error(`[ERROR] Fallo al crear hilo en finalizeRoulette para ${partido.matchId}:`, error);
+            partido.status = 'pendiente';
+        }
     }
 
     await db.collection('tournaments').updateOne(
@@ -3076,9 +3130,30 @@ export async function checkForKnockoutAdvancement(client, guild, tournament) {
     const allFinished = partidosRonda && partidosRonda.every(p => p && p.status === 'finalizado');
 
     if (allFinished) {
-        console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
-        postTournamentUpdate('KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament }).catch(console.error);
-        await startNextKnockoutRound(client, guild, tournament);
+        // --- BLOQUEO ATÓMICO PARA EVITAR DOBLE AVANCE ---
+        const db = getDb();
+        const lockResult = await db.collection('tournaments').updateOne(
+            { _id: tournament._id, status: tournament.status, advancementLock: { $ne: true } },
+            { $set: { advancementLock: true } }
+        );
+
+        if (lockResult.modifiedCount === 0) {
+            console.log(`[ADVANCEMENT] Avance eliminatorio ya en curso para ${tournament.shortId}.`);
+            return;
+        }
+
+        try {
+            console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
+            postTournamentUpdate('KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament }).catch(console.error);
+            await startNextKnockoutRound(client, guild, tournament);
+
+            // Liberar bloqueo al final
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { advancementLock: "" } });
+        } catch (error) {
+            console.error(`[ADVANCEMENT ERROR] Error en el avance de fase eliminatoria:`, error);
+            // Liberar bloqueo en caso de error
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { advancementLock: "" } });
+        }
     }
 }
 
@@ -3788,15 +3863,46 @@ export async function regenerateGroupStage(client, tournamentShortId) {
 
     for (const match of newMatches) {
         if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
-            const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
-
             const gKey = match.nombreGrupo;
             const mIdx = updatedTournament.structure.calendario[gKey].findIndex(m => m.matchId === match.matchId);
+
             if (mIdx > -1) {
-                await db.collection('tournaments').updateOne(
-                    { _id: updatedTournament._id },
-                    { $set: { [`structure.calendario.${gKey}.${mIdx}.threadId`]: threadId, [`structure.calendario.${gKey}.${mIdx}.status`]: 'en_curso' } }
+                const fieldPath = `structure.calendario.${gKey}.${mIdx}`;
+
+                // Bloqueo atómico
+                const result = await db.collection('tournaments').findOneAndUpdate(
+                    {
+                        _id: updatedTournament._id,
+                        [`${fieldPath}.threadId`]: null,
+                        [`${fieldPath}.status`]: { $ne: 'en_curso' }
+                    },
+                    { $set: { [`${fieldPath}.status`]: 'creando_hilo' } },
+                    { returnDocument: 'after' }
                 );
+
+                if (!result) continue;
+
+                try {
+                    const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
+
+                    if (threadId) {
+                        await db.collection('tournaments').updateOne(
+                            { _id: updatedTournament._id },
+                            { $set: { [`${fieldPath}.threadId`]: threadId, [`${fieldPath}.status`]: 'en_curso' } }
+                        );
+                    } else {
+                        await db.collection('tournaments').updateOne(
+                            { _id: updatedTournament._id },
+                            { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                        );
+                    }
+                } catch (error) {
+                    console.error(`[ERROR] Fallo al crear hilo en regenerateGroupStage para ${match.matchId}:`, error);
+                    await db.collection('tournaments').updateOne(
+                        { _id: updatedTournament._id },
+                        { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                    );
+                }
             }
         }
     }

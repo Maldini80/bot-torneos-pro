@@ -179,13 +179,62 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
     for (const teamId of teamsInCompletedMatch) {
         const nextMatch = allMatchesInGroup.find(p => p.jornada === nextJornadaNum && (p.equipoA.id === teamId || p.equipoB.id === teamId));
         if (!nextMatch || nextMatch.threadId || nextMatch.status === 'finalizado' || nextMatch.equipoA.id === 'ghost' || nextMatch.equipoB.id === 'ghost') continue;
+
         const opponentId = nextMatch.equipoA.id === teamId ? nextMatch.equipoB.id : nextMatch.equipoA.id;
         const opponentCurrentMatch = allMatchesInGroup.find(p => p.jornada === completedMatch.jornada && (p.equipoA.id === opponentId || p.equipoB.id === opponentId));
+
         if (opponentCurrentMatch && opponentCurrentMatch.status === 'finalizado') {
-            const threadId = await createMatchThread(client, guild, nextMatch, currentTournamentState.discordChannelIds.matchesChannelId, currentTournamentState.shortId);
+            // --- MEJORA: Bloqueo atómico para evitar hilos duplicados ---
             const matchIndex = allMatchesInGroup.findIndex(m => m.matchId === nextMatch.matchId);
-            if (matchIndex > -1) {
-                await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`structure.calendario.${nextMatch.nombreGrupo}.${matchIndex}.threadId`]: threadId, [`structure.calendario.${nextMatch.nombreGrupo}.${matchIndex}.status`]: 'en_curso' } });
+            if (matchIndex === -1) continue;
+
+            const fieldPath = `structure.calendario.${nextMatch.nombreGrupo}.${matchIndex}`;
+
+            // Intentamos marcar el partido como "creando_hilo" de forma atómica
+            // Solo si el threadId es null y el status no es 'en_curso' ni 'finalizado'
+            const result = await db.collection('tournaments').findOneAndUpdate(
+                {
+                    _id: tournament._id,
+                    [`${fieldPath}.threadId`]: null,
+                    [`${fieldPath}.status`]: { $ne: 'en_curso' }
+                },
+                {
+                    $set: { [`${fieldPath}.status`]: 'creando_hilo' }
+                },
+                { returnDocument: 'after' }
+            );
+
+            if (!result) {
+                console.log(`[DEBUG] El hilo para el partido ${nextMatch.matchId} ya está siendo creado o ya existe. Saltando.`);
+                continue;
+            }
+
+            try {
+                const threadId = await createMatchThread(client, guild, nextMatch, currentTournamentState.discordChannelIds.matchesChannelId, currentTournamentState.shortId);
+
+                if (threadId) {
+                    await db.collection('tournaments').updateOne(
+                        { _id: tournament._id },
+                        {
+                            $set: {
+                                [`${fieldPath}.threadId`]: threadId,
+                                [`${fieldPath}.status`]: 'en_curso'
+                            }
+                        }
+                    );
+                } else {
+                    // Si falló la creación del hilo, revertimos el estado para que se pueda reintentar
+                    await db.collection('tournaments').updateOne(
+                        { _id: tournament._id },
+                        { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                    );
+                }
+            } catch (error) {
+                console.error(`[ERROR] Fallo al crear hilo atómico para ${nextMatch.matchId}:`, error);
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                );
             }
         }
     }
