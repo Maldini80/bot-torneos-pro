@@ -3062,32 +3062,74 @@ async function generateNextSwissRound(client, guild, tournament) {
         }
     );
 
-    // Crear Hilos para los nuevos partidos
+    // Crear Hilos para los nuevos partidos CON BLOQUEO ATÓMICO
     const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
     const embedAnuncio = new EmbedBuilder().setColor('#3498db').setTitle(`📢 ¡Comienza la Jornada ${nextRound}!`).setDescription('Los emparejamientos se han generado basados en la clasificación actual (Sistema Suizo).');
 
-    for (const match of newMatches) {
+    // Recargamos el torneo para asegurar que tenemos la estructura más reciente en memoria (aunque acabamos de guardar)
+    // Esto es importante para tener los índices correctos si algo cambió milimétricamente, aunque aquí controlamos el flujo.
+    // Para eficiencia, usaremos los índices de 'newMatches' sobre el array 'tournament.structure.calendario.Liga' que acabamos de pushear.
+
+    // El índice de inicio de los nuevos partidos es:
+    const startIndex = tournament.structure.calendario['Liga'].length - newMatches.length;
+
+    for (let i = 0; i < newMatches.length; i++) {
+        const match = newMatches[i];
         if (match.matchId === 'ghost') continue;
 
-        const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
-        match.threadId = threadId;
-        match.status = 'en_curso';
+        const matchIndex = startIndex + i;
+        const fieldPath = `structure.calendario.Liga.${matchIndex}`;
+
+        // Intentamos bloquear el partido para creación de hilo
+        const result = await db.collection('tournaments').findOneAndUpdate(
+            {
+                _id: tournament._id,
+                [`${fieldPath}.matchId`]: match.matchId, // Doble check de seguridad
+                [`${fieldPath}.threadId`]: null,
+                [`${fieldPath}.status`]: { $ne: 'en_curso' }
+            },
+            { $set: { [`${fieldPath}.status`]: 'creando_hilo' } },
+            { returnDocument: 'after' }
+        );
+
+        if (!result) {
+            console.log(`[SWISS] El hilo para ${match.matchId} ya está siendo creado por otro proceso. Saltando.`);
+            continue;
+        }
+
+        try {
+            const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+
+            if (threadId) {
+                match.threadId = threadId;
+                match.status = 'en_curso';
+
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    {
+                        $set: {
+                            [`${fieldPath}.threadId`]: threadId,
+                            [`${fieldPath}.status`]: 'en_curso'
+                        }
+                    }
+                );
+            } else {
+                // Revertir estado si falla
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                );
+            }
+        } catch (error) {
+            console.error(`[ERROR] Fallo al crear hilo SWISS para ${match.matchId}:`, error);
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+            );
+        }
 
         embedAnuncio.addFields({ name: `Partido`, value: `> ${match.equipoA.nombre} vs ${match.equipoB.nombre}` });
-
-        // Actualizar threadId en DB
-        // (Es un poco ineficiente hacer update por cada uno, pero seguro)
-        // Mejor hacemos un bulk write o actualizamos todo el calendario al final si fuera memoria local,
-        // pero aquí ya guardamos antes. Haremos un update específico.
-        // O simplemente confiamos en que updatePublicMessages refrescará la visual.
-        // Pero necesitamos el threadId en la DB para que funcione el reporte.
     }
-
-    // Guardar los threadIds
-    await db.collection('tournaments').updateOne(
-        { _id: tournament._id },
-        { $set: { "structure.calendario.Liga": tournament.structure.calendario['Liga'] } }
-    );
 
     if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
 
@@ -3346,15 +3388,67 @@ export async function startNextKnockoutRound(client, guild, tournament) {
     const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
     const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRondaNombre}! 🔥`).setFooter({ text: '¡Mucha suerte!' });
 
+    // Guardamos la estructura con los partidos en estado 'pendiente' ANTES de crear hilos
+    await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
+
     for (const [i, p] of partidos.entries()) {
-        const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
-        p.threadId = threadId;
-        p.status = 'en_curso';
+        let fieldPath;
+        if (siguienteRondaKey === 'final') {
+            fieldPath = `structure.eliminatorias.final`;
+        } else {
+            fieldPath = `structure.eliminatorias.${siguienteRondaKey}.${i}`;
+        }
+
+        // Bloqueo atómico
+        const result = await db.collection('tournaments').findOneAndUpdate(
+            {
+                _id: currentTournament._id,
+                [`${fieldPath}.matchId`]: p.matchId,
+                [`${fieldPath}.threadId`]: null,
+                [`${fieldPath}.status`]: { $ne: 'en_curso' }
+            },
+            { $set: { [`${fieldPath}.status`]: 'creando_hilo' } },
+            { returnDocument: 'after' }
+        );
+
+        if (!result) {
+            console.log(`[KNOCKOUT] Hilo para ${p.matchId} ya gestionado por otro proceso.`);
+            continue;
+        }
+
+        try {
+            const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
+
+            if (threadId) {
+                p.threadId = threadId;
+                p.status = 'en_curso';
+
+                await db.collection('tournaments').updateOne(
+                    { _id: currentTournament._id },
+                    {
+                        $set: {
+                            [`${fieldPath}.threadId`]: threadId,
+                            [`${fieldPath}.status`]: 'en_curso'
+                        }
+                    }
+                );
+            } else {
+                await db.collection('tournaments').updateOne(
+                    { _id: currentTournament._id },
+                    { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                );
+            }
+        } catch (error) {
+            console.error(`[ERROR] Fallo al crear hilo knockout para ${p.matchId}:`, error);
+            await db.collection('tournaments').updateOne(
+                { _id: currentTournament._id },
+                { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+            );
+        }
+
         embedAnuncio.addFields({ name: `Enfrentamiento ${i + 1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
     }
     if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
-
-    await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
     await notifyTournamentVisualizer(finalTournamentState);
     await updatePublicMessages(client, finalTournamentState);
