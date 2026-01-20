@@ -194,6 +194,12 @@ export async function handleSelectMenu(interaction) {
                     if (stageData.equipoA.id === teamId || stageData.equipoB.id === teamId) {
                         teamMatches.push({ ...stageData, context: stageKey.replace(/_/g, ' ').toUpperCase() });
                     }
+
+                    await interaction.editReply({
+                        content: `Partidos de **${team.nombre}** (Ordenados por Jornada):\nSelecciona uno para editar/poner su resultado.`,
+                        components: [new ActionRowBuilder().addComponents(selectMenu)]
+                    });
+                    return;
                 }
             }
         }
@@ -204,15 +210,16 @@ export async function handleSelectMenu(interaction) {
 
         // --- SORTING LOGIC ---
         // Helper to extract number from "Jornada X" or "Ronda X"
-        const getRoundNumber = (context) => {
-            const match = context.match(/(\d+)/);
-            return match ? parseInt(match[1]) : 999; // 999 for unknown rounds to put them at end
+        const getRoundNumber = (match) => {
+            if (match.jornada) return parseInt(match.jornada);
+            const contextMatch = match.context.match(/(\d+)/);
+            return contextMatch ? parseInt(contextMatch[1]) : 999;
         };
 
         teamMatches.sort((a, b) => {
-            // 1. Sort by Context (Jornada 1 < Jornada 2)
-            const roundA = getRoundNumber(a.context);
-            const roundB = getRoundNumber(b.context);
+            // 1. Sort by Round/Jornada
+            const roundA = getRoundNumber(a);
+            const roundB = getRoundNumber(b);
             if (roundA !== roundB) return roundA - roundB;
 
             // 2. If same round, sort by matchId
@@ -224,8 +231,9 @@ export async function handleSelectMenu(interaction) {
 
         const matchOptions = matchesToShow.map(m => {
             // Label: [Jornada X] Local vs Visitante
-            // We use the full names to be super clear
-            const label = `[${m.context}] ${m.equipoA.nombre} vs ${m.equipoB.nombre}`;
+            // We try to use m.jornada if available, otherwise context
+            const roundLabel = m.jornada ? `Jornada ${m.jornada}` : m.context;
+            const label = `[${roundLabel}] ${m.equipoA.nombre} vs ${m.equipoB.nombre}`;
 
             // Description: Result or Pending
             const resultStatus = m.status === 'finalizado' ? `✅ ${m.resultado}` : '⏳ Pendiente';
