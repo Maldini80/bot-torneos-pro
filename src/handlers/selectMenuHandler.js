@@ -117,15 +117,62 @@ export async function handleSelectMenu(interaction) {
             return interaction.editReply({ content: 'Error: Torneo no encontrado.', components: [] });
         }
 
-        let allMatches = [];
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+
+        if (approvedTeams.length === 0) {
+            return interaction.editReply({ content: '❌ No hay equipos aprobados en este torneo.', components: [] });
+        }
+
+        // Sort teams alphabetically
+        approvedTeams.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        // Pagination logic if needed, but for now let's assume < 25 or just show first 25
+        // If we have more than 25 teams, we might need pagination, but let's start simple as requested
+        // or just slice 25.
+        const teamsToShow = approvedTeams.slice(0, 25);
+
+        const teamOptions = teamsToShow.map(t => ({
+            label: t.nombre,
+            description: `Manager: ${t.capitanTag}`,
+            value: t.id // This is usually the managerId/captainId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_team_manual_results:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el EQUIPO para ver sus partidos')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: `Selecciona un **Equipo** del torneo **${tournament.nombre}** para ver su lista de partidos (jugados y pendientes):`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'admin_select_team_manual_results') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const teamId = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        if (!tournament) {
+            return interaction.editReply({ content: 'Error: Torneo no encontrado.', components: [] });
+        }
+
+        const team = tournament.teams.aprobados[teamId];
+        if (!team) {
+            return interaction.editReply({ content: 'Error: Equipo no encontrado.', components: [] });
+        }
+
+        let teamMatches = [];
 
         // 1. Collect matches from Group Stage
         if (tournament.structure.calendario) {
             for (const groupName in tournament.structure.calendario) {
                 const groupMatches = tournament.structure.calendario[groupName];
                 groupMatches.forEach(m => {
-                    if (m.status !== 'finalizado') {
-                        allMatches.push({ ...m, context: `Grupo ${groupName}` });
+                    if (m.equipoA.id === teamId || m.equipoB.id === teamId) {
+                        teamMatches.push({ ...m, context: `Grupo ${groupName}` });
                     }
                 });
             }
@@ -139,33 +186,37 @@ export async function handleSelectMenu(interaction) {
 
                 if (Array.isArray(stageData)) {
                     stageData.forEach(m => {
-                        if (m && m.status !== 'finalizado') {
-                            allMatches.push({ ...m, context: stageKey.replace(/_/g, ' ').toUpperCase() });
+                        if (m && (m.equipoA.id === teamId || m.equipoB.id === teamId)) {
+                            teamMatches.push({ ...m, context: stageKey.replace(/_/g, ' ').toUpperCase() });
                         }
                     });
                 } else if (stageData && typeof stageData === 'object' && stageData.matchId) {
-                    if (stageData.status !== 'finalizado') {
-                        allMatches.push({ ...stageData, context: stageKey.replace(/_/g, ' ').toUpperCase() });
+                    if (stageData.equipoA.id === teamId || stageData.equipoB.id === teamId) {
+                        teamMatches.push({ ...stageData, context: stageKey.replace(/_/g, ' ').toUpperCase() });
                     }
                 }
             }
         }
 
-        if (allMatches.length === 0) {
-            return interaction.editReply({ content: '✅ No hay partidos pendientes de resultado en este torneo.', components: [] });
+        if (teamMatches.length === 0) {
+            return interaction.editReply({ content: `❌ El equipo **${team.nombre}** no tiene partidos asignados todavía.`, components: [] });
         }
 
-        // Sort matches by ID or context to keep order
-        allMatches.sort((a, b) => a.matchId.localeCompare(b.matchId));
+        // Sort matches by ID (chronological usually)
+        teamMatches.sort((a, b) => a.matchId.localeCompare(b.matchId));
 
-        // Pagination or slicing (limit 25)
-        const matchesToShow = allMatches.slice(0, 25);
+        // Slice to 25 just in case
+        const matchesToShow = teamMatches.slice(0, 25);
 
-        const matchOptions = matchesToShow.map(m => ({
-            label: `${m.equipoA.nombre} vs ${m.equipoB.nombre}`.slice(0, 100),
-            description: `${m.context} | ID: ${m.matchId}`.slice(0, 100),
-            value: m.matchId
-        }));
+        const matchOptions = matchesToShow.map(m => {
+            const rival = m.equipoA.id === teamId ? m.equipoB.nombre : m.equipoA.nombre;
+            const resultStatus = m.status === 'finalizado' ? `✅ ${m.resultado}` : '⏳ Pendiente';
+            return {
+                label: `vs ${rival}`,
+                description: `${m.context} | ${resultStatus}`,
+                value: m.matchId
+            };
+        });
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`admin_select_match_manual_results:${tournamentShortId}`)
@@ -173,7 +224,7 @@ export async function handleSelectMenu(interaction) {
             .addOptions(matchOptions);
 
         await interaction.editReply({
-            content: `Se han encontrado **${allMatches.length}** partidos pendientes. Mostrando los primeros 25.\nSelecciona uno para introducir el resultado manualmente:`,
+            content: `Partidos de **${team.nombre}**:\nSelecciona uno para editar/poner su resultado (incluso si ya se jugó).`,
             components: [new ActionRowBuilder().addComponents(selectMenu)]
         });
         return;
