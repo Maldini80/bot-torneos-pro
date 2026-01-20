@@ -202,18 +202,40 @@ export async function handleSelectMenu(interaction) {
             return interaction.editReply({ content: `❌ El equipo **${team.nombre}** no tiene partidos asignados todavía.`, components: [] });
         }
 
-        // Sort matches by ID (chronological usually)
-        teamMatches.sort((a, b) => a.matchId.localeCompare(b.matchId));
+        // --- SORTING LOGIC ---
+        // Helper to extract number from "Jornada X" or "Ronda X"
+        const getRoundNumber = (context) => {
+            const match = context.match(/(\d+)/);
+            return match ? parseInt(match[1]) : 999; // 999 for unknown rounds to put them at end
+        };
+
+        teamMatches.sort((a, b) => {
+            // 1. Sort by Context (Jornada 1 < Jornada 2)
+            const roundA = getRoundNumber(a.context);
+            const roundB = getRoundNumber(b.context);
+            if (roundA !== roundB) return roundA - roundB;
+
+            // 2. If same round, sort by matchId
+            return a.matchId.localeCompare(b.matchId);
+        });
 
         // Slice to 25 just in case
         const matchesToShow = teamMatches.slice(0, 25);
 
         const matchOptions = matchesToShow.map(m => {
-            const rival = m.equipoA.id === teamId ? m.equipoB.nombre : m.equipoA.nombre;
+            // Label: [Jornada X] Local vs Visitante
+            // We use the full names to be super clear
+            const label = `[${m.context}] ${m.equipoA.nombre} vs ${m.equipoB.nombre}`;
+
+            // Description: Result or Pending
             const resultStatus = m.status === 'finalizado' ? `✅ ${m.resultado}` : '⏳ Pendiente';
+
+            // Truncate label if too long (Discord limit is 100)
+            const safeLabel = label.length > 100 ? label.substring(0, 97) + '...' : label;
+
             return {
-                label: `vs ${rival}`,
-                description: `${m.context} | ${resultStatus}`,
+                label: safeLabel,
+                description: resultStatus,
                 value: m.matchId
             };
         });
@@ -224,7 +246,7 @@ export async function handleSelectMenu(interaction) {
             .addOptions(matchOptions);
 
         await interaction.editReply({
-            content: `Partidos de **${team.nombre}**:\nSelecciona uno para editar/poner su resultado (incluso si ya se jugó).`,
+            content: `Partidos de **${team.nombre}** (Ordenados por Jornada):\nSelecciona uno para editar/poner su resultado.`,
             components: [new ActionRowBuilder().addComponents(selectMenu)]
         });
         return;
