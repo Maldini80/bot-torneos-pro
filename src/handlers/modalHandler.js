@@ -164,6 +164,40 @@ export async function handleModal(interaction) {
         return;
     }
 
+    if (action === 'admin_manual_result_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId, matchId] = params;
+        const homeGoals = parseInt(interaction.fields.getTextInputValue('home_goals'));
+        const awayGoals = parseInt(interaction.fields.getTextInputValue('away_goals'));
+
+        if (isNaN(homeGoals) || isNaN(awayGoals) || homeGoals < 0 || awayGoals < 0) {
+            return interaction.editReply({ content: '❌ Los goles deben ser números válidos y no negativos.' });
+        }
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.editReply({ content: '❌ Torneo no encontrado.' });
+        }
+
+        try {
+            const resultString = `${homeGoals}-${awayGoals}`;
+            await processMatchResult(client, guild, tournament, matchId, resultString);
+
+            // Try to find the match to get team names for the confirmation message
+            // Note: processMatchResult might have updated the tournament structure in DB, 
+            // but we can use the local 'tournament' object to find names if structure hasn't drastically changed,
+            // or fetch again if needed. For names, the old object is fine usually.
+            const { partido } = findMatch(tournament, matchId);
+            const matchDesc = partido ? `${partido.equipoA.nombre} vs ${partido.equipoB.nombre}` : matchId;
+
+            await interaction.editReply({ content: `✅ Resultado actualizado correctamente para **${matchDesc}**: **${resultString}**` });
+        } catch (error) {
+            console.error("Error al procesar resultado manual:", error);
+            await interaction.editReply({ content: `❌ Error al actualizar el resultado: ${error.message}` });
+        }
+        return;
+    }
+
     if (action === 'admin_edit_team_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId, captainId] = params;

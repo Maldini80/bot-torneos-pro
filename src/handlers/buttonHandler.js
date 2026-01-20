@@ -439,6 +439,32 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_panel_manual_results') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const activeTournaments = await db.collection('tournaments').find({ status: { $ne: 'finalizado' } }).toArray();
+
+        if (activeTournaments.length === 0) {
+            return interaction.editReply({ content: 'No hay torneos activos para gestionar resultados.' });
+        }
+
+        const tournamentOptions = activeTournaments.map(t => ({
+            label: t.nombre,
+            description: `Estado: ${t.status} | ID: ${t.shortId}`,
+            value: t.shortId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('admin_select_tournament_manual_results')
+            .setPlaceholder('Selecciona un torneo para gestionar resultados')
+            .addOptions(tournamentOptions);
+
+        await interaction.editReply({
+            content: 'Selecciona el torneo donde quieres gestionar resultados manualmente:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
     if (action.startsWith('admin_panel_')) {
         try {
             const view = action.split('_')[2];

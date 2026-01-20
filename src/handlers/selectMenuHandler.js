@@ -107,6 +107,110 @@ export async function handleSelectMenu(interaction) {
     // --- LÓGICA ORIGINAL DEL BOT ---
     // =======================================================
 
+    // --- MANUAL RESULT MANAGEMENT LOGIC ---
+    if (action === 'admin_select_tournament_manual_results') {
+        await interaction.deferUpdate();
+        const tournamentShortId = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        if (!tournament) {
+            return interaction.editReply({ content: 'Error: Torneo no encontrado.', components: [] });
+        }
+
+        let allMatches = [];
+
+        // 1. Collect matches from Group Stage
+        if (tournament.structure.calendario) {
+            for (const groupName in tournament.structure.calendario) {
+                const groupMatches = tournament.structure.calendario[groupName];
+                groupMatches.forEach(m => {
+                    if (m.status !== 'finalizado') {
+                        allMatches.push({ ...m, context: `Grupo ${groupName}` });
+                    }
+                });
+            }
+        }
+
+        // 2. Collect matches from Knockout Stage
+        if (tournament.structure.eliminatorias) {
+            for (const stageKey in tournament.structure.eliminatorias) {
+                if (stageKey === 'rondaActual') continue;
+                const stageData = tournament.structure.eliminatorias[stageKey];
+
+                if (Array.isArray(stageData)) {
+                    stageData.forEach(m => {
+                        if (m && m.status !== 'finalizado') {
+                            allMatches.push({ ...m, context: stageKey.replace(/_/g, ' ').toUpperCase() });
+                        }
+                    });
+                } else if (stageData && typeof stageData === 'object' && stageData.matchId) {
+                    if (stageData.status !== 'finalizado') {
+                        allMatches.push({ ...stageData, context: stageKey.replace(/_/g, ' ').toUpperCase() });
+                    }
+                }
+            }
+        }
+
+        if (allMatches.length === 0) {
+            return interaction.editReply({ content: '✅ No hay partidos pendientes de resultado en este torneo.', components: [] });
+        }
+
+        // Sort matches by ID or context to keep order
+        allMatches.sort((a, b) => a.matchId.localeCompare(b.matchId));
+
+        // Pagination or slicing (limit 25)
+        const matchesToShow = allMatches.slice(0, 25);
+
+        const matchOptions = matchesToShow.map(m => ({
+            label: `${m.equipoA.nombre} vs ${m.equipoB.nombre}`.slice(0, 100),
+            description: `${m.context} | ID: ${m.matchId}`.slice(0, 100),
+            value: m.matchId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_match_manual_results:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el partido para poner resultado')
+            .addOptions(matchOptions);
+
+        await interaction.editReply({
+            content: `Se han encontrado **${allMatches.length}** partidos pendientes. Mostrando los primeros 25.\nSelecciona uno para introducir el resultado manualmente:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'admin_select_match_manual_results') {
+        const [tournamentShortId] = params;
+        const matchId = interaction.values[0];
+
+        // We show a modal directly
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_manual_result_modal:${tournamentShortId}:${matchId}`)
+            .setTitle('Introducir Resultado Manual');
+
+        const homeGoalsInput = new TextInputBuilder()
+            .setCustomId('home_goals')
+            .setLabel("Goles LOCAL (Equipo A)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: 2")
+            .setRequired(true);
+
+        const awayGoalsInput = new TextInputBuilder()
+            .setCustomId('away_goals')
+            .setLabel("Goles VISITANTE (Equipo B)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: 1")
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(homeGoalsInput),
+            new ActionRowBuilder().addComponents(awayGoalsInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
     if (action === 'admin_edit_team_select') {
         const [tournamentShortId] = params;
         const captainId = interaction.values[0]; // El ID del capitán del equipo seleccionado

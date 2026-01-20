@@ -98,7 +98,8 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
             const mainRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_panel_tournaments').setLabel('Gestionar Torneos').setStyle(ButtonStyle.Success).setEmoji('🏆'),
                 new ButtonBuilder().setCustomId('admin_panel_drafts').setLabel('Gestionar Drafts').setStyle(ButtonStyle.Primary).setEmoji('📝'),
-                new ButtonBuilder().setCustomId('admin_panel_settings').setLabel('Ajustes Globales').setStyle(ButtonStyle.Secondary).setEmoji('⚙️')
+                new ButtonBuilder().setCustomId('admin_panel_settings').setLabel('Ajustes Globales').setStyle(ButtonStyle.Secondary).setEmoji('⚙️'),
+                new ButtonBuilder().setCustomId('admin_panel_manual_results').setLabel('Gestionar Resultados Manuales').setStyle(ButtonStyle.Danger).setEmoji('🛠️')
             );
             components.push(mainRow);
             break;
