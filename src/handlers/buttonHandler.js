@@ -2859,3 +2859,120 @@ export async function handleButton(interaction) {
         return;
     }
 }
+// --- LÓGICA DE PAGO PARA TORNEOS ---
+if (action === 'payment_confirm_start') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) return interaction.editReply('❌ Este torneo ya no existe.');
+
+    const notificationsChannel = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
+    if (!notificationsChannel) return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
+
+    const userId = interaction.user.id;
+    const pendingData = tournament.teams.pendingPayments ? tournament.teams.pendingPayments[userId] : null;
+
+    if (!pendingData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
+
+    // Pedimos el PayPal/Bizum al usuario para facilitar la comprobación
+    const modal = new ModalBuilder()
+        .setCustomId(`payment_confirm_submit:${tournamentShortId}`)
+        .setTitle('Confirmar Pago');
+
+    const refInput = new TextInputBuilder()
+        .setCustomId('payment_ref_input')
+        .setLabel("Tu PayPal/Bizum (para comprobar)")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(refInput));
+    await interaction.showModal(modal);
+    return;
+}
+
+if (action === 'payment_confirm_submit') {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    const [tournamentShortId] = params;
+    const ref = interaction.fields.getTextInputValue('payment_ref_input');
+    const userId = interaction.user.id;
+
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const pendingData = tournament.teams.pendingPayments[userId];
+    const notificationsChannel = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId);
+
+    const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago: ${tournament.nombre}`).addFields(
+        { name: 'Usuario', value: `<@${userId}> (${pendingData.userTag})`, inline: true },
+        { name: 'Equipo', value: pendingData.teamName, inline: true },
+        { name: "Referencia de Pago", value: `\`${ref}\``, inline: false },
+        { name: "Plataforma", value: pendingData.platform.toUpperCase(), inline: true }
+    );
+    const adminButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`admin_approve_payment:${tournamentShortId}:${userId}`).setLabel('Aprobar Pago').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`admin_reject_payment:${tournamentShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+    );
+
+    await notificationsChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
+    await interaction.editReply('✅ ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.');
+    return;
+}
+
+if (action === 'admin_approve_payment') {
+    await interaction.deferUpdate();
+    const [tournamentShortId, userId] = params;
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    const pendingData = tournament.teams.pendingPayments[userId];
+
+    if (!pendingData) {
+        return interaction.followUp({ content: '❌ Error: No se encontraron los datos pendientes de este usuario.', flags: [MessageFlags.Ephemeral] });
+    }
+
+    // Construimos el objeto de equipo final
+    const teamData = {
+        id: userId, // En torneos de pago, el ID del equipo es el ID del usuario que paga
+        nombre: pendingData.teamName,
+        eafcTeamName: pendingData.eafcTeamName,
+        capitanId: userId,
+        capitanTag: pendingData.userTag,
+        coCaptainId: null,
+        coCaptainTag: null,
+        logoUrl: pendingData.logoUrl,
+        twitter: pendingData.twitter,
+        streamChannel: pendingData.streamChannel,
+        paypal: null, // Ya pagó
+        inscritoEn: new Date(),
+        isPaid: true
+    };
+
+    // Borramos de pendientes y aprobamos directamente
+    await db.collection('tournaments').updateOne(
+        { _id: tournament._id },
+        {
+            $unset: { [`teams.pendingPayments.${userId}`]: "" }
+        }
+    );
+
+    // Usamos approveTeam para gestionar la entrada oficial
+    await approveTeam(client, tournament, teamData);
+
+    await interaction.editReply({ content: `✅ Pago aprobado para **${pendingData.teamName}**. El equipo ha sido inscrito.`, components: [] });
+    return;
+}
+
+if (action === 'admin_reject_payment') {
+    await interaction.deferUpdate();
+    const [tournamentShortId, userId] = params;
+
+    await db.collection('tournaments').updateOne(
+        { shortId: tournamentShortId },
+        { $unset: { [`teams.pendingPayments.${userId}`]: "" } }
+    );
+
+    try {
+        const user = await client.users.fetch(userId);
+        await user.send(`❌ Tu pago para el torneo ha sido rechazado. Por favor, contacta con un administrador si crees que es un error.`);
+    } catch (e) { }
+
+    await interaction.editReply({ content: `❌ Pago rechazado. La pre-inscripción ha sido eliminada.`, components: [] });
+    return;
+}
+}

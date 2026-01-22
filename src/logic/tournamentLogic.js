@@ -1411,6 +1411,45 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         return;
     }
 
+    // --- INICIO LÓGICA REEMPLAZO CO-CAPITÁN ---
+    if (team.coCaptainId) {
+        const oldCoCaptainId = team.coCaptainId;
+        console.log(`[INFO] Reemplazando co-capitán anterior: ${oldCoCaptainId}`);
+
+        // 1. Notificar al antiguo co-capitán
+        try {
+            const oldCoCaptainUser = await client.users.fetch(oldCoCaptainId);
+            const kickEmbed = new EmbedBuilder()
+                .setColor('#e74c3c')
+                .setTitle(`⚠️ Reemplazo de Co-Capitanía`)
+                .setDescription(`Has sido reemplazado como co-capitán del equipo **${team.nombre}** en el torneo **${latestTournament.nombre}** porque el capitán ha invitado a otra persona.\n\nYa no tienes acceso a los canales de gestión del equipo.`);
+            await oldCoCaptainUser.send({ embeds: [kickEmbed] });
+        } catch (e) {
+            console.warn(`No se pudo notificar al antiguo co-capitán ${oldCoCaptainId} de su expulsión.`);
+        }
+
+        // 2. Quitar permisos de canales (Chat y Partidos)
+        if (latestTournament.discordChannelIds) {
+            const { matchesChannelId, chatChannelId } = latestTournament.discordChannelIds;
+            try {
+                if (matchesChannelId) {
+                    const matchesChannel = await guild.channels.fetch(matchesChannelId).catch(() => null);
+                    if (matchesChannel) await matchesChannel.permissionOverwrites.delete(oldCoCaptainId).catch(() => { });
+                }
+                if (chatChannelId) {
+                    const chatChannel = await guild.channels.fetch(chatChannelId).catch(() => null);
+                    if (chatChannel) await chatChannel.permissionOverwrites.delete(oldCoCaptainId).catch(() => { });
+                }
+            } catch (error) {
+                console.error(`Error al quitar permisos al antiguo co-capitán ${oldCoCaptainId}:`, error);
+            }
+        }
+
+        // 3. Limpiar base de datos (se hace en el $set/$unset de abajo, pero es bueno tenerlo en cuenta)
+        // La actualización de MongoDB más abajo sobrescribirá 'coCaptainId' y 'coCaptainTag', así que eso es automático.
+    }
+    // --- FIN LÓGICA REEMPLAZO CO-CAPITÁN ---
+
     // 1. Actualizamos la ficha general del equipo en la base de datos
     await db.collection('tournaments').updateOne(
         { _id: latestTournament._id },

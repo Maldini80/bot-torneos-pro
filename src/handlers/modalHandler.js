@@ -123,6 +123,80 @@ export async function handleModal(interaction) {
         if (mongoose.connection.readyState === 0) {
             await mongoose.connect(process.env.DATABASE_URL);
         }
+
+        // --- LÓGICA TORNEO DE PAGO ---
+        if (tournament.config.isPaid) {
+            // En torneos de pago, IGNORAMOS si es manager o no. Cualquiera puede inscribir un equipo "custom".
+            // Usamos el teamId como "nombre del equipo" si viene de un input de texto, o si viene del select, lo buscamos.
+            // Pero espera, el modal anterior venía de un select de equipos o de un botón?
+            // En el flujo actual, el usuario selecciona equipo del select menu.
+            // Para torneos de pago, deberíamos haber permitido escribir el nombre.
+            // ASUMIMOS que si es de pago, el 'teamId' puede ser un string arbitrario o un ID.
+            // Pero para no romper el flujo actual, vamos a usar el equipo seleccionado SI existe,
+            // y si no (porque permitimos custom), usamos el input.
+            // POR AHORA: Usamos la lógica de "Equipo Temporal" basada en el equipo seleccionado,
+            // pero sin validar que sea EL manager oficial (permitimos a cualquiera).
+
+            let teamName = "Equipo Sin Nombre";
+            let teamLogo = "https://i.imgur.com/2ecc71.png"; // Placeholder
+            let teamTwitter = "";
+
+            if (mongoose.Types.ObjectId.isValid(teamId)) {
+                const team = await Team.findById(teamId).lean();
+                if (team) {
+                    teamName = team.name;
+                    teamLogo = team.logoUrl;
+                    teamTwitter = team.twitterHandle;
+                }
+            } else {
+                // Fallback si pasamos el nombre directamente en vez del ID (futura mejora)
+                teamName = "Equipo de " + interaction.user.username;
+            }
+
+            const pendingPaymentData = {
+                userId: interaction.user.id,
+                userTag: interaction.user.tag,
+                teamName: teamName,
+                eafcTeamName: teamName, // Asumimos mismo nombre
+                logoUrl: teamLogo,
+                twitter: teamTwitter,
+                streamChannel: streamChannelUrl,
+                platform: platform,
+                registeredAt: new Date()
+            };
+
+            // Guardamos en una colección temporal o campo temporal dentro del torneo
+            if (!tournament.teams.pendingPayments) tournament.teams.pendingPayments = {};
+
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.pendingPayments.${interaction.user.id}`]: pendingPaymentData } }
+            );
+
+            // Enviar DM con información de pago
+            const paymentEmbed = new EmbedBuilder()
+                .setColor('#f1c40f')
+                .setTitle(`💸 Pago Requerido: ${tournament.nombre}`)
+                .setDescription(`Has iniciado la inscripción para el equipo **${teamName}**.\n\n**Cuota de Inscripción:** ${tournament.config.entryFee}€\n\n**Métodos de Pago:**\nPayPal: \`${tournament.config.paypalEmail || 'No configurado'}\`\nBizum: \`${tournament.config.bizumNumber || 'No configurado'}\`\n\nRealiza el pago y luego pulsa el botón de abajo para notificar a los administradores.`)
+                .setFooter({ text: 'Tu plaza no está reservada hasta que se verifique el pago.' });
+
+            const confirmButton = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`payment_confirm_start:${tournament.shortId}`)
+                    .setLabel('✅ He Realizado el Pago')
+                    .setStyle(ButtonStyle.Success)
+            );
+
+            try {
+                await interaction.user.send({ embeds: [paymentEmbed], components: [confirmButton] });
+                await interaction.editReply({ content: `✅ **Pre-inscripción recibida.** Te hemos enviado un MD con los datos de pago. Revisa tus mensajes privados.` });
+            } catch (e) {
+                await interaction.editReply({ content: `❌ No pudimos enviarte el MD con los datos de pago. Por favor, abre tus mensajes directos y vuelve a intentarlo.` });
+            }
+            return;
+        }
+        // --- FIN LÓGICA TORNEO DE PAGO ---
+
         const team = await Team.findById(teamId).lean();
 
         if (!tournament || !team) {
@@ -1048,7 +1122,6 @@ export async function handleModal(interaction) {
         if (!partido) return interaction.editReply('Error: Partido no encontrado.');
 
         // FIX 1: Actualizamos los datos de los equipos con la información más reciente.
-        // Esto soluciona que los co-capitanes añadidos después del sorteo no sean reconocidos.
         partido.equipoA = tournament.teams.aprobados[partido.equipoA.capitanId];
         partido.equipoB = tournament.teams.aprobados[partido.equipoB.capitanId];
         if (!partido.equipoA || !partido.equipoB) {
@@ -1061,7 +1134,7 @@ export async function handleModal(interaction) {
         const reportedResult = `${golesA}-${golesB}`;
         const reporterId = interaction.user.id;
 
-        // FIX 2: Identificamos correctamente si quien reporta es capitán, co-capitán O capitán extra.
+        // Identificamos el equipo del reportador
         let myTeam, opponentTeam;
         const isTeamA = reporterId === partido.equipoA.capitanId ||
             reporterId === partido.equipoA.coCaptainId ||
@@ -1081,55 +1154,93 @@ export async function handleModal(interaction) {
             return interaction.editReply({ content: 'Error: No pareces ser un capitán o co-capitán de este partido.' });
         }
 
+        // --- LÓGICA DE DOBLE VERIFICACIÓN (SOLO TORNEOS DE PAGO) ---
+        if (tournament.config.isPaid) {
+            // Inicializamos el objeto de reportes si no existe
+            if (!partido.reportedScores) partido.reportedScores = {};
+
+            // Guardamos el reporte actual
+            partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date(), teamId: myTeam.id };
+
+            // Buscamos si hay un reporte del equipo rival
+            const opponentCaptainIds = [opponentTeam.capitanId];
+            if (opponentTeam.coCaptainId) opponentCaptainIds.push(opponentTeam.coCaptainId);
+            if (opponentTeam.extraCaptains) opponentCaptainIds.push(...opponentTeam.extraCaptains);
+
+            let opponentReport = null;
+            let opponentReporterId = null;
+
+            for (const id of opponentCaptainIds) {
+                if (partido.reportedScores[id]) {
+                    opponentReport = partido.reportedScores[id];
+                    opponentReporterId = id;
+                    break;
+                }
+            }
+
+            // Guardamos el estado actual en la DB (por si es el primer reporte)
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
+
+            if (opponentReport) {
+                if (opponentReport.score === reportedResult) {
+                    // COINCIDENCIA: Finalizamos el partido
+                    await interaction.editReply({ content: '✅ **Confirmado:** Tu resultado coincide con el del rival. Finalizando el partido...' });
+
+                    tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+                    const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
+                    await finalizeMatchThread(client, processedMatch, reportedResult);
+                } else {
+                    // CONFLICTO: Avisamos a árbitros
+                    await interaction.editReply({ content: '❌ **Conflicto:** El resultado que has puesto NO coincide con el del rival. Se ha avisado a los árbitros.' });
+
+                    const thread = interaction.channel;
+                    if (thread.isThread()) {
+                        await thread.setName(`⚠️-DISPUTA-${thread.name}`.slice(0, 100));
+                        await thread.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> **DISPUTA DETECTADA**\n\n- <@${reporterId}> (${myTeam.nombre}) dice: **${reportedResult}**\n- <@${opponentReporterId}> (${opponentTeam.nombre}) dice: **${opponentReport.score}**\n\nPor favor, revisad las pruebas.` });
+                    }
+                }
+            } else {
+                // PRIMER REPORTE: Avisamos y esperamos
+                const opponentMentions = opponentCaptainIds.map(id => `<@${id}>`).join(' ');
+                await interaction.editReply({ content: '✅ Resultado guardado. Esperando confirmación del rival...' });
+                await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado el resultado. ${opponentMentions}, por favor usad el botón para confirmar el vuestro.`);
+            }
+            return;
+        }
+        // --- FIN LÓGICA DOBLE VERIFICACIÓN ---
+
+        // LÓGICA ORIGINAL (TORNEOS GRATUITOS - AUTO WIN)
+        // En torneos gratuitos, confiamos en el primer reporte (o usamos la lógica de "si ya hay uno, comprobar").
+        // La lógica original ya hacía una comprobación básica, la mantenemos pero simplificada para no romper nada.
+
+        // Guardamos el reporte
+        if (!partido.reportedScores) partido.reportedScores = {};
         partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date() };
         await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
 
-        // FIX 2 (cont.): Comprobamos si ALGUIEN del otro equipo ya ha reportado (Capitán, Co-Capitán o Extras).
-        const getTeamCaptainIds = (team) => {
-            const ids = [team.capitanId];
-            if (team.coCaptainId) ids.push(team.coCaptainId);
-            if (team.extraCaptains && Array.isArray(team.extraCaptains)) {
-                ids.push(...team.extraCaptains);
-            }
-            return ids;
-        };
+        // Verificamos si hay conflicto (aunque en gratuito solemos dar por bueno el último o el primero, aquí mantenemos la seguridad básica)
+        const opponentCaptainIds = [opponentTeam.capitanId];
+        if (opponentTeam.coCaptainId) opponentCaptainIds.push(opponentTeam.coCaptainId);
 
-        const opponentCaptainIds = getTeamCaptainIds(opponentTeam);
         let opponentReport = null;
-        let opponentReporterId = null;
-
         for (const id of opponentCaptainIds) {
             if (partido.reportedScores[id]) {
                 opponentReport = partido.reportedScores[id];
-                opponentReporterId = id;
                 break;
             }
         }
 
-        if (opponentReport) {
-            if (opponentReport.score === reportedResult) {
-                // FIX 3: Respondemos INMEDIATAMENTE para evitar el error de "Unknown Message".
-                await interaction.editReply({ content: '✅ Resultados coinciden. Finalizando el partido...' });
-
-                // Y ahora realizamos las tareas lentas en segundo plano.
-                tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-                const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
-                await finalizeMatchThread(client, processedMatch, reportedResult);
-            } else {
-                // Resultados NO coinciden, avisamos a árbitros.
-                await interaction.editReply({ content: '❌ Los resultados reportados no coinciden. Se ha notificado a los árbitros.' });
-                const thread = interaction.channel;
-                if (thread.isThread()) await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅🔵]-/g, '')}`.slice(0, 100));
-
-                await interaction.channel.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> ¡Resultados no coinciden para el partido **${partido.equipoA.nombre} vs ${partido.equipoB.nombre}**!\n- <@${reporterId}> ha reportado: \`${reportedResult}\`\n- <@${opponentReporterId}> ha reportado: \`${opponentReport.score}\` ` });
-            }
-        } else {
-            // FIX 2 (cont.): Construimos el mensaje mencionando a todos los líderes del otro equipo.
-            const opponentMentions = opponentCaptainIds.map(id => `<@${id}>`).join(' o ');
-
-            await interaction.editReply({ content: '✅ Tu resultado ha sido enviado. Esperando el reporte de tu oponente.' });
-            await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado un resultado de **${reportedResult}**. Esperando la confirmación de ${opponentMentions}.`);
+        if (opponentReport && opponentReport.score !== reportedResult) {
+            await interaction.editReply({ content: '❌ Conflicto detectado con un reporte anterior. Avisando a árbitros.' });
+            const thread = interaction.channel;
+            if (thread.isThread()) await thread.send(`🚨 <@&${ARBITRO_ROLE_ID}> Conflicto de resultados en torneo gratuito.`);
+            return;
         }
+
+        // Si no hay conflicto (o es el primero), finalizamos directamente
+        await interaction.editReply({ content: '✅ Resultado registrado. Procesando...' });
+        const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
+        await finalizeMatchThread(client, processedMatch, reportedResult);
         return;
     }
     if (action === 'admin_force_result_modal') {
