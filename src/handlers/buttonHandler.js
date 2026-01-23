@@ -1567,39 +1567,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-    if (action === 'admin_assign_cocaptain_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) {
-            return interaction.editReply('Error: Torneo no encontrado.');
-        }
 
-        const teamsWithoutCoCaptain = Object.values(tournament.teams.aprobados).filter(team => !team.coCaptainId);
-
-        if (teamsWithoutCoCaptain.length === 0) {
-            return interaction.editReply('Todos los equipos de este torneo ya tienen un co-capitán o no hay equipos.');
-        }
-
-        const teamSelectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_assign_cocap_team_select:${tournamentShortId}`)
-            .setPlaceholder('Paso 1: Selecciona el equipo')
-            .addOptions(
-                teamsWithoutCoCaptain.map(team => ({
-                    label: team.nombre,
-                    description: `Capitán: ${team.capitanTag}`,
-                    value: team.capitanId,
-                }))
-            );
-
-        const row = new ActionRowBuilder().addComponents(teamSelectMenu);
-
-        await interaction.editReply({
-            content: 'Por favor, selecciona el equipo al que deseas asignarle un co-capitán:',
-            components: [row],
-        });
-        return;
-    }
 
     if (action === 'admin_update_channel_status') {
         const channelSelectMenu = new StringSelectMenuBuilder()
