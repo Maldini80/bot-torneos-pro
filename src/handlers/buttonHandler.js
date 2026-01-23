@@ -1872,8 +1872,8 @@ export async function handleButton(interaction) {
                 const user = await client.users.fetch(captainId);
                 const fallbackEmbed = new EmbedBuilder()
                     .setColor('#2ecc71')
-                    .setTitle(`✅ Pago Aprobado: ${tournament.nombre}`)
-                    .setDescription(`Tu pago ha sido verificado y tu equipo **${teamData.nombre}** ha sido aceptado en el torneo.\n\n¡Mucha suerte!`);
+                    .setTitle(`✅ Pago Aprobado / Payment Approved`)
+                    .setDescription(`🇪🇸 Tu pago ha sido verificado y tu equipo **${teamData.nombre}** ha sido aceptado en el torneo.\n\n🇬🇧 Your payment has been verified and your team **${teamData.nombre}** has been accepted into the tournament.`);
                 await user.send({ embeds: [fallbackEmbed] });
             } catch (e) {
                 console.warn(`[FALLBACK] No se pudo enviar MD de respaldo al usuario ${captainId}`);
