@@ -1300,6 +1300,15 @@ export async function approveTeam(client, tournament, teamData) {
                     .setColor('#2ecc71')
                     .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
                     .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado** y ya forma parte del torneo.\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved** and is now part of the tournament.`);
+
+                if (teamData.isManualRegistration) {
+                    embed.addFields(
+                        { name: '📝 Registro Manual / Manual Registration', value: 'Admin Action' },
+                        { name: '💰 Ref. Pago / Payment Ref', value: `\`${teamData.paypal || 'N/A'}\``, inline: true },
+                        { name: '📺 Stream', value: teamData.streamChannel || 'N/A', inline: true }
+                    );
+                }
+
                 await user.send({ embeds: [embed] });
                 console.log(`[DEBUG] Notification sent to ${teamData.capitanId}`);
 
