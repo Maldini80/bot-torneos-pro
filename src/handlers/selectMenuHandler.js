@@ -1257,7 +1257,7 @@ export async function handleSelectMenu(interaction) {
             );
 
             await coCaptainUser.send({ embeds: [embed], components: [row] });
-            await interaction.editReply({ content: `✅ Invitación enviada a **${coCaptainUser.tag}**. Recibirá un MD para aceptar o rechazar.`, components: [] });
+            await interaction.editReply({ content: `✅ 🇪🇸 Invitación enviada a **${coCaptainUser.tag}**. Recibirá un MD para aceptar o rechazar.\n🇬🇧 Invitation sent to **${coCaptainUser.tag}**. They will receive a DM to accept or reject.`, components: [] });
 
         } catch (error) {
             console.error(error);

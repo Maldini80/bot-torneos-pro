@@ -1424,8 +1424,8 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
             const oldCoCaptainUser = await client.users.fetch(oldCoCaptainId);
             const kickEmbed = new EmbedBuilder()
                 .setColor('#e74c3c')
-                .setTitle(`⚠️ Reemplazo de Co-Capitanía`)
-                .setDescription(`Has sido reemplazado como co-capitán del equipo **${team.nombre}** en el torneo **${latestTournament.nombre}** porque el capitán ha invitado a otra persona.\n\nYa no tienes acceso a los canales de gestión del equipo.`);
+                .setTitle(`⚠️ Reemplazo de Co-Capitanía / Co-Captain Replacement`)
+                .setDescription(`🇪🇸 Has sido reemplazado como co-capitán del equipo **${team.nombre}** en el torneo **${latestTournament.nombre}** porque el capitán ha invitado a otra persona.\n\n🇬🇧 You have been replaced as co-captain of team **${team.nombre}** in the **${latestTournament.nombre}** tournament because the captain has invited someone else.\n\n🚫 🇪🇸 Ya no tienes acceso a los canales de gestión del equipo.\n🇬🇧 You no longer have access to the team management channels.`);
             await oldCoCaptainUser.send({ embeds: [kickEmbed] });
         } catch (e) {
             console.warn(`No se pudo notificar al antiguo co-capitán ${oldCoCaptainId} de su expulsión.`);
