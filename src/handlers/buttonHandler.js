@@ -141,13 +141,48 @@ export async function handleButton(interaction) {
     // =======================================================
 
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) {
-            return interaction.editReply({ content: 'Error: No se encontró este torneo.' });
+            return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
         }
+
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect(process.env.DATABASE_URL);
+        }
+
+        // --- MODIFICACIÓN: TORNEOS DE PAGO (Flujo simplificado) ---
+        if (tournament.config.isPaid) {
+            const modal = new ModalBuilder()
+                .setCustomId(`register_paid_team_modal:${tournamentShortId}`)
+                .setTitle(`Inscripción: ${tournament.nombre.substring(0, 30)}`);
+
+            const teamNameInput = new TextInputBuilder()
+                .setCustomId('team_name_input')
+                .setLabel("Nombre del Club EAFC")
+                .setStyle(TextInputStyle.Short)
+                .setMinLength(3)
+                .setMaxLength(30)
+                .setRequired(true);
+
+            const streamLinkInput = new TextInputBuilder()
+                .setCustomId('stream_link_input')
+                .setLabel("Canal de Retransmisión (Opcional)")
+                .setPlaceholder("Pega aquí el enlace a tu canal (Twitch/YouTube)")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(false);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(teamNameInput),
+                new ActionRowBuilder().addComponents(streamLinkInput)
+            );
+
+            await interaction.showModal(modal);
+            return;
+        }
+        // --- FIN MODIFICACIÓN ---
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         const managerId = interaction.user.id;
 
@@ -155,31 +190,6 @@ export async function handleButton(interaction) {
         if (isAlreadyRegistered) {
             return interaction.editReply({ content: '❌ Ya estás inscrito o en la lista de reserva de este torneo.' });
         }
-
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
-
-        // --- MODIFICACIÓN: TORNEOS DE PAGO (Forzar flujo manual) ---
-        if (tournament.config.isPaid) {
-            // En torneos de pago, ignoramos si el usuario ya tiene equipo registrado.
-            // Le mostramos directamente los botones de plataforma para que rellene el formulario manual.
-            // Usamos 'register_paid_team' como acción original para que luego vaya al modal correcto.
-            const originalAction = 'register_paid_team';
-            const teamId = 'custom'; // No hay ID de equipo predefinido
-
-            const platformButtons = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-            );
-
-            await interaction.editReply({
-                content: '📝 **Inscripción a Torneo de Pago**\nPor favor, selecciona tu plataforma de transmisión para comenzar el registro manual:',
-                components: [platformButtons]
-            });
-            return;
-        }
-        // --- FIN MODIFICACIÓN ---
 
         const team = await Team.findOne({
             $or: [{ managerId: managerId }, { captains: managerId }],

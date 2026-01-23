@@ -111,6 +111,70 @@ export async function handleModal(interaction) {
     // --- LÓGICA ORIGINAL DEL BOT (CON CORRECCIONES DE FLAGS) ---
     // =======================================================
 
+    // =======================================================
+    // --- NUEVA LÓGICA DE INSCRIPCIÓN DE PAGO SIMPLIFICADA ---
+    // =======================================================
+
+    if (action === 'register_paid_team_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const [tournamentShortId] = params;
+        const teamName = interaction.fields.getTextInputValue('team_name_input');
+        const streamLink = interaction.fields.getTextInputValue('stream_link_input') || 'No especificado';
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        if (!tournament) {
+            return interaction.editReply({ content: '❌ El torneo no existe.' });
+        }
+
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect(process.env.DATABASE_URL);
+        }
+
+        const pendingPaymentData = {
+            userId: interaction.user.id,
+            userTag: interaction.user.tag,
+            teamName: teamName,
+            eafcTeamName: teamName, // Mismo nombre para ambos
+            logoUrl: "https://i.imgur.com/2ecc71.png", // Placeholder
+            twitter: "", // Eliminado
+            streamChannel: streamLink,
+            platform: 'manual', // Ya no pedimos plataforma específica
+            registeredAt: new Date()
+        };
+
+        // Guardamos en una colección temporal o campo temporal dentro del torneo
+        if (!tournament.teams.pendingPayments) tournament.teams.pendingPayments = {};
+
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $set: { [`teams.pendingPayments.${interaction.user.id}`]: pendingPaymentData } }
+        );
+
+        // Enviar DM con información de pago
+        const paymentEmbed = new EmbedBuilder()
+            .setColor('#f1c40f')
+            .setTitle(`💸 Pago Requerido: ${tournament.nombre}`)
+            .setDescription(`Has iniciado la inscripción para el equipo **${teamName}**.\n\n**Cuota de Inscripción:** ${tournament.config.entryFee}€\n\n**Métodos de Pago:**\nPayPal: \`${tournament.config.paypalEmail || 'No configurado'}\`\nBizum: \`${tournament.config.bizumNumber || 'No configurado'}\`\n\nRealiza el pago y luego pulsa el botón de abajo para notificar a los administradores.`)
+            .setFooter({ text: 'Tu plaza no está reservada hasta que se verifique el pago.' });
+
+        const confirmButton = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`payment_confirm_start:${tournament.shortId}`)
+                .setLabel('✅ He Realizado el Pago')
+                .setStyle(ButtonStyle.Success)
+        );
+
+        try {
+            await interaction.user.send({ embeds: [paymentEmbed], components: [confirmButton] });
+            await interaction.editReply({ content: `✅ **Pre-inscripción recibida.** Te hemos enviado un MD con los datos de pago. Revisa tus mensajes privados.` });
+        } catch (e) {
+            await interaction.editReply({ content: `❌ No pudimos enviarte el MD con los datos de pago. Por favor, abre tus mensajes directos y vuelve a intentarlo.` });
+        }
+        return;
+    }
+
     if (action === 'inscripcion_final_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
