@@ -3084,4 +3084,27 @@ export async function handleButton(interaction) {
         await interaction.editReply({ content: `❌ Pago rechazado. La pre-inscripción ha sido eliminada.`, components: [] });
         return;
     }
+
+    if (action === 'admin_prize_paid') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, userId, prizeType] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        const result = await confirmPrizePayment(client, userId, prizeType === 'campeon' ? 'Campeón' : 'Finalista', tournament);
+
+        const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+        originalEmbed.setColor('#2ecc71').setFooter({ text: `Pago marcado como completado por ${interaction.user.tag}` });
+
+        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true).setLabel('✅ PAGADO'));
+
+        await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
+
+        if (result.success) {
+            await interaction.followUp({ content: `✅ El usuario ha sido notificado del pago del premio de **${prizeType}**.`, flags: [MessageFlags.Ephemeral] });
+        } else {
+            await interaction.followUp({ content: `⚠️ El pago se marcó como realizado, pero no se pudo enviar el MD al usuario (posiblemente tenga los MDs cerrados).`, flags: [MessageFlags.Ephemeral] });
+        }
+        return;
+    }
 }
