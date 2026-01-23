@@ -1062,6 +1062,23 @@ export async function handleModal(interaction) {
         }
 
         if (tournament.config.isPaid) {
+            // --- FIX: Save to pendingPayments FIRST ---
+            const pendingPaymentData = {
+                userId: captainId,
+                userTag: interaction.user.tag,
+                teamName: teamName,
+                eafcTeamName: eafcTeamName,
+                streamChannel: streamChannel,
+                twitter: twitter,
+                registeredAt: new Date(),
+                paypal: null // Will be filled later
+            };
+
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.pendingPayments.${captainId}`]: pendingPaymentData } }
+            );
+
             // --- INICIO DE LA NUEVA LÓGICA EFÍMERA ---
 
             // Construimos el texto con los métodos de pago solo si existen
