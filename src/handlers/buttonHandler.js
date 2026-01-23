@@ -1866,6 +1866,18 @@ export async function handleButton(interaction) {
         // Clean up from source
         if (sourceCollection === 'pendingPayments') {
             await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendingPayments.${captainId}`]: "" } });
+
+            // --- FALLBACK NOTIFICATION ---
+            try {
+                const user = await client.users.fetch(captainId);
+                const fallbackEmbed = new EmbedBuilder()
+                    .setColor('#2ecc71')
+                    .setTitle(`✅ Pago Aprobado: ${tournament.nombre}`)
+                    .setDescription(`Tu pago ha sido verificado y tu equipo **${teamData.nombre}** ha sido aceptado en el torneo.\n\n¡Mucha suerte!`);
+                await user.send({ embeds: [fallbackEmbed] });
+            } catch (e) {
+                console.warn(`[FALLBACK] No se pudo enviar MD de respaldo al usuario ${captainId}`);
+            }
         }
 
         const kickButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_kick:${captainId}:${tournamentShortId}`).setLabel("Expulsar del Torneo / Kick from Tournament").setStyle(ButtonStyle.Danger));

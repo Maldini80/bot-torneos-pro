@@ -1278,6 +1278,7 @@ export async function startGroupStage(client, guild, tournament) {
     }
 }
 export async function approveTeam(client, tournament, teamData) {
+    console.log(`[DEBUG] approveTeam called for ${teamData.nombre} (Captain: ${teamData.capitanId})`);
     const db = getDb();
     let latestTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
     if (!latestTournament.teams.aprobados) latestTournament.teams.aprobados = {};
@@ -1293,12 +1294,14 @@ export async function approveTeam(client, tournament, teamData) {
 
         if (/^\d+$/.test(teamData.capitanId)) {
             try {
+                console.log(`[DEBUG] Fetching user ${teamData.capitanId} for notification...`);
                 const user = await client.users.fetch(teamData.capitanId);
                 const embed = new EmbedBuilder()
                     .setColor('#2ecc71')
                     .setTitle(`✅ Aprobado para ${latestTournament.nombre}`)
                     .setDescription(`🇪🇸 ¡Enhorabuena! Tu equipo **${teamData.nombre}** ha sido **aprobado** y ya forma parte del torneo.\n\n🇬🇧 Congratulations! Your team **${teamData.nombre}** has been **approved** and is now part of the tournament.`);
                 await user.send({ embeds: [embed] });
+                console.log(`[DEBUG] Notification sent to ${teamData.capitanId}`);
 
                 const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
                 const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
