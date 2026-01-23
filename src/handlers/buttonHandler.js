@@ -1827,11 +1827,46 @@ export async function handleButton(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament || (!tournament.teams.pendientes[captainId] && !tournament.teams.reserva[captainId])) {
+
+        let teamData = null;
+        let sourceCollection = null;
+
+        if (tournament.teams.pendientes && tournament.teams.pendientes[captainId]) {
+            teamData = tournament.teams.pendientes[captainId];
+            sourceCollection = 'pendientes';
+        } else if (tournament.teams.reserva && tournament.teams.reserva[captainId]) {
+            teamData = tournament.teams.reserva[captainId];
+            sourceCollection = 'reserva';
+        } else if (tournament.teams.pendingPayments && tournament.teams.pendingPayments[captainId]) {
+            // --- NEW FLOW SUPPORT ---
+            const ppData = tournament.teams.pendingPayments[captainId];
+            teamData = {
+                id: ppData.userId,
+                nombre: ppData.teamName,
+                eafcTeamName: ppData.eafcTeamName,
+                capitanId: ppData.userId,
+                capitanTag: ppData.userTag,
+                coCaptainId: null,
+                coCaptainTag: null,
+                bandera: '🏳️',
+                paypal: ppData.paypal || null,
+                streamChannel: ppData.streamChannel,
+                twitter: ppData.twitter || '',
+                inscritoEn: ppData.registeredAt
+            };
+            sourceCollection = 'pendingPayments';
+        }
+
+        if (!tournament || !teamData) {
             return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
         }
-        const teamData = tournament.teams.pendientes[captainId] || tournament.teams.reserva[captainId];
+
         await approveTeam(client, tournament, teamData);
+
+        // Clean up from source
+        if (sourceCollection === 'pendingPayments') {
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendingPayments.${captainId}`]: "" } });
+        }
 
         const kickButton = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_kick:${captainId}:${tournamentShortId}`).setLabel("Expulsar del Torneo / Kick from Tournament").setStyle(ButtonStyle.Danger));
         const originalMessage = interaction.message;
@@ -1850,13 +1885,32 @@ export async function handleButton(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const teamData = tournament.teams.pendientes[captainId] || tournament.teams.reserva[captainId];
+
+        let teamData = null;
+        let sourceCollection = null;
+
+        if (tournament.teams.pendientes && tournament.teams.pendientes[captainId]) {
+            teamData = tournament.teams.pendientes[captainId];
+            sourceCollection = 'pendientes';
+        } else if (tournament.teams.reserva && tournament.teams.reserva[captainId]) {
+            teamData = tournament.teams.reserva[captainId];
+            sourceCollection = 'reserva';
+        } else if (tournament.teams.pendingPayments && tournament.teams.pendingPayments[captainId]) {
+            // --- NEW FLOW SUPPORT ---
+            const ppData = tournament.teams.pendingPayments[captainId];
+            teamData = { nombre: ppData.teamName }; // Minimal data needed for message
+            sourceCollection = 'pendingPayments';
+        }
+
         if (!tournament || !teamData) return interaction.editReply({ content: 'Error: Solicitud no encontrada o ya procesada.' });
 
-        if (tournament.teams.pendientes[captainId]) delete tournament.teams.pendientes[captainId];
-        if (tournament.teams.reserva && tournament.teams.reserva[captainId]) delete tournament.teams.reserva[captainId];
-
-        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.pendientes': tournament.teams.pendientes, 'teams.reserva': tournament.teams.reserva } });
+        if (sourceCollection === 'pendientes') {
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendientes.${captainId}`]: "" } });
+        } else if (sourceCollection === 'reserva') {
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.reserva.${captainId}`]: "" } });
+        } else if (sourceCollection === 'pendingPayments') {
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendingPayments.${captainId}`]: "" } });
+        }
 
         try {
             const user = await client.users.fetch(captainId);

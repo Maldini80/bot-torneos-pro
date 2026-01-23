@@ -1124,15 +1124,57 @@ export async function handleModal(interaction) {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('❌ Este torneo ya no existe.');
+
         const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
         if (!notificationsThread) return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
+
         const userPaypal = interaction.fields.getTextInputValue('user_paypal_input');
-        await db.collection('tournaments').updateOne({ shortId: tournamentShortId }, { $set: { [`teams.pendientes.${interaction.user.id}.paypal`]: userPaypal } });
-        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const teamData = updatedTournament.teams.pendientes[interaction.user.id];
+        const userId = interaction.user.id;
+
+        // --- FIX: Check pendingPayments first (New Flow) ---
+        let teamData = null;
+        let isPendingPayment = false;
+
+        if (tournament.teams.pendingPayments && tournament.teams.pendingPayments[userId]) {
+            teamData = tournament.teams.pendingPayments[userId];
+            isPendingPayment = true;
+
+            // Update PayPal in pendingPayments
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { $set: { [`teams.pendingPayments.${userId}.paypal`]: userPaypal } }
+            );
+        } else if (tournament.teams.pendientes && tournament.teams.pendientes[userId]) {
+            // Fallback for old flow or if somehow in pendientes
+            teamData = tournament.teams.pendientes[userId];
+
+            // Update PayPal in pendientes
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { $set: { [`teams.pendientes.${userId}.paypal`]: userPaypal } }
+            );
+        }
+
         if (!teamData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
-        const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago`).addFields({ name: 'Equipo', value: teamData.nombre, inline: true }, { name: 'Capitán', value: teamData.capitanTag, inline: true }, { name: "PayPal del Capitán", value: `\`${userPaypal}\`` });
-        const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
+
+        // Normalize fields for Embed
+        const teamName = isPendingPayment ? teamData.teamName : teamData.nombre;
+        const captainTag = isPendingPayment ? teamData.userTag : teamData.capitanTag;
+
+        const adminEmbed = new EmbedBuilder()
+            .setColor('#f1c40f')
+            .setTitle(`💰 Notificación de Pago`)
+            .addFields(
+                { name: 'Equipo', value: teamName || 'Desconocido', inline: true },
+                { name: 'Capitán', value: captainTag || 'Desconocido', inline: true },
+                { name: "PayPal del Capitán", value: `\`${userPaypal}\`` }
+            );
+
+        const adminButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_approve:${userId}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`admin_reject:${userId}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+        );
+
         await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
         await interaction.editReply('✅ 🇪🇸 ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.\n🇬🇧 Thank you! Your payment has been notified. You will receive a notice upon approval.');
         return;
