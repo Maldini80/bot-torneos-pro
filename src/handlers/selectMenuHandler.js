@@ -2013,6 +2013,44 @@ export async function handleSelectMenu(interaction) {
             await interaction.editReply({ content: `❌ Error al asignar co-capitán: ${error.message}`, components: [] });
         }
         return;
+
+    }
+
+    if (action === 'admin_manual_register_user_select') {
+        const [tournamentShortId] = params;
+        const userId = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_manual_register_modal:${tournamentShortId}:${userId}`)
+            .setTitle('Inscripción Manual (Pago)');
+
+        const teamNameInput = new TextInputBuilder()
+            .setCustomId('team_name_input')
+            .setLabel("Nombre del Equipo")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const paymentRefInput = new TextInputBuilder()
+            .setCustomId('payment_ref_input')
+            .setLabel("Método de Pago / Referencia")
+            .setPlaceholder("Ej: Bizum, PayPal, Efectivo...")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const streamInput = new TextInputBuilder()
+            .setCustomId('stream_input')
+            .setLabel("Canal de Stream (Opcional)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(teamNameInput),
+            new ActionRowBuilder().addComponents(paymentRefInput),
+            new ActionRowBuilder().addComponents(streamInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
     }
 }
 

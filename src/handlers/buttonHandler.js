@@ -2491,6 +2491,22 @@ export async function handleButton(interaction) {
     }
     // --- REEMPLAZA TU BLOQUE 'admin_strike_approve / reject' CON ESTE ---
 
+    if (action === 'admin_manual_register_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId(`admin_manual_register_user_select:${tournamentShortId}`)
+            .setPlaceholder('Selecciona al usuario a inscribir')
+            .setMaxValues(1);
+
+        await interaction.editReply({
+            content: 'Selecciona al usuario que deseas inscribir manualmente en este torneo de pago:',
+            components: [new ActionRowBuilder().addComponents(userSelect)]
+        });
+        return;
+    }
+
     if (action === 'admin_strike_approve' || action === 'admin_strike_reject') {
         // --- INICIO DE LA NUEVA LÓGICA DE PERMISOS ---
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);

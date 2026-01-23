@@ -188,11 +188,16 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     row3.addComponents(
         new ButtonBuilder()
-            .setCustomId(`admin_assign_cocaptain_start:${tournament.shortId}`)
             .setLabel('Asignar Co-Capitán')
             .setStyle(ButtonStyle.Secondary)
             .setEmoji('👥')
-            .setDisabled(isBusy || !hasCaptains)
+            .setDisabled(isBusy || !hasCaptains),
+        new ButtonBuilder()
+            .setCustomId(`admin_manual_register_start:${tournament.shortId}`)
+            .setLabel('Inscripción Manual (Pago)')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('💵')
+            .setDisabled(isBusy)
     );
 
     row3.addComponents(new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy));

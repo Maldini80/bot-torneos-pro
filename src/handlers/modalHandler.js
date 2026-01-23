@@ -108,6 +108,56 @@ export async function handleModal(interaction) {
     }
 
     // =======================================================
+    // --- LÓGICA DE INSCRIPCIÓN MANUAL (ADMIN) ---
+    // =======================================================
+
+    if (action === 'admin_manual_register_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId, userId] = params;
+
+        const teamName = interaction.fields.getTextInputValue('team_name_input');
+        const paymentRef = interaction.fields.getTextInputValue('payment_ref_input');
+        const streamChannel = interaction.fields.getTextInputValue('stream_input') || null;
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+
+        const user = await client.users.fetch(userId).catch(() => null);
+        if (!user) return interaction.editReply('❌ Usuario no encontrado.');
+
+        // Construimos el objeto de equipo
+        const teamData = {
+            id: userId,
+            nombre: teamName,
+            eafcTeamName: teamName,
+            capitanId: userId,
+            capitanTag: user.tag,
+            coCaptainId: null,
+            coCaptainTag: null,
+            logoUrl: user.displayAvatarURL(),
+            twitter: null,
+            streamChannel: streamChannel,
+            paypal: paymentRef, // Guardamos la referencia del pago manual aquí
+            inscritoEn: new Date(),
+            isPaid: true,
+            isManualRegistration: true
+        };
+
+        try {
+            // Usamos approveTeam para gestionar la entrada oficial
+            const { approveTeam } = await import('../logic/tournamentLogic.js');
+            await approveTeam(client, tournament, teamData);
+
+            await interaction.editReply({ content: `✅ **Inscripción Manual Completada**\nEl equipo **${teamName}** (Capitán: ${user.tag}) ha sido inscrito en el torneo.\nReferencia de pago: ${paymentRef}` });
+
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({ content: `❌ Error al inscribir: ${error.message}` });
+        }
+        return;
+    }
+
+    // =======================================================
     // --- LÓGICA ORIGINAL DEL BOT (CON CORRECCIONES DE FLAGS) ---
     // =======================================================
 
