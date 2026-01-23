@@ -1226,7 +1226,7 @@ export async function handleSelectMenu(interaction) {
         const captainId = interaction.user.id;
         const team = tournament.teams.aprobados[captainId];
         if (!team) return interaction.editReply({ content: 'Error: No eres el capitán de un equipo en este torneo.' });
-        if (team.coCaptainId) return interaction.editReply({ content: 'Ya tienes un co-capitán.' });
+        // if (team.coCaptainId) return interaction.editReply({ content: 'Ya tienes un co-capitán.' }); // REMOVED to allow replacement
 
         const coCaptainId = interaction.values[0];
         const coCaptainUser = await client.users.fetch(coCaptainId);
@@ -1248,8 +1248,8 @@ export async function handleSelectMenu(interaction) {
             const embed = new EmbedBuilder()
                 .setColor('#3498db')
                 .setTitle(`🤝 Invitación de Co-Capitán / Co-Captain Invitation`)
-                .setDescription(`🇪🇸 Has sido invitado por **${interaction.user.tag}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n\n` +
-                    `🇬🇧 You have been invited by **${interaction.user.tag}** to be the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.`);
+                .setDescription(`🇪🇸 Has sido invitado por **${interaction.user.tag}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n*Si aceptas, reemplazarás al co-capitán actual si lo hay.*\n\n` +
+                    `🇬🇧 You have been invited by **${interaction.user.tag}** to be the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.\n*If you accept, you will replace the current co-captain if there is one.*`);
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`cocaptain_accept:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Aceptar / Accept').setStyle(ButtonStyle.Success),
