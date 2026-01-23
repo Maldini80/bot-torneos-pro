@@ -1965,5 +1965,54 @@ export async function handleSelectMenu(interaction) {
         await interaction.showModal(modal);
         return;
     }
+
+
+    if (action === 'admin_assign_cocaptain_team_select') {
+        const [tournamentShortId] = params;
+        const captainId = interaction.values[0];
+
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId(`admin_assign_cocaptain_user_select:${tournamentShortId}:${captainId}`)
+            .setPlaceholder('Selecciona al nuevo co-capitán')
+            .setMaxValues(1);
+
+        await interaction.update({
+            content: `Has seleccionado el equipo. Ahora elige al usuario que será el nuevo co-capitán (esto reemplazará al actual si existe):`,
+            components: [new ActionRowBuilder().addComponents(userSelect)]
+        });
+        return;
+    }
+
+    if (action === 'admin_assign_cocaptain_user_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, captainId] = params;
+        const coCaptainId = interaction.values[0];
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        const coCaptainUser = await client.users.fetch(coCaptainId);
+        if (coCaptainUser.bot) return interaction.editReply({ content: 'No puedes asignar a un bot.' });
+
+        try {
+            // Usamos la misma función que el flujo normal, que ya maneja reemplazos
+            await addCoCaptain(client, tournament, captainId, coCaptainId);
+
+            await interaction.editReply({ content: `✅ **${coCaptainUser.tag}** ha sido asignado como co-capitán del equipo.`, components: [] });
+
+            // Notificamos al nuevo co-capitán
+            const team = tournament.teams.aprobados[captainId];
+            const embed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle(`✅ Asignación de Co-Capitanía / Co-Captain Assignment`)
+                .setDescription(`🇪🇸 Un administrador te ha asignado como co-capitán del equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n\n🇬🇧 An admin has assigned you as co-captain of team **${team.nombre}** in the **${tournament.nombre}** tournament.`);
+            await coCaptainUser.send({ embeds: [embed] }).catch(() => { });
+
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({ content: `❌ Error al asignar co-capitán: ${error.message}`, components: [] });
+        }
+        return;
+    }
 }
 

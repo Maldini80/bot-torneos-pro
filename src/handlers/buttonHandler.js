@@ -2449,6 +2449,34 @@ export async function handleButton(interaction) {
 
     // --- NUEVO PANEL DE EDICIÓN PARA ADMINS ---
 
+    if (action === 'admin_assign_cocaptain_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+        if (approvedTeams.length === 0) {
+            return interaction.editReply({ content: 'No hay equipos aprobados en este torneo.' });
+        }
+
+        const teamOptions = approvedTeams.map(team => ({
+            label: team.nombre,
+            description: `Capitán: ${team.capitanTag}`,
+            value: team.capitanId
+        })).slice(0, 25);
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_assign_cocaptain_team_select:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el equipo')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: 'Selecciona el equipo al que quieres asignar un co-capitán:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
     if (action === 'admin_edit_verified_user_start') {
         // Esta lógica necesitará un modal y un user select, la añadiremos en los handlers correspondientes.
         const userSelect = new UserSelectMenuBuilder()
