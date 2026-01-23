@@ -119,13 +119,19 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
+
+    if (!tournament.config.isPaid) {
+        row2.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_add_registered_team_start:${tournament.shortId}`)
+                .setLabel('Añadir Equipo Registrado')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('➕')
+                .setDisabled(isBusy)
+        );
+    }
+
     row2.addComponents(
-        new ButtonBuilder()
-            .setCustomId(`admin_add_registered_team_start:${tournament.shortId}`)
-            .setLabel('Añadir Equipo Registrado')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('➕')
-            .setDisabled(isBusy),
         new ButtonBuilder()
             .setCustomId(`admin_manage_results_start:${tournament.shortId}`)
             .setLabel('Gestionar Resultados')
@@ -188,17 +194,23 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     row3.addComponents(
         new ButtonBuilder()
+            .setCustomId(`admin_assign_cocaptain_start:${tournament.shortId}`)
             .setLabel('Asignar Co-Capitán')
             .setStyle(ButtonStyle.Secondary)
             .setEmoji('👥')
-            .setDisabled(isBusy || !hasCaptains),
-        new ButtonBuilder()
-            .setCustomId(`admin_manual_register_start:${tournament.shortId}`)
-            .setLabel('Inscripción Manual (Pago)')
-            .setStyle(ButtonStyle.Success)
-            .setEmoji('💵')
-            .setDisabled(isBusy)
+            .setDisabled(isBusy || !hasCaptains)
     );
+
+    if (tournament.config.isPaid) {
+        row3.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_manual_register_start:${tournament.shortId}`)
+                .setLabel('Inscripción Manual (Pago)')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('💵')
+                .setDisabled(isBusy)
+        );
+    }
 
     row3.addComponents(new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy));
 
