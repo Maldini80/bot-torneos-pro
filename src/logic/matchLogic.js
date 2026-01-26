@@ -210,6 +210,9 @@ export async function checkOverdueMatches(client) {
     if (activeTournaments.length === 0) return;
 
     for (const tournament of activeTournaments) {
+        // En torneos de pago, NO validamos automáticamente por inactividad.
+        if (tournament.config.isPaid) continue;
+
         const allMatches = [
             ...Object.values(tournament.structure.calendario || {}).flat(),
             ...Object.values(tournament.structure.eliminatorias || {}).flat()
