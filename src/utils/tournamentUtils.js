@@ -196,7 +196,7 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
                 {
                     _id: tournament._id,
                     [`${fieldPath}.threadId`]: null,
-                    [`${fieldPath}.status`]: { $ne: 'en_curso' }
+                    [`${fieldPath}.status`]: { $nin: ['en_curso', 'creando_hilo'] }
                 },
                 {
                     $set: { [`${fieldPath}.status`]: 'creando_hilo' }
