@@ -1375,8 +1375,8 @@ export async function handleModal(interaction) {
             } else {
                 // PRIMER REPORTE: Avisamos y esperamos
                 const opponentMentions = opponentCaptainIds.map(id => `<@${id}>`).join(' ');
-                await interaction.editReply({ content: '✅ Resultado guardado. Esperando confirmación del rival...' });
-                await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado el resultado. ${opponentMentions}, por favor usad el botón para confirmar el vuestro.`);
+                await interaction.editReply({ content: `✅ Resultado (**${reportedResult}**) guardado. Esperando confirmación del rival...` });
+                await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado el resultado: **${reportedResult}**. ${opponentMentions}, por favor usad el botón para confirmar el vuestro.`);
             }
             return;
         }

@@ -1650,6 +1650,10 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
                         const thread = await client.channels.fetch(threadId).catch(() => null);
                         if (thread) {
                             await thread.members.add(coCaptainId).catch(e => console.warn(`No se pudo añadir al co-capitán al hilo ${threadId}: ${e.message}`));
+                            // Mensaje de bienvenida para que se le notifique
+                            await thread.send({
+                                content: `👋 ¡Bienvenido al hilo, <@${coCaptainId}>! Has sido añadido como co-capitán de **${team.nombre}**.`
+                            }).catch(e => console.warn(`No se pudo enviar mensaje de bienvenida al hilo ${threadId}: ${e.message}`));
                         }
                     } catch (err) {
                         console.error(`Error al procesar hilo retroactivo ${threadId}:`, err);
