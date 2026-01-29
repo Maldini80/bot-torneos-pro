@@ -1327,93 +1327,61 @@ export async function handleModal(interaction) {
             return interaction.editReply({ content: 'Error: No pareces ser un capitán o co-capitán de este partido.' });
         }
 
-        // --- LÓGICA DE DOBLE VERIFICACIÓN (SOLO TORNEOS DE PAGO) ---
-        if (tournament.config.isPaid) {
-            // Inicializamos el objeto de reportes si no existe
-            if (!partido.reportedScores) partido.reportedScores = {};
+        // --- LÓGICA UNIFICADA DE REPORTE (GRATUITO Y PAGO) ---
+        // Ahora TODOS los torneos usan el sistema de "Doble Verificación".
+        // - Si es GRATUITO: El 'checkOverdueMatches' (vigilante) validará a los 3 min si el rival no responde.
+        // - Si es PAGO: El 'checkOverdueMatches' lo ignorará, esperando indefinidamente confirmación o admin.
 
-            // Guardamos el reporte actual
-            partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date(), teamId: myTeam.id };
-
-            // Buscamos si hay un reporte del equipo rival
-            const opponentCaptainIds = [opponentTeam.capitanId];
-            if (opponentTeam.coCaptainId) opponentCaptainIds.push(opponentTeam.coCaptainId);
-            if (opponentTeam.extraCaptains) opponentCaptainIds.push(...opponentTeam.extraCaptains);
-
-            let opponentReport = null;
-            let opponentReporterId = null;
-
-            for (const id of opponentCaptainIds) {
-                if (partido.reportedScores[id]) {
-                    opponentReport = partido.reportedScores[id];
-                    opponentReporterId = id;
-                    break;
-                }
-            }
-
-            // Guardamos el estado actual en la DB (por si es el primer reporte)
-            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
-
-            if (opponentReport) {
-                if (opponentReport.score === reportedResult) {
-                    // COINCIDENCIA: Finalizamos el partido
-                    await interaction.editReply({ content: '✅ **Confirmado:** Tu resultado coincide con el del rival. Finalizando el partido...' });
-
-                    tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-                    const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
-                    await finalizeMatchThread(client, processedMatch, reportedResult);
-                } else {
-                    // CONFLICTO: Avisamos a árbitros
-                    await interaction.editReply({ content: '❌ **Conflicto:** El resultado que has puesto NO coincide con el del rival. Se ha avisado a los árbitros.' });
-
-                    const thread = interaction.channel;
-                    if (thread.isThread()) {
-                        await thread.setName(`⚠️-DISPUTA-${thread.name}`.slice(0, 100));
-                        await thread.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> **DISPUTA DETECTADA**\n\n- <@${reporterId}> (${myTeam.nombre}) dice: **${reportedResult}**\n- <@${opponentReporterId}> (${opponentTeam.nombre}) dice: **${opponentReport.score}**\n\nPor favor, revisad las pruebas.` });
-                    }
-                }
-            } else {
-                // PRIMER REPORTE: Avisamos y esperamos
-                const opponentMentions = opponentCaptainIds.map(id => `<@${id}>`).join(' ');
-                await interaction.editReply({ content: `✅ Resultado (**${reportedResult}**) guardado. Esperando confirmación del rival...` });
-                await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado el resultado: **${reportedResult}**. ${opponentMentions}, por favor usad el botón para confirmar el vuestro.`);
-            }
-            return;
-        }
-        // --- FIN LÓGICA DOBLE VERIFICACIÓN ---
-
-        // LÓGICA ORIGINAL (TORNEOS GRATUITOS - AUTO WIN)
-        // En torneos gratuitos, confiamos en el primer reporte (o usamos la lógica de "si ya hay uno, comprobar").
-        // La lógica original ya hacía una comprobación básica, la mantenemos pero simplificada para no romper nada.
-
-        // Guardamos el reporte
+        // Inicializamos el objeto de reportes si no existe
         if (!partido.reportedScores) partido.reportedScores = {};
-        partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date() };
-        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
 
-        // Verificamos si hay conflicto (aunque en gratuito solemos dar por bueno el último o el primero, aquí mantenemos la seguridad básica)
+        // Guardamos el reporte actual
+        partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date(), teamId: myTeam.id };
+
+        // Buscamos si hay un reporte del equipo rival
         const opponentCaptainIds = [opponentTeam.capitanId];
         if (opponentTeam.coCaptainId) opponentCaptainIds.push(opponentTeam.coCaptainId);
+        if (opponentTeam.extraCaptains) opponentCaptainIds.push(...opponentTeam.extraCaptains);
 
         let opponentReport = null;
+        let opponentReporterId = null;
+
         for (const id of opponentCaptainIds) {
             if (partido.reportedScores[id]) {
                 opponentReport = partido.reportedScores[id];
+                opponentReporterId = id;
                 break;
             }
         }
 
-        if (opponentReport && opponentReport.score !== reportedResult) {
-            await interaction.editReply({ content: '❌ Conflicto detectado con un reporte anterior. Avisando a árbitros.' });
-            const thread = interaction.channel;
-            if (thread.isThread()) await thread.send(`🚨 <@&${ARBITRO_ROLE_ID}> Conflicto de resultados en torneo gratuito.`);
-            return;
-        }
+        // Guardamos el estado actual en la DB (por si es el primer reporte)
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
 
-        // Si no hay conflicto (o es el primero), finalizamos directamente
-        await interaction.editReply({ content: '✅ Resultado registrado. Procesando...' });
-        const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
-        await finalizeMatchThread(client, processedMatch, reportedResult);
+        if (opponentReport) {
+            if (opponentReport.score === reportedResult) {
+                // COINCIDENCIA: Finalizamos el partido
+                await interaction.editReply({ content: '✅ **Confirmado:** Tu resultado coincide con el del rival. Finalizando el partido...' });
+
+                tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+                const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
+                await finalizeMatchThread(client, processedMatch, reportedResult);
+            } else {
+                // CONFLICTO: Avisamos a árbitros
+                await interaction.editReply({ content: '❌ **Conflicto:** El resultado que has puesto NO coincide con el del rival. Se ha avisado a los árbitros.' });
+
+                const thread = interaction.channel;
+                if (thread.isThread()) {
+                    await thread.setName(`⚠️-DISPUTA-${thread.name}`.slice(0, 100));
+                    await thread.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> **DISPUTA DETECTADA**\n\n- <@${reporterId}> (${myTeam.nombre}) dice: **${reportedResult}**\n- <@${opponentReporterId}> (${opponentTeam.nombre}) dice: **${opponentReport.score}**\n\nPor favor, revisad las pruebas.` });
+                }
+            }
+        } else {
+            // PRIMER REPORTE: Avisamos y esperamos
+            // Si es gratuito, el cronómetro de 3 minutos empieza a contar (gracias a reportedAt).
+            const opponentMentions = opponentCaptainIds.map(id => `<@${id}>`).join(' ');
+            await interaction.editReply({ content: `✅ Resultado (**${reportedResult}**) guardado. Esperando confirmación del rival...` });
+            await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado el resultado: **${reportedResult}**. ${opponentMentions}, por favor usad el botón para confirmar el vuestro.`);
+        }
         return;
     }
     if (action === 'admin_force_result_modal') {
