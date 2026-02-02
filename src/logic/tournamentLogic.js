@@ -1214,50 +1214,61 @@ export async function startGroupStage(client, guild, tournament) {
         for (const match of allMatches) {
             if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
                 const groupKey = match.nombreGrupo;
-                const matchIndex = updatedTournament.structure.calendario[groupKey].findIndex(m => m.matchId === match.matchId);
 
-                if (matchIndex > -1) {
-                    const fieldPath = `structure.calendario.${groupKey}.${matchIndex}`;
-
-                    // Bloqueo atómico
-                    const result = await db.collection('tournaments').findOneAndUpdate(
-                        {
-                            _id: updatedTournament._id,
-                            [`${fieldPath}.threadId`]: null,
-                            [`${fieldPath}.status`]: { $ne: 'en_curso' }
-                        },
-                        { $set: { [`${fieldPath}.status`]: 'creando_hilo' } },
-                        { returnDocument: 'after' }
-                    );
-
-                    if (!result) continue;
-
-                    try {
-                        const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
-
-                        if (threadId) {
-                            await db.collection('tournaments').updateOne(
-                                { _id: updatedTournament._id },
-                                {
-                                    $set: {
-                                        [`${fieldPath}.threadId`]: threadId,
-                                        [`${fieldPath}.status`]: 'en_curso'
-                                    }
-                                }
-                            );
-                        } else {
-                            await db.collection('tournaments').updateOne(
-                                { _id: updatedTournament._id },
-                                { $set: { [`${fieldPath}.status`]: 'pendiente' } }
-                            );
+                // Bloqueo atómico robusto usando $elemMatch con matchId (no índices)
+                const result = await db.collection('tournaments').findOneAndUpdate(
+                    {
+                        _id: updatedTournament._id,
+                        [`structure.calendario.${groupKey}`]: {
+                            $elemMatch: {
+                                matchId: match.matchId,
+                                threadId: null
+                            }
                         }
-                    } catch (error) {
-                        console.error(`[ERROR] Fallo al crear hilo en startGroupStage para ${match.matchId}:`, error);
+                    },
+                    { $set: { [`structure.calendario.${groupKey}.$.status`]: 'creando_hilo' } },
+                    { returnDocument: 'after' }
+                );
+
+                if (!result) {
+                    console.log(`[GROUP STAGE] Hilo para ${match.matchId} ya gestionado.`);
+                    continue;
+                }
+
+                try {
+                    const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
+
+                    if (threadId) {
                         await db.collection('tournaments').updateOne(
-                            { _id: updatedTournament._id },
-                            { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                            {
+                                _id: updatedTournament._id,
+                                [`structure.calendario.${groupKey}.matchId`]: match.matchId
+                            },
+                            {
+                                $set: {
+                                    [`structure.calendario.${groupKey}.$.threadId`]: threadId,
+                                    [`structure.calendario.${groupKey}.$.status`]: 'en_curso'
+                                }
+                            }
+                        );
+                    } else {
+                        await db.collection('tournaments').updateOne(
+                            {
+                                _id: updatedTournament._id,
+                                [`structure.calendario.${groupKey}.matchId`]: match.matchId
+                            },
+                            { $set: { [`structure.calendario.${groupKey}.$.status`]: 'pendiente' } }
                         );
                     }
+                } catch (error) {
+                    console.error(`[ERROR] Fallo al crear hilo en startGroupStage para ${match.matchId}:`, error);
+                    await db.collection('tournaments').updateOne(
+                        {
+                            _id: updatedTournament._id,
+                            [`structure.calendario.${groupKey}.matchId`]: match.matchId
+                        },
+                        { $set: { [`structure.calendario.${groupKey}.$.status`]: 'pendiente' } }
+                    );
                 }
             }
         }
@@ -3478,23 +3489,36 @@ export async function startNextKnockoutRound(client, guild, tournament) {
     // Guardamos la estructura con los partidos en estado 'pendiente' ANTES de crear hilos
     await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: currentTournament });
 
-    for (const [i, p] of partidos.entries()) {
-        let fieldPath;
+    for (const p of partidos) {
+        let lockQuery;
+        let updatePath;
+
         if (siguienteRondaKey === 'final') {
-            fieldPath = `structure.eliminatorias.final`;
+            // Para la final, el partido está directamente en .final (no es array)
+            lockQuery = {
+                _id: currentTournament._id,
+                'structure.eliminatorias.final.matchId': p.matchId,
+                'structure.eliminatorias.final.threadId': null
+            };
+            updatePath = 'structure.eliminatorias.final';
         } else {
-            fieldPath = `structure.eliminatorias.${siguienteRondaKey}.${i}`;
+            // Para otras rondas, usamos $elemMatch para buscar en el array
+            lockQuery = {
+                _id: currentTournament._id,
+                [`structure.eliminatorias.${siguienteRondaKey}`]: {
+                    $elemMatch: {
+                        matchId: p.matchId,
+                        threadId: null
+                    }
+                }
+            };
+            updatePath = `structure.eliminatorias.${siguienteRondaKey}.$`;
         }
 
-        // Bloqueo atómico
+        // Bloqueo atómico robusto (sin índices)
         const result = await db.collection('tournaments').findOneAndUpdate(
-            {
-                _id: currentTournament._id,
-                [`${fieldPath}.matchId`]: p.matchId,
-                [`${fieldPath}.threadId`]: null,
-                [`${fieldPath}.status`]: { $ne: 'en_curso' }
-            },
-            { $set: { [`${fieldPath}.status`]: 'creando_hilo' } },
+            lockQuery,
+            { $set: { [`${updatePath}.status`]: 'creando_hilo' } },
             { returnDocument: 'after' }
         );
 
@@ -3510,30 +3534,62 @@ export async function startNextKnockoutRound(client, guild, tournament) {
                 p.threadId = threadId;
                 p.status = 'en_curso';
 
-                await db.collection('tournaments').updateOne(
-                    { _id: currentTournament._id },
-                    {
-                        $set: {
-                            [`${fieldPath}.threadId`]: threadId,
-                            [`${fieldPath}.status`]: 'en_curso'
+                // Actualizar usando matchId para encontrar el partido específico
+                if (siguienteRondaKey === 'final') {
+                    await db.collection('tournaments').updateOne(
+                        {
+                            _id: currentTournament._id,
+                            'structure.eliminatorias.final.matchId': p.matchId
+                        },
+                        {
+                            $set: {
+                                'structure.eliminatorias.final.threadId': threadId,
+                                'structure.eliminatorias.final.status': 'en_curso'
+                            }
                         }
-                    }
-                );
+                    );
+                } else {
+                    await db.collection('tournaments').updateOne(
+                        {
+                            _id: currentTournament._id,
+                            [`structure.eliminatorias.${siguienteRondaKey}.matchId`]: p.matchId
+                        },
+                        {
+                            $set: {
+                                [`structure.eliminatorias.${siguienteRondaKey}.$.threadId`]: threadId,
+                                [`structure.eliminatorias.${siguienteRondaKey}.$.status`]: 'en_curso'
+                            }
+                        }
+                    );
+                }
             } else {
+                const revertPath = siguienteRondaKey === 'final'
+                    ? 'structure.eliminatorias.final'
+                    : `structure.eliminatorias.${siguienteRondaKey}.$`;
+
                 await db.collection('tournaments').updateOne(
-                    { _id: currentTournament._id },
-                    { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                    siguienteRondaKey === 'final'
+                        ? { _id: currentTournament._id, 'structure.eliminatorias.final.matchId': p.matchId }
+                        : { _id: currentTournament._id, [`structure.eliminatorias.${siguienteRondaKey}.matchId`]: p.matchId },
+                    { $set: { [`${revertPath}.status`]: 'pendiente' } }
                 );
             }
         } catch (error) {
             console.error(`[ERROR] Fallo al crear hilo knockout para ${p.matchId}:`, error);
+
+            const revertPath = siguienteRondaKey === 'final'
+                ? 'structure.eliminatorias.final'
+                : `structure.eliminatorias.${siguienteRondaKey}.$`;
+
             await db.collection('tournaments').updateOne(
-                { _id: currentTournament._id },
-                { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                siguienteRondaKey === 'final'
+                    ? { _id: currentTournament._id, 'structure.eliminatorias.final.matchId': p.matchId }
+                    : { _id: currentTournament._id, [`structure.eliminatorias.${siguienteRondaKey}.matchId`]: p.matchId },
+                { $set: { [`${revertPath}.status`]: 'pendiente' } }
             );
         }
 
-        embedAnuncio.addFields({ name: `Enfrentamiento ${i + 1}`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
+        embedAnuncio.addFields({ name: `Enfrentamiento`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
     }
     if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
