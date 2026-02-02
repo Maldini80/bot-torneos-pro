@@ -3081,9 +3081,46 @@ export async function handleButton(interaction) {
             await user.send(`❌ Tu pago para el torneo ha sido rechazado. Por favor, contacta con un administrador si crees que es un error.`);
         } catch (e) { }
 
-        await interaction.editReply({ content: `❌ Pago rechazado. La pre-inscripción ha sido eliminada.`, components: [] });
+        await interaction.editReply({ content: `❌ Pago rechazado. La prehizo-inscripción ha sido eliminada.`, components: [] });
         return;
     }
+
+    // Handler para el botón de "Reparar Hilos Perdidos"
+    if (action === 'admin_recover_threads') {
+        const [tournamentShortId] = params;
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        try {
+            const { recoverLostThreads } = await import('../logic/tournamentLogic.js');
+            const summary = await recoverLostThreads(client, guild, tournamentShortId);
+
+            if (summary.recovered === 0 && summary.failed === 0) {
+                await interaction.editReply({ content: '✅ No se detectaron hilos perdidos. Todos los partidos tienen sus hilos.' });
+            } else {
+                let message = `✅ **Proceso de Reparación Completado**\n\n`;
+                message += `🟢 Hilos recuperados: **${summary.recovered}**\n`;
+                message += `🔴 Fallos: **${summary.failed}**`;
+
+                if (summary.errors) {
+                    message += `\n\n⚠️ **Errores:**\n`;
+                    summary.errors.slice(0, 5).forEach(err => {
+                        message += `- ${err}\n`;
+                    });
+                    if (summary.errors.length > 5) {
+                        message += `... y ${summary.errors.length - 5} más.`;
+                    }
+                }
+
+                await interaction.editReply({ content: message });
+            }
+        } catch (error) {
+            console.error('[RECOVER ERROR]', error);
+            await interaction.editReply({ content: `❌ Error durante la recuperación: ${error.message}` });
+        }
+        return;
+    }
+
 
     if (action === 'admin_prize_paid') {
         await interaction.deferUpdate();

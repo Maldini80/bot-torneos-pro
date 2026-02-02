@@ -3099,8 +3099,21 @@ async function generateNextSwissRound(client, guild, tournament) {
         }
     }
 
-    // 3. Guardar y Notificar
-    tournament.structure.calendario['Liga'].push(...newMatches);
+    // 3. VALIDAR partidos antes de guardar (evitar corruptos)
+    const validMatches = newMatches.filter(m => {
+        const isValid = m.equipoA?.nombre && m.equipoB?.nombre && m.equipoA?.id && m.equipoB?.id;
+        if (!isValid) {
+            console.error(`[SWISS VALIDATION] Partido corrupto detectado y descartado:`, m);
+        }
+        return isValid;
+    });
+
+    if (validMatches.length !== newMatches.length) {
+        console.error(`[SWISS CRITICAL] ${newMatches.length - validMatches.length} partidos corruptos fueron descartados antes de guardar.`);
+    }
+
+    // Guardar y Notificar
+    tournament.structure.calendario['Liga'].push(...validMatches);
     tournament.currentRound = nextRound;
 
     // Actualizar stats de equipos en DB (por el Buchholz y Byes)
@@ -3117,38 +3130,37 @@ async function generateNextSwissRound(client, guild, tournament) {
         }
     );
 
-    // Crear Hilos para los nuevos partidos CON BLOQUEO ATÓMICO
+    // 4. Crear Hilos para los nuevos partidos - BLOQUEO ROBUSTO POR MATCHID
     const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
     const embedAnuncio = new EmbedBuilder().setColor('#3498db').setTitle(`📢 ¡Comienza la Jornada ${nextRound}!`).setDescription('Los emparejamientos se han generado basados en la clasificación actual (Sistema Suizo).');
 
-    // Recargamos el torneo para asegurar que tenemos la estructura más reciente en memoria (aunque acabamos de guardar)
-    // Esto es importante para tener los índices correctos si algo cambió milimétricamente, aunque aquí controlamos el flujo.
-    // Para eficiencia, usaremos los índices de 'newMatches' sobre el array 'tournament.structure.calendario.Liga' que acabamos de pushear.
+    console.log(`[SWISS] Creando hilos para ${validMatches.length} partidos...`);
 
-    // El índice de inicio de los nuevos partidos es:
-    const startIndex = tournament.structure.calendario['Liga'].length - newMatches.length;
+    for (const match of validMatches) {
+        if (match.equipoB?.id === 'ghost') continue; // Saltar BYEs
 
-    for (let i = 0; i < newMatches.length; i++) {
-        const match = newMatches[i];
-        if (match.matchId === 'ghost') continue;
-
-        const matchIndex = startIndex + i;
-        const fieldPath = `structure.calendario.Liga.${matchIndex}`;
-
-        // Intentamos bloquear el partido para creación de hilo
+        // BLOQUEO ATÓMICO MEJORADO: Buscar por matchI en lugar de índice
         const result = await db.collection('tournaments').findOneAndUpdate(
             {
                 _id: tournament._id,
-                [`${fieldPath}.matchId`]: match.matchId, // Doble check de seguridad
-                [`${fieldPath}.threadId`]: null,
-                [`${fieldPath}.status`]: { $ne: 'en_curso' }
+                'structure.calendario.Liga': {
+                    $elemMatch: {
+                        matchId: match.matchId,
+                        threadId: null,  // Solo si NO tiene hilo aún
+                        status: { $ne: 'creando_hilo' }  // No si ya está bloqueado
+                    }
+                }
             },
-            { $set: { [`${fieldPath}.status`]: 'creando_hilo' } },
+            {
+                $set: {
+                    'structure.calendario.Liga.$.status': 'creando_hilo'
+                }
+            },
             { returnDocument: 'after' }
         );
 
         if (!result) {
-            console.log(`[SWISS] El hilo para ${match.matchId} ya está siendo creado por otro proceso. Saltando.`);
+            console.log(`[SWISS] El hilo para ${match.matchId} ya existe o está siendo creado. Saltando.`);
             continue;
         }
 
@@ -3156,34 +3168,54 @@ async function generateNextSwissRound(client, guild, tournament) {
             const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
 
             if (threadId) {
-                match.threadId = threadId;
-                match.status = 'en_curso';
-
+                // Actualizar con threadId
                 await db.collection('tournaments').updateOne(
-                    { _id: tournament._id },
+                    {
+                        _id: tournament._id,
+                        'structure.calendario.Liga.matchId': match.matchId
+                    },
                     {
                         $set: {
-                            [`${fieldPath}.threadId`]: threadId,
-                            [`${fieldPath}.status`]: 'en_curso'
+                            'structure.calendario.Liga.$.threadId': threadId,
+                            'structure.calendario.Liga.$.status': 'en_curso'
                         }
                     }
                 );
+                console.log(`[SWISS] Hilo creado exitosamente para ${match.matchId}: ${threadId}`);
+                embedAnuncio.addFields({ name: `Partido`, value: `> ${match.equipoA.nombre} vs ${match.equipoB.nombre}` });
             } else {
-                // Revertir estado si falla
+                // Revertir estado si falla la creación
+                console.warn(`[SWISS] createMatchThread devolvió null para ${match.matchId}. Revirtiendo estado.`);
                 await db.collection('tournaments').updateOne(
-                    { _id: tournament._id },
-                    { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                    {
+                        _id: tournament._id,
+                        'structure.calendario.Liga.matchId': match.matchId
+                    },
+                    {
+                        $set: {
+                            'structure.calendario.Liga.$.status': 'pendiente'
+                        }
+                    }
                 );
             }
         } catch (error) {
             console.error(`[ERROR] Fallo al crear hilo SWISS para ${match.matchId}:`, error);
+            // Revertir estado para que pueda reintentarse
             await db.collection('tournaments').updateOne(
-                { _id: tournament._id },
-                { $set: { [`${fieldPath}.status`]: 'pendiente' } }
-            );
+                {
+                    _id: tournament._id,
+                    'structure.calendario.Liga.matchId': match.matchId
+                },
+                {
+                    $set: {
+                        'structure.calendario.Liga.$.status': 'pendiente'
+                    }
+                }
+            ).catch(e => console.error(`[ERROR] Fallo al revertir estado:`, e));
         }
 
-        embedAnuncio.addFields({ name: `Partido`, value: `> ${match.equipoA.nombre} vs ${match.equipoB.nombre}` });
+        // Breve pausa para evitar rate limits de Discord
+        await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
@@ -4174,4 +4206,115 @@ export async function undoLastPick(client, draftShortId, adminName) {
     console.log(`[ADMIN] Pick deshecho por ${adminName}. Jugador ${lastPlayer.psnId} devuelto a la pool. Turno devuelto a ${previousCaptainId}.`);
 }
 
+/**
+ * Recupera hilos perdidos para partidos que están en la DB pero no tienen threadId
+ * Útil cuando el bot falla a mitad de generación de ronda
+ */
+export async function recoverLostThreads(client, guild, tournamentShortId) {
+    const db = getDb();
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+    if (!tournament) {
+        throw new Error(`Torneo ${tournamentShortId} no encontrado.`);
+    }
+
+    let recovered = 0;
+    let failed = 0;
+    const errors = [];
+
+    console.log(`[RECOVER] Escaneando torneo ${tournamentShortId} en busca de hilos perdidos...`);
+
+    // Escanear Grupos (Swiss o Grupos tradicionales)
+    if (tournament.structure.grupos) {
+        for (const [groupName, group] of Object.entries(tournament.structure.grupos)) {
+            const matches = tournament.structure.calendario[groupName] || [];
+
+            for (const match of matches) {
+                // Saltar si ya tiene hilo, o es un BYE, o está finalizado sin hilo
+                if (match.threadId || match.equipoB?.id === 'ghost' || !match.equipoA || !match.equipoB) {
+                    continue;
+                }
+
+                console.log(`[RECOVER] Encontrado partido huérfano: ${match.matchId} (${match.equipoA.nombre} vs ${match.equipoB.nombre})`);
+
+                try {
+                    // Bloquear atómicamente
+                    const lockResult = await db.collection('tournaments').findOneAndUpdate(
+                        {
+                            _id: tournament._id,
+                            [`structure.calendario.${groupName}`]: {
+                                $elemMatch: {
+                                    matchId: match.matchId,
+                                    threadId: null
+                                }
+                            }
+                        },
+                        {
+                            $set: {
+                                [`structure.calendario.${groupName}.$.status`]: 'creando_hilo'
+                            }
+                        },
+                        { returnDocument: 'after' }
+                    );
+
+                    if (!lockResult) {
+                        console.log(`[RECOVER] El partido ${match.matchId} ya tiene hilo.`);
+                        continue;
+                    }
+
+                    const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+
+                    if (threadId) {
+                        await db.collection('tournaments').updateOne(
+                            {
+                                _id: tournament._id,
+                                [`structure.calendario.${groupName}.matchId`]: match.matchId
+                            },
+                            {
+                                $set: {
+                                    [`structure.calendario.${groupName}.$.threadId`]: threadId,
+                                    [`structure.calendario.${groupName}.$.status`]: 'en_curso'
+                                }
+                            }
+                        );
+                        recovered++;
+                        console.log(`[RECOVER] ✅ Hilo creado: ${threadId}`);
+                    } else {
+                        throw new Error('createMatchThread devolvió null');
+                    }
+                } catch (error) {
+                    failed++;
+                    errors.push(`${match.matchId}: ${error.message}`);
+                    console.error(`[RECOVER] ❌ Error:`, error);
+
+                    // Revertir bloqueo
+                    await db.collection('tournaments').updateOne(
+                        {
+                            _id: tournament._id,
+                            [`structure.calendario.${groupName}.matchId`]: match.matchId
+                        },
+                        {
+                            $set: {
+                                [`structure.calendario.${groupName}.$.status`]: 'pendiente'
+                            }
+                        }
+                    ).catch(e => console.error('[RECOVER] Error al revertir:', e));
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+    }
+
+    const summary = {
+        recovered,
+        failed,
+        errors: errors.length > 0 ? errors : null
+    };
+
+    console.log(`[RECOVER] Finalizado. Recuperados: ${recovered}, Fallidos: ${failed}`);
+    return summary;
+}
+
+export { updatePublicMessages, updatePrivateTournamentMessages, updateTournamentManagementThread, notifyCastersOfNewTeam };
 

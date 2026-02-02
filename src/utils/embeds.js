@@ -137,6 +137,12 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setLabel('Gestionar Resultados')
             .setStyle(ButtonStyle.Primary)
             .setEmoji('🗂️')
+            .setDisabled(isBusy),
+        new ButtonBuilder()
+            .setCustomId(`admin_recover_threads:${tournament.shortId}`)
+            .setLabel('Reparar Hilos')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🔧')
             .setDisabled(isBusy)
     );
     const row3 = new ActionRowBuilder();
