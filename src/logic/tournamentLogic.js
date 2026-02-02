@@ -4315,6 +4315,3 @@ export async function recoverLostThreads(client, guild, tournamentShortId) {
     console.log(`[RECOVER] Finalizado. Recuperados: ${recovered}, Fallidos: ${failed}`);
     return summary;
 }
-
-export { updatePublicMessages, updatePrivateTournamentMessages, updateTournamentManagementThread, notifyCastersOfNewTeam };
-
