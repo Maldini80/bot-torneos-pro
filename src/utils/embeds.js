@@ -119,18 +119,31 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
+    const row3 = new ActionRowBuilder();
+    const row4 = new ActionRowBuilder();
 
-    if (!tournament.config.isPaid) {
-        row2.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`admin_add_registered_team_start:${tournament.shortId}`)
-                .setLabel('Añadir Equipo Registrado')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('➕')
-                .setDisabled(isBusy)
+    const isBeforeDraw = tournament.status === 'inscripcion_abierta';
+    const isGroupStage = tournament.status === 'fase_de_grupos';
+    const hasEnoughTeamsForDraw = Object.keys(tournament.teams.aprobados).length >= 2;
+    const hasCaptains = Object.keys(tournament.teams.aprobados).length > 0;
+
+    // ROW 1: Primary actions based on tournament phase
+    if (isBeforeDraw) {
+        row1.addComponents(
+            new ButtonBuilder().setCustomId(`admin_change_format_start:${tournament.shortId}`).setLabel('Editar Torneo').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`admin_force_draw:${tournament.shortId}`).setLabel('Forzar Sorteo').setStyle(ButtonStyle.Success).setEmoji('🎲').setDisabled(isBusy || !hasEnoughTeamsForDraw),
+            new ButtonBuilder().setCustomId(`admin_notify_changes:${tournament.shortId}`).setLabel('Notificar Cambios').setStyle(ButtonStyle.Primary).setEmoji('📢').setDisabled(isBusy || !hasCaptains)
         );
+        if (tournament.teams.reserva && Object.keys(tournament.teams.reserva).length > 0) {
+            row1.addComponents(
+                new ButtonBuilder().setCustomId(`admin_manage_waitlist:${tournament.shortId}`).setLabel('Ver Reservas').setStyle(ButtonStyle.Secondary).setEmoji('📋').setDisabled(isBusy)
+            );
+        }
+    } else {
+        row1.addComponents(new ButtonBuilder().setCustomId(`admin_simulate_matches:${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy));
     }
 
+    // ROW 2: Team and result management
     row2.addComponents(
         new ButtonBuilder()
             .setCustomId(`admin_manage_results_start:${tournament.shortId}`)
@@ -145,30 +158,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setEmoji('🔧')
             .setDisabled(isBusy)
     );
-    const row3 = new ActionRowBuilder();
-
-    const isBeforeDraw = tournament.status === 'inscripcion_abierta';
-    const isGroupStage = tournament.status === 'fase_de_grupos';
-    const hasEnoughTeamsForDraw = Object.keys(tournament.teams.aprobados).length >= 2;
-    const hasCaptains = Object.keys(tournament.teams.aprobados).length > 0;
-
-    if (isBeforeDraw) {
-        row1.addComponents(
-            new ButtonBuilder().setCustomId(`admin_change_format_start:${tournament.shortId}`).setLabel('Editar Torneo').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy),
-            new ButtonBuilder().setCustomId(`admin_force_draw:${tournament.shortId}`).setLabel('Forzar Sorteo').setStyle(ButtonStyle.Success).setEmoji('🎲').setDisabled(isBusy || !hasEnoughTeamsForDraw),
-            new ButtonBuilder().setCustomId(`admin_notify_changes:${tournament.shortId}`).setLabel('Notificar Cambios').setStyle(ButtonStyle.Primary).setEmoji('📢').setDisabled(isBusy || !hasCaptains)
-        );
-        if (tournament.teams.reserva && Object.keys(tournament.teams.reserva).length > 0) {
-            row1.addComponents(
-                new ButtonBuilder().setCustomId(`admin_manage_waitlist:${tournament.shortId}`).setLabel('Ver Reservas').setStyle(ButtonStyle.Secondary).setEmoji('📋').setDisabled(isBusy)
-            );
-        }
-        row2.addComponents(
-            new ButtonBuilder().setCustomId(`admin_add_test_teams:${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
-        );
-    } else {
-        row1.addComponents(new ButtonBuilder().setCustomId(`admin_simulate_matches:${tournament.shortId}`).setLabel('Simular Partidos').setStyle(ButtonStyle.Primary).setEmoji('⏩').setDisabled(isBusy));
-    }
 
     if (hasCaptains) {
         row2.addComponents(
@@ -181,8 +170,26 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    if (isGroupStage) {
+    if (!tournament.config.isPaid && isBeforeDraw) {
         row2.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_add_registered_team_start:${tournament.shortId}`)
+                .setLabel('Añadir Equipo Registrado')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('➕')
+                .setDisabled(isBusy)
+        );
+    }
+
+    if (isBeforeDraw) {
+        row2.addComponents(
+            new ButtonBuilder().setCustomId(`admin_add_test_teams:${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
+        );
+    }
+
+    // ROW 3: Group stage specific actions and co-captain assignment
+    if (isGroupStage) {
+        row3.addComponents(
             new ButtonBuilder()
                 .setCustomId(`admin_undo_draw:${tournament.shortId}`)
                 .setLabel('Eliminar Sorteo')
@@ -218,16 +225,32 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    row3.addComponents(new ButtonBuilder().setCustomId(`admin_end_tournament:${tournament.shortId}`).setLabel('Finalizar Torneo').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(isBusy));
+    // ROW 4: Destructive actions
+    row4.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`admin_end_tournament:${tournament.shortId}`)
+            .setLabel('Finalizar Torneo')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('🛑')
+            .setDisabled(isBusy)
+    );
 
     if (hasCaptains) {
-        row3.addComponents(new ButtonBuilder().setCustomId(`admin_kick_team_start:${tournament.shortId}`).setLabel("Expulsar Equipo").setStyle(ButtonStyle.Danger).setEmoji('✖️').setDisabled(isBusy));
+        row4.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_kick_team_start:${tournament.shortId}`)
+                .setLabel("Expulsar Equipo")
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('✖️')
+                .setDisabled(isBusy)
+        );
     }
 
     const components = [];
     if (row1.components.length > 0) components.push(row1);
     if (row2.components.length > 0) components.push(row2);
     if (row3.components.length > 0) components.push(row3);
+    if (row4.components.length > 0) components.push(row4);
 
     return { embeds: [embed], components };
 }
