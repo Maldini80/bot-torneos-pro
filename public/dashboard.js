@@ -169,12 +169,73 @@ const translations = {
         auth: {
             login: 'Login with Discord',
             logout: 'Logout',
+            profile: 'Profile',
             notMember: 'You are not a server member',
             notMemberDesc: 'To access all features, join our Discord server',
             joinServer: 'Join Server',
             welcome: 'Welcome',
             loginRequired: 'You must login to access this feature',
             loginPrompt: 'Login to access personalized features'
+        },
+        profile: {
+            title: 'My Profile',
+            verified: 'Verified',
+            notVerified: 'Not Verified',
+            verifyNow: 'Verify Now',
+            verifyMessage: 'Your account is not verified. Link your game ID to participate.',
+            myTeams: 'My Teams',
+            noTeams: 'You are not part of any team yet.',
+            createTeamHint: 'Create your own or ask to be signed!',
+            manage: 'Manage',
+            createTeam: 'Create New Team',
+            manager: 'Manager',
+            captain: 'Captain',
+            loading: 'Loading...',
+            error: 'Error loading your teams. Try again.'
+        },
+        verification: {
+            title: 'Verify Account',
+            platform: 'Platform',
+            playerId: 'Player ID',
+            submit: 'Verify',
+            submitting: 'Verifying...',
+            success: 'Verification successful!',
+            error: 'Verification error'
+        },
+        createTeam: {
+            title: 'Found a New Team',
+            subtitle: 'Define your club identity',
+            teamName: 'Team Name',
+            teamNamePlaceholder: 'FC Barcelona',
+            abbreviation: 'Abbreviation (TAG)',
+            abbreviationPlaceholder: 'FCB',
+            abbreviationHint: 'Exactly 3 letters',
+            region: 'Region',
+            logo: 'Team Logo',
+            logoPlaceholder: 'Must be a direct image URL (imgur, Discord, etc.)',
+            preview: 'Preview',
+            previewName: 'Team Name',
+            foundTeam: 'Found Team',
+            founding: 'Creating...',
+            success: 'Team founded successfully!',
+            error: 'Error creating team'
+        },
+        teamManagement: {
+            title: 'Manage Team',
+            roster: 'Roster',
+            invitePlayer: 'Sign Player',
+            invitePlaceholder: 'Discord ID (Recommended) or Username',
+            invite: 'Invite',
+            inviting: 'Searching and inviting...',
+            inviteSuccess: 'added to team!',
+            inviteError: 'Error inviting',
+            kick: 'Kick',
+            promote: 'Promote to Captain',
+            demote: 'Demote to Member',
+            confirmKick: 'Are you sure you want to kick this player?',
+            member: 'Member',
+            notVerifiedBadge: 'Not verified',
+            loading: 'Loading roster...'
         },
         common: {
             close: 'Close', back: 'Back', next: 'Next', previous: 'Previous',
@@ -429,6 +490,26 @@ class DashboardApp {
             value = value?.[k];
         }
         return value || key;
+    }
+
+    // Translate all elements with data-i18n attributes
+    translatePage() {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            const translation = this.t(key);
+            if (translation !== key) { // Only update if translation exists
+                el.textContent = translation;
+            }
+        });
+
+        // Translate placeholders
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            const translation = this.t(key);
+            if (translation !== key) {
+                el.placeholder = translation;
+            }
+        });
     }
 
     setupCreateTeamForm() {
