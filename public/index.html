@@ -50,26 +50,27 @@
         <div class="main-content">
             <main id="main-panel" class="animated-border">
                 <nav class="view-switcher">
-                    <button class="view-btn active" data-view="classification-view">Clasificación</button>
-                    <button class="view-btn" data-view="calendar-view">Calendario</button>
-                    <button class="view-btn" data-view="bracket-view">Eliminatorias</button>
-                    <button class="view-btn" data-view="teams-view">Equipos</button>
+                    <button class="view-btn active" data-view="classification-view"
+                        data-i18n="classification">Clasificación</button>
+                    <button class="view-btn" data-view="calendar-view" data-i18n="calendar">Calendario</button>
+                    <button class="view-btn" data-view="bracket-view" data-i18n="brackets">Eliminatorias</button>
+                    <button class="view-btn" data-view="teams-view" data-i18n="teams">Equipos</button>
                 </nav>
                 <div id="main-view-content">
                     <div id="classification-view" class="view-pane active">
-                        <h2>Fase de Grupos</h2>
+                        <h2 data-i18n="groupPhase">Fase de Grupos</h2>
                         <div id="groups-container"></div>
                     </div>
                     <div id="calendar-view" class="view-pane">
-                        <h2>Calendario de Partidos</h2>
+                        <h2 data-i18n="matchSchedule">Calendario de Partidos</h2>
                         <div id="calendar-container"></div>
                     </div>
                     <div id="bracket-view" class="view-pane">
-                        <h2>Eliminatorias</h2>
+                        <h2 data-i18n="brackets">Eliminatorias</h2>
                         <div id="bracket-container"></div>
                     </div>
                     <div id="teams-view" class="view-pane">
-                        <h2>Equipos Participantes</h2>
+                        <h2 data-i18n="participatingTeams">Equipos Participantes</h2>
                         <div id="team-list-container"></div>
                     </div>
                     <div id="finished-view" class="view-pane">
@@ -85,7 +86,7 @@
                 </div>
             </main>
             <aside id="live-match-sidebar" class="animated-border">
-                <h2>Partidos en Directo</h2>
+                <h2 data-i18n="liveMatches">Partidos en Directo</h2>
                 <div id="live-matches-list"></div>
             </aside>
         </div>

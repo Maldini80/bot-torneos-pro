@@ -39,7 +39,10 @@ const translations = {
         roleMatchGuide: 'GUÍA DE PARTIDO',
         roleDraftCaptain: 'CAPITÁN DE DRAFT',
         roleVisitor: 'VISITANTE',
-        myTeam: 'Mi Equipo'
+        myTeam: 'Mi Equipo',
+        matchSchedule: 'Calendario de Partidos',
+        participatingTeams: 'Equipos Participantes',
+        round: 'Jornada'
     },
     en: {
         backBtn: '← Dashboard',
@@ -80,7 +83,10 @@ const translations = {
         roleMatchGuide: 'MATCH GUIDE',
         roleDraftCaptain: 'DRAFT CAPTAIN',
         roleVisitor: 'VISITOR',
-        myTeam: 'My Team'
+        myTeam: 'My Team',
+        matchSchedule: 'Match Schedule',
+        participatingTeams: 'Participating Teams',
+        round: 'Round'
     }
 };
 
@@ -120,6 +126,9 @@ function updateLanguage() {
     if (loadingEl && loadingEl.textContent.includes('Cargando')) {
         loadingEl.textContent = t('loading');
     }
+
+    // Disparar evento de cambio de idioma global
+    document.dispatchEvent(new Event('languageChanged'));
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -237,6 +246,15 @@ function initializeTournamentView(tournamentId) {
     const championNameEl = document.getElementById('champion-name');
 
     let hasLoadedInitialData = false;
+    let currentTournamentState = null; // Store state for re-rendering
+
+    // Escuchar cambio de idioma para re-renderizar
+    document.addEventListener('languageChanged', () => {
+        if (currentTournamentState) {
+            renderTournamentState(currentTournamentState);
+        }
+    });
+
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${window.location.host}`);
     socket.onopen = () => console.log('Conectado al servidor para Torneo.');
@@ -286,6 +304,7 @@ function initializeTournamentView(tournamentId) {
 
     function renderTournamentState(tournament) {
         if (!tournament) return;
+        currentTournamentState = tournament; // Update cached state
 
         // Renderizar siempre el nombre y formato
         tournamentNameEl.textContent = tournament.status === 'finalizado' ? `${tournament.nombre} (Finalizado)` : tournament.nombre;
@@ -447,7 +466,7 @@ function initializeTournamentView(tournamentId) {
         sortedGroupNames.forEach(groupName => {
             const matches = groups[groupName];
             const matchesByRound = matches.reduce((acc, match) => {
-                const round = `Jornada ${match.jornada}`;
+                const round = `${t('round')} ${match.jornada}`;
                 if (!acc[round]) acc[round] = [];
                 acc[round].push(match);
                 return acc;
@@ -542,7 +561,8 @@ function initializeTournamentView(tournamentId) {
         }
 
         const groupedMatches = liveMatches.reduce((acc, match) => {
-            const groupKey = match.nombreGrupo ? `${match.nombreGrupo} - Jornada ${match.jornada}` : match.jornada.charAt(0).toUpperCase() + match.jornada.slice(1);
+            const roundText = `${t('round')} ${match.jornada}`;
+            const groupKey = match.nombreGrupo ? `${match.nombreGrupo} - ${roundText}` : roundText;
             if (!acc[groupKey]) acc[groupKey] = [];
             acc[groupKey].push(match);
             return acc;
