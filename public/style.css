@@ -2201,7 +2201,9 @@ aside h2 {
     .history-item {
         min-height: 44px;
     }
-}/* ========================================
+}
+
+/* ========================================
    USER AUTHENTICATION STYLES (Dashboard)
    ======================================== */
 
@@ -2339,6 +2341,7 @@ aside h2 {
         justify-content: center;
     }
 }
+
 /* ========================================
    USER ROLE BADGE (Tournament Viewer)
    ======================================== */
@@ -2386,6 +2389,8 @@ aside h2 {
 }
 
 .role-captain,
+.role-coCaptain,
+.role-extraCaptain,
 .role-draftCaptain {
     background: linear-gradient(135deg, #4facfe, #00f2fe);
     color: #fff;

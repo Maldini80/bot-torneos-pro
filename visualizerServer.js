@@ -235,16 +235,34 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
 
         // 2. VERIFICAR ROLES ESPECÍFICOS DEL EVENTO
         if (eventType === 'tournament') {
-            // A. Capitán de equipo
+            // A. Capitán principal, Co-Capitán, o Capitán Extra
             for (const groupName in event.structure.grupos) {
                 const group = event.structure.grupos[groupName];
                 if (group.equipos) {
-                    const team = group.equipos.find(eq => eq.capitanId === userId);
-                    if (team) {
-                        roleData.role = 'captain';
-                        roleData.teamId = team.id;
-                        roleData.teamName = team.nombre;
-                        return res.json(roleData);
+                    for (const team of group.equipos) {
+                        // Capitán principal
+                        if (team.capitanId === userId) {
+                            roleData.role = 'captain';
+                            roleData.teamId = team.id;
+                            roleData.teamName = team.nombre;
+                            return res.json(roleData);
+                        }
+
+                        // Co-Capitán
+                        if (team.coCaptainId === userId) {
+                            roleData.role = 'coCaptain';
+                            roleData.teamId = team.id;
+                            roleData.teamName = team.nombre;
+                            return res.json(roleData);
+                        }
+
+                        // Capitán Extra
+                        if (team.extraCaptains && Array.isArray(team.extraCaptains) && team.extraCaptains.includes(userId)) {
+                            roleData.role = 'extraCaptain';
+                            roleData.teamId = team.id;
+                            roleData.teamName = team.nombre;
+                            return res.json(roleData);
+                        }
                     }
                 }
             }
