@@ -413,7 +413,12 @@ class DashboardApp {
     }
 
     async openEventModal(eventId, eventType) {
-        window.location.href = `/index.html?id=${eventId}`;
+        // Redirigir a index.html con el parámetro correcto según el tipo
+        if (eventType === 'tournament') {
+            window.location.href = `/index.html?tournamentId=${eventId}`;
+        } else if (eventType === 'draft') {
+            window.location.href = `/index.html?draftId=${eventId}`;
+        }
     }
 
     setupWebSocket() {
