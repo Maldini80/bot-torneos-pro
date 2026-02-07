@@ -18,6 +18,12 @@ const app = express();
 // FIX: Middlewares esenciales para que funcione el body parser y archivos estáticos
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Root route: serve landing page
+app.get('/', (req, res) => {
+    res.sendFile('home.html', { root: 'public' });
+});
+
 app.use(express.static('public'));
 
 const server = http.createServer(app);
