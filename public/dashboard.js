@@ -637,7 +637,36 @@ class DashboardApp {
 
         // Setup Invite Form
         const inviteForm = document.getElementById('invite-player-form');
+        const inviteInput = document.getElementById('invite-input');
         inviteForm.onsubmit = (e) => this.handleInvite(e);
+
+        // Autocomplete Logic
+        let debounceTimer;
+        inviteInput.oninput = (e) => {
+            const query = e.target.value;
+            if (query.length < 2) return;
+
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+                    const users = await res.json();
+
+                    const datalist = document.getElementById('users-list');
+                    datalist.innerHTML = '';
+
+                    users.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.discordId; // El valor que se enviará es el ID
+                        // Texto visible en algunos navegadores: "Username (Platform: ID)"
+                        option.label = `${user.username} (${user.platform || 'Discord'}: ${user.psnId || '?'})`;
+                        datalist.appendChild(option);
+                    });
+                } catch (err) {
+                    console.error('Error searching:', err);
+                }
+            }, 300);
+        };
 
         // Close Modal Setup
         const closeBtn = document.querySelector('.close-manage-team');

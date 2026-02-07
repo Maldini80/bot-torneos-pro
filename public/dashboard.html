@@ -261,8 +261,10 @@
             <div class="manage-section">
                 <h3 data-i18n="teamManagement.invitePlayer">Fichar Jugador</h3>
                 <form id="invite-player-form" class="invite-form">
-                    <input type="text" id="invite-input" data-i18n-placeholder="teamManagement.invitePlaceholder"
-                        placeholder="ID de Discord (Recomendado) o Usuario" required>
+                    <input type="text" id="invite-input" list="users-list"
+                        data-i18n-placeholder="teamManagement.invitePlaceholder"
+                        placeholder="ID de Discord (Recomendado) o Usuario" required autocomplete="off">
+                    <datalist id="users-list"></datalist>
                     <button type="submit" class="action-btn invite-btn"
                         data-i18n="teamManagement.invite">Invitar</button>
                 </form>

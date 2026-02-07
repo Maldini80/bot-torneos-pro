@@ -182,6 +182,37 @@ app.get('/api/check-membership', async (req, res) => {
     }
 });
 
+// Endpoint: Buscar usuarios (Autocompletado para invitaciones)
+app.get('/api/users/search', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    const query = req.query.q;
+    if (!query || query.length < 2) return res.json([]); // Mínimo 2 caracteres
+
+    try {
+        const db = getDb('test'); // Buscar en usuarios verificados
+        // Buscar por username, psnId o discordId parcial
+        const limit = 10;
+        const users = await db.collection('verified_users').find({
+            $or: [
+                { username: { $regex: query, $options: 'i' } },
+                { psnId: { $regex: query, $options: 'i' } },
+                { discordId: { $regex: query, $options: 'i' } }
+            ]
+        }).limit(limit).project({
+            discordId: 1,
+            username: 1,
+            psnId: 1,
+            platform: 1
+        }).toArray();
+
+        res.json(users);
+    } catch (e) {
+        console.error('Error searching users:', e);
+        res.status(500).json({ error: 'Error buscando usuarios' });
+    }
+});
+
 // Endpoint: Verificar ID de usuario (Vincular Cuenta)
 app.post('/api/user/verify', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
@@ -194,7 +225,7 @@ app.post('/api/user/verify', async (req, res) => {
     if (!validPlatforms.includes(platform)) return res.status(400).json({ error: 'Plataforma no válida' });
 
     try {
-        const db = getDb();
+        const db = getDb('test'); // FIX: Guardar verificación en 'test' (DB compartida)
 
         // Comprobar si el ID ya está usado por otro discordId
         const existing = await db.collection('verified_users').findOne({
