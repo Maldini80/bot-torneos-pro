@@ -323,8 +323,22 @@ class DashboardApp {
             ? `https://cdn.discordapp.com/avatars/${this.currentUser.id}/${this.currentUser.avatar}.png`
             : 'https://cdn.discordapp.com/embed/avatars/0.png';
 
+        console.log('[DEBUG] Rendering User Profile:', {
+            username: this.currentUser.username,
+            global: this.currentUser.global_name,
+            avatar: avatarUrl
+        });
+
         userAvatar.src = avatarUrl;
-        userName.textContent = this.currentUser.global_name || this.currentUser.username;
+        userAvatar.onerror = () => { userAvatar.src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }; // Fallback
+
+        const displayName = this.currentUser.global_name || this.currentUser.username || 'Usuario';
+        userName.textContent = displayName;
+
+        // Force update just in case
+        setTimeout(() => {
+            document.getElementById('user-name').textContent = displayName;
+        }, 100);
 
         // Bind Profile Button
         if (profileBtn) {
@@ -470,7 +484,7 @@ class DashboardApp {
                             <span class="team-name">${team.name}</span>
                             <span class="team-role-badge">${roleLabel}</span>
                         </div>
-                        <button class="action-btn manage-team-btn" onclick="dashboard.openTeamManagement('${team._id}', '${team.name}')">
+                        <button class="action-btn manage-team-btn" onclick="dashboard.openTeamManagement('${team._id}', '${team.name}', '${team.logoUrl || ''}')">
                             ⚙️ ${this.t('profile.manage')}
                         </button>
                     </div>
@@ -619,10 +633,18 @@ class DashboardApp {
         }
     }
 
-    async openTeamManagement(teamId, teamName) {
+    async openTeamManagement(teamId, teamName, logoUrl) {
         this.currentManagingTeamId = teamId;
         const modal = document.getElementById('manage-team-modal');
         const title = document.getElementById('manage-team-name');
+        const teamLogo = modal.querySelector('.team-logo-large') || document.createElement('img'); // Fallback if not exists
+
+        // Fix: Update team logo in modal if element exists
+        const logoImg = document.getElementById('manage-team-logo');
+        if (logoImg) {
+            logoImg.src = logoUrl || 'https://i.imgur.com/2M7540p.png';
+        }
+
         const rosterList = document.getElementById('roster-list');
         const inviteMsg = document.getElementById('invite-message');
 
