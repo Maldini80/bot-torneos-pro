@@ -3,7 +3,7 @@
 // ===== TRADUCCIONES INTEGRADAS =====
 const translations = {
     es: {
-        nav: { active: 'Activos', history: 'Historial' },
+        nav: { active: 'Activos', history: 'Historial', home: 'Inicio' },
         dashboard: {
             title: 'Dashboard de Eventos',
             activeEvents: 'Eventos Activos',
@@ -127,7 +127,7 @@ const translations = {
         }
     },
     en: {
-        nav: { active: 'Active', history: 'History' },
+        nav: { active: 'Active', history: 'History', home: 'Home' },
         dashboard: {
             title: 'Events Dashboard',
             activeEvents: 'Active Events',
