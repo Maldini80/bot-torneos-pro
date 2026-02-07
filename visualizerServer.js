@@ -132,7 +132,7 @@ app.get('/api/check-membership', async (req, res) => {
     }
 
     try {
-        const db = getDb('test'); // FIX: Usar 'test' para usuarios
+        const db = getDb(); // FIX: Usuarios en tournamentBotDb
         const userId = req.user.id;
 
         // 1. Verificar estado de verificación en DB si no está en sesión
@@ -192,7 +192,7 @@ app.get('/api/users/search', async (req, res) => {
     if (!query || query.length < 2) return res.json([]); // Mínimo 2 caracteres
 
     try {
-        const db = getDb('test'); // Buscar en usuarios verificados
+        const db = getDb(); // FIX: Usuarios están en tournamentBotDb
         // Buscar por username, psnId o discordId parcial
         const limit = 10;
         const users = await db.collection('verified_users').find({
@@ -423,7 +423,8 @@ app.get('/api/teams/:teamId/roster', checkTeamPermissions, async (req, res) => {
 
         // Obtener detalles de Discord y DB
         const rosterDetails = [];
-        const db = getDb('test'); // FIX: Usuarios verificados están en 'test'
+        const dbUsers = getDb(); // FIX: Usuarios verificados están en tournamentBotDb
+        const dbTeams = getDb('test'); // Teams están en test, aunque aquí no se usa directamnte
 
         for (const userId of uniqueIds) {
             let role = 'member';
@@ -431,7 +432,7 @@ app.get('/api/teams/:teamId/roster', checkTeamPermissions, async (req, res) => {
             else if (team.captains.includes(userId)) role = 'captain';
 
             // Datos DB (Verificación)
-            const verifiedUser = await db.collection('verified_users').findOne({ discordId: userId });
+            const verifiedUser = await dbUsers.collection('verified_users').findOne({ discordId: userId });
 
             // Datos Discord (Avatar/Name)
             let discordUser = null;
@@ -483,7 +484,7 @@ app.post('/api/teams/:teamId/invite', checkTeamPermissions, async (req, res) => 
         // Difícil buscar globalmente por username sin bot search en djs. 
         // Usaremos DB verified_users como fallback de búsqueda "segura"
         if (!targetUser) {
-            const dbRef = getDb('test');
+            const dbRef = getDb(); // FIX: Usuarios en tournamentBotDb
             const foundInDb = await dbRef.collection('verified_users').findOne({
                 username: { $regex: new RegExp(`^${usernameOrId}$`, 'i') }
             });
@@ -898,8 +899,8 @@ export async function startVisualizerServer(discordClient) {
         scope: ['identify', 'guilds']
     }, async (accessToken, refreshToken, profile, done) => {
         try {
-            // 1. Verificar si está verificado en base de datos (DB: 'test')
-            const db = getDb('test');
+            // 1. Verificar si está verificado en base de datos (DB: tournamentBotDb por defecto)
+            const db = getDb(); // FIX: Usuarios están en tournamentBotDb según captura
             const verifiedUser = await db.collection('verified_users').findOne({ discordId: profile.id });
             profile.isVerified = !!verifiedUser;
             if (verifiedUser) {
