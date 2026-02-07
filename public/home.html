@@ -585,7 +585,7 @@
 
     <!-- Language Selector -->
     <div class="lang-selector">
-        <button class="lang-btn active" data-lang="es">🇪🇸 ES</button>
+        <button class="lang-btn" data-lang="es">🇪🇸 ES</button>
         <button class="lang-btn" data-lang="en">🇬🇧 EN</button>
     </div>
 
@@ -665,8 +665,15 @@
         // Get saved language or default to Spanish
         let currentLang = localStorage.getItem('preferredLang') || 'es';
 
-        // Language switcher
+        // Immediately set active button (before any delays)
         const langButtons = document.querySelectorAll('.lang-btn');
+        langButtons.forEach(btn => {
+            if (btn.dataset.lang === currentLang) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Language switcher
         langButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 currentLang = btn.dataset.lang;
@@ -675,10 +682,6 @@
                 btn.classList.add('active');
                 applyTranslations();
             });
-
-            if (btn.dataset.lang === currentLang) {
-                btn.classList.add('active');
-            }
         });
 
         // Apply translations
@@ -693,13 +696,6 @@
 
         // Apply on load
         applyTranslations();
-
-        // Sync language selector
-        langButtons.forEach(btn => {
-            if (btn.dataset.lang === currentLang) {
-                btn.classList.add('active');
-            }
-        });
     </script>
 </body>
 
