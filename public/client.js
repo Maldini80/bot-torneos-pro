@@ -86,38 +86,58 @@ function initializeTournamentView(tournamentId) {
 
     function renderTournamentState(tournament) {
         if (!tournament) return;
-        if (tournament.status === 'finalizado') {
-            viewSwitcherEl.style.display = 'none';
-            document.querySelector('.mobile-view-switcher').style.display = 'none';
-            const activePane = mainPanelEl.querySelector('.view-pane.active');
-            if (activePane) activePane.classList.remove('active');
-            finishedViewEl.classList.add('active');
-            const finalMatch = tournament.structure.eliminatorias.final;
-            if (finalMatch && finalMatch.resultado) {
-                const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
-                const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
-                championNameEl.textContent = champion.nombre;
-            } else {
-                championNameEl.textContent = "Por determinar";
-            }
-            tournamentNameEl.textContent = `${tournament.nombre} (Finalizado)`;
-            liveMatchesListEl.innerHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
-            return;
-        }
 
-        viewSwitcherEl.style.display = 'flex';
-        finishedViewEl.classList.remove('active');
-        if (!mainPanelEl.querySelector('.view-pane.active')) {
-            mainPanelEl.querySelector('[data-view="classification-view"]').click();
-        }
-
-        tournamentNameEl.textContent = tournament.nombre;
+        // Renderizar siempre el nombre y formato
+        tournamentNameEl.textContent = tournament.status === 'finalizado' ? `${tournament.nombre} (Finalizado)` : tournament.nombre;
         tournamentFormatEl.textContent = `${tournament.config.format.label} | ${Object.keys(tournament.teams.aprobados).length} / ${tournament.config.format.size} Equipos`;
+
+        // Renderizar los datos del torneo siempre
         renderTeams(tournament);
         renderClassification(tournament);
         renderCalendar(tournament);
         renderBracket(tournament);
         renderLiveMatches(tournament);
+
+        // Si está finalizado, mostrar vista especial Y mantener las pestañas visibles
+        if (tournament.status === 'finalizado') {
+            // Asegurarse que el view-switcher esté visible
+            viewSwitcherEl.style.display = 'flex';
+            document.querySelector('.mobile-view-switcher').style.display = 'block';
+
+            // Mostrar también la vista de "finalizado" en partidos en directo
+            liveMatchesListEl.innerHTML = '';
+
+            // Obtener el campeón
+            const finalMatch = tournament.structure.eliminatorias?.final;
+            let championHTML = '';
+            if (finalMatch && finalMatch.resultado) {
+                const [scoreA, scoreB] = finalMatch.resultado.split('-').map(Number);
+                const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
+                championHTML = `
+                    <div class="finished-tournament-banner">
+                        <h2>🏆 TORNEO FINALIZADO</h2>
+                        <p>¡Gracias por participar y seguir la retransmisión!</p>
+                        <h3>🏆 Campeón: ${champion.nombre} 🏆</h3>
+                    </div>
+                `;
+            } else {
+                championHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
+            }
+            liveMatchesListEl.innerHTML = championHTML;
+
+            // Activar la vista de clasificación por defecto
+            if (!mainPanelEl.querySelector('.view-pane.active')) {
+                mainPanelEl.querySelector('[data-view="classification-view"]').click();
+            }
+            return;
+        }
+
+        // Torneos en curso: lógicaexistente
+        viewSwitcherEl.style.display = 'flex';
+        finishedViewEl.classList.remove('active');
+        if (!mainPanelEl.querySelector('.view-pane.active')) {
+            mainPanelEl.querySelector('[data-view="classification-view"]').click();
+        }
     }
 
     function renderTeams(tournament) {
