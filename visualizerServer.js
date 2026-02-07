@@ -198,12 +198,14 @@ app.get('/api/users/search', async (req, res) => {
         const users = await db.collection('verified_users').find({
             $or: [
                 { username: { $regex: query, $options: 'i' } },
-                { psnId: { $regex: query, $options: 'i' } },
+                { gameId: { $regex: query, $options: 'i' } }, // FIX: Usar gameId
+                { psnId: { $regex: query, $options: 'i' } }, // Mantener soporte legacy
                 { discordId: { $regex: query, $options: 'i' } }
             ]
         }).limit(limit).project({
             discordId: 1,
             username: 1,
+            gameId: 1, // FIX
             psnId: 1,
             platform: 1
         }).toArray();
@@ -221,6 +223,7 @@ app.get('/api/users/search', async (req, res) => {
                             discordId: member.id,
                             username: member.user.username,
                             psnId: null, // No verificado
+                            gameId: null,
                             platform: null
                         });
                     }
@@ -443,7 +446,7 @@ app.get('/api/teams/:teamId/roster', checkTeamPermissions, async (req, res) => {
                 global_name: discordUser?.globalName,
                 avatar: discordUser ? discordUser.displayAvatarURL() : 'https://cdn.discordapp.com/embed/avatars/0.png',
                 role: role,
-                psnId: verifiedUser?.psnId || null,
+                psnId: verifiedUser?.gameId || verifiedUser?.psnId || null, // FIX: gameId priority
                 platform: verifiedUser?.platform || null
             });
         }
@@ -899,7 +902,7 @@ export async function startVisualizerServer(discordClient) {
             const verifiedUser = await db.collection('verified_users').findOne({ discordId: profile.id });
             profile.isVerified = !!verifiedUser;
             if (verifiedUser) {
-                profile.psnId = verifiedUser.psnId;
+                profile.psnId = verifiedUser.gameId || verifiedUser.psnId; // FIX: Support gameId from DB
                 profile.platform = verifiedUser.platform;
             }
 
