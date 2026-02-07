@@ -43,6 +43,7 @@
                             <span id="user-name" class="user-name"></span>
                             <button id="profile-btn" class="auth-btn profile-trigger-btn">
                                 <span class="btn-icon">👤</span>
+                                <span data-i18n="auth.profile" class="hide-mobile">Perfil</span>
                             </button>
                             <button id="logout-btn" class="auth-btn logout-btn">
                                 <span class="btn-icon">🚪</span>
@@ -249,7 +250,7 @@
             </div>
 
             <div class="manage-section">
-                <h3>Plantilla (Roster)</h3>
+                <h3 data-i18n="teamManagement.roster">Plantilla (Roster)</h3>
                 <div id="roster-list" class="roster-list">
                     <!-- Roster items injected via JS -->
                     <div class="loader-spinner"></div>
@@ -257,10 +258,12 @@
             </div>
 
             <div class="manage-section">
-                <h3>Fichar Jugador</h3>
+                <h3 data-i18n="teamManagement.invitePlayer">Fichar Jugador</h3>
                 <form id="invite-player-form" class="invite-form">
-                    <input type="text" id="invite-input" placeholder="ID de Discord (Recomendado) o Usuario" required>
-                    <button type="submit" class="action-btn invite-btn">Invitar</button>
+                    <input type="text" id="invite-input" data-i18n-placeholder="teamManagement.invitePlaceholder"
+                        placeholder="ID de Discord (Recomendado) o Usuario" required>
+                    <button type="submit" class="action-btn invite-btn"
+                        data-i18n="teamManagement.invite">Invitar</button>
                 </form>
                 <div id="invite-message" class="status-message hidden"></div>
             </div>

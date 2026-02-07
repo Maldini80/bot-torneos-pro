@@ -45,12 +45,73 @@ const translations = {
         auth: {
             login: 'Iniciar Sesión con Discord',
             logout: 'Cerrar Sesión',
+            profile: 'Perfil',
             notMember: 'No eres miembro del servidor',
             notMemberDesc: 'Para acceder a todas las funcionalidades, únete a nuestro servidor de Discord',
             joinServer: 'Unirse al Servidor',
             welcome: 'Bienvenido/a',
             loginRequired: 'Debes iniciar sesión para acceder a esta función',
             loginPrompt: 'Inicia sesión para acceder a funciones personalizadas'
+        },
+        profile: {
+            title: 'Mi Perfil',
+            verified: 'Verificado',
+            notVerified: 'No Verificado',
+            verifyNow: 'Verificar Ahora',
+            verifyMessage: 'Tu cuenta no está verificada. Vincula tu ID de juego para participar.',
+            myTeams: 'Mis Equipos',
+            noTeams: 'No perteneces a ningún equipo aún.',
+            createTeamHint: '¡Crea el tuyo propio o pide que te fichen!',
+            manage: 'Gestionar',
+            createTeam: 'Crear Nuevo Equipo',
+            manager: 'Manager',
+            captain: 'Capitán',
+            loading: 'Cargando...',
+            error: 'Error cargando tus equipos. Intenta de nuevo.'
+        },
+        verification: {
+            title: 'Verificar Cuenta',
+            platform: 'Plataforma',
+            playerId: 'ID de Jugador',
+            submit: 'Verificar',
+            submitting: 'Verificando...',
+            success: '¡Verificación exitosa!',
+            error: 'Error en la verificación'
+        },
+        createTeam: {
+            title: 'Fundar un Nuevo Equipo',
+            subtitle: 'Define la identidad de tu club',
+            teamName: 'Nombre del Equipo',
+            teamNamePlaceholder: 'FC Barcelona',
+            abbreviation: 'Abreviatura (TAG)',
+            abbreviationPlaceholder: 'FCB',
+            abbreviationHint: 'Exactamente 3 letras',
+            region: 'Región',
+            logo: 'Logo del Equipo',
+            logoPlaceholder: 'Debe ser una URL directa de imagen (imgur, Discord, etc.)',
+            preview: 'Vista Previa',
+            previewName: 'Nombre del Equipo',
+            foundTeam: 'Fundar Equipo',
+            founding: 'Creando...',
+            success: '¡Equipo fundado con éxito!',
+            error: 'Error al crear el equipo'
+        },
+        teamManagement: {
+            title: 'Gestionar Equipo',
+            roster: 'Plantilla (Roster)',
+            invitePlayer: 'Fichar Jugador',
+            invitePlaceholder: 'ID de Discord (Recomendado) o Usuario',
+            invite: 'Invitar',
+            inviting: 'Buscando e invitando...',
+            inviteSuccess: 'añadido al equipo!',
+            inviteError: 'Error al invitar',
+            kick: 'Expulsar',
+            promote: 'Ascender a Capitán',
+            demote: 'Degradar a Miembro',
+            confirmKick: '¿Seguro que quieres expulsar a este jugador?',
+            member: 'Miembro',
+            notVerifiedBadge: 'No verificado',
+            loading: 'Cargando plantilla...'
         },
         common: {
             close: 'Cerrar', back: 'Volver', next: 'Siguiente', previous: 'Anterior',
@@ -320,7 +381,6 @@ class DashboardApp {
             if (createBtn) {
                 if (hasManagedTeam) {
                     createBtn.style.display = 'none';
-                    // Optional: Add a notice
                 } else {
                     createBtn.style.display = 'block';
                     createBtn.onclick = () => {
@@ -331,30 +391,44 @@ class DashboardApp {
             }
 
             if (data.teams && data.teams.length > 0) {
-                container.innerHTML = data.teams.map(team => `
+                container.innerHTML = data.teams.map(team => {
+                    const roleLabel = team.managerId === this.currentUser.id
+                        ? `👑 ${this.t('profile.manager')}`
+                        : `🧢 ${this.t('profile.captain')}`;
+                    return `
                     <div class="team-card-mini">
                         <img src="${team.logoUrl}" alt="${team.name}" class="team-logo-mini" onerror="this.src='https://i.imgur.com/2M7540p.png'">
                         <div class="team-info-mini">
                             <span class="team-name">${team.name}</span>
-                            <span class="team-role-badge">${team.managerId === this.currentUser.id ? '👑 Manager' : '🧢 Capitán'}</span>
+                            <span class="team-role-badge">${roleLabel}</span>
                         </div>
                         <button class="action-btn manage-team-btn" onclick="dashboard.openTeamManagement('${team._id}', '${team.name}')">
-                            ⚙️ Gestionar
+                            ⚙️ ${this.t('profile.manage')}
                         </button>
                     </div>
-                `).join('');
+                `}).join('');
             } else {
                 container.innerHTML = `
                 <div class="empty-state-teams">
-                    <p>No perteneces a ningún equipo aún.</p>
-                    <p class="sub-text">¡Crea el tuyo propio o pide que te fichen!</p>
+                    <p>${this.t('profile.noTeams')}</p>
+                    <p class="sub-text">${this.t('profile.createTeamHint')}</p>
                 </div>
             `;
             }
         } catch (e) {
             console.error('Error loading teams:', e);
-            container.innerHTML = '<p class="error-message">Error cargando tus equipos. Intenta de nuevo.</p>';
+            container.innerHTML = `<p class="error-message">${this.t('profile.error')}</p>`;
         }
+    }
+
+    // Helper function for translations
+    t(key) {
+        const keys = key.split('.');
+        let value = translations[this.currentLang || 'es'];
+        for (const k of keys) {
+            value = value?.[k];
+        }
+        return value || key;
     }
 
     setupCreateTeamForm() {
