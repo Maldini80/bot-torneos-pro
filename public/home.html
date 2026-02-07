@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPG Lightnings - The Blitz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(255, 156, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(255, 87, 51, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .container {
+            text-align: center;
+            z-index: 1;
+            max-width: 800px;
+            padding: 40px 20px;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .logo {
+            width: 280px;
+            max-width: 90%;
+            margin-bottom: 40px;
+            filter: drop-shadow(0 0 30px rgba(255, 156, 0, 0.5));
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        h1 {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 4em;
+            background: linear-gradient(135deg, #ff9c00 0%, #ff5733 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            letter-spacing: 3px;
+            text-shadow: 0 0 40px rgba(255, 156, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.4em;
+            color: #aaa;
+            margin-bottom: 50px;
+            font-weight: 300;
+        }
+
+        .cta-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 40px;
+        }
+
+        .cta-btn {
+            padding: 18px 40px;
+            font-size: 1.1em;
+            font-weight: 700;
+            text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .cta-btn:hover::before {
+            left: 100%;
+        }
+
+        .cta-btn-primary {
+            background: linear-gradient(135deg, #ff9c00 0%, #ff8800 100%);
+            color: #000;
+            border: 2px solid rgba(255, 156, 0, 0.4);
+        }
+
+        .cta-btn-primary:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 10px 30px rgba(255, 156, 0, 0.6);
+        }
+
+        .cta-btn-secondary {
+            background: rgba(40, 40, 40, 0.8);
+            color: #ff9c00;
+            border: 2px solid rgba(255, 156, 0, 0.3);
+        }
+
+        .cta-btn-secondary:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 10px 30px rgba(255, 156, 0, 0.3);
+            background: rgba(50, 50, 50, 0.9);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 30px;
+            margin-top: 60px;
+        }
+
+        .feature {
+            background: rgba(30, 30, 30, 0.6);
+            padding: 30px 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 156, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .feature:hover {
+            transform: translateY(-5px);
+            border-color: #ff9c00;
+            box-shadow: 0 10px 30px rgba(255, 156, 0, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .feature h3 {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 1.5em;
+            color: #ff9c00;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .feature p {
+            color: #aaa;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        footer {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                filter: drop-shadow(0 0 30px rgba(255, 156, 0, 0.5));
+            }
+
+            50% {
+                filter: drop-shadow(0 0 50px rgba(255, 156, 0, 0.8));
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5em;
+            }
+
+            .subtitle {
+                font-size: 1.1em;
+            }
+
+            .cta-container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .cta-btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <img src="https://i.imgur.com/X9nUVPj.png" alt="VPG Lightnings Logo" class="logo">
+
+        <h1>THE BLITZ</h1>
+        <p class="subtitle">Competitive EA Sports FC Tournament Platform</p>
+
+        <div class="cta-container">
+            <a href="/dashboard.html" class="cta-btn cta-btn-primary">
+                <span>🏆</span>
+                <span>View Dashboard</span>
+            </a>
+            <a href="https://discord.gg/vpglightnings" class="cta-btn cta-btn-secondary" target="_blank">
+                <span>💬</span>
+                <span>Join Discord</span>
+            </a>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">⚽</div>
+                <h3>Tournaments</h3>
+                <p>Compete in professional EA FC tournaments with prizes and rankings</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎯</div>
+                <h3>Team Management</h3>
+                <p>Create your team, recruit players, and manage your roster</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <h3>Live Stats</h3>
+                <p>Real-time match tracking, brackets, and leaderboards</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        Powered by THE BLITZ © 2026 VPG Lightnings
+    </footer>
+</body>
+
+</html>

@@ -129,7 +129,7 @@ app.get('/callback', passport.authenticate('discord', { failureRedirect: '/' }),
 
 app.get('/logout', (req, res) => {
     req.logout(() => {
-        res.redirect('/');
+        res.redirect('/home.html');
     });
 });
 

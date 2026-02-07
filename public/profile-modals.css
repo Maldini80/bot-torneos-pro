@@ -715,3 +715,72 @@ form button[type="submit"]:disabled {
         width: 100% !important;
     }
 }
+
+/* === LARGE CREATE TEAM BUTTON === */
+.create-team-btn-large {
+    width: 100%;
+    padding: 18px 28px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, #ff8800 100%);
+    border: 2px solid rgba(255, 156, 0, 0.4);
+    border-radius: 12px;
+    color: #000;
+    font-weight: 700;
+    font-size: 1.15em;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: 0 6px 18px rgba(255, 156, 0, 0.4);
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 20px;
+}
+
+.create-team-btn-large::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, 0.3),
+            transparent);
+    transition: left 0.5s ease;
+}
+
+.create-team-btn-large:hover::before {
+    left: 100%;
+}
+
+.create-team-btn-large:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 10px 28px rgba(255, 156, 0, 0.6);
+    border-color: var(--primary-color);
+}
+
+.create-team-btn-large:active {
+    transform: translateY(-2px) scale(0.98);
+}
+
+.create-team-btn-large .btn-icon {
+    font-size: 1.4em;
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-4px);
+    }
+}
