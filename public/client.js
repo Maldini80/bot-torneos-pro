@@ -1,4 +1,104 @@
+// ===== TRADUCCIONES =====
+const translations = {
+    es: {
+        backBtn: '← Dashboard',
+        classification: 'Clasificación',
+        calendar: 'Calendario',
+        brackets: 'Eliminatorias',
+        teams: 'Equipos',
+        finishedTitle: '🏆 TORNEO FINALIZADO',
+        finishedText: '¡Gracias por participar y seguir la retransmisión!',
+        champion: '🏆 Campeón:',
+        noMatches: 'No hay partidos en juego.',
+        tournamentFinished: 'El torneo ha finalizado.',
+        noTeams: 'Aún no hay equipos aprobados.',
+        noGroups: 'El sorteo de grupos no se ha realizado.',
+        noCalendar: 'El calendario se mostrará cuando comience el torneo.',
+        noBrackets: 'Las eliminatorias no han comenzado.',
+        captain: 'Capitán:',
+        coCaptain: 'Co-Capitán:',
+        loading: 'Cargando datos del evento...',
+        errorNoId: 'Error: No se ha especificado un ID de evento en la URL.',
+        liveMatches: 'Partidos en Directo',
+        toDefine: 'Por definir'
+    },
+    en: {
+        backBtn: '← Dashboard',
+        classification: 'Standings',
+        calendar: 'Schedule',
+        brackets: 'Playoffs',
+        teams: 'Teams',
+        finishedTitle: '🏆 TOURNAMENT FINISHED',
+        finishedText: 'Thank you for participating and following the broadcast!',
+        champion: '🏆 Champion:',
+        noMatches: 'No live matches.',
+        tournamentFinished: 'The tournament has finished.',
+        noTeams: 'No approved teams yet.',
+        noGroups: 'Group draw has not been performed.',
+        noCalendar: 'Schedule will be shown when tournament starts.',
+        noBrackets: 'Playoffs have not started.',
+        captain: 'Captain:',
+        coCaptain: 'Co-Captain:',
+        loading: 'Loading event data...',
+        errorNoId: 'Error: No event ID specified in URL.',
+        liveMatches: 'Live Matches',
+        toDefine: 'To be defined'
+    }
+};
+
+let currentLang = localStorage.getItem('preferredLanguage') || 'es';
+
+function t(key) {
+    return translations[currentLang][key] || translations.es[key] || key;
+}
+
+function updateLanguage() {
+    // Actualizar elementos con data-i18n
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.textContent = t(key);
+    });
+
+    // Actualizar botones de vista
+    const viewButtons = document.querySelectorAll('.view-btn');
+    if (viewButtons.length >= 4) {
+        viewButtons[0].textContent = t('classification');
+        viewButtons[1].textContent = t('calendar');
+        viewButtons[2].textContent = t('brackets');
+        viewButtons[3].textContent = t('teams');
+    }
+
+    // Actualizar select móvil
+    const mobileSelect = document.getElementById('mobile-view-select');
+    if (mobileSelect && mobileSelect.options.length >= 4) {
+        mobileSelect.options[0].textContent = t('classification');
+        mobileSelect.options[1].textContent = t('calendar');
+        mobileSelect.options[2].textContent = t('brackets');
+        mobileSelect.options[3].textContent = t('teams');
+    }
+
+    // Actualizar texto de "loading"
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl && loadingEl.textContent.includes('Cargando')) {
+        loadingEl.textContent = t('loading');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Inicializar idioma
+    updateLanguage();
+
+    // Event listeners para cambio de idioma
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentLang = btn.dataset.lang;
+            localStorage.setItem('preferredLanguage', currentLang);
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateLanguage();
+        });
+    });
+
     const urlParams = new URLSearchParams(window.location.search);
     const tournamentId = urlParams.get('tournamentId');
     const draftId = urlParams.get('draftId');
@@ -14,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('draft-view-style');
         initializeDraftView(draftId);
     } else {
-        document.getElementById('loading').textContent = 'Error: No se ha especificado un ID de evento en la URL.';
+        document.getElementById('loading').textContent = t('errorNoId');
     }
 });
 
@@ -115,13 +215,13 @@ function initializeTournamentView(tournamentId) {
                 const champion = scoreA > scoreB ? finalMatch.equipoA : finalMatch.equipoB;
                 championHTML = `
                     <div class="finished-tournament-banner">
-                        <h2>🏆 TORNEO FINALIZADO</h2>
-                        <p>¡Gracias por participar y seguir la retransmisión!</p>
-                        <h3>🏆 Campeón: ${champion.nombre} 🏆</h3>
+                        <h2>${t('finishedTitle')}</h2>
+                        <p>${t('finishedText')}</p>
+                        <h3>${t('champion')} ${champion.nombre} 🏆</h3>
                     </div>
                 `;
             } else {
-                championHTML = '<p class="placeholder">El torneo ha finalizado.</p>';
+                championHTML = `<p class="placeholder">${t('tournamentFinished')}</p>`;
             }
             liveMatchesListEl.innerHTML = championHTML;
 

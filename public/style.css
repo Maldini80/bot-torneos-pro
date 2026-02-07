@@ -136,6 +136,42 @@ header {
     transform: translateY(-50%) scale(1.05);
 }
 
+/* Selector de idioma en header */
+.lang-selector {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 8px;
+}
+
+.lang-btn {
+    background-color: rgba(255, 156, 0, 0.15);
+    border: 2px solid rgba(255, 156, 0, 0.4);
+    color: #aaa;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: var(--font-roboto);
+    font-weight: bold;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+}
+
+.lang-btn:hover {
+    background-color: rgba(255, 156, 0, 0.3);
+    border-color: var(--primary-color);
+    color: var(--text-color);
+}
+
+.lang-btn.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #000;
+    box-shadow: 0 0 10px var(--glow-color);
+}
+
 .header-logo {
     height: 110px;
     width: auto;
