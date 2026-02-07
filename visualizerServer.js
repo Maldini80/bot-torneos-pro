@@ -214,7 +214,8 @@ app.get('/api/users/search', async (req, res) => {
         if (client && users.length < limit) {
             try {
                 const guild = await client.guilds.fetch(process.env.GUILD_ID);
-                const memberResults = await guild.searchMembers({ query: query, limit: limit - users.length });
+                // FIX: guild.searchMembers is deprecated/removed in v14+, use guild.members.search
+                const memberResults = await guild.members.search({ query: query, limit: limit - users.length });
 
                 memberResults.forEach(member => {
                     // Evitar duplicados (si ya estaba en DB)

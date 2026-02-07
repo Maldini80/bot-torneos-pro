@@ -419,11 +419,22 @@ class DashboardApp {
     }
 
     async openProfileModal() {
+        console.log('[DEBUG] Opening Profile Modal. CurrentUser:', this.currentUser);
         const modal = document.getElementById('profile-modal');
         modal.classList.remove('hidden');
 
-        document.getElementById('profile-username-large').textContent = this.currentUser.global_name || this.currentUser.username;
-        document.getElementById('profile-avatar-large').src = document.getElementById('user-avatar').src;
+        const nameElement = document.getElementById('profile-username-large');
+        const avatarElement = document.getElementById('profile-avatar-large');
+
+        if (this.currentUser) {
+            nameElement.textContent = this.currentUser.global_name || this.currentUser.username;
+            const avatarUrl = this.currentUser.avatar
+                ? `https://cdn.discordapp.com/avatars/${this.currentUser.id}/${this.currentUser.avatar}.png`
+                : 'https://cdn.discordapp.com/embed/avatars/0.png';
+            avatarElement.src = avatarUrl;
+        } else {
+            nameElement.textContent = 'Usuario Desconocido';
+        }
 
         const badgesContainer = document.getElementById('profile-status-badges');
         badgesContainer.innerHTML = '';
