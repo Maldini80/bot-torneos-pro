@@ -212,11 +212,17 @@
                     <small data-i18n="createTeam.abbreviationHint">Exactamente 3 letras</small>
                 </div>
                 <div class="form-group">
-                    <label for="team-logo" data-i18n="createTeam.logo">URL del Logo</label>
-                    <input type="url" id="team-logo" required data-i18n-placeholder="createTeam.logoPlaceholder"
-                        placeholder="https://i.imgur.com/..." pattern="https://.*">
-                    <small data-i18n="createTeam.logoHint">Debe ser una URL directa de imagen (Imgur, Discord,
-                        etc)</small>
+                    <label for="team-twitter" data-i18n="createTeam.twitter">Twitter del equipo (Opcional, sin
+                        @)</label>
+                    <input type="text" id="team-twitter" data-i18n-placeholder="createTeam.twitterPlaceholder"
+                        placeholder="vpglightnings" maxlength="15">
+                    <small data-i18n="createTeam.twitterHint">Opcional - Sin el símbolo @</small>
+                </div>
+                <div class="form-group">
+                    <label for="team-logo" data-i18n="createTeam.logo">URL del Logo (Opcional)</label>
+                    <input type="url" id="team-logo" data-i18n-placeholder="createTeam.logoPlaceholder"
+                        placeholder="https://i.imgur.com/...">
+                    <small data-i18n="createTeam.logoHint">Opcional - Se usará logo por defecto si se deja vacío</small>
                 </div>
 
                 <h3 style="margin-top: 15px; font-size: 0.9em; color: #aaa;">Vista Previa</h3>

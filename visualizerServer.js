@@ -343,12 +343,12 @@ app.get('/api/user/teams', async (req, res) => {
 app.post('/api/teams/create', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
-    const { name, abbreviation, region, logoUrl } = req.body;
+    const { name, abbreviation, region, logoUrl, twitterHandle } = req.body;
 
     // Validaciones básicas
     if (!name || name.length < 3) return res.status(400).json({ error: 'Nombre muy corto' });
     if (!abbreviation || abbreviation.length !== 3) return res.status(400).json({ error: 'Abreviatura debe ser de 3 letras' });
-    if (!logoUrl) return res.status(400).json({ error: 'Logo requerido' });
+    // Logo ahora es OPCIONAL (se asignará default si vacío)
 
     try {
         const db = getDb();
@@ -373,11 +373,13 @@ app.post('/api/teams/create', async (req, res) => {
 
         // 3. Crear el equipo
         // Usamos el esquema compatible con el bot
+        const defaultLogo = 'https://i.imgur.com/2M7540p.png'; // Logo por defecto VPG Lightnings
         const newTeam = {
             name: name,
             abbreviation: abbreviation.toUpperCase(),
             region: region || 'EU',
-            logoUrl: logoUrl,
+            logoUrl: logoUrl || defaultLogo, // FIX: Logo por defecto si vacío
+            twitterHandle: twitterHandle || null, // FIX: Twitter opcional
             managerId: userId,
             captains: [], // Array vacío por defecto
             players: [],  // Array vacío por defecto
