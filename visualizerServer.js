@@ -11,6 +11,8 @@ import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, r
 import { getDb } from './database.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
 
+let client; // FIX: Variable global para acceder al cliente desde cualquier endpoint
+
 const app = express();
 // FIX: Middlewares esenciales para que funcione el body parser y archivos estáticos
 app.use(express.json());
@@ -205,6 +207,28 @@ app.get('/api/users/search', async (req, res) => {
             psnId: 1,
             platform: 1
         }).toArray();
+
+        // FIX: Buscar también en Discord Guild Members (si el cliente está disponible)
+        if (client && users.length < limit) {
+            try {
+                const guild = await client.guilds.fetch(process.env.GUILD_ID);
+                const memberResults = await guild.searchMembers({ query: query, limit: limit - users.length });
+
+                memberResults.forEach(member => {
+                    // Evitar duplicados (si ya estaba en DB)
+                    if (!users.find(u => u.discordId === member.id)) {
+                        users.push({
+                            discordId: member.id,
+                            username: member.user.username,
+                            psnId: null, // No verificado
+                            platform: null
+                        });
+                    }
+                });
+            } catch (discordErr) {
+                console.warn('[Search] Error buscando en Discord:', discordErr);
+            }
+        }
 
         res.json(users);
     } catch (e) {
@@ -860,7 +884,8 @@ app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
     }
 });
 
-export async function startVisualizerServer(client) {
+export async function startVisualizerServer(discordClient) {
+    client = discordClient; // FIX: Asignar a variable global
     // Definimos la estrategia AQUÍ para tener acceso al cliente de Discord
     passport.use(new DiscordStrategy({
         clientID: process.env.DISCORD_CLIENT_ID,
