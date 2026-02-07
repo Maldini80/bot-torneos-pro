@@ -305,7 +305,7 @@ function initializeTournamentView(tournamentId) {
             });
 
             // Detectar si hay campo BH (Buchholz) para liguilla suiza
-            const hasBH = sortedTeams.some(team => team.stats.bh !== undefined);
+            const hasBH = sortedTeams.some(team => team.stats.buchholz !== undefined);
 
             let groupHTML = `<div class="group-container">
                 <h3 class="group-title">${groupName}</h3>
@@ -314,7 +314,7 @@ function initializeTournamentView(tournamentId) {
                         <span class="header-pos">${t('position')}</span>
                         <span class="header-team-name">${t('team')}</span>
                     </div>
-                    <div class="header-stats-grid">
+                    <div class="header-stats-grid ${hasBH ? 'with-bh' : ''}">
                         <span class="header-stat">${t('pts')}</span>
                         <span class="header-stat">${t('pj')}</span>
                         <span class="header-stat">${t('gf')}</span>
@@ -341,7 +341,7 @@ function initializeTournamentView(tournamentId) {
                             <div class="stat-item"><span class="stat-value">${team.stats.gf}</span></div>
                             <div class="stat-item"><span class="stat-value">${team.stats.gc}</span></div>
                             <div class="stat-item"><span class="stat-value">${dg}</span></div>
-                            ${hasBH ? `<div class="stat-item"><span class="stat-value">${team.stats.bh || 0}</span></div>` : ''}
+                            ${hasBH ? `<div class="stat-item"><span class="stat-value">${team.stats.buchholz || 0}</span></div>` : ''}
                         </div>
                     </div>
                 `;

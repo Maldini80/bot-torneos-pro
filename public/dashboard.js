@@ -121,11 +121,11 @@ function t(lang, key) {
 }
 
 function getCurrentLanguage() {
-    return localStorage.getItem('lang') || 'es';
+    return localStorage.getItem('preferredLanguage') || 'es';
 }
 
 function setCurrentLanguage(lang) {
-    localStorage.setItem('lang', lang);
+    localStorage.setItem('preferredLanguage', lang);
 }
 
 // ===== DASHBOARD APP =====
