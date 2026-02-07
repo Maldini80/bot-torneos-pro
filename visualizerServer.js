@@ -124,7 +124,7 @@ app.get('/api/check-membership', async (req, res) => {
     }
 
     try {
-        const db = getDb();
+        const db = getDb('test'); // FIX: Usar 'test' para usuarios
         const userId = req.user.id;
 
         // 1. Verificar estado de verificación en DB si no está en sesión
@@ -234,7 +234,7 @@ app.get('/api/user/teams', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
     try {
-        const db = getDb();
+        const db = getDb('test'); // FIX: Usar 'test' para equipos
         const userId = req.user.id;
 
         // Buscar equipos donde el usuario es Manager O Capitán
@@ -261,36 +261,6 @@ app.get('/api/user/teams', async (req, res) => {
         res.status(500).json({ error: 'Error al obtener equipos' });
     }
 });
-
-// --- DEBUG ENDPOINT START ---
-app.get('/api/debug/teams-dump', async (req, res) => {
-    try {
-        const db = getDb();
-        const dbName = db.databaseName;
-        const count = await db.collection('teams').countDocuments();
-
-        const teams = await db.collection('teams').find({}).limit(50).project({
-            name: 1, managerId: 1, captains: 1, guildId: 1
-        }).toArray();
-
-        const specificUser = "219894262630711297";
-        const teamsByManager = await db.collection('teams').find({ managerId: specificUser }).toArray();
-
-        res.json({
-            status: "ok",
-            dbName,
-            totalTeams: count,
-            sampleTeams: teams,
-            userCheck: {
-                target: specificUser,
-                found: teamsByManager.length
-            }
-        });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-// --- DEBUG ENDPOINT END ---
 
 // Endpoint: Crear nuevo equipo (Solo si no es manager ya)
 app.post('/api/teams/create', async (req, res) => {
@@ -861,8 +831,8 @@ export async function startVisualizerServer(client) {
         scope: ['identify', 'guilds']
     }, async (accessToken, refreshToken, profile, done) => {
         try {
-            // 1. Verificar si está verificado en base de datos
-            const db = getDb();
+            // 1. Verificar si está verificado en base de datos (DB: 'test')
+            const db = getDb('test');
             const verifiedUser = await db.collection('verified_users').findOne({ discordId: profile.id });
             profile.isVerified = !!verifiedUser;
             if (verifiedUser) {

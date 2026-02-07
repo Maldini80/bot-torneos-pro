@@ -12,8 +12,9 @@ let db;
 export async function connectDb() {
     try {
         await client.connect();
-        db = client.db('tournamentBotDb'); // Se conecta a la base de datos correcta
-        console.log('[DATABASE] Conectado exitosamente a MongoDB Atlas.');
+        // IMPORTANTE: Mantenemos 'tournamentBotDb' como la base de datos por defecto para torneos.
+        db = client.db('tournamentBotDb'); // IMPORTANTE: Mantenemos esta como default para torneos
+        console.log('[DATABASE] Conectado exitosamente a MongoDB Atlas (Default: tournamentBotDb).');
         // NUEVO: Asegurarse de que la configuración global del bot exista al arrancar.
         await getBotSettings();
         // NUEVO: Crear índices para optimizar queries del dashboard
@@ -54,11 +55,17 @@ export async function ensureIndexes() {
     }
 }
 
-export function getDb() {
-    if (!db) {
-        throw new Error('La base de datos no ha sido conectada todavía.');
+// FIX: Permitir acceder a otras bases de datos (ej: 'test' para equipos)
+export function getDb(dbName) {
+    if (dbName) {
+        if (!client) throw new Error('Cliente MongoDB no conectado.');
+        return client.db(dbName);
     }
-    return db; // Simplemente devuelve la conexión
+
+    if (!db) {
+        throw new Error('La base de datos por defecto no ha sido conectada todavía.');
+    }
+    return db; // Simplemente devuelve la conexión por defecto
 }
 
 // NUEVA SECCIÓN COMPLETA: Funciones para gestionar la configuración del bot.
