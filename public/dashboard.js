@@ -42,6 +42,16 @@ const translations = {
             primary: 'Primaria', secondary: 'Secundaria', strikes: 'Strikes',
             action: 'Acción', select: 'Seleccionar', myTeam: 'Mi Equipo'
         },
+        auth: {
+            login: 'Iniciar Sesión con Discord',
+            logout: 'Cerrar Sesión',
+            notMember: 'No eres miembro del servidor',
+            notMemberDesc: 'Para acceder a todas las funcionalidades, únete a nuestro servidor de Discord',
+            joinServer: 'Unirse al Servidor',
+            welcome: 'Bienvenido/a',
+            loginRequired: 'Debes iniciar sesión para acceder a esta función',
+            loginPrompt: 'Inicia sesión para acceder a funciones personalizadas'
+        },
         common: {
             close: 'Cerrar', back: 'Volver', next: 'Siguiente', previous: 'Anterior',
             page: 'Página', of: 'de', total: 'Total', filters: 'Filtros',
@@ -95,6 +105,16 @@ const translations = {
             primary: 'Primary', secondary: 'Secondary', strikes: 'Strikes',
             action: 'Action', select: 'Select', myTeam: 'My Team'
         },
+        auth: {
+            login: 'Login with Discord',
+            logout: 'Logout',
+            notMember: 'You are not a server member',
+            notMemberDesc: 'To access all features, join our Discord server',
+            joinServer: 'Join Server',
+            welcome: 'Welcome',
+            loginRequired: 'You must login to access this feature',
+            loginPrompt: 'Login to access personalized features'
+        },
         common: {
             close: 'Close', back: 'Back', next: 'Next', previous: 'Previous',
             page: 'Page', of: 'of', total: 'Total', filters: 'Filters',
@@ -137,10 +157,91 @@ class DashboardApp {
         this.currentPage = 1;
         this.currentFilter = 'all';
         this.searchTerm = '';
+        this.currentUser = null;
+        this.isMember = false;
+        this.userRoles = [];
+    }
+
+    async checkAuth() {
+        try {
+            const response = await fetch('/api/check-membership');
+            const data = await response.json();
+
+            if (data.authenticated) {
+                this.currentUser = data.user;
+                this.isMember = data.isMember;
+                this.userRoles = data.roles || [];
+
+                this.showUserProfile();
+
+                if (!data.isMember) {
+                    this.showNonMemberWarning();
+                }
+            } else {
+                this.showLoginButton();
+            }
+        } catch (error) {
+            console.error('Error checking auth:', error);
+            this.showLoginButton();
+        }
+    }
+
+    showUserProfile() {
+        const loginBtn = document.getElementById('login-btn');
+        const userProfile = document.getElementById('user-profile');
+        const userAvatar = document.getElementById('user-avatar');
+        const userName = document.getElementById('user-name');
+
+        loginBtn.style.display = 'none';
+        userProfile.style.display = 'flex';
+
+        const avatarUrl = this.currentUser.avatar
+            ? `https://cdn.discordapp.com/avatars/${this.currentUser.id}/${this.currentUser.avatar}.png`
+            : 'https://cdn.discordapp.com/embed/avatars/0.png';
+
+        userAvatar.src = avatarUrl;
+        userName.textContent = this.currentUser.global_name || this.currentUser.username;
+
+        // Event listener para logout
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            window.location.href = '/logout';
+        });
+    }
+
+    showLoginButton() {
+        const loginBtn = document.getElementById('login-btn');
+        const userProfile = document.getElementById('user-profile');
+
+        loginBtn.style.display = 'flex';
+        userProfile.style.display = 'none';
+
+        loginBtn.addEventListener('click', () => {
+            window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+        });
+    }
+
+    showNonMemberWarning() {
+        const warningHTML = `
+            <div class="non-member-warning">
+                <h3>${t(this.currentLang, 'auth.notMember')}</h3>
+                <p>${t(this.currentLang, 'auth.notMemberDesc')}</p>
+                <a href="https://discord.gg/zEy9ztp8QM" 
+                   class="join-server-btn" 
+                   target="_blank">
+                    ${t(this.currentLang, 'auth.joinServer')}
+                </a>
+            </div>
+        `;
+
+        // Insertar al inicio del main content
+        const mainContent = document.querySelector('.dashboard-main');
+        mainContent.insertAdjacentHTML('afterbegin', warningHTML);
     }
 
     async init() {
         console.log('[Dashboard] Iniciando aplicación...');
+
+        await this.checkAuth(); // ← NUEVO: Verificar autenticación primero
 
         this.setupLanguageSelector();
         this.setupMobileNav();

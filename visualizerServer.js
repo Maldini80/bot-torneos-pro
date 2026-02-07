@@ -96,7 +96,7 @@ passport.use(new DiscordStrategy({
     clientID: process.env.DISCORD_CLIENT_ID,
     clientSecret: process.env.DISCORD_CLIENT_SECRET,
     callbackURL: `${process.env.BASE_URL}/callback`,
-    scope: ['identify', 'connections']
+    scope: ['identify', 'guilds'] // Añadido 'guilds' para verificar membresía
 }, (accessToken, refreshToken, profile, done) => {
     process.nextTick(() => done(null, profile));
 }));
@@ -122,6 +122,63 @@ app.get('/logout', (req, res) => {
 
 app.get('/api/user', (req, res) => {
     res.json(req.user || null);
+});
+
+// Nuevo endpoint: Verificar membresía del servidor
+app.get('/api/check-membership', async (req, res) => {
+    if (!req.user) {
+        return res.json({ authenticated: false });
+    }
+
+    try {
+        const guildId = process.env.GUILD_ID;
+        const userId = req.user.id;
+
+        // Usar Discord API para verificar membresía
+        const response = await fetch(
+            `https://discord.com/api/v10/guilds/${guildId}/members/${userId}`,
+            {
+                headers: {
+                    'Authorization': `Bot ${process.env.DISCORD_TOKEN}`
+                }
+            }
+        );
+
+        if (response.ok) {
+            const member = await response.json();
+            return res.json({
+                authenticated: true,
+                isMember: true,
+                user: {
+                    id: req.user.id,
+                    username: req.user.username,
+                    discriminator: req.user.discriminator,
+                    avatar: req.user.avatar,
+                    global_name: req.user.global_name || req.user.username
+                },
+                roles: member.roles // IDs de roles del usuario en el servidor
+            });
+        } else if (response.status === 404) {
+            // Usuario no es miembro del servidor
+            return res.json({
+                authenticated: true,
+                isMember: false,
+                user: {
+                    id: req.user.id,
+                    username: req.user.username,
+                    discriminator: req.user.discriminator,
+                    avatar: req.user.avatar,
+                    global_name: req.user.global_name || req.user.username
+                }
+            });
+        } else {
+            console.error('Discord API error:', response.status, await response.text());
+            return res.status(500).json({ error: 'Error verificando membresía' });
+        }
+    } catch (error) {
+        console.error('Error checking membership:', error);
+        return res.status(500).json({ error: 'Error verificando membresía' });
+    }
 });
 app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
     // 1. Mantenemos la comprobación de que el usuario esté logueado.
