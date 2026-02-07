@@ -250,23 +250,23 @@ export async function startVisualizerServer(client) {
 
             res.json({
                 tournaments: tournaments.map(t => ({
-                    id: t.shortId,
-                    name: t.name,
+                    id: t.shortId || t._id.toString(),
+                    name: t.nombre || t.name || `Torneo ${t.shortId || 'Sin nombre'}`,
                     type: 'tournament',
-                    status: t.status,
-                    format: t.format,
-                    teamsCount: t.teams?.length || 0,
-                    createdAt: t.createdAt
+                    status: t.status || 'active',
+                    format: t.format?.label || t.format || 'Desconocido',
+                    teamsCount: Object.keys(t.teams?.aprobados || {}).length || 0,
+                    createdAt: t.timestamp || t.createdAt || new Date().toISOString()
                 })),
                 drafts: drafts.map(d => ({
-                    id: d.shortId,
-                    name: d.draftName,
+                    id: d.shortId || d._id.toString(),
+                    name: d.draftName || d.nombre || `Draft ${d.shortId || 'Sin nombre'}`,
                     type: 'draft',
-                    status: d.status,
-                    teamsCount: d.teams?.length || 0,
-                    currentPick: d.currentPickIndex,
+                    status: d.status || 'active',
+                    teamsCount: Object.keys(d.teams || {}).length || 0,
+                    currentPick: d.currentPickIndex || 0,
                     totalPicks: d.order?.length || 0,
-                    createdAt: d.createdAt
+                    createdAt: d.timestamp || d.createdAt || new Date().toISOString()
                 }))
             });
         } catch (error) {
@@ -292,7 +292,7 @@ export async function startVisualizerServer(client) {
             const results = { tournaments: [], drafts: [], total: 0, page, limit };
 
             // Filtros de búsqueda por nombre
-            const searchFilter = search ? { name: { $regex: search, $options: 'i' } } : {};
+            const searchFilter = search ? { nombre: { $regex: search, $options: 'i' } } : {};
 
             if (type === 'tournament' || type === 'all') {
                 const tournamentFilter = {
@@ -310,15 +310,15 @@ export async function startVisualizerServer(client) {
                 const tournamentCount = await db.collection('tournaments').countDocuments(tournamentFilter);
 
                 results.tournaments = tournaments.map(t => ({
-                    id: t.shortId,
-                    name: t.name,
+                    id: t.shortId || t._id.toString(),
+                    name: t.nombre || t.name || `Torneo ${t.shortId || 'Sin nombre'}`,
                     type: 'tournament',
-                    status: t.status,
-                    format: t.format,
-                    teamsCount: t.teams?.length || 0,
+                    status: t.status || 'finalizado',
+                    format: t.format?.label || t.format || 'Desconocido',
+                    teamsCount: Object.keys(t.teams?.aprobados || {}).length || 0,
                     winner: t.winner || null,
-                    createdAt: t.createdAt,
-                    completedAt: t.updatedAt
+                    createdAt: t.timestamp || t.createdAt || t.updatedAt || new Date().toISOString(),
+                    completedAt: t.updatedAt || t.timestamp || new Date().toISOString()
                 }));
 
                 if (type === 'tournament') results.total = tournamentCount;
@@ -332,7 +332,7 @@ export async function startVisualizerServer(client) {
 
                 const drafts = await db.collection('drafts')
                     .find(draftFilter)
-                    .sort({ createdAt: -1 })
+                    .sort({ timestamp: -1, createdAt: -1 })
                     .skip(type === 'all' ? 0 : skip)
                     .limit(type === 'all' ? 10 : limit)
                     .toArray();
@@ -340,13 +340,13 @@ export async function startVisualizerServer(client) {
                 const draftCount = await db.collection('drafts').countDocuments(draftFilter);
 
                 results.drafts = drafts.map(d => ({
-                    id: d.shortId,
-                    name: d.draftName,
+                    id: d.shortId || d._id.toString(),
+                    name: d.draftName || d.nombre || `Draft ${d.shortId || 'Sin nombre'}`,
                     type: 'draft',
-                    status: d.status,
-                    teamsCount: d.teams?.length || 0,
-                    createdAt: d.createdAt,
-                    completedAt: d.updatedAt
+                    status: d.status || 'completed',
+                    teamsCount: Object.keys(d.teams || {}).length || 0,
+                    createdAt: d.timestamp || d.createdAt || d.updatedAt || new Date().toISOString(),
+                    completedAt: d.updatedAt || d.timestamp || new Date().toISOString()
                 }));
 
                 if (type === 'draft') results.total = draftCount;
