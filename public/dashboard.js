@@ -347,6 +347,9 @@ class DashboardApp {
             if (e.target === modal) modal.classList.add('hidden');
         });
 
+        // Setup language selector
+        this.setupLanguageSelector();
+
         this.setupVerificationForm();
         this.setupCreateTeamForm();
     }
@@ -436,7 +439,9 @@ class DashboardApp {
             if (!response.ok) throw new Error('Error al cargar equipos');
 
             const data = await response.json();
-            const hasManagedTeam = data.teams.some(team => team.managerId === this.currentUser.id);
+            // FIX: Use this.currentUser.id instead of just this.currentUser
+            const userId = this.currentUser?.id;
+            const hasManagedTeam = data.teams.some(team => team.managerId === userId);
 
             // Hide Create Button if user manages a team
             if (createBtn) {
@@ -480,6 +485,35 @@ class DashboardApp {
             console.error('Error loading teams:', e);
             container.innerHTML = `<p class="error-message">${this.t('profile.error')}</p>`;
         }
+    }
+
+    openProfileModal() {
+        const modal = document.getElementById('profile-modal');
+        modal.classList.remove('hidden');
+        this.loadMyTeams();
+        this.translatePage();
+    }
+
+    setupLanguageSelector() {
+        const langButtons = document.querySelectorAll('.lang-btn');
+        langButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.currentLang = btn.dataset.lang;
+                localStorage.setItem('preferredLang', this.currentLang);
+                langButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.translatePage();
+            });
+        });
+
+        // Load saved language preference
+        const savedLang = localStorage.getItem('preferredLang') || 'es';
+        this.currentLang = savedLang;
+        langButtons.forEach(btn => {
+            if (btn.dataset.lang === savedLang) {
+                btn.classList.add('active');
+            }
+        });
     }
 
     // Helper function for translations
