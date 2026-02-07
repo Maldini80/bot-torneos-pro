@@ -29,7 +29,14 @@ const translations = {
         gf: 'GF',
         gc: 'GC',
         dg: 'DG',
-        bh: 'BH'
+        bh: 'BH',
+        // Roles
+        roleAdmin: 'ADMIN',
+        roleCaptain: 'CAPITÁN',
+        roleMatchGuide: 'GUÍA DE PARTIDO',
+        roleDraftCaptain: 'CAPITÁN DE DRAFT',
+        roleVisitor: 'VISITANTE',
+        myTeam: 'Mi Equipo'
     },
     en: {
         backBtn: '← Dashboard',
@@ -60,7 +67,14 @@ const translations = {
         gf: 'GF',
         gc: 'GA',
         dg: 'GD',
-        bh: 'BH'
+        bh: 'BH',
+        // Roles
+        roleAdmin: 'ADMIN',
+        roleCaptain: 'CAPTAIN',
+        roleMatchGuide: 'MATCH GUIDE',
+        roleDraftCaptain: 'DRAFT CAPTAIN',
+        roleVisitor: 'VISITOR',
+        myTeam: 'My Team'
     }
 };
 
@@ -136,6 +150,59 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ===== DETECCIÓN DE ROL EN EVENTO =====
+async function checkUserRoleInEvent(eventId) {
+    try {
+        const response = await fetch(`/api/my-role-in-event/${eventId}`);
+        const roleData = await response.json();
+
+        if (roleData.authenticated && roleData.role !== 'visitor') {
+            displayRoleBadge(roleData);
+        }
+    } catch (error) {
+        console.log('Usuario no autenticado o error al detectar rol:', error);
+    }
+}
+
+function displayRoleBadge(roleData) {
+    const badgeEl = document.getElementById('user-role-badge');
+    const iconEl = document.getElementById('role-icon');
+    const labelEl = document.getElementById('role-label');
+    const teamEl = document.getElementById('role-team');
+
+    // Íconos por tipo de rol
+    const roleIcons = {
+        admin: '👑',
+        captain: '⚽',
+        draftCaptain: '🎯',
+        matchGuide: '📋'
+    };
+
+    // Mapeo de roles a claves de traducción
+    const roleKeys = {
+        admin: 'roleAdmin',
+        captain: 'roleCaptain',
+        draftCaptain: 'roleDraftCaptain',
+        matchGuide: 'roleMatchGuide'
+    };
+
+    // Actualizar badge
+    iconEl.textContent = roleIcons[roleData.role] || '👤';
+    labelEl.textContent = t(roleKeys[roleData.role]);
+
+    // Mostrar equipo si es capitán
+    if (roleData.teamName) {
+        teamEl.textContent = roleData.teamName;
+        teamEl.style.display = 'block';
+    } else {
+        teamEl.style.display = 'none';
+    }
+
+    // Aplicar clase CSS según el rol
+    badgeEl.className = `user-role-badge role-${roleData.role}`;
+    badgeEl.style.display = 'flex';
+}
+
 function initializeTournamentView(tournamentId) {
     const loadingEl = document.getElementById('loading');
     const appContainerEl = document.getElementById('app-container');
@@ -183,6 +250,9 @@ function initializeTournamentView(tournamentId) {
                 hasLoadedInitialData = true;
             }
         }).catch(err => console.warn('No se pudieron cargar datos iniciales, esperando WebSocket.'));
+
+    // NUEVO: Detectar rol del usuario en este evento
+    checkUserRoleInEvent(tournamentId);
 
     viewButtons.forEach(button => {
         button.addEventListener('click', () => {

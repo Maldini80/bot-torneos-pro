@@ -2339,3 +2339,84 @@ aside h2 {
         justify-content: center;
     }
 }
+/* ========================================
+   USER ROLE BADGE (Tournament Viewer)
+   ======================================== */
+
+.user-role-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-family: var(--font-bebas);
+    font-size: 1em;
+    font-weight: bold;
+    margin-left: 15px;
+    transition: all 0.3s ease;
+}
+
+.role-icon {
+    font-size: 1.4em;
+}
+
+.role-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.role-label {
+    font-size: 1.1em;
+    letter-spacing: 1px;
+}
+
+.role-team {
+    font-size: 0.85em;
+    opacity: 0.9;
+    font-family: var(--font-roboto);
+    letter-spacing: 0.5px;
+}
+
+/* Role-specific colors */
+.role-admin {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: #000;
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+}
+
+.role-captain,
+.role-draftCaptain {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+}
+
+.role-matchGuide {
+    background: linear-gradient(135deg, #a18cd1, #fbc2eb);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(161, 140, 209, 0.4);
+}
+
+/* Hover animation */
+.user-role-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 156, 0, 0.6);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .user-role-badge {
+        margin-left: 0;
+        margin-top: 10px;
+        font-size: 0.9em;
+    }
+
+    .role-icon {
+        font-size: 1.2em;
+    }
+
+    .role-label {
+        font-size: 1em;
+    }
+}

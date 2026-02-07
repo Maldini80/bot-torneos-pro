@@ -180,6 +180,103 @@ app.get('/api/check-membership', async (req, res) => {
         return res.status(500).json({ error: 'Error verificando membresía' });
     }
 });
+
+// Endpoint: Detectar rol del usuario en un evento específico
+app.get('/api/my-role-in-event/:eventId', async (req, res) => {
+    if (!req.user) {
+        return res.json({ authenticated: false, role: 'visitor' });
+    }
+
+    try {
+        const db = getDb();
+        const userId = req.user.id;
+        const eventId = req.params.eventId;
+
+        // Intentar encontrar el evento (puede ser torneo o draft)
+        let event = await db.collection('tournaments').findOne({ shortId: eventId });
+        let eventType = 'tournament';
+
+        if (!event) {
+            event = await db.collection('drafts').findOne({ shortId: eventId });
+            eventType = 'draft';
+        }
+
+        if (!event) {
+            return res.status(404).json({ error: 'Evento no encontrado' });
+        }
+
+        const roleData = {
+            authenticated: true,
+            eventId: eventId,
+            eventName: event.nombre,
+            eventType: eventType,
+            role: 'visitor', // Por defecto
+            teamId: null,
+            teamName: null
+        };
+
+        // 1. VERIFICAR SI ES ADMIN (basado en roles de Discord)
+        // Obtener roles desde la sesión de membership check
+        const membershipCheck = await fetch(
+            `https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`,
+            { headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` } }
+        );
+
+        if (membershipCheck.ok) {
+            const memberData = await membershipCheck.json();
+            const adminRoleIds = process.env.ADMIN_ROLE_IDS?.split(',') || [];
+            const isAdmin = memberData.roles.some(roleId => adminRoleIds.includes(roleId));
+
+            if (isAdmin) {
+                roleData.role = 'admin';
+                return res.json(roleData);
+            }
+        }
+
+        // 2. VERIFICAR ROLES ESPECÍFICOS DEL EVENTO
+        if (eventType === 'tournament') {
+            // A. Capitán de equipo
+            for (const groupName in event.structure.grupos) {
+                const group = event.structure.grupos[groupName];
+                if (group.equipos) {
+                    const team = group.equipos.find(eq => eq.capitanId === userId);
+                    if (team) {
+                        roleData.role = 'captain';
+                        roleData.teamId = team.id;
+                        roleData.teamName = team.nombre;
+                        return res.json(roleData);
+                    }
+                }
+            }
+
+            // B. Match Guide
+            const matches = event.structure.partidos || [];
+            const isMatchGuide = matches.some(match => match.matchGuideId === userId);
+            if (isMatchGuide) {
+                roleData.role = 'matchGuide';
+                return res.json(roleData);
+            }
+
+        } else if (eventType === 'draft') {
+            // Capitán en draft
+            if (event.teams) {
+                const team = event.teams.find(t => t.captainId === userId);
+                if (team) {
+                    roleData.role = 'draftCaptain';
+                    roleData.teamName = team.captainTag;
+                    return res.json(roleData);
+                }
+            }
+        }
+
+        // Si no tiene ningún rol especial, es visitante
+        return res.json(roleData);
+
+    } catch (error) {
+        console.error('Error detecting role in event:', error);
+        return res.status(500).json({ error: 'Error detectando rol' });
+    }
+});
 app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
     // 1. Mantenemos la comprobación de que el usuario esté logueado.
     if (!req.user) {
