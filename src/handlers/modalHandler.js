@@ -1311,10 +1311,12 @@ export async function handleModal(interaction) {
         let myTeam, opponentTeam;
         const isTeamA = reporterId === partido.equipoA.capitanId ||
             reporterId === partido.equipoA.coCaptainId ||
+            reporterId === partido.equipoA.managerId ||
             (partido.equipoA.extraCaptains && partido.equipoA.extraCaptains.includes(reporterId));
 
         const isTeamB = reporterId === partido.equipoB.capitanId ||
             reporterId === partido.equipoB.coCaptainId ||
+            reporterId === partido.equipoB.managerId ||
             (partido.equipoB.extraCaptains && partido.equipoB.extraCaptains.includes(reporterId));
 
         if (isTeamA) {

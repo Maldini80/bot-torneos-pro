@@ -35,6 +35,7 @@ const translations = {
         roleCaptain: 'CAPITÁN',
         roleCoCaptain: 'CO-CAPITÁN',
         roleExtraCaptain: 'CAPITÁN EXTRA',
+        roleManager: 'MÁNAGER',
         roleMatchGuide: 'GUÍA DE PARTIDO',
         roleDraftCaptain: 'CAPITÁN DE DRAFT',
         roleVisitor: 'VISITANTE',
@@ -75,6 +76,7 @@ const translations = {
         roleCaptain: 'CAPTAIN',
         roleCoCaptain: 'CO-CAPTAIN',
         roleExtraCaptain: 'EXTRA CAPTAIN',
+        roleManager: 'MANAGER',
         roleMatchGuide: 'MATCH GUIDE',
         roleDraftCaptain: 'DRAFT CAPTAIN',
         roleVisitor: 'VISITOR',
@@ -181,6 +183,7 @@ function displayRoleBadge(roleData) {
         coCaptain: '⚽',
         extraCaptain: '⚽',
         draftCaptain: '🎯',
+        manager: '👔',
         matchGuide: '📋'
     };
 
@@ -191,6 +194,7 @@ function displayRoleBadge(roleData) {
         coCaptain: 'roleCoCaptain',
         extraCaptain: 'roleExtraCaptain',
         draftCaptain: 'roleDraftCaptain',
+        manager: 'roleManager',
         matchGuide: 'roleMatchGuide'
     };
 

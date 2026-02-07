@@ -248,6 +248,14 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
                             return res.json(roleData);
                         }
 
+                        // Mánager
+                        if (team.managerId === userId) {
+                            roleData.role = 'manager';
+                            roleData.teamId = team.id;
+                            roleData.teamName = team.nombre;
+                            return res.json(roleData);
+                        }
+
                         // Co-Capitán
                         if (team.coCaptainId === userId) {
                             roleData.role = 'coCaptain';

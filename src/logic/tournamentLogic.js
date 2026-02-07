@@ -11,6 +11,7 @@ import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, Butto
 import { postTournamentUpdate } from '../utils/twitter.js';
 import { visualizerStateHandler } from '../../visualizerServer.js';
 import { parsePlayerList } from '../utils/textParser.js';
+import Team from '../vpg_bot/models/team.js';
 
 const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO'];
 const isMidfielder = (pos) => MIDFIELDER_POSITIONS.includes(pos);
@@ -1299,6 +1300,18 @@ export async function approveTeam(client, tournament, teamData) {
     const currentApprovedTeamsCount = Object.keys(latestTournament.teams.aprobados).length;
 
     if (latestTournament.config.format.size === 0 || currentApprovedTeamsCount < maxTeams) {
+        // --- PHASE 3: MANAGER INTEGRATION ---
+        try {
+            const registeredTeam = await Team.findOne({ name: { $regex: new RegExp(`^${teamData.nombre}$`, 'i') }, guildId: tournament.guildId });
+            if (registeredTeam && registeredTeam.managerId) {
+                console.log(`[MANAGER SYNC] Linking manager ${registeredTeam.managerId} to tournament team ${teamData.nombre}`);
+                teamData.managerId = registeredTeam.managerId;
+            }
+        } catch (err) {
+            console.warn(`[MANAGER SYNC] Failed to lookup manager for team ${teamData.nombre}:`, err);
+        }
+        // --- END PHASE 3 ---
+
         latestTournament.teams.aprobados[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
         if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
