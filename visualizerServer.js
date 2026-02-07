@@ -316,6 +316,212 @@ app.post('/api/teams/create', async (req, res) => {
     }
 });
 
+// === GESTIÓN DE PLANTILLA (ROSTER) ===
+
+// Middleware para verificar permisos de equipo
+async function checkTeamPermissions(req, res, next) {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    try {
+        const db = getDb();
+        const teamId = req.params.teamId;
+
+        const team = await db.collection('teams').findOne({ _id: new ObjectId(teamId) });
+        if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
+
+        const isManager = team.managerId === req.user.id;
+        const isCaptain = team.captains && team.captains.includes(req.user.id);
+
+        if (!isManager && !isCaptain) {
+            return res.status(403).json({ error: 'No tienes permisos para gestionar este equipo' });
+        }
+
+        req.team = team;
+        req.isManager = isManager; // Para lógica específica
+        next();
+    } catch (e) {
+        console.error('Error middleware permisos:', e);
+        res.status(500).json({ error: 'Error interno' });
+    }
+}
+
+// GET Roster
+app.get('/api/teams/:teamId/roster', checkTeamPermissions, async (req, res) => {
+    try {
+        const team = req.team;
+        const allIds = [team.managerId, ...(team.captains || []), ...(team.players || [])];
+        const uniqueIds = [...new Set(allIds)].filter(id => id); // Eliminar duplicados y nulos
+
+        // Obtener detalles de Discord y DB
+        const rosterDetails = [];
+        const db = getDb();
+
+        for (const userId of uniqueIds) {
+            let role = 'member';
+            if (userId === team.managerId) role = 'manager';
+            else if (team.captains.includes(userId)) role = 'captain';
+
+            // Datos DB (Verificación)
+            const verifiedUser = await db.collection('verified_users').findOne({ discordId: userId });
+
+            // Datos Discord (Avatar/Name)
+            let discordUser = null;
+            try {
+                discordUser = await client.users.fetch(userId);
+            } catch (e) {
+                console.warn(`No se pudo user ${userId} de Discord`);
+            }
+
+            rosterDetails.push({
+                id: userId,
+                username: discordUser ? discordUser.username : (verifiedUser?.username || 'Desconocido'),
+                global_name: discordUser?.globalName,
+                avatar: discordUser ? discordUser.displayAvatarURL() : 'https://cdn.discordapp.com/embed/avatars/0.png',
+                role: role,
+                psnId: verifiedUser?.psnId || null,
+                platform: verifiedUser?.platform || null
+            });
+        }
+
+        // Ordenar: Manager > Captain > Member
+        const roleOrder = { 'manager': 0, 'captain': 1, 'member': 2 };
+        rosterDetails.sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
+
+        res.json({ roster: rosterDetails, isManager: req.isManager });
+
+    } catch (e) {
+        console.error('Error fetching roster:', e);
+        res.status(500).json({ error: 'Error obteniendo plantilla' });
+    }
+});
+
+// POST Invite Player
+app.post('/api/teams/:teamId/invite', checkTeamPermissions, async (req, res) => {
+    const { usernameOrId } = req.body;
+    if (!usernameOrId) return res.status(400).json({ error: 'Falta usuario' });
+
+    try {
+        let targetUser = null;
+
+        // 1. Buscar por ID
+        if (usernameOrId.match(/^\d{17,19}$/)) {
+            try {
+                targetUser = await client.users.fetch(usernameOrId);
+            } catch { }
+        }
+
+        // 2. Buscar por Username en Discord (Cache de guild si disponible o nada)
+        // Difícil buscar globalmente por username sin bot search en djs. 
+        // Usaremos DB verified_users como fallback de búsqueda "segura"
+        if (!targetUser) {
+            const dbRef = getDb();
+            const foundInDb = await dbRef.collection('verified_users').findOne({
+                username: { $regex: new RegExp(`^${usernameOrId}$`, 'i') }
+            });
+            if (foundInDb) {
+                try {
+                    targetUser = await client.users.fetch(foundInDb.discordId);
+                } catch { }
+            }
+        }
+
+        if (!targetUser) return res.status(404).json({ error: 'Usuario no encontrado (Prueba con el ID de Discord)' });
+
+        // Validaciones
+        const team = req.team;
+        const allMembers = [team.managerId, ...(team.captains || []), ...(team.players || [])];
+        if (allMembers.includes(targetUser.id)) {
+            return res.status(400).json({ error: 'El usuario ya está en el equipo' });
+        }
+
+        // Añadir a players
+        const db = getDb();
+        await db.collection('teams').updateOne(
+            { _id: team._id },
+            { $addToSet: { players: targetUser.id } }
+        );
+
+        res.json({ success: true, user: { id: targetUser.id, username: targetUser.username } });
+
+    } catch (e) {
+        console.error('Error inviting:', e);
+        res.status(500).json({ error: 'Error invitando jugador' });
+    }
+});
+
+// POST Kick Player
+app.post('/api/teams/:teamId/kick', checkTeamPermissions, async (req, res) => {
+    const { userId } = req.body;
+    const team = req.team;
+
+    // Protección: No se puede expulsar al Manager
+    if (userId === team.managerId) {
+        return res.status(403).json({ error: 'No puedes expulsar al Manager.' });
+    }
+
+    // Protección: Capitanes no pueden expulsar a otros Capitanes (Regla implícita común, o permitirlo?)
+    // User dijo: "capitanes tambien pueden salvo expulsar al manager o degradarlo"
+    // Asumiremos que Capitán puede expulsar miembro, pero NO a otro capitán (para evitar guerras).
+    const targetIsCaptain = team.captains?.includes(userId);
+    if (!req.isManager && targetIsCaptain) {
+        return res.status(403).json({ error: 'Solo el Manager puede expulsar a Capitanes.' });
+    }
+
+    try {
+        const db = getDb();
+        await db.collection('teams').updateOne(
+            { _id: team._id },
+            {
+                $pull: {
+                    players: userId,
+                    captains: userId
+                }
+            }
+        );
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Error expulsando jugador' });
+    }
+});
+
+// POST Promote/Demote
+app.post('/api/teams/:teamId/promote', checkTeamPermissions, async (req, res) => {
+    const { userId, role } = req.body; // role: 'captain' | 'member'
+    const team = req.team;
+
+    // Solo el Manager puede gestionar rangos de capitán
+    if (!req.isManager) {
+        return res.status(403).json({ error: 'Solo el Manager puede gestionar rangos.' });
+    }
+
+    if (userId === team.managerId) return res.status(400).json({ error: 'El rol del Manager es inmodificable aquí.' });
+
+    const db = getDb();
+    try {
+        if (role === 'captain') {
+            await db.collection('teams').updateOne(
+                { _id: team._id },
+                {
+                    $addToSet: { captains: userId },
+                    $pull: { players: userId } // Lo quitamos de players base para limpieza, aunque el esquema permite overlap, mejor separar
+                }
+            );
+        } else {
+            // Demote to member
+            await db.collection('teams').updateOne(
+                { _id: team._id },
+                {
+                    $pull: { captains: userId },
+                    $addToSet: { players: userId }
+                }
+            );
+        }
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Error cambiando rol' });
+    }
+});
+
 // Endpoint: Detectar rol del usuario en un evento específico
 app.get('/api/my-role-in-event/:eventId', async (req, res) => {
     if (!req.user) {

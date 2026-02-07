@@ -236,6 +236,37 @@
         </div>
     </div>
 
+    </div>
+    </div>
+
+    <!-- === MODAL GESTIONAR EQUIPO === -->
+    <div id="manage-team-modal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <span class="close-button close-manage-team">&times;</span>
+            <div class="modal-header-center">
+                <img id="manage-team-logo" src="" alt="Team Logo" class="team-logo-medium">
+                <h2 id="manage-team-name">Nombre del Equipo</h2>
+            </div>
+
+            <div class="manage-section">
+                <h3>Plantilla (Roster)</h3>
+                <div id="roster-list" class="roster-list">
+                    <!-- Roster items injected via JS -->
+                    <div class="loader-spinner"></div>
+                </div>
+            </div>
+
+            <div class="manage-section">
+                <h3>Fichar Jugador</h3>
+                <form id="invite-player-form" class="invite-form">
+                    <input type="text" id="invite-input" placeholder="ID de Discord (Recomendado) o Usuario" required>
+                    <button type="submit" class="action-btn invite-btn">Invitar</button>
+                </form>
+                <div id="invite-message" class="status-message hidden"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="dashboard.js"></script>
 </body>
 

@@ -428,8 +428,171 @@ class DashboardApp {
         }
     }
 
-    openTeamManagement(teamId, teamName) {
-        alert(`Próximamente: Panel de Gestión para ${teamName}`);
+    async openTeamManagement(teamId, teamName) {
+        this.currentManagingTeamId = teamId;
+        const modal = document.getElementById('manage-team-modal');
+        const title = document.getElementById('manage-team-name');
+        const rosterList = document.getElementById('roster-list');
+        const inviteMsg = document.getElementById('invite-message');
+
+        modal.classList.remove('hidden');
+        title.textContent = teamName;
+        rosterList.innerHTML = '<div class="loader-spinner"></div>';
+        inviteMsg.classList.add('hidden');
+        inviteMsg.textContent = '';
+
+        // Load Roster
+        await this.loadRoster(teamId);
+
+        // Setup Invite Form
+        const inviteForm = document.getElementById('invite-player-form');
+        inviteForm.onsubmit = (e) => this.handleInvite(e);
+
+        // Close Modal Setup
+        const closeBtn = document.querySelector('.close-manage-team');
+        closeBtn.onclick = () => {
+            modal.classList.add('hidden');
+            this.currentManagingTeamId = null;
+        };
+    }
+
+    async loadRoster(teamId) {
+        const rosterList = document.getElementById('roster-list');
+        try {
+            const res = await fetch(`/api/teams/${teamId}/roster`);
+            const data = await res.json();
+
+            if (res.ok) {
+                rosterList.innerHTML = data.roster.map(member => this.renderRosterItem(member, data.isManager)).join('');
+            } else {
+                rosterList.innerHTML = `<p class="error-message">${data.error}</p>`;
+            }
+        } catch (e) {
+            rosterList.innerHTML = '<p class="error-message">Error cargando plantilla.</p>';
+        }
+    }
+
+    renderRosterItem(member, amIManager) {
+        const isMe = member.id === this.currentUser.id;
+        let actions = '';
+
+        if (!isMe) {
+            // Logic: Manager kicks everyone. Captain kicks members.
+            const canKick = amIManager || (this.userRoles.includes('captain') && member.role === 'member');
+            // Warning: client-side check only for UI. Server validates.
+
+            if (amIManager) {
+                // Manager Controls
+                if (member.role === 'member') {
+                    actions += `<button class="icon-btn promote-btn" title="Ascender a Capitán" onclick="dashboard.promotePlayer('${member.id}', 'captain')">⬆️</button>`;
+                } else if (member.role === 'captain') {
+                    actions += `<button class="icon-btn demote-btn" title="Degradar a Miembro" onclick="dashboard.promotePlayer('${member.id}', 'member')">⬇️</button>`;
+                }
+                actions += `<button class="icon-btn kick-btn" title="Expulsar" onclick="dashboard.kickPlayer('${member.id}')">❌</button>`;
+            } else {
+                // Captain Controls (Can kick members, cannot touch Manager or other Captains)
+                if (member.role === 'member') {
+                    actions += `<button class="icon-btn kick-btn" title="Expulsar" onclick="dashboard.kickPlayer('${member.id}')">❌</button>`;
+                }
+            }
+        }
+
+        const roleBadge = member.role === 'manager' ? '👑' : (member.role === 'captain' ? '🧢' : '👤');
+        const roleName = member.role === 'manager' ? 'Manager' : (member.role === 'captain' ? 'Capitán' : 'Miembro');
+
+        return `
+            <div class="roster-item">
+                <div class="roster-user-info">
+                    <img src="${member.avatar}" class="avatar-small">
+                    <div class="user-details">
+                        <span class="user-name">${member.username}</span>
+                        <div class="user-badges">
+                            <span class="role-badge ${member.role}">${roleBadge} ${roleName}</span>
+                            ${member.psnId ? `<span class="platform-badge">${member.platform.toUpperCase()}: ${member.psnId}</span>` : '<span class="unverified-badge">⚠️ No verificado</span>'}
+                        </div>
+                    </div>
+                </div>
+                <div class="roster-actions">
+                    ${actions}
+                </div>
+            </div>
+        `;
+    }
+
+    async handleInvite(e) {
+        e.preventDefault();
+        const input = document.getElementById('invite-input');
+        const msg = document.getElementById('invite-message');
+        const btn = e.target.querySelector('button');
+
+        const usernameOrId = input.value.trim();
+        if (!usernameOrId) return;
+
+        btn.disabled = true;
+        msg.textContent = 'Buscando e invitando...';
+        msg.className = 'status-message';
+        msg.classList.remove('hidden');
+
+        try {
+            const res = await fetch(`/api/teams/${this.currentManagingTeamId}/invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ usernameOrId })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                msg.textContent = `✅ ¡${data.user.username} añadido al equipo!`;
+                msg.className = 'status-message success';
+                input.value = '';
+                this.loadRoster(this.currentManagingTeamId);
+            } else {
+                msg.textContent = `❌ ${data.error}`;
+                msg.className = 'status-message error';
+            }
+        } catch (error) {
+            msg.textContent = '❌ Error de conexión';
+            msg.className = 'status-message error';
+        }
+        btn.disabled = false;
+    }
+
+    async kickPlayer(userId) {
+        if (!confirm('¿Seguro que quieres expulsar a este jugador?')) return;
+
+        try {
+            const res = await fetch(`/api/teams/${this.currentManagingTeamId}/kick`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            });
+            if (res.ok) {
+                this.loadRoster(this.currentManagingTeamId);
+            } else {
+                const data = await res.json();
+                alert(data.error);
+            }
+        } catch (e) {
+            alert('Error al expulsar');
+        }
+    }
+
+    async promotePlayer(userId, role) {
+        try {
+            const res = await fetch(`/api/teams/${this.currentManagingTeamId}/promote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, role })
+            });
+            if (res.ok) {
+                this.loadRoster(this.currentManagingTeamId);
+            } else {
+                const data = await res.json();
+                alert(data.error);
+            }
+        } catch (e) {
+            alert('Error al cambiar rol');
+        }
     }
 
 
