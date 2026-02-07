@@ -468,6 +468,7 @@ class DashboardApp {
 
         // Load Teams
         this.loadMyTeams();
+        this.translatePage();
     }
 
     async loadMyTeams() {
@@ -528,13 +529,6 @@ class DashboardApp {
             console.error('Error loading teams:', e);
             container.innerHTML = `<p class="error-message">${this.t('profile.error')}</p>`;
         }
-    }
-
-    openProfileModal() {
-        const modal = document.getElementById('profile-modal');
-        modal.classList.remove('hidden');
-        this.loadMyTeams();
-        this.translatePage();
     }
 
     setupLanguageSelector() {

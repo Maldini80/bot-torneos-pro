@@ -2430,4 +2430,105 @@ aside h2 {
     .role-label {
         font-size: 1em;
     }
+
+    /* === RESPONSIVE FIXES FOR TOURNAMENT TABLES === */
+
+    /* Ensure text wraps and doesn't overflow */
+    .header-text h1 {
+        font-size: 1.8em !important;
+        line-height: 1.2 !important;
+        word-break: break-word;
+    }
+
+    .header-text p {
+        font-size: 0.9em !important;
+    }
+
+    /* Make classification tables responsive */
+    .group-table,
+    table {
+        font-size: 0.7em !important;
+        /* Smaller font for mobile */
+        width: 100%;
+        display: block;
+        overflow-x: auto;
+        /* Allow horizontal scroll if needed */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .group-table thead,
+    .group-table tbody,
+    .group-table tr,
+    .group-table th,
+    .group-table td {
+        display: table-cell !important;
+        white-space: nowrap;
+        /* Prevent text wrapping in cells */
+    }
+
+    .group-table th,
+    .group-table td {
+        padding: 6px 4px !important;
+        /* Reduce padding */
+        font-size: 0.85em !important;
+    }
+
+    /* Team logos smaller on mobile */
+    .team-logo,
+    .team-logo-small {
+        width: 24px !important;
+        height: 24px !important;
+    }
+
+    /* Adjust header for mobile */
+    .header-content {
+        flex-direction: column !important;
+        gap: 10px;
+        padding: 10px !important;
+    }
+
+    .header-logo {
+        width: 80px !important;
+        height: auto;
+    }
+
+    /* Match cards responsive */
+    .match-card {
+        padding: 12px !important;
+    }
+
+    .team-name {
+        font-size: 0.9em !important;
+    }
+
+    .score {
+        font-size: 1.2em !important;
+    }
+
+    /* Bracket view responsive */
+    .bracket-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .bracket-round {
+        min-width: 200px;
+    }
+
+    /* Mobile view switcher */
+    .mobile-view-switcher {
+        display: block !important;
+        padding: 10px;
+    }
+
+    .view-switcher {
+        display: none !important;
+        /* Hide desktop tabs on mobile */
+    }
+
+    /* Ensure modals are mobile-friendly */
+    .modal-content {
+        width: 95% !important;
+        padding: 15px !important;
+    }
 }
