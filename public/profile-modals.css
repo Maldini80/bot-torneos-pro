@@ -1,0 +1,717 @@
+/* ================================================
+   PROFILE & TEAM MANAGEMENT MODALS - MODERN DESIGN
+   ================================================ */
+
+/* === ANIMATIONS === */
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+/* === MODAL BASE === */
+#profile-modal,
+#verification-modal,
+#create-team-modal,
+#manage-team-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+#profile-modal .modal-content,
+#verification-modal .modal-content,
+#create-team-modal .modal-content,
+#manage-team-modal .modal-content {
+    background: linear-gradient(135deg, rgba(20, 20, 20, 0.95) 0%, rgba(30, 30, 30, 0.95) 100%);
+    border: 1px solid rgba(255, 156, 0, 0.3);
+    border-radius: 16px;
+    padding: 0;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 156, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    position: relative;
+    animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* === PROFILE MODAL SPECIFIC === */
+.profile-header-section {
+    background: linear-gradient(135deg, rgba(255, 156, 0, 0.15) 0%, rgba(255, 100, 0, 0.1) 100%);
+    padding: 30px;
+    border-bottom: 2px solid rgba(255, 156, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    border-radius: 16px 16px 0 0;
+}
+
+.profile-avatar-large {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid var(--primary-color);
+    box-shadow: 0 0 20px rgba(255, 156, 0, 0.4);
+    transition: transform 0.3s ease;
+}
+
+.profile-avatar-large:hover {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.profile-identity h2 {
+    margin: 0 0 10px 0;
+    color: var(--primary-color);
+    font-family: var(--font-bebas);
+    font-size: 2em;
+    text-shadow: 0 0 10px rgba(255, 156, 0, 0.3);
+}
+
+#profile-status-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#profile-status-badges .badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+}
+
+.badge.verified {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.badge.not-verified {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 156, 0, 0.5);
+}
+
+/* === ALERT NOTIFICATION === */
+.alert {
+    margin: 20px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    animation: slideInUp 0.5s ease;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.1));
+    border-left: 4px solid #f59e0b;
+    color: #fbbf24;
+}
+
+.alert-btn {
+    padding: 8px 18px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.alert-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.5);
+    background: linear-gradient(135deg, #d97706, #b45309);
+}
+
+/* === TEAM CARDS === */
+.profile-section {
+    padding: 25px;
+}
+
+.profile-section h3 {
+    color: var(--primary-color);
+    font-family: var(--font-bebas);
+    font-size: 1.6em;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+.profile-section h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-color), transparent);
+    border-radius: 2px;
+}
+
+.team-card-mini {
+    background: linear-gradient(135deg, rgba(40, 40, 40, 0.6), rgba(30, 30, 30, 0.6));
+    border: 1px solid rgba(255, 156, 0, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.team-card-mini::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 156, 0, 0.1),
+            transparent);
+    transition: left 0.5s ease;
+}
+
+.team-card-mini:hover::before {
+    left: 100%;
+}
+
+.team-card-mini:hover {
+    transform: translateX(5px);
+    border-color: var(--primary-color);
+    box-shadow: 0 8px 24px rgba(255, 156, 0, 0.2);
+}
+
+.team-logo-mini {
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 2px solid rgba(255, 156, 0, 0.3);
+}
+
+.team-info-mini {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.team-name {
+    font-weight: 700;
+    font-size: 1.1em;
+    color: var(--text-color);
+}
+
+.team-role-badge {
+    font-size: 0.85em;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.manage-team-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, var(--primary-color), #ff8800);
+    border: none;
+    border-radius: 8px;
+    color: #000;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.manage-team-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 156, 0, 0.5);
+}
+
+/* === EMPTY STATE === */
+.empty-state-teams {
+    text-align: center;
+    padding: 40px 20px;
+    color: #888;
+}
+
+.empty-state-teams p {
+    margin: 10px 0;
+    font-size: 1.1em;
+}
+
+.empty-state-teams .sub-text {
+    font-size: 0.95em;
+    color: #666;
+}
+
+/* === FOOTER ACTIONS === */
+.profile-footer {
+    padding: 20px 25px;
+    border-top: 1px solid rgba(255, 156, 0, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 16px 16px;
+}
+
+.create-new-team-btn {
+    width: 100%;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, var(--primary-color), #ff8800);
+    border: none;
+    border-radius: 10px;
+    color: #000;
+    font-weight: 700;
+    font-size: 1.05em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(255, 156, 0, 0.3);
+}
+
+.create-new-team-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(255, 156, 0, 0.5);
+}
+
+/* === CLOSE BUTTON === */
+.close-button,
+.modal-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 2em;
+    color: var(--primary-color);
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 156, 0, 0.1);
+    border: 1px solid rgba(255, 156, 0, 0.3);
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.close-button:hover,
+.modal-close-btn:hover {
+    background: rgba(255, 156, 0, 0.2);
+    transform: rotate(90deg) scale(1.1);
+}
+
+/* === FORM STYLES === */
+.modal-subtitle {
+    color: #888;
+    font-size: 0.95em;
+    margin: -10px 0 25px 0;
+    padding: 0 30px;
+}
+
+#create-team-modal h2,
+#verification-modal h2,
+#manage-team-modal h2 {
+    color: var(--primary-color);
+    font-family: var(--font-bebas);
+    font-size: 2em;
+    margin: 0;
+    padding: 30px 30px 15px 30px;
+    letter-spacing: 1px;
+}
+
+form {
+    padding: 0 30px 30px 30px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(40, 40, 40, 0.6);
+    border: 1px solid rgba(255, 156, 0, 0.2);
+    border-radius: 8px;
+    color: var(--text-color);
+    font-size: 1em;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(255, 156, 0, 0.1);
+    background: rgba(50, 50, 50, 0.8);
+}
+
+.form-group small {
+    display: block;
+    color: #888;
+    font-size: 0.85em;
+    margin-top: 6px;
+}
+
+/* === TEAM PREVIEW === */
+.team-preview {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 20px;
+    border-radius: 12px;
+    margin: 20px 0;
+    border: 1px dashed rgba(255, 156, 0, 0.3);
+}
+
+.team-preview h4 {
+    color: var(--primary-color);
+    margin: 0 0 15px 0;
+    font-size: 1.1em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.preview-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: rgba(40, 40, 40, 0.5);
+    padding: 15px;
+    border-radius: 10px;
+}
+
+#preview-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 2px solid var(--primary-color);
+}
+
+#preview-name {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+/* === SUBMIT BUTTONS === */
+form button[type="submit"],
+.action-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--primary-color), #ff8800);
+    border: none;
+    border-radius: 10px;
+    color: #000;
+    font-weight: 700;
+    font-size: 1.05em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 12px rgba(255, 156, 0, 0.3);
+}
+
+form button[type="submit"]:hover,
+.action-btn:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(255, 156, 0, 0.5);
+}
+
+form button[type="submit"]:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* === ERROR MESSAGES === */
+.error-message {
+    background: rgba(239, 68, 68, 0.15);
+    border-left: 4px solid #ef4444;
+    color: #fca5a5;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-top: 15px;
+    font-size: 0.95em;
+}
+
+/* === TEAM MANAGEMENT MODAL === */
+.manage-section {
+    padding: 25px 30px;
+    border-bottom: 1px solid rgba(255, 156, 0, 0.1);
+}
+
+.manage-section:last-child {
+    border-bottom: none;
+}
+
+.manage-section h3 {
+    color: var(--primary-color);
+    font-family: var(--font-bebas);
+    font-size: 1.5em;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+}
+
+.roster-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.roster-item {
+    background: rgba(40, 40, 40, 0.5);
+    border: 1px solid rgba(255, 156, 0, 0.2);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s ease;
+}
+
+.roster-item:hover {
+    background: rgba(50, 50, 50, 0.6);
+    border-color: var(--primary-color);
+}
+
+.roster-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 156, 0, 0.4);
+}
+
+.roster-info {
+    flex: 1;
+}
+
+.roster-name {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 1.05em;
+}
+
+.roster-role {
+    font-size: 0.85em;
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.roster-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.roster-actions button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.roster-actions button.kick-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.roster-actions button.promote-btn {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+}
+
+.roster-actions button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* === INVITE FORM === */
+.invite-form {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.invite-form input {
+    flex: 1;
+}
+
+.invite-btn {
+    width: auto !important;
+    padding: 12px 24px !important;
+    white-space: nowrap;
+}
+
+.status-message {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.95em;
+}
+
+.status-message.success {
+    background: rgba(34, 197, 94, 0.15);
+    border-left: 4px solid #22c55e;
+    color: #86efac;
+}
+
+.status-message.error {
+    background: rgba(239, 68, 68, 0.15);
+    border-left: 4px solid #ef4444;
+    color: #fca5a5;
+}
+
+/* === LOADER SPINNER === */
+.loader-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 156, 0, 0.2);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 40px auto;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+
+    #profile-modal .modal-content,
+    #verification-modal .modal-content,
+    #create-team-modal .modal-content,
+    #manage-team-modal .modal-content {
+        width: 95%;
+        max-height: 95vh;
+        border-radius: 12px;
+    }
+
+    .profile-header-section {
+        padding: 20px;
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .profile-identity h2 {
+        font-size: 1.6em;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .team-card-mini {
+        flex-wrap: wrap;
+    }
+
+    .manage-team-btn {
+        width: 100%;
+    }
+
+    .roster-item {
+        flex-wrap: wrap;
+    }
+
+    .roster-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .roster-actions button {
+        flex: 1;
+    }
+
+    .invite-form {
+        flex-direction: column;
+    }
+
+    .invite-btn {
+        width: 100% !important;
+    }
+}
