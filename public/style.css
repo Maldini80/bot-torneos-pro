@@ -498,11 +498,62 @@ aside h2 {
     font-size: 1.1em;
 }
 
+/* Encabezados de tabla de clasificación */
+.classification-table-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: rgba(255, 156, 0, 0.15);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-family: var(--font-bebas);
+    font-size: 1.1em;
+    color: var(--primary-color);
+    text-transform: uppercase;
+}
+
+.header-team-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.header-pos {
+    width: 30px;
+    text-align: center;
+}
+
+.header-team-name {
+    flex-grow: 1;
+}
+
+.header-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 15px;
+    text-align: center;
+}
+
+.header-stats-grid.with-bh {
+    grid-template-columns: repeat(6, 1fr);
+}
+
+.header-stat {
+    width: 40px;
+    text-align: center;
+}
+
 .team-stats-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 15px;
     text-align: center;
+}
+
+.team-stats-grid.with-bh {
+    grid-template-columns: repeat(6, 1fr);
 }
 
 .stat-item {

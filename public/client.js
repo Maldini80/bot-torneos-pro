@@ -20,7 +20,16 @@ const translations = {
         loading: 'Cargando datos del evento...',
         errorNoId: 'Error: No se ha especificado un ID de evento en la URL.',
         liveMatches: 'Partidos en Directo',
-        toDefine: 'Por definir'
+        toDefine: 'Por definir',
+        groupPhase: 'Fase de Grupos',
+        position: 'Pos',
+        team: 'Equipo',
+        pts: 'PTS',
+        pj: 'PJ',
+        gf: 'GF',
+        gc: 'GC',
+        dg: 'DG',
+        bh: 'BH'
     },
     en: {
         backBtn: '← Dashboard',
@@ -42,7 +51,16 @@ const translations = {
         loading: 'Loading event data...',
         errorNoId: 'Error: No event ID specified in URL.',
         liveMatches: 'Live Matches',
-        toDefine: 'To be defined'
+        toDefine: 'To be defined',
+        groupPhase: 'Group Stage',
+        position: 'Pos',
+        team: 'Team',
+        pts: 'PTS',
+        pj: 'GP',
+        gf: 'GF',
+        gc: 'GA',
+        dg: 'GD',
+        bh: 'BH'
     }
 };
 
@@ -272,7 +290,7 @@ function initializeTournamentView(tournamentId) {
         const groups = tournament.structure.grupos;
         groupsContainerEl.innerHTML = '';
         if (Object.keys(groups).length === 0) {
-            groupsContainerEl.innerHTML = '<p class="placeholder">El sorteo de grupos no se ha realizado.</p>';
+            groupsContainerEl.innerHTML = `<p class="placeholder">${t('noGroups')}</p>`;
             return;
         }
 
@@ -286,7 +304,25 @@ function initializeTournamentView(tournamentId) {
                 return b.stats.gf - a.stats.gf;
             });
 
-            let groupHTML = `<div class="group-container"><h3 class="group-title">${groupName}</h3>`;
+            // Detectar si hay campo BH (Buchholz) para liguilla suiza
+            const hasBH = sortedTeams.some(team => team.stats.bh !== undefined);
+
+            let groupHTML = `<div class="group-container">
+                <h3 class="group-title">${groupName}</h3>
+                <div class="classification-table-header">
+                    <div class="header-team-info">
+                        <span class="header-pos">${t('position')}</span>
+                        <span class="header-team-name">${t('team')}</span>
+                    </div>
+                    <div class="header-stats-grid">
+                        <span class="header-stat">${t('pts')}</span>
+                        <span class="header-stat">${t('pj')}</span>
+                        <span class="header-stat">${t('gf')}</span>
+                        <span class="header-stat">${t('gc')}</span>
+                        <span class="header-stat">${t('dg')}</span>
+                        ${hasBH ? `<span class="header-stat">${t('bh')}</span>` : ''}
+                    </div>
+                </div>`;
 
             sortedTeams.forEach((team, index) => {
                 const dg = team.stats.dg > 0 ? `+${team.stats.dg}` : team.stats.dg;
@@ -299,12 +335,13 @@ function initializeTournamentView(tournamentId) {
                             ${logoHtml}
                             <span class="team-name-classification">${team.nombre}</span>
                         </div>
-                        <div class="team-stats-grid">
-                            <div class="stat-item"><span class="stat-value">${team.stats.pts}</span><span class="stat-label">PTS</span></div>
-                            <div class="stat-item"><span class="stat-value">${team.stats.pj}</span><span class="stat-label">PJ</span></div>
-                            <div class="stat-item"><span class="stat-value">${team.stats.gf}</span><span class="stat-label">GF</span></div>
-                            <div class="stat-item"><span class="stat-value">${team.stats.gc}</span><span class="stat-label">GC</span></div>
-                            <div class="stat-item"><span class="stat-value">${dg}</span><span class="stat-label">DG</span></div>
+                        <div class="team-stats-grid ${hasBH ? 'with-bh' : ''}">
+                            <div class="stat-item"><span class="stat-value">${team.stats.pts}</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.pj}</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.gf}</span></div>
+                            <div class="stat-item"><span class="stat-value">${team.stats.gc}</span></div>
+                            <div class="stat-item"><span class="stat-value">${dg}</span></div>
+                            ${hasBH ? `<div class="stat-item"><span class="stat-value">${team.stats.bh || 0}</span></div>` : ''}
                         </div>
                     </div>
                 `;
