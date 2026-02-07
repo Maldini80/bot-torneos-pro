@@ -619,7 +619,7 @@ class DashboardApp {
                 const data = {
                     name: document.getElementById('team-name').value,
                     abbreviation: document.getElementById('team-abbr').value,
-                    region: document.getElementById('team-region').value,
+                    twitterHandle: document.getElementById('team-twitter').value,
                     logoUrl: document.getElementById('team-logo').value
                 };
 
