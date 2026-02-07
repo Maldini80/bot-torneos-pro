@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPG Lightnings - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="loading">Cargando dashboard...</div>
+
+    <!-- Dashboard Principal -->
+    <div id="dashboard-app" class="hidden">
+        <header class="dashboard-header">
+            <div class="header-top">
+                <img src="https://i.imgur.com/X9nUVPj.png" alt="VPG Lightnings Logo" class="header-logo">
+                <div class="language-selector">
+                    <button data-lang="es" class="lang-btn active">🇪🇸 ES</button>
+                    <button data-lang="en" class="lang-btn">🇬🇧 EN</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="dashboard-main">
+            <!-- Eventos Activos -->
+            <section id="active-events" class="view-section active">
+                <h2 data-i18n="dashboard.activeEvents">Eventos Activos</h2>
+                <div id="active-grid" class="events-grid">
+                    <!-- Cards generados dinámicamente -->
+                </div>
+                <div id="no-active" class="empty-state hidden">
+                    <p data-i18n="dashboard.noActiveEvents">No hay eventos activos en este momento</p>
+                </div>
+            </section>
+
+            <!-- Historial -->
+            <section id="history" class="view-section">
+                <h2 data-i18n="dashboard.history">Historial de Eventos</h2>
+                <div class="filters">
+                    <select id="type-filter">
+                        <option value="all" data-i18n="dashboard.allTypes">Todos los tipos</option>
+                        <option value="tournament" data-i18n="dashboard.tournaments">Torneos</option>
+                        <option value="draft" data-i18n="dashboard.drafts">Drafts</option>
+                    </select>
+                    <input type="search" id="search-input" placeholder="Buscar por nombre...">
+                </div>
+
+                <!-- Mobile: Cards -->
+                <div id="history-mobile" class="mobile-cards">
+                    <!-- Items generados dinámicamente -->
+                </div>
+
+                <!-- Desktop/Tablet: Table -->
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="dashboard.name">Nombre</th>
+                            <th data-i18n="dashboard.type">Tipo</th>
+                            <th data-i18n="dashboard.date">Fecha</th>
+                            <th data-i18n="dashboard.status">Estado</th>
+                            <th data-i18n="dashboard.actions">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody"></tbody>
+                </table>
+
+                <div id="pagination" class="pagination"></div>
+            </section>
+        </main>
+
+        <!-- Bottom Navigation (Mobile Only) -->
+        <nav class="mobile-nav">
+            <button class="active" data-section="active-events">
+                <span class="icon">🔥</span>
+                <span data-i18n="nav.active">Activos</span>
+            </button>
+            <button data-section="history">
+                <span class="icon">📋</span>
+                <span data-i18n="nav.history">Historial</span>
+            </button>
+        </nav>
+
+        <!-- Modal Full-Screen para Evento -->
+        <div id="event-modal" class="modal hidden">
+            <div class="modal-header">
+                <button class="modal-close" onclick="closeEventModal()">←</button>
+                <h3 id="modal-title"></h3>
+            </div>
+            <div id="event-content" class="modal-body">
+                <!-- Contenido del torneo/draft cargado aquí -->
+            </div>
+        </div>
+    </div>
+
+    <footer id="common-footer">
+        Powered by THE BLITZ
+    </footer>
+
+    <script type="module" src="dashboard.js"></script>
+</body>
+</html>

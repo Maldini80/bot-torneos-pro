@@ -16,9 +16,41 @@ export async function connectDb() {
         console.log('[DATABASE] Conectado exitosamente a MongoDB Atlas.');
         // NUEVO: Asegurarse de que la configuración global del bot exista al arrancar.
         await getBotSettings();
+        // NUEVO: Crear índices para optimizar queries del dashboard
+        await ensureIndexes();
     } catch (err) { // --- CORRECCIÓN CRÍTICA --- Se añadieron las llaves {}
         console.error('[DATABASE] ERROR FATAL AL CONECTAR CON MONGODB:', err);
         process.exit(1);
+    }
+}
+
+/**
+ * Crea índices en MongoDB para optimizar las consultas del dashboard
+ * Esta función es idempotente - si los índices ya existen, no hace nada
+ */
+export async function ensureIndexes() {
+    try {
+        if (!db) {
+            console.warn('[DATABASE] No se pueden crear índices: DB no conectada');
+            return;
+        }
+
+        // Índices para torneos
+        await db.collection('tournaments').createIndex({ status: 1, createdAt: -1 });
+        await db.collection('tournaments').createIndex({ shortId: 1 }, { unique: true });
+        await db.collection('tournaments').createIndex({ name: 'text' }); // Para búsqueda
+
+        // Índices para drafts
+        await db.collection('drafts').createIndex({ status: 1, createdAt: -1 });
+        await db.collection('drafts').createIndex({ shortId: 1 }, { unique: true });
+        await db.collection('drafts').createIndex({ draftName: 'text' }); // Para búsqueda
+
+        console.log('[DATABASE] Índices creados/verificados correctamente');
+    } catch (error) {
+        // Los errores de índices duplicados son normales y se ignoran
+        if (error.code !== 11000 && error.code !== 85) {
+            console.warn('[DATABASE] Advertencia al crear índices:', error.message);
+        }
     }
 }
 

@@ -222,6 +222,191 @@ export async function startVisualizerServer(client) {
         }
     });
 
+    // ===== NUEVOS ENDPOINTS PARA EL DASHBOARD =====
+
+    /**
+     * GET /api/events/active
+     * Obtiene todos los eventos activos (torneos y drafts)
+     */
+    app.get('/api/events/active', async (req, res) => {
+        try {
+            const db = getDb();
+
+            // Buscar torneos activos o con inscripción abierta
+            const tournaments = await db.collection('tournaments')
+                .find({
+                    status: { $in: ['active', 'registration_open', 'fase_de_grupos', 'octavos', 'cuartos', 'semifinales', 'final'] }
+                })
+                .sort({ createdAt: -1 })
+                .toArray();
+
+            // Buscar drafts activos o pendientes
+            const drafts = await db.collection('drafts')
+                .find({
+                    status: { $in: ['active', 'pending'] }
+                })
+                .sort({ createdAt: -1 })
+                .toArray();
+
+            res.json({
+                tournaments: tournaments.map(t => ({
+                    id: t.shortId,
+                    name: t.name,
+                    type: 'tournament',
+                    status: t.status,
+                    format: t.format,
+                    teamsCount: t.teams?.length || 0,
+                    createdAt: t.createdAt
+                })),
+                drafts: drafts.map(d => ({
+                    id: d.shortId,
+                    name: d.draftName,
+                    type: 'draft',
+                    status: d.status,
+                    teamsCount: d.teams?.length || 0,
+                    currentPick: d.currentPickIndex,
+                    totalPicks: d.order?.length || 0,
+                    createdAt: d.createdAt
+                }))
+            });
+        } catch (error) {
+            console.error('[API Error] Error fetching active events:', error);
+            res.status(500).json({ error: 'Error al obtener eventos activos' });
+        }
+    });
+
+    /**
+     * GET /api/events/history
+     * Obtiene el historial de eventos con paginación y filtros
+     * Query params: page, limit, type (tournament/draft/all), search
+     */
+    app.get('/api/events/history', async (req, res) => {
+        try {
+            const db = getDb();
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 20;
+            const type = req.query.type || 'all';
+            const search = req.query.search || '';
+            const skip = (page - 1) * limit;
+
+            const results = { tournaments: [], drafts: [], total: 0, page, limit };
+
+            // Filtros de búsqueda por nombre
+            const searchFilter = search ? { name: { $regex: search, $options: 'i' } } : {};
+
+            if (type === 'tournament' || type === 'all') {
+                const tournamentFilter = {
+                    status: { $in: ['finalizado', 'cancelado', 'completed', 'cancelled'] },
+                    ...searchFilter
+                };
+
+                const tournaments = await db.collection('tournaments')
+                    .find(tournamentFilter)
+                    .sort({ createdAt: -1 })
+                    .skip(type === 'all' ? 0 : skip)
+                    .limit(type === 'all' ? 10 : limit)
+                    .toArray();
+
+                const tournamentCount = await db.collection('tournaments').countDocuments(tournamentFilter);
+
+                results.tournaments = tournaments.map(t => ({
+                    id: t.shortId,
+                    name: t.name,
+                    type: 'tournament',
+                    status: t.status,
+                    format: t.format,
+                    teamsCount: t.teams?.length || 0,
+                    winner: t.winner || null,
+                    createdAt: t.createdAt,
+                    completedAt: t.updatedAt
+                }));
+
+                if (type === 'tournament') results.total = tournamentCount;
+            }
+
+            if (type === 'draft' || type === 'all') {
+                const draftFilter = {
+                    status: { $in: ['completed', 'cancelled'] },
+                    ...(search ? { draftName: { $regex: search, $options: 'i' } } : {})
+                };
+
+                const drafts = await db.collection('drafts')
+                    .find(draftFilter)
+                    .sort({ createdAt: -1 })
+                    .skip(type === 'all' ? 0 : skip)
+                    .limit(type === 'all' ? 10 : limit)
+                    .toArray();
+
+                const draftCount = await db.collection('drafts').countDocuments(draftFilter);
+
+                results.drafts = drafts.map(d => ({
+                    id: d.shortId,
+                    name: d.draftName,
+                    type: 'draft',
+                    status: d.status,
+                    teamsCount: d.teams?.length || 0,
+                    createdAt: d.createdAt,
+                    completedAt: d.updatedAt
+                }));
+
+                if (type === 'draft') results.total = draftCount;
+            }
+
+            // Si es 'all', combinamos y ordenamos
+            if (type === 'all') {
+                const combined = [...results.tournaments, ...results.drafts]
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                    .slice(skip, skip + limit);
+
+                results.tournaments = combined.filter(e => e.type === 'tournament');
+                results.drafts = combined.filter(e => e.type === 'draft');
+                results.total = combined.length;
+            }
+
+            res.json(results);
+        } catch (error) {
+            console.error('[API Error] Error fetching event history:', error);
+            res.status(500).json({ error: 'Error al obtener historial de eventos' });
+        }
+    });
+
+    /**
+     * GET /api/events/:id
+     * Obtiene detalles de un evento específico (busca en ambas colecciones)
+     */
+    app.get('/api/events/:id', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const db = getDb();
+
+            // Buscar primero en torneos
+            let event = await db.collection('tournaments').findOne({ shortId: id });
+            let eventType = 'tournament';
+
+            // Si no está en torneos, buscar en drafts
+            if (!event) {
+                event = await db.collection('drafts').findOne({ shortId: id });
+                eventType = 'draft';
+            }
+
+            if (!event) {
+                return res.status(404).json({ error: 'Evento no encontrado' });
+            }
+
+            // Para drafts, aplicar lógica de privacidad
+            if (eventType === 'draft' && !req.user) {
+                event = sanitizeDraftForPublic(event);
+            }
+
+            res.json({ ...event, eventType });
+        } catch (error) {
+            console.error('[API Error] Error fetching event details:', error);
+            res.status(500).json({ error: 'Error al obtener detalles del evento' });
+        }
+    });
+
+    // ===== FIN DE NUEVOS ENDPOINTS =====
+
     app.get('/tournament-data/:tournamentId', async (req, res) => {
         let data = tournamentStates.get(req.params.tournamentId);
         if (!data) {
