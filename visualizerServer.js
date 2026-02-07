@@ -327,7 +327,7 @@ async function checkTeamPermissions(req, res, next) {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
     try {
-        const db = getDb();
+        const db = getDb('test'); // FIX: Equipos están en 'test'
         const teamId = req.params.teamId;
 
         const team = await db.collection('teams').findOne({ _id: new ObjectId(teamId) });
@@ -358,7 +358,7 @@ app.get('/api/teams/:teamId/roster', checkTeamPermissions, async (req, res) => {
 
         // Obtener detalles de Discord y DB
         const rosterDetails = [];
-        const db = getDb();
+        const db = getDb('test'); // FIX: Usuarios verificados están en 'test'
 
         for (const userId of uniqueIds) {
             let role = 'member';
@@ -418,7 +418,7 @@ app.post('/api/teams/:teamId/invite', checkTeamPermissions, async (req, res) => 
         // Difícil buscar globalmente por username sin bot search en djs. 
         // Usaremos DB verified_users como fallback de búsqueda "segura"
         if (!targetUser) {
-            const dbRef = getDb();
+            const dbRef = getDb('test');
             const foundInDb = await dbRef.collection('verified_users').findOne({
                 username: { $regex: new RegExp(`^${usernameOrId}$`, 'i') }
             });
@@ -439,7 +439,7 @@ app.post('/api/teams/:teamId/invite', checkTeamPermissions, async (req, res) => 
         }
 
         // Añadir a players
-        const db = getDb();
+        const db = getDb('test');
         await db.collection('teams').updateOne(
             { _id: team._id },
             { $addToSet: { players: targetUser.id } }
@@ -472,7 +472,7 @@ app.post('/api/teams/:teamId/kick', checkTeamPermissions, async (req, res) => {
     }
 
     try {
-        const db = getDb();
+        const db = getDb('test');
         await db.collection('teams').updateOne(
             { _id: team._id },
             {
@@ -500,7 +500,7 @@ app.post('/api/teams/:teamId/promote', checkTeamPermissions, async (req, res) =>
 
     if (userId === team.managerId) return res.status(400).json({ error: 'El rol del Manager es inmodificable aquí.' });
 
-    const db = getDb();
+    const db = getDb('test');
     try {
         if (role === 'captain') {
             await db.collection('teams').updateOne(
@@ -554,7 +554,8 @@ app.post('/api/tournaments/:id/register', async (req, res) => {
 
         // Caso 1: Equipo Existente
         if (teamId) {
-            const team = await db.collection('teams').findOne({ _id: new ObjectId(teamId) });
+            const dbTeams = getDb('test'); // FIX: Buscar equipo en 'test'
+            const team = await dbTeams.collection('teams').findOne({ _id: new ObjectId(teamId) });
             if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
 
             const isManager = team.managerId === req.user.id;
