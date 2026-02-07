@@ -251,6 +251,10 @@ app.get('/api/user/teams', async (req, res) => {
             captains: 1
         }).toArray();
 
+        console.log('🔍 [SERVER] User ID:', userId);
+        console.log('🔍 [SERVER] Teams found:', teams.length);
+        console.log('🔍 [SERVER] Teams data:', JSON.stringify(teams, null, 2));
+
         res.json({ teams });
     } catch (error) {
         console.error('[API Error] Error fetching user teams:', error);
