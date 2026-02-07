@@ -1,6 +1,134 @@
-// dashboard.js - Controlador principal del dashboard
-import { t, getCurrentLanguage, setCurrentLanguage } from '../src/utils/translations.js';
+// dashboard.js - Controlador principal del dashboard (Versión standalone)
 
+// ===== TRADUCCIONES INTEGRADAS =====
+const translations = {
+    es: {
+        nav: { active: 'Activos', history: 'Historial' },
+        dashboard: {
+            title: 'Dashboard de Eventos',
+            activeEvents: 'Eventos Activos',
+            noActiveEvents: 'No hay eventos activos en este momento',
+            history: 'Historial de Eventos',
+            allTypes: 'Todos los tipos',
+            tournaments: 'Torneos',
+            drafts: 'Drafts',
+            search: 'Buscar por nombre...',
+            name: 'Nombre',
+            type: 'Tipo',
+            date: 'Fecha',
+            status: 'Estado',
+            actions: 'Acciones',
+            view: 'Ver',
+            loading: 'Cargando eventos...',
+            error: 'Error al cargar eventos',
+            noResults: 'No se encontraron eventos'
+        },
+        status: {
+            active: 'En curso', pending: 'Pendiente', completed: 'Finalizado',
+            cancelled: 'Cancelado', registration_open: 'Inscripción abierta',
+            fase_de_grupos: 'Fase de grupos', octavos: 'Octavos', cuartos: 'Cuartos',
+            semifinales: 'Semifinales', final: 'Final', finalizado: 'Finalizado'
+        },
+        eventTypes: { tournament: 'Torneo', draft: 'Draft', league: 'Liguilla' },
+        tournament: {
+            format: 'Formato', teams: 'Equipos', matches: 'Partidos',
+            classification: 'Clasificación', calendar: 'Calendario', bracket: 'Eliminatorias',
+            teamList: 'Equipos Participantes', liveMatches: 'Partidos en Directo',
+            champion: 'Campeón', groups: 'Fase de Grupos', winner: 'Ganador'
+        },
+        draft: {
+            currentTurn: 'Turno actual', pick: 'Pick', round: 'Ronda', team: 'Equipo',
+            availablePlayers: 'Jugadores Disponibles', position: 'Posición',
+            primary: 'Primaria', secondary: 'Secundaria', strikes: 'Strikes',
+            action: 'Acción', select: 'Seleccionar', myTeam: 'Mi Equipo'
+        },
+        common: {
+            close: 'Cerrar', back: 'Volver', next: 'Siguiente', previous: 'Anterior',
+            page: 'Página', of: 'de', total: 'Total', filters: 'Filtros',
+            clear: 'Limpiar', apply: 'Aplicar', createdAt: 'Creado el',
+            updatedAt: 'Actualizado el', loading: 'Cargando...'
+        },
+        messages: {
+            noData: 'No hay datos disponibles',
+            loadingError: 'Error al cargar los datos',
+            connectionLost: 'Conexión perdida. Reintentando...',
+            reconnected: 'Conexión restablecida'
+        }
+    },
+    en: {
+        nav: { active: 'Active', history: 'History' },
+        dashboard: {
+            title: 'Events Dashboard',
+            activeEvents: 'Active Events',
+            noActiveEvents: 'No active events at the moment',
+            history: 'Events History',
+            allTypes: 'All types',
+            tournaments: 'Tournaments',
+            drafts: 'Drafts',
+            search: 'Search by name...',
+            name: 'Name',
+            type: 'Type',
+            date: 'Date',
+            status: 'Status',
+            actions: 'Actions',
+            view: 'View',
+            loading: 'Loading events...',
+            error: 'Error loading events',
+            noResults: 'No events found'
+        },
+        status: {
+            active: 'In progress', pending: 'Pending', completed: 'Completed',
+            cancelled: 'Cancelled', registration_open: 'Registration open',
+            fase_de_grupos: 'Group stage', octavos: 'Round of 16', cuartos: 'Quarterfinals',
+            semifinales: 'Semifinals', final: 'Final', finalizado: 'Finished'
+        },
+        eventTypes: { tournament: 'Tournament', draft: 'Draft', league: 'League' },
+        tournament: {
+            format: 'Format', teams: 'Teams', matches: 'Matches',
+            classification: 'Classification', calendar: 'Calendar', bracket: 'Bracket',
+            teamList: 'Participating Teams', liveMatches: 'Live Matches',
+            champion: 'Champion', groups: 'Group Stage', winner: 'Winner'
+        },
+        draft: {
+            currentTurn: 'Current turn', pick: 'Pick', round: 'Round', team: 'Team',
+            availablePlayers: 'Available Players', position: 'Position',
+            primary: 'Primary', secondary: 'Secondary', strikes: 'Strikes',
+            action: 'Action', select: 'Select', myTeam: 'My Team'
+        },
+        common: {
+            close: 'Close', back: 'Back', next: 'Next', previous: 'Previous',
+            page: 'Page', of: 'of', total: 'Total', filters: 'Filters',
+            clear: 'Clear', apply: 'Apply', createdAt: 'Created on',
+            updatedAt: 'Updated on', loading: 'Loading...'
+        },
+        messages: {
+            noData: 'No data available',
+            loadingError: 'Error loading data',
+            connectionLost: 'Connection lost. Retrying...',
+            reconnected: 'Connection restored'
+        }
+    }
+};
+
+function t(lang, key) {
+    const keys = key.split('.');
+    let value = translations[lang];
+    for (const k of keys) {
+        if (value && typeof value === 'object') value = value[k];
+        else return key;
+    }
+    return value || key;
+}
+
+function getCurrentLanguage() {
+    return localStorage.getItem('lang') || 'es';
+}
+
+function setCurrentLanguage(lang) {
+    localStorage.setItem('lang', lang);
+}
+
+// ===== DASHBOARD APP =====
 class DashboardApp {
     constructor() {
         this.currentLang = getCurrentLanguage();
@@ -36,7 +164,6 @@ class DashboardApp {
                 this.switchLanguage(lang);
             });
 
-            // Marcar el activo
             if (btn.getAttribute('data-lang') === this.currentLang) {
                 btn.classList.add('active');
             }
@@ -47,7 +174,6 @@ class DashboardApp {
         this.currentLang = lang;
         setCurrentLanguage(lang);
 
-        // Actualizar botones activos
         document.querySelectorAll('.lang-btn').forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
         });
@@ -56,13 +182,11 @@ class DashboardApp {
     }
 
     applyTranslations() {
-        // Traducir elementos con data-i18n
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
             el.textContent = t(this.currentLang, key);
         });
 
-        // Traducir placeholders
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
             searchInput.placeholder = t(this.currentLang, 'dashboard.search');
@@ -76,7 +200,6 @@ class DashboardApp {
                 const section = btn.getAttribute('data-section');
                 this.switchSection(section);
 
-                // Actualizar botones activos
                 navButtons.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
             });
@@ -84,17 +207,14 @@ class DashboardApp {
     }
 
     switchSection(sectionId) {
-        // Ocultar todas las secciones
         document.querySelectorAll('.view-section').forEach(section => {
             section.classList.remove('active');
         });
 
-        // Mostrar la sección seleccionada
         const targetSection = document.getElementById(sectionId);
         if (targetSection) {
             targetSection.classList.add('active');
 
-            // Si es historial y no se ha cargado, cargarlo
             if (sectionId === 'history' && document.getElementById('history-tbody').children.length === 0) {
                 this.loadHistory();
             }
@@ -111,7 +231,6 @@ class DashboardApp {
             this.loadHistory();
         });
 
-        // Debounce para búsqueda
         let searchTimeout;
         searchInput.addEventListener('input', () => {
             clearTimeout(searchTimeout);
@@ -224,7 +343,6 @@ class DashboardApp {
             return;
         }
 
-        // Desktop/Tablet: Table
         tbody.innerHTML = allEvents.map(event => {
             const typeLabel = t(this.currentLang, `eventTypes.${event.type}`);
             const statusLabel = t(this.currentLang, `status.${event.status}`);
@@ -245,7 +363,6 @@ class DashboardApp {
             `;
         }).join('');
 
-        // Mobile: Cards
         mobileContainer.innerHTML = allEvents.map(event => {
             const typeLabel = t(this.currentLang, `eventTypes.${event.type}`);
             const statusLabel = t(this.currentLang, `status.${event.status}`);
@@ -296,25 +413,7 @@ class DashboardApp {
     }
 
     async openEventModal(eventId, eventType) {
-        const modal = document.getElementById('event-modal');
-        const title = document.getElementById('modal-title');
-        const content = document.getElementById('event-content');
-
-        title.textContent = t(this.currentLang, 'common.loading');
-        content.innerHTML = '<div class="loading-spinner">Cargando...</div>';
-        modal.classList.remove('hidden');
-
-        try {
-            // Redirigir a la página específica del tipo de evento
-            if (eventType === 'tournament') {
-                window.location.href = `/index.html?id=${eventId}`;
-            } else if (eventType === 'draft') {
-                window.location.href = `/index.html?id=${eventId}`;
-            }
-        } catch (error) {
-            console.error('[Dashboard] Error abriendo evento:', error);
-            content.innerHTML = `<p style="color: red;">${t(this.currentLang, 'messages.loadingError')}</p>`;
-        }
+        window.location.href = `/index.html?id=${eventId}`;
     }
 
     setupWebSocket() {
@@ -329,7 +428,6 @@ class DashboardApp {
             try {
                 const msg = JSON.parse(event.data);
 
-                // Actualizar eventos activos si hay cambios
                 if (msg.type === 'tournament' || msg.type === 'draft') {
                     this.loadActiveEvents();
                 }
@@ -363,7 +461,7 @@ window.closeEventModal = function () {
 
 // Iniciar aplicación
 const dashboard = new DashboardApp();
-window.dashboard = dashboard; // Exponer globalmente para onclick handlers
+window.dashboard = dashboard;
 
 document.addEventListener('DOMContentLoaded', () => {
     dashboard.init();
