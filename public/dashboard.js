@@ -171,6 +171,7 @@ class DashboardApp {
                 this.currentUser = data.user;
                 this.isMember = data.isMember;
                 this.userRoles = data.roles || [];
+                this.isVerified = data.user.isVerified; // Store verification status
 
                 this.showUserProfile();
 
@@ -191,6 +192,7 @@ class DashboardApp {
         const userProfile = document.getElementById('user-profile');
         const userAvatar = document.getElementById('user-avatar');
         const userName = document.getElementById('user-name');
+        const profileBtn = document.getElementById('profile-btn');
 
         loginBtn.style.display = 'none';
         userProfile.style.display = 'flex';
@@ -202,11 +204,235 @@ class DashboardApp {
         userAvatar.src = avatarUrl;
         userName.textContent = this.currentUser.global_name || this.currentUser.username;
 
-        // Event listener para logout
-        document.getElementById('logout-btn').addEventListener('click', () => {
+        // Bind Profile Button
+        if (profileBtn) {
+            profileBtn.onclick = () => this.openProfileModal();
+        }
+
+        // Setup Logout
+        document.getElementById('logout-btn').onclick = () => {
             window.location.href = '/logout';
+        };
+
+        // Setup Modal Close
+        document.querySelector('.close-profile').onclick = () => {
+            document.getElementById('profile-modal').classList.add('hidden');
+        };
+
+        // Close on outside click
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('profile-modal');
+            if (e.target === modal) modal.classList.add('hidden');
         });
+
+        this.setupVerificationForm();
+        this.setupCreateTeamForm();
     }
+
+    setupVerificationForm() {
+        const verifyBtn = document.getElementById('start-verification-btn');
+        if (verifyBtn) {
+            verifyBtn.onclick = () => {
+                document.getElementById('profile-modal').classList.add('hidden');
+                document.getElementById('verification-modal').classList.remove('hidden');
+            };
+        }
+
+        const form = document.getElementById('verification-form');
+        if (form) {
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                const platform = document.getElementById('verify-platform').value;
+                const psnId = document.getElementById('verify-id').value;
+                const submitBtn = form.querySelector('button[type="submit"]');
+
+                if (submitBtn) submitBtn.disabled = true;
+
+                try {
+                    const res = await fetch('/api/user/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ platform, psnId })
+                    });
+
+                    if (res.ok) {
+                        alert('¡Cuenta verificada con éxito!');
+                        window.location.reload();
+                    } else {
+                        const err = await res.json();
+                        alert('Error: ' + (err.error || 'Error desconocido'));
+                        if (submitBtn) submitBtn.disabled = false;
+                    }
+                } catch (e) {
+                    alert('Error de conexión');
+                    if (submitBtn) submitBtn.disabled = false;
+                }
+            };
+        }
+
+        const closeBtn = document.querySelector('.close-verification');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                document.getElementById('verification-modal').classList.add('hidden');
+                document.getElementById('profile-modal').classList.remove('hidden');
+            };
+        }
+    }
+
+    async openProfileModal() {
+        const modal = document.getElementById('profile-modal');
+        modal.classList.remove('hidden');
+
+        document.getElementById('profile-username-large').textContent = this.currentUser.global_name || this.currentUser.username;
+        document.getElementById('profile-avatar-large').src = document.getElementById('user-avatar').src;
+
+        const badgesContainer = document.getElementById('profile-status-badges');
+        badgesContainer.innerHTML = '';
+
+        if (this.isVerified) {
+            badgesContainer.innerHTML += '<span class="status-badge status-completed">✅ Verificado</span>';
+            if (this.currentUser.psnId) {
+                badgesContainer.innerHTML += `<span class="status-badge">${this.currentUser.platform?.toUpperCase() || 'ID'}: ${this.currentUser.psnId}</span>`;
+            }
+            document.getElementById('verify-notification').classList.add('hidden');
+        } else {
+            badgesContainer.innerHTML += '<span class="status-badge status-cancelled">❌ No Verificado</span>';
+            document.getElementById('verify-notification').classList.remove('hidden');
+        }
+
+        // Load Teams
+        this.loadMyTeams();
+    }
+
+    async loadMyTeams() {
+        const container = document.getElementById('my-teams-container');
+        const createBtn = document.getElementById('create-team-btn');
+        container.innerHTML = '<div class="loader-spinner"></div>';
+
+        try {
+            const response = await fetch('/api/user/teams');
+            if (!response.ok) throw new Error('Error al cargar equipos');
+
+            const data = await response.json();
+            const hasManagedTeam = data.teams.some(team => team.managerId === this.currentUser.id);
+
+            // Hide Create Button if user manages a team
+            if (createBtn) {
+                if (hasManagedTeam) {
+                    createBtn.style.display = 'none';
+                    // Optional: Add a notice
+                } else {
+                    createBtn.style.display = 'block';
+                    createBtn.onclick = () => {
+                        document.getElementById('profile-modal').classList.add('hidden');
+                        document.getElementById('create-team-modal').classList.remove('hidden');
+                    };
+                }
+            }
+
+            if (data.teams && data.teams.length > 0) {
+                container.innerHTML = data.teams.map(team => `
+                    <div class="team-card-mini">
+                        <img src="${team.logoUrl}" alt="${team.name}" class="team-logo-mini" onerror="this.src='https://i.imgur.com/2M7540p.png'">
+                        <div class="team-info-mini">
+                            <span class="team-name">${team.name}</span>
+                            <span class="team-role-badge">${team.managerId === this.currentUser.id ? '👑 Manager' : '🧢 Capitán'}</span>
+                        </div>
+                        <button class="action-btn manage-team-btn" onclick="dashboard.openTeamManagement('${team._id}', '${team.name}')">
+                            ⚙️ Gestionar
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = `
+                <div class="empty-state-teams">
+                    <p>No perteneces a ningún equipo aún.</p>
+                    <p class="sub-text">¡Crea el tuyo propio o pide que te fichen!</p>
+                </div>
+            `;
+            }
+        } catch (e) {
+            console.error('Error loading teams:', e);
+            container.innerHTML = '<p class="error-message">Error cargando tus equipos. Intenta de nuevo.</p>';
+        }
+    }
+
+    setupCreateTeamForm() {
+        // Preview Logic
+        const logoInput = document.getElementById('team-logo');
+        const nameInput = document.getElementById('team-name');
+        const previewLogo = document.getElementById('preview-logo');
+        const previewName = document.getElementById('preview-name');
+
+        if (logoInput) {
+            logoInput.addEventListener('input', (e) => {
+                if (e.target.value.startsWith('http')) previewLogo.src = e.target.value;
+            });
+        }
+        if (nameInput) {
+            nameInput.addEventListener('input', (e) => {
+                previewName.textContent = e.target.value || 'Nombre del Equipo';
+            });
+        }
+
+        // Form Submit
+        const form = document.getElementById('create-team-form');
+        if (form) {
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                const btn = form.querySelector('button[type="submit"]');
+                const errorBox = document.getElementById('create-error');
+
+                btn.disabled = true;
+                btn.textContent = 'Creando...';
+                errorBox.classList.add('hidden');
+
+                const data = {
+                    name: document.getElementById('team-name').value,
+                    abbreviation: document.getElementById('team-abbr').value,
+                    region: document.getElementById('team-region').value,
+                    logoUrl: document.getElementById('team-logo').value
+                };
+
+                try {
+                    const res = await fetch('/api/teams/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await res.json();
+
+                    if (res.ok) {
+                        alert('¡Equipo fundado con éxito!');
+                        window.location.reload();
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (err) {
+                    errorBox.textContent = err.message;
+                    errorBox.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.textContent = 'Fundar Equipo';
+                }
+            };
+        }
+
+        // Close Modal
+        const closeBtn = document.querySelector('.close-create-team');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                document.getElementById('create-team-modal').classList.add('hidden');
+                document.getElementById('profile-modal').classList.remove('hidden');
+            };
+        }
+    }
+
+    openTeamManagement(teamId, teamName) {
+        alert(`Próximamente: Panel de Gestión para ${teamName}`);
+    }
+
+
 
     showLoginButton() {
         const loginBtn = document.getElementById('login-btn');

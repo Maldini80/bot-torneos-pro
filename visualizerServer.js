@@ -92,14 +92,7 @@ app.use(sessionParser);
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-passport.use(new DiscordStrategy({
-    clientID: process.env.DISCORD_CLIENT_ID,
-    clientSecret: process.env.DISCORD_CLIENT_SECRET,
-    callbackURL: `${process.env.BASE_URL}/callback`,
-    scope: ['identify', 'guilds'] // Añadido 'guilds' para verificar membresía
-}, (accessToken, refreshToken, profile, done) => {
-    process.nextTick(() => done(null, profile));
-}));
+// La estrategia de passport se define en startVisualizerServer para acceder al cliente
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -124,60 +117,202 @@ app.get('/api/user', (req, res) => {
     res.json(req.user || null);
 });
 
-// Nuevo endpoint: Verificar membresía del servidor
+// Endpoint: Verificar membresía y estado de usuario
 app.get('/api/check-membership', async (req, res) => {
     if (!req.user) {
         return res.json({ authenticated: false });
     }
 
     try {
-        const guildId = process.env.GUILD_ID;
+        const db = getDb();
         const userId = req.user.id;
 
-        // Usar Discord API para verificar membresía
-        const response = await fetch(
-            `https://discord.com/api/v10/guilds/${guildId}/members/${userId}`,
-            {
-                headers: {
-                    'Authorization': `Bot ${process.env.DISCORD_TOKEN}`
-                }
+        // 1. Verificar estado de verificación en DB si no está en sesión
+        if (req.user.isVerified === undefined) {
+            const userDoc = await db.collection('verified_users').findOne({ discordId: userId });
+            req.user.isVerified = !!userDoc;
+            if (userDoc) {
+                req.user.psnId = userDoc.psnId;
+                req.user.platform = userDoc.platform;
             }
-        );
-
-        if (response.ok) {
-            const member = await response.json();
-            return res.json({
-                authenticated: true,
-                isMember: true,
-                user: {
-                    id: req.user.id,
-                    username: req.user.username,
-                    discriminator: req.user.discriminator,
-                    avatar: req.user.avatar,
-                    global_name: req.user.global_name || req.user.username
-                },
-                roles: member.roles // IDs de roles del usuario en el servidor
-            });
-        } else if (response.status === 404) {
-            // Usuario no es miembro del servidor
-            return res.json({
-                authenticated: true,
-                isMember: false,
-                user: {
-                    id: req.user.id,
-                    username: req.user.username,
-                    discriminator: req.user.discriminator,
-                    avatar: req.user.avatar,
-                    global_name: req.user.global_name || req.user.username
-                }
-            });
-        } else {
-            console.error('Discord API error:', response.status, await response.text());
-            return res.status(500).json({ error: 'Error verificando membresía' });
         }
+
+        // 2. Verificar roles si no están en sesión (Fallback)
+        let roles = req.user.roles || [];
+        if (req.user.roles === undefined) {
+            try {
+                const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
+                    headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+                if (response.ok) {
+                    const member = await response.json();
+                    roles = member.roles;
+                    req.user.roles = roles;
+                    req.user.isMember = true;
+                } else if (response.status === 404) {
+                    req.user.isMember = false;
+                }
+            } catch (e) { console.error('Error fetching member fallback:', e); }
+        }
+
+        res.json({
+            authenticated: true,
+            isMember: req.user.isMember ?? false,
+            user: {
+                id: req.user.id,
+                username: req.user.username,
+                discriminator: req.user.discriminator,
+                avatar: req.user.avatar,
+                global_name: req.user.global_name || req.user.username,
+                isVerified: req.user.isVerified,
+                psnId: req.user.psnId,
+                platform: req.user.platform
+            },
+            roles: roles
+        });
     } catch (error) {
         console.error('Error checking membership:', error);
         return res.status(500).json({ error: 'Error verificando membresía' });
+    }
+});
+
+// Endpoint: Verificar ID de usuario (Vincular Cuenta)
+app.post('/api/user/verify', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    const { platform, psnId } = req.body;
+    if (!psnId || psnId.length < 3) return res.status(400).json({ error: 'ID inválido (mínimo 3 caracteres)' });
+
+    // Validar plataforma
+    const validPlatforms = ['psn', 'xbox', 'pc'];
+    if (!validPlatforms.includes(platform)) return res.status(400).json({ error: 'Plataforma no válida' });
+
+    try {
+        const db = getDb();
+
+        // Comprobar si el ID ya está usado por otro discordId
+        const existing = await db.collection('verified_users').findOne({
+            psnId: { $regex: new RegExp(`^${psnId}$`, 'i') }
+        });
+
+        if (existing && existing.discordId !== req.user.id) {
+            return res.status(400).json({ error: 'Este ID Online ya está vinculado a otra cuenta de Discord.' });
+        }
+
+        // Guardar o Actualizar
+        await db.collection('verified_users').updateOne(
+            { discordId: req.user.id },
+            {
+                $set: {
+                    discordId: req.user.id,
+                    username: req.user.username,
+                    psnId: psnId,
+                    platform: platform,
+                    verifiedAt: new Date(),
+                    updatedAt: new Date()
+                }
+            },
+            { upsert: true }
+        );
+
+        // Actualizar sesión en memoria
+        req.user.isVerified = true;
+        req.user.psnId = psnId;
+        req.user.platform = platform;
+
+        console.log(`[Verify] Usuario ${req.user.username} verificó su cuenta con ID: ${psnId} (${platform})`);
+        res.json({ success: true, message: 'Cuenta verificada correctamente' });
+
+    } catch (e) {
+        console.error('Error en verificación:', e);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Endpoint: Obtener los equipos del usuario (como manager o capitán)
+app.get('/api/user/teams', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    try {
+        const db = getDb();
+        const userId = req.user.id;
+
+        // Buscar equipos donde el usuario es Manager O Capitán
+        const teams = await db.collection('teams').find({
+            $or: [
+                { managerId: userId },
+                { captains: userId }
+            ]
+        }).project({
+            name: 1,
+            logoUrl: 1,
+            abbreviation: 1,
+            managerId: 1,
+            captains: 1
+        }).toArray();
+
+        res.json({ teams });
+    } catch (error) {
+        console.error('[API Error] Error fetching user teams:', error);
+        res.status(500).json({ error: 'Error al obtener equipos' });
+    }
+});
+
+// Endpoint: Crear nuevo equipo (Solo si no es manager ya)
+app.post('/api/teams/create', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    const { name, abbreviation, region, logoUrl } = req.body;
+
+    // Validaciones básicas
+    if (!name || name.length < 3) return res.status(400).json({ error: 'Nombre muy corto' });
+    if (!abbreviation || abbreviation.length !== 3) return res.status(400).json({ error: 'Abreviatura debe ser de 3 letras' });
+    if (!logoUrl) return res.status(400).json({ error: 'Logo requerido' });
+
+    try {
+        const db = getDb();
+        const userId = req.user.id;
+
+        // 1. Verificar si ya es MANAGER de algún equipo
+        const existingManager = await db.collection('teams').findOne({ managerId: userId });
+        if (existingManager) {
+            return res.status(403).json({ error: 'Ya eres manager de un equipo. Solo puedes gestionar uno.' });
+        }
+
+        // 2. Verificar nombre duplicado
+        const existingName = await db.collection('teams').findOne({
+            $or: [
+                { name: { $regex: new RegExp(`^${name}$`, 'i') } },
+                { abbreviation: { $regex: new RegExp(`^${abbreviation}$`, 'i') } }
+            ]
+        });
+        if (existingName) {
+            return res.status(400).json({ error: 'El nombre o la abreviatura ya están en uso.' });
+        }
+
+        // 3. Crear el equipo
+        // Usamos el esquema compatible con el bot
+        const newTeam = {
+            name: name,
+            abbreviation: abbreviation.toUpperCase(),
+            region: region || 'EU',
+            logoUrl: logoUrl,
+            managerId: userId,
+            captains: [], // Array vacío por defecto
+            players: [],  // Array vacío por defecto
+            createdAt: new Date(),
+            recruitmentOpen: true,
+            stats: { wins: 0, losses: 0, ties: 0, goalsFor: 0, goalsAgainst: 0 }
+        };
+
+        const result = await db.collection('teams').insertOne(newTeam);
+
+        console.log(`[Team] Usuario ${req.user.username} creó el equipo: ${name}`);
+        res.json({ success: true, teamId: result.insertedId, message: 'Equipo creado con éxito' });
+
+    } catch (e) {
+        console.error('[API Error] Error creating team:', e);
+        res.status(500).json({ error: 'Error al crear el equipo' });
     }
 });
 
@@ -382,6 +517,41 @@ app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
 });
 
 export async function startVisualizerServer(client) {
+    // Definimos la estrategia AQUÍ para tener acceso al cliente de Discord
+    passport.use(new DiscordStrategy({
+        clientID: process.env.DISCORD_CLIENT_ID,
+        clientSecret: process.env.DISCORD_CLIENT_SECRET,
+        callbackURL: `${process.env.BASE_URL}/callback`,
+        scope: ['identify', 'guilds']
+    }, async (accessToken, refreshToken, profile, done) => {
+        try {
+            // 1. Verificar si está verificado en base de datos
+            const db = getDb();
+            const verifiedUser = await db.collection('verified_users').findOne({ discordId: profile.id });
+            profile.isVerified = !!verifiedUser;
+            if (verifiedUser) {
+                profile.psnId = verifiedUser.psnId;
+                profile.platform = verifiedUser.platform;
+            }
+
+            // 2. Verificar membresía y roles usando el Cliente de Discord
+            try {
+                const guild = await client.guilds.fetch(process.env.GUILD_ID);
+                const member = await guild.members.fetch(profile.id);
+                profile.isMember = true;
+                profile.roles = member.roles.cache.map(r => r.id);
+            } catch (e) {
+                console.warn(`[Auth] Usuario ${profile.username} no está en el servidor de Discord.`);
+                profile.isMember = false;
+                profile.roles = [];
+            }
+
+            return done(null, profile);
+        } catch (err) {
+            console.error('Error en autenticación:', err);
+            return done(err, null);
+        }
+    }));
     app.use(express.json());
     app.use(express.static('public'));
 

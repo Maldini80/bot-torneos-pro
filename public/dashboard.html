@@ -41,8 +41,12 @@
                         <div id="user-profile" class="user-profile" style="display: none;">
                             <img id="user-avatar" class="user-avatar" src="" alt="">
                             <span id="user-name" class="user-name"></span>
+                            <button id="profile-btn" class="auth-btn profile-trigger-btn">
+                                <span class="btn-icon">👤</span>
+                            </button>
                             <button id="logout-btn" class="auth-btn logout-btn">
-                                <span data-i18n="auth.logout">Cerrar Sesión</span>
+                                <span class="btn-icon">🚪</span>
+                                <span data-i18n="auth.logout" class="hide-mobile">Salir</span>
                             </button>
                         </div>
                     </div>
@@ -124,6 +128,113 @@
     <footer id="common-footer">
         Powered by THE BLITZ
     </footer>
+
+    <!-- === MODAL PERFIL USUARIO === -->
+    <div id="profile-modal" class="modal hidden">
+        <div class="modal-content profile-layout">
+            <span class="close-button close-profile">&times;</span>
+
+            <div class="profile-header-section">
+                <img id="profile-avatar-large" class="profile-avatar-large" src="" alt="Avatar">
+                <div class="profile-identity">
+                    <h2 id="profile-username-large">User</h2>
+                    <div id="profile-status-badges" class="badges-row"></div>
+                </div>
+            </div>
+
+            <div class="profile-body-section">
+                <!-- Sección Verificación -->
+                <div id="verify-notification" class="alert-box warning hidden">
+                    <p>⚠️ <strong>Cuenta No Verificada</strong></p>
+                    <p>Para participar necesitas vincular tu ID de juego.</p>
+                    <button id="start-verification-btn" class="action-btn verify-btn">✅ Verificar Ahora</button>
+                </div>
+
+                <div class="manage-teams-section">
+                    <h3>Mis Equipos</h3>
+                    <div id="my-teams-container" class="teams-list-container">
+                        <p class="placeholder-text">Cargando...</p>
+                    </div>
+                    <button id="create-team-btn" class="create-team-btn">+ Crear Nuevo Equipo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === MODAL VERIFICACIÓN === -->
+    <div id="verification-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button close-verification">&times;</span>
+            <h2>Verificar Cuenta</h2>
+            <p>Vincula tu ID de juego para poder participar en torneos.</p>
+
+            <form id="verification-form" class="standard-form">
+                <div class="form-group">
+                    <label for="verify-platform">Plataforma</label>
+                    <select id="verify-platform" required>
+                        <option value="psn">PlayStation (PSN)</option>
+                        <option value="xbox">Xbox Live</option>
+                        <option value="pc">PC (EA App)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="verify-id">ID Online (GamerTag)</label>
+                    <input type="text" id="verify-id" required placeholder="Ej: User123" minlength="3">
+                </div>
+                <button type="submit" class="primary-btn full-width">Guardar y Verificar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- === MODAL CREAR EQUIPO === -->
+    <div id="create-team-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button close-create-team">&times;</span>
+            <h2>Fundar un Nuevo Equipo</h2>
+            <p>Define la identidad de tu club.</p>
+
+            <form id="create-team-form" class="standard-form">
+                <div class="form-group">
+                    <label for="team-name">Nombre del Equipo</label>
+                    <input type="text" id="team-name" required placeholder="Ej: Los Galácticos FC" minlength="3"
+                        maxlength="30">
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="team-abbr">Abreviatura (TAG)</label>
+                        <input type="text" id="team-abbr" required placeholder="LGF" minlength="3" maxlength="3"
+                            style="text-transform: uppercase;">
+                        <small>Exactamente 3 letras</small>
+                    </div>
+                    <div class="form-group half">
+                        <label for="team-region">Región</label>
+                        <select id="team-region">
+                            <option value="EU">Europa (EU)</option>
+                            <option value="NA">Norteamérica (NA)</option>
+                            <option value="SA">Sudamérica (SA)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="team-logo">URL del Logo</label>
+                    <input type="url" id="team-logo" required placeholder="https://i.imgur.com/..."
+                        pattern="https://.*">
+                    <small>Debe ser una URL directa de imagen (Imgur, Discord, etc)</small>
+                </div>
+
+                <h3 style="margin-top: 15px; font-size: 0.9em; color: #aaa;">Vista Previa</h3>
+                <div class="team-preview-mini">
+                    <img id="preview-logo" src="https://i.imgur.com/2M7540p.png" alt="Logo Preview"
+                        class="team-logo-mini">
+                    <span id="preview-name" class="team-name">Nombre del Equipo</span>
+                </div>
+
+                <div id="create-error" class="error-message hidden"></div>
+
+                <button type="submit" class="primary-btn full-width" style="margin-top: 20px;">Fundar Equipo</button>
+            </form>
+        </div>
+    </div>
 
     <script src="dashboard.js"></script>
 </body>
