@@ -4,6 +4,7 @@ import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
@@ -93,7 +94,18 @@ const sessionParser = session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: process.env.BASE_URL.startsWith('https') }
+    store: MongoStore.create({
+        mongoUrl: process.env.DATABASE_URL,
+        dbName: 'tournamentBotDb',
+        collectionName: 'sessions',
+        ttl: 14 * 24 * 60 * 60, // 14 días
+        autoRemove: 'native', // Auto-limpieza de sesiones expiradas
+        touchAfter: 24 * 3600 // Lazy update (1 día)
+    }),
+    cookie: {
+        secure: process.env.BASE_URL.startsWith('https'),
+        maxAge: 14 * 24 * 60 * 60 * 1000 // 14 días
+    }
 });
 app.use(sessionParser);
 
