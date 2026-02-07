@@ -195,36 +195,28 @@
     <div id="create-team-modal" class="modal hidden">
         <div class="modal-content">
             <span class="close-button close-create-team">&times;</span>
-            <h2>Fundar un Nuevo Equipo</h2>
-            <p>Define la identidad de tu club.</p>
+            <h2 data-i18n="createTeam.title">Fundar un Nuevo Equipo</h2>
+            <p data-i18n="createTeam.subtitle">Define la identidad de tu club.</p>
 
             <form id="create-team-form" class="standard-form">
                 <div class="form-group">
-                    <label for="team-name">Nombre del Equipo</label>
-                    <input type="text" id="team-name" required placeholder="Ej: Los Galácticos FC" minlength="3"
-                        maxlength="30">
-                </div>
-                <div class="form-row">
-                    <div class="form-group half">
-                        <label for="team-abbr">Abreviatura (TAG)</label>
-                        <input type="text" id="team-abbr" required placeholder="LGF" minlength="3" maxlength="3"
-                            style="text-transform: uppercase;">
-                        <small>Exactamente 3 letras</small>
-                    </div>
-                    <div class="form-group half">
-                        <label for="team-region">Región</label>
-                        <select id="team-region">
-                            <option value="EU">Europa (EU)</option>
-                            <option value="NA">Norteamérica (NA)</option>
-                            <option value="SA">Sudamérica (SA)</option>
-                        </select>
-                    </div>
+                    <label for="team-name" data-i18n="createTeam.teamName">Nombre del Equipo</label>
+                    <input type="text" id="team-name" required data-i18n-placeholder="createTeam.teamNamePlaceholder"
+                        placeholder="Ej: Los Galácticos FC" minlength="3" maxlength="30">
                 </div>
                 <div class="form-group">
-                    <label for="team-logo">URL del Logo</label>
-                    <input type="url" id="team-logo" required placeholder="https://i.imgur.com/..."
-                        pattern="https://.*">
-                    <small>Debe ser una URL directa de imagen (Imgur, Discord, etc)</small>
+                    <label for="team-abbr" data-i18n="createTeam.abbreviation">Abreviatura (TAG)</label>
+                    <input type="text" id="team-abbr" required
+                        data-i18n-placeholder="createTeam.abbreviationPlaceholder" placeholder="LGF" minlength="3"
+                        maxlength="3" style="text-transform: uppercase;">
+                    <small data-i18n="createTeam.abbreviationHint">Exactamente 3 letras</small>
+                </div>
+                <div class="form-group">
+                    <label for="team-logo" data-i18n="createTeam.logo">URL del Logo</label>
+                    <input type="url" id="team-logo" required data-i18n-placeholder="createTeam.logoPlaceholder"
+                        placeholder="https://i.imgur.com/..." pattern="https://.*">
+                    <small data-i18n="createTeam.logoHint">Debe ser una URL directa de imagen (Imgur, Discord,
+                        etc)</small>
                 </div>
 
                 <h3 style="margin-top: 15px; font-size: 0.9em; color: #aaa;">Vista Previa</h3>
