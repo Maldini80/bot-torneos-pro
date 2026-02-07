@@ -12,7 +12,7 @@ const teamSchema = new mongoose.Schema({
     captains: [{ type: String }],
     players: [{ type: String }],
     // AÑADE LA SIGUIENTE LÍNEA AQUÍ
-    recruitmentOpen: { type: Boolean, default: true } 
+    recruitmentOpen: { type: Boolean, default: true }
 });
 
-export default mongoose.model('Team', teamSchema, 'teams');
+export default mongoose.models.Team || mongoose.model('Team', teamSchema, 'teams');
