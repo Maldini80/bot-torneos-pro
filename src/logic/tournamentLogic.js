@@ -4384,3 +4384,69 @@ export async function recoverLostThreads(client, guild, tournamentShortId) {
     console.log(`[RECOVER] Finalizado. Recuperados: ${recovered}, Fallidos: ${failed}`);
     return summary;
 }
+// Función para enviar solicitud de inscripción a Discord
+export async function sendRegistrationRequest(client, tournament, team, user, paymentUrl = null) {
+    try {
+        const approvalChannelId = process.env.ADMIN_APPROVAL_CHANNEL_ID || '1405086450583732245';
+        const channel = await client.channels.fetch(approvalChannelId);
+        if (!channel) return null;
+
+        const isPaid = tournament.inscripcion === 'Pago';
+        const color = isPaid ? '#f1c40f' : '#3498db';
+        const title = isPaid ? '💰 Nueva Inscripción (PAGO)' : '📝 Nueva Cláusula (GRATIS)';
+
+        const embed = new EmbedBuilder()
+            .setColor(color)
+            .setTitle(title)
+            .setDescription(`Solicitud para el torneo: **${tournament.nombre}**`)
+            .addFields(
+                { name: 'Equipo', value: `${team.name} (${team.abbreviation})`, inline: true },
+                { name: 'Manager/Capitán', value: `<@${user.id}> (${user.username})`, inline: true },
+                { name: 'Región', value: team.region || 'EU', inline: true },
+                { name: 'Estado', value: '⏳ Pendiente de Aprobación', inline: false }
+            )
+            .setThumbnail(team.logoUrl)
+            .setTimestamp()
+            .setFooter({ text: `Team ID: ${team._id} | User ID: ${user.id}` });
+
+        if (paymentUrl) {
+            embed.setImage(paymentUrl);
+            embed.addFields({ name: 'Comprobante de Pago', value: 'Adjunto en la imagen inferior' });
+        }
+
+        // SIGUIENDO EL PATRÓN EXISTENTE: approve_team_captain:{tournamentId}:{captainId}
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`approve_web_registration:${tournament._id}:${user.id}`)
+                    .setLabel('✅ Aprobar Inscripción')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`reject_web_registration:${tournament._id}:${user.id}`)
+                    .setLabel('❌ Rechazar')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+        // Si es de pago y tiene comprobante, añadir botón para ver original
+        if (paymentUrl) {
+            row.addComponents(
+                new ButtonBuilder()
+                    .setLabel('Ver Comprobante')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL(paymentUrl)
+            );
+        }
+
+        const message = await channel.send({
+            content: `Nueva solicitud de inscripción de <@${user.id}>`,
+            embeds: [embed],
+            components: [row]
+        });
+
+        return message.id;
+
+    } catch (error) {
+        console.error('Error enviando solicitud a Discord:', error);
+        return null;
+    }
+}

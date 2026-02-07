@@ -7,7 +7,7 @@ import session from 'express-session';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
-import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb } from './src/logic/tournamentLogic.js';
+import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
 
 const app = express();
@@ -519,6 +519,102 @@ app.post('/api/teams/:teamId/promote', checkTeamPermissions, async (req, res) =>
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: 'Error cambiando rol' });
+    }
+});
+
+// === INSCRIPCIONES A TORNEOS ===
+app.post('/api/tournaments/:id/register', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    const tournamentId = req.params.id;
+    const { teamId, teamData, paymentProofUrl } = req.body;
+
+    try {
+        const db = getDb();
+        const { ObjectId } = await import('mongodb');
+        const tournament = await db.collection('tournaments').findOne({ _id: new ObjectId(tournamentId) });
+
+        if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+        if (tournament.status !== 'registration_open' && tournament.estado !== 'Inscripción') {
+            return res.status(400).json({ error: 'El periodo de inscripción no está abierto.' });
+        }
+
+        // Validar si usuario ya solicitó inscripción 
+        const existingReq = tournament.registrationRequests?.find(r => r.userId === req.user.id);
+        if (existingReq) {
+            return res.status(400).json({ error: 'Ya has enviado una solicitud para este torneo.' });
+        }
+
+        let finalTeamData = null;
+
+        // Caso 1: Equipo Existente
+        if (teamId) {
+            const team = await db.collection('teams').findOne({ _id: new ObjectId(teamId) });
+            if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
+
+            const isManager = team.managerId === req.user.id;
+            const isCaptain = team.captains?.includes(req.user.id);
+            if (!isManager && !isCaptain) {
+                return res.status(403).json({ error: 'No tienes permisos en este equipo' });
+            }
+
+            finalTeamData = team;
+        }
+        // Caso 2: Equipo Temporal (Solo Paid)
+        else if (teamData && tournament.inscripcion === 'Pago') {
+            if (!teamData.name || !teamData.logoUrl) {
+                return res.status(400).json({ error: 'Faltan datos del equipo' });
+            }
+            finalTeamData = {
+                _id: new ObjectId(),
+                name: teamData.name,
+                abbreviation: (teamData.abbreviation || 'TMP').toUpperCase(),
+                logoUrl: teamData.logoUrl,
+                region: teamData.region || 'EU',
+                managerId: req.user.id,
+                isTemp: true
+            };
+        } else {
+            return res.status(400).json({ error: 'Datos de equipo inválidos' });
+        }
+
+        if (tournament.inscripcion === 'Pago' && !paymentProofUrl) {
+            return res.status(400).json({ error: 'Se requiere comprobante de pago.' });
+        }
+
+        const messageId = await sendRegistrationRequest(client, tournament, finalTeamData, req.user, paymentProofUrl);
+
+        if (!messageId) {
+            return res.status(500).json({ error: 'Error al enviar solicitud a Discord' });
+        }
+
+        const request = {
+            userId: req.user.id,
+            teamId: teamId ? new ObjectId(teamId) : finalTeamData._id,
+            teamName: finalTeamData.name,
+            teamLogo: finalTeamData.logoUrl,
+            status: 'pending',
+            paymentProofUrl: paymentProofUrl || null,
+            discordMessageId: messageId,
+            timestamp: new Date()
+        };
+
+        if (finalTeamData.isTemp) {
+            request.tempTeamData = finalTeamData;
+        }
+
+        await db.collection('tournaments').updateOne(
+            { _id: new ObjectId(tournamentId) },
+            { $push: { registrationRequests: request } }
+        );
+
+        console.log(`[Registration] ${req.user.username} -> ${tournament.nombre}`);
+        res.json({ success: true, message: 'Solicitud enviada correctamente' });
+
+    } catch (e) {
+        console.error('Error en inscripción:', e);
+        res.status(500).json({ error: 'Error interno al procesar inscripción' });
     }
 });
 
