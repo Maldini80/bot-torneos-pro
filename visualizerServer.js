@@ -12,6 +12,11 @@ import { getDb } from './database.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
 
 const app = express();
+// FIX: Middlewares esenciales para que funcione el body parser y archivos estáticos
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
