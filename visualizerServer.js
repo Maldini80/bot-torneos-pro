@@ -262,6 +262,36 @@ app.get('/api/user/teams', async (req, res) => {
     }
 });
 
+// --- DEBUG ENDPOINT START ---
+app.get('/api/debug/teams-dump', async (req, res) => {
+    try {
+        const db = getDb();
+        const dbName = db.databaseName;
+        const count = await db.collection('teams').countDocuments();
+
+        const teams = await db.collection('teams').find({}).limit(50).project({
+            name: 1, managerId: 1, captains: 1, guildId: 1
+        }).toArray();
+
+        const specificUser = "219894262630711297";
+        const teamsByManager = await db.collection('teams').find({ managerId: specificUser }).toArray();
+
+        res.json({
+            status: "ok",
+            dbName,
+            totalTeams: count,
+            sampleTeams: teams,
+            userCheck: {
+                target: specificUser,
+                found: teamsByManager.length
+            }
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// --- DEBUG ENDPOINT END ---
+
 // Endpoint: Crear nuevo equipo (Solo si no es manager ya)
 app.post('/api/teams/create', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
