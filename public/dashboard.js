@@ -288,7 +288,7 @@ class DashboardApp {
         try {
             const response = await fetch('/api/check-membership');
             const data = await response.json();
-
+            console.log('🔍 [DEBUG] Auth Response:', JSON.stringify(data, null, 2));
             if (data.authenticated) {
                 this.currentUser = data.user;
                 this.isMember = data.isMember;
@@ -439,6 +439,8 @@ class DashboardApp {
             if (!response.ok) throw new Error('Error al cargar equipos');
 
             const data = await response.json();
+            console.log('🔍 [DEBUG] Teams Response:', JSON.stringify(data, null, 2));
+            console.log('🔍 [DEBUG] this.currentUser:', this.currentUser);
             // FIX: Use this.currentUser.id instead of just this.currentUser
             const userId = this.currentUser?.id;
             const hasManagedTeam = data.teams.some(team => team.managerId === userId);
