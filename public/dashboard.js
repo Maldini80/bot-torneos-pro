@@ -428,12 +428,28 @@ class DashboardApp {
 
         if (this.currentUser) {
             nameElement.textContent = this.currentUser.global_name || this.currentUser.username;
-            const avatarUrl = this.currentUser.avatar
-                ? `https://cdn.discordapp.com/avatars/${this.currentUser.id}/${this.currentUser.avatar}.png`
-                : 'https://cdn.discordapp.com/embed/avatars/0.png';
+
+            const avatarHash = this.currentUser.avatar;
+            const userId = this.currentUser.id;
+            let avatarUrl = 'https://cdn.discordapp.com/embed/avatars/0.png';
+
+            if (avatarHash) {
+                // Check if animated GIF
+                const ext = avatarHash.startsWith('a_') ? 'gif' : 'png';
+                avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.${ext}`;
+            }
+
+            console.log(`[DEBUG] Setting Avatar URL: ${avatarUrl}`);
             avatarElement.src = avatarUrl;
+
+            // Si falla la carga, poner default
+            avatarElement.onerror = () => {
+                console.warn('[Avatar] Failed to load, using default.');
+                avatarElement.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
+            };
         } else {
             nameElement.textContent = 'Usuario Desconocido';
+            avatarElement.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
         }
 
         const badgesContainer = document.getElementById('profile-status-badges');
