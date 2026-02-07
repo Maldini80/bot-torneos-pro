@@ -9,6 +9,7 @@ import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
 import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
+import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
 
 const app = express();
 const server = http.createServer(app);
