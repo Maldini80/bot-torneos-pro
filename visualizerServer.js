@@ -224,7 +224,11 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
 
         if (membershipCheck.ok) {
             const memberData = await membershipCheck.json();
-            const adminRoleIds = process.env.ADMIN_ROLE_IDS?.split(',') || [];
+            const adminRoleIds = [
+                ...(process.env.ADMIN_ROLE_IDS?.split(',') || []),
+                process.env.ARBITER_ROLE_ID,
+                process.env.ADMIN_ROLE_ID
+            ].filter(Boolean);
             const isAdmin = memberData.roles.some(roleId => adminRoleIds.includes(roleId));
 
             if (isAdmin) {
