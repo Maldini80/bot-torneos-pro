@@ -8,7 +8,7 @@ import MongoStore from 'connect-mongo';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
-import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest } from './src/logic/tournamentLogic.js';
+import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
 
@@ -647,46 +647,40 @@ app.post('/api/tournaments/:tournamentId/register', ensureAuthenticated, async (
             });
         }
 
-        // TORNEOS DE PAGO - Cualquiera puede inscribirse (igual que Discord)
+        // TORNEOS DE PAGO - Sistema de doble aprobación
         else {
-            if (!paymentProofUrl) {
-                return res.status(400).json({ error: 'Debes proporcionar un comprobante de pago' });
-            }
-
             if (!teamData?.teamName || !teamData?.eafcTeamName) {
                 return res.status(400).json({ error: 'Faltan datos del equipo (nombre, EAFC team)' });
             }
 
             const finalTeamData = {
-                id: userId,
-                nombre: teamData.teamName,
+                userId: userId,
+                userTag: req.user.username,
+                teamName: teamData.teamName,
                 eafcTeamName: teamData.eafcTeamName,
-                capitanId: userId,
-                capitanTag: req.user.username,
-                coCaptainId: null,
-                coCaptainTag: null,
-                bandera: '🏳️',
-                paypal: null,
                 streamChannel: teamData.streamChannel || '',
                 twitter: teamData.twitter || '',
-                inscritoEn: new Date()
+                registeredAt: new Date(),
+                status: 'awaiting_payment_info_approval'
             };
 
+            // Guardar en pendingApproval (NO pendingPayments)
             await db.collection('tournaments').updateOne(
                 { _id: tournament._id },
-                { $set: { [`teams.pendingPayments.${userId}`]: finalTeamData } }
+                { $set: { [`teams.pendingApproval.${userId}`]: finalTeamData } }
             );
 
+            // Enviar notificación a Discord para PRIMERA aprobación
             const { getVpgClient } = require('./src/vpg_bot/index.js');
             const vpgClient = getVpgClient();
 
             if (vpgClient) {
-                await sendRegistrationRequest(vpgClient, tournament, finalTeamData, req.user, paymentProofUrl);
+                await sendPaymentApprovalRequest(vpgClient, tournament, finalTeamData, req.user);
             }
 
             return res.json({
                 success: true,
-                message: 'Solicitud enviada. El staff verificará tu pago y te notificará.'
+                message: 'Solicitud enviada. Un administrador la revisará y te enviará la información de pago.'
             });
         }
 

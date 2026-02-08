@@ -4450,3 +4450,53 @@ export async function sendRegistrationRequest(client, tournament, team, user, pa
         return null;
     }
 }
+
+/**
+ * Enviar solicitud de aprobación de pago (primera aprobación web)
+ * Similar a sendRegistrationRequest pero para torneos de pago con doble aprobación
+ */
+export async function sendPaymentApprovalRequest(client, tournament, teamData, user) {
+    try {
+        const approvalChannelId = process.env.ADMIN_APPROVAL_CHANNEL_ID;
+        if (!approvalChannelId) {
+            console.error('[Payment Approval Request] ADMIN_APPROVAL_CHANNEL_ID not configured');
+            return null;
+        }
+
+        const channel = await client.channels.fetch(approvalChannelId);
+        if (!channel) {
+            console.error('[Payment Approval Request] Approval channel not found');
+            return null;
+        }
+
+        const embed = new EmbedBuilder()
+            .setColor('#f39c12')
+            .setTitle('💰 Nueva Solicitud - Torneo de Pago (WEB)')
+            .setDescription(`Usuario quiere inscribirse en **${tournament.nombre}**`)
+            .addFields(
+                { name: 'Usuario', value: `<@${user.id}> (${user.username})`, inline: true },
+                { name: 'Equipo', value: teamData.teamName, inline: true },
+                { name: 'EAFC Team', value: teamData.eafcTeamName, inline: false },
+                { name: 'Stream', value: teamData.streamChannel || 'N/A', inline: true },
+                { name: 'Twitter', value: teamData.twitter || 'N/A', inline: true }
+            )
+            .setFooter({ text: 'Aprueba para enviarle la información de pago' });
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_approve_payment_info:${user.id}:${tournament.shortId}`)
+                .setLabel('✅ Aprobar - Enviar Info Pago')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId(`admin_reject:${user.id}:${tournament.shortId}`)
+                .setLabel('❌ Rechazar Solicitud')
+                .setStyle(ButtonStyle.Danger)
+        );
+
+        await channel.send({ embeds: [embed], components: [row] });
+        console.log(`[Payment Approval Request] Web registration notification sent for ${teamData.teamName}`);
+
+    } catch (error) {
+        console.error('[Payment Approval Request] Error sending notification:', error);
+    }
+}
