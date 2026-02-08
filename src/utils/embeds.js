@@ -831,6 +831,11 @@ export function createClassificationEmbed(tournament) {
             if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
             else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
         }
+        // Validar que ambos nombres existan antes de comparar
+        if (!a.nombre || !b.nombre) {
+            console.warn('[SORT WARNING] Equipo con nombre null detectado:', { a: a?.nombre, b: b?.nombre });
+            return (!a.nombre ? 1 : -1); // NULL va al final
+        }
         return a.nombre.localeCompare(b.nombre);
     };
     const sortedGroups = Object.keys(tournament.structure.grupos).sort();

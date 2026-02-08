@@ -46,6 +46,12 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         return null;
     }
 
+    // Validar que ambos equipos existan
+    if (!partido.equipoA || !partido.equipoB || !partido.equipoA.nombre || !partido.equipoB.nombre) {
+        console.error(`[ERROR] Partido ${partido.matchId} tiene equipos inválidos. EquipoA: ${partido.equipoA?.nombre || 'NULL'}, EquipoB: ${partido.equipoB?.nombre || 'NULL'}`);
+        return null;
+    }
+
     const safeTeamA = partido.equipoA.nombre.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 10);
     const safeTeamB = partido.equipoB.nombre.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 10);
     let threadName, description;
