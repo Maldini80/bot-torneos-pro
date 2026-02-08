@@ -508,8 +508,8 @@ app.get('/api/tournaments/open', async (req, res) => {
             inscripcion: t.config?.isPaid ? 'Pago' : 'Gratis',
             isPaid: t.config?.isPaid || false,
             entryFee: t.config?.entryFee || 0,
-            teamsCount: Object.keys(t.teams?.aprobados || {}).length,
-            maxTeams: t.config?.format?.size || null,
+            teams: t.teams || {},
+            maxTeams: t.config?.maxTeams || null,
             format: t.config?.formatId || 'unknown'
         }));
 
