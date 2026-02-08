@@ -687,10 +687,10 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
                 status: 'awaiting_payment_info_approval'
             };
 
-            // Guardar en pendingApproval (NO pendingPayments)
+            // Guardar en pendingPayments (Unificado con modalHandler)
             await db.collection('tournaments').updateOne(
                 { _id: tournament._id },
-                { $set: { [`teams.pendingApproval.${userId}`]: finalTeamData } }
+                { $set: { [`teams.pendingPayments.${userId}`]: finalTeamData } }
             );
 
             // Enviar notificación a Discord para PRIMERA aprobación
@@ -702,7 +702,7 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
 
             return res.json({
                 success: true,
-                message: 'Solicitud enviada. Un administrador la revisará y te enviará la información de pago.'
+                message: '✅ Solicitud enviada.\\n\\nUn administrador la revisará y recibirás la información de pago por MENSAJE DIRECTO (DM) en Discord.'
             });
         }
 
