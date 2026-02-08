@@ -1407,36 +1407,36 @@ document.addEventListener('click', (e) => {
 
 // Función para abrir modal de inscripción
 // Función para abrir modal de inscripción
+// Función para abrir modal de inscripción
 async function openRegistrationModal(tournamentId, isPaid, langCode) {
     const lang = langCode || getCurrentLanguage();
     const tr = window.dashboard?.translations?.[lang]?.tournaments?.prompts || {};
 
     // TORNEO DE PAGO - Sistema de doble aprobación
     if (isPaid) {
+        // 1. Nombre del Equipo (sirve para EAFC también)
         const teamName = prompt(tr.teamName || 'Nombre de tu equipo:');
         if (!teamName) return;
 
-        const eafcTeamName = prompt(tr.eafcName || 'Nombre en EAFC:');
-        if (!eafcTeamName) return;
-
+        // 2. Canal de Stream (Opcional)
         const streamChannel = prompt(tr.stream || 'Canal de transmisión (opcional):') || '';
-        const twitter = prompt(tr.twitter || 'Twitter (sin @, opcional):') || '';
 
+        // Enviamos datos simplificados (Twitter vacío, EAFC = TeamName)
         await registerTournament(tournamentId, {
             teamName,
-            eafcTeamName,
+            eafcTeamName: teamName,
             streamChannel,
-            twitter
+            twitter: ''
         }, null);
     }
     // TORNEO GRATUITO - Requiere equipo VPG
     else {
+        // Solo pedimos Stream (Opcional)
         const streamChannel = prompt(tr.stream || 'Canal de transmisión (opcional):') || '';
-        const twitter = prompt(tr.twitter || 'Twitter (sin @, opcional):') || '';
 
         await registerTournament(tournamentId, {
             streamChannel,
-            twitter
+            twitter: ''
         }, null);
     }
 }
