@@ -635,11 +635,17 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
                 { $set: { [`teams.pendientes.${userId}`]: finalTeamData } }
             );
 
-            const { getVpgClient } = require('./src/vpg_bot/index.js');
-            const vpgClient = getVpgClient();
-
-            if (vpgClient) {
-                await sendRegistrationRequest(vpgClient, tournament, finalTeamData, req.user, null);
+            // Enviar notificación usando el cliente del BOT PRINCIPAL (no VPG bot)
+            // para que las interacciones de botones funcionen correctamente
+            if (client) {
+                // Adaptar objeto para que coincida con lo que espera sendRegistrationRequest
+                const notificationTeamData = {
+                    ...finalTeamData,
+                    name: finalTeamData.nombre, // Mapear nombre -> name
+                    abbreviation: vpgTeam.shortName || vpgTeam.abbreviation || vpgTeam.name.substring(0, 3).toUpperCase(),
+                    region: vpgTeam.region || 'EU'
+                };
+                await sendRegistrationRequest(client, tournament, notificationTeamData, req.user, null);
             }
 
             return res.json({

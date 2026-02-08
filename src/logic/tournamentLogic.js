@@ -4387,27 +4387,48 @@ export async function recoverLostThreads(client, guild, tournamentShortId) {
 // Función para enviar solicitud de inscripción a Discord
 export async function sendRegistrationRequest(client, tournament, team, user, paymentUrl = null) {
     try {
-        const approvalChannelId = process.env.ADMIN_APPROVAL_CHANNEL_ID || '1405086450583732245';
-        const channel = await client.channels.fetch(approvalChannelId);
-        if (!channel) return null;
+        // CORRECCIÓN CRÍTICA: Intentar usar el hilo de notificaciones del torneo PRIMERO
+        let channelId = tournament.discordMessageIds?.notificationsThreadId;
+
+        // Si no hay hilo, usar channel global como fallback
+        if (!channelId) {
+            channelId = process.env.ADMIN_APPROVAL_CHANNEL_ID || '1405086450583732245';
+        }
+
+        const channel = await client.channels.fetch(channelId).catch(() => null);
+        if (!channel) {
+            console.error(`[sendRegistrationRequest] No se pudo encontrar canal/hilo ${channelId}`);
+            // Fallback al canal global si falló el hilo
+            const globalChannelId = process.env.ADMIN_APPROVAL_CHANNEL_ID || '1405086450583732245';
+            if (channelId !== globalChannelId) {
+                return sendRegistrationRequest(client, tournament, team, user, paymentUrl); // Reintentar con global (cuidado con recursión infinita si global falla tb)
+            }
+            return null;
+        }
 
         const isPaid = tournament.inscripcion === 'Pago';
         const color = isPaid ? '#f1c40f' : '#3498db';
         const title = isPaid ? '💰 Nueva Inscripción (PAGO)' : '📝 Nueva Cláusula (GRATIS)';
+
+        // Data mapping seguro para evitar 'undefined'
+        const teamName = team.name || team.nombre || 'Equipo Desconocido';
+        const teamAbbr = team.abbreviation || team.shortName || 'N/A';
+        const teamRegion = team.region || 'EU';
+        const userName = user.username || user.tag || 'Usuario';
 
         const embed = new EmbedBuilder()
             .setColor(color)
             .setTitle(title)
             .setDescription(`Solicitud para el torneo: **${tournament.nombre}**`)
             .addFields(
-                { name: 'Equipo', value: `${team.name} (${team.abbreviation})`, inline: true },
-                { name: 'Manager/Capitán', value: `<@${user.id}> (${user.username})`, inline: true },
-                { name: 'Región', value: team.region || 'EU', inline: true },
+                { name: 'Equipo', value: `${teamName} (${teamAbbr})`, inline: true },
+                { name: 'Manager/Capitán', value: `<@${user.id}> (${userName})`, inline: true },
+                { name: 'Región', value: teamRegion, inline: true },
                 { name: 'Estado', value: '⏳ Pendiente de Aprobación', inline: false }
             )
-            .setThumbnail(team.logoUrl)
+            .setThumbnail(team.logoUrl || '')
             .setTimestamp()
-            .setFooter({ text: `Team ID: ${team._id} | User ID: ${user.id}` });
+            .setFooter({ text: `Team ID: ${team._id || team.id} | User ID: ${user.id}` });
 
         if (paymentUrl) {
             embed.setImage(paymentUrl);
