@@ -44,7 +44,17 @@ const translations = {
             free: 'Gratis',
             paid: 'Pago',
             price: 'Precio',
-            teams: 'equipos'
+            teams: 'equipos',
+            viewRegistered: 'Ver Inscritos',
+            teamsList: 'Equipos Inscritos',
+            noTeams: 'No hay equipos inscritos aún',
+            loadingTeams: 'Cargando equipos...',
+            prompts: {
+                teamName: 'Nombre de tu equipo:',
+                eafcName: 'Nombre en EAFC:',
+                stream: 'Canal de transmisión (opcional):',
+                twitter: 'Twitter (sin @, opcional):'
+            }
         },
         draft: {
             currentTurn: 'Turno actual', pick: 'Pick', round: 'Ronda', team: 'Equipo',
@@ -190,7 +200,17 @@ const translations = {
             free: 'Free',
             paid: 'Paid',
             price: 'Price',
-            teams: 'teams'
+            teams: 'teams',
+            viewRegistered: 'View Registered',
+            teamsList: 'Registered Teams',
+            noTeams: 'No teams registered yet',
+            loadingTeams: 'Loading teams...',
+            prompts: {
+                teamName: 'Your team name:',
+                eafcName: 'Your EAFC team name:',
+                stream: 'Stream channel (optional):',
+                twitter: 'Twitter (without @, optional):'
+            }
         },
         draft: {
             currentTurn: 'Current turn', pick: 'Pick', round: 'Round', team: 'Team',
@@ -1343,6 +1363,7 @@ async function loadOpenTournaments() {
             const priceLabel = tr.price || 'Precio';
             const teamsLabel = tr.teams || 'equipos';
             const registerLabel = tr.registerNow || 'Inscribirse Ahora';
+            const viewLabel = tr.viewRegistered || 'Ver Inscritos';
 
             return `
             <div class="event-card">
@@ -1359,9 +1380,14 @@ async function loadOpenTournaments() {
                         <span>📊 ${tour.teamsCount || 0}/${tour.maxTeams || '∞'} ${teamsLabel}</span>
                         <span>🎮 ${tour.format.toUpperCase()}</span>
                     </div>
-                    <button class="register-btn" onclick="openRegistrationModal('${tour.shortId}', ${isPaid})">
-                        ⚽ ${registerLabel}
-                    </button>
+                    <div class="tournament-actions" style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button class="secondary-btn" onclick="viewRegisteredTeams('${tour.shortId}')" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 6px; cursor: pointer;">
+                            👁️ ${viewLabel}
+                        </button>
+                        <button class="register-btn" onclick="openRegistrationModal('${tour.shortId}', ${isPaid}, '${currentLang}')" style="flex: 1;">
+                            ⚽ ${registerLabel}
+                        </button>
+                    </div>
                 </div>
             </div>
             `;
@@ -1380,57 +1406,82 @@ document.addEventListener('click', (e) => {
 });
 
 // Función para abrir modal de inscripción
-async function openRegistrationModal(tournamentId, isPaid) {
-    const lang = getCurrentLanguage();
+// Función para abrir modal de inscripción
+async function openRegistrationModal(tournamentId, isPaid, langCode) {
+    const lang = langCode || getCurrentLanguage();
+    const tr = window.dashboard?.translations?.[lang]?.tournaments?.prompts || {};
 
-    // TORNEO DE PAGO - Sistema de doble aprobación  (NO pide URL)
+    // TORNEO DE PAGO - Sistema de doble aprobación
     if (isPaid) {
-        const teamName = prompt(
-            lang === 'es' ? 'Nombre de tu equipo para el torneo:' : 'Your team name for the tournament:'
-        );
-
+        const teamName = prompt(tr.teamName || 'Nombre de tu equipo:');
         if (!teamName) return;
 
-        const eafcTeamName = prompt(
-            lang === 'es' ? 'Nombre de tu equipo dentro de EAFC:' : 'Your team name in EAFC:'
-        );
-
+        const eafcTeamName = prompt(tr.eafcName || 'Nombre en EAFC:');
         if (!eafcTeamName) return;
 
-        const streamChannel = prompt(
-            lang === 'es' ? 'Canal de stream (opcional, deja vacío si no tienes):' : 'Stream channel (optional, leave empty if none):'
-        ) || '';
+        const streamChannel = prompt(tr.stream || 'Canal de transmisión (opcional):') || '';
+        const twitter = prompt(tr.twitter || 'Twitter (sin @, opcional):') || '';
 
-        const twitter = prompt(
-            lang === 'es' ? 'Tu Twitter (sin @, opcional):' : 'Your Twitter (without @, optional):'
-        ) || '';
-
-        // Enviar inscripción de pago (SIN URL de comprobante)
         await registerTournament(tournamentId, {
             teamName,
             eafcTeamName,
             streamChannel,
             twitter
-        }, null); // null = sin URL de pago
+        }, null);
     }
-
     // TORNEO GRATUITO - Requiere equipo VPG
     else {
-        const streamChannel = prompt(
-            lang === 'es' ? 'Canal de stream (opcional, deja vacío si no tienes):' : 'Stream channel (optional, leave empty if none):'
-        ) || '';
+        const streamChannel = prompt(tr.stream || 'Canal de transmisión (opcional):') || '';
+        const twitter = prompt(tr.twitter || 'Twitter (sin @, opcional):') || '';
 
-        const twitter = prompt(
-            lang === 'es' ? 'Tu Twitter (sin @, opcional):' : 'Your Twitter (without @, optional):'
-        ) || '';
-
-        // Enviar inscripción gratuita (usa datos del equipo VPG)
         await registerTournament(tournamentId, {
             streamChannel,
             twitter
         }, null);
     }
 }
+
+// Función para ver equipos inscritos
+async function viewRegisteredTeams(shortId) {
+    const modal = document.getElementById('teams-modal');
+    const container = document.getElementById('teams-list-container');
+    const lang = getCurrentLanguage();
+    const tr = window.dashboard?.translations?.[lang]?.tournaments || {};
+
+    if (!modal || !container) return;
+
+    modal.classList.remove('hidden');
+    container.innerHTML = `<div class="loading-spinner">${tr.loadingTeams || 'Cargando...'}</div>`;
+    document.getElementById('teams-modal-title').textContent = tr.teamsList || 'Equipos Inscritos';
+
+    try {
+        const response = await fetch(`/api/tournaments/${shortId}/teams`);
+        const data = await response.json();
+
+        if (!data.teams || data.teams.length === 0) {
+            container.innerHTML = `<p style="text-align: center; color: #888; padding: 20px;">${tr.noTeams || 'No hay equipos inscritos'}</p>`;
+            return;
+        }
+
+        container.innerHTML = data.teams.map(team => `
+            <div style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <img src="${team.logo}" alt="${team.name}" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; object-fit: cover;">
+                <div>
+                    <div style="font-weight: bold; color: white;">${escapeHtml(team.name)}</div>
+                    <div style="font-size: 0.85em; color: #aaa;">Manager: ${escapeHtml(team.captain)}</div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        console.error('Error viewing teams:', e);
+        container.innerHTML = '<p class="error-message">Error cargando equipos</p>';
+    }
+}
+
+// Live Updates: Actualizar cada 30 segundos
+setInterval(loadOpenTournaments, 30000);
+
 
 // Función para enviar inscripción al backend
 async function registerTournament(tournamentId, teamData, paymentProofUrl) {

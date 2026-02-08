@@ -1082,6 +1082,28 @@ app.post('/api/tournaments/:id/register', async (req, res) => {
     }
 });
 
+// Endpoint para ver equipos inscritos
+app.get('/api/tournaments/:shortId/teams', async (req, res) => {
+    try {
+        const db = getDb(); // Torneos en DB principal
+        const tournament = await db.collection('tournaments').findOne({ shortId: req.params.shortId });
+
+        if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+        const approvedTeams = tournament.teams?.aprobados || {};
+        const teamsList = Object.values(approvedTeams).map(t => ({
+            name: t.nombre || t.name || 'Equipo',
+            logo: t.logoUrl || t.escudo || 'https://via.placeholder.com/50',
+            captain: t.capitanTag || t.managerTag || 'Desconocido'
+        }));
+
+        res.json({ teams: teamsList });
+    } catch (e) {
+        console.error('Error getting teams:', e);
+        res.status(500).json({ error: 'Error obteniendo equipos' });
+    }
+});
+
 // Endpoint: Detectar rol del usuario en un evento específico
 app.get('/api/my-role-in-event/:eventId', async (req, res) => {
     if (!req.user) {

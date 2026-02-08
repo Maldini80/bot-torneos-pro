@@ -240,6 +240,23 @@
         Powered by THE BLITZ
     </footer>
 
+    <!-- Modal Equipos Inscritos -->
+    <div id="teams-modal" class="modal hidden" style="z-index: 2001;">
+        <div class="modal-content"
+            style="max-width: 500px; margin: 10% auto; background: #1a1a2e; padding: 2rem; border-radius: 12px; border: 1px solid rgba(138, 43, 226, 0.5); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            <div class="modal-header"
+                style="justify-content: space-between; display: flex; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem;">
+                <h3 id="teams-modal-title" style="margin: 0; font-size: 1.5rem; color: #fff;">Equipos Inscritos</h3>
+                <span onclick="document.getElementById('teams-modal').classList.add('hidden')"
+                    style="color: #aaa; font-size: 2rem; cursor: pointer; line-height: 1;">&times;</span>
+            </div>
+            <div id="teams-list-container" style="max-height: 60vh; overflow-y: auto;">
+                <!-- Lista dinámica -->
+                <div class="loading-spinner">Cargando...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- === MODAL PERFIL USUARIO === -->
     <div id="profile-modal" class="modal hidden">
         <div class="modal-content profile-layout">

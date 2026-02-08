@@ -4478,10 +4478,16 @@ export async function sendRegistrationRequest(client, tournament, team, user, pa
  */
 export async function sendPaymentApprovalRequest(client, tournament, teamData, user) {
     try {
-        const approvalChannelId = process.env.ADMIN_APPROVAL_CHANNEL_ID;
+        // CORRECCIÓN: Usar hilo de notificaciones del torneo PRIMERO
+        let approvalChannelId = tournament.discordMessageIds?.notificationsThreadId;
+
+        // Fallback al canal global si no hay hilo
         if (!approvalChannelId) {
-            console.error('[Payment Approval Request] ADMIN_APPROVAL_CHANNEL_ID not configured');
-            return null;
+            approvalChannelId = process.env.ADMIN_APPROVAL_CHANNEL_ID;
+            if (!approvalChannelId) {
+                console.error('[Payment Approval Request] ADMIN_APPROVAL_CHANNEL_ID not configured');
+                return null;
+            }
         }
 
         const channel = await client.channels.fetch(approvalChannelId);
