@@ -1612,15 +1612,7 @@ export async function startVisualizerServer(discordClient) {
             let teamName = null;
             let teamId = null;
 
-            // Verificar Admin
-            try {
-                const guild = client.guilds.cache.get(process.env.GUILD_ID);
-                if (guild) {
-                    const member = await guild.members.fetch(userId).catch(() => null);
-                    if (member && member.permissions.has('Administrator')) role = 'admin';
-                }
-            } catch (e) { }
-
+            // Verificar PRIMERO en equipos del torneo (prioridad sobre admin)
             if (type === 'tournament') {
                 const teams = Object.values(event.teams.aprobados || {});
                 for (const team of teams) {
@@ -1628,6 +1620,17 @@ export async function startVisualizerServer(discordClient) {
                     if (team.coCaptainId === userId) { role = 'coCaptain'; teamName = team.nombre; teamId = team.id; break; }
                     if (team.managerId === userId) { role = 'manager'; teamName = team.nombre; teamId = team.id; break; }
                 }
+            }
+
+            // Verificar Admin SOLO si no es captain/coCaptain/manager
+            if (role === 'visitor') {
+                try {
+                    const guild = client.guilds.cache.get(process.env.GUILD_ID);
+                    if (guild) {
+                        const member = await guild.members.fetch(userId).catch(() => null);
+                        if (member && member.permissions.has('Administrator')) role = 'admin';
+                    }
+                } catch (e) { }
             }
 
             res.json({ authenticated: true, role, teamName, teamId });
