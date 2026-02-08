@@ -31,7 +31,12 @@
 
         body {
             font-family: 'Roboto', sans-serif;
-            background: var(--bg-dark);
+            background-color: var(--bg-dark);
+            /* Imagen de fondo personalizada */
+            background-image: url('https://i.imgur.com/b6P7Ed3.jpeg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
             color: var(--text-light);
             overflow-x: hidden;
             position: relative;
@@ -46,7 +51,8 @@
             width: 100%;
             height: 100%;
             z-index: -2;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a00 50%, #0a0a0a 100%);
+            /* Opacidad al 50% para que se vea la imagen de fondo */
+            background: linear-gradient(135deg, rgba(10, 10, 10, 0.5) 0%, rgba(26, 10, 0, 0.5) 50%, rgba(10, 10, 10, 0.5) 100%);
             background-size: 400% 400%;
             animation: gradientFlow 15s ease infinite;
         }
