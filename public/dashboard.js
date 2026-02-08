@@ -918,6 +918,9 @@ class DashboardApp {
                         infoDiv.classList.add('hidden');
                     }
                 }
+
+                // Check if team is in active tournaments to show/hide co-captain section
+                await this.checkAndToggleCoCaptainSection(teamId);
             } else {
                 rosterList.innerHTML = `<p class="error-message">${data.error}</p>`;
             }
@@ -971,6 +974,25 @@ class DashboardApp {
                 </div>
             </div>
         `;
+    }
+
+    async checkAndToggleCoCaptainSection(teamId) {
+        try {
+            const res = await fetch(`/api/teams/${teamId}/active-tournaments`);
+            const data = await res.json();
+
+            const coCaptainSection = document.querySelector('.manage-section:has(#tm-cocaptain-input)');
+            if (coCaptainSection) {
+                if (data.hasActiveTournaments) {
+                    coCaptainSection.style.display = 'block';
+                } else {
+                    coCaptainSection.style.display = 'none';
+                }
+            }
+        } catch (e) {
+            console.warn('Error checking active tournaments:', e);
+            // If error, show section by default
+        }
     }
 
     async handleInvite(e) {

@@ -1802,6 +1802,25 @@ export async function startVisualizerServer(discordClient) {
         } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
     });
 
+    // Endpoint: Verificar si equipo está en torneos activos
+    app.get('/api/teams/:teamId/active-tournaments', async (req, res) => {
+        try {
+            const { teamId } = req.params;
+            const db = getDb();
+
+            // Buscar torneos donde el equipo esté inscrito y el estado sea "en_curso" o "inscripcion"
+            const tournaments = await db.collection('tournaments').find({
+                [`teams.aprobados.${teamId}`]: { $exists: true },
+                estado: { $in: ['en_curso', 'inscripcion'] }
+            }).toArray();
+
+            res.json({ hasActiveTournaments: tournaments.length > 0, count: tournaments.length });
+        } catch (e) {
+            console.error('Error checking active tournaments:', e);
+            res.status(500).json({ error: 'Error interno' });
+        }
+    });
+
     // Endpoint: Reportar Resultado Partido desde Web
     app.post('/api/matches/:matchId/report', async (req, res) => {
         try {
