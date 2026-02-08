@@ -235,6 +235,15 @@ async function startVpgBot() {
 
     console.log(`[VPG] Intentando conectar con token: ${vpgToken.substring(0, 10)}...`);
     client.login(vpgToken.trim());
+
+    // Exportar el client para que otros módulos puedan usarlo
+    return client;
 }
 
-module.exports = { startVpgBot };
+let vpgClient = null;
+
+module.exports = {
+    startVpgBot,
+    getVpgClient: () => vpgClient,
+    setVpgClient: (client) => { vpgClient = client; }
+};

@@ -488,10 +488,17 @@ app.get('/api/teams/pending', async (req, res) => {
     }
 });
 
-// Función auxiliar para enviar notificación a Discord
+// Función auxiliar para// Enviar notificación a Discord para aprobación de equipos (usa el VPG Bot client)
 async function sendWebTeamRequestToDiscord(teamData, user) {
-    if (!client) {
-        throw new Error('Bot client no disponible');
+    // Importar el getter del VPG Bot client
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    const { getVpgClient } = require('./src/vpg_bot/index.js');
+
+    const vpgClient = getVpgClient();
+
+    if (!vpgClient) {
+        throw new Error('VPG Bot client no disponible');
     }
 
     const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
@@ -499,7 +506,7 @@ async function sendWebTeamRequestToDiscord(teamData, user) {
         throw new Error('APPROVAL_CHANNEL_ID no configurado en .env');
     }
 
-    const channel = await client.channels.fetch(approvalChannelId);
+    const channel = await vpgClient.channels.fetch(approvalChannelId);
     if (!channel) {
         throw new Error('Canal de aprobación no encontrado');
     }

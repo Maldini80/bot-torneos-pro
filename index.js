@@ -155,15 +155,17 @@ client.on(Events.MessageDelete, async message => {
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { startVpgBot } = require('./src/vpg_bot/index.js');
+const { startVpgBot, setVpgClient } = require('./src/vpg_bot/index.js');
 
 async function startBot() {
     await connectDb();
     await startVisualizerServer(client, advanceDraftTurn, handlePlayerSelectionFromWeb);
     client.login(process.env.DISCORD_TOKEN);
 
-    // Iniciar el segundo bot (VPG)
-    startVpgBot().catch(err => console.error('Error al iniciar el bot VPG:', err));
+    // Iniciar el segundo bot (VPG) y guardar el client
+    const vpgClient = await startVpgBot();
+    setVpgClient(vpgClient);
+    console.log('[VPG] Client del VPG Bot guardado para notificaciones web');
 
     setInterval(() => {
         checkOverdueMatches(client);
