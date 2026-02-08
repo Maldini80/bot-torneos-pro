@@ -12,7 +12,23 @@ import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, r
 import { getDb } from './database.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { startVpgBot } = require('./src/vpg_bot/index.js');
+
 let client; // FIX: Variable global para acceder al cliente desde cualquier endpoint
+
+// Inicializar bot VPG para notificaciones
+try {
+    console.log('[Visualizer] Inicializando cliente Discord...');
+    const botInstance = await startVpgBot();
+    if (botInstance) {
+        client = botInstance;
+        console.log('[Visualizer] Cliente Discord listo.');
+    }
+} catch (error) {
+    console.error('[Visualizer] Error fatal al iniciar bot Discord:', error);
+}
 
 const app = express();
 // FIX: Middlewares esenciales para que funcione el body parser y archivos estáticos
@@ -678,11 +694,10 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
             );
 
             // Enviar notificación a Discord para PRIMERA aprobación
-            const { getVpgClient } = require('./src/vpg_bot/index.js');
-            const vpgClient = getVpgClient();
-
-            if (vpgClient) {
-                await sendPaymentApprovalRequest(vpgClient, tournament, finalTeamData, req.user);
+            if (client) {
+                await sendPaymentApprovalRequest(client, tournament, finalTeamData, req.user);
+            } else {
+                console.warn('[Visualizer] No hay cliente Discord disponible para enviar notificación de aprobación.');
             }
 
             return res.json({
