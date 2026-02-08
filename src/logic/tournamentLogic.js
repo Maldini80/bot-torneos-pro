@@ -1386,6 +1386,13 @@ export async function approveTeam(client, tournament, teamData) {
         }
     }
 
+    // --- DEFENSIVE CODING: Limpiar aprobados antes de guardar ---
+    const cleanApproved = {};
+    Object.entries(latestTournament.teams.aprobados || {}).forEach(([key, value]) => {
+        if (value && value.id) cleanApproved[key] = value;
+    });
+    latestTournament.teams.aprobados = cleanApproved;
+
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { 'teams.aprobados': latestTournament.teams.aprobados, 'teams.pendientes': latestTournament.teams.pendientes, 'teams.reserva': latestTournament.teams.reserva } });
 
     // --- INICIO LÓGICA EXTRA CAPTAINS ---
@@ -1776,12 +1783,21 @@ export async function undoGroupStageDraw(client, tournamentShortId) {
             }
         }
 
+        // --- DEFENSIVE CODING: Limpiar equipos null/undefined al revertir sorteo ---
+        const cleanApproved = {};
+        if (tournament.teams && tournament.teams.aprobados) {
+            Object.entries(tournament.teams.aprobados).forEach(([key, value]) => {
+                if (value && value.id) cleanApproved[key] = value;
+            });
+        }
+
         const updateQuery = {
             $set: {
                 status: 'inscripcion_abierta',
                 'structure.grupos': {},
                 'structure.calendario': {},
                 'structure.eliminatorias': { rondaActual: null },
+                'teams.aprobados': cleanApproved // Guardamos versión limpia
             }
         };
         await db.collection('tournaments').updateOne({ _id: tournament._id }, updateQuery);
@@ -2780,7 +2796,13 @@ async function generateFlexibleLeagueSchedule(tournament, preserveGroups = false
         console.log(`[DEBUG LIGA] Conservando equipos de Liga existentes.`);
         teams = tournament.structure.grupos['Liga'].equipos;
     } else {
-        teams = Object.values(tournament.teams.aprobados);
+        // --- DEFENSIVE CODING: Filtrar equipos null/undefined para evitar crashes ---
+        teams = Object.values(tournament.teams.aprobados || {}).filter(t => t && t.id);
+        const originalCount = Object.keys(tournament.teams.aprobados || {}).length;
+        if (teams.length < originalCount) {
+            console.warn(`[WARNING] Se filtraron ${originalCount - teams.length} equipos inválidos (null/undefined) en generateFlexibleLeagueSchedule.`);
+        }
+
         // Mezclar equipos aleatoriamente al inicio para evitar sesgos por orden de inscripción
         teams.sort(() => Math.random() - 0.5);
 
