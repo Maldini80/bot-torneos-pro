@@ -222,6 +222,15 @@
 
             <form id="create-team-form" class="standard-form">
                 <div class="form-group">
+                    <label for="team-league"><span data-i18n="createTeam.league">Liga</span> <span
+                            style="color: #ff6b6b;" data-i18n="createTeam.leagueRequired">*</span></label>
+                    <select id="team-league" required>
+                        <option value="" data-i18n="createTeam.leagueLoading">Cargando ligas...</option>
+                    </select>
+                    <small style="color: #bbb;" data-i18n="createTeam.leagueHint">Selecciona la liga en la que competirá
+                        tu equipo</small>
+                </div>
+                <div class="form-group">
                     <label for="team-name" data-i18n="createTeam.teamName">Nombre del Equipo</label>
                     <input type="text" id="team-name" required data-i18n-placeholder="createTeam.teamNamePlaceholder"
                         placeholder="Ej: Los Galácticos FC" minlength="3" maxlength="30">
@@ -256,7 +265,9 @@
 
                 <div id="create-error" class="error-message hidden"></div>
 
-                <button type="submit" class="primary-btn full-width" style="margin-top: 20px;">Fundar Equipo</button>
+                <button type="submit" class="primary-btn full-width" style="margin-top: 20px;"
+                    data-i18n="createTeam.requestTeam">Solicitar Creación de
+                    Equipo</button>
             </form>
         </div>
     </div>

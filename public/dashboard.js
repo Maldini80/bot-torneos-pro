@@ -81,20 +81,32 @@ const translations = {
         createTeam: {
             title: 'Fundar un Nuevo Equipo',
             subtitle: 'Define la identidad de tu club',
+            league: 'Liga',
+            leagueRequired: '*',
+            leagueHint: 'Selecciona la liga en la que competirá tu equipo',
+            leagueLoading: 'Cargando ligas...',
+            leagueNone: 'No hay ligas disponibles',
+            leagueError: 'Error al cargar ligas',
+            leagueSelect: 'Selecciona una liga',
+            leagueValidation: 'Por favor selecciona una liga',
             teamName: 'Nombre del Equipo',
-            teamNamePlaceholder: 'FC Barcelona',
+            teamNamePlaceholder: 'Ej: Los Galácticos FC',
             abbreviation: 'Abreviatura (TAG)',
-            abbreviationPlaceholder: 'FCB',
+            abbreviationPlaceholder: 'LGF',
             abbreviationHint: 'Exactamente 3 letras',
-            region: 'Región',
-            logo: 'Logo del Equipo',
-            logoPlaceholder: 'Debe ser una URL directa de imagen (imgur, Discord, etc.)',
+            twitter: 'Twitter del equipo (Opcional, sin @)',
+            twitterPlaceholder: 'vpglightnings',
+            twitterHint: 'Opcional - Sin el símbolo @',
+            logo: 'URL del Logo (Opcional)',
+            logoPlaceholder: 'https://i.imgur.com/...',
+            logoHint: 'Opcional - Se usará logo por defecto si se deja vacío',
             preview: 'Vista Previa',
             previewName: 'Nombre del Equipo',
-            foundTeam: 'Fundar Equipo',
-            founding: 'Creando...',
-            success: '¡Equipo fundado con éxito!',
-            error: 'Error al crear el equipo'
+            requestTeam: 'Solicitar Creación de Equipo',
+            requesting: 'Enviando solicitud...',
+            requestSuccess: '✅ Solicitud enviada!',
+            requestSuccessMessage: 'Tu solicitud ha sido enviada a los administradores de Discord.\nRecibirás una notificación cuando sea aprobada o rechazada.\n\nTiempo estimado: 5-30 minutos (dependiendo de disponibilidad de admins)',
+            error: 'Error al procesar la solicitud'
         },
         teamManagement: {
             title: 'Gestionar Equipo',
@@ -205,6 +217,14 @@ const translations = {
         createTeam: {
             title: 'Found a New Team',
             subtitle: 'Define your club identity',
+            league: 'League',
+            leagueRequired: '*',
+            leagueHint: 'Select the league your team will compete in',
+            leagueLoading: 'Loading leagues...',
+            leagueNone: 'No leagues available',
+            leagueError: 'Error loading leagues',
+            leagueSelect: 'Select a league',
+            leagueValidation: 'Please select a league',
             teamName: 'Team Name',
             teamNamePlaceholder: 'FC Barcelona',
             abbreviation: 'Abbreviation (TAG)',
@@ -218,10 +238,11 @@ const translations = {
             logoHint: 'Optional - Default logo will be used if left empty',
             preview: 'Preview',
             previewName: 'Team Name',
-            foundTeam: 'Found Team',
-            founding: 'Creating...',
-            success: 'Team founded successfully!',
-            error: 'Error creating team'
+            requestTeam: 'Request Team Creation',
+            requesting: 'Sending request...',
+            requestSuccess: '✅ Request sent!',
+            requestSuccessMessage: 'Your request has been sent to Discord administrators.\nYou will receive a notification when it is approved or rejected.\n\nEstimated time: 5-30 minutes (depending on admin availability)',
+            error: 'Error processing request'
         },
         teamManagement: {
             title: 'Manage Team',
@@ -586,7 +607,28 @@ class DashboardApp {
         });
     }
 
-    setupCreateTeamForm() {
+    async setupCreateTeamForm() {
+        // Load available leagues
+        const leagueSelect = document.getElementById('team-league');
+        if (leagueSelect) {
+            try {
+                const res = await fetch('/api/leagues');
+                const data = await res.json();
+
+                if (data.success && data.leagues.length > 0) {
+                    leagueSelect.innerHTML = `<option value="">${this.t('createTeam.leagueSelect')}</option>` +
+                        data.leagues.map(league => `<option value="${league}">${league}</option>`).join('');
+                } else {
+                    leagueSelect.innerHTML = `<option value="">${this.t('createTeam.leagueNone')}</option>`;
+                    leagueSelect.disabled = true;
+                }
+            } catch (error) {
+                console.error('Error loading leagues:', error);
+                leagueSelect.innerHTML = `<option value="">${this.t('createTeam.leagueError')}</option>`;
+                leagueSelect.disabled = true;
+            }
+        }
+
         // Preview Logic
         const logoInput = document.getElementById('team-logo');
         const nameInput = document.getElementById('team-name');
@@ -600,7 +642,7 @@ class DashboardApp {
         }
         if (nameInput) {
             nameInput.addEventListener('input', (e) => {
-                previewName.textContent = e.target.value || 'Nombre del Equipo';
+                previewName.textContent = e.target.value || this.t('createTeam.previewName');
             });
         }
 
@@ -613,18 +655,28 @@ class DashboardApp {
                 const errorBox = document.getElementById('create-error');
 
                 btn.disabled = true;
-                btn.textContent = 'Creando...';
+                btn.textContent = this.t('createTeam.requesting');
                 errorBox.classList.add('hidden');
 
                 const data = {
-                    name: document.getElementById('team-name').value,
-                    abbreviation: document.getElementById('team-abbr').value,
-                    twitterHandle: document.getElementById('team-twitter').value,
+                    league: document.getElementById('team-league').value,
+                    teamName: document.getElementById('team-name').value,
+                    teamAbbr: document.getElementById('team-abbr').value,
+                    teamTwitter: document.getElementById('team-twitter').value,
                     logoUrl: document.getElementById('team-logo').value
                 };
 
+                // Validate league selection
+                if (!data.league) {
+                    errorBox.textContent = this.t('createTeam.leagueValidation');
+                    errorBox.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.textContent = this.t('createTeam.requestTeam');
+                    return;
+                }
+
                 try {
-                    const res = await fetch('/api/teams/create', {
+                    const res = await fetch('/api/teams/request', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
@@ -633,8 +685,15 @@ class DashboardApp {
                     const result = await res.json();
 
                     if (res.ok) {
-                        alert('¡Equipo fundado con éxito!');
-                        window.location.reload();
+                        // Show success message
+                        alert(this.t('createTeam.requestSuccess') + '\n\n' +
+                            this.t('createTeam.requestSuccessMessage'));
+
+                        // Close modal and refresh
+                        document.getElementById('create-team-modal').classList.add('hidden');
+                        form.reset();
+                        // Optionally reload after a delay to show pending status
+                        setTimeout(() => window.location.reload(), 1000);
                     } else {
                         throw new Error(result.error);
                     }
@@ -642,7 +701,7 @@ class DashboardApp {
                     errorBox.textContent = err.message;
                     errorBox.classList.remove('hidden');
                     btn.disabled = false;
-                    btn.textContent = 'Fundar Equipo';
+                    btn.textContent = this.t('createTeam.requestTeam');
                 }
             };
         }

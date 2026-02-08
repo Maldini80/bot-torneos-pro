@@ -46,6 +46,14 @@ export async function ensureIndexes() {
         await db.collection('drafts').createIndex({ shortId: 1 }, { unique: true });
         await db.collection('drafts').createIndex({ draftName: 'text' }); // Para búsqueda
 
+        // Índice TTL para pendingteams (auto-delete después de 15 minutos)
+        // Accedemos a la BD 'test' donde VPG Bot guarda los pendingteams
+        const testDb = client.db('test');
+        await testDb.collection('pendingteams').createIndex(
+            { createdAt: 1 },
+            { expireAfterSeconds: 900 } // 15 minutos = 900 segundos
+        );
+
         console.log('[DATABASE] Índices creados/verificados correctamente');
     } catch (error) {
         // Los errores de índices duplicados son normales y se ignoran

@@ -345,65 +345,222 @@ app.get('/api/user/teams', async (req, res) => {
     }
 });
 
-// Endpoint: Crear nuevo equipo (Solo si no es manager ya)
-app.post('/api/teams/create', async (req, res) => {
+// Endpoint: Obtener ligas disponibles
+app.get('/api/leagues', async (req, res) => {
+    try {
+        const db = getDb('test'); // VPG Bot usa 'test' por defecto
+
+        const leagues = await db.collection('leagues')
+            .find({ guildId: process.env.GUILD_ID })
+            .project({ name: 1, _id: 0 })
+            .sort({ name: 1 })
+            .toArray();
+
+        res.json({
+            success: true,
+            leagues: leagues.map(l => l.name)
+        });
+    } catch (error) {
+        console.error('[Leagues] Error fetching leagues:', error);
+        res.status(500).json({ error: 'Error al obtener ligas' });
+    }
+});
+
+// Endpoint: Solicitar creación de equipo (con aprobación admin)
+app.post('/api/teams/request', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
-    const { name, abbreviation, region, logoUrl, twitterHandle } = req.body;
+    const { league, teamName, teamAbbr, teamTwitter, logoUrl } = req.body;
 
     // Validaciones básicas
-    if (!name || name.length < 3) return res.status(400).json({ error: 'Nombre muy corto' });
-    if (!abbreviation || abbreviation.length !== 3) return res.status(400).json({ error: 'Abreviatura debe ser de 3 letras' });
-    // Logo ahora es OPCIONAL (se asignará default si vacío)
+    if (!league || !teamName || !teamAbbr) {
+        return res.status(400).json({ error: 'Faltan campos requeridos (liga, nombre, abreviatura)' });
+    }
+    if (teamName.length < 3) {
+        return res.status(400).json({ error: 'El nombre debe tener al menos 3 caracteres' });
+    }
+    if (teamAbbr.length !== 3) {
+        return res.status(400).json({ error: 'La abreviatura debe tener exactamente 3 letras' });
+    }
 
     try {
-        const db = getDb();
+        const db = getDb('test'); // VPG Bot usa 'test' por defecto
         const userId = req.user.id;
 
-        // 1. Verificar si ya es MANAGER de algún equipo
-        const existingManager = await db.collection('teams').findOne({ managerId: userId });
+        // Verificar que no sea manager ya
+        const existingManager = await db.collection('teams').findOne({
+            managerId: userId
+        });
         if (existingManager) {
-            return res.status(403).json({ error: 'Ya eres manager de un equipo. Solo puedes gestionar uno.' });
+            return res.status(403).json({
+                error: 'Ya eres manager de un equipo. Solo puedes gestionar uno.'
+            });
         }
 
-        // 2. Verificar nombre duplicado
+        // Verificar que el usuario esté en el servidor de Discord
+        if (!client) {
+            return res.status(503).json({
+                error: 'El bot de Discord no está disponible en este momento. Intenta más tarde.'
+            });
+        }
+
+        try {
+            const guild = await client.guilds.fetch(process.env.GUILD_ID);
+            const member = await guild.members.fetch(userId);
+            if (!member) {
+                return res.status(403).json({
+                    error: 'Debes ser miembro del servidor de Discord para crear un equipo.'
+                });
+            }
+        } catch (error) {
+            return res.status(403).json({
+                error: 'Debes ser miembro del servidor de Discord para crear un equipo.'
+            });
+        }
+
+        // Verificar nombre/abreviatura únicos
         const existingName = await db.collection('teams').findOne({
             $or: [
-                { name: { $regex: new RegExp(`^${name}$`, 'i') } },
-                { abbreviation: { $regex: new RegExp(`^${abbreviation}$`, 'i') } }
+                { name: { $regex: new RegExp(`^${teamName}$`, 'i') } },
+                { abbreviation: { $regex: new RegExp(`^${teamAbbr}$`, 'i') } }
             ]
         });
         if (existingName) {
-            return res.status(400).json({ error: 'El nombre o la abreviatura ya están en uso.' });
+            return res.status(400).json({
+                error: 'El nombre o la abreviatura ya están en uso.'
+            });
         }
 
-        // 3. Crear el equipo
-        // Usamos el esquema compatible con el bot
-        const defaultLogo = 'https://i.imgur.com/2M7540p.png'; // Logo por defecto VPG Lightnings
-        const newTeam = {
-            name: name,
-            abbreviation: abbreviation.toUpperCase(),
-            region: region || 'EU',
-            logoUrl: logoUrl || defaultLogo, // FIX: Logo por defecto si vacío
-            twitterHandle: twitterHandle || null, // FIX: Twitter opcional
-            managerId: userId,
-            captains: [], // Array vacío por defecto
-            players: [],  // Array vacío por defecto
-            createdAt: new Date(),
-            recruitmentOpen: true,
-            stats: { wins: 0, losses: 0, ties: 0, goalsFor: 0, goalsAgainst: 0 }
+        // Crear PendingTeam (exactamente como Discord)
+        const defaultLogo = 'https://i.imgur.com/X2YIZh4.png';
+        const pendingTeam = {
+            userId: userId,
+            guildId: process.env.GUILD_ID,
+            vpgUsername: req.user.username,
+            teamName: teamName,
+            teamAbbr: teamAbbr.toUpperCase(),
+            teamTwitter: teamTwitter || null,
+            leagueName: league,
+            logoUrl: logoUrl || defaultLogo,
+            createdAt: new Date()
         };
 
-        const result = await db.collection('teams').insertOne(newTeam);
+        const result = await db.collection('pendingteams').insertOne(pendingTeam);
 
-        console.log(`[Team] Usuario ${req.user.username} creó el equipo: ${name}`);
-        res.json({ success: true, teamId: result.insertedId, message: 'Equipo creado con éxito' });
+        // Enviar notificación a Discord para aprobación
+        await sendWebTeamRequestToDiscord(pendingTeam, req.user);
 
-    } catch (e) {
-        console.error('[API Error] Error creating team:', e);
-        res.status(500).json({ error: 'Error al crear el equipo' });
+        console.log(`[Team Request] Usuario ${req.user.username} solicitó crear equipo: ${teamName}`);
+
+        res.json({
+            success: true,
+            message: 'Solicitud enviada. Espera la aprobación de un administrador.',
+            pendingTeamId: result.insertedId
+        });
+
+    } catch (error) {
+        console.error('[Team Request] Error:', error);
+        res.status(500).json({ error: 'Error al procesar la solicitud' });
     }
 });
+
+// Endpoint: Ver solicitudes pendientes del usuario
+app.get('/api/teams/pending', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    try {
+        const db = getDb('test');
+        const pendingTeam = await db.collection('pendingteams').findOne({
+            userId: req.user.id
+        });
+
+        res.json({
+            success: true,
+            pending: pendingTeam ? {
+                teamName: pendingTeam.teamName,
+                league: pendingTeam.leagueName,
+                createdAt: pendingTeam.createdAt
+            } : null
+        });
+    } catch (error) {
+        console.error('[Pending Teams] Error:', error);
+        res.status(500).json({ error: 'Error al obtener solicitudes pendientes' });
+    }
+});
+
+// Función auxiliar para enviar notificación a Discord
+async function sendWebTeamRequestToDiscord(teamData, user) {
+    if (!client) {
+        throw new Error('Bot client no disponible');
+    }
+
+    const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
+    if (!approvalChannelId) {
+        throw new Error('APPROVAL_CHANNEL_ID no configurado en .env');
+    }
+
+    const channel = await client.channels.fetch(approvalChannelId);
+    if (!channel) {
+        throw new Error('Canal de aprobación no encontrado');
+    }
+
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle }
+        = await import('discord.js');
+
+    const avatarURL = user.avatar
+        ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+        : 'https://cdn.discordapp.com/embed/avatars/0.png';
+
+    const embed = new EmbedBuilder()
+        .setTitle('📝 Nueva Solicitud de Equipo [WEB]')
+        .setColor('Orange')
+        .setAuthor({
+            name: user.username,
+            iconURL: avatarURL
+        })
+        .setThumbnail(teamData.logoUrl)
+        .addFields(
+            { name: 'Usuario VPG', value: user.username },
+            { name: 'Nombre del Equipo', value: teamData.teamName },
+            { name: 'Abreviatura', value: teamData.teamAbbr },
+            { name: 'Twitter del Equipo', value: teamData.teamTwitter || 'No especificado' },
+            { name: 'URL del Logo', value: `[Ver Logo](${teamData.logoUrl})` },
+            { name: 'Liga Seleccionada', value: teamData.leagueName }
+        )
+        .setTimestamp()
+        .setFooter({ text: 'Solicitud creada desde la web' });
+
+    const safeLeague = teamData.leagueName.replace(/\s/g, '_');
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`approve_request_${user.id}_${safeLeague}`)
+            .setLabel('Aprobar')
+            .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId(`reject_request_${user.id}`)
+            .setLabel('Rechazar')
+            .setStyle(ButtonStyle.Danger)
+    );
+
+    await channel.send({
+        content: `**[WEB]** Solicitante: <@${user.id}>`,
+        embeds: [embed],
+        components: [row]
+    });
+
+    console.log(`[Discord Notification] Solicitud de equipo enviada al canal de aprobación`);
+}
+
+// === ENDPOINT ANTIGUO DEPRECADO - Se mantiene comentado por si acaso ===
+/* 
+app.post('/api/teams/create', async (req, res) => {
+    // DEPRECADO: Ahora se usa /api/teams/request con aprobación admin
+    return res.status(410).json({ 
+        error: 'Este endpoint está deprecado. Usa /api/teams/request en su lugar.' 
+    });
+});
+*/
 
 // === GESTIÓN DE PLANTILLA (ROSTER) ===
 
