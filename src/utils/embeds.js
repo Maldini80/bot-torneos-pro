@@ -214,6 +214,17 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setDisabled(isBusy || !hasCaptains)
     );
 
+    if (hasCaptains) {
+        row3.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_kick_team_start:${tournament.shortId}`)
+                .setLabel('Expulsar Equipo')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('👢')
+                .setDisabled(isBusy)
+        );
+    }
+
     if (tournament.config.isPaid) {
         row3.addComponents(
             new ButtonBuilder()

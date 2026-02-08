@@ -2451,6 +2451,92 @@ export async function handleButton(interaction) {
         return;
     }
 
+    // --- EXPULSAR EQUIPO (Admin) ---
+    if (action === 'admin_kick_team_start') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        const approvedTeams = Object.values(tournament.teams.aprobados || {});
+        if (approvedTeams.length === 0) {
+            return interaction.reply({ content: '❌ No hay equipos aprobados para expulsar.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const teamOptions = approvedTeams.map(team => ({
+            label: team.nombre,
+            description: `Capitán: ${team.capitanTag}`,
+            value: team.capitanId
+        })).slice(0, 25);
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_kick_team_select:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el equipo a expulsar')
+            .addOptions(teamOptions);
+
+        return interaction.reply({
+            content: '⚠️ **ZONA DE PELIGRO** ⚠️\nSelecciona el equipo que deseas **EXPULSAR** del torneo:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)],
+            flags: [MessageFlags.Ephemeral]
+        });
+    }
+
+    if (action === 'admin_kick_team_select') {
+        const [tournamentShortId] = params;
+        const captainId = interaction.values[0]; // El value del select es el ID del capitán
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_kick_team_confirm:${captainId}:${tournamentShortId}`)
+                .setLabel('SÍ, EXPULSAR EQUIPO')
+                .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+                .setCustomId('delete_message_action') // Usamos un customId genérico o simplemente dejamos que el usuario descarte
+                .setLabel('Cancelar')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        return interaction.reply({
+            content: `🛑 **¿Estás seguro de que quieres expulsar a este equipo?**\nEsta acción eliminará su inscripción aprobada inmediatamente.`,
+            components: [row],
+            flags: [MessageFlags.Ephemeral]
+        });
+    }
+
+    if (action === 'admin_kick_team_confirm') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [captainId, tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        if (!tournament.teams.aprobados?.[captainId]) {
+            return interaction.editReply('❌ El equipo ya no está en la lista de aprobados.');
+        }
+
+        const teamName = tournament.teams.aprobados[captainId].nombre;
+
+        // EJECUTAR EXPULSIÓN
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $unset: { [`teams.aprobados.${captainId}`]: "" } }
+        );
+
+        // Actualizar paneles
+        // Pasamos el torneo viejo, las funciones harán refetch si es necesario
+        // updateTournamentManagementThread hace refetch.
+        // updatePublicMessages necesita import dinámico o estático. Ya tenemos estático arriba.
+        const { updatePublicMessages } = await import('../logic/tournamentLogic.js');
+
+        await updateTournamentManagementThread(client, tournament);
+        await updatePublicMessages(client, tournament);
+
+        return interaction.editReply(`✅ El equipo **${teamName}** ha sido expulsado correctamente.`);
+    }
+
+    // Handler para borrar mensaje (cancelar)
+    if (action === 'delete_message_action') {
+        if (interaction.message.deletable) await interaction.message.delete();
+        else await interaction.deferUpdate(); // Simplemente quitamos el loading state
+        return;
+    }
+
     if (action === 'admin_edit_verified_user_start') {
         // Esta lógica necesitará un modal y un user select, la añadiremos en los handlers correspondientes.
         const userSelect = new UserSelectMenuBuilder()
