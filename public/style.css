@@ -45,8 +45,8 @@
 
 body {
     background-color: var(--background-color);
-    /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
-    background-image: url('https://i.imgur.com/aKTLoUl.png');
+    /* Imagen de fondo personalizada */
+    background-image: url('https://i.imgur.com/b6P7Ed3.jpeg');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
