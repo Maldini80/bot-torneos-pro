@@ -488,6 +488,214 @@ app.get('/api/teams/pending', async (req, res) => {
     }
 });
 
+// Obtener torneos abiertos a inscripción
+app.get('/api/tournaments/open', ensureAuthenticated, async (req, res) => {
+    try {
+        const db = getDb('test');
+
+        // Buscar torneos con inscripción abierta
+        const openTournaments = await db.collection('tournaments').find({
+            status: 'inscripcion_abierta'
+        }).toArray();
+
+        // Mapear datos relevantes para el frontend
+        const tournamentsData = openTournaments.map(t => ({
+            _id: t._id,
+            shortId: t.shortId,
+            nombre: t.nombre,
+            tipo: t.tipo || 'Torneo',
+            inscripcion: t.config?.isPaid ? 'Pago' : 'Gratis',
+            isPaid: t.config?.isPaid || false,
+            entryFee: t.config?.entryFee || 0,
+            teamsCount: Object.keys(t.teams?.aprobados || {}).length,
+            maxTeams: t.config?.format?.size || null,
+            format: t.config?.formatId || 'unknown'
+        }));
+
+        res.json({
+            success: true,
+            tournaments: tournamentsData
+        });
+    } catch (error) {
+        console.error('[Open Tournaments] Error:', error);
+        res.status(500).json({ error: 'Error al obtener torneos abiertos' });
+    }
+});
+
+// Inscribirse en un torneo (REPLICA EX ACTA del flujo de Discord)
+app.post('/api/tournaments/:tournamentId/register', ensureAuthenticated, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { tournamentId } = req.params;
+        const { teamData, paymentProofUrl } = req.body;
+
+        // VALIDACIÓN CRÍTICA: Usuario DEBE ser miembro del servidor Discord
+        let isMember = req.user.isMember;
+
+        // Si no está en sesión, verificar con Discord API
+        if (isMember === undefined) {
+            try {
+                const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
+                    headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+                isMember = response.ok;
+            } catch (e) {
+                console.error('Error verificando membresía:', e);
+                isMember = false;
+            }
+        }
+
+        if (!isMember) {
+            return res.status(403).json({
+                error: 'Debes ser miembro del servidor Discord para inscribirte en torneos',
+                requiresDiscordMembership: true,
+                inviteUrl: 'https://discord.gg/tu-servidor' // Cambiar por tu invite real
+            });
+        }
+
+        const db = getDb('test');
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentId });
+
+        if (!tournament) {
+            return res.status(404).json({ error: 'Torneo no encontrado' });
+        }
+
+        if (tournament.status !== 'inscripcion_abierta') {
+            return res.status(400).json({ error: 'Las inscripciones no están abiertas para este torneo' });
+        }
+
+        const isAlreadyRegistered =
+            tournament.teams?.aprobados?.[userId] ||
+            tournament.teams?.pendientes?.[userId] ||
+            tournament.teams?.reserva?.[userId] ||
+            tournament.teams?.pendingPayments?.[userId];
+
+        if (isAlreadyRegistered) {
+            return res.status(400).json({ error: 'Ya estás inscrito o tienes una solicitud pendiente en este torneo' });
+        }
+
+        const isPaidTournament = tournament.config?.isPaid;
+
+        // TORNEOS GRATUITOS - Requiere equipo VPG (igual que Discord)
+        if (!isPaidTournament) {
+            const { createRequire } = await import('module');
+            const require = createRequire(import.meta.url);
+            const mongoose = require('mongoose');
+            const Team = require('./src/vpg_bot/models/team.js');
+
+            if (mongoose.connection.readyState === 0) {
+                await mongoose.connect(process.env.DATABASE_URL);
+            }
+
+            const vpgTeam = await Team.findOne({
+                $or: [{ managerId: userId }, { captains: userId }],
+                guildId: process.env.GUILD_ID
+            }).lean();
+
+            if (!vpgTeam) {
+                return res.status(403).json({
+                    error: 'Para torneos gratuitos necesitas un equipo VPG',
+                    requiresVpgTeam: true,
+                    message: {
+                        es: '⚠️ Para inscribirte en torneos GRATUITOS debes ser Manager o Capitán de un equipo VPG.\n\n' +
+                            '📝 OPCIONES PARA CREAR TU EQUIPO:\n\n' +
+                            '1️⃣ Desde esta WEB:\n   • Ve a tu Perfil → "Crear Nuevo Equipo"\n   • Llena el formulario\n   • Espera aprobación del staff\n\n' +
+                            '2️⃣ Desde DISCORD:\n   • Canal #registra-equipo-o-unete\n   • Sigue el proceso con el bot\n\n' +
+                            '✅ Una vez aprobado tu equipo, podrás inscribirte en torneos gratuitos.',
+                        en: '⚠️ To register for FREE tournaments you must be a Manager or Captain of a VPG team.\n\n' +
+                            '📝 OPTIONS TO CREATE YOUR TEAM:\n\n' +
+                            '1️⃣ From this WEBSITE:\n   • Go to your Profile → "Create New Team"\n   • Fill the form\n   • Wait for staff approval\n\n' +
+                            '2️⃣ From DISCORD:\n   • Channel #registra-equipo-o-unete\n   • Follow the bot process\n\n' +
+                            '✅ Once your team is approved, you can register for free tournaments.'
+                    }
+                });
+            }
+
+            const finalTeamData = {
+                id: userId,
+                nombre: vpgTeam.name,
+                eafcTeamName: teamData?.eafcTeamName || vpgTeam.name,
+                capitanId: userId,
+                capitanTag: req.user.username,
+                coCaptainId: null,
+                coCaptainTag: null,
+                bandera: '🏳️',
+                paypal: null,
+                streamChannel: teamData?.streamChannel || '',
+                twitter: teamData?.twitter || vpgTeam.twitter || '',
+                inscritoEn: new Date(),
+                logoUrl: vpgTeam.logoUrl,
+                // CRÍTICO: Añadir capitanes del equipo VPG para que tengan permisos en hilos
+                extraCaptains: vpgTeam.captains || []
+            };
+
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.pendientes.${userId}`]: finalTeamData } }
+            );
+
+            const { getVpgClient } = require('./src/vpg_bot/index.js');
+            const vpgClient = getVpgClient();
+
+            if (vpgClient) {
+                await sendRegistrationRequest(vpgClient, tournament, finalTeamData, req.user, null);
+            }
+
+            return res.json({
+                success: true,
+                message: 'Solicitud de inscripción enviada. Espera aprobación del administrador.'
+            });
+        }
+
+        // TORNEOS DE PAGO - Cualquiera puede inscribirse (igual que Discord)
+        else {
+            if (!paymentProofUrl) {
+                return res.status(400).json({ error: 'Debes proporcionar un comprobante de pago' });
+            }
+
+            if (!teamData?.teamName || !teamData?.eafcTeamName) {
+                return res.status(400).json({ error: 'Faltan datos del equipo (nombre, EAFC team)' });
+            }
+
+            const finalTeamData = {
+                id: userId,
+                nombre: teamData.teamName,
+                eafcTeamName: teamData.eafcTeamName,
+                capitanId: userId,
+                capitanTag: req.user.username,
+                coCaptainId: null,
+                coCaptainTag: null,
+                bandera: '🏳️',
+                paypal: null,
+                streamChannel: teamData.streamChannel || '',
+                twitter: teamData.twitter || '',
+                inscritoEn: new Date()
+            };
+
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.pendingPayments.${userId}`]: finalTeamData } }
+            );
+
+            const { getVpgClient } = require('./src/vpg_bot/index.js');
+            const vpgClient = getVpgClient();
+
+            if (vpgClient) {
+                await sendRegistrationRequest(vpgClient, tournament, finalTeamData, req.user, paymentProofUrl);
+            }
+
+            return res.json({
+                success: true,
+                message: 'Solicitud enviada. El staff verificará tu pago y te notificará.'
+            });
+        }
+
+    } catch (error) {
+        console.error('[Tournament Registration] Error:', error);
+        res.status(500).json({ error: 'Error al procesar la inscripción' });
+    }
+});
+
 // Función auxiliar para// Enviar notificación a Discord para aprobación de equipos (usa el VPG Bot client)
 async function sendWebTeamRequestToDiscord(teamData, user) {
     // Importar el getter del VPG Bot client

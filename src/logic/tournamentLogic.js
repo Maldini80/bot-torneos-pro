@@ -4414,15 +4414,15 @@ export async function sendRegistrationRequest(client, tournament, team, user, pa
             embed.addFields({ name: 'Comprobante de Pago', value: 'Adjunto en la imagen inferior' });
         }
 
-        // SIGUIENDO EL PATRÓN EXISTENTE: approve_team_captain:{tournamentId}:{captainId}
+        // Usar el patrón de botones existente: admin_approve:{captainId}:{tournamentShortId}
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`approve_web_registration:${tournament._id}:${user.id}`)
+                    .setCustomId(`admin_approve:${user.id}:${tournament.shortId}`)
                     .setLabel('✅ Aprobar Inscripción')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
-                    .setCustomId(`reject_web_registration:${tournament._id}:${user.id}`)
+                    .setCustomId(`admin_reject:${user.id}:${tournament.shortId}`)
                     .setLabel('❌ Rechazar')
                     .setStyle(ButtonStyle.Danger)
             );
