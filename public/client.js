@@ -631,7 +631,8 @@ function initializeTournamentView(tournamentId) {
     }
 
     function renderMyMatches(tournament) {
-        if (!userRoleData || !userRoleData.teamId) return;
+        // Admins don't need teamId, they see all matches
+        if (!userRoleData) return;
 
         const container = document.getElementById('my-matches-container');
         if (!container) return;
@@ -650,10 +651,16 @@ function initializeTournamentView(tournamentId) {
             });
         }
 
-        // Filter matches for my team
-        const myMatches = allMatches.filter(match =>
-            match && (match.equipoA?.id === userRoleData.teamId || match.equipoB?.id === userRoleData.teamId)
-        );
+        // Filter matches: admins see ALL, others see only their team's matches
+        let myMatches;
+        if (userRoleData.role === 'admin') {
+            myMatches = allMatches.filter(match => match && match.equipoA && match.equipoB);
+        } else {
+            if (!userRoleData.teamId) return; // Non-admins need teamId
+            myMatches = allMatches.filter(match =>
+                match && (match.equipoA?.id === userRoleData.teamId || match.equipoB?.id === userRoleData.teamId)
+            );
+        }
 
         if (myMatches.length === 0) {
             container.innerHTML = `<p class="placeholder">${t('noMatches')}</p>`;
