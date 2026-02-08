@@ -1320,6 +1320,8 @@ async function loadOpenTournaments() {
         const grid = document.getElementById('open-tournaments-grid');
         const emptyState = document.getElementById('no-open-tournaments');
 
+        if (!grid || !emptyState) return; // Protección
+
         if (tournaments.length === 0) {
             grid.classList.add('hidden');
             emptyState.classList.remove('hidden');
@@ -1329,32 +1331,53 @@ async function loadOpenTournaments() {
         grid.classList.remove('hidden');
         emptyState.classList.add('hidden');
 
-        grid.innerHTML = tournaments.map(t => `
+        // Obtener idioma actual y traducciones dinámicas
+        const currentLang = window.dashboard?.currentLang || 'es';
+        const t = (key) => window.t ? window.t(currentLang, key) : key;
+        const tr = window.dashboard?.translations?.[currentLang]?.tournaments || {};
+
+        grid.innerHTML = tournaments.map(tour => {
+            // Traducir tipo de inscripción y etiquetas
+            const isPaid = tour.isPaid;
+            const inscriptionLabel = isPaid ? (tr.paid || 'Pago') : (tr.free || 'Gratis');
+            const priceLabel = tr.price || 'Precio';
+            const teamsLabel = tr.teams || 'equipos';
+            const registerLabel = tr.registerNow || 'Inscribirse Ahora';
+
+            return `
             <div class="event-card">
                 <div class="event-card-header">
-                    <h3>${escapeHtml(t.nombre)}</h3>
-                    <span class="tournament-badge ${t.isPaid ? 'paid' : 'free'}">
-                        ${t.inscripcion}
+                    <h3>${escapeHtml(tour.nombre)}</h3>
+                    <span class="tournament-badge ${isPaid ? 'paid' : 'free'}">
+                        ${inscriptionLabel}
                     </span>
                 </div>
                 <div class="event-card-body">
-                    <p><strong>${t.tipo}</strong></p>
-                    ${t.isPaid ? `<p>💰 Precio: ${t.entryFee}€</p>` : ''}
+                    <p><strong>${tour.tipo}</strong></p>
+                    ${isPaid ? `<p>💰 ${priceLabel}: ${tour.entryFee}€</p>` : ''}
                     <div class="tournament-info">
-                        <span>📊 ${Object.keys(t.teams || {}).length}/${t.maxTeams || '∞'} equipos</span>
-                        <span>🎮 ${t.format.toUpperCase()}</span>
+                        <span>📊 ${tour.teamsCount || 0}/${tour.maxTeams || '∞'} ${teamsLabel}</span>
+                        <span>🎮 ${tour.format.toUpperCase()}</span>
                     </div>
-                    <button class="register-btn" onclick="openRegistrationModal('${t.shortId}', ${t.isPaid})">
-                        ⚽ Inscribirse Ahora
+                    <button class="register-btn" onclick="openRegistrationModal('${tour.shortId}', ${isPaid})">
+                        ⚽ ${registerLabel}
                     </button>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
     } catch (error) {
         console.error('Error cargando torneos:', error);
     }
 }
+
+// Listener para recargar torneos al cambiar de idioma
+document.addEventListener('click', (e) => {
+    if (e.target.matches('.lang-btn')) {
+        setTimeout(loadOpenTournaments, 100); // Pequeño delay para asegurar que el idioma cambió
+    }
+});
 
 // Función para abrir modal de inscripción
 async function openRegistrationModal(tournamentId, isPaid) {
