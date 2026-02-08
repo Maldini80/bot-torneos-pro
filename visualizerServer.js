@@ -488,8 +488,9 @@ app.get('/api/teams/pending', async (req, res) => {
     }
 });
 
+
 // Obtener torneos abiertos a inscripción
-app.get('/api/tournaments/open', ensureAuthenticated, async (req, res) => {
+app.get('/api/tournaments/open', async (req, res) => {
     try {
         const db = getDb('test');
 
