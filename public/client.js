@@ -42,7 +42,12 @@ const translations = {
         myTeam: 'Mi Equipo',
         matchSchedule: 'Calendario de Partidos',
         participatingTeams: 'Equipos Participantes',
-        round: 'Jornada'
+        round: 'Jornada',
+        myMatches: 'Mis Partidos',
+        pending: 'Pendiente',
+        completed: 'Completado',
+        chatMatch: 'Chat Partido',
+        reportResult: 'Reportar Resultado'
     },
     en: {
         backBtn: '← Dashboard',
@@ -86,7 +91,12 @@ const translations = {
         myTeam: 'My Team',
         matchSchedule: 'Match Schedule',
         participatingTeams: 'Participating Teams',
-        round: 'Round'
+        round: 'Round',
+        myMatches: 'My Matches',
+        pending: 'Pending',
+        completed: 'Completed',
+        chatMatch: 'Match Chat',
+        reportResult: 'Report Result'
     }
 };
 
@@ -119,6 +129,14 @@ function updateLanguage() {
         mobileSelect.options[1].textContent = t('calendar');
         mobileSelect.options[2].textContent = t('brackets');
         mobileSelect.options[3].textContent = t('teams');
+
+        // Add 'My Matches' option if it doesn't exist and user has role
+        if (userRoleData && userRoleData.teamId && mobileSelect.options.length === 4) {
+            const opt = document.createElement('option');
+            opt.value = 'my-matches-view';
+            opt.textContent = t('myMatches');
+            mobileSelect.appendChild(opt);
+        }
     }
 
     // Actualizar texto de "loading"
@@ -166,13 +184,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===== DETECCIÓN DE ROL EN EVENTO =====
+let userRoleData = null;
+
 async function checkUserRoleInEvent(eventId) {
     try {
         const response = await fetch(`/api/my-role-in-event/${eventId}`);
         const roleData = await response.json();
+        userRoleData = roleData; // Store globally
 
         if (roleData.authenticated && roleData.role !== 'visitor') {
             displayRoleBadge(roleData);
+
+            // Show 'My Matches' tab if user is captain/co-captain
+            if (['captain', 'coCaptain', 'manager'].includes(roleData.role)) {
+                const myMatchesBtn = document.getElementById('my-matches-btn');
+                if (myMatchesBtn) myMatchesBtn.style.display = 'inline-block';
+            }
         }
     } catch (error) {
         console.log('Usuario no autenticado o error al detectar rol:', error);
@@ -316,6 +343,11 @@ function initializeTournamentView(tournamentId) {
         renderCalendar(tournament);
         renderBracket(tournament);
         renderLiveMatches(tournament);
+
+        // Render 'My Matches' if user has role
+        if (userRoleData && userRoleData.authenticated && userRoleData.teamId) {
+            renderMyMatches(tournament);
+        }
 
         // Si está finalizado, mostrar vista especial Y mantener las pestañas visibles
         if (tournament.status === 'finalizado') {
@@ -597,7 +629,152 @@ function initializeTournamentView(tournamentId) {
         });
         modalEl.classList.remove('hidden');
     }
+
+    function renderMyMatches(tournament) {
+        if (!userRoleData || !userRoleData.teamId) return;
+
+        const container = document.getElementById('my-matches-container');
+        if (!container) return;
+
+        // Collect all matches
+        const allMatches = [];
+        if (tournament.structure.calendario) {
+            Object.values(tournament.structure.calendario).forEach(groupMatches => {
+                allMatches.push(...groupMatches);
+            });
+        }
+        if (tournament.structure.eliminatorias) {
+            Object.values(tournament.structure.eliminatorias).forEach(stage => {
+                if (Array.isArray(stage)) allMatches.push(...stage);
+                else if (stage && typeof stage === 'object' && stage.matchId) allMatches.push(stage);
+            });
+        }
+
+        // Filter matches for my team
+        const myMatches = allMatches.filter(match =>
+            match && (match.equipoA?.id === userRoleData.teamId || match.equipoB?.id === userRoleData.teamId)
+        );
+
+        if (myMatches.length === 0) {
+            container.innerHTML = `<p class="placeholder">${t('noMatches')}</p>`;
+            return;
+        }
+
+        container.innerHTML = '';
+        myMatches.forEach(match => {
+            const teamA = match.equipoA;
+            const teamB = match.equipoB;
+            const isCompleted = match.status === 'completado' || match.resultado;
+            const statusText = isCompleted ? t('completed') : t('pending');
+            const statusClass = isCompleted ? 'status-completed' : 'status-pending';
+
+            let actionsHTML = '';
+
+            // Chat button if thread exists
+            if (match.threadId && tournament.guildId) {
+                const threadUrl = `https://discord.com/channels/${tournament.guildId}/${match.threadId}`;
+                actionsHTML += `<a href="${threadUrl}" target="_blank" class="action-btn" style="text-decoration:none; padding: 8px 15px; background: #5865F2; color: white; border-radius: 6px; display: inline-block; margin-right: 10px;">💬 ${t('chatMatch')}</a>`;
+            }
+
+            // Report button if not completed
+            if (!isCompleted) {
+                actionsHTML += `<button class="action-btn" onclick="openReportModal('${match.matchId}', '${teamA.nombre}', '${teamB.nombre}')" style="padding: 8px 15px; background: #43B581; color: white; border: none; border-radius: 6px; cursor: pointer;">📝 ${t('reportResult')}</button>`;
+            }
+
+            const matchCard = document.createElement('div');
+            matchCard.className = 'calendar-match';
+            matchCard.style.cssText = 'margin-bottom: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;';
+
+            const teamALogo = teamA.logoUrl ? `<img src="${teamA.logoUrl}" class="team-logo-small" alt="" style="width: 24px; height: 24px; border-radius: 50%; margin: 0 8px;">` : '';
+            const teamBLogo = teamB.logoUrl ? `<img src="${teamB.logoUrl}" class="team-logo-small" alt="" style="width: 24px; height: 24px; border-radius: 50%; margin: 0 8px;">` : '';
+
+            matchCard.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div style="flex: 1; display: flex; align-items: center;">
+                        ${teamALogo}
+                        <span style="font-weight: bold;">${teamA.nombre}</span>
+                    </div>
+                    <div style="padding: 0 1rem; font-size: 1.2rem; font-weight: bold;">
+                        ${match.resultado || 'vs'}
+                    </div>
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: flex-end;">
+                        <span style="font-weight: bold;">${teamB.nombre}</span>
+                        ${teamBLogo}
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="status-badge ${statusClass}" style="padding: 4px 12px; border-radius: 4px; font-size: 0.85rem;">${statusText}</span>
+                    <div>${actionsHTML}</div>
+                </div>
+            `;
+
+            container.appendChild(matchCard);
+        });
+    }
 }
+
+// Global function for opening report modal
+window.openReportModal = function (matchId, teamA, teamB) {
+    const modal = document.getElementById('report-match-modal');
+    const teamsEl = document.getElementById('report-teams');
+    const labelA = document.getElementById('report-label-a');
+    const labelB = document.getElementById('report-label-b');
+    const form = document.getElementById('report-match-form');
+    const statusEl = document.getElementById('report-status');
+    const goalsAInput = document.getElementById('report-goals-a');
+    const goalsBInput = document.getElementById('report-goals-b');
+
+    // Set match info
+    teamsEl.textContent = `${teamA} vs ${teamB}`;
+    labelA.textContent = teamA;
+    labelB.textContent = teamB;
+    statusEl.textContent = '';
+    goalsAInput.value = '';
+    goalsBInput.value = '';
+
+    // Handle form submission
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+
+        const goalsA = parseInt(goalsAInput.value);
+        const goalsB = parseInt(goalsBInput.value);
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enviando...';
+        statusEl.textContent = '';
+
+        try {
+            const response = await fetch(`/api/matches/${matchId}/report`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ goalsA, goalsB, lang: currentLang })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                statusEl.textContent = data.message;
+                statusEl.style.color = '#43B581';
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    // Reload to refresh match state
+                    location.reload();
+                }, 2000);
+            } else {
+                throw new Error(data.error || 'Error al enviar reporte');
+            }
+        } catch (err) {
+            statusEl.textContent = err.message;
+            statusEl.style.color = '#f04747';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Enviar Reporte';
+        }
+    };
+
+    modal.classList.remove('hidden');
+};
 
 function initializeDraftView(draftId) {
     // ... (El código de initializeDraftView no necesita cambios)

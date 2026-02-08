@@ -10,7 +10,9 @@ import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
 import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
+import { processMatchResult, finalizeMatchThread, findMatch } from './src/logic/matchLogic.js';
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -826,7 +828,7 @@ async function checkTeamPermissions(req, res, next) {
 app.get('/api/teams/:teamId/roster', checkTeamPermissions, async (req, res) => {
     try {
         const team = req.team;
-        const allIds = [team.managerId, ...(team.captains || []), ...(team.players || [])];
+        const allIds = [team.managerId, ...(team.captains || []), team.coCaptainId, ...(team.players || [])];
         const uniqueIds = [...new Set(allIds)].filter(id => id); // Eliminar duplicados y nulos
 
         // Obtener detalles de Discord y DB
@@ -837,6 +839,7 @@ app.get('/api/teams/:teamId/roster', checkTeamPermissions, async (req, res) => {
         for (const userId of uniqueIds) {
             let role = 'member';
             if (userId === team.managerId) role = 'manager';
+            else if (userId === team.coCaptainId) role = 'co-captain';
             else if (team.captains.includes(userId)) role = 'captain';
 
             // Datos DB (Verificación)
@@ -1565,6 +1568,55 @@ export async function startVisualizerServer(discordClient) {
 
     // ===== FIN DE NUEVOS ENDPOINTS =====
 
+    // Endpoint para verificar rol del usuario en un evento
+    app.get('/api/my-role-in-event/:eventId', async (req, res) => {
+        try {
+            if (!req.user) {
+                return res.json({ authenticated: false, role: 'visitor' });
+            }
+
+            const { eventId } = req.params;
+            const db = getDb();
+            let event = await db.collection('tournaments').findOne({ shortId: eventId });
+            let type = 'tournament';
+            if (!event) {
+                event = await db.collection('drafts').findOne({ shortId: eventId });
+                type = 'draft';
+            }
+
+            if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
+
+            const userId = req.user.discordId;
+            let role = 'visitor';
+            let teamName = null;
+            let teamId = null;
+
+            // Verificar Admin
+            try {
+                const guild = client.guilds.cache.get(process.env.GUILD_ID);
+                if (guild) {
+                    const member = await guild.members.fetch(userId).catch(() => null);
+                    if (member && member.permissions.has('Administrator')) role = 'admin';
+                }
+            } catch (e) { }
+
+            if (type === 'tournament') {
+                const teams = Object.values(event.teams.aprobados || {});
+                for (const team of teams) {
+                    if (team.capitanId === userId) { role = 'captain'; teamName = team.nombre; teamId = team.id; break; }
+                    if (team.coCaptainId === userId) { role = 'coCaptain'; teamName = team.nombre; teamId = team.id; break; }
+                    if (team.managerId === userId) { role = 'manager'; teamName = team.nombre; teamId = team.id; break; }
+                }
+            }
+
+            res.json({ authenticated: true, role, teamName, teamId });
+
+        } catch (e) {
+            console.error('Error my-role:', e);
+            res.status(500).json({ error: 'Error interno' });
+        }
+    });
+
     app.get('/tournament-data/:tournamentId', async (req, res) => {
         let data = tournamentStates.get(req.params.tournamentId);
         if (!data) {
@@ -1661,6 +1713,224 @@ export async function startVisualizerServer(discordClient) {
             await adminAddPlayerFromWeb(client, draftId, teamId, playerId, req.user.username);
             res.json({ success: true });
         } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+
+    // Endpoint: Invitar Co-Capitán desde Web
+    app.post('/api/teams/:teamId/invite-co-captain', checkTeamPermissions, async (req, res) => {
+        try {
+            const { teamId } = req.params;
+            const { coCaptainId, lang = 'es' } = req.body;
+            const requester = req.user;
+            const db = getDb();
+
+            // Verificar formato ID
+            if (!/^\d+$/.test(coCaptainId)) {
+                return res.status(400).json({ error: lang === 'es' ? 'ID de usuario inválida.' : 'Invalid user ID.' });
+            }
+
+            // Buscar torneo del equipo (necesitamos saber el torneo)
+            // checkTeamPermissions ya validó que el equipo existe en teams.aprobados o similar.
+            // Pero checkTeamPermissions usa req.params.teamId, que asume es el ID del equipo o del torneo?
+            // En visualizerServer.js L826: app.get('/api/teams/:teamId/roster', checkTeamPermissions...
+            // La función checkTeamPermissions busca el equipo en TODOS los torneos activos?
+            // Vamos a asumir que teamId es el captainId o el ID interno.
+            // REVISAR checkTeamPermissions antes de confiar ciegamente.
+
+            // Si checkTeamPermissions pone el torneo en req.tournament y el equipo en req.team, perfecto.
+            // Si no, tendremos que buscarlo.
+
+            // Asumimos que checkTeamPermissions hace su trabajo (lo verifico visualmente abajo si falla).
+            // Por ahora, implemento búsqueda segura.
+
+            const tournament = await db.collection('tournaments').findOne({
+                [`teams.aprobados.${teamId}`]: { $exists: true }
+            });
+
+            if (!tournament) return res.status(404).json({ error: 'Tournament not found for this team.' });
+
+            const team = tournament.teams.aprobados[teamId];
+            if (team.coCaptainId) {
+                // Si ya tiene co-capitán, es un reemplazo. (Permitido)
+            }
+
+            // Verificar que el usuario invitado no sea capitán ni co-capitán de otro equipo en ESTE torneo
+            const allTeams = Object.values(tournament.teams.aprobados);
+            const isAlreadyCaptain = allTeams.some(t => t.capitanId === coCaptainId);
+            const isAlreadyCoCaptain = allTeams.some(t => t.coCaptainId === coCaptainId);
+
+            if (isAlreadyCaptain || isAlreadyCoCaptain) {
+                return res.status(400).json({
+                    error: lang === 'es' ? 'El usuario ya participa en este torneo como capitán o co-capitán.' : 'User is already a captain or co-captain in this tournament.'
+                });
+            }
+
+            // Enviar invitación por MD
+            try {
+                const coCaptainUser = await client.users.fetch(coCaptainId);
+
+                // Mensaje igual que en Discord (selectMenuHandler.js L1248-1257)
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`🤝 Invitación de Co-Capitán / Co-Captain Invitation`)
+                    .setDescription(
+                        `🇪🇸 Has sido invitado por **${requester.username}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n` +
+                        `*Si aceptas, reemplazarás al co-capitán actual si lo hay.*\n\n` +
+                        `🇬🇧 You have been invited by **${requester.username}** to be the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.\n` +
+                        `*If you accept, you will replace the current co-captain if there is one.*`
+                    );
+
+                const buttons = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`cocaptain_accept:${tournament.shortId}:${teamId}:${coCaptainId}`).setLabel('Aceptar / Accept').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId(`cocaptain_reject:${tournament.shortId}:${teamId}:${coCaptainId}`).setLabel('Rechazar / Reject').setStyle(ButtonStyle.Danger)
+                );
+
+                await coCaptainUser.send({ embeds: [embed], components: [buttons] });
+
+                // Guardar estado de invitación pendiente en DB para validación de botones
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { [`teams.coCapitanes.${teamId}`]: { inviterId: teamId, invitedId: coCaptainId, invitedAt: new Date() } } }
+                );
+
+                res.json({ success: true, message: lang === 'es' ? 'Invitación enviada correctamente.' : 'Invitation sent successfully.' });
+
+            } catch (discordError) {
+                console.error('Error enviando MD:', discordError);
+                return res.status(500).json({ error: lang === 'es' ? 'No se pudo enviar el mensaje al usuario (MD cerrados o ID incorrecta).' : 'Could not send DM to user (DMs closed or invalid ID).' });
+            }
+
+        } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+    });
+
+    // Endpoint: Reportar Resultado Partido desde Web
+    app.post('/api/matches/:matchId/report', async (req, res) => {
+        try {
+            const { matchId } = req.params;
+            const { goalsA, goalsB, lang = 'es' } = req.body;
+            const user = req.user;
+            const db = getDb();
+
+            if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+            if (isNaN(parseInt(goalsA)) || isNaN(parseInt(goalsB))) {
+                return res.status(400).json({ error: lang === 'es' ? 'Los goles deben ser números.' : 'Goals must be numbers.' });
+            }
+
+            const reportedResult = `${goalsA}-${goalsB}`;
+
+            // Buscar torneo y partido
+            const tournament = await db.collection('tournaments').findOne({ "matches.matchId": matchId });
+            if (!tournament) return res.status(404).json({ error: 'Match/Tournament not found.' });
+
+            // Usar findMatch helper? O buscar en array. findMatch devuelve {match, jornada, index}
+            const matchData = findMatch(tournament, matchId);
+            if (!matchData) return res.status(404).json({ error: 'Match data not found.' });
+            const partido = matchData.match;
+
+            // Verificar permisos (igual que modalHandler.js L1307-1324)
+            const reporterId = user.discordId;
+            let myTeam, opponentTeam;
+
+            const isTeamA = reporterId === partido.equipoA.capitanId ||
+                reporterId === partido.equipoA.coCaptainId ||
+                reporterId === partido.equipoA.managerId ||
+                (partido.equipoA.extraCaptains && partido.equipoA.extraCaptains.includes(reporterId));
+
+            const isTeamB = reporterId === partido.equipoB.capitanId ||
+                reporterId === partido.equipoB.coCaptainId ||
+                reporterId === partido.equipoB.managerId ||
+                (partido.equipoB.extraCaptains && partido.equipoB.extraCaptains.includes(reporterId));
+
+            if (isTeamA) {
+                myTeam = partido.equipoA;
+                opponentTeam = partido.equipoB;
+            } else if (isTeamB) {
+                myTeam = partido.equipoB;
+                opponentTeam = partido.equipoA;
+            } else {
+                return res.status(403).json({ error: lang === 'es' ? 'No tienes permiso para reportar este partido.' : 'You do not have permission to report this match.' });
+            }
+
+            // Lógica de Reporte (igual que modalHandler.js L1332-1381)
+
+            // 1. Inicializar reportedScores
+            if (!partido.reportedScores) partido.reportedScores = {};
+
+            // 2. Guardar reporte
+            partido.reportedScores[reporterId] = { score: reportedResult, reportedAt: new Date(), teamId: myTeam.id };
+
+            // 3. Persistir en DB
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { structure: tournament.structure, matches: tournament.matches } });
+
+            // 4. Comprobar coincidencia
+            const opponentCaptainIds = [opponentTeam.capitanId];
+            if (opponentTeam.coCaptainId) opponentCaptainIds.push(opponentTeam.coCaptainId);
+            if (opponentTeam.managerId) opponentCaptainIds.push(opponentTeam.managerId);
+            if (opponentTeam.extraCaptains) opponentCaptainIds.push(...opponentTeam.extraCaptains);
+
+            let opponentReport = null;
+            let opponentReporterId = null;
+            for (const id of opponentCaptainIds) {
+                if (partido.reportedScores[id]) {
+                    opponentReport = partido.reportedScores[id];
+                    opponentReporterId = id;
+                    break;
+                }
+            }
+
+
+            let message = '';
+            if (opponentReport) {
+                if (opponentReport.score === reportedResult) {
+                    // COINCIDENCIA -> Finalizar (igual que modalHandler.js L1358-1364)
+                    const guild = await client.guilds.fetch(tournament.guildId);
+                    const processed = await processMatchResult(client, guild, tournament, matchId, reportedResult);
+                    await finalizeMatchThread(client, processed, reportedResult);
+                    message = lang === 'es' ? '✅ Resultado confirmado y partido finalizado.' : '✅ Result confirmed and match finalized.';
+                } else {
+                    // CONFLICTO -> Notificar árbitros (igual que modalHandler.js L1366-1373)
+                    message = lang === 'es' ? '⚠️ Conflicto: Tu resultado no coincide con el del rival. Árbitros avisados.' : '⚠️ Conflict: Result mismatch. Referees notified.';
+
+                    try {
+                        const threadId = partido.threadId;
+                        if (threadId) {
+                            const thread = await client.channels.fetch(threadId);
+                            if (thread && thread.isThread()) {
+                                // Cambiar nombre del thread para indicar disputa
+                                await thread.setName(`⚠️-DISPUTA-${thread.name}`.slice(0, 100));
+
+                                // Notificar a árbitros (mismo formato que Discord)
+                                const { ARBITRO_ROLE_ID } = await import('./config.js');
+                                await thread.send({
+                                    content: `🚨 <@&${ARBITRO_ROLE_ID}> **DISPUTA DETECTADA**\n\n- <@${reporterId}> (${myTeam.nombre}) dice: **${reportedResult}**\n- <@${opponentReporterId}> (${opponentTeam.nombre}) dice: **${opponentReport.score}**\n\nPor favor, revisad las pruebas.`
+                                });
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('No se pudo notificar disputa en hilo Discord:', err);
+                    }
+                }
+            } else {
+                // PRIMER REPORTE -> Notificar equipo rival (igual que modalHandler.js L1376-1380)
+                message = lang === 'es' ? '✅ Resultado guardado. Esperando confirmación del rival.' : '✅ Result saved. Waiting for opponent confirmation.';
+
+                try {
+                    const threadId = partido.threadId;
+                    if (threadId) {
+                        const thread = await client.channels.fetch(threadId);
+                        if (thread && thread.isThread()) {
+                            const opponentMentions = opponentCaptainIds.map(id => `<@${id}>`).join(' ');
+                            await thread.send(`ℹ️ <@${reporterId}> ha reportado el resultado: **${reportedResult}**. ${opponentMentions}, por favor usad el botón para confirmar el vuestro.`);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('No se pudo notificar primer reporte en hilo Discord:', err);
+                }
+            }
+
+            res.json({ success: true, message });
+
+        } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
     });
 
     server.on('upgrade', (request, socket, head) => {

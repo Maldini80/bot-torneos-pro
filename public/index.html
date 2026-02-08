@@ -55,6 +55,8 @@
                     <button class="view-btn" data-view="calendar-view" data-i18n="calendar">Calendario</button>
                     <button class="view-btn" data-view="bracket-view" data-i18n="brackets">Eliminatorias</button>
                     <button class="view-btn" data-view="teams-view" data-i18n="teams">Equipos</button>
+                    <button class="view-btn" id="my-matches-btn" data-view="my-matches-view" data-i18n="myMatches"
+                        style="display:none;">Mis Partidos</button>
                 </nav>
                 <div id="main-view-content">
                     <div id="classification-view" class="view-pane active">
@@ -72,6 +74,10 @@
                     <div id="teams-view" class="view-pane">
                         <h2 data-i18n="participatingTeams">Equipos Participantes</h2>
                         <div id="team-list-container"></div>
+                    </div>
+                    <div id="my-matches-view" class="view-pane">
+                        <h2 data-i18n="myMatches">Mis Partidos</h2>
+                        <div id="my-matches-container"></div>
                     </div>
                     <div id="finished-view" class="view-pane">
                         <div class="finished-content">
@@ -95,6 +101,36 @@
                 <span class="close-button">&times;</span>
                 <h3 id="modal-team-name"></h3>
                 <ul id="modal-roster-list"></ul>
+            </div>
+        </div>
+
+        <!-- Modal Reportar Resultado -->
+        <div id="report-match-modal" class="modal hidden">
+            <div class="modal-content" style="max-width: 400px;">
+                <span class="close-button"
+                    onclick="document.getElementById('report-match-modal').classList.add('hidden')">&times;</span>
+                <h2 style="margin-bottom: 1.5rem;">📝 Reportar Resultado</h2>
+                <div id="report-match-info"
+                    style="margin-bottom: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <p id="report-teams" style="text-align: center; font-weight: bold;"></p>
+                </div>
+                <form id="report-match-form">
+                    <div class="score-inputs" style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                        <div class="team-input" style="flex: 1;">
+                            <label id="report-label-a" style="display: block; margin-bottom: 0.5rem;">Equipo A</label>
+                            <input type="number" id="report-goals-a" min="0" max="20" required
+                                style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; text-align: center; font-size: 1.2rem;">
+                        </div>
+                        <div style="display: flex; align-items: center; font-size: 1.5rem; color: #888;">-</div>
+                        <div class="team-input" style="flex: 1;">
+                            <label id="report-label-b" style="display: block; margin-bottom: 0.5rem;">Equipo B</label>
+                            <input type="number" id="report-goals-b" min="0" max="20" required
+                                style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; text-align: center; font-size: 1.2rem;">
+                        </div>
+                    </div>
+                    <button type="submit" class="register-btn" style="width: 100%;">Enviar Reporte</button>
+                </form>
+                <p id="report-status" style="margin-top: 1rem; text-align: center;"></p>
             </div>
         </div>
 
