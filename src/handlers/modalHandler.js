@@ -1112,8 +1112,9 @@ export async function handleModal(interaction) {
         }
 
         if (tournament.config.isPaid) {
-            // --- FIX: Save to pendingPayments FIRST ---
-            const pendingPaymentData = {
+            // NUEVO FLUJO: Doble aprobación
+            // 1. Guardar en pendingApproval (NO pendingPayments)
+            const pendingApprovalData = {
                 userId: captainId,
                 userTag: interaction.user.tag,
                 teamName: teamName,
@@ -1121,54 +1122,47 @@ export async function handleModal(interaction) {
                 streamChannel: streamChannel,
                 twitter: twitter,
                 registeredAt: new Date(),
-                paypal: null // Will be filled later
+                status: 'awaiting_payment_info_approval'
             };
 
             await db.collection('tournaments').updateOne(
                 { _id: tournament._id },
-                { $set: { [`teams.pendingPayments.${captainId}`]: pendingPaymentData } }
+                { $set: { [`teams.pendingApproval.${captainId}`]: pendingApprovalData } }
             );
 
-            // --- INICIO DE LA NUEVA LÓGICA EFÍMERA ---
-
-            // Construimos el texto con los métodos de pago solo si existen
-            let paymentInstructions = '';
-            if (tournament.config.paypalEmail) {
-                paymentInstructions += `\n- **PayPal:** \`${tournament.config.paypalEmail}\``;
-            }
-            if (tournament.config.bizumNumber) {
-                paymentInstructions += `\n- **Bizum:** \`${tournament.config.bizumNumber}\``;
-            }
-
-            if (!paymentInstructions) {
-                paymentInstructions = "\n*No se ha configurado un método de pago. Contacta con un administrador.*";
-            }
-
-            const embedEphemere = new EmbedBuilder()
-                .setColor('#e67e22')
-                .setTitle(`💸 Inscripción Recibida - Pendiente de Pago`)
-                .setDescription(`¡Casi listo! Para confirmar tu plaza en el torneo **${tournament.nombre}**, realiza el pago de **${tournament.config.entryFee}€** a través de uno de los siguientes métodos:`)
+            // 2. Notificar a admin para PRIMERA aprobación (enviar info de pago)
+            const adminEmbed = new EmbedBuilder()
+                .setColor('#f39c12')
+                .setTitle(`💰 Nueva Solicitud - Torneo de Pago`)
+                .setDescription(`Usuario quiere inscribirse en **${tournament.nombre}**`)
                 .addFields(
-                    { name: 'Métodos de Pago', value: paymentInstructions },
-                    { name: 'Instrucciones', value: '1. Realiza el pago.\n2. **MUY IMPORTANTE:** Pulsa el botón de abajo para notificar a los administradores y que puedan verificarlo.' }
+                    { name: 'Usuario', value: `<@${captainId}>`, inline: true },
+                    { name: 'Equipo', value: teamName, inline: true },
+                    { name: 'EAFC Team', value: eafcTeamName, inline: false },
+                    { name: 'Stream', value: streamChannel || 'N/A', inline: true },
+                    { name: 'Twitter', value: twitter || 'N/A', inline: true }
                 )
-                .setFooter({ text: 'Este mensaje solo es visible para ti.' });
+                .setFooter({ text: 'Aprueba para enviarle la información de pago' });
 
-            const confirmButton = new ActionRowBuilder().addComponents(
+            const adminButtons = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`payment_confirm_start:${tournamentShortId}`)
-                    .setLabel('✅ Ya he realizado el Pago')
-                    .setStyle(ButtonStyle.Success)
+                    .setCustomId(`admin_approve_payment_info:${captainId}:${tournament.shortId}`)
+                    .setLabel('✅ Aprobar - Enviar Info Pago')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`admin_reject:${captainId}:${tournament.shortId}`)
+                    .setLabel('❌ Rechazar Solicitud')
+                    .setStyle(ButtonStyle.Danger)
             );
 
-            // Respondemos de forma efímera con toda la información
-            await interaction.editReply({
-                content: '✅ ¡Inscripción recibida! Sigue los pasos a continuación para finalizar.',
-                embeds: [embedEphemere],
-                components: [confirmButton]
-            });
+            await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
 
-            // --- FIN DE LA NUEVA LÓGICA EFÍMERA ---
+            // 3. Responder al usuario
+            await interaction.editReply(
+                '✅ 🇪🇸 ¡Solicitud recibida! Un administrador revisará tu inscripción y te enviará la información de pago.\n\n' +
+                '🇬🇧 Request received! An administrator will review your registration and send you the payment information.'
+            );
+
         } else {
             const adminEmbed = new EmbedBuilder()
                 .setColor('#3498DB')

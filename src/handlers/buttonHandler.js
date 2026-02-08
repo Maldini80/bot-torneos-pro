@@ -1875,10 +1875,14 @@ export async function handleButton(interaction) {
         } else if (tournament.teams.reserva && tournament.teams.reserva[captainId]) {
             teamData = tournament.teams.reserva[captainId];
             sourceCollection = 'reserva';
+        } else if (tournament.teams.pendingApproval && tournament.teams.pendingApproval[captainId]) {
+            // NUEVO: Soporte para pendingApproval (primera aprobación de torneos de pago)
+            const paData = tournament.teams.pendingApproval[captainId];
+            teamData = { nombre: paData.teamName };
+            sourceCollection = 'pendingApproval';
         } else if (tournament.teams.pendingPayments && tournament.teams.pendingPayments[captainId]) {
-            // --- NEW FLOW SUPPORT ---
             const ppData = tournament.teams.pendingPayments[captainId];
-            teamData = { nombre: ppData.teamName }; // Minimal data needed for message
+            teamData = { nombre: ppData.teamName };
             sourceCollection = 'pendingPayments';
         }
 
@@ -1888,6 +1892,8 @@ export async function handleButton(interaction) {
             await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendientes.${captainId}`]: "" } });
         } else if (sourceCollection === 'reserva') {
             await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.reserva.${captainId}`]: "" } });
+        } else if (sourceCollection === 'pendingApproval') {
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendingApproval.${captainId}`]: "" } });
         } else if (sourceCollection === 'pendingPayments') {
             await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendingPayments.${captainId}`]: "" } });
         }
@@ -3022,6 +3028,91 @@ export async function handleButton(interaction) {
 
         await notificationsChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
         await interaction.editReply('✅ ¡Gracias! Tu pago ha sido notificado. Recibirás un aviso cuando sea aprobado.');
+        return;
+    }
+
+    // NUEVO HANDLER: Primera aprobación (enviar info de pago)
+    if (action === 'admin_approve_payment_info') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [captainId, tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        if (!tournament) {
+            return interaction.editReply('❌ Torneo no encontrado');
+        }
+
+        const pendingData = tournament.teams.pendingApproval?.[captainId];
+        if (!pendingData) {
+            return interaction.editReply('❌ Solicitud no encontrada o ya procesada');
+        }
+
+        // 1. Mover de pendingApproval → pendingPayments
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            {
+                $set: {
+                    [`teams.pendingPayments.${captainId}`]: {
+                        ...pendingData,
+                        status: 'awaiting_payment',
+                        paymentInfoSentAt: new Date(),
+                        paypal: null
+                    }
+                },
+                $unset: { [`teams.pendingApproval.${captainId}`]: "" }
+            }
+        );
+
+        // 2. Construir info de pago
+        let paymentInstructions = '';
+        if (tournament.config.paypalEmail) {
+            paymentInstructions += `\n- **PayPal:** \`${tournament.config.paypalEmail}\``;
+        }
+        if (tournament.config.bizumNumber) {
+            paymentInstructions += `\n- **Bizum:** \`${tournament.config.bizumNumber}\``;
+        }
+        if (!paymentInstructions) {
+            paymentInstructions = "\n*No hay métodos configurados. Contacta con un administrador.*";
+        }
+
+        // 3. Enviar DM al usuario con info de pago
+        try {
+            const user = await client.users.fetch(captainId);
+            const paymentEmbed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle(`✅ Solicitud Aprobada - ${tournament.nombre}`)
+                .setDescription(
+                    `🇪🇸 ¡Tu solicitud ha sido aprobada! Para confirmar tu plaza, realiza el pago de **${tournament.config.entryFee}€**.\n\n` +
+                    `🇬🇧 Your request has been approved! To confirm your spot, make the payment of **${tournament.config.entryFee}€**.`
+                )
+                .addFields(
+                    { name: '💰 Métodos de Pago / Payment Methods', value: paymentInstructions },
+                    {
+                        name: '📋 Instrucciones / Instructions', value:
+                            '1. Realiza el pago / Make the payment\n' +
+                            '2. Pulsa el botón de abajo / Click the button below'
+                    }
+                );
+
+            const confirmButton = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`payment_confirm_start:${tournamentShortId}`)
+                    .setLabel('✅ Ya he realizado el Pago / Payment Done')
+                    .setStyle(ButtonStyle.Success)
+            );
+
+            await user.send({ embeds: [paymentEmbed], components: [confirmButton] });
+
+            // Deshabilitar botones del mensaje de admin
+            const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+            disabledRow.components.forEach(c => c.setDisabled(true));
+            await interaction.message.edit({ components: [disabledRow] });
+
+            await interaction.editReply(`✅ Información de pago enviada a <@${captainId}>`);
+
+        } catch (error) {
+            console.error('Error enviando DM:', error);
+            await interaction.editReply(`⚠️ Aprobado pero no se pudo enviar DM. Contacta con <@${captainId}> manualmente.`);
+        }
         return;
     }
 
