@@ -3041,8 +3041,11 @@ export async function handleButton(interaction) {
             return interaction.editReply('❌ Torneo no encontrado');
         }
 
-        const pendingData = tournament.teams.pendingApproval?.[captainId];
+        // CORRECCIÓN: Buscar en pendingPayments (donde guarda la web/modal) o pendingApproval (legacy)
+        const pendingData = tournament.teams.pendingPayments?.[captainId] || tournament.teams.pendingApproval?.[captainId];
+
         if (!pendingData) {
+            console.log(`[DEBUG] Solicitud no encontrada para ${captainId} en torneo ${tournamentShortId}`);
             return interaction.editReply('❌ Solicitud no encontrada o ya procesada');
         }
 
