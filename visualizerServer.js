@@ -1568,7 +1568,28 @@ export async function startVisualizerServer(discordClient) {
 
     // ===== FIN DE NUEVOS ENDPOINTS =====
 
-    // Endpoint para verificar rol del usuario en un evento
+    // Endpoint: Perfil de Usuario Autenticado
+    app.get('/api/user/profile', (req, res) => {
+        if (req.isAuthenticated()) {
+            res.json({
+                authenticated: true,
+                user: {
+                    discordId: req.user.id,
+                    username: req.user.username,
+                    discriminator: req.user.discriminator,
+                    avatar: req.user.avatar,
+                    isVerified: req.user.isVerified || false,
+                    isMember: req.user.isMember || false,
+                    psnId: req.user.psnId || null,
+                    platform: req.user.platform || null
+                }
+            });
+        } else {
+            res.json({ authenticated: false });
+        }
+    });
+
+    // Endpoint: Detectar Rol en Evento (Torneo/Draft)
     app.get('/api/my-role-in-event/:eventId', async (req, res) => {
         try {
             if (!req.user) {
