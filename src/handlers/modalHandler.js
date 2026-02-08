@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import Team from '../../src/models/team.js';
 import { getDb, updateBotSettings } from '../../database.js';
 // --- CÓDIGO MODIFICADO Y CORRECTO ---
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer, createTournamentFromDraft, handleImportedPlayers, addSinglePlayerToDraft } from '../logic/tournamentLogic.js';
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer, createTournamentFromDraft, handleImportedPlayers, addSinglePlayerToDraft, sendPaymentApprovalRequest } from '../logic/tournamentLogic.js';
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 // --- LÍNEA CORREGIDA Y COMPLETA ---
@@ -182,45 +182,46 @@ export async function handleModal(interaction) {
             await mongoose.connect(process.env.DATABASE_URL);
         }
 
-        const pendingPaymentData = {
-            userId: interaction.user.id,
-            userTag: interaction.user.tag,
-            teamName: teamName,
+        // --- LÓGICA UNIFICADA: ENVIAR SOLICITUD DE APROBACIÓN AL ADMIN (Igual que Web) ---
+        // Construimos el objeto de equipo con los datos del formulario
+        const teamData = {
+            id: interaction.user.id,
+            nombre: teamName,
             eafcTeamName: teamName, // Mismo nombre para ambos
-            logoUrl: "https://i.imgur.com/2ecc71.png", // Placeholder
+            capitanId: interaction.user.id,
+            capitanTag: interaction.user.tag,
+            coCaptainId: null,
+            coCaptainTag: null,
+            logoUrl: interaction.user.displayAvatarURL(),
             twitter: "", // Eliminado
             streamChannel: streamLink,
-            platform: 'manual', // Ya no pedimos plataforma específica
-            registeredAt: new Date()
+            paypal: null,
+            inscritoEn: new Date(),
+            isPaid: true
         };
 
-        // Guardamos en una colección temporal o campo temporal dentro del torneo
-        if (!tournament.teams.pendingPayments) tournament.teams.pendingPayments = {};
-
-        await db.collection('tournaments').updateOne(
-            { _id: tournament._id },
-            { $set: { [`teams.pendingPayments.${interaction.user.id}`]: pendingPaymentData } }
-        );
-
-        // Enviar DM con información de pago
-        const paymentEmbed = new EmbedBuilder()
-            .setColor('#f1c40f')
-            .setTitle(`💸 Pago Requerido: ${tournament.nombre}`)
-            .setDescription(`Has iniciado la inscripción para el equipo **${teamName}**.\n\n**Cuota de Inscripción:** ${tournament.config.entryFee}€\n\n**Métodos de Pago:**\nPayPal: \`${tournament.config.paypalEmail || 'No configurado'}\`\nBizum: \`${tournament.config.bizumNumber || 'No configurado'}\`\n\nRealiza el pago y luego pulsa el botón de abajo para notificar a los administradores.`)
-            .setFooter({ text: 'Tu plaza no está reservada hasta que se verifique el pago.' });
-
-        const confirmButton = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`payment_confirm_start:${tournament.shortId}`)
-                .setLabel('✅ He Realizado el Pago')
-                .setStyle(ButtonStyle.Success)
-        );
-
         try {
-            await interaction.user.send({ embeds: [paymentEmbed], components: [confirmButton] });
-            await interaction.editReply({ content: `✅ **Pre-inscripción recibida.** Te hemos enviado un MD con los datos de pago. Revisa tus mensajes privados.` });
-        } catch (e) {
-            await interaction.editReply({ content: `❌ No pudimos enviarte el MD con los datos de pago. Por favor, abre tus mensajes directos y vuelve a intentarlo.` });
+            // Guardamos temporalmente en 'pendingPayments' para evitar duplicados inmediatos
+            // aunque sendPaymentApprovalRequest ya maneja parte de esto, es bueno tener un registro local db
+            if (!tournament.teams.pendingPayments) tournament.teams.pendingPayments = {};
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.pendingPayments.${interaction.user.id}`]: teamData } }
+            );
+
+            // Enviamos la solicitud al canal de admins
+            await sendPaymentApprovalRequest(client, tournament, teamData, interaction.user);
+
+            await interaction.editReply({
+                content: `✅ **Solicitud enviada a los Administradores.**\n\n` +
+                    `Hemos notificado al staff sobre tu interés en inscribir al equipo **${teamName}**.\n` +
+                    `Un administrador revisará tu solicitud y te enviará un **Mensaje Directo (DM)** con la información de pago.\n\n` +
+                    `⚠️ **Importante:** Asegúrate de tener los mensajes directos abiertos para recibir los datos de pago.`
+            });
+
+        } catch (error) {
+            console.error('Error al enviar solicitud de aprobación en Discord:', error);
+            await interaction.editReply({ content: '❌ Ocurrió un error al procesar tu solicitud. Por favor, inténtalo de nuevo o contacta con un administrador.' });
         }
         return;
     }
