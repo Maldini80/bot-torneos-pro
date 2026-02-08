@@ -11,6 +11,75 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap"
         rel="stylesheet">
+
+    <!-- Tournament Registration Styles -->
+    <style>
+        #open-tournaments {
+            margin-top: 2rem;
+            padding: 2rem;
+            background: rgba(26, 26, 46, 0.9);
+            border-radius: 12px;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+        }
+
+        .section-description {
+            color: #bbb;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .tournament-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .tournament-badge.free {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+        }
+
+        .tournament-badge.paid {
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            color: #1a1a2e;
+        }
+
+        .tournament-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.75rem;
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        .register-btn {
+            background: linear-gradient(135deg, #8a2be2, #5f1bb8);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .register-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(138, 43, 226, 0.4);
+        }
+
+        .register-btn:disabled {
+            background: #444;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
 </head>
 
 <body>
@@ -123,6 +192,24 @@
 
                 <div id="pagination" class="pagination"></div>
             </section>
+
+            <!-- SECCIÓN DE TORNEOS ABIERTOS -->
+            <section id="open-tournaments">
+                <h2 data-i18n="tournaments.openTournaments">Torneos Abiertos - Inscríbete en Torneos</h2>
+                <p class="section-description" data-i18n="tournaments.openDescription">Torneos y ligas actualmente
+                    abiertas a registro</p>
+
+                <!-- Contenedor de torneos -->
+                <div id="open-tournaments-grid" class="events-grid">
+                    <!-- Cards generados dinámicamente -->
+                </div>
+
+                <!-- Estado vacío -->
+                <div id="no-open-tournaments" class="empty-state hidden">
+                    <p data-i18n="tournaments.noOpenTournaments">No hay torneos abiertos en este momento</p>
+                </div>
+            </section>
+
         </main>
 
         <!-- Bottom Navigation (Mobile Only) -->

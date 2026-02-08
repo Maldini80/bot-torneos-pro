@@ -36,6 +36,16 @@ const translations = {
             teamList: 'Equipos Participantes', liveMatches: 'Partidos en Directo',
             champion: 'Campeón', groups: 'Fase de Grupos', winner: 'Ganador'
         },
+        tournaments: {
+            openTournaments: 'Torneos Abiertos - Inscríbete en Torneos',
+            openDescription: 'Torneos y ligas actualmente abiertas a registro',
+            noOpenTournaments: 'No hay torneos abiertos en este momento',
+            registerNow: 'Inscribirse Ahora',
+            free: 'Gratis',
+            paid: 'Pago',
+            price: 'Precio',
+            teams: 'equipos'
+        },
         draft: {
             currentTurn: 'Turno actual', pick: 'Pick', round: 'Ronda', team: 'Equipo',
             availablePlayers: 'Jugadores Disponibles', position: 'Posición',
@@ -171,6 +181,16 @@ const translations = {
             classification: 'Classification', calendar: 'Calendar', bracket: 'Bracket',
             teamList: 'Participating Teams', liveMatches: 'Live Matches',
             champion: 'Champion', groups: 'Group Stage', winner: 'Winner'
+        },
+        tournaments: {
+            openTournaments: 'Open Tournaments - Register Now',
+            openDescription: 'Currently open tournaments and leagues for registration',
+            noOpenTournaments: 'No open tournaments at the moment',
+            registerNow: 'Register Now',
+            free: 'Free',
+            paid: 'Paid',
+            price: 'Price',
+            teams: 'teams'
         },
         draft: {
             currentTurn: 'Current turn', pick: 'Pick', round: 'Round', team: 'Team',
@@ -1279,10 +1299,190 @@ window.closeEventModal = function () {
     document.getElementById('event-modal').classList.add('hidden');
 };
 
+// ======================================
+// INSCRIPCIÓN A TORNEOS
+// ======================================
+
+// Función para cargar torneos abiertos
+async function loadOpenTournaments() {
+    try {
+        const response = await fetch('/api/tournaments/open', {
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al cargar torneos');
+        }
+
+        const data = await response.json();
+        const tournaments = data.tournaments || [];
+
+        const grid = document.getElementById('open-tournaments-grid');
+        const emptyState = document.getElementById('no-open-tournaments');
+
+        if (tournaments.length === 0) {
+            grid.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            return;
+        }
+
+        grid.classList.remove('hidden');
+        emptyState.classList.add('hidden');
+
+        grid.innerHTML = tournaments.map(t => `
+            <div class="event-card">
+                <div class="event-card-header">
+                    <h3>${escapeHtml(t.nombre)}</h3>
+                    <span class="tournament-badge ${t.isPaid ? 'paid' : 'free'}">
+                        ${t.inscripcion}
+                    </span>
+                </div>
+                <div class="event-card-body">
+                    <p><strong>${t.tipo}</strong></p>
+                    ${t.isPaid ? `<p>💰 Precio: ${t.entryFee}€</p>` : ''}
+                    <div class="tournament-info">
+                        <span>📊 ${Object.keys(t.teams || {}).length}/${t.maxTeams || '∞'} equipos</span>
+                        <span>🎮 ${t.format.toUpperCase()}</span>
+                    </div>
+                    <button class="register-btn" onclick="openRegistrationModal('${t.shortId}', ${t.isPaid})">
+                        ⚽ Inscribirse Ahora
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error cargando torneos:', error);
+    }
+}
+
+// Función para abrir modal de inscripción
+async function openRegistrationModal(tournamentId, isPaid) {
+    const lang = getCurrentLanguage();
+
+    // TORNEO DE PAGO - Sistema de doble aprobación  (NO pide URL)
+    if (isPaid) {
+        const teamName = prompt(
+            lang === 'es' ? 'Nombre de tu equipo para el torneo:' : 'Your team name for the tournament:'
+        );
+
+        if (!teamName) return;
+
+        const eafcTeamName = prompt(
+            lang === 'es' ? 'Nombre de tu equipo dentro de EAFC:' : 'Your team name in EAFC:'
+        );
+
+        if (!eafcTeamName) return;
+
+        const streamChannel = prompt(
+            lang === 'es' ? 'Canal de stream (opcional, deja vacío si no tienes):' : 'Stream channel (optional, leave empty if none):'
+        ) || '';
+
+        const twitter = prompt(
+            lang === 'es' ? 'Tu Twitter (sin @, opcional):' : 'Your Twitter (without @, optional):'
+        ) || '';
+
+        // Enviar inscripción de pago (SIN URL de comprobante)
+        await registerTournament(tournamentId, {
+            teamName,
+            eafcTeamName,
+            streamChannel,
+            twitter
+        }, null); // null = sin URL de pago
+    }
+
+    // TORNEO GRATUITO - Requiere equipo VPG
+    else {
+        const streamChannel = prompt(
+            lang === 'es' ? 'Canal de stream (opcional, deja vacío si no tienes):' : 'Stream channel (optional, leave empty if none):'
+        ) || '';
+
+        const twitter = prompt(
+            lang === 'es' ? 'Tu Twitter (sin @, opcional):' : 'Your Twitter (without @, optional):'
+        ) || '';
+
+        // Enviar inscripción gratuita (usa datos del equipo VPG)
+        await registerTournament(tournamentId, {
+            streamChannel,
+            twitter
+        }, null);
+    }
+}
+
+// Función para enviar inscripción al backend
+async function registerTournament(tournamentId, teamData, paymentProofUrl) {
+    try {
+        const response = await fetch(`/api/tournaments/${tournamentId}/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                teamData,
+                paymentProofUrl
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            // Error de membresía de Discord
+            if (data.requiresDiscordMembership) {
+                const lang = getCurrentLanguage();
+                const message = data.message?.[lang] || data.message?.es ||
+                    (lang === 'es'
+                        ? `❌ Debes ser miembro del servidor Discord para inscribirte.\n\n¿Quieres unirte ahora?`
+                        : `❌ You must be a member of the Discord server to register.\n\nJoin now?`);
+
+                if (confirm(message)) {
+                    window.open(data.inviteUrl || 'https://discord.gg/vpglightnings', '_blank');
+                }
+                return;
+            }
+
+            // Error específico de VPG team
+            if (data.requiresVpgTeam) {
+                const lang = getCurrentLanguage();
+                const message = data.message?.[lang] || data.message?.es || data.error;
+                alert(message);
+            } else {
+                alert(`❌ ${data.error || 'Error al inscribirse'}`);
+            }
+            return;
+        }
+
+        // Éxito
+        alert(`✅ ${data.message}`);
+
+        // Recargar torneos
+        await loadOpenTournaments();
+
+    } catch (error) {
+        console.error('Error registrando:', error);
+        alert('❌ Error al procesar la inscripción. Inténtalo de nuevo.');
+    }
+}
+
+// Helper para escapar HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Helper para obtener idioma actual
+function getCurrentLanguage() {
+    return document.documentElement.lang || 'es';
+}
+
 // Iniciar aplicación
 const dashboard = new DashboardApp();
 window.dashboard = dashboard;
 
 document.addEventListener('DOMContentLoaded', () => {
     dashboard.init();
+
+    // Cargar torneos abiertos
+    loadOpenTournaments();
 });
