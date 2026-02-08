@@ -492,7 +492,7 @@ app.get('/api/teams/pending', async (req, res) => {
 // Obtener torneos abiertos a inscripción
 app.get('/api/tournaments/open', async (req, res) => {
     try {
-        const db = getDb('test');
+        const db = getDb(); // Torneos están en la DB por defecto (tournamentBotDb)
 
         // Buscar torneos con inscripción abierta
         const openTournaments = await db.collection('tournaments').find({
@@ -554,7 +554,7 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
             });
         }
 
-        const db = getDb('test');
+        const db = getDb(); // Torneos están en la DB por defecto
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentId });
 
         if (!tournament) {
