@@ -524,7 +524,7 @@ app.get('/api/tournaments/open', async (req, res) => {
 });
 
 // Inscribirse en un torneo (REPLICA EX ACTA del flujo de Discord)
-app.post('/api/tournaments/:tournamentId/register', ensureAuthenticated, async (req, res) => {
+app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
     try {
         const userId = req.user.id;
         const { tournamentId } = req.params;
