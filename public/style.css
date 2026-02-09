@@ -264,27 +264,58 @@ header::after {
 }
 
 /* Arreglo móvil - evitar texto vertical */
+/* Arreglo móvil - GRID DE 2 NIVELES */
 @media (max-width: 768px) {
     .header-content {
-        grid-template-columns: auto 1fr auto;
-        gap: 10px;
-        padding: 0 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+        grid-template-areas:
+            "back lang"
+            "main main";
+        gap: 15px;
+        padding: 15px 10px;
+        height: auto;
+    }
+
+    .back-btn {
+        grid-area: back;
+        position: static !important;
+        transform: none !important;
+        justify-self: start;
+        font-size: 0.8em;
+        padding: 6px 12px;
+    }
+
+    .lang-selector {
+        grid-area: lang;
+        justify-self: end;
+    }
+
+    .header-text {
+        grid-area: main;
+        text-align: center;
+        width: 100%;
+        margin-top: 5px;
     }
 
     .header-text h1 {
-        font-size: 1.3em !important;
-        word-break: keep-all;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-size: 1.5em !important;
+        white-space: normal;
+        /* Permitir salto de línea */
+        line-height: 1.2;
         max-width: 100%;
+        overflow: visible;
+        /* Mostrar todo */
+        text-overflow: clip;
+        /* No puntos suspensivos */
     }
 
     .header-text p {
-        font-size: 0.7em;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-size: 0.8em;
+        white-space: normal;
+        margin-top: 4px;
+        display: block;
     }
 }
 
