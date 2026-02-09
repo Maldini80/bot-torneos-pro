@@ -2564,7 +2564,8 @@ aside h2 {
    ======================================== */
 
 .user-role-badge {
-    display: flex;
+    display: none;
+    /* Hidden by default, shown via JS when flex */
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
@@ -2572,7 +2573,13 @@ aside h2 {
     font-family: var(--font-bebas);
     font-size: 1em;
     font-weight: bold;
-    margin-left: 15px;
+    /* Positioned BELOW header to avoid overlap */
+    position: absolute;
+    top: 85px;
+    /* Below 70px header */
+    left: 20px;
+    z-index: 50;
+    /* Below header (100) */
     transition: all 0.3s ease;
 }
 
@@ -2635,17 +2642,18 @@ aside h2 {
 /* Mobile responsive */
 @media (max-width: 768px) {
     .user-role-badge {
-        margin-left: 0;
-        margin-top: 10px;
-        font-size: 0.9em;
+        top: 70px;
+        left: 10px;
+        font-size: 0.75em;
+        padding: 6px 12px;
     }
 
     .role-icon {
-        font-size: 1.2em;
+        font-size: 1em;
     }
 
     .role-label {
-        font-size: 1em;
+        font-size: 0.85em;
     }
 
     /* === RESPONSIVE FIXES FOR TOURNAMENT TABLES === */
