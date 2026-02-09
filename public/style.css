@@ -3673,3 +3673,257 @@ select {
     border: 2px solid rgba(0, 246, 255, 0.4) !important;
     box-shadow: 0 0 5px rgba(0, 246, 255, 0.2);
 }
+/* ===========================================
+   OPTIMIZACIÓN MOBILE - RESPONSIVE
+   =========================================== */
+
+@media (max-width: 768px) {
+
+    /* Background menos intenso en móvil */
+    body {
+        background-size: 250% 250%, 250% 250%, 350% 350%, 100% 100%;
+    }
+
+    /* Grid más pequeño y sutil */
+    body::before {
+        background-size: 30px 30px;
+        opacity: 0.2 !important;
+    }
+
+    /* Solo 5 hexágonos en móvil (en vez de 10) */
+    .hex-particle:nth-child(n+6) {
+        display: none;
+    }
+
+    /* Hexágonos más pequeños */
+    .hex-particle {
+        width: 20px;
+        height: 20px;
+        opacity: 0.1;
+    }
+
+    /* Header más compacto */
+    header {
+        padding: 10px 0 15px 0;
+    }
+
+    header h1 {
+        font-size: 2.2em !important;
+        letter-spacing: 2px;
+        text-shadow:
+            0 0 8px rgba(0, 246, 255, 0.6),
+            0 0 15px rgba(0, 246, 255, 0.4) !important;
+    }
+
+    header p {
+        font-size: 0.95em;
+    }
+
+    /* Logo más pequeño */
+    .header-logo,
+    .logo {
+        max-width: 80px;
+        filter: drop-shadow(0 0 15px rgba(0, 246, 255, 0.5)) !important;
+    }
+
+    /* Títulos más pequeños */
+    h1 {
+        font-size: 2em !important;
+    }
+
+    h2 {
+        font-size: 1.6em !important;
+    }
+
+    h3 {
+        font-size: 1.3em !important;
+    }
+
+    /* Cards con menos padding */
+    .event-card,
+    .team-card,
+    .tournament-card,
+    .card {
+        padding: 15px;
+        border-radius: 12px;
+    }
+
+    /* Botones más pequeños y compactos */
+    button,
+    .btn,
+    input[type="submit"],
+    .action-btn,
+    .register-btn {
+        padding: 10px 20px;
+        font-size: 0.85em;
+        letter-spacing: 1px;
+    }
+
+    /* Efectos glow menos intensos en móvil */
+    .event-card,
+    .team-card,
+    .tournament-card {
+        border: 1px solid rgba(0, 246, 255, 0.4) !important;
+        box-shadow:
+            0 0 10px rgba(0, 246, 255, 0.2),
+            inset 0 0 10px rgba(0, 246, 255, 0.03) !important;
+    }
+
+    /* Header border menos grueso */
+    header {
+        border-bottom-width: 2px;
+    }
+
+    header::after {
+        height: 2px;
+        filter: blur(6px);
+    }
+
+    /* Inputs más compactos */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    textarea,
+    select {
+        padding: 10px 14px;
+        font-size: 0.95em;
+    }
+
+    /* Container principal con menos padding */
+    .container {
+        padding: 15px;
+    }
+
+    /* Botones de idioma más pequeños */
+    .lang-btn {
+        padding: 5px 10px;
+        font-size: 0.85em;
+    }
+
+    /* Animaciones más lentas en móvil (mejor performance) */
+    body {
+        animation: ultraGlow 20s ease infinite;
+    }
+
+    body::before {
+        animation: gridPulse 12s ease-in-out infinite;
+    }
+
+    .hex-particle {
+        animation-duration: 25s !important;
+    }
+}
+
+/* Móviles muy pequeños (< 480px) */
+@media (max-width: 480px) {
+    body {
+        padding: 15px;
+    }
+
+    header h1 {
+        font-size: 1.8em !important;
+        letter-spacing: 1px;
+    }
+
+    header p {
+        font-size: 0.85em;
+    }
+
+    .header-logo,
+    .logo {
+        max-width: 60px;
+    }
+
+    /* Solo 3 hexágonos en móviles pequeños */
+    .hex-particle:nth-child(n+4) {
+        display: none;
+    }
+
+    /* Hexágonos aún más pequeños */
+    .hex-particle {
+        width: 15px;
+        height: 15px;
+        opacity: 0.08;
+    }
+
+    /* Grid muy sutil */
+    body::before {
+        background-size: 25px 25px;
+        opacity: 0.15 !important;
+    }
+
+    /* Botones aún más compactos */
+    button,
+    .btn {
+        padding: 8px 16px;
+        font-size: 0.8em;
+    }
+
+    /* Cards muy compactas */
+    .event-card,
+    .team-card,
+    .tournament-card,
+    .card {
+        padding: 12px;
+    }
+
+    /* Títulos más pequeños */
+    h1 {
+        font-size: 1.6em !important;
+    }
+
+    h2 {
+        font-size: 1.3em !important;
+    }
+
+    h3 {
+        font-size: 1.1em !important;
+    }
+}
+
+/* Tablets (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+
+    /* 8 hexágonos en tablets */
+    .hex-particle:nth-child(n+9) {
+        display: none;
+    }
+
+    /* Hexágonos tamaño medio */
+    .hex-particle {
+        width: 25px;
+        height: 25px;
+        opacity: 0.12;
+    }
+
+    header h1 {
+        font-size: 2.8em !important;
+    }
+
+    .header-logo,
+    .logo {
+        max-width: 100px;
+    }
+}
+
+/* Performance: Reducir animaciones si el usuario prefiere */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .hex-particle {
+        display: none;
+    }
+
+    body::before {
+        animation: none;
+        opacity: 0.3;
+    }
+}
