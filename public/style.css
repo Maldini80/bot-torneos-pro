@@ -115,6 +115,8 @@ header {
     position: relative;
     margin-bottom: 20px;
     flex-shrink: 0;
+    z-index: 100;
+    /* Asegura que esté por encima de otros elementos */
 
     /* Glassmorphism Background */
     background: linear-gradient(to bottom,
@@ -3081,308 +3083,309 @@ aside h2 {
     :-ms-input-placeholder {
         color: #a8a8a8;
     }
-/* ===========================================
+
+    /* ===========================================
    FASE 2: UI COMPONENTS GAMER CYBERPUNK
    =========================================== */
 
-/* --- BOTONES NEÓN CON CLIP-PATH --- */
+    /* --- BOTONES NEÓN CON CLIP-PATH --- */
 
-button,
-.btn,
-input[type="submit"],
-.action-btn,
-.register-btn {
-    position: relative;
-    padding: 12px 28px;
-    background: transparent;
-    border: 2px solid var(--neon-cyan);
-    color: var(--neon-cyan);
-    font-family: 'Exo 2', var(--font-heading);
-    font-weight: 700;
-    font-size: 0.95em;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    cursor: pointer;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    button,
+    .btn,
+    input[type="submit"],
+    .action-btn,
+    .register-btn {
+        position: relative;
+        padding: 12px 28px;
+        background: transparent;
+        border: 2px solid var(--neon-cyan);
+        color: var(--neon-cyan);
+        font-family: 'Exo 2', var(--font-heading);
+        font-weight: 700;
+        font-size: 0.95em;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Ángulos cortados estilo cyberpunk */
-    clip-path: polygon(10px 0%,
-            100% 0%,
-            100% calc(100% - 10px),
-            calc(100% - 10px) 100%,
-            0% 100%,
-            0% 10px);
-}
-
-/* Efecto de relleno animado */
-button::before,
-.btn::before,
-input[type="submit"]::before,
-.action-btn::before,
-.register-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: var(--gradient-primary);
-    transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: -1;
-}
-
-button:hover,
-.btn:hover,
-input[type="submit"]:hover,
-.action-btn:hover,
-.register-btn:hover {
-    box-shadow: var(--glow-cyan);
-    transform: translateY(-3px);
-    border-color: var(--neon-cyan);
-    color: #ffffff;
-}
-
-button:hover::before,
-.btn:hover::before,
-input[type="submit"]:hover::before,
-.action-btn:hover::before,
-.register-btn:hover::before {
-    left: 0;
-}
-
-button:active,
-.btn:active,
-input[type="submit"]:active,
-.action-btn:active,
-.register-btn:active {
-    transform: translateY(-1px);
-}
-
-button:disabled,
-.btn:disabled,
-input[type="submit"]:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    border-color: #444;
-    color: #666;
-    box-shadow: none;
-}
-
-button:disabled:hover,
-.btn:disabled:hover,
-input[type="submit"]:disabled:hover {
-    transform: none;
-}
-
-/* Botones secundarios (magenta) */
-.btn-secondary {
-    border-color: var(--neon-magenta);
-    color: var(--neon-magenta);
-}
-
-.btn-secondary::before {
-    background: var(--gradient-accent);
-}
-
-.btn-secondary:hover {
-    box-shadow: var(--glow-magenta);
-    border-color: var(--neon-magenta);
-}
-
-/* Botones de acción especial (amarillo/oro) */
-.btn-gold {
-    border-color: var(--neon-yellow);
-    color: var(--neon-yellow);
-}
-
-.btn-gold::before {
-    background: var(--gradient-gold);
-}
-
-.btn-gold:hover {
-    box-shadow: 0 0 20px rgba(255, 235, 0, 0.6);
-}
-
-/* --- CARDS GLASSMORPHISM --- */
-
-.event-card,
-.team-card,
-.tournament-card,
-.card {
-    background: rgba(20, 20, 35, 0.6);
-    backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(0, 246, 255, 0.2);
-    border-radius: 16px;
-    padding: 20px;
-    position: relative;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-    box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-/* Border superior neón animado en cards */
-.event-card::before,
-.team-card::before,
-.tournament-card::before,
-.card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--gradient-primary);
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-
-.event-card:hover,
-.team-card:hover,
-.tournament-card:hover,
-.card:hover {
-    transform: translateY(-8px);
-    border-color: rgba(0, 246, 255, 0.5);
-    box-shadow:
-        0 20px 60px rgba(0, 246, 255, 0.3),
-        0 0 80px rgba(0, 246, 255, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.event-card:hover::before,
-.team-card:hover::before,
-.tournament-card:hover::before,
-.card:hover::before {
-    opacity: 1;
-}
-
-/* Card headers con gradiente */
-.card-header,
-.event-card h3,
-.team-card h3 {
-    font-family: 'Exo 2', var(--font-heading);
-    font-weight: 900;
-    font-size: 1.5em;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 15px;
-    letter-spacing: 1px;
-}
-
-/* --- BACKGROUNDS ANIMADOS --- */
-
-/* Partículas flotantes hexagonales */
-body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image:
-        radial-gradient(circle at 20% 50%, rgba(0, 246, 255, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 80% 30%, rgba(255, 0, 229, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 40% 80%, rgba(0, 102, 255, 0.03) 0%, transparent 50%);
-    pointer-events: none;
-    z-index: -1;
-    animation: particleFloat 20s ease-in-out infinite;
-}
-
-@keyframes particleFloat {
-
-    0%,
-    100% {
-        background-position: 0% 50%, 100% 30%, 40% 80%;
+        /* Ángulos cortados estilo cyberpunk */
+        clip-path: polygon(10px 0%,
+                100% 0%,
+                100% calc(100% - 10px),
+                calc(100% - 10px) 100%,
+                0% 100%,
+                0% 10px);
     }
 
-    50% {
-        background-position: 100% 50%, 0% 70%, 60% 20%;
+    /* Efecto de relleno animado */
+    button::before,
+    .btn::before,
+    input[type="submit"]::before,
+    .action-btn::before,
+    .register-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: var(--gradient-primary);
+        transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: -1;
     }
-}
 
-/* Grid cyberpunk de fondo */
-.dashboard-container::before,
-#app-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image:
-        linear-gradient(rgba(0, 246, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 246, 255, 0.03) 1px, transparent 1px);
-    background-size: 50px 50px;
-    pointer-events: none;
-    opacity: 0.3;
-}
+    button:hover,
+    .btn:hover,
+    input[type="submit"]:hover,
+    .action-btn:hover,
+    .register-btn:hover {
+        box-shadow: var(--glow-cyan);
+        transform: translateY(-3px);
+        border-color: var(--neon-cyan);
+        color: #ffffff;
+    }
 
-/* --- EFECTOS HOVER AVANZADOS --- */
+    button:hover::before,
+    .btn:hover::before,
+    input[type="submit"]:hover::before,
+    .action-btn:hover::before,
+    .register-btn:hover::before {
+        left: 0;
+    }
 
-/* Links con efecto underline neón */
-a {
-    color: var(--neon-cyan);
-    text-decoration: none;
-    position: relative;
-    transition: color 0.3s;
-}
+    button:active,
+    .btn:active,
+    input[type="submit"]:active,
+    .action-btn:active,
+    .register-btn:active {
+        transform: translateY(-1px);
+    }
 
-a::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background: var(--gradient-primary);
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+    button:disabled,
+    .btn:disabled,
+    input[type="submit"]:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        border-color: #444;
+        color: #666;
+        box-shadow: none;
+    }
 
-a:hover {
-    color: #ffffff;
-}
+    button:disabled:hover,
+    .btn:disabled:hover,
+    input[type="submit"]:disabled:hover {
+        transform: none;
+    }
 
-a:hover::after {
-    width: 100%;
-}
+    /* Botones secundarios (magenta) */
+    .btn-secondary {
+        border-color: var(--neon-magenta);
+        color: var(--neon-magenta);
+    }
 
-/* Input fields con borde neón */
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="search"],
-textarea,
-select {
-    background: rgba(20, 20, 35, 0.8);
-    border: 2px solid rgba(0, 246, 255, 0.3);
-    color: var(--text-color);
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-family: 'Rajdhani', var(--font-body);
-    font-size: 1em;
-    transition: all 0.3s;
-}
+    .btn-secondary::before {
+        background: var(--gradient-accent);
+    }
 
-input[type="text"]:focus,
-input[type="email"]:focus,
-input[type="password"]:focus,
-input[type="search"]:focus,
-textarea:focus,
-select:focus {
-    outline: none;
-    border-color: var(--neon-cyan);
-    box-shadow: var(--glow-cyan);
-    background: rgba(20, 20, 35, 0.95);
-}
+    .btn-secondary:hover {
+        box-shadow: var(--glow-magenta);
+        border-color: var(--neon-magenta);
+    }
 
-/* --- SCAN LINES EFFECT (opcional, desactivado por defecto) --- */
+    /* Botones de acción especial (amarillo/oro) */
+    .btn-gold {
+        border-color: var(--neon-yellow);
+        color: var(--neon-yellow);
+    }
 
-/*
+    .btn-gold::before {
+        background: var(--gradient-gold);
+    }
+
+    .btn-gold:hover {
+        box-shadow: 0 0 20px rgba(255, 235, 0, 0.6);
+    }
+
+    /* --- CARDS GLASSMORPHISM --- */
+
+    .event-card,
+    .team-card,
+    .tournament-card,
+    .card {
+        background: rgba(20, 20, 35, 0.6);
+        backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(0, 246, 255, 0.2);
+        border-radius: 16px;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+        box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    /* Border superior neón animado en cards */
+    .event-card::before,
+    .team-card::before,
+    .tournament-card::before,
+    .card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--gradient-primary);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .event-card:hover,
+    .team-card:hover,
+    .tournament-card:hover,
+    .card:hover {
+        transform: translateY(-8px);
+        border-color: rgba(0, 246, 255, 0.5);
+        box-shadow:
+            0 20px 60px rgba(0, 246, 255, 0.3),
+            0 0 80px rgba(0, 246, 255, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .event-card:hover::before,
+    .team-card:hover::before,
+    .tournament-card:hover::before,
+    .card:hover::before {
+        opacity: 1;
+    }
+
+    /* Card headers con gradiente */
+    .card-header,
+    .event-card h3,
+    .team-card h3 {
+        font-family: 'Exo 2', var(--font-heading);
+        font-weight: 900;
+        font-size: 1.5em;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 15px;
+        letter-spacing: 1px;
+    }
+
+    /* --- BACKGROUNDS ANIMADOS --- */
+
+    /* Partículas flotantes hexagonales */
+    body::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image:
+            radial-gradient(circle at 20% 50%, rgba(0, 246, 255, 0.05) 0%, transparent 50%),
+            radial-gradient(circle at 80% 30%, rgba(255, 0, 229, 0.05) 0%, transparent 50%),
+            radial-gradient(circle at 40% 80%, rgba(0, 102, 255, 0.03) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
+        animation: particleFloat 20s ease-in-out infinite;
+    }
+
+    @keyframes particleFloat {
+
+        0%,
+        100% {
+            background-position: 0% 50%, 100% 30%, 40% 80%;
+        }
+
+        50% {
+            background-position: 100% 50%, 0% 70%, 60% 20%;
+        }
+    }
+
+    /* Grid cyberpunk de fondo */
+    .dashboard-container::before,
+    #app-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image:
+            linear-gradient(rgba(0, 246, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 246, 255, 0.03) 1px, transparent 1px);
+        background-size: 50px 50px;
+        pointer-events: none;
+        opacity: 0.3;
+    }
+
+    /* --- EFECTOS HOVER AVANZADOS --- */
+
+    /* Links con efecto underline neón */
+    a {
+        color: var(--neon-cyan);
+        text-decoration: none;
+        position: relative;
+        transition: color 0.3s;
+    }
+
+    a::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--gradient-primary);
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    a:hover {
+        color: #ffffff;
+    }
+
+    a:hover::after {
+        width: 100%;
+    }
+
+    /* Input fields con borde neón */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    textarea,
+    select {
+        background: rgba(20, 20, 35, 0.8);
+        border: 2px solid rgba(0, 246, 255, 0.3);
+        color: var(--text-color);
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-family: 'Rajdhani', var(--font-body);
+        font-size: 1em;
+        transition: all 0.3s;
+    }
+
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="password"]:focus,
+    input[type="search"]:focus,
+    textarea:focus,
+    select:focus {
+        outline: none;
+        border-color: var(--neon-cyan);
+        box-shadow: var(--glow-cyan);
+        background: rgba(20, 20, 35, 0.95);
+    }
+
+    /* --- SCAN LINES EFFECT (opcional, desactivado por defecto) --- */
+
+    /*
 .scan-lines {
     position: fixed;
     top: 0;
@@ -3402,40 +3405,40 @@ select:focus {
 }
 */
 
-/* --- LOGO GLOW EFFECT --- */
+    /* --- LOGO GLOW EFFECT --- */
 
-.header-logo,
-.logo {
-    filter: drop-shadow(0 0 15px rgba(0, 246, 255, 0.5));
-    transition: filter 0.3s;
-}
-
-.header-logo:hover,
-.logo:hover {
-    filter: drop-shadow(0 0 25px rgba(0, 246, 255, 0.8));
-    animation: logoGlitch 0.3s;
-}
-
-@keyframes logoGlitch {
-
-    0%,
-    100% {
-        transform: translate(0);
+    .header-logo,
+    .logo {
+        filter: drop-shadow(0 0 15px rgba(0, 246, 255, 0.5));
+        transition: filter 0.3s;
     }
 
-    20% {
-        transform: translate(-2px, 2px);
+    .header-logo:hover,
+    .logo:hover {
+        filter: drop-shadow(0 0 25px rgba(0, 246, 255, 0.8));
+        animation: logoGlitch 0.3s;
     }
 
-    40% {
-        transform: translate(-2px, -2px);
-    }
+    @keyframes logoGlitch {
 
-    60% {
-        transform: translate(2px, 2px);
-    }
+        0%,
+        100% {
+            transform: translate(0);
+        }
 
-    80% {
-        transform: translate(2px, -2px);
+        20% {
+            transform: translate(-2px, 2px);
+        }
+
+        40% {
+            transform: translate(-2px, -2px);
+        }
+
+        60% {
+            transform: translate(2px, 2px);
+        }
+
+        80% {
+            transform: translate(2px, -2px);
+        }
     }
-}
