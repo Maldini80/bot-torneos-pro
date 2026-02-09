@@ -2567,21 +2567,18 @@ aside h2 {
 
 .user-role-badge {
     display: none;
-    /* Hidden by default, shown via JS when flex */
+    /* Hidden by default */
     align-items: center;
     gap: 8px;
-    padding: 8px 16px;
+    padding: 6px 12px;
     border-radius: 20px;
     font-family: var(--font-bebas);
-    font-size: 1em;
+    font-size: 0.9em;
     font-weight: bold;
-    /* Positioned BELOW header to avoid overlap */
-    position: absolute;
-    top: 85px;
-    /* Below 70px header */
-    left: 20px;
+    /* Static positioning within flex header-text */
+    margin: 5px auto 0 auto;
+    width: fit-content;
     z-index: 50;
-    /* Below header (100) */
     transition: all 0.3s ease;
 }
 
