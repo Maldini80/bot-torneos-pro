@@ -363,14 +363,14 @@ header p {
 
 /* Banner de torneo finalizado */
 .finished-tournament-banner {
-    background: linear-gradient(135deg, rgba(255, 156, 0, 0.2) 0%, rgba(255, 156, 0, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(0, 246, 255, 0.2) 0%, rgba(0, 246, 255, 0.05) 100%);
     border: 2px solid var(--primary-color);
     border-radius: 10px;
     padding: 30px;
     text-align: center;
     margin: 20px auto;
     max-width: 600px;
-    box-shadow: 0 0 30px rgba(255, 156, 0, 0.3);
+    box-shadow: 0 0 30px rgba(0, 246, 255, 0.3);
 }
 
 .finished-tournament-banner h2 {
@@ -1725,6 +1725,16 @@ aside h2 {
     padding: 15px;
     box-sizing: border-box;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.header-content .header-logo {
+    height: 80px;
+    width: auto;
+    /* Eliminar border naranja */
+    border: none !important;
+    background: transparent;
+    /* Glow cyan neón */
+    filter: drop-shadow(0 0 20px rgba(0, 246, 255, 0.7));
 }
 
 #spin-button {
