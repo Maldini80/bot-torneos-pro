@@ -231,20 +231,36 @@ header::after {
 }
 
 .header-content {
-    display: flex;
+    display: grid;
+    grid-template-columns: 150px 1fr 150px;
+    grid-template-areas: "back main lang";
     align-items: center;
-    justify-content: center;
-    gap: 40px;
-    /* Aumentamos el espacio entre el logo y el texto */
+    gap: 20px;
     max-width: 1400px;
-    /* Un ancho máximo para que no se separe demasiado en pantallas grandes */
     margin: 0 auto;
-    /* Centra el contenido en la página */
     padding: 0 20px;
-    /* Añade un poco de espacio en los bordes */
     box-sizing: border-box;
     position: relative;
-    /* Para posicionar el botón de volver */
+}
+
+.back-btn {
+    grid-area: back;
+    justify-self: start;
+}
+
+.header-text {
+    grid-area: main;
+    text-align: center;
+}
+
+.lang-selector {
+    grid-area: lang;
+    justify-self: end;
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    transform: none !important;
+    z-index: 150;
 }
 
 /* Botón Volver al Dashboard */
