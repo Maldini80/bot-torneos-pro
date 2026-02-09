@@ -263,6 +263,29 @@ header::after {
     z-index: 150;
 }
 
+/* Arreglo móvil - evitar texto vertical */
+@media (max-width: 768px) {
+    .header-content {
+        grid-template-columns: auto 1fr auto;
+        gap: 10px;
+        padding: 0 10px;
+    }
+
+    .header-text h1 {
+        font-size: 1.8em !important;
+        word-break: keep-all;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .header-text p {
+        font-size: 0.75em;
+        display: none;
+        /* Ocultar subtitle en móvil para ahorrar espacio */
+    }
+}
+
 /* Botón Volver al Dashboard */
 .back-btn {
     position: absolute;
