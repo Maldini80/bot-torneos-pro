@@ -423,9 +423,9 @@ header p {
 .finished-tournament-banner h3 {
     font-family: var(--font-bebas);
     font-size: 2em;
-    color: #ffc107;
+    color: var(--neon-cyan);
     margin: 15px 0 0 0;
-    text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+    text-shadow: 0 0 10px rgba(0, 246, 255, 0.6);
 }
 
 .finished-tournament-banner p {
