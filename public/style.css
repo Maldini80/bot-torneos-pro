@@ -272,17 +272,19 @@ header::after {
     }
 
     .header-text h1 {
-        font-size: 1.8em !important;
+        font-size: 1.3em !important;
         word-break: keep-all;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        max-width: 100%;
     }
 
     .header-text p {
-        font-size: 0.75em;
-        display: none;
-        /* Ocultar subtitle en móvil para ahorrar espacio */
+        font-size: 0.7em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }
 
