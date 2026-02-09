@@ -79,17 +79,66 @@
 
 
 body {
-    background-color: var(--background-color);
-    /* Imagen de fondo personalizada */
-    background-image: url('https://i.imgur.com/b6P7Ed3.jpeg');
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
+    /* Background Cyberpunk Radical - SIN imagen antigua */
+    background:
+        /* Gradiente animado vibrante */
+        radial-gradient(ellipse at 20% 30%, rgba(0, 246, 255, 0.25) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(255, 0, 229, 0.25) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(0, 102, 255, 0.15) 0%, transparent 60%),
+        /* Gradiente base oscuro con tonos cyan/magenta */
+        linear-gradient(135deg, #050510 0%, #0a0a1a 25%, #0f051a 50%, #0a0a1a 75%, #050510 100%);
+
+    background-size: 200% 200%, 200% 200%, 300% 300%, 100% 100%;
+    animation: ultraGlow 15s ease infinite;
+
     color: var(--text-color);
     font-family: 'Rajdhani', var(--font-body);
     margin: 0;
     padding: 20px;
-    backdrop-filter: blur(5px) saturate(120%);
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Animación del background vibrante */
+@keyframes ultraGlow {
+
+    0%,
+    100% {
+        background-position: 0% 50%, 100% 50%, 50% 0%;
+    }
+
+    50% {
+        background-position: 100% 50%, 0% 50%, 50% 100%;
+    }
+}
+
+/* Grid cyberpunk permanente VISIBLE */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+        linear-gradient(rgba(0, 246, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 246, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 1;
+    animation: gridPulse 8s ease-in-out infinite;
+}
+
+@keyframes gridPulse {
+
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
 }
 
 .hidden {
@@ -3442,3 +3491,185 @@ aside h2 {
             transform: translate(2px, -2px);
         }
     }
+/* ===========================================
+   PARTÍCULAS HEXAGONALES FLOTANTES VISIBLES
+   =========================================== */
+
+/* Container de partículas */
+.floating-particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    overflow: hidden;
+}
+
+/* Hexágono individual */
+.hex-particle {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: var(--neon-cyan);
+    opacity: 0.15;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    animation: floatHex 20s infinite ease-in-out;
+}
+
+.hex-particle:nth-child(2n) {
+    background: var(--neon-magenta);
+    animation-duration: 25s;
+}
+
+.hex-particle:nth-child(3n) {
+    background: var(--electric-blue);
+    animation-duration: 18s;
+}
+
+@keyframes floatHex {
+    0% {
+        transform: translateY(100vh) rotate(0deg);
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 0.15;
+    }
+
+    90% {
+        opacity: 0.15;
+    }
+
+    100% {
+        transform: translateY(-100px) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Posiciones aleatorias para hexágonos */
+.hex-particle:nth-child(1) {
+    left: 10%;
+    animation-delay: 0s;
+}
+
+.hex-particle:nth-child(2) {
+    left: 20%;
+    animation-delay: 2s;
+}
+
+.hex-particle:nth-child(3) {
+    left: 30%;
+    animation-delay: 4s;
+}
+
+.hex-particle:nth-child(4) {
+    left: 40%;
+    animation-delay: 1s;
+}
+
+.hex-particle:nth-child(5) {
+    left: 50%;
+    animation-delay: 3s;
+}
+
+.hex-particle:nth-child(6) {
+    left: 60%;
+    animation-delay: 5s;
+}
+
+.hex-particle:nth-child(7) {
+    left: 70%;
+    animation-delay: 2.5s;
+}
+
+.hex-particle:nth-child(8) {
+    left: 80%;
+    animation-delay: 4.5s;
+}
+
+.hex-particle:nth-child(9) {
+    left: 90%;
+    animation-delay: 1.5s;
+}
+
+.hex-particle:nth-child(10) {
+    left: 15%;
+    animation-delay: 3.5s;
+}
+
+/* ===========================================
+   COLORES ULTRA SATURADOS - MODO AGRESIVO
+   =========================================== */
+
+/* Títulos cyan brillante SIEMPRE visible */
+h1,
+h2,
+h3 {
+    color: var(--neon-cyan) !important;
+    text-shadow:
+        0 0 10px rgba(0, 246, 255, 0.8),
+        0 0 20px rgba(0, 246, 255, 0.6),
+        0 0 30px rgba(0, 246, 255, 0.4) !important;
+}
+
+/* Stats y números en amarillo neón */
+.stat-value,
+.score,
+.points {
+    color: var(--neon-yellow) !important;
+    text-shadow: 0 0 10px rgba(255, 235, 0, 0.7);
+    font-weight: 700;
+}
+
+/* Borders neón permanentes en cards */
+.event-card,
+.team-card,
+.tournament-card {
+    border: 2px solid rgba(0, 246, 255, 0.6) !important;
+    box-shadow:
+        0 0 20px rgba(0, 246, 255, 0.3),
+        inset 0 0 20px rgba(0, 246, 255, 0.05) !important;
+}
+
+/* Separadores con glow */
+hr {
+    border: none;
+    height: 2px;
+    background: var(--gradient-primary);
+    box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+/* Scrollbar neón */
+::-webkit-scrollbar-thumb {
+    background: var(--gradient-primary);
+    box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+/* ===========================================
+   EFECTOS PERMANENTES VISIBLES (NO HOVER)
+   =========================================== */
+
+/* Logo con glow permanente */
+.header-logo,
+.logo {
+    filter: drop-shadow(0 0 20px rgba(0, 246, 255, 0.7)) !important;
+}
+
+/* Botones con glow permanente sutil */
+button:not(:disabled),
+.btn {
+    box-shadow: 0 0 10px rgba(0, 246, 255, 0.2);
+}
+
+/* Inputs con borde neón permanente */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+textarea,
+select {
+    border: 2px solid rgba(0, 246, 255, 0.4) !important;
+    box-shadow: 0 0 5px rgba(0, 246, 255, 0.2);
+}
