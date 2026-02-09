@@ -1,15 +1,50 @@
 /* --- INICIO DEL ARCHIVO style.css (VERSIÓN FINAL CORREGIDA PARA MÓVILES) --- */
 
+/* --- THE BLITZ - NEON STORM THEME --- */
+
 :root {
-    --primary-color: #ff9c00;
-    --background-color: #141414;
-    --surface-color: rgba(10, 10, 10, 0.85);
-    --text-color: #f1f1f1;
-    --border-color: rgba(255, 156, 0, 0.3);
-    --winner-color: #ffc107;
-    --glow-color: rgba(255, 156, 0, 0.7);
+    /* Primarios Neón */
+    --neon-cyan: #00f6ff;
+    --neon-magenta: #ff00e5;
+    --neon-yellow: #ffeb00;
+    --electric-blue: #0066ff;
+
+    /* Compatibilidad (mantener nombres antiguos) */
+    --primary-color: var(--neon-cyan);
+    --winner-color: var(--neon-yellow);
+
+    /* Backgrounds */
+    --background-color: #080808;
+    --bg-deep: #080808;
+    --surface-color: rgba(15, 15, 25, 0.85);
+    --bg-surface: rgba(15, 15, 25, 0.85);
+    --bg-card: rgba(20, 20, 35, 0.90);
+
+    /* Texto */
+    --text-color: #ffffff;
+    --text-light: #ffffff;
+    --text-secondary: #b8b8c8;
+    --text-accent: var(--neon-cyan);
+
+    /* Bordes */
+    --border-color: rgba(0, 246, 255, 0.3);
+
+    /* Gradientes */
+    --gradient-primary: linear-gradient(135deg, #00f6ff 0%, #0066ff 100%);
+    --gradient-accent: linear-gradient(135deg, #ff00e5 0%, #ff0080 100%);
+    --gradient-gold: linear-gradient(135deg, #ffeb00 0%, #ff9500 100%);
+
+    /* Efectos Glow */
+    --glow-color: rgba(0, 246, 255, 0.7);
+    --glow-cyan: 0 0 20px rgba(0, 246, 255, 0.6), 0 0 40px rgba(0, 246, 255, 0.3);
+    --glow-magenta: 0 0 20px rgba(255, 0, 229, 0.6), 0 0 40px rgba(255, 0, 229, 0.3);
+    --glow-multi: 0 0 30px rgba(0, 246, 255, 0.4), 0 0 60px rgba(255, 0, 229, 0.3);
+
+    /* Tipografía */
     --font-bebas: 'Bebas Neue', sans-serif;
     --font-roboto: 'Roboto', sans-serif;
+    --font-heading: 'Exo 2', 'Bebas Neue', sans-serif;
+    --font-body: 'Rajdhani', 'Roboto', sans-serif;
 }
 
 @keyframes neon-glow {
@@ -51,7 +86,7 @@ body {
     background-position: center;
     background-attachment: fixed;
     color: var(--text-color);
-    font-family: var(--font-roboto);
+    font-family: 'Rajdhani', var(--font-body);
     margin: 0;
     padding: 20px;
     backdrop-filter: blur(5px) saturate(120%);
@@ -73,25 +108,75 @@ body:not(.draft-view-style) #app-container {
     display: flex;
 }
 
+
 header {
     text-align: center;
-    padding: 10px 0 15px 0;
-    border-bottom: 2px solid var(--primary-color);
-    /* --- ¡CAMBIO REALIZADO AQUÍ! --- */
-    background:
-        linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
-        /* Capa oscura para legibilidad */
-        url('https://i.imgur.com/Fj4iFjP.png');
-    /* Tu imagen de fondo */
-    background-size: cover;
-    /* Asegura que la imagen cubra todo el espacio */
-    background-position: center;
-    /* Centra la imagen */
-
-    margin-bottom: 20px;
+    padding: 15px 0 20px 0;
     position: relative;
-    animation: neon-glow 1.5s infinite alternate;
+    margin-bottom: 20px;
     flex-shrink: 0;
+
+    /* Glassmorphism Background */
+    background: linear-gradient(to bottom,
+            rgba(0, 0, 0, 0.85) 0%,
+            rgba(15, 15, 25, 0.75) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+
+    /* Border Neón Gradiente Animado */
+    border-bottom: 3px solid transparent;
+    border-image: linear-gradient(90deg,
+            transparent 0%,
+            var(--neon-cyan) 25%,
+            var(--neon-magenta) 50%,
+            var(--neon-cyan) 75%,
+            transparent 100%);
+    border-image-slice: 1;
+    animation: borderFlow 8s linear infinite;
+}
+
+@keyframes borderFlow {
+    0% {
+        border-image: linear-gradient(90deg,
+                transparent 0%,
+                var(--neon-cyan) 25%,
+                var(--neon-magenta) 50%,
+                var(--neon-cyan) 75%,
+                transparent 100%);
+        border-image-slice: 1;
+    }
+
+    50% {
+        border-image: linear-gradient(90deg,
+                transparent 0%,
+                var(--neon-magenta) 25%,
+                var(--neon-cyan) 50%,
+                var(--neon-magenta) 75%,
+                transparent 100%);
+        border-image-slice: 1;
+    }
+
+    100% {
+        border-image: linear-gradient(90deg,
+                transparent 0%,
+                var(--neon-cyan) 25%,
+                var(--neon-magenta) 50%,
+                var(--neon-cyan) 75%,
+                transparent 100%);
+        border-image-slice: 1;
+    }
+}
+
+/* Glow Effect debajo del border */
+header::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+    filter: blur(8px);
+    opacity: 0.6;
 }
 
 .header-content {
@@ -183,18 +268,44 @@ header {
 }
 
 header h1 {
-    font-family: var(--font-bebas);
-    font-size: 2.8em;
-    color: var(--primary-color);
+    font-family: 'Exo 2', var(--font-heading);
+    font-size: 3.2em;
+    font-weight: 900;
+    color: var(--neon-cyan);
     margin: 0;
     text-transform: uppercase;
+    letter-spacing: 4px;
+    text-shadow:
+        0 0 10px rgba(0, 246, 255, 0.8),
+        0 0 20px rgba(0, 246, 255, 0.6),
+        0 0 30px rgba(0, 246, 255, 0.4),
+        0 0 40px rgba(0, 246, 255, 0.2);
+    animation: textGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes textGlow {
+    0% {
+        text-shadow:
+            0 0 10px rgba(0, 246, 255, 0.8),
+            0 0 20px rgba(0, 246, 255, 0.6),
+            0 0 30px rgba(0, 246, 255, 0.4);
+    }
+
+    100% {
+        text-shadow:
+            0 0 20px rgba(0, 246, 255, 1),
+            0 0 30px rgba(0, 246, 255, 0.8),
+            0 0 40px rgba(0, 246, 255, 0.6),
+            0 0 50px rgba(0, 246, 255, 0.4);
+    }
 }
 
 header p {
     font-size: 1.1em;
-    color: #c5c5c5;
-    /* Mejorado de #aaa - WCAG AA */
+    font-family: 'Rajdhani', var(--font-body);
+    color: var(--text-secondary);
     margin: 5px 0 0 0;
+    letter-spacing: 1px;
 }
 
 /* Banner de torneo finalizado */
