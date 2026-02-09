@@ -2642,12 +2642,13 @@ aside h2 {
 }
 
 /* Mobile responsive */
+/* Mobile responsive */
 @media (max-width: 768px) {
     .user-role-badge {
-        top: 70px;
-        left: 10px;
-        font-size: 0.75em;
-        padding: 6px 12px;
+        font-size: 0.8em;
+        padding: 4px 10px;
+        margin: 5px auto 10px auto;
+        /* Separación vertical */
     }
 
     .role-icon {
