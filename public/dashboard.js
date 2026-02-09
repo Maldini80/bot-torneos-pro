@@ -21,7 +21,8 @@ const translations = {
             view: 'Ver',
             loading: 'Cargando eventos...',
             error: 'Error al cargar eventos',
-            noResults: 'No se encontraron eventos'
+            noResults: 'No se encontraron eventos',
+            searchPlaceholder: 'Buscar por nombre...'
         },
         status: {
             active: 'En curso', pending: 'Pendiente', completed: 'Finalizado',
@@ -93,6 +94,7 @@ const translations = {
             title: 'Verificar Cuenta',
             platform: 'Plataforma',
             playerId: 'ID de Jugador',
+            idPlaceholder: 'Ej: User123',
             submit: 'Verificar',
             submitting: 'Verificando...',
             success: '¡Verificación exitosa!',
@@ -143,7 +145,14 @@ const translations = {
             confirmKick: '¿Seguro que quieres expulsar a este jugador?',
             member: 'Miembro',
             notVerifiedBadge: 'No verificado',
-            loading: 'Cargando plantilla...'
+            loading: 'Cargando plantilla...',
+            coCaptainPlaceholder: 'ID de Discord o Usuario'
+        },
+        matchReport: {
+            title: 'Reportar Resultado',
+            submit: 'Enviar Reporte',
+            success: 'Resultado enviado correctamente',
+            error: 'Error al enviar el resultado'
         },
         common: {
             close: 'Cerrar', back: 'Volver', next: 'Siguiente', previous: 'Anterior',
@@ -154,6 +163,8 @@ const translations = {
         messages: {
             noData: 'No hay datos disponibles',
             loadingError: 'Error al cargar los datos',
+            connectionError: 'Error de conexión',
+            unknownUser: 'Usuario Desconocido',
             connectionLost: 'Conexión perdida. Reintentando...',
             reconnected: 'Conexión restablecida'
         }
@@ -177,7 +188,8 @@ const translations = {
             view: 'View',
             loading: 'Loading events...',
             error: 'Error loading events',
-            noResults: 'No events found'
+            noResults: 'No events found',
+            searchPlaceholder: 'Search by name...'
         },
         status: {
             active: 'In progress', pending: 'Pending', completed: 'Completed',
@@ -249,6 +261,7 @@ const translations = {
             title: 'Verify Account',
             platform: 'Platform',
             playerId: 'Player ID',
+            idPlaceholder: 'Ex: User123',
             submit: 'Verify',
             submitting: 'Verifying...',
             success: 'Verification successful!',
@@ -299,7 +312,14 @@ const translations = {
             confirmKick: 'Are you sure you want to kick this player?',
             member: 'Member',
             notVerifiedBadge: 'Not verified',
-            loading: 'Loading roster...'
+            loading: 'Loading roster...',
+            coCaptainPlaceholder: 'Discord ID or Username'
+        },
+        matchReport: {
+            title: 'Report Match Result',
+            submit: 'Submit Report',
+            success: 'Result submitted successfully',
+            error: 'Error submitting result'
         },
         common: {
             close: 'Close', back: 'Back', next: 'Next', previous: 'Previous',
@@ -310,6 +330,8 @@ const translations = {
         messages: {
             noData: 'No data available',
             loadingError: 'Error loading data',
+            connectionError: 'Connection error',
+            unknownUser: 'Unknown User',
             connectionLost: 'Connection lost. Retrying...',
             reconnected: 'Connection restored'
         }
@@ -459,15 +481,15 @@ class DashboardApp {
                     });
 
                     if (res.ok) {
-                        alert('¡Cuenta verificada con éxito!');
+                        alert(this.t('verification.success'));
                         window.location.reload();
                     } else {
                         const err = await res.json();
-                        alert('Error: ' + (err.error || 'Error desconocido'));
+                        alert(this.t('verification.error') + ': ' + (err.error || ''));
                         if (submitBtn) submitBtn.disabled = false;
                     }
                 } catch (e) {
-                    alert('Error de conexión');
+                    alert(this.t('messages.connectionError'));
                     if (submitBtn) submitBtn.disabled = false;
                 }
             };
@@ -538,7 +560,7 @@ class DashboardApp {
     async loadMyTeams() {
         const container = document.getElementById('my-teams-container');
         const createBtn = document.getElementById('create-team-btn');
-        container.innerHTML = '<div class="loader-spinner"></div>';
+        container.innerHTML = this.generateSkeletonTeamCards(2);
 
         try {
             const response = await fetch('/api/user/teams');
@@ -773,7 +795,7 @@ class DashboardApp {
 
         modal.classList.remove('hidden');
         title.textContent = teamName;
-        rosterList.innerHTML = '<div class="loader-spinner"></div>';
+        rosterList.innerHTML = this.generateSkeletonTableRows(5);
         inviteMsg.classList.add('hidden');
         inviteMsg.textContent = '';
 
@@ -895,6 +917,25 @@ class DashboardApp {
             modal.classList.add('hidden');
             this.currentManagingTeamId = null;
         };
+    }
+
+    // ===== SKELETON LOADER HELPERS =====
+    generateSkeletonEventCards(count = 3) {
+        return Array(count).fill(0).map(() => `
+            <div class="event-card skeleton-event-card skeleton"></div>
+        `).join('');
+    }
+
+    generateSkeletonTableRows(count = 5) {
+        return Array(count).fill(0).map(() => `
+            <div class="skeleton-table-row skeleton"></div>
+        `).join('');
+    }
+
+    generateSkeletonTeamCards(count = 3) {
+        return Array(count).fill(0).map(() => `
+            <div class="team-card skeleton-team-card skeleton"></div>
+        `).join('');
     }
 
     async loadRoster(teamId) {

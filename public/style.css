@@ -149,7 +149,8 @@ header {
 .lang-btn {
     background-color: rgba(255, 156, 0, 0.15);
     border: 2px solid rgba(255, 156, 0, 0.4);
-    color: #aaa;
+    color: #c5c5c5;
+    /* Mejorado de #aaa - WCAG AA */
     padding: 6px 12px;
     border-radius: 5px;
     cursor: pointer;
@@ -191,7 +192,8 @@ header h1 {
 
 header p {
     font-size: 1.1em;
-    color: #aaa;
+    color: #c5c5c5;
+    /* Mejorado de #aaa - WCAG AA */
     margin: 5px 0 0 0;
 }
 
@@ -572,7 +574,8 @@ aside h2 {
 
 .stat-label {
     font-size: 0.8em;
-    color: #888;
+    color: #a8a8a8;
+    /* Mejorado de #888 - WCAG AA */
     text-transform: uppercase;
 }
 
@@ -726,7 +729,8 @@ aside h2 {
 }
 
 .team-meta span {
-    color: #aaa;
+    color: #c5c5c5;
+    /* Mejorado de #aaa - WCAG AA */
     margin-right: 20px;
 }
 
@@ -2863,4 +2867,106 @@ aside h2 {
         .home-link {
             padding: 8px 12px;
         }
+    }
+
+    /* ========================================
+   SKELETON LOADERS - UX Improvements
+   ======================================== */
+
+    /* Animación de shimmer para efecto de carga */
+    @keyframes shimmer {
+        0% {
+            background-position: -1000px 0;
+        }
+
+        100% {
+            background-position: 1000px 0;
+        }
+    }
+
+    /* Base skeleton con gradiente animado */
+    .skeleton {
+        background: linear-gradient(90deg,
+                rgba(255, 255, 255, 0.05) 0%,
+                rgba(255, 255, 255, 0.1) 50%,
+                rgba(255, 255, 255, 0.05) 100%);
+        background-size: 1000px 100%;
+        animation: shimmer 2s infinite;
+        border-radius: 4px;
+        pointer-events: none;
+    }
+
+    /* Skeleton para cards de eventos */
+    .skeleton-event-card {
+        height: 200px;
+        width: 100%;
+        margin-bottom: 20px;
+        border-radius: 12px;
+    }
+
+    /* Skeleton para filas de tabla */
+    .skeleton-table-row {
+        height: 50px;
+        width: 100%;
+        margin-bottom: 10px;
+        border-radius: 6px;
+    }
+
+    /* Skeleton para cards de equipos */
+    .skeleton-team-card {
+        height: 120px;
+        width: 100%;
+        margin-bottom: 15px;
+        border-radius: 8px;
+    }
+
+    /* Skeleton para avatares circulares */
+    .skeleton-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+    }
+
+    /* Skeleton para líneas de texto */
+    .skeleton-text {
+        height: 16px;
+        width: 100%;
+        margin-bottom: 8px;
+        border-radius: 3px;
+    }
+
+    .skeleton-text.short {
+        width: 60%;
+    }
+
+    .skeleton-text.medium {
+        width: 80%;
+    }
+
+    /* Container para agrupar skeletons */
+    .skeleton-container {
+        padding: 20px;
+    }
+
+    /* ========================================
+   MEJORAS DE CONTRASTE WCAG 2.1 AA
+   ======================================== */
+
+    /* Placeholder universal con contraste mejorado */
+    ::placeholder {
+        color: #a8a8a8;
+        /* Ratio 5.1:1 - Cumple WCAG AA */
+        opacity: 1;
+    }
+
+    ::-webkit-input-placeholder {
+        color: #a8a8a8;
+    }
+
+    ::-moz-placeholder {
+        color: #a8a8a8;
+    }
+
+    :-ms-input-placeholder {
+        color: #a8a8a8;
     }
