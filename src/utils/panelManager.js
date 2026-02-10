@@ -9,7 +9,7 @@ async function fetchGlobalCreationPanel(client) {
     try {
         const channel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT);
         if (!channel) return null;
-        
+
         const messages = await channel.messages.fetch({ limit: 50 });
         const panel = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Panel de Creación'));
         return panel;
@@ -43,7 +43,17 @@ export async function updateTournamentManagementThread(client, tournament, busyS
         if (!latestTournamentState) return;
         if (panelMessage) {
             const panelContent = createTournamentManagementPanel(latestTournamentState, busyState);
-            await panelMessage.edit(panelContent);
+            try {
+                await panelMessage.edit(panelContent);
+            } catch (error) {
+                // Handle Discord's embed size limit (6000 characters)
+                if (error.code === 50035 && error.message && error.message.includes('MAX_EMBED_SIZE')) {
+                    console.error(`[EMBED SIZE] ⚠️ El panel de gestión del torneo "${latestTournamentState.nombre}" (ID: ${latestTournamentState.shortId}) excede el límite de 6000 caracteres de Discord. El panel no puede actualizarse hasta que el torneo tenga menos equipos o se simplifique el embed.`);
+                } else {
+                    // Re-throw other errors to maintain existing error handling
+                    throw error;
+                }
+            }
         }
     } catch (e) {
         if (e.code !== 10003 && e.code !== 10008) {
