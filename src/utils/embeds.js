@@ -926,7 +926,12 @@ export function createCalendarEmbed(tournament) {
 
             const roundNumbers = Object.keys(partidosPorJornada).sort((a, b) => a - b);
 
-            for (const jornadaNum of roundNumbers) {
+            // Limitar a las primeras 5 jornadas para evitar exceder el límite de 6000 caracteres
+            const MAX_ROUNDS_TO_SHOW = 5;
+            const roundsToShow = roundNumbers.slice(0, MAX_ROUNDS_TO_SHOW);
+            const hiddenRoundsCount = roundNumbers.length - roundsToShow.length;
+
+            for (const jornadaNum of roundsToShow) {
                 let roundText = `Jornada / Round ${jornadaNum}\n`; // Backticks aqui
 
                 for (const partido of partidosPorJornada[jornadaNum]) {
@@ -954,7 +959,12 @@ export function createCalendarEmbed(tournament) {
                 }
             }
 
-            // 4. Añadimos lo que quede en el buffer al final del bucle
+            // 4. Añadimos indicador de jornadas ocultas si hay
+            if (hiddenRoundsCount > 0) {
+                currentFieldText += `\n... y ${hiddenRoundsCount} jornadas más.\n🌐 Ver calendario completo: https://theblitzvpg.com/visualizer\n`;
+            }
+
+            // 5. Añadimos lo que quede en el buffer al final del bucle
             if (currentFieldText.length > 0) {
                 embed.addFields({
                     name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`, // Backticks aqui
