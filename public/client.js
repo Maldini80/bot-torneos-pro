@@ -311,7 +311,12 @@ function initializeTournamentView(tournamentId) {
         }).catch(err => console.warn('No se pudieron cargar datos iniciales, esperando WebSocket.'));
 
     // NUEVO: Detectar rol del usuario en este evento
-    checkUserRoleInEvent(tournamentId);
+    checkUserRoleInEvent(tournamentId).then(() => {
+        // Re-render My Matches after role is detected
+        if (currentTournamentState && userRoleData && userRoleData.teamId) {
+            renderMyMatches(currentTournamentState);
+        }
+    });
 
     viewButtons.forEach(button => {
         button.addEventListener('click', () => {
