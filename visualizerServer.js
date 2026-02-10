@@ -1633,6 +1633,7 @@ export async function startVisualizerServer(discordClient) {
                 } catch (e) { }
             }
 
+            console.log(`[DEBUG /api/my-role-in-event] User ${userId} | Event ${eventId} | Role: ${role} | Team: ${teamName}`);
             res.json({ authenticated: true, role, teamName, teamId });
 
         } catch (e) {

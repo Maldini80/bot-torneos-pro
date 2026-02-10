@@ -192,6 +192,8 @@ async function checkUserRoleInEvent(eventId) {
         const roleData = await response.json();
         userRoleData = roleData; // Store globally
 
+        console.log('[DEBUG checkUserRoleInEvent]', roleData);
+
         if (roleData.authenticated && roleData.role !== 'visitor') {
             displayRoleBadge(roleData);
 
