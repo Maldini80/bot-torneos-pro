@@ -816,17 +816,17 @@ class DashboardApp {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(async () => {
                 try {
-                    const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
-                    const users = await res.json();
+                    const res = await fetch(`/api/search-verified-users?q=${encodeURIComponent(query)}`);
+                    const data = await res.json();
 
                     const datalist = document.getElementById('users-list');
                     datalist.innerHTML = '';
 
-                    users.forEach(user => {
+                    data.results.forEach(user => {
                         const option = document.createElement('option');
                         option.value = user.discordId; // El valor que se enviará es el ID
-                        // Texto visible en algunos navegadores: "Username (Platform: ID)"
-                        option.label = `${user.username} (${user.platform || 'Discord'}: ${user.psnId || '?'})`;
+                        // Texto visible en algunos navegadores: "Username (ID)"
+                        option.label = `${user.username} (ID: ${user.discordId})`;
                         datalist.appendChild(option);
                     });
                 } catch (err) {
@@ -853,16 +853,16 @@ class DashboardApp {
                 clearTimeout(debounceTimerCC);
                 debounceTimerCC = setTimeout(async () => {
                     try {
-                        const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
-                        const users = await res.json();
+                        const res = await fetch(`/api/search-verified-users?q=${encodeURIComponent(query)}`);
+                        const data = await res.json();
 
                         const datalist = document.getElementById('cocaptain-users-list');
                         datalist.innerHTML = '';
 
-                        users.forEach(user => {
+                        data.results.forEach(user => {
                             const option = document.createElement('option');
                             option.value = user.discordId;
-                            option.label = `${user.username} (${user.platform || 'Discord'}: ${user.psnId || '?'})`;
+                            option.label = `${user.username} (ID: ${user.discordId})`;
                             datalist.appendChild(option);
                         });
                     } catch (err) {

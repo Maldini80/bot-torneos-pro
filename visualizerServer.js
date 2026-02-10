@@ -1678,6 +1678,37 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    //  NEW: Search verified users endpoint for autocomplete
+    app.get('/api/search-verified-users', async (req, res) => {
+        try {
+            const query = req.query.q || '';
+            if (query.length < 2) return res.json({ results: [] });
+
+            const db = getDb();
+            // Search by username or exact discord ID
+            const users = await db.collection('verified_users')
+                .find({
+                    $or: [
+                        { username: { $regex: query, $options: 'i' } },
+                        { discordId: query }
+                    ]
+                })
+                .limit(10)
+                .toArray();
+
+            res.json({
+                results: users.map(u => ({
+                    discordId: u.discordId,
+                    username: u.username || 'Unknown',
+                    avatar: u.avatar || ''
+                }))
+            });
+        } catch (e) {
+            console.error('[API Search Users Error]:', e);
+            res.status(500).json({ error: 'Error en búsqueda' });
+        }
+    });
+
     // --- MIDDLEWARE ADMIN ---
     async function isAdmin(req, res, next) {
         if (!req.user) return res.status(401).send({ error: 'No autenticado' });
