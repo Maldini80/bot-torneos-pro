@@ -1678,33 +1678,47 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    //  NEW: Search verified users endpoint for autocomplete
+    //  Search Discord server members in real-time
     app.get('/api/search-verified-users', async (req, res) => {
         try {
             const query = req.query.q || '';
             if (query.length < 2) return res.json({ results: [] });
 
-            const db = getDb();
-            // Search by username or exact discord ID
-            const users = await db.collection('verified_users')
-                .find({
-                    $or: [
-                        { username: { $regex: query, $options: 'i' } },
-                        { discordId: query }
-                    ]
-                })
-                .limit(10)
-                .toArray();
+            // Fetch guild and search members
+            const guild = await client.guilds.fetch(process.env.GUILD_ID);
+            await guild.members.fetch(); // Fetch all members to ensure cache is up to date
 
-            res.json({
-                results: users.map(u => ({
-                    discordId: u.discordId,
-                    username: u.username || 'Unknown',
-                    avatar: u.avatar || ''
-                }))
+            const lowerQuery = query.toLowerCase();
+            const matches = [];
+
+            // Search by username, global_name, or exact ID
+            guild.members.cache.forEach(member => {
+                const user = member.user;
+                const username = user.username.toLowerCase();
+                const globalName = (user.globalName || '').toLowerCase();
+                const displayName = (member.nickname || '').toLowerCase();
+
+                // Match by ID (exact) or partial username/displayname
+                if (
+                    user.id === query ||
+                    username.includes(lowerQuery) ||
+                    globalName.includes(lowerQuery) ||
+                    displayName.includes(lowerQuery)
+                ) {
+                    matches.push({
+                        discordId: user.id,
+                        username: user.globalName || user.username,
+                        avatar: user.displayAvatarURL({ size: 32 })
+                    });
+                }
+
+                // Limit to 10 results
+                if (matches.length >= 10) return;
             });
+
+            res.json({ results: matches.slice(0, 10) });
         } catch (e) {
-            console.error('[API Search Users Error]:', e);
+            console.error('[API Search Discord Members Error]:', e);
             res.status(500).json({ error: 'Error en búsqueda' });
         }
     });
