@@ -197,8 +197,8 @@ async function checkUserRoleInEvent(eventId) {
         if (roleData.authenticated && roleData.role !== 'visitor') {
             displayRoleBadge(roleData);
 
-            // Show 'My Matches' tab if user is captain/co-captain/manager/admin
-            if (['captain', 'coCaptain', 'manager', 'admin'].includes(roleData.role)) {
+            // Show 'My Matches' tab if user is captain/co-captain/manager/admin/extraCaptain
+            if (['captain', 'coCaptain', 'manager', 'admin', 'extraCaptain'].includes(roleData.role)) {
                 const myMatchesBtn = document.getElementById('my-matches-btn');
                 if (myMatchesBtn) myMatchesBtn.style.display = 'inline-block';
             }
