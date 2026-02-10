@@ -1859,6 +1859,55 @@ export async function handleSelectMenu(interaction) {
         });
         return;
     }
+
+    // NUEVO: Paso intermedio para seleccionar partidos del equipo elegido
+    if (action === 'admin_reopen_select_team') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const selectedTeamId = interaction.values[0];
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        // Filtrar partidos finalizados donde participa este equipo
+        const allMatches = [
+            ...Object.values(tournament.structure.calendario || {}).flat(),
+            ...Object.values(tournament.structure.eliminatorias || {}).flat()
+        ];
+
+        const teamCompletedMatches = allMatches.filter(match =>
+            match &&
+            match.status === 'finalizado' &&
+            (match.equipoA.id === selectedTeamId || match.equipoB.id === selectedTeamId)
+        );
+
+        if (teamCompletedMatches.length === 0) {
+            return interaction.editReply({
+                content: 'Este equipo no tiene partidos finalizados que reabrir.',
+                components: []
+            });
+        }
+
+        const matchOptions = teamCompletedMatches.map(match => {
+            const stage = match.nombreGrupo ? `${match.nombreGrupo} - J${match.jornada}` : match.jornada;
+            return {
+                label: `${stage}: ${match.equipoA.nombre} vs ${match.equipoB.nombre}`,
+                description: `Resultado: ${match.resultado}`,
+                value: match.matchId,
+            };
+        }).slice(0, 25);
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_reopen_match_select:${tournamentShortId}`)
+            .setPlaceholder('Paso 2: Selecciona el partido')
+            .addOptions(matchOptions);
+
+        await interaction.editReply({
+            content: `Selecciona el partido que deseas reabrir (${teamCompletedMatches.length} partidos finalizados encontrados):`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
     // Bloque 1: Lógica para Reabrir Partido
     if (action === 'admin_reopen_match_select') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });

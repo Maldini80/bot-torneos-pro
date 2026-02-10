@@ -3014,6 +3014,33 @@ export async function handleButton(interaction) {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
 
+        // --- MEJORA: Para "Reabrir", mostramos primero los equipos ---
+        if (action === 'admin_reopen_match_start') {
+            const approvedTeams = Object.values(tournament.teams.aprobados);
+
+            if (approvedTeams.length === 0) {
+                return interaction.editReply({ content: 'No hay equipos aprobados en este torneo.' });
+            }
+
+            const teamOptions = approvedTeams.map(team => ({
+                label: team.nombre,
+                description: `Capitán: ${team.capitanTag}`,
+                value: team.id
+            })).slice(0, 25);
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_reopen_select_team:${tournamentShortId}`)
+                .setPlaceholder('Paso 1: Selecciona el equipo')
+                .addOptions(teamOptions);
+
+            await interaction.editReply({
+                content: 'Selecciona el equipo cuyo partido quieres reabrir:',
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+            return;
+        }
+
+        // --- Para "Modificar Resultado", mantenemos el flujo antiguo (por ahora) ---
         const allMatches = [
             ...Object.values(tournament.structure.calendario || {}).flat(),
             ...Object.values(tournament.structure.eliminatorias || {}).flat()
@@ -3035,19 +3062,14 @@ export async function handleButton(interaction) {
             };
         }).slice(0, 25); // Discord solo permite 25 opciones por menú
 
-        // Definimos un ID diferente para cada acción
-        const selectMenuId = action === 'admin_reopen_match_start'
-            ? `admin_reopen_match_select:${tournamentShortId}`
-            : `admin_modify_final_result_select:${tournamentShortId}`;
+        const selectMenuId = `admin_modify_final_result_select:${tournamentShortId}`;
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(selectMenuId)
             .setPlaceholder('Selecciona el partido que quieres gestionar...')
             .addOptions(matchOptions);
 
-        let content = action === 'admin_reopen_match_start'
-            ? 'Selecciona el partido que deseas reabrir. Esto revertirá sus estadísticas y creará un nuevo hilo.'
-            : 'Selecciona el partido cuyo resultado final deseas modificar directamente.';
+        let content = 'Selecciona el partido cuyo resultado final deseas modificar directamente.';
 
         if (completedMatches.length > 25) {
             content += '\n\n⚠️ **Atención:** Solo se muestran los primeros 25 partidos finalizados.';
