@@ -1607,7 +1607,7 @@ export async function startVisualizerServer(discordClient) {
 
             if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
-            const userId = req.user.discordId;
+            const userId = req.user.id;
             let role = 'visitor';
             let teamName = null;
             let teamId = null;
