@@ -3290,32 +3290,36 @@ export async function handleButton(interaction) {
     // Handler para el botón de "Reparar Hilos Perdidos"
     if (action === 'admin_recover_threads') {
         const [tournamentShortId] = params;
-
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         try {
-            const { recoverLostThreads } = await import('../logic/tournamentLogic.js');
-            const summary = await recoverLostThreads(client, guild, tournamentShortId);
-
-            if (summary.recovered === 0 && summary.failed === 0) {
-                await interaction.editReply({ content: '✅ No se detectaron hilos perdidos. Todos los partidos tienen sus hilos.' });
-            } else {
-                let message = `✅ **Proceso de Reparación Completado**\n\n`;
-                message += `🟢 Hilos recuperados: **${summary.recovered}**\n`;
-                message += `🔴 Fallos: **${summary.failed}**`;
-
-                if (summary.errors) {
-                    message += `\n\n⚠️ **Errores:**\n`;
-                    summary.errors.slice(0, 5).forEach(err => {
-                        message += `- ${err}\n`;
-                    });
-                    if (summary.errors.length > 5) {
-                        message += `... y ${summary.errors.length - 5} más.`;
-                    }
-                }
-
-                await interaction.editReply({ content: message });
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) {
+                return interaction.editReply({ content: '❌ No se encontró el torneo.' });
             }
+
+            const approvedTeams = Object.values(tournament.teams.aprobados);
+            if (approvedTeams.length === 0) {
+                return interaction.editReply({ content: '❌ No hay equipos aprobados en este torneo.' });
+            }
+
+            // Crear menú de selección de equipos
+            const teamOptions = approvedTeams.map(team => ({
+                label: team.nombre,
+                description: `Capitán: ${team.capitanTag}`,
+                value: team.id,
+                emoji: '🛡️'
+            }));
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_select_team_for_thread_repair:${tournamentShortId}`)
+                .setPlaceholder('Selecciona el equipo para revisar sus hilos')
+                .addOptions(teamOptions);
+
+            await interaction.editReply({
+                content: '🔧 **Reparación Selectiva de Hilos**\n\nSelecciona el equipo cuyos partidos quieres revisar:',
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
         } catch (error) {
             console.error('[RECOVER ERROR]', error);
             await interaction.editReply({ content: `❌ Error durante la recuperación: ${error.message}` });

@@ -103,6 +103,144 @@ export async function handleSelectMenu(interaction) {
         });
         return;
     }
+
+    // =======================================================
+    // --- REPARACIÓN SELECTIVA DE HILOS ---
+    // =======================================================
+
+    if (action === 'admin_select_team_for_thread_repair') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const teamId = interaction.values[0];
+
+        try {
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) {
+                return interaction.editReply({ content: '❌ No se encontró el torneo.', components: [] });
+            }
+
+            const team = tournament.teams.aprobados[teamId];
+            if (!team) {
+                return interaction.editReply({ content: '❌ No se encontró el equipo.', components: [] });
+            }
+
+            // Buscar todos los partidos del equipo en estructura.calendario
+            const matchesNeedingRepair = [];
+
+            if (tournament.structure.calendario) {
+                for (const [groupName, matches] of Object.entries(tournament.structure.calendario)) {
+                    for (const match of matches) {
+                        // Verificar que el partido pertenece al equipo
+                        if (match.equipoA.id !== teamId && match.equipoB.id !== teamId) continue;
+
+                        // Saltar partidos finalizados o BYE
+                        if (match.status === 'finalizado' || match.equipoB?.id === 'ghost') continue;
+
+                        let needsRepair = false;
+                        let repairReason = '';
+
+                        if (!match.threadId) {
+                            // Caso 1: No tiene threadId en DB
+                            needsRepair = true;
+                            repairReason = 'SIN HILO';
+                        } else {
+                            // Caso 2: Tiene threadId, verificar si existe en Discord
+                            try {
+                                await client.channels.fetch(match.threadId);
+                                // Si llegamos aquí, el hilo existe, no necesita reparación
+                            } catch (error) {
+                                // El hilo no existe en Discord
+                                needsRepair = true;
+                                repairReason = 'HILO PERDIDO';
+                            }
+                        }
+
+                        if (needsRepair) {
+                            const rivalName = match.equipoA.id === teamId ? match.equipoB.nombre : match.equipoA.nombre;
+                            matchesNeedingRepair.push({
+                                matchId: match.matchId,
+                                groupName,
+                                rivalName,
+                                jornada: match.jornada,
+                                reason: repairReason
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (matchesNeedingRepair.length === 0) {
+                return interaction.editReply({
+                    content: `✅ Todos los partidos de **${team.nombre}** tienen hilos válidos. No hay nada que reparar.`,
+                    components: []
+                });
+            }
+
+            // Ordenar por jornada
+            matchesNeedingRepair.sort((a, b) => a.jornada - b.jornada);
+
+            // Limitar a 25 (límite de Discord)
+            const matchesToShow = matchesNeedingRepair.slice(0, 25);
+
+            const matchOptions = matchesToShow.map(m => ({
+                label: `${m.groupName} - vs ${m.rivalName} - J${m.jornada}`,
+                description: `⚠️ ${m.reason}`,
+                value: m.matchId,
+                emoji: m.reason === 'SIN HILO' ? '❌' : '🔧'
+            }));
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_select_match_for_repair:${tournamentShortId}`)
+                .setPlaceholder('Selecciona el partido a reparar')
+                .addOptions(matchOptions);
+
+            await interaction.editReply({
+                content: `🔧 **Partidos de ${team.nombre} que necesitan reparación:**\n\nEncontrados: **${matchesNeedingRepair.length}** partido(s)\nSelecciona cuál reparar:`,
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+        } catch (error) {
+            console.error('[THREAD REPAIR]', error);
+            await interaction.editReply({
+                content: `❌ Error al buscar partidos: ${error.message}`,
+                components: []
+            });
+        }
+        return;
+    }
+
+    if (action === 'admin_select_match_for_repair') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const matchId = interaction.values[0];
+
+        try {
+            const { repairSingleMatchThread } = await import('../logic/tournamentLogic.js');
+            const result = await repairSingleMatchThread(client, guild, tournamentShortId, matchId);
+
+            if (result.success) {
+                let message = `✅ **Hilo Reparado con Éxito**\n\n`;
+                message += `🆔 Match ID: \`${matchId}\`\n`;
+                message += `🔗 Thread ID: \`${result.threadId}\`\n`;
+                if (result.wasOrphan) {
+                    message += `📝 Nota: El hilo anterior estaba perdido, se creó uno nuevo.`;
+                }
+                await interaction.editReply({ content: message, components: [] });
+            } else {
+                await interaction.editReply({
+                    content: `❌ Error al reparar el hilo:\n${result.error}`,
+                    components: []
+                });
+            }
+        } catch (error) {
+            console.error('[THREAD REPAIR]', error);
+            await interaction.editReply({
+                content: `❌ Error crítico: ${error.message}`,
+                components: []
+            });
+        }
+        return;
+    }
+
     // =======================================================
     // --- LÓGICA ORIGINAL DEL BOT ---
     // =======================================================

@@ -4406,6 +4406,158 @@ export async function recoverLostThreads(client, guild, tournamentShortId) {
     console.log(`[RECOVER] Finalizado. Recuperados: ${recovered}, Fallidos: ${failed}`);
     return summary;
 }
+
+/**
+ * Repara el hilo de un partido específico con validación robusta
+ * @param {Object} client - Cliente de Discord
+ * @param {Object} guild - Servidor de Discord
+ * @param {string} tournamentShortId - ID del torneo
+ * @param {string} matchId - ID del partido específico
+ * @returns {Promise<{success: boolean, threadId?: string, error?: string, wasOrphan?: boolean}>}
+ */
+export async function repairSingleMatchThread(client, guild, tournamentShortId, matchId) {
+    const db = getDb();
+
+    try {
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return { success: false, error: 'Torneo no encontrado' };
+        }
+
+        // Buscar el partido en todos los grupos
+        let match = null;
+        let groupKey = null;
+
+        if (tournament.structure.calendario) {
+            for (const [gName, matches] of Object.entries(tournament.structure.calendario)) {
+                const foundMatch = matches.find(m => m.matchId === matchId);
+                if (foundMatch) {
+                    match = foundMatch;
+                    groupKey = gName;
+                    break;
+                }
+            }
+        }
+
+        if (!match) {
+            return { success: false, error: 'Partido no encontrado en el calendario' };
+        }
+
+        // Verificar si es un partido válido para reparar
+        if (match.equipoB?.id === 'ghost') {
+            return { success: false, error: 'No se puede crear hilo para partidos BYE' };
+        }
+
+        if (match.status === 'finalizado') {
+            return { success: false, error: 'El partido ya está finalizado' };
+        }
+
+        // VALIDACIÓN ROBUSTA: Verificar si el hilo realmente existe en Discord
+        let wasOrphan = false;
+        if (match.threadId) {
+            try {
+                // Intentar obtener el hilo de Discord
+                await client.channels.fetch(match.threadId);
+                // Si llegamos aquí, el hilo existe correctamente
+                return {
+                    success: false,
+                    error: `El partido ya tiene un hilo válido (ID: ${match.threadId})`
+                };
+            } catch (error) {
+                // El hilo no existe en Discord, está huérfano
+                console.log(`[REPAIR] ThreadId ${match.threadId} existe en DB pero no en Discord. Será reemplazado.`);
+                wasOrphan = true;
+            }
+        }
+
+        // Bloqueo atómico para evitar duplicados
+        const lockResult = await db.collection('tournaments').findOneAndUpdate(
+            {
+                _id: tournament._id,
+                [`structure.calendario.${groupKey}`]: {
+                    $elemMatch: {
+                        matchId: matchId
+                    }
+                }
+            },
+            {
+                $set: {
+                    [`structure.calendario.${groupKey}.$.status`]: 'creando_hilo'
+                }
+            },
+            { returnDocument: 'after' }
+        );
+
+        if (!lockResult) {
+            return { success: false, error: 'No se pudo bloquear el partido para reparación' };
+        }
+
+        try {
+            // Crear el hilo
+            const threadId = await createMatchThread(
+                client,
+                guild,
+                match,
+                tournament.discordChannelIds.matchesChannelId,
+                tournament.shortId
+            );
+
+            if (!threadId) {
+                throw new Error('createMatchThread devolvió null');
+            }
+
+            // Actualizar la DB con el nuevo threadId
+            await db.collection('tournaments').updateOne(
+                {
+                    _id: tournament._id,
+                    [`structure.calendario.${groupKey}.matchId`]: matchId
+                },
+                {
+                    $set: {
+                        [`structure.calendario.${groupKey}.$.threadId`]: threadId,
+                        [`structure.calendario.${groupKey}.$.status`]: 'en_curso'
+                    }
+                }
+            );
+
+            console.log(`[REPAIR] ✅ Hilo creado exitosamente para ${matchId}: ${threadId}`);
+
+            return {
+                success: true,
+                threadId,
+                wasOrphan
+            };
+
+        } catch (error) {
+            // Revertir bloqueo en caso de error
+            await db.collection('tournaments').updateOne(
+                {
+                    _id: tournament._id,
+                    [`structure.calendario.${groupKey}.matchId`]: matchId
+                },
+                {
+                    $set: {
+                        [`structure.calendario.${groupKey}.$.status`]: 'pendiente'
+                    }
+                }
+            ).catch(e => console.error('[REPAIR] Error al revertir:', e));
+
+            console.error(`[REPAIR] ❌ Error al crear hilo:`, error);
+            return {
+                success: false,
+                error: error.message || 'Error desconocido al crear el hilo'
+            };
+        }
+
+    } catch (error) {
+        console.error('[REPAIR] Error general:', error);
+        return {
+            success: false,
+            error: error.message || 'Error crítico durante la reparación'
+        };
+    }
+}
+
 // Función para enviar solicitud de inscripción a Discord
 export async function sendRegistrationRequest(client, tournament, team, user, paymentUrl = null) {
     try {
