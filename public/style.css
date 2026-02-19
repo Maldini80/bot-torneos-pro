@@ -524,7 +524,7 @@ footer {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #b01c20;
+    background: #33f7ff;
 }
 
 .main-content {
@@ -4017,5 +4017,72 @@ aside h2 {
         body::before {
             animation: none;
             opacity: 0.3;
+        }
+    }
+
+    /* === MODAL: Equipos Inscritos === */
+    .teams-modal-content {
+        max-width: 500px;
+        margin: 10% auto;
+        background: #1a1a2e;
+        padding: 2rem;
+        border-radius: 12px;
+        border: 1px solid rgba(138, 43, 226, 0.5);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .teams-modal-header {
+        justify-content: space-between;
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 1rem;
+    }
+
+    .teams-modal-header h3 {
+        margin: 0;
+        font-size: 1.5rem;
+        color: #fff;
+    }
+
+    .teams-list-scroll {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    /* === MODAL: Reportar Resultado === */
+    .report-modal-content {
+        max-width: 400px;
+        background: #1a1a2e;
+        border: 1px solid #444;
+    }
+
+    .report-modal-title {
+        color: white;
+        text-align: center;
+    }
+
+    .report-modal-info {
+        color: #aaa;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    /* === MÓVIL: Modales responsivos === */
+    @media (max-width: 480px) {
+
+        .teams-modal-content,
+        .report-modal-content {
+            max-width: 95%;
+            margin: 5% auto;
+            padding: 1.2rem;
+        }
+    }
+
+    /* === MÓVIL: Reducir partículas (landing page) === */
+    @media (max-width: 768px) {
+        .particles .particle:nth-child(n+7) {
+            display: none;
         }
     }

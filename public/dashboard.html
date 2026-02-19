@@ -309,15 +309,13 @@
 
     <!-- Modal Equipos Inscritos -->
     <div id="teams-modal" class="modal hidden" style="z-index: 2001;">
-        <div class="modal-content"
-            style="max-width: 500px; margin: 10% auto; background: #1a1a2e; padding: 2rem; border-radius: 12px; border: 1px solid rgba(138, 43, 226, 0.5); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-            <div class="modal-header"
-                style="justify-content: space-between; display: flex; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem;">
-                <h3 id="teams-modal-title" style="margin: 0; font-size: 1.5rem; color: #fff;">Equipos Inscritos</h3>
-                <span onclick="document.getElementById('teams-modal').classList.add('hidden')"
-                    style="color: #aaa; font-size: 2rem; cursor: pointer; line-height: 1;">&times;</span>
+        <div class="modal-content teams-modal-content">
+            <div class="modal-header teams-modal-header">
+                <h3 id="teams-modal-title">Equipos Inscritos</h3>
+                <span class="close-button"
+                    onclick="document.getElementById('teams-modal').classList.add('hidden')">&times;</span>
             </div>
-            <div id="teams-list-container" style="max-height: 60vh; overflow-y: auto;">
+            <div id="teams-list-container" class="teams-list-scroll">
                 <!-- Lista dinámica -->
                 <div class="loading-spinner">Cargando...</div>
             </div>
@@ -480,11 +478,11 @@
 
     <!-- === MODAL REPORTAR RESULTADO === -->
     <div id="report-match-modal" class="modal hidden">
-        <div class="modal-content" style="max-width: 400px; background: #1a1a2e; border: 1px solid #444;">
+        <div class="modal-content report-modal-content">
             <span class="close-button close-report"
                 onclick="document.getElementById('report-match-modal').classList.add('hidden')">&times;</span>
-            <h2 style="color:white; text-align:center;">Reportar Resultado</h2>
-            <p id="rm-match-info" style="color:#aaa; text-align:center; margin-bottom:1rem;"></p>
+            <h2 class="report-modal-title">Reportar Resultado</h2>
+            <p id="rm-match-info" class="report-modal-info"></p>
 
             <form id="rm-form">
                 <input type="hidden" id="rm-match-id">
