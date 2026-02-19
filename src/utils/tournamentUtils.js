@@ -205,7 +205,7 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
                     [`${fieldPath}.status`]: { $nin: ['en_curso', 'creando_hilo'] }
                 },
                 {
-                    $set: { [`${fieldPath}.status`]: 'creando_hilo' }
+                    $set: { [`${fieldPath}.status`]: 'creando_hilo', [`${fieldPath}.lockedAt`]: new Date() }
                 },
                 { returnDocument: 'after' }
             );

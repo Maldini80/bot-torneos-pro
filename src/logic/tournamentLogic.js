@@ -1212,6 +1212,20 @@ export async function startGroupStage(client, guild, tournament) {
 
         // Paso 3: Ahora sí, crear los hilos de la Jornada 1
         const allMatches = Object.values(updatedTournament.structure.calendario).flat();
+        // Limpiar partidos atascados en 'creando_hilo' por más de 30 segundos (crash recovery)
+        for (const groupKey of Object.keys(updatedTournament.structure.calendario)) {
+            const matches = updatedTournament.structure.calendario[groupKey];
+            for (let i = 0; i < matches.length; i++) {
+                if (matches[i].status === 'creando_hilo' && matches[i].lockedAt && (Date.now() - new Date(matches[i].lockedAt).getTime()) > 30000) {
+                    await db.collection('tournaments').updateOne(
+                        { _id: updatedTournament._id },
+                        { $set: { [`structure.calendario.${groupKey}.${i}.status`]: 'pendiente' }, $unset: { [`structure.calendario.${groupKey}.${i}.lockedAt`]: '' } }
+                    );
+                    console.log(`[RECOVERY] Desbloqueado partido atascado: ${matches[i].matchId}`);
+                }
+            }
+        }
+
         for (const match of allMatches) {
             if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
                 const groupKey = match.nombreGrupo;
@@ -1227,7 +1241,7 @@ export async function startGroupStage(client, guild, tournament) {
                             }
                         }
                     },
-                    { $set: { [`structure.calendario.${groupKey}.$.status`]: 'creando_hilo' } },
+                    { $set: { [`structure.calendario.${groupKey}.$.status`]: 'creando_hilo', [`structure.calendario.${groupKey}.$.lockedAt`]: new Date() } },
                     { returnDocument: 'after' }
                 );
 
@@ -2710,7 +2724,7 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
                 [`${fieldPath}.threadId`]: null,
                 [`${fieldPath}.status`]: { $ne: 'en_curso' }
             },
-            { $set: { [`${fieldPath}.status`]: 'creando_hilo' } },
+            { $set: { [`${fieldPath}.status`]: 'creando_hilo', [`${fieldPath}.lockedAt`]: new Date() } },
             { returnDocument: 'after' }
         );
 
@@ -3203,7 +3217,8 @@ async function generateNextSwissRound(client, guild, tournament) {
             },
             {
                 $set: {
-                    'structure.calendario.Liga.$.status': 'creando_hilo'
+                    'structure.calendario.Liga.$.status': 'creando_hilo',
+                    'structure.calendario.Liga.$.lockedAt': new Date()
                 }
             },
             { returnDocument: 'after' }
@@ -3556,7 +3571,7 @@ export async function startNextKnockoutRound(client, guild, tournament) {
         // Bloqueo atómico robusto (sin índices)
         const result = await db.collection('tournaments').findOneAndUpdate(
             lockQuery,
-            { $set: { [`${updatePath}.status`]: 'creando_hilo' } },
+            { $set: { [`${updatePath}.status`]: 'creando_hilo', [`${updatePath}.lockedAt`]: new Date() } },
             { returnDocument: 'after' }
         );
 
@@ -4347,7 +4362,8 @@ export async function recoverLostThreads(client, guild, tournamentShortId) {
                         },
                         {
                             $set: {
-                                [`structure.calendario.${groupName}.$.status`]: 'creando_hilo'
+                                [`structure.calendario.${groupName}.$.status`]: 'creando_hilo',
+                                [`structure.calendario.${groupName}.$.lockedAt`]: new Date()
                             }
                         },
                         { returnDocument: 'after' }
