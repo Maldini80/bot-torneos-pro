@@ -1271,6 +1271,8 @@ export async function startGroupStage(client, guild, tournament) {
                         { $set: { [`structure.calendario.${groupKey}.$.status`]: 'pendiente' } }
                     );
                 }
+                // Pausa entre creaciones de hilos para evitar rate limit de Discord
+                await new Promise(r => setTimeout(r, 1500));
             }
         }
         // --- FIN DE LA LÓGICA CORREGIDA ---
@@ -2726,6 +2728,8 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
             console.error(`[ERROR] Fallo al crear hilo en finalizeRoulette para ${partido.matchId}:`, error);
             partido.status = 'pendiente';
         }
+        // Pausa entre creaciones de hilos para evitar rate limit de Discord
+        await new Promise(r => setTimeout(r, 1500));
     }
 
     await db.collection('tournaments').updateOne(
@@ -3259,9 +3263,8 @@ async function generateNextSwissRound(client, guild, tournament) {
                 }
             ).catch(e => console.error(`[ERROR] Fallo al revertir estado:`, e));
         }
-
-        // Breve pausa para evitar rate limits de Discord
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Pausa entre creaciones de hilos para evitar rate limit de Discord
+        await new Promise(r => setTimeout(r, 1500));
     }
 
     if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
@@ -4175,6 +4178,8 @@ export async function regenerateGroupStage(client, tournamentShortId) {
                         { $set: { [`${fieldPath}.status`]: 'pendiente' } }
                     );
                 }
+                // Pausa entre creaciones de hilos para evitar rate limit de Discord
+                await new Promise(r => setTimeout(r, 1500));
             }
         }
     }
