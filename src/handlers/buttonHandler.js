@@ -1,10 +1,9 @@
 // --- INICIO DEL ARCHIVO buttonHandler.js (VERSIÓN FINAL Y COMPLETA) ---
 
-import mongoose from 'mongoose';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, PermissionsBitField } from 'discord.js';
+import { ObjectId } from 'mongodb';
 import { getDb, getBotSettings, updateBotSettings } from '../../database.js';
 import { TOURNAMENT_FORMATS, ARBITRO_ROLE_ID, DRAFT_POSITIONS, PAYMENT_CONFIG, VERIFIED_ROLE_ID, ADMIN_APPROVAL_CHANNEL_ID, CHANNELS } from '../../config.js';
-import Team from '../../src/models/team.js';
 import {
     approveTeam, startGroupStage, endTournament, kickTeam, notifyCaptainsOfChanges, requestUnregister,
     addCoCaptain, undoGroupStageDraw, startDraftSelection, advanceDraftTurn, confirmPrizePayment,
@@ -147,9 +146,7 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
         }
 
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
+
 
         // --- MODIFICACIÓN: TORNEOS DE PAGO (Flujo simplificado) ---
         if (tournament.config.isPaid) {
@@ -191,10 +188,10 @@ export async function handleButton(interaction) {
             return interaction.editReply({ content: '❌ Ya estás inscrito o en la lista de reserva de este torneo.' });
         }
 
-        const team = await Team.findOne({
+        const team = await getDb('test').collection('teams').findOne({
             $or: [{ managerId: managerId }, { captains: managerId }],
             guildId: interaction.guildId
-        }).lean();
+        });
 
         // --- INICIO DE LA MODIFICACIÓN: GUÍA DE INSCRIPCIÓN ---
         if (!team) {
@@ -2815,11 +2812,7 @@ export async function handleButton(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
 
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
-
-        const allTeams = await Team.find({ guildId: interaction.guildId }).lean();
+        const allTeams = await getDb('test').collection('teams').find({ guildId: interaction.guildId }).toArray();
         if (!allTeams || allTeams.length === 0) {
             return interaction.editReply({ content: 'No hay equipos registrados en la base de datos para añadir.' });
         }

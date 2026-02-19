@@ -1,7 +1,6 @@
 // --- INICIO DEL ARCHIVO modalHandler.js (VERSIÓN FINAL, COMPLETA Y CORREGIDA) ---
 
-import mongoose from 'mongoose';
-import Team from '../../src/models/team.js';
+import { ObjectId } from 'mongodb';
 import { getDb, updateBotSettings } from '../../database.js';
 // --- CÓDIGO MODIFICADO Y CORRECTO ---
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer, createTournamentFromDraft, handleImportedPlayers, addSinglePlayerToDraft, sendPaymentApprovalRequest } from '../logic/tournamentLogic.js';
@@ -178,9 +177,7 @@ export async function handleModal(interaction) {
             return interaction.editReply({ content: '❌ El torneo no existe.' });
         }
 
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
+
 
         // --- LÓGICA UNIFICADA: ENVIAR SOLICITUD DE APROBACIÓN AL ADMIN (Igual que Web) ---
         // Construimos el objeto de equipo con los datos del formulario
@@ -235,9 +232,7 @@ export async function handleModal(interaction) {
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
 
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
+
 
         // --- LÓGICA TORNEO DE PAGO ---
         if (tournament.config.isPaid) {
@@ -256,8 +251,8 @@ export async function handleModal(interaction) {
             let teamLogo = "https://i.imgur.com/2ecc71.png"; // Placeholder
             let teamTwitter = "";
 
-            if (mongoose.Types.ObjectId.isValid(teamId)) {
-                const team = await Team.findById(teamId).lean();
+            if (ObjectId.isValid(teamId)) {
+                const team = await getDb('test').collection('teams').findOne({ _id: new ObjectId(teamId) });
                 if (team) {
                     teamName = team.name;
                     teamLogo = team.logoUrl;
@@ -312,7 +307,7 @@ export async function handleModal(interaction) {
         }
         // --- FIN LÓGICA TORNEO DE PAGO ---
 
-        const team = await Team.findById(teamId).lean();
+        const team = await getDb('test').collection('teams').findOne({ _id: new ObjectId(teamId) });
 
         if (!tournament || !team) {
             return interaction.editReply({ content: '❌ El torneo o el equipo ya no existen.' });
@@ -1780,11 +1775,7 @@ export async function handleModal(interaction) {
         const [_, tournamentShortId] = customId.split(':');
         const searchQuery = interaction.fields.getTextInputValue('search_query').toLowerCase();
 
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
-
-        const allTeams = await Team.find({ guildId: interaction.guildId }).lean();
+        const allTeams = await getDb('test').collection('teams').find({ guildId: interaction.guildId }).toArray();
         // Filtramos por nombre (case-insensitive)
         const filteredTeams = allTeams.filter(t => t.name.toLowerCase().includes(searchQuery));
 

@@ -2,8 +2,7 @@
 // --- INICIO DEL ARCHIVO selectMenuHandler.js (VERSIÓN REPARADA) ---
 
 import { getDb } from '../../database.js';
-import mongoose from 'mongoose';
-import Team from '../../src/models/team.js';
+import { ObjectId } from 'mongodb';
 import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam, updateDraftMainInterface, updatePublicMessages, notifyVisualizer, kickTeam, notifyTournamentVisualizer } from '../logic/tournamentLogic.js';
@@ -1794,12 +1793,8 @@ export async function handleSelectMenu(interaction) {
         const [tournamentShortId] = params;
         const selectedTeamId = interaction.values[0];
 
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
-
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const team = await Team.findById(selectedTeamId).lean();
+        const team = await getDb('test').collection('teams').findOne({ _id: new ObjectId(selectedTeamId) });
         const manager = await client.users.fetch(team.managerId).catch(() => null);
 
         if (!tournament || !team || !manager) {
@@ -1866,11 +1861,7 @@ export async function handleSelectMenu(interaction) {
         const [tournamentShortId] = params;
         const selectedPage = parseInt(interaction.values[0].replace('page_', ''));
 
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
-
-        const allTeams = await Team.find({ guildId: interaction.guildId }).lean();
+        const allTeams = await getDb('test').collection('teams').find({ guildId: interaction.guildId }).toArray();
         allTeams.sort((a, b) => a.name.localeCompare(b.name));
 
         const pageSize = 25;
@@ -1920,11 +1911,7 @@ export async function handleSelectMenu(interaction) {
         const [tournamentShortId, searchQuery] = params;
         const selectedPage = parseInt(interaction.values[0].replace('page_', ''));
 
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.DATABASE_URL);
-        }
-
-        const allTeams = await Team.find({ guildId: interaction.guildId }).lean();
+        const allTeams = await getDb('test').collection('teams').find({ guildId: interaction.guildId }).toArray();
         // Filtramos de nuevo usando la query guardada
         const filteredTeams = allTeams.filter(t => t.name.toLowerCase().includes(searchQuery));
         filteredTeams.sort((a, b) => a.name.localeCompare(b.name));

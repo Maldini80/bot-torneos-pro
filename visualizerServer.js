@@ -597,19 +597,10 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
 
         // TORNEOS GRATUITOS - Requiere equipo VPG (igual que Discord)
         if (!isPaidTournament) {
-            const { createRequire } = await import('module');
-            const require = createRequire(import.meta.url);
-            const mongoose = require('mongoose');
-            const Team = require('./src/vpg_bot/models/team.js');
-
-            if (mongoose.connection.readyState === 0) {
-                await mongoose.connect(process.env.DATABASE_URL);
-            }
-
-            const vpgTeam = await Team.findOne({
+            const vpgTeam = await getDb('test').collection('teams').findOne({
                 $or: [{ managerId: userId }, { captains: userId }],
                 guildId: process.env.GUILD_ID
-            }).lean();
+            });
 
             if (!vpgTeam) {
                 return res.status(403).json({

@@ -11,7 +11,7 @@ import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, Butto
 import { postTournamentUpdate } from '../utils/twitter.js';
 import { visualizerStateHandler } from '../../visualizerServer.js';
 import { parsePlayerList } from '../utils/textParser.js';
-import Team from '../vpg_bot/models/team.js';
+
 
 const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO'];
 const isMidfielder = (pos) => MIDFIELDER_POSITIONS.includes(pos);
@@ -1302,7 +1302,7 @@ export async function approveTeam(client, tournament, teamData) {
     if (latestTournament.config.format.size === 0 || currentApprovedTeamsCount < maxTeams) {
         // --- PHASE 3: MANAGER INTEGRATION ---
         try {
-            const registeredTeam = await Team.findOne({ name: { $regex: new RegExp(`^${teamData.nombre}$`, 'i') }, guildId: tournament.guildId });
+            const registeredTeam = await getDb('test').collection('teams').findOne({ name: { $regex: new RegExp(`^${teamData.nombre}$`, 'i') }, guildId: tournament.guildId });
             if (registeredTeam && registeredTeam.managerId) {
                 console.log(`[MANAGER SYNC] Linking manager ${registeredTeam.managerId} to tournament team ${teamData.nombre}`);
                 teamData.managerId = registeredTeam.managerId;
