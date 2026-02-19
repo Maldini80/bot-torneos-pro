@@ -37,6 +37,42 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// --- SEGURIDAD: Utilidades de validación y sanitización ---
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function sanitizeInput(str, maxLength = 100) {
+    if (typeof str !== 'string') return '';
+    return str.trim().replace(/<[^>]*>/g, '').substring(0, maxLength);
+}
+
+// Rate limiter ligero sin dependencias externas
+function createRateLimiter(maxRequests = 30, windowMs = 60000) {
+    const hits = new Map();
+    // Limpiar cada minuto para evitar memory leak
+    setInterval(() => hits.clear(), windowMs);
+    return (req, res, next) => {
+        const key = req.ip;
+        const now = Date.now();
+        const record = hits.get(key) || { count: 0, resetAt: now + windowMs };
+        if (now > record.resetAt) {
+            record.count = 0;
+            record.resetAt = now + windowMs;
+        }
+        record.count++;
+        hits.set(key, record);
+        if (record.count > maxRequests) {
+            return res.status(429).json({ error: 'Demasiadas peticiones. Espera un momento.' });
+        }
+        next();
+    };
+}
+
+// Aplicar rate limiter global a todas las rutas API
+app.use('/api/', createRateLimiter(60, 60000)); // 60 peticiones por minuto
+// --- FIN SEGURIDAD ---
+
 // Root route: serve landing page
 app.get('/', (req, res) => {
     res.sendFile('home.html', { root: 'public' });
@@ -231,12 +267,13 @@ app.get('/api/users/search', async (req, res) => {
         const db = getDb(); // FIX: Usuarios están en tournamentBotDb
         // Buscar por username, psnId o discordId parcial
         const limit = 10;
+        const safeQuery = escapeRegex(query);
         const users = await db.collection('verified_users').find({
             $or: [
-                { username: { $regex: query, $options: 'i' } },
-                { gameId: { $regex: query, $options: 'i' } }, // FIX: Usar gameId
-                { psnId: { $regex: query, $options: 'i' } }, // Mantener soporte legacy
-                { discordId: { $regex: query, $options: 'i' } }
+                { username: { $regex: safeQuery, $options: 'i' } },
+                { gameId: { $regex: safeQuery, $options: 'i' } }, // FIX: Usar gameId
+                { psnId: { $regex: safeQuery, $options: 'i' } }, // Mantener soporte legacy
+                { discordId: { $regex: safeQuery, $options: 'i' } }
             ]
         }).limit(limit).project({
             discordId: 1,
@@ -281,7 +318,8 @@ app.get('/api/users/search', async (req, res) => {
 app.post('/api/user/verify', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
-    const { platform, psnId } = req.body;
+    const { platform, psnId: rawPsnId } = req.body;
+    const psnId = sanitizeInput(rawPsnId, 30);
     if (!psnId || psnId.length < 3) return res.status(400).json({ error: 'ID inválido (mínimo 3 caracteres)' });
 
     // Validar plataforma
@@ -293,7 +331,7 @@ app.post('/api/user/verify', async (req, res) => {
 
         // Comprobar si el ID ya está usado por otro discordId
         const existing = await db.collection('verified_users').findOne({
-            psnId: { $regex: new RegExp(`^${psnId}$`, 'i') }
+            psnId: { $regex: new RegExp(`^${escapeRegex(psnId)}$`, 'i') }
         });
 
         if (existing && existing.discordId !== req.user.id) {
@@ -388,7 +426,9 @@ app.get('/api/leagues', async (req, res) => {
 app.post('/api/teams/request', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
-    const { league, teamName, teamAbbr, teamTwitter, logoUrl } = req.body;
+    const { league, teamName: rawTeamName, teamAbbr: rawTeamAbbr, teamTwitter, logoUrl } = req.body;
+    const teamName = sanitizeInput(rawTeamName, 40);
+    const teamAbbr = sanitizeInput(rawTeamAbbr, 5);
 
     // Validaciones básicas
     if (!league || !teamName || !teamAbbr) {
@@ -439,8 +479,8 @@ app.post('/api/teams/request', async (req, res) => {
         // Verificar nombre/abreviatura únicos
         const existingName = await db.collection('teams').findOne({
             $or: [
-                { name: { $regex: new RegExp(`^${teamName}$`, 'i') } },
-                { abbreviation: { $regex: new RegExp(`^${teamAbbr}$`, 'i') } }
+                { name: { $regex: new RegExp(`^${escapeRegex(teamName)}$`, 'i') } },
+                { abbreviation: { $regex: new RegExp(`^${escapeRegex(teamAbbr)}$`, 'i') } }
             ]
         });
         if (existingName) {
@@ -888,7 +928,7 @@ app.post('/api/teams/:teamId/invite', checkTeamPermissions, async (req, res) => 
         if (!targetUser) {
             const dbRef = getDb(); // FIX: Usuarios en tournamentBotDb
             const foundInDb = await dbRef.collection('verified_users').findOne({
-                username: { $regex: new RegExp(`^${usernameOrId}$`, 'i') }
+                username: { $regex: new RegExp(`^${escapeRegex(usernameOrId)}$`, 'i') }
             });
             if (foundInDb) {
                 try {
