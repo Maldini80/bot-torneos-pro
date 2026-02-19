@@ -1149,6 +1149,9 @@ class DashboardApp {
             if (sectionId === 'history' && document.getElementById('history-tbody').children.length === 0) {
                 this.loadHistory();
             }
+            if (sectionId === 'open-tournaments') {
+                loadOpenTournaments();
+            }
         }
     }
 
