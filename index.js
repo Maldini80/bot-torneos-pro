@@ -147,7 +147,7 @@ client.on(Events.MessageCreate, async message => {
 });
 
 client.on(Events.MessageDelete, async message => {
-    if (message.channelId !== CHANNELS.TORNEOS_STATUS) return;
+    if (message.channelId !== CHANNELS.TOURNAMENTS_STATUS) return;
     if (message.author?.id !== client.user.id) return;
 
     console.log(`[SYNC] Panel de torneo borrado en el canal de estado. Forzando actualización de icono.`);
