@@ -3883,9 +3883,12 @@ export async function handleImportedPlayers(client, draftShortId, text) {
         if (p._processed) continue; // Ya estaba en el draft
 
         // Try to link with verified user
+        // Escapar caracteres especiales en gameId para evitar SyntaxError en la RegExp
+        const escapedGameId = p.gameId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
         const verifiedUser = await db.collection('verified_users').findOne({
             $or: [
-                { gameId: { $regex: new RegExp(`^${p.gameId}$`, 'i') } },
+                { gameId: { $regex: new RegExp(`^${escapedGameId}$`, 'i') } },
                 { whatsapp: p.whatsapp }
             ]
         });
