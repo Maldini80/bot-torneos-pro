@@ -587,24 +587,85 @@ export async function handleModal(interaction) {
         return;
     }
 
-    if (action === 'admin_add_participant_manual_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [draftShortId] = params;
+    if (action === 'admin_add_player_manual_modal') {
+        const [draftShortId, primaryPosition] = params;
+        const discordId = interaction.fields.getTextInputValue('discord_id_input').trim();
+        const psnId = interaction.fields.getTextInputValue('psn_id_input').trim();
+        const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
+        const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
 
-        const gameId = interaction.fields.getTextInputValue('manual_game_id');
-        const whatsapp = interaction.fields.getTextInputValue('manual_whatsapp');
-        const position = interaction.fields.getTextInputValue('manual_position');
-        const discordId = interaction.fields.getTextInputValue('manual_discord_id');
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.reply({ content: '❌ Torneo/Draft no encontrado.', flags: [MessageFlags.Ephemeral] });
 
+        // Intentamos obtener el tag de discord del usuario, o usamos un placeholder
+        let userTag = 'Usuario Manual';
         try {
-            const result = await addSinglePlayerToDraft(client, draftShortId, { gameId, whatsapp, position, discordId });
-            await interaction.editReply({ content: result.message });
-        } catch (error) {
-            console.error("Error en inserción manual:", error);
-            await interaction.editReply({ content: `❌ Error: ${error.message}` });
+            const user = await client.users.fetch(discordId);
+            userTag = user.tag;
+        } catch (e) {
+            console.warn(`No se pudo validar el Discord ID ${discordId} al añadir jugador manual.`);
+        }
+
+        const playerData = {
+            userId: discordId,
+            userName: userTag,
+            psnId: psnId,
+            twitter: twitter,
+            whatsapp: whatsapp,
+            primaryPosition: primaryPosition,
+            secondaryPosition: 'NONE', // Por simplicidad, se deja sin sec en manual
+            currentTeam: 'Libre',
+            isCaptain: false,
+            captainId: null
+        };
+
+        const result = await adminAddPlayerToDraft(client, draft, playerData);
+
+        if (result.success) {
+            await interaction.reply({ content: `✅ Jugador **${psnId}** (${discordId}) añadido correctamente a la posición **${primaryPosition}**.`, flags: [MessageFlags.Ephemeral] });
+        } else {
+            await interaction.reply({ content: `❌ ${result.message}`, flags: [MessageFlags.Ephemeral] });
         }
         return;
     }
+
+    if (action === 'admin_edit_draft_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+
+        const newName = interaction.fields.getTextInputValue('draft_name_input').trim();
+        const entryFee = parseFloat(interaction.fields.getTextInputValue('draft_fee_input'));
+        const prizeCampeon = parseFloat(interaction.fields.getTextInputValue('draft_prize_champ_input'));
+        const prizeFinalista = parseFloat(interaction.fields.getTextInputValue('draft_prize_runnerup_input'));
+
+        if (isNaN(entryFee) || isNaN(prizeCampeon) || isNaN(prizeFinalista)) {
+            return interaction.editReply('❌ Por favor, usa solo números en los campos de dinero.');
+        }
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        await db.collection('drafts').updateOne(
+            { shortId: draftShortId },
+            {
+                $set: {
+                    name: newName,
+                    'config.entryFee': entryFee,
+                    'config.prizeCampeon': prizeCampeon,
+                    'config.prizeFinalista': prizeFinalista
+                }
+            }
+        );
+
+        const updatedDraft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        await updateDraftMainInterface(client, updatedDraft.shortId);
+        await updatePublicMessages(client, updatedDraft);
+        await updateDraftManagementPanel(client, updatedDraft);
+
+        await interaction.editReply({ content: `✅ La configuración del draft **${newName}** ha sido actualizada.` });
+        return;
+    }
+
 
     if (action === 'create_draft_paid_modal') {
         await interaction.reply({ content: '⏳ Creando el draft de pago...', flags: [MessageFlags.Ephemeral] });

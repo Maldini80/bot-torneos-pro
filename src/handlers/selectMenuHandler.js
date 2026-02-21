@@ -1077,10 +1077,58 @@ export async function handleSelectMenu(interaction) {
     }
     // --- FIN DE LA SOLUCIÓN ---
 
+    if (action === 'admin_select_manual_player_pos') {
+        const [draftShortId] = params;
+        const selectedPosition = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_add_player_manual_modal:${draftShortId}:${selectedPosition}`)
+            .setTitle('Añadir Jugador Manualmente');
+
+        const discordIdInput = new TextInputBuilder()
+            .setCustomId('discord_id_input')
+            .setLabel("Discord ID del jugador")
+            .setPlaceholder("Ej: 123456789012345678")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const psnIdInput = new TextInputBuilder()
+            .setCustomId('psn_id_input')
+            .setLabel("Nombre en el juego (PSN ID / EA ID)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const twitterInput = new TextInputBuilder()
+            .setCustomId('twitter_input')
+            .setLabel("Twitter (sin @)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('whatsapp_input')
+            .setLabel("WhatsApp (con prefijo, ej: +34)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(discordIdInput),
+            new ActionRowBuilder().addComponents(psnIdInput),
+            new ActionRowBuilder().addComponents(twitterInput),
+            new ActionRowBuilder().addComponents(whatsappInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
+
     if (action === 'draft_pick_by_position') {
         await interaction.deferUpdate();
-        const [draftShortId, captainId, searchType] = params; // searchType: 'primary' | 'secondary' | undefined
+        // params: draftShortId, captainId, searchType ('primary'|'secondary'|undefined), page (default 0)
+        const [draftShortId, captainId, searchType, pageStr] = params;
         const selectedPosition = interaction.values[0];
+        const page = parseInt(pageStr) || 0;
+        const PAGE_SIZE = 25;
 
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
@@ -1089,7 +1137,6 @@ export async function handleSelectMenu(interaction) {
         let searchMode;
 
         if (searchType === 'secondary') {
-            // El capitán eligió explícitamente buscar por secundaria
             playersToShow = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
             searchMode = 'Secundaria';
             if (playersToShow.length === 0) {
@@ -1099,10 +1146,8 @@ export async function handleSelectMenu(interaction) {
                 });
             }
         } else {
-            // Búsqueda por primaria con fallback automático a secundaria
             playersToShow = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
             searchMode = 'Primaria';
-
             if (playersToShow.length === 0) {
                 playersToShow = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
                 searchMode = 'Secundaria (fallback)';
@@ -1111,27 +1156,53 @@ export async function handleSelectMenu(interaction) {
 
         if (playersToShow.length === 0) {
             return interaction.editReply({
-                content: `No hay jugadores disponibles para la posición ${DRAFT_POSITIONS[selectedPosition]}. Por favor, cancela y elige otra posición.`,
+                content: `No hay jugadores disponibles para **${DRAFT_POSITIONS[selectedPosition]}**. Elige otra posición.`,
                 components: []
             });
         }
 
         playersToShow.sort((a, b) => a.psnId.localeCompare(b.psnId));
 
+        const totalPages = Math.ceil(playersToShow.length / PAGE_SIZE);
+        const safePage = Math.max(0, Math.min(page, totalPages - 1));
+        const pagePlayers = playersToShow.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
         const playerMenu = new StringSelectMenuBuilder()
             .setCustomId(`draft_pick_player:${draftShortId}:${captainId}:${selectedPosition}`)
-            .setPlaceholder('Paso 2: ¡Elige al jugador!')
-            .addOptions(
-                playersToShow.slice(0, 25).map(player => ({
-                    label: player.psnId,
-                    description: `Discord: ${player.userName}`,
-                    value: player.userId,
-                }))
+            .setPlaceholder(`Página ${safePage + 1}/${totalPages} — Elige al jugador`)
+            .addOptions(pagePlayers.map(player => ({
+                label: player.psnId,
+                description: `${player.userName} | ${player.currentTeam === 'Libre' ? '🔎 Agente Libre' : '🛡️ Con equipo'}`,
+                value: player.userId,
+            })));
+
+        const components = [new ActionRowBuilder().addComponents(playerMenu)];
+
+        // Botones de paginación solo si hay más de una página
+        if (totalPages > 1) {
+            const navRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`draft_pick_page:${draftShortId}:${captainId}:${selectedPosition}:${searchType || 'primary'}:${safePage - 1}`)
+                    .setLabel('← Anterior')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(safePage === 0),
+                new ButtonBuilder()
+                    .setCustomId(`draft_pick_page_info`)
+                    .setLabel(`Página ${safePage + 1} de ${totalPages} (${playersToShow.length} jugadores)`)
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(true),
+                new ButtonBuilder()
+                    .setCustomId(`draft_pick_page:${draftShortId}:${captainId}:${selectedPosition}:${searchType || 'primary'}:${safePage + 1}`)
+                    .setLabel('Siguiente →')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(safePage >= totalPages - 1)
             );
+            components.push(navRow);
+        }
 
         await interaction.editReply({
-            content: `Mostrando jugadores para **${DRAFT_POSITIONS[selectedPosition]}** (encontrados por posición **${searchMode}**):`,
-            components: [new ActionRowBuilder().addComponents(playerMenu)]
+            content: `Jugadores para **${DRAFT_POSITIONS[selectedPosition]}** (pos. **${searchMode}**):`,
+            components
         });
         return;
     }

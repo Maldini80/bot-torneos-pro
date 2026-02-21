@@ -244,6 +244,34 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
         throw error;
     }
 }
+
+export async function adminAddPlayerToDraft(client, draft, playerObj) {
+    const db = getDb();
+
+    // Validar que el jugador no esté ya inscrito
+    const isAlreadyRegistered = draft.players.some(p => p.userId === playerObj.userId || p.psnId.toLowerCase() === playerObj.psnId.toLowerCase());
+    if (isAlreadyRegistered) {
+        return { success: false, message: 'El jugador ya está inscrito en este draft (por Discord ID o PSN ID).' };
+    }
+
+    try {
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $push: { players: playerObj } }
+        );
+
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await updatePublicMessages(client, updatedDraft);
+        await updateDraftMainInterface(client, updatedDraft.shortId);
+        await notifyVisualizer(updatedDraft);
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error en adminAddPlayerToDraft:", error);
+        return { success: false, message: 'Fallo al guardar en base de datos.' };
+    }
+}
+
 export async function handlePlayerSelectionFromWeb(client, draftShortId, captainId, selectedPlayerId, pickedForPosition) {
     const db = getDb();
 
@@ -2534,10 +2562,17 @@ export async function prepareRouletteDraw(client, draftShortId) {
             throw new Error('Este draft no ha finalizado o no existe.');
         }
 
-        // --- INICIO DE LA LÓGICA NUEVA: CREAR EL TORNEO VACÍO ---
+        // --- INICIO DE LA LÓGICA DE DRAFT DINÁMICA ---
+        const captainCount = draft.captains.length;
         const tournamentName = `Torneo Draft - ${draft.name}`;
         const tournamentShortId = `draft-${draft.shortId}`;
-        const formatId = '8_teams_semis_classic'; // Formato fijo para draft de 8 equipos
+
+        // Seleccionamos el formato según la cantidad de equipos
+        let formatId = '8_teams_semis_classic';
+        if (captainCount === 16) {
+            formatId = '16_teams_quarters_new';
+        }
+
         const format = TOURNAMENT_FORMATS[formatId];
         const config = {
             formatId, format, isPaid: draft.config.isPaid, matchType: 'ida',
@@ -2550,13 +2585,19 @@ export async function prepareRouletteDraw(client, draftShortId) {
             throw new Error(newTournament.message || "No se pudo crear la estructura del torneo.");
         }
 
-        // Creamos los grupos vacíos en la estructura del torneo
-        const initialGroups = { 'Grupo A': { equipos: [] }, 'Grupo B': { equipos: [] } };
+        // Creamos los grupos vacíos basándonos en el formato elegido
+        const initialGroups = {};
+        for (let i = 0; i < format.groups; i++) {
+            const groupName = `Grupo ${String.fromCharCode(65 + i)}`; // Grupo A, Grupo B, Grupo C...
+            initialGroups[groupName] = { equipos: [] };
+        }
+
         await db.collection('tournaments').updateOne(
             { _id: newTournament.tournament._id },
             { $set: { 'structure.grupos': initialGroups, status: 'sorteo_en_curso' } }
         );
-        // --- FIN DE LA LÓGICA NUEVA ---
+        // --- FIN DE LA LÓGICA DINÁMICA ---
+
 
         const sessionId = `roulette_${tournamentShortId}_${Math.random().toString(36).substring(2, 8)}`;
         const teamsToDraw = draft.captains.map(c => ({ id: c.userId, name: c.teamName, logoUrl: c.logoUrl || null }));

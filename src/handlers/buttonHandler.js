@@ -584,6 +584,75 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_add_player_manual_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+
+        const { DRAFT_POSITIONS } = await import('../../config.js');
+        const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+            label: value,
+            value: key,
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_manual_player_pos:${draftShortId}`)
+            .setPlaceholder('Selecciona la posición PRINCIPAL del jugador')
+            .addOptions(positionOptions);
+
+        await interaction.editReply({
+            content: 'Para inscribir a un jugador manualmente, primero selecciona su posición primaria:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'admin_edit_draft_config_start') {
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_edit_draft_modal:${draftShortId}`)
+            .setTitle('Editar Configuración del Draft');
+
+        const nameInput = new TextInputBuilder()
+            .setCustomId('draft_name_input')
+            .setLabel("Nombre del Draft")
+            .setStyle(TextInputStyle.Short)
+            .setValue(draft.name)
+            .setRequired(true);
+
+        const feeInput = new TextInputBuilder()
+            .setCustomId('draft_fee_input')
+            .setLabel("Entrada por jugador (€) (0 = Gratis)")
+            .setStyle(TextInputStyle.Short)
+            .setValue(draft.config.entryFee ? draft.config.entryFee.toString() : '0')
+            .setRequired(true);
+
+        const championPrizeInput = new TextInputBuilder()
+            .setCustomId('draft_prize_champ_input')
+            .setLabel("Premio Campeón (€)")
+            .setStyle(TextInputStyle.Short)
+            .setValue(draft.config.prizeCampeon ? draft.config.prizeCampeon.toString() : '0')
+            .setRequired(true);
+
+        const runnerupPrizeInput = new TextInputBuilder()
+            .setCustomId('draft_prize_runnerup_input')
+            .setLabel("Premio Finalista (€)")
+            .setStyle(TextInputStyle.Short)
+            .setValue(draft.config.prizeFinalista ? draft.config.prizeFinalista.toString() : '0')
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(nameInput),
+            new ActionRowBuilder().addComponents(feeInput),
+            new ActionRowBuilder().addComponents(championPrizeInput),
+            new ActionRowBuilder().addComponents(runnerupPrizeInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
     if (action === 'captain_pick_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
@@ -616,6 +685,72 @@ export async function handleButton(interaction) {
         await interaction.editReply({
             content: `✅ **Es tu turno** (Pick #${draft.selection.currentPick}). Selecciona la posición del jugador que quieres fichar:`,
             components: [new ActionRowBuilder().addComponents(positionMenu)]
+        });
+        return;
+    }
+
+    if (action === 'draft_pick_page') {
+        await interaction.deferUpdate();
+        // params: draftShortId, captainId, selectedPosition, searchType, page
+        const [draftShortId, captainId, selectedPosition, searchType, pageStr] = params;
+        const page = parseInt(pageStr) || 0;
+        const PAGE_SIZE = 25;
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        // Validar turno
+        const currentTurnCaptainId = draft.selection.order[draft.selection.turn];
+        if (captainId !== currentTurnCaptainId && !isAdmin) {
+            return interaction.followUp({ content: '⏳ El turno ya cambió. Esta selección no es válida.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const { DRAFT_POSITIONS } = await import('../../config.js');
+        const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
+
+        let playersToShow = searchType === 'secondary'
+            ? availablePlayers.filter(p => p.secondaryPosition === selectedPosition)
+            : availablePlayers.filter(p => p.primaryPosition === selectedPosition);
+
+        if (playersToShow.length === 0 && searchType !== 'secondary') {
+            playersToShow = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
+        }
+
+        playersToShow.sort((a, b) => a.psnId.localeCompare(b.psnId));
+
+        const totalPages = Math.ceil(playersToShow.length / PAGE_SIZE);
+        const safePage = Math.max(0, Math.min(page, totalPages - 1));
+        const pagePlayers = playersToShow.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
+        const playerMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_pick_player:${draftShortId}:${captainId}:${selectedPosition}`)
+            .setPlaceholder(`Página ${safePage + 1}/${totalPages} — Elige al jugador`)
+            .addOptions(pagePlayers.map(player => ({
+                label: player.psnId,
+                description: `${player.userName} | ${player.currentTeam === 'Libre' ? '🔎 Agente Libre' : '🛡️ Con equipo'}`,
+                value: player.userId,
+            })));
+
+        const navRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`draft_pick_page:${draftShortId}:${captainId}:${selectedPosition}:${searchType}:${safePage - 1}`)
+                .setLabel('← Anterior')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safePage === 0),
+            new ButtonBuilder()
+                .setCustomId('draft_pick_page_info')
+                .setLabel(`Página ${safePage + 1} de ${totalPages} (${playersToShow.length} jugadores)`)
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(true),
+            new ButtonBuilder()
+                .setCustomId(`draft_pick_page:${draftShortId}:${captainId}:${selectedPosition}:${searchType}:${safePage + 1}`)
+                .setLabel('Siguiente →')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(safePage >= totalPages - 1)
+        );
+
+        await interaction.editReply({
+            components: [new ActionRowBuilder().addComponents(playerMenu), navRow]
         });
         return;
     }

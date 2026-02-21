@@ -340,9 +340,14 @@ export function createDraftManagementPanel(draft, isBusy = false) {
     if (draft.status === 'inscripcion') {
         row1.addComponents(
             new ButtonBuilder().setCustomId(`draft_start_selection:${draft.shortId}`).setLabel('Iniciar Selección').setStyle(ButtonStyle.Success).setEmoji('▶️'),
+            new ButtonBuilder().setCustomId(`admin_edit_draft_config_start:${draft.shortId}`).setLabel('Editar Draft').setStyle(ButtonStyle.Primary).setEmoji('⚙️').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`admin_edit_draft_captain_start:${draft.shortId}`).setLabel('Editar Capitán').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy),
-            new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Expulsar Jugador').setStyle(ButtonStyle.Secondary).setEmoji('✖️').setDisabled(isBusy),
-            new ButtonBuilder().setCustomId(`admin_import_players_start:${draft.shortId}`).setLabel('Importar desde WhatsApp').setStyle(ButtonStyle.Success).setEmoji('📥').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`admin_gestionar_participantes_draft:${draft.shortId}`).setLabel('Expulsar Jugador').setStyle(ButtonStyle.Secondary).setEmoji('✖️').setDisabled(isBusy)
+        );
+
+        row2.addComponents(
+            new ButtonBuilder().setCustomId(`admin_add_player_manual_start:${draft.shortId}`).setLabel('Añadir Jugador Manual').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`admin_import_players_start:${draft.shortId}`).setLabel('Importar desde WhatsApp').setStyle(ButtonStyle.Secondary).setEmoji('📥').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
     }
