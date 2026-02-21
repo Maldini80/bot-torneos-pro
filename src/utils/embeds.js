@@ -452,7 +452,7 @@ export function createDraftMainInterface(draft) {
                 let currentStr = '';
                 const fields = [];
                 for (let i = 0; i < groupedPlayers[pos].length; i++) {
-                    const line = groupedPlayers[pos][i] + '\n';
+                    const line = `**${i + 1}.** ${groupedPlayers[pos][i]}\n`;
                     if (currentStr.length + line.length > 1024) {
                         fields.push({ name: '\u200B', value: currentStr, inline: true });
                         currentStr = line;
