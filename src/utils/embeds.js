@@ -425,7 +425,6 @@ export function createDraftMainInterface(draft) {
         .setTitle('Jugadores Disponibles para Seleccionar');
 
     if (availablePlayers.length > 0) {
-        mainEmbed.setDescription('🔎 = Agente Libre\n🛡️ = Con Equipo');
         playersEmbeds.push(mainEmbed);
 
         const groupedPlayers = {};
@@ -435,9 +434,8 @@ export function createDraftMainInterface(draft) {
 
         availablePlayers.forEach(player => {
             if (groupedPlayers[player.primaryPosition]) {
-                const statusEmoji = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
                 const secondaryPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? ` (S: ${player.secondaryPosition})` : '';
-                groupedPlayers[player.primaryPosition].push(`${statusEmoji} \`${player.psnId}${secondaryPos}\``);
+                groupedPlayers[player.primaryPosition].push(`\`${player.psnId}${secondaryPos}\``);
             }
         });
 
