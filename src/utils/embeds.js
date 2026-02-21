@@ -546,13 +546,34 @@ export function createCaptainControlPanel(draft) {
         const currentCaptainId = draft.selection.order[draft.selection.turn];
         const captain = draft.captains.find(c => c.userId === currentCaptainId);
 
-        embed.setDescription('**La fase de selección ha finalizado.**\nUn administrador debe pulsar "Forzar Torneo" en el panel de gestión para continuar.');
+        embed.setColor('#2ecc71');
+        embed.setDescription(
+            `**📍 Pick ${draft.selection.currentPick} de ${totalPicks}**\n\n` +
+            `⏳ **Turno actual:** ${captain ? `**${captain.teamName}** (${captain.userName})` : 'Desconocido'}\n\n` +
+            `Si eres el capitán con el turno, pulsa el botón de abajo. Si no es tu turno, espera.`
+        );
+
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('captain_pick_start_disabled').setLabel('Elegir Jugador').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(true),
-            new ButtonBuilder().setCustomId('captain_manage_roster_disabled').setLabel('Gestionar Plantilla').setStyle(ButtonStyle.Primary).setEmoji('📋').setDisabled(true)
+            new ButtonBuilder()
+                .setCustomId(`captain_pick_start:${draft.shortId}`)
+                .setLabel('🎯 Es Mi Turno — Elegir Jugador')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('👤'),
+            new ButtonBuilder()
+                .setCustomId(`captain_manage_roster_start:${draft.shortId}`)
+                .setLabel('Ver Mi Plantilla')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📋')
         );
         return { embeds: [embed], components: [row] };
     }
+
+    if (draft.status === 'finalizado') {
+        embed.setColor('#95a5a6');
+        embed.setDescription('**✅ La fase de selección ha finalizado.**\nUn administrador debe seleccionar el formato del torneo en el panel de gestión para continuar.');
+        return { embeds: [embed], components: [] };
+    }
+
 
     if (draft.status === 'torneo_generado') {
         embed.setDescription('**El torneo ha sido generado.**\nUsa los botones de abajo para gestionar tu plantilla o consultar jugadores libres.');

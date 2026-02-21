@@ -415,6 +415,12 @@ export async function kickPlayerFromDraft(client, draft, userIdToKick) {
 
 export async function approveUnregisterFromDraft(client, draft, userIdToUnregister) {
     const player = draft.players.find(p => p.userId === userIdToUnregister);
+
+    if (!player) {
+        console.warn(`[Draft] approveUnregisterFromDraft: El jugador ${userIdToUnregister} ya no existe en el draft ${draft.shortId}. Ignorando.`);
+        return { success: false, message: 'El jugador ya no estaba en el draft (puede que haya sido expulsado manualmente).' };
+    }
+
     const captainId = player.captainId;
 
     await kickPlayerFromDraft(client, draft, userIdToUnregister);
@@ -917,6 +923,7 @@ export async function startDraftSelection(client, guild, draftShortId) {
         const missingPositions = [];
         for (const pos in minQuotas) {
             const required = parseInt(minQuotas[pos]);
+            const current = positionCounts[pos] || 0;
             if (current < required) {
                 missingPositions.push(`${pos} (necesarios: ${required}, disponibles: ${current})`);
             }

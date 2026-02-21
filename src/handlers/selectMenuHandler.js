@@ -1079,18 +1079,34 @@ export async function handleSelectMenu(interaction) {
 
     if (action === 'draft_pick_by_position') {
         await interaction.deferUpdate();
-        const [draftShortId, captainId] = params;
+        const [draftShortId, captainId, searchType] = params; // searchType: 'primary' | 'secondary' | undefined
         const selectedPosition = interaction.values[0];
 
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
 
-        let playersToShow = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
-        let searchMode = 'Primaria';
+        let playersToShow;
+        let searchMode;
 
-        if (playersToShow.length === 0) {
+        if (searchType === 'secondary') {
+            // El capitán eligió explícitamente buscar por secundaria
             playersToShow = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
             searchMode = 'Secundaria';
+            if (playersToShow.length === 0) {
+                return interaction.editReply({
+                    content: `No hay jugadores con **${DRAFT_POSITIONS[selectedPosition]}** como posición secundaria. Prueba con otra posición.`,
+                    components: []
+                });
+            }
+        } else {
+            // Búsqueda por primaria con fallback automático a secundaria
+            playersToShow = availablePlayers.filter(p => p.primaryPosition === selectedPosition);
+            searchMode = 'Primaria';
+
+            if (playersToShow.length === 0) {
+                playersToShow = availablePlayers.filter(p => p.secondaryPosition === selectedPosition);
+                searchMode = 'Secundaria (fallback)';
+            }
         }
 
         if (playersToShow.length === 0) {
@@ -1124,12 +1140,20 @@ export async function handleSelectMenu(interaction) {
         await interaction.deferUpdate();
         const [draftShortId, captainId, pickedForPosition] = params;
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        // Validar que el captainId del customId coincide con el turno activo real en DB
+        const currentTurnCaptainId = draft.selection.order[draft.selection.turn];
+        if (captainId !== currentTurnCaptainId && !isAdmin) {
+            return interaction.followUp({ content: '⏳ El turno ya cambió. Esta selección no es válida.', flags: [MessageFlags.Ephemeral] });
+        }
+        // Validar que quien interactúa es el capitán del turno (o un admin)
         if (interaction.user.id !== captainId && !isAdmin) {
-            return interaction.followUp({ content: 'No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
+            return interaction.followUp({ content: '❌ No es tu turno de elegir.', flags: [MessageFlags.Ephemeral] });
         }
         const selectedPlayerId = interaction.values[0];
 
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         const player = draft.players.find(p => p.userId === selectedPlayerId);
 
         const confirmationRow = new ActionRowBuilder().addComponents(

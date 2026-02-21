@@ -584,6 +584,42 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'captain_pick_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if (draft.status !== 'seleccion') {
+            return interaction.editReply({ content: '❌ El draft no está en fase de selección.' });
+        }
+
+        const currentCaptainId = draft.selection.order[draft.selection.turn];
+        if (interaction.user.id !== currentCaptainId && !isAdmin) {
+            const currentCaptain = draft.captains.find(c => c.userId === currentCaptainId);
+            return interaction.editReply({
+                content: `❌ No es tu turno. Ahora le toca a **${currentCaptain ? currentCaptain.teamName : 'otro capitán'}**.`
+            });
+        }
+
+        const { DRAFT_POSITIONS } = await import('../../config.js');
+        const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+            label: value,
+            value: key,
+        }));
+
+        const positionMenu = new StringSelectMenuBuilder()
+            .setCustomId(`draft_pick_by_position:${draftShortId}:${currentCaptainId}`)
+            .setPlaceholder('Elige la posición que quieres cubrir')
+            .addOptions(positionOptions);
+
+        await interaction.editReply({
+            content: `✅ **Es tu turno** (Pick #${draft.selection.currentPick}). Selecciona la posición del jugador que quieres fichar:`,
+            components: [new ActionRowBuilder().addComponents(positionMenu)]
+        });
+        return;
+    }
+
     if (action === 'captain_manage_roster_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
