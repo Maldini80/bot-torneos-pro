@@ -27,12 +27,15 @@ export function parsePlayerList(text) {
         if (line.includes('CIERRE DE LISTA') || line.includes('ENCUESTA') || line.includes('DIRECTO EN TWITCH')) continue;
 
         // 2. Intento 1: Todo en una línea (ID + WhatsApp)
-        // Relaxed regex: \s* before phone number to handle cases like "...(DFC)634..."
-        const singleLineMatch = line.match(/^(?:\d+[\.\)\-\s]*)?\s*(.+?)\s*(\+?\d[\d\s\-\.]{8,})$/);
+        // Relaxed regex: \s* before phone number, y permitir emojis o caracteres raros (^[\D]*) antes del plus/número
+        const singleLineMatch = line.match(/^(?:\d+[\.\)\-\s]*)?\s*(.+?)\s*.*?(\+?\d[\d\s\-\.]{8,})$/);
 
         if (singleLineMatch) {
             let gameId = singleLineMatch[1].trim();
-            let whatsapp = singleLineMatch[2].replace(/[\s\-\.]/g, '');
+            // Quitamos emojis o basura final que haya quedado pegada al nombre
+            gameId = gameId.replace(/[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '').trim();
+
+            let whatsapp = singleLineMatch[2].replace(/[^\d\+]/g, ''); // Solo dejamos números y el plus
             gameId = gameId.replace(/\s*\(.*\)$/, '').trim(); // Quitar paréntesis extra
 
             // Intentar extraer posición del nombre (ej: "Pepe DC")
@@ -61,13 +64,20 @@ export function parsePlayerList(text) {
         // 3. Intento 2: Multilínea (Nombre en línea actual, WhatsApp en la siguiente)
         if (i + 1 < lines.length) {
             const nextLine = lines[i + 1];
-            // Regex estricta para la siguiente línea: SOLO debe ser un número de teléfono (con posibles espacios/puntos)
-            const phoneMatch = nextLine.match(/^(\+?\d[\d\s\-\.]{8,})$/);
+            // Regex estricta para la siguiente línea: Puede empezar con cualquier cosa (emojis, palabras raras, '📲'), 
+            // pero DEBE contener un número largo
+            const phoneMatch = nextLine.match(/.*?(\+?\d[\d\s\-\.]{8,})/);
 
-            if (phoneMatch) {
+            // Verificamos si la siguiente línea *parece* un teléfono principalmente, y no el nombre de otro jugador
+            // Por ejemplo, que la mayor parte de la línea sean números o símbolos
+            const numericContent = nextLine.replace(/[^\d]/g, '');
+
+            if (phoneMatch && numericContent.length >= 8) {
                 let gameId = line.replace(/^(?:\d+[\.\)\-\s]*)?/, '').trim(); // Quitar "1. " del nombre
-                let whatsapp = phoneMatch[1].replace(/[\s\-\.]/g, '');
+                let whatsapp = phoneMatch[1].replace(/[^\d\+]/g, ''); // Solo números y plus
                 gameId = gameId.replace(/\s*\(.*\)$/, '').trim();
+                // Limpiar emojis del nombre por si acaso
+                gameId = gameId.replace(/[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '').trim();
 
                 // Intentar extraer posición del nombre (ej: "Pepe DC")
                 let position = currentPosition;
