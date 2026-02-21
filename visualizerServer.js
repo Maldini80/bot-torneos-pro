@@ -584,9 +584,7 @@ app.get('/api/tournaments/open', async (req, res) => {
                 isPaid: d.config?.isPaid || false,
                 entryFee: d.config?.entryFee || 0,
                 playersCount: (d.players || []).length,
-                maxPlayers: d.config?.maxPlayers || null,
                 teamsCount: Object.keys(d.teams || {}).length || 0,
-                maxTeams: d.config?.maxCapital || null,
                 format: 'Draft',
                 isDraft: true
             }))

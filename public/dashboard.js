@@ -1445,9 +1445,15 @@ async function loadOpenTournaments() {
             const viewLabel = isDraft ? (tr.viewDraft || 'Ver Tablero') : (tr.viewRegistered || 'Ver Inscritos');
             const registerLabel = isDraft ? (tr.registerDraft || 'Participar') : (tr.registerNow || 'Inscribirse Ahora');
 
-            // Determina la cantidad máxima y la actual
-            const currentCount = isDraft ? (tour.playersCount || 0) : (tour.teamsCount || 0);
-            const maxCount = isDraft ? (tour.maxPlayers || '∞') : (tour.maxTeams || '∞');
+            // Determinar la información a mostrar
+            let infoTeamsHtml = '';
+            if (isDraft) {
+                // Drafts: solo mostrar el número de inscritos
+                infoTeamsHtml = `<span>📊 ${tour.playersCount || 0} ${teamsLabel} inscritos</span>`;
+            } else {
+                // Torneos: mostrar current/max
+                infoTeamsHtml = `<span>📊 ${tour.teamsCount || 0}/${tour.maxTeams || '∞'} ${teamsLabel}</span>`;
+            }
 
             return `
             <div class="event-card">
@@ -1461,7 +1467,7 @@ async function loadOpenTournaments() {
                     <p><strong>${isDraft ? 'DRAFT' : tour.tipo}</strong></p>
                     ${isPaid ? `<p>💰 ${priceLabel}: ${tour.entryFee}€</p>` : ''}
                     <div class="tournament-info">
-                        <span>📊 ${currentCount}/${maxCount} ${teamsLabel}</span>
+                        ${infoTeamsHtml}
                         <span>🎮 ${tour.format ? tour.format.toUpperCase() : 'EAFC'}</span>
                     </div>
                     <div class="tournament-actions" style="display: flex; gap: 10px; margin-top: 15px;">
