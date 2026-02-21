@@ -139,11 +139,11 @@ export async function updateDraftMainInterface(client, draftShortId) {
         const channel = await client.channels.fetch(discordChannelId);
         if (!channel) return;
 
-        const [playersEmbed, teamsEmbed, turnOrderEmbed] = createDraftMainInterface(draft);
+        const [playersEmbeds, teamsEmbed, turnOrderEmbed] = createDraftMainInterface(draft);
 
         if (discordMessageIds.mainInterfacePlayerMessageId) {
             const playerMsg = await channel.messages.fetch(discordMessageIds.mainInterfacePlayerMessageId).catch(() => null);
-            if (playerMsg) await playerMsg.edit({ embeds: [playersEmbed] });
+            if (playerMsg) await playerMsg.edit({ embeds: playersEmbeds });
         }
 
         if (discordMessageIds.mainInterfaceTeamsMessageId) {
@@ -855,8 +855,8 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             }
         };
 
-        const [playersEmbed, teamsEmbed, turnOrderEmbed] = createDraftMainInterface(newDraft);
-        const playersMessage = await draftChannel.send({ embeds: [playersEmbed] });
+        const [playersEmbeds, teamsEmbed, turnOrderEmbed] = createDraftMainInterface(newDraft);
+        const playersMessage = await draftChannel.send({ embeds: playersEmbeds });
         const teamsMessage = await draftChannel.send({ embeds: [teamsEmbed] });
         const turnOrderMessage = await draftChannel.send({ embeds: [turnOrderEmbed] });
 

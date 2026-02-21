@@ -587,6 +587,51 @@ export async function handleModal(interaction) {
         return;
     }
 
+    if (action === 'admin_add_captain_manual_submit') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        const discordId = interaction.fields.getTextInputValue('captain_discord_id').trim();
+        const psnId = interaction.fields.getTextInputValue('captain_psn_id').trim();
+        const teamName = interaction.fields.getTextInputValue('captain_team_name').trim();
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.editReply({ content: '❌ Torneo/Draft no encontrado.' });
+
+        if (draft.captains.some(c => c.userId === discordId)) {
+            return interaction.editReply({ content: '❌ Este usuario ya es capitán en este draft.' });
+        }
+
+        let userName = discordId;
+        try {
+            const user = await client.users.fetch(discordId);
+            userName = user.globalName || user.username;
+        } catch (e) {
+            console.warn(`No se pudo obtener el usuario de Discord para ID: ${discordId}`);
+        }
+
+        const newCaptain = {
+            userId: discordId,
+            userName: userName,
+            psnId: psnId,
+            teamName: teamName,
+            isCaptain: true
+        };
+
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $push: { captains: newCaptain } }
+        );
+
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        await updateDraftMainInterface(client, updatedDraft.shortId);
+        await updatePublicMessages(client, updatedDraft);
+        await updateDraftManagementPanel(client, updatedDraft);
+        await notifyVisualizer(updatedDraft);
+
+        await interaction.editReply({ content: `✅ Capitán **${userName}** (${teamName}) añadido exitosamente de forma manual.` });
+        return;
+    }
+
     if (action === 'admin_add_player_manual_modal') {
         const [draftShortId, primaryPosition] = params;
         const discordId = interaction.fields.getTextInputValue('discord_id_input').trim();

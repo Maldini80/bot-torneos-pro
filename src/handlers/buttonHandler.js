@@ -607,6 +607,41 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_add_captain_manual_start') {
+        const [draftShortId] = params;
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_add_captain_manual_submit:${draftShortId}`)
+            .setTitle('Añadir Capitán Manualmente');
+
+        const discordIdInput = new TextInputBuilder()
+            .setCustomId('captain_discord_id')
+            .setLabel("Discord ID (Ej: 123456789012345678)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const psnIdInput = new TextInputBuilder()
+            .setCustomId('captain_psn_id')
+            .setLabel("PSN ID / EA Name")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const teamNameInput = new TextInputBuilder()
+            .setCustomId('captain_team_name')
+            .setLabel("Nombre de su Equipo (Tag/Abrev)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(discordIdInput),
+            new ActionRowBuilder().addComponents(psnIdInput),
+            new ActionRowBuilder().addComponents(teamNameInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
     if (action === 'admin_edit_draft_config_start') {
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });

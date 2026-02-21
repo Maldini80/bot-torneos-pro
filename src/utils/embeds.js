@@ -347,6 +347,7 @@ export function createDraftManagementPanel(draft, isBusy = false) {
 
         row2.addComponents(
             new ButtonBuilder().setCustomId(`admin_add_player_manual_start:${draft.shortId}`).setLabel('Añadir Jugador Manual').setStyle(ButtonStyle.Success).setEmoji('👤').setDisabled(isBusy),
+            new ButtonBuilder().setCustomId(`admin_add_captain_manual_start:${draft.shortId}`).setLabel('Añadir Capitán Manual').setStyle(ButtonStyle.Primary).setEmoji('👑').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`admin_import_players_start:${draft.shortId}`).setLabel('Importar desde WhatsApp').setStyle(ButtonStyle.Secondary).setEmoji('📥').setDisabled(isBusy),
             new ButtonBuilder().setCustomId(`draft_add_test_players:${draft.shortId}`).setLabel('Añadir Jugadores Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
@@ -418,12 +419,14 @@ export function createDraftManagementPanel(draft, isBusy = false) {
 export function createDraftMainInterface(draft) {
     const availablePlayers = draft.players.filter(p => !p.isCaptain && !p.captainId);
 
-    const playersEmbed = new EmbedBuilder()
+    const playersEmbeds = [];
+    const mainEmbed = new EmbedBuilder()
         .setColor('#3498db')
         .setTitle('Jugadores Disponibles para Seleccionar');
 
     if (availablePlayers.length > 0) {
-        playersEmbed.setDescription('🔎 = Agente Libre\n🛡️ = Con Equipo');
+        mainEmbed.setDescription('🔎 = Agente Libre\n🛡️ = Con Equipo');
+        playersEmbeds.push(mainEmbed);
 
         const groupedPlayers = {};
         DRAFT_POSITION_ORDER.forEach(pos => groupedPlayers[pos] = []);
@@ -438,29 +441,38 @@ export function createDraftMainInterface(draft) {
             }
         });
 
-        const columns = [[], [], []];
-        DRAFT_POSITION_ORDER.forEach((pos, index) => {
-            const columnContent = `**${DRAFT_POSITIONS[pos]}**\n` + (groupedPlayers[pos].length > 0 ? groupedPlayers[pos].join('\n') : '*Vacío*');
-            columns[index % 3].push(columnContent);
-        });
+        // Crear un embed por cada posición que tenga jugadores
+        DRAFT_POSITION_ORDER.forEach(pos => {
+            if (groupedPlayers[pos].length > 0) {
+                const posEmbed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`Posición: ${DRAFT_POSITIONS[pos]}`);
 
-        columns.forEach((col, i) => {
-            let colString = col.join('\n\n');
-            if (colString.length > 1024) {
-                colString = colString.substring(0, 1021) + '...';
+                // Dividir en columnas de máximo 1024 caracteres
+                let currentStr = '';
+                const fields = [];
+                for (let i = 0; i < groupedPlayers[pos].length; i++) {
+                    const line = groupedPlayers[pos][i] + '\n';
+                    if (currentStr.length + line.length > 1024) {
+                        fields.push({ name: '\u200B', value: currentStr, inline: true });
+                        currentStr = line;
+                    } else {
+                        currentStr += line;
+                    }
+                }
+                if (currentStr.length > 0) fields.push({ name: '\u200B', value: currentStr, inline: true });
+
+                posEmbed.addFields(fields);
+                playersEmbeds.push(posEmbed);
             }
-            columns[i] = colString;
         });
 
-        playersEmbed.addFields(
-            { name: '\u200B', value: columns[0] || '\u200B', inline: true },
-            { name: '\u200B', value: columns[1] || '\u200B', inline: true },
-            { name: '\u200B', value: columns[2] || '\u200B', inline: true },
-        );
     } else if (draft.status === 'inscripcion' && draft.players.length === 0) {
-        playersEmbed.setDescription('Aún no se ha inscrito ningún jugador.');
+        mainEmbed.setDescription('Aún no se ha inscrito ningún jugador.');
+        playersEmbeds.push(mainEmbed);
     } else {
-        playersEmbed.setDescription('¡Todos los jugadores han sido seleccionados!');
+        mainEmbed.setDescription('¡Todos los jugadores han sido seleccionados!');
+        playersEmbeds.push(mainEmbed);
     }
 
     const teamsEmbed = new EmbedBuilder()
@@ -538,7 +550,7 @@ export function createDraftMainInterface(draft) {
         turnOrderEmbed.setDescription('El orden de selección se mostrará aquí cuando comience la fase de selección.');
     }
 
-    return [playersEmbed, teamsEmbed, turnOrderEmbed];
+    return [playersEmbeds, teamsEmbed, turnOrderEmbed];
 }
 
 export function createCaptainControlPanel(draft) {
