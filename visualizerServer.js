@@ -583,6 +583,8 @@ app.get('/api/tournaments/open', async (req, res) => {
                 inscripcion: d.config?.isPaid ? 'Pago' : 'Gratis',
                 isPaid: d.config?.isPaid || false,
                 entryFee: d.config?.entryFee || 0,
+                playersCount: (d.players || []).length,
+                maxPlayers: d.config?.maxPlayers || null,
                 teamsCount: Object.keys(d.teams || {}).length || 0,
                 maxTeams: d.config?.maxCapital || null,
                 format: 'Draft',
@@ -761,6 +763,101 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
     } catch (error) {
         console.error('[Tournament Registration] Error:', error);
         res.status(500).json({ error: 'Error al procesar la inscripción' });
+    }
+});
+
+// NUEVO: Inscribirse en un Draft desde la web
+app.post('/api/draft/:draftId/register', async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { draftId } = req.params;
+        const { primaryPosition, secondaryPosition } = req.body;
+
+        if (!primaryPosition) {
+            return res.status(400).json({ error: 'Debes seleccionar al menos una posición principal.' });
+        }
+
+        let isMember = req.user.isMember;
+
+        if (isMember === undefined) {
+            try {
+                const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
+                    headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+                isMember = response.ok;
+            } catch (e) {
+                console.error('Error verificando membresía:', e);
+                isMember = false;
+            }
+        }
+
+        if (!isMember) {
+            return res.status(403).json({
+                error: 'Debes ser miembro del servidor Discord para inscribirte en drafts',
+                requiresDiscordMembership: true,
+                inviteUrl: 'https://discord.gg/zEy9ztp8QM'
+            });
+        }
+
+        const db = getDb();
+        const draft = await db.collection('drafts').findOne({ shortId: draftId });
+
+        if (!draft) {
+            return res.status(404).json({ error: 'Draft no encontrado' });
+        }
+
+        if (draft.status !== 'inscripcion') {
+            return res.status(400).json({ error: 'Las inscripciones para este Draft están cerradas.' });
+        }
+
+        if (draft.players && draft.players.some(p => p.userId === userId)) {
+            return res.status(400).json({ error: 'Ya estás inscrito en este Draft.' });
+        }
+
+        const discordUserResponse = await fetch(`https://discord.com/api/v10/users/${userId}`, {
+            headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+        const discordUser = await discordUserResponse.json();
+        const userName = discordUser.global_name || discordUser.username;
+
+        const newPlayer = {
+            userId: userId,
+            userName: userName,
+            psnId: req.user.psnId || userName,
+            primaryPosition: primaryPosition,
+            secondaryPosition: secondaryPosition || 'NONE',
+            currentTeam: 'Libre',
+            captainId: null,
+            isCaptain: false
+        };
+
+        const result = await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $push: { players: newPlayer } }
+        );
+
+        if (result.modifiedCount > 0) {
+            const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+            if (client) {
+                const { updateDraftMainInterface } = await import('./src/logic/tournamentLogic.js');
+                const { updateDraftManagementPanel } = await import('./src/utils/panelManager.js');
+                const { notifyVisualizer } = await import('./src/logic/tournamentLogic.js');
+                await updateDraftMainInterface(client, draftId);
+                await updateDraftManagementPanel(client, updatedDraft);
+                await notifyVisualizer(updatedDraft);
+            }
+
+            return res.json({
+                success: true,
+                message: '¡Inscripción al Draft completada exitosamente!'
+            });
+        } else {
+            return res.status(500).json({ error: 'No se pudo completar la inscripción.' });
+        }
+
+    } catch (error) {
+        console.error('[Draft Register Web] Error:', error);
+        res.status(500).json({ error: 'Error interno del servidor al procesar la inscripción al Draft' });
     }
 });
 

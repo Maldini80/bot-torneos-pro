@@ -505,6 +505,48 @@
         </div>
     </div>
 
+    <!-- === MODAL INSCRIPCION DRAFT === -->
+    <div id="draft-registration-modal" class="modal hidden">
+        <div class="modal-content report-modal-content">
+            <span class="close-button close-draft-reg" onclick="closeDraftModal()">&times;</span>
+            <h2 class="report-modal-title">Inscripción al Draft</h2>
+            <p class="report-modal-info">Selecciona tus posiciones para participar en el draft.</p>
+
+            <form id="draft-reg-form">
+                <input type="hidden" id="draft-reg-id">
+                <div class="form-group" style="margin-bottom: 15px; text-align: left;">
+                    <label style="color:white; display:block; margin-bottom: 5px;">Posición Principal:</label>
+                    <select id="draft-primary-pos" required
+                        style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
+                        <option value="" disabled selected>Selecciona tu posición principal...</option>
+                        <option value="GK">POR (Portero)</option>
+                        <option value="DFC">DFC (Defensa Central)</option>
+                        <option value="CARR">CARR (Lateral/Carrilero)</option>
+                        <option value="MC">MC (MedioCentro/Pivote)</option>
+                        <option value="DC">DC (Delantero/Extremo)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 25px; text-align: left;">
+                    <label style="color:white; display:block; margin-bottom: 5px;">Posición Secundaria
+                        (Opcional):</label>
+                    <select id="draft-secondary-pos"
+                        style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
+                        <option value="NONE">Ninguna</option>
+                        <option value="GK">POR (Portero)</option>
+                        <option value="DFC">DFC (Defensa Central)</option>
+                        <option value="CARR">CARR (Lateral/Carrilero)</option>
+                        <option value="MC">MC (MedioCentro/Pivote)</option>
+                        <option value="DC">DC (Delantero/Extremo)</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="register-btn" style="width:100%;">Confirmar Inscripción</button>
+            </form>
+            <p id="draft-reg-status" style="margin-top:10px; font-size:0.9rem; text-align:center;"></p>
+        </div>
+    </div>
+
     <script src="dashboard.js?v=2.2.0"></script>
 </body>
 

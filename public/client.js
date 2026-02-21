@@ -904,6 +904,8 @@ function initializeTournamentView(tournamentId) {
         }
 
         function renderDraftState(draft) {
+            draft.captains = draft.captains || [];
+            draft.players = draft.players || [];
             currentDraftState = draft;
             draftNameEl.textContent = draft.config?.name || 'Draft';
 

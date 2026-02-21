@@ -1438,11 +1438,16 @@ async function loadOpenTournaments() {
         grid.innerHTML = tournaments.map(tour => {
             // Traducir tipo de inscripción y etiquetas
             const isPaid = tour.isPaid;
+            const isDraft = tour.tipo === 'draft';
             const inscriptionLabel = isPaid ? (tr.paid || 'Pago') : (tr.free || 'Gratis');
             const priceLabel = tr.price || 'Precio';
-            const teamsLabel = tr.teams || 'equipos';
-            const registerLabel = tr.registerNow || 'Inscribirse Ahora';
-            const viewLabel = tr.viewRegistered || 'Ver Inscritos';
+            const teamsLabel = isDraft ? (tr.players || 'jugadores') : (tr.teams || 'equipos');
+            const viewLabel = isDraft ? (tr.viewDraft || 'Ver Tablero') : (tr.viewRegistered || 'Ver Inscritos');
+            const registerLabel = isDraft ? (tr.registerDraft || 'Participar') : (tr.registerNow || 'Inscribirse Ahora');
+
+            // Determina la cantidad máxima y la actual
+            const currentCount = isDraft ? (tour.playersCount || 0) : (tour.teamsCount || 0);
+            const maxCount = isDraft ? (tour.maxPlayers || '∞') : (tour.maxTeams || '∞');
 
             return `
             <div class="event-card">
@@ -1453,17 +1458,17 @@ async function loadOpenTournaments() {
                     </span>
                 </div>
                 <div class="event-card-body">
-                    <p><strong>${tour.tipo}</strong></p>
+                    <p><strong>${isDraft ? 'DRAFT' : tour.tipo}</strong></p>
                     ${isPaid ? `<p>💰 ${priceLabel}: ${tour.entryFee}€</p>` : ''}
                     <div class="tournament-info">
-                        <span>📊 ${tour.teamsCount || 0}/${tour.maxTeams || '∞'} ${teamsLabel}</span>
-                        <span>🎮 ${tour.format.toUpperCase()}</span>
+                        <span>📊 ${currentCount}/${maxCount} ${teamsLabel}</span>
+                        <span>🎮 ${tour.format ? tour.format.toUpperCase() : 'EAFC'}</span>
                     </div>
                     <div class="tournament-actions" style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button class="secondary-btn" onclick="viewRegisteredTeams('${tour.shortId}')" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 6px; cursor: pointer;">
+                        <button class="secondary-btn" onclick="window.location.href='/index.html?${isDraft ? 'draftId' : 'tournamentId'}=${tour.shortId}'" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 6px; cursor: pointer;">
                             👁️ ${viewLabel}
                         </button>
-                        <button class="register-btn" onclick="openRegistrationModal('${tour.shortId}', ${isPaid}, '${currentLang}')" style="flex: 1;">
+                        <button class="register-btn" onclick="${isDraft ? `openDraftRegistrationModal('${tour.shortId}')` : `openRegistrationModal('${tour.shortId}', ${isPaid}, '${currentLang}')`}" style="flex: 1;">
                             ⚽ ${registerLabel}
                         </button>
                     </div>
@@ -1484,8 +1489,6 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Función para abrir modal de inscripción
-// Función para abrir modal de inscripción
 // Función para abrir modal de inscripción
 async function openRegistrationModal(tournamentId, isPaid, langCode) {
     const lang = langCode || getCurrentLanguage();
@@ -1519,6 +1522,87 @@ async function openRegistrationModal(tournamentId, isPaid, langCode) {
         }, null);
     }
 }
+
+// ==== GESTION MODAL DRAFT ====
+window.openDraftRegistrationModal = function (draftId) {
+    // Comprobar si el usuario tiene sesión en la web
+    const userSessionDisplay = document.getElementById('user-session').style.display;
+    if (userSessionDisplay === 'none' || document.getElementById('user-session').classList.contains('hidden')) {
+        alert('Debes iniciar sesión con Discord para inscribirte en un Draft.');
+        // Redirigir al auth pasándole el ref
+        window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+        return;
+    }
+
+    const modal = document.getElementById('draft-registration-modal');
+    if (modal) {
+        document.getElementById('draft-reg-id').value = draftId;
+        document.getElementById('draft-primary-pos').value = '';
+        document.getElementById('draft-secondary-pos').value = 'NONE';
+        document.getElementById('draft-reg-status').textContent = '';
+        modal.classList.remove('hidden');
+    }
+};
+
+window.closeDraftModal = function () {
+    const modal = document.getElementById('draft-registration-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+};
+
+// Event listener para el form de Draft
+document.addEventListener('DOMContentLoaded', () => {
+    const draftForm = document.getElementById('draft-reg-form');
+    if (draftForm) {
+        draftForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const draftId = document.getElementById('draft-reg-id').value;
+            const primaryPos = document.getElementById('draft-primary-pos').value;
+            const secondaryPos = document.getElementById('draft-secondary-pos').value;
+            const statusEl = document.getElementById('draft-reg-status');
+            const submitBtn = draftForm.querySelector('button[type="submit"]');
+
+            if (!primaryPos) {
+                statusEl.textContent = 'Debes seleccionar una posición principal.';
+                statusEl.style.color = '#f04747';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Inscribiendo...';
+            statusEl.textContent = '';
+
+            try {
+                const response = await fetch(`/api/draft/${draftId}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ primaryPosition: primaryPos, secondaryPosition: secondaryPos })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusEl.textContent = data.message;
+                    statusEl.style.color = '#43B581';
+                    setTimeout(() => {
+                        window.closeDraftModal();
+                        // Refrescar tarjetas de torneos para actualizar el count
+                        loadOpenTournaments();
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || 'Error al inscribirse');
+                }
+            } catch (err) {
+                statusEl.textContent = err.message;
+                statusEl.style.color = '#f04747';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Confirmar Inscripción';
+            }
+        });
+    }
+});
 
 // Función para ver equipos inscritos
 async function viewRegisteredTeams(shortId) {
