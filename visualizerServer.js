@@ -545,7 +545,7 @@ app.get('/api/teams/pending', async (req, res) => {
 });
 
 
-// Obtener torneos abiertos a inscripción
+// Obtener eventos abiertos a inscripción (Torneos y Drafts)
 app.get('/api/tournaments/open', async (req, res) => {
     try {
         const db = getDb(); // Torneos están en la DB por defecto (tournamentBotDb)
@@ -555,19 +555,40 @@ app.get('/api/tournaments/open', async (req, res) => {
             status: 'inscripcion_abierta'
         }).toArray();
 
+        // Buscar drafts con inscripción abierta
+        const openDrafts = await db.collection('drafts').find({
+            status: 'inscripcion'
+        }).toArray();
+
         // Mapear datos relevantes para el frontend
-        const tournamentsData = openTournaments.map(t => ({
-            _id: t._id,
-            shortId: t.shortId,
-            nombre: t.nombre,
-            tipo: t.tipo || 'Torneo',
-            inscripcion: t.config?.isPaid ? 'Pago' : 'Gratis',
-            isPaid: t.config?.isPaid || false,
-            entryFee: t.config?.entryFee || 0,
-            teamsCount: t.teams?.aprobados ? Object.keys(t.teams.aprobados).length : 0,
-            maxTeams: t.config?.maxTeams || t.config?.format?.size || t.config?.size || null,
-            format: t.config?.formatId || 'unknown'
-        }));
+        const tournamentsData = [
+            ...openTournaments.map(t => ({
+                _id: t._id,
+                shortId: t.shortId,
+                nombre: t.nombre,
+                tipo: t.tipo || 'Torneo',
+                inscripcion: t.config?.isPaid ? 'Pago' : 'Gratis',
+                isPaid: t.config?.isPaid || false,
+                entryFee: t.config?.entryFee || 0,
+                teamsCount: t.teams?.aprobados ? Object.keys(t.teams.aprobados).length : 0,
+                maxTeams: t.config?.maxTeams || t.config?.format?.size || t.config?.size || null,
+                format: t.config?.formatId || 'unknown',
+                isDraft: false
+            })),
+            ...openDrafts.map(d => ({
+                _id: d._id,
+                shortId: d.shortId,
+                nombre: d.draftName || d.nombre || `Draft ${d.shortId}`,
+                tipo: 'Draft',
+                inscripcion: d.config?.isPaid ? 'Pago' : 'Gratis',
+                isPaid: d.config?.isPaid || false,
+                entryFee: d.config?.entryFee || 0,
+                teamsCount: Object.keys(d.teams || {}).length || 0,
+                maxTeams: d.config?.maxCapital || null,
+                format: 'Draft',
+                isDraft: true
+            }))
+        ];
 
         res.json({
             success: true,
@@ -1430,10 +1451,10 @@ export async function startVisualizerServer(discordClient) {
                 .sort({ createdAt: -1 })
                 .toArray();
 
-            // Buscar drafts activos o pendientes
+            // Buscar drafts activos, pendientes o en inscripción
             const drafts = await db.collection('drafts')
                 .find({
-                    status: { $in: ['active', 'pending'] }
+                    status: { $in: ['active', 'pending', 'inscripcion'] }
                 })
                 .sort({ createdAt: -1 })
                 .toArray();
