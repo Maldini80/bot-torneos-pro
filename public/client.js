@@ -874,7 +874,7 @@ function initializeDraftView(draftId) {
         socket.onopen = () => console.log('Conectado al servidor para Draft.');
         socket.onmessage = (event) => {
             const message = JSON.parse(event.data);
-            if (message.type === 'draft_update' && message.draftId === draftId) {
+            if (message.type === 'draft' && message.id === draftId) {
                 if (!hasLoadedInitialData) {
                     loadingEl.classList.add('hidden');
                     draftContainerEl.classList.remove('hidden');
