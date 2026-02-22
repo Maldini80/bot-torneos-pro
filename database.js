@@ -103,6 +103,39 @@ export async function getBotSettings() {
         settings = defaultBotSettings;
     }
 
+    // --- MIGRACIÓN AUTOMÁTICA DE MCD Y MV/MCO A MC ---
+    let needsUpdate = false;
+    const migrateQuotas = (quotaStr) => {
+        if (!quotaStr || (!quotaStr.includes('MCD') && !quotaStr.includes('MV/MCO'))) return quotaStr;
+        const parts = quotaStr.split(',');
+        let mcTotal = 0;
+        const newParts = [];
+        for (const p of parts) {
+            const [role, num] = p.split(':');
+            if (role === 'MCD' || role === 'MV/MCO' || role === 'MC') {
+                mcTotal += parseInt(num || 0);
+            } else {
+                newParts.push(p);
+            }
+        }
+        if (mcTotal > 0) newParts.push(`MC:${mcTotal}`);
+        needsUpdate = true;
+        return newParts.join(',');
+    };
+
+    if (settings.draftMinQuotas) settings.draftMinQuotas = migrateQuotas(settings.draftMinQuotas);
+    if (settings.draftMaxQuotas) settings.draftMaxQuotas = migrateQuotas(settings.draftMaxQuotas);
+
+    if (needsUpdate) {
+        await settingsCollection.updateOne({ _id: 'global_config' }, {
+            $set: {
+                draftMinQuotas: settings.draftMinQuotas,
+                draftMaxQuotas: settings.draftMaxQuotas
+            }
+        });
+        console.log('[DATABASE] Cuotas migradas automáticamente de MCD/MCO a MC global.');
+    }
+
     return settings;
 }
 

@@ -13,8 +13,7 @@ import { visualizerStateHandler } from '../../visualizerServer.js';
 import { parsePlayerList } from '../utils/textParser.js';
 
 
-const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO'];
-const isMidfielder = (pos) => MIDFIELDER_POSITIONS.includes(pos);
+// Midfielder constants removed
 
 export async function notifyVisualizer(draft) {
     // Enriquece los datos del draft con los strikes persistentes
@@ -184,12 +183,6 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
             if (currentCount >= max) {
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
             }
-        } else if (isMidfielder(positionToCheck) && maxQuotas['Medios']) {
-            const max = parseInt(maxQuotas['Medios']);
-            const currentCount = teamPlayers.filter(p => isMidfielder(p.primaryPosition)).length;
-            if (currentCount >= max) {
-                throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición Medios.`);
-            }
         }
 
         await db.collection('drafts').updateOne(
@@ -299,12 +292,6 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
             const currentCount = teamPlayers.filter(p => p.primaryPosition === positionToCheck).length;
             if (currentCount >= max) {
                 throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición ${positionToCheck}.`);
-            }
-        } else if (isMidfielder(positionToCheck) && maxQuotas['Medios']) {
-            const max = parseInt(maxQuotas['Medios']);
-            const currentCount = teamPlayers.filter(p => isMidfielder(p.primaryPosition)).length;
-            if (currentCount >= max) {
-                throw new Error(`Ya has alcanzado el máximo de ${max} jugadores para la posición Medios.`);
             }
         }
 
@@ -941,36 +928,17 @@ export async function startDraftSelection(client, guild, draftShortId) {
         const minQuotas = Object.fromEntries(settings.draftMinQuotas.split(',').map(q => q.split(':')));
         const positionCounts = {};
         Object.keys(minQuotas).forEach(p => positionCounts[p] = 0);
-        positionCounts['MC'] = 0; // Añadimos MC explícitamente al contador
 
         const allPlayers = draft.players;
         for (const player of allPlayers) {
             let primary = player.primaryPosition;
-            let secondary = player.secondaryPosition; // Corrected from player.primaryPosition
+            let secondary = player.secondaryPosition;
 
             if (positionCounts[primary] !== undefined) positionCounts[primary]++;
-            else if (primary === 'MC') positionCounts['MC']++; // Contar MC separados
 
             if (secondary && secondary !== 'NONE' && secondary !== primary) {
                 if (positionCounts[secondary] !== undefined) positionCounts[secondary]++;
-                else if (secondary === 'MC') positionCounts['MC']++;
             }
-        }
-
-        // Suma unificada de los medios
-        const requiredMCD = parseInt(minQuotas['MCD'] || 0);
-        const requiredMCO = parseInt(minQuotas['MV/MCO'] || 0);
-        const totalRequiredMidfielders = requiredMCD + requiredMCO;
-
-        const currentMCD = positionCounts['MCD'] || 0;
-        const currentMCO = positionCounts['MV/MCO'] || 0;
-        const currentMC = positionCounts['MC'] || 0;
-        const totalCurrentMidfielders = currentMCD + currentMCO + currentMC;
-
-        // Si cumplimos el global de medios, marcamos las cuotas individuales como cumplidas artificialmente
-        if (totalCurrentMidfielders >= totalRequiredMidfielders) {
-            positionCounts['MCD'] = requiredMCD;
-            positionCounts['MV/MCO'] = requiredMCO;
         }
 
         const missingPositions = [];

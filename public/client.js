@@ -627,7 +627,7 @@ function initializeTournamentView(tournamentId) {
     function showRosterModal(team) {
         modalTeamNameEl.textContent = team.nombre;
         modalRosterListEl.innerHTML = '';
-        const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'DC'];
+        const positionOrder = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
         const sortedPlayers = [...team.players].sort((a, b) => positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition));
         sortedPlayers.forEach(player => {
             const li = document.createElement('li');
@@ -832,8 +832,8 @@ function initializeDraftView(draftId) {
     const rosterManagementContainer = document.getElementById('roster-management-container');
     const managementTeamName = document.getElementById('management-team-name');
 
-    const positionOrder = ['GK', 'DFC', 'CARR', 'MCD', 'MV/MCO', 'MC', 'DC'];
-    const MIDFIELDER_POSITIONS = ['MCD', 'MV', 'MCO', 'MV/MCO', 'MC'];
+    const positionOrder = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
+    const MIDFIELDER_POSITIONS = ['MC'];
     let hasLoadedInitialData = false;
     let currentUser = null;
     let currentDraftState = null;

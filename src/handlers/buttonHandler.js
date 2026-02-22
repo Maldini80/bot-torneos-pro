@@ -1285,7 +1285,7 @@ export async function handleButton(interaction) {
 
         const positionInput = new TextInputBuilder()
             .setCustomId('manual_position')
-            .setLabel("Posición (GK, DFC, LTD, MC, MCO, DC...)")
+            .setLabel("Posición (GK, DFC, CARR, MC, DC)")
             .setStyle(TextInputStyle.Short)
             .setPlaceholder("DC")
             .setRequired(true);
