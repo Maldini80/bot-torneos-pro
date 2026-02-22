@@ -943,9 +943,17 @@ export async function startDraftSelection(client, guild, draftShortId) {
         Object.keys(minQuotas).forEach(p => positionCounts[p] = 0);
         const allPlayers = draft.players;
         for (const player of allPlayers) {
-            if (positionCounts[player.primaryPosition] !== undefined) positionCounts[player.primaryPosition]++;
-            if (player.secondaryPosition && player.secondaryPosition !== 'NONE' && player.secondaryPosition !== player.primaryPosition) {
-                if (positionCounts[player.secondaryPosition] !== undefined) positionCounts[player.secondaryPosition]++;
+            let primary = player.primaryPosition;
+            let secondary = player.secondaryPosition;
+
+            // Fusión para mapear 'MC' a 'MV/MCO' en las cuotas de DB
+            if (primary === 'MC') primary = 'MV/MCO';
+            if (secondary === 'MC') secondary = 'MV/MCO';
+
+            if (positionCounts[primary] !== undefined) positionCounts[primary]++;
+
+            if (secondary && secondary !== 'NONE' && secondary !== primary) {
+                if (positionCounts[secondary] !== undefined) positionCounts[secondary]++;
             }
         }
         const missingPositions = [];
