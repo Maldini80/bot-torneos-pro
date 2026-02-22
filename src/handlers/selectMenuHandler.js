@@ -1077,20 +1077,43 @@ export async function handleSelectMenu(interaction) {
     }
     // --- FIN DE LA SOLUCIÓN ---
 
-    if (action === 'admin_select_manual_player_pos') {
+    // --- NUEVOS FLUJOS DE SELECCIÓN DE USUARIO MANUAL ---
+    if (action === 'admin_add_cap_user_sel') {
         const [draftShortId] = params;
-        const selectedPosition = interaction.values[0];
+        const selectedUserId = interaction.values[0]; // Discord ID seleccionado
 
         const modal = new ModalBuilder()
-            .setCustomId(`admin_add_player_manual_modal:${draftShortId}:${selectedPosition}`)
-            .setTitle('Añadir Jugador Manualmente');
+            .setCustomId(`admin_add_captain_manual_submit:${draftShortId}:${selectedUserId}`)
+            .setTitle('Completar Datos del Capitán');
 
-        const discordIdInput = new TextInputBuilder()
-            .setCustomId('discord_id_input')
-            .setLabel("Discord ID del jugador")
-            .setPlaceholder("Ej: 123456789012345678")
+        const psnIdInput = new TextInputBuilder()
+            .setCustomId('captain_psn_id')
+            .setLabel("PSN ID / EA Name")
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
+
+        const teamNameInput = new TextInputBuilder()
+            .setCustomId('captain_team_name')
+            .setLabel("Nombre de su Equipo (Tag/Abrev)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(psnIdInput),
+            new ActionRowBuilder().addComponents(teamNameInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_add_plr_user_sel') {
+        const [draftShortId, position] = params;
+        const selectedUserId = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_add_player_manual_modal:${draftShortId}:${position}:${selectedUserId}`)
+            .setTitle('Completar Datos del Jugador');
 
         const psnIdInput = new TextInputBuilder()
             .setCustomId('psn_id_input')
@@ -1102,22 +1125,78 @@ export async function handleSelectMenu(interaction) {
             .setCustomId('twitter_input')
             .setLabel("Twitter (sin @)")
             .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+            .setPlaceholder("Opcional")
+            .setRequired(false); // OPTIONAL POR PETICIÓN DEL USUARIO
 
         const whatsappInput = new TextInputBuilder()
             .setCustomId('whatsapp_input')
             .setLabel("WhatsApp (con prefijo, ej: +34)")
             .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Si se solicitó para el torneo")
             .setRequired(false);
 
         modal.addComponents(
-            new ActionRowBuilder().addComponents(discordIdInput),
             new ActionRowBuilder().addComponents(psnIdInput),
             new ActionRowBuilder().addComponents(twitterInput),
             new ActionRowBuilder().addComponents(whatsappInput)
         );
 
         await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_add_partic_user_sel') {
+        const [draftShortId] = params;
+        const selectedUserId = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_add_participant_manual_modal:${draftShortId}:${selectedUserId}`)
+            .setTitle('Añadir Jugador Manualmente');
+
+        const gameIdInput = new TextInputBuilder()
+            .setCustomId('manual_game_id')
+            .setLabel("ID de Juego (PSN/Gamertag)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('manual_whatsapp')
+            .setLabel("WhatsApp (con prefijo si es posible)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("+34600123456")
+            .setRequired(true);
+
+        const positionInput = new TextInputBuilder()
+            .setCustomId('manual_position')
+            .setLabel("Posición (GK, DFC, CARR, MC, DC)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("DC")
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(gameIdInput),
+            new ActionRowBuilder().addComponents(whatsappInput),
+            new ActionRowBuilder().addComponents(positionInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+    // --- FIN DE LOS FLUJOS ---
+
+    if (action === 'admin_select_manual_player_pos') {
+        const [draftShortId] = params;
+        const selectedPosition = interaction.values[0];
+
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId(`admin_add_plr_user_sel:${draftShortId}:${selectedPosition}`)
+            .setPlaceholder('Selecciona el Usuario de Discord');
+
+        await interaction.reply({
+            content: `Has seleccionado Posición Primaria: **${selectedPosition}**.\n\nAhora, selecciona el usuario de Discord (empieza a escribir su nombre) para continuar con la adición.`,
+            components: [new ActionRowBuilder().addComponents(userSelect)],
+            flags: [MessageFlags.Ephemeral]
+        });
         return;
     }
 

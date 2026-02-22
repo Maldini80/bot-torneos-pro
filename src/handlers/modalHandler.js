@@ -589,8 +589,8 @@ export async function handleModal(interaction) {
 
     if (action === 'admin_add_captain_manual_submit') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [draftShortId] = params;
-        const discordId = interaction.fields.getTextInputValue('captain_discord_id').trim();
+        const [draftShortId, discordId] = params;
+
         const psnId = interaction.fields.getTextInputValue('captain_psn_id').trim();
         const teamName = interaction.fields.getTextInputValue('captain_team_name').trim();
 
@@ -633,10 +633,14 @@ export async function handleModal(interaction) {
     }
 
     if (action === 'admin_add_player_manual_modal') {
-        const [draftShortId, primaryPosition] = params;
-        const discordId = interaction.fields.getTextInputValue('discord_id_input').trim();
+        const [draftShortId, primaryPosition, discordId] = params;
         const psnId = interaction.fields.getTextInputValue('psn_id_input').trim();
-        const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
+
+        let twitter = '';
+        try {
+            twitter = interaction.fields.getTextInputValue('twitter_input').trim();
+        } catch (e) { } // Opcional
+
         const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
 
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
@@ -668,6 +672,46 @@ export async function handleModal(interaction) {
 
         if (result.success) {
             await interaction.reply({ content: `✅ Jugador **${psnId}** (${discordId}) añadido correctamente a la posición **${primaryPosition}**.`, flags: [MessageFlags.Ephemeral] });
+        } else {
+            await interaction.reply({ content: `❌ ${result.message}`, flags: [MessageFlags.Ephemeral] });
+        }
+        return;
+    }
+
+    if (action === 'admin_add_participant_manual_modal') {
+        const [draftShortId, discordId] = params;
+        const psnId = interaction.fields.getTextInputValue('manual_game_id').trim();
+        const whatsapp = interaction.fields.getTextInputValue('manual_whatsapp').trim();
+        const primaryPosition = interaction.fields.getTextInputValue('manual_position').trim().toUpperCase();
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.reply({ content: '❌ Torneo/Draft no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+        let userTag = 'Usuario Manual';
+        try {
+            const user = await client.users.fetch(discordId);
+            userTag = user.tag;
+        } catch (e) {
+            console.warn(`No se pudo validar el Discord ID ${discordId} al añadir participante manual.`);
+        }
+
+        const playerData = {
+            userId: discordId,
+            userName: userTag,
+            psnId: psnId,
+            twitter: '',
+            whatsapp: whatsapp,
+            primaryPosition: primaryPosition,
+            secondaryPosition: 'NONE',
+            currentTeam: 'Libre',
+            isCaptain: false,
+            captainId: null
+        };
+
+        const result = await adminAddPlayerToDraft(client, draft, playerData);
+
+        if (result.success) {
+            await interaction.reply({ content: `✅ Participante **${psnId}** (${discordId}) añadido correctamente a la posición **${primaryPosition}**.`, flags: [MessageFlags.Ephemeral] });
         } else {
             await interaction.reply({ content: `❌ ${result.message}`, flags: [MessageFlags.Ephemeral] });
         }

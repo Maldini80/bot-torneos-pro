@@ -609,36 +609,15 @@ export async function handleButton(interaction) {
 
     if (action === 'admin_add_captain_manual_start') {
         const [draftShortId] = params;
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId(`admin_add_cap_user_sel:${draftShortId}`)
+            .setPlaceholder('Selecciona el Usuario de Discord');
 
-        const modal = new ModalBuilder()
-            .setCustomId(`admin_add_captain_manual_submit:${draftShortId}`)
-            .setTitle('Añadir Capitán Manualmente');
-
-        const discordIdInput = new TextInputBuilder()
-            .setCustomId('captain_discord_id')
-            .setLabel("Discord ID (Ej: 123456789012345678)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const psnIdInput = new TextInputBuilder()
-            .setCustomId('captain_psn_id')
-            .setLabel("PSN ID / EA Name")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const teamNameInput = new TextInputBuilder()
-            .setCustomId('captain_team_name')
-            .setLabel("Nombre de su Equipo (Tag/Abrev)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(discordIdInput),
-            new ActionRowBuilder().addComponents(psnIdInput),
-            new ActionRowBuilder().addComponents(teamNameInput)
-        );
-
-        await interaction.showModal(modal);
+        await interaction.reply({
+            content: 'Para añadir un capitán manualmente, primero selecciona a su usuario de Discord:',
+            components: [new ActionRowBuilder().addComponents(userSelect)],
+            flags: [MessageFlags.Ephemeral]
+        });
         return;
     }
 
@@ -1266,48 +1245,17 @@ export async function handleButton(interaction) {
 
     if (action === 'admin_add_participant_manual_start') {
         const [draftShortId] = params;
-        const modal = new ModalBuilder()
-            .setCustomId(`admin_add_participant_manual_modal:${draftShortId}`)
-            .setTitle('Añadir Jugador Manualmente');
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId(`admin_add_partic_user_sel:${draftShortId}`)
+            .setPlaceholder('Selecciona el Usuario de Discord');
 
-        const gameIdInput = new TextInputBuilder()
-            .setCustomId('manual_game_id')
-            .setLabel("ID de Juego (PSN/Gamertag)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const whatsappInput = new TextInputBuilder()
-            .setCustomId('manual_whatsapp')
-            .setLabel("WhatsApp (con prefijo si es posible)")
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder("+34600123456")
-            .setRequired(true);
-
-        const positionInput = new TextInputBuilder()
-            .setCustomId('manual_position')
-            .setLabel("Posición (GK, DFC, CARR, MC, DC)")
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder("DC")
-            .setRequired(true);
-
-        const discordIdInput = new TextInputBuilder()
-            .setCustomId('manual_discord_id')
-            .setLabel("Discord ID (Opcional - Para vincular)")
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder("123456789012345678")
-            .setRequired(false);
-
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(gameIdInput),
-            new ActionRowBuilder().addComponents(whatsappInput),
-            new ActionRowBuilder().addComponents(positionInput),
-            new ActionRowBuilder().addComponents(discordIdInput)
-        );
-
-        await interaction.showModal(modal);
+        await interaction.reply({
+            content: 'Para añadir un participante manualmente, primero selecciona a su usuario de Discord:',
+            components: [new ActionRowBuilder().addComponents(userSelect)],
+            flags: [MessageFlags.Ephemeral]
+        });
         return;
     }
-
     if (action === 'admin_unregister_draft_approve') {
         await interaction.deferUpdate();
         const [draftShortId, userId] = params;
