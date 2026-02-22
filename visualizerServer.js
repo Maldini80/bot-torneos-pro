@@ -8,7 +8,7 @@ import MongoStore from 'connect-mongo';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
-import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest } from './src/logic/tournamentLogic.js';
+import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest, adminReplacePickFromWeb } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
@@ -1550,10 +1550,10 @@ export async function startVisualizerServer(discordClient) {
                 .sort({ createdAt: -1 })
                 .toArray();
 
-            // Buscar drafts activos, pendientes o en inscripción
+            // Buscar drafts activos, pendientes, en inscripción o en curso (selección)
             const drafts = await db.collection('drafts')
                 .find({
-                    status: { $in: ['active', 'pending', 'inscripcion'] }
+                    status: { $in: ['active', 'pending', 'inscripcion', 'seleccion'] }
                 })
                 .sort({ createdAt: -1 })
                 .toArray();
@@ -2216,6 +2216,33 @@ export async function startVisualizerServer(discordClient) {
 
                     case 'request_kick':
                         await requestKickFromWeb(client, draftId, captainId, playerId, reason);
+                        break;
+
+                    // NUEVOS CONTROLES DE ADMINISTRADOR
+                    case 'admin_force_pick':
+                        if (ws.user.roles && ws.user.roles.includes('admin')) {
+                            await forcePickFromWeb(client, draftId, playerId, ws.user.username);
+                            await advanceDraftTurn(client, draftId);
+                        } else {
+                            console.warn(`[Visualizer] Acceso denegado a admin_force_pick para el usuario ${ws.user.username}`);
+                        }
+                        break;
+
+                    case 'admin_undo_pick':
+                        if (ws.user.roles && ws.user.roles.includes('admin')) {
+                            await undoLastPick(client, draftId, ws.user.username);
+                        } else {
+                            console.warn(`[Visualizer] Acceso denegado a admin_undo_pick para el usuario ${ws.user.username}`);
+                        }
+                        break;
+
+                    case 'admin_replace_pick':
+                        if (ws.user.roles && ws.user.roles.includes('admin')) {
+                            const { oldPlayerId, newPlayerId, disposition, teamId } = data;
+                            await adminReplacePickFromWeb(client, draftId, teamId, oldPlayerId, newPlayerId, disposition, ws.user.username);
+                        } else {
+                            console.warn(`[Visualizer] Acceso denegado a admin_replace_pick para el usuario ${ws.user.username}`);
+                        }
                         break;
                 }
             } catch (e) { console.error('Error procesando mensaje de WebSocket:', e); }

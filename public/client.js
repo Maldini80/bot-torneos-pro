@@ -925,7 +925,37 @@ function initializeDraftView(draftId) {
         } else {
             roundInfoEl.textContent = draft.status === 'finalizado' ? 'Finalizado' : 'Esperando inicio';
             currentPickEl.textContent = '-';
-            currentTeamEl.textContent = '-';
+        }
+
+        // --- ADMIN CONTROLS: UNDO ---
+        const existingUndoBtn = document.getElementById('admin-undo-btn');
+        if (currentUser && currentUser.roles && currentUser.roles.includes('admin') && draft.status === 'seleccion') {
+            if (!existingUndoBtn) {
+                const undoBtn = document.createElement('button');
+                undoBtn.id = 'admin-undo-btn';
+                undoBtn.className = 'admin-btn undo-btn';
+                undoBtn.innerHTML = '⏪ Deshacer Pick';
+                undoBtn.style.marginTop = '10px';
+                undoBtn.style.backgroundColor = '#e74c3c';
+                undoBtn.style.color = '#fff';
+                undoBtn.style.padding = '5px 10px';
+                undoBtn.style.border = 'none';
+                undoBtn.style.borderRadius = '5px';
+                undoBtn.style.cursor = 'pointer';
+                undoBtn.onclick = () => {
+                    if (confirm('¿Seguro que quieres deshacer el último pick? El turno retrocederá y el jugador volverá a la lista de Libres.')) {
+                        socket.send(JSON.stringify({ type: 'admin_undo_pick', draftId: draft.shortId }));
+                    }
+                };
+
+                // Añadirlo debajo del bloque de info del turno
+                const currentPickBoard = document.querySelector('.current-pick-board');
+                if (currentPickBoard) {
+                    currentPickBoard.appendChild(undoBtn);
+                }
+            }
+        } else if (existingUndoBtn) {
+            existingUndoBtn.remove();
         }
 
         // Check for new picks to show alert
@@ -952,7 +982,11 @@ function initializeDraftView(draftId) {
             let playersListHTML = '<ul class="team-roster-compact">';
             teamPlayers.forEach(p => {
                 const isSecondary = p.pickedForPosition && p.pickedForPosition !== p.primaryPosition;
-                playersListHTML += `<li>${p.psnId} <span class="pos-badge">${p.pickedForPosition || p.primaryPosition}${isSecondary ? '*' : ''}</span></li>`;
+                let replaceBtn = '';
+                if (currentUser && currentUser.roles && currentUser.roles.includes('admin') && draft.status === 'seleccion') {
+                    replaceBtn = ` <button class="admin-init-replace-btn" data-player-id="${p.userId}" data-team-id="${captain.userId}" title="Reemplazar Jugador" style="background:transparent; border:none; cursor:pointer;">🔄</button>`;
+                }
+                playersListHTML += `<li>${p.psnId} <span class="pos-badge">${p.pickedForPosition || p.primaryPosition}${isSecondary ? '*' : ''}</span>${replaceBtn}</li>`;
             });
             playersListHTML += '</ul>';
 
@@ -1003,6 +1037,15 @@ function initializeDraftView(draftId) {
             const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
 
             let actionButtonsHTML = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
+
+            // ADMIN CONTROLS: REPLACE MODE OR FORCE PICK
+            if (currentUser && currentUser.roles && currentUser.roles.includes('admin') && draft.status === 'seleccion') {
+                if (window.adminReplaceMode) {
+                    actionButtonsHTML = `<button class="admin-finalize-replace-btn" data-new-player-id="${player.userId}" data-new-player-psn="${player.psnId}" style="background-color:#E62429; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Sustituir por este</button>`;
+                } else {
+                    actionButtonsHTML = `<button class="admin-force-pick-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="background-color:#3498db; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer;">⚡ Forzar Pick</button>`;
+                }
+            }
 
             // Si se cumplen las condiciones, añadimos el botón de ver detalles
             if (canViewDetails) {
@@ -1122,6 +1165,40 @@ function initializeDraftView(draftId) {
                 }
             }
 
+            // ADMIN: Force Pick
+            if (event.target.classList.contains('admin-force-pick-btn')) {
+                const playerId = event.target.dataset.playerId;
+                if (confirm('¿Forzar pick de este jugador para el capitán activo?')) {
+                    socket.send(JSON.stringify({ type: 'admin_force_pick', draftId, playerId }));
+                }
+            }
+
+            // ADMIN: Finalize Replace Pick
+            if (event.target.classList.contains('admin-finalize-replace-btn')) {
+                const newPlayerId = event.target.dataset.newPlayerId;
+                const newPlayerPsn = event.target.dataset.newPlayerPsn;
+                const oldPlayerId = window.adminReplaceData.oldPlayerId;
+                const teamId = window.adminReplaceData.teamId;
+
+                const dispositionStr = prompt(`Vas a sustituir al jugador antiguo por ${newPlayerPsn}.\nEscribe 'release' para devolver al antiguo jugador a la Agencia Libre, o 'kick' para expulsarlo del torneo por completo.`);
+
+                if (dispositionStr === 'release' || dispositionStr === 'kick') {
+                    socket.send(JSON.stringify({
+                        type: 'admin_replace_pick',
+                        draftId,
+                        teamId,
+                        oldPlayerId,
+                        newPlayerId,
+                        disposition: dispositionStr
+                    }));
+                    window.adminReplaceMode = false;
+                    window.adminReplaceData = null;
+                    document.getElementById('admin-replace-banner')?.remove();
+                    // El socket hará el re-render cuando llegue el nuevo state
+                } else if (dispositionStr !== null) {
+                    alert('Acción cancelada. Has introducido un comando no válido.');
+                }
+            }
         });
 
         rosterManagementContainer.addEventListener('click', (event) => {
@@ -1181,6 +1258,41 @@ function initializeDraftView(draftId) {
                     showPlayerDetailsModal(draftId, playerId);
                 } else {
                     console.error('Faltan datos en el botón para mostrar la ficha (draftId o playerId).');
+                }
+            }
+
+            // ADMIN: Init Replace Mode
+            if (event.target.classList.contains('admin-init-replace-btn') || event.target.closest('.admin-init-replace-btn')) {
+                const btn = event.target.classList.contains('admin-init-replace-btn') ? event.target : event.target.closest('.admin-init-replace-btn');
+                const oldPlayerId = btn.dataset.playerId;
+                const teamId = btn.dataset.teamId;
+                window.adminReplaceMode = true;
+                window.adminReplaceData = { oldPlayerId, teamId };
+
+                // Show banner
+                let banner = document.getElementById('admin-replace-banner');
+                if (!banner) {
+                    banner = document.createElement('div');
+                    banner.id = 'admin-replace-banner';
+                    banner.style = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--primary-color); color:#fff; padding:15px; z-index:9999; border-radius:5px; text-align:center; font-weight:bold; width:90%; max-width:600px; border:2px solid black; box-shadow:0 4px 10px rgba(0,0,0,0.5);';
+                    document.body.appendChild(banner);
+                }
+                banner.innerHTML = `MODO REEMPLAZO ACTIVO<br><span style="font-size:14px;font-weight:normal;">Selecciona en la tabla de disponibles al nuevo jugador.</span><br><button id="admin-cancel-replace-btn" style="margin-top:10px; padding:5px; color:#000; cursor:pointer;">Cancelar</button>`;
+
+                document.getElementById('admin-cancel-replace-btn').onclick = () => {
+                    window.adminReplaceMode = false;
+                    window.adminReplaceData = null;
+                    document.getElementById('admin-replace-banner').remove();
+                    if (typeof currentDraftState !== 'undefined') {
+                        renderAvailablePlayers(currentDraftState);
+                    }
+                };
+
+                // Forzar re-render de la tabla para mostrar los botones de confirmación
+                if (typeof currentDraftState !== 'undefined') {
+                    renderAvailablePlayers(currentDraftState);
+                    // Scroll a la tabla de disponibles suave
+                    document.querySelector('.players-table-container').scrollIntoView({ behavior: 'smooth' });
                 }
             }
         });

@@ -4361,6 +4361,64 @@ export async function undoLastPick(client, draftShortId, adminName) {
     console.log(`[ADMIN] Pick deshecho por ${adminName}. Jugador ${lastPlayer.psnId} devuelto a la pool. Turno devuelto a ${previousCaptainId}.`);
 }
 
+export async function adminReplacePickFromWeb(client, draftShortId, teamId, oldPlayerId, newPlayerId, disposition, adminName) {
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
+    // 1. Validar nuevo jugador
+    const newPlayerPool = draft.players.find(p => p.userId === newPlayerId && (!p.captainId || p.currentTeam === 'Libre'));
+    if (!newPlayerPool) throw new Error('El jugador de reemplazo no está disponible o no existe.');
+
+    // 2. Encontrar equipo y antiguo jugador
+    const teamIndex = draft.teams.findIndex(t => t.id === teamId || t.userId === teamId);
+    if (teamIndex === -1) throw new Error('Equipo no encontrado.');
+    const team = draft.teams[teamIndex];
+
+    const oldPlayerIndex = team.players.findIndex(p => p.userId === oldPlayerId);
+    if (oldPlayerIndex === -1) throw new Error('El jugador antiguo no pertenece a ese equipo.');
+
+    // 3. Intercambiar en la plantilla del equipo
+    const newPlayerCopy = { ...draft.players.find(p => p.userId === newPlayerId) };
+    team.players[oldPlayerIndex] = newPlayerCopy;
+
+    // 4. Modificar estados en array global de players
+    let playersArray = draft.players.map(p => {
+        if (p.userId === newPlayerId) {
+            return { ...p, captainId: team.userId, currentTeam: team.name };
+        } else if (p.userId === oldPlayerId) {
+            if (disposition === 'release') {
+                return { ...p, captainId: null, currentTeam: 'Libre' };
+            }
+        }
+        return p;
+    });
+
+    if (disposition === 'kick') {
+        playersArray = playersArray.filter(p => p.userId !== oldPlayerId);
+    }
+
+    // Guardar cambios a BDD
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        {
+            $set: {
+                teams: draft.teams,
+                players: playersArray
+            }
+        }
+    );
+
+    // Actualizamos interfaces
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    await updateDraftMainInterface(client, updatedDraft.shortId);
+    await updatePublicMessages(client, updatedDraft);
+    await updateDraftManagementPanel(client, updatedDraft);
+    await notifyVisualizer(updatedDraft);
+
+    console.log(`[ADMIN] Pick reemplazado por ${adminName} en draft ${draftShortId}: sale ${oldPlayerId} (${disposition}), entra ${newPlayerId}.`);
+}
+
 /**
  * Recupera hilos perdidos para partidos que están en la DB pero no tienen threadId
  * Útil cuando el bot falla a mitad de generación de ronda
