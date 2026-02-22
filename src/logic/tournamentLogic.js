@@ -4360,24 +4360,19 @@ export async function adminReplacePickFromWeb(client, draftShortId, teamId, oldP
     if (!newPlayerPool) throw new Error('El jugador de reemplazo no está disponible o no existe.');
 
     // 2. Encontrar equipo y antiguo jugador
-    const teamIndex = draft.teams.findIndex(t => t.id === teamId || t.userId === teamId);
-    if (teamIndex === -1) throw new Error('Equipo no encontrado.');
-    const team = draft.teams[teamIndex];
+    const oldPlayer = draft.players.find(p => p.userId === oldPlayerId && p.captainId === teamId);
+    if (!oldPlayer) throw new Error('El jugador antiguo no pertenece a ese equipo.');
 
-    const oldPlayerIndex = team.players.findIndex(p => p.userId === oldPlayerId);
-    if (oldPlayerIndex === -1) throw new Error('El jugador antiguo no pertenece a ese equipo.');
-
-    // 3. Intercambiar en la plantilla del equipo
-    const newPlayerCopy = { ...draft.players.find(p => p.userId === newPlayerId) };
-    team.players[oldPlayerIndex] = newPlayerCopy;
+    const teamCaptain = draft.captains.find(c => c.userId === teamId);
+    if (!teamCaptain) throw new Error('Equipo no encontrado.');
 
     // 4. Modificar estados en array global de players
     let playersArray = draft.players.map(p => {
         if (p.userId === newPlayerId) {
-            return { ...p, captainId: team.userId, currentTeam: team.name };
+            return { ...p, captainId: teamCaptain.userId, currentTeam: teamCaptain.teamName, pickedForPosition: oldPlayer.pickedForPosition || oldPlayer.primaryPosition };
         } else if (p.userId === oldPlayerId) {
             if (disposition === 'release') {
-                return { ...p, captainId: null, currentTeam: 'Libre' };
+                return { ...p, captainId: null, currentTeam: 'Libre', pickedForPosition: null };
             }
         }
         return p;
@@ -4392,20 +4387,16 @@ export async function adminReplacePickFromWeb(client, draftShortId, teamId, oldP
         { _id: draft._id },
         {
             $set: {
-                teams: draft.teams,
                 players: playersArray
             }
         }
     );
 
-    // Actualizamos interfaces
-    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-    await updateDraftMainInterface(client, updatedDraft.shortId);
-    await updatePublicMessages(client, updatedDraft);
-    await updateDraftManagementPanel(client, updatedDraft);
-    await notifyVisualizer(updatedDraft);
+    draft.players = playersArray;
+    await updateDraftMainInterface(client, draft.shortId);
+    await updatePublicMessages(client, draft);
 
-    console.log(`[ADMIN] Pick reemplazado por ${adminName} en draft ${draftShortId}: sale ${oldPlayerId} (${disposition}), entra ${newPlayerId}.`);
+    console.log(`[ADMIN] Jugador ${oldPlayerId} reemplazado por ${newPlayerId} en el equipo ${teamId} por ${adminName}.`);
 }
 
 /**
