@@ -327,13 +327,13 @@ export async function handleButton(interaction) {
                 finalActionId = `register_draft_captain_modal:${entityId}:${position}:${platform}`;
                 modal.setTitle('Inscripción como Capitán de Draft');
                 const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
-                const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
+                const whatsappInput = new TextInputBuilder().setCustomId('whatsapp_input').setLabel("Tu WhatsApp (Ej: +34 123456789)").setStyle(TextInputStyle.Short).setRequired(true);
                 modal.addComponents(
                     new ActionRowBuilder().addComponents(streamUsernameInput),
                     new ActionRowBuilder().addComponents(teamNameInput),
                     new ActionRowBuilder().addComponents(eafcNameInput),
                     new ActionRowBuilder().addComponents(psnIdInput),
-                    new ActionRowBuilder().addComponents(twitterInput)
+                    new ActionRowBuilder().addComponents(whatsappInput)
                 );
             }
         }

@@ -1087,8 +1087,14 @@ export async function handleModal(interaction) {
         let playerData;
         let captainData;
 
+        let whatsapp = '';
+        try { whatsapp = interaction.fields.getTextInputValue('whatsapp_input'); } catch (e) { }
+        try { if (!whatsapp) whatsapp = interaction.fields.getTextInputValue('whatsapp_confirm_input'); } catch (e) { }
+
         const psnId = interaction.fields.getTextInputValue('psn_id_input');
-        const twitter = interaction.fields.getTextInputValue('twitter_input');
+
+        let twitter = '';
+        try { twitter = interaction.fields.getTextInputValue('twitter_input'); } catch (e) { }
 
         if (isRegisteringAsCaptain) {
 
@@ -1099,8 +1105,8 @@ export async function handleModal(interaction) {
 
             if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
 
-            captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId, twitter, position };
-            playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId };
+            captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId, twitter, whatsapp, position };
+            playerData = { userId, userName: interaction.user.tag, psnId, twitter, whatsapp, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId };
 
         } else {
             let currentTeam;
@@ -1109,7 +1115,7 @@ export async function handleModal(interaction) {
             } else {
                 currentTeam = 'Libre';
             }
-            playerData = { userId, userName: interaction.user.tag, psnId, twitter, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null };
+            playerData = { userId, userName: interaction.user.tag, psnId, twitter, whatsapp, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null };
         }
 
         if (draft.config.isPaid) {
