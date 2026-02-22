@@ -2036,10 +2036,25 @@ export async function handleModal(interaction) {
             return interaction.editReply({ content: '❌ Error: El número de partidos por equipo debe ser al menos 1.' });
         }
 
+        let matchType = 'ida';
+        let leagueMode = 'all_vs_all';
+        let customRounds = null;
+
+        if (roundsInput === 1) {
+            matchType = 'ida';
+        } else if (roundsInput === 2) {
+            matchType = 'idavuelta';
+        } else {
+            leagueMode = 'round_robin_custom';
+            customRounds = roundsInput;
+        }
+
         // Preparamos la configuración específica de la liguilla
         const leagueConfig = {
             qualifiers: qualifiers,
-            totalRounds: roundsInput
+            leagueMode: leagueMode,
+            matchType: matchType,
+            customRounds: customRounds
         };
 
         try {

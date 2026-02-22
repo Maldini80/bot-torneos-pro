@@ -1031,8 +1031,8 @@ function initializeDraftView(draftId) {
     function exportDraftToCSV(draft) {
         if (!draft || !draft.captains || !draft.players) return;
 
-        let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "Equipo,Capitán,Jugador,Posición Asignada,WhatsApp\n";
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+        csvContent += "Equipo;Capitán;Jugador;Posición Asignada;WhatsApp\n";
 
         let captainsToExport = draft.captains;
         if (userRoleData && !userRoleData.isAdmin && currentUser) {
@@ -1048,7 +1048,7 @@ function initializeDraftView(draftId) {
                 const position = `"${p.pickedForPosition || p.primaryPosition || ''}"`;
                 const whatsapp = `"${p.whatsapp || ''}"`;
 
-                csvContent += `${teamName},${captainName},${playerName},${position},${whatsapp}\n`;
+                csvContent += `${teamName};${captainName};${playerName};${position};${whatsapp}\n`;
             });
         });
 

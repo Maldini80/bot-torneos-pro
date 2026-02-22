@@ -1380,11 +1380,11 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
 
         } else if (eventType === 'draft') {
             // Capitán en draft
-            if (event.teams) {
-                const team = event.teams.find(t => t.captainId === userId);
-                if (team) {
+            if (event.captains) {
+                const captain = event.captains.find(c => c.userId === userId);
+                if (captain) {
                     roleData.role = 'draftCaptain';
-                    roleData.teamName = team.captainTag;
+                    roleData.teamName = captain.teamName;
                     return res.json(roleData);
                 }
             }
