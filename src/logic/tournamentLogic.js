@@ -4286,12 +4286,14 @@ export async function forcePickFromWeb(client, draftShortId, playerId, adminName
     const currentCaptainId = draft.selection.order[draft.selection.turn];
     if (!currentCaptainId) throw new Error('No hay turno activo.');
 
-    // Reutilizamos la lógica existente de selección
-    // Nota: 'pickedForPosition' lo dejamos vacío o 'NONE' si no es crítico, 
-    // o intentamos deducirlo. Por ahora pasamos 'NONE' para simplificar.
-    await handlePlayerSelectionFromWeb(client, draftShortId, currentCaptainId, playerId, 'NONE');
+    const targetPlayer = draft.players.find(p => p.userId === playerId);
+    if (!targetPlayer) throw new Error('Jugador no encontrado en el draft.');
 
-    console.log(`[ADMIN] Pick forzado por ${adminName} para el capitán ${currentCaptainId} con el jugador ${playerId}`);
+    // Reutilizamos la lógica existente de selección
+    // Usamos su posición primaria en lugar del antiguo 'NONE'
+    await handlePlayerSelectionFromWeb(client, draftShortId, currentCaptainId, playerId, targetPlayer.primaryPosition);
+
+    console.log(`[ADMIN] Pick forzado por ${adminName} para el capitán ${currentCaptainId} con el jugador ${playerId} en la posición ${targetPlayer.primaryPosition}`);
 }
 
 export async function undoLastPick(client, draftShortId, adminName) {
