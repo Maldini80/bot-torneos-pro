@@ -842,6 +842,7 @@ function initializeDraftView(draftId) {
 
     async function initialize() {
         await checkUserSession();
+        await checkUserRoleInEvent(draftId);
         connectWebSocket();
         fetchInitialData();
         setupEventListeners();
@@ -929,7 +930,7 @@ function initializeDraftView(draftId) {
 
         // --- ADMIN CONTROLS: UNDO ---
         const existingUndoBtn = document.getElementById('admin-undo-btn');
-        if (currentUser && currentUser.roles && currentUser.roles.includes('admin') && draft.status === 'seleccion') {
+        if (userRoleData && userRoleData.role === 'admin' && draft.status === 'seleccion') {
             if (!existingUndoBtn) {
                 const undoBtn = document.createElement('button');
                 undoBtn.id = 'admin-undo-btn';
@@ -983,7 +984,7 @@ function initializeDraftView(draftId) {
             teamPlayers.forEach(p => {
                 const isSecondary = p.pickedForPosition && p.pickedForPosition !== p.primaryPosition;
                 let replaceBtn = '';
-                if (currentUser && currentUser.roles && currentUser.roles.includes('admin') && draft.status === 'seleccion') {
+                if (userRoleData && userRoleData.role === 'admin' && draft.status === 'seleccion') {
                     replaceBtn = ` <button class="admin-init-replace-btn" data-player-id="${p.userId}" data-team-id="${captain.userId}" title="Reemplazar Jugador" style="background:transparent; border:none; cursor:pointer;">🔄</button>`;
                 }
                 playersListHTML += `<li>${p.psnId} <span class="pos-badge">${p.pickedForPosition || p.primaryPosition}${isSecondary ? '*' : ''}</span>${replaceBtn}</li>`;
@@ -1039,7 +1040,7 @@ function initializeDraftView(draftId) {
             let actionButtonsHTML = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
 
             // ADMIN CONTROLS: REPLACE MODE OR FORCE PICK
-            if (currentUser && currentUser.roles && currentUser.roles.includes('admin') && draft.status === 'seleccion') {
+            if (userRoleData && userRoleData.role === 'admin' && draft.status === 'seleccion') {
                 if (window.adminReplaceMode) {
                     actionButtonsHTML = `<button class="admin-finalize-replace-btn" data-new-player-id="${player.userId}" data-new-player-psn="${player.psnId}" style="background-color:#E62429; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Sustituir por este</button>`;
                 } else {
