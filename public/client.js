@@ -971,7 +971,7 @@ function initializeDraftView(draftId) {
 
         const exportCsvBtn = document.getElementById('export-draft-csv-btn');
         if (exportCsvBtn) {
-            if (draft.status === 'finalizado') {
+            if (draft.status === 'finalizado' && userRoleData && (userRoleData.isAdmin || userRoleData.role === 'draftCaptain')) {
                 exportCsvBtn.style.display = 'block';
                 exportCsvBtn.onclick = () => exportDraftToCSV(draft);
             } else {
@@ -1034,7 +1034,12 @@ function initializeDraftView(draftId) {
         let csvContent = "data:text/csv;charset=utf-8,";
         csvContent += "Equipo,Capitán,Jugador,Posición Asignada,WhatsApp\n";
 
-        draft.captains.forEach(captain => {
+        let captainsToExport = draft.captains;
+        if (userRoleData && !userRoleData.isAdmin && currentUser) {
+            captainsToExport = draft.captains.filter(c => c.userId === currentUser.id);
+        }
+
+        captainsToExport.forEach(captain => {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
             teamPlayers.forEach(p => {
                 const teamName = `"${(captain.teamName || '').replace(/"/g, '""')}"`;

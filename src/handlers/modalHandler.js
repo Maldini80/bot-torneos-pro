@@ -2026,15 +2026,20 @@ export async function handleModal(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
         const qualifiers = parseInt(interaction.fields.getTextInputValue('torneo_qualifiers'));
+        const roundsInput = parseInt(interaction.fields.getTextInputValue('torneo_rounds'));
 
         if (isNaN(qualifiers) || ![2, 4, 8, 16, 32].includes(qualifiers)) {
             return interaction.editReply({ content: '❌ Error: El número de equipos clasificatorios debe ser 2, 4, 8, o 16.' });
         }
 
+        if (isNaN(roundsInput) || roundsInput < 1) {
+            return interaction.editReply({ content: '❌ Error: El número de partidos por equipo debe ser al menos 1.' });
+        }
+
         // Preparamos la configuración específica de la liguilla
         const leagueConfig = {
             qualifiers: qualifiers,
-            totalRounds: 3
+            totalRounds: roundsInput
         };
 
         try {

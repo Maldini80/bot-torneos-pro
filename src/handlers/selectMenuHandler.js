@@ -769,7 +769,17 @@ export async function handleSelectMenu(interaction) {
                 .setPlaceholder("Ej: 4 (semis), 8 (cuartos)...")
                 .setRequired(true);
 
-            modal.addComponents(new ActionRowBuilder().addComponents(qualifiersInput));
+            const roundsInput = new TextInputBuilder()
+                .setCustomId('torneo_rounds')
+                .setLabel("Partidos por equipo (Ida=1, Ida/Vuelta=2)")
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder("Ej: 1, 2, 3...")
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(qualifiersInput),
+                new ActionRowBuilder().addComponents(roundsInput)
+            );
             return interaction.showModal(modal);
 
         } else {
