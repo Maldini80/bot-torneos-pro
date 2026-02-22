@@ -1542,6 +1542,11 @@ window.openDraftRegistrationModal = async function (draftId) {
             return;
         }
 
+        if (!data.user?.isVerified) {
+            alert('Tu cuenta no está verificada. Por favor, ve a la sección "Perfil" de esta web y vincula tu ID de juego para poder participar.');
+            return;
+        }
+
         const modal = document.getElementById('draft-registration-modal');
         if (modal) {
             document.getElementById('draft-reg-id').value = draftId;
