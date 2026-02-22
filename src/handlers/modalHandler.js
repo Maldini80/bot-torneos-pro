@@ -609,6 +609,27 @@ export async function handleModal(interaction) {
             console.warn(`No se pudo obtener el usuario de Discord para ID: ${discordId}`);
         }
 
+        // --- MANEJO DE VERIFICACIÓN AUTOMÁTICA ---
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: discordId });
+        if (!verifiedUser) {
+            await db.collection('verified_users').insertOne({
+                discordId: discordId,
+                psnId: psnId,
+                whatsapp: '',
+                twitter: '',
+                isCaptain: true,
+                verifiedAt: new Date()
+            });
+            try {
+                const guild = client.guilds.cache.get(process.env.GUILD_ID);
+                if (guild && process.env.VERIFIED_ROLE_ID) {
+                    const memberToVerify = await guild.members.fetch(discordId);
+                    if (memberToVerify) await memberToVerify.roles.add(process.env.VERIFIED_ROLE_ID);
+                }
+            } catch (err) { console.error(`No se pudo dar rol a ${discordId}`, err); }
+        }
+        // ----------------------------------------
+
         const newCaptain = {
             userId: discordId,
             userName: userName,
@@ -668,6 +689,27 @@ export async function handleModal(interaction) {
             captainId: null
         };
 
+        // --- MANEJO DE VERIFICACIÓN AUTOMÁTICA ---
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: discordId });
+        if (!verifiedUser) {
+            await db.collection('verified_users').insertOne({
+                discordId: discordId,
+                psnId: psnId,
+                whatsapp: whatsapp,
+                twitter: twitter,
+                isCaptain: false,
+                verifiedAt: new Date()
+            });
+            try {
+                const guild = client.guilds.cache.get(process.env.GUILD_ID);
+                if (guild && process.env.VERIFIED_ROLE_ID) {
+                    const memberToVerify = await guild.members.fetch(discordId);
+                    if (memberToVerify) await memberToVerify.roles.add(process.env.VERIFIED_ROLE_ID);
+                }
+            } catch (err) { console.error(`No se pudo dar rol a ${discordId}`, err); }
+        }
+        // ----------------------------------------
+
         const result = await adminAddPlayerToDraft(client, draft, playerData);
 
         if (result.success) {
@@ -707,6 +749,27 @@ export async function handleModal(interaction) {
             isCaptain: false,
             captainId: null
         };
+
+        // --- MANEJO DE VERIFICACIÓN AUTOMÁTICA ---
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: discordId });
+        if (!verifiedUser) {
+            await db.collection('verified_users').insertOne({
+                discordId: discordId,
+                psnId: psnId,
+                whatsapp: whatsapp,
+                twitter: '',
+                isCaptain: false,
+                verifiedAt: new Date()
+            });
+            try {
+                const guild = client.guilds.cache.get(process.env.GUILD_ID);
+                if (guild && process.env.VERIFIED_ROLE_ID) {
+                    const memberToVerify = await guild.members.fetch(discordId);
+                    if (memberToVerify) await memberToVerify.roles.add(process.env.VERIFIED_ROLE_ID);
+                }
+            } catch (err) { console.error(`No se pudo dar rol a ${discordId}`, err); }
+        }
+        // ----------------------------------------
 
         const result = await adminAddPlayerToDraft(client, draft, playerData);
 

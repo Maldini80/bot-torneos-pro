@@ -1082,6 +1082,8 @@ export async function handleSelectMenu(interaction) {
         const [draftShortId] = params;
         const selectedUserId = interaction.values[0]; // Discord ID seleccionado
 
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: selectedUserId });
+
         const modal = new ModalBuilder()
             .setCustomId(`admin_add_captain_manual_submit:${draftShortId}:${selectedUserId}`)
             .setTitle('Completar Datos del Capitán');
@@ -1091,6 +1093,10 @@ export async function handleSelectMenu(interaction) {
             .setLabel("PSN ID / EA Name")
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
+
+        if (verifiedUser && verifiedUser.psnId) {
+            psnIdInput.setValue(verifiedUser.psnId);
+        }
 
         const teamNameInput = new TextInputBuilder()
             .setCustomId('captain_team_name')
@@ -1111,6 +1117,8 @@ export async function handleSelectMenu(interaction) {
         const [draftShortId, position] = params;
         const selectedUserId = interaction.values[0];
 
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: selectedUserId });
+
         const modal = new ModalBuilder()
             .setCustomId(`admin_add_player_manual_modal:${draftShortId}:${position}:${selectedUserId}`)
             .setTitle('Completar Datos del Jugador');
@@ -1121,6 +1129,10 @@ export async function handleSelectMenu(interaction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
+        if (verifiedUser && verifiedUser.psnId) {
+            psnIdInput.setValue(verifiedUser.psnId);
+        }
+
         const twitterInput = new TextInputBuilder()
             .setCustomId('twitter_input')
             .setLabel("Twitter (sin @)")
@@ -1128,12 +1140,20 @@ export async function handleSelectMenu(interaction) {
             .setPlaceholder("Opcional")
             .setRequired(false); // OPTIONAL POR PETICIÓN DEL USUARIO
 
+        if (verifiedUser && verifiedUser.twitter) {
+            twitterInput.setValue(verifiedUser.twitter);
+        }
+
         const whatsappInput = new TextInputBuilder()
             .setCustomId('whatsapp_input')
             .setLabel("WhatsApp (con prefijo, ej: +34)")
             .setStyle(TextInputStyle.Short)
             .setPlaceholder("Si se solicitó para el torneo")
             .setRequired(false);
+
+        if (verifiedUser && verifiedUser.whatsapp) {
+            whatsappInput.setValue(verifiedUser.whatsapp);
+        }
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(psnIdInput),
@@ -1149,6 +1169,8 @@ export async function handleSelectMenu(interaction) {
         const [draftShortId] = params;
         const selectedUserId = interaction.values[0];
 
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: selectedUserId });
+
         const modal = new ModalBuilder()
             .setCustomId(`admin_add_participant_manual_modal:${draftShortId}:${selectedUserId}`)
             .setTitle('Añadir Jugador Manualmente');
@@ -1159,12 +1181,20 @@ export async function handleSelectMenu(interaction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
+        if (verifiedUser && verifiedUser.psnId) {
+            gameIdInput.setValue(verifiedUser.psnId);
+        }
+
         const whatsappInput = new TextInputBuilder()
             .setCustomId('manual_whatsapp')
             .setLabel("WhatsApp (con prefijo si es posible)")
             .setStyle(TextInputStyle.Short)
             .setPlaceholder("+34600123456")
             .setRequired(true);
+
+        if (verifiedUser && verifiedUser.whatsapp) {
+            whatsappInput.setValue(verifiedUser.whatsapp);
+        }
 
         const positionInput = new TextInputBuilder()
             .setCustomId('manual_position')
