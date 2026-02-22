@@ -941,21 +941,38 @@ export async function startDraftSelection(client, guild, draftShortId) {
         const minQuotas = Object.fromEntries(settings.draftMinQuotas.split(',').map(q => q.split(':')));
         const positionCounts = {};
         Object.keys(minQuotas).forEach(p => positionCounts[p] = 0);
+        positionCounts['MC'] = 0; // Añadimos MC explícitamente al contador
+
         const allPlayers = draft.players;
         for (const player of allPlayers) {
             let primary = player.primaryPosition;
-            let secondary = player.secondaryPosition;
-
-            // Fusión para mapear 'MC' a 'MV/MCO' en las cuotas de DB
-            if (primary === 'MC') primary = 'MV/MCO';
-            if (secondary === 'MC') secondary = 'MV/MCO';
+            let secondary = player.secondaryPosition; // Corrected from player.primaryPosition
 
             if (positionCounts[primary] !== undefined) positionCounts[primary]++;
+            else if (primary === 'MC') positionCounts['MC']++; // Contar MC separados
 
             if (secondary && secondary !== 'NONE' && secondary !== primary) {
                 if (positionCounts[secondary] !== undefined) positionCounts[secondary]++;
+                else if (secondary === 'MC') positionCounts['MC']++;
             }
         }
+
+        // Suma unificada de los medios
+        const requiredMCD = parseInt(minQuotas['MCD'] || 0);
+        const requiredMCO = parseInt(minQuotas['MV/MCO'] || 0);
+        const totalRequiredMidfielders = requiredMCD + requiredMCO;
+
+        const currentMCD = positionCounts['MCD'] || 0;
+        const currentMCO = positionCounts['MV/MCO'] || 0;
+        const currentMC = positionCounts['MC'] || 0;
+        const totalCurrentMidfielders = currentMCD + currentMCO + currentMC;
+
+        // Si cumplimos el global de medios, marcamos las cuotas individuales como cumplidas artificialmente
+        if (totalCurrentMidfielders >= totalRequiredMidfielders) {
+            positionCounts['MCD'] = requiredMCD;
+            positionCounts['MV/MCO'] = requiredMCO;
+        }
+
         const missingPositions = [];
         for (const pos in minQuotas) {
             const required = parseInt(minQuotas[pos]);
