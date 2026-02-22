@@ -985,15 +985,21 @@ function initializeDraftView(draftId) {
                 const isSecondary = p.pickedForPosition && p.pickedForPosition !== p.primaryPosition;
                 let replaceBtn = '';
                 if (userRoleData && userRoleData.isAdmin && draft.status === 'seleccion') {
-                    replaceBtn = ` <button class="admin-init-replace-btn" data-player-id="${p.userId}" data-team-id="${captain.userId}" title="Reemplazar Jugador" style="background:transparent; border:none; cursor:pointer;">🔄</button>`;
+                    replaceBtn = `<button class="admin-init-replace-btn" data-player-id="${p.userId}" data-team-id="${captain.userId}" title="Reemplazar Jugador" style="background:transparent; border:none; cursor:pointer; padding:0; margin-left:5px;">🔄</button>`;
                 }
-                playersListHTML += `<li>${p.psnId} <span class="pos-badge">${p.pickedForPosition || p.primaryPosition}${isSecondary ? '*' : ''}</span>${replaceBtn}</li>`;
+                playersListHTML += `<li>
+                    <span class="player-name-compact" style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.psnId}</span>
+                    <div class="player-badges-compact" style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                        <span class="pos-badge">${p.pickedForPosition || p.primaryPosition}${isSecondary ? '*' : ''}</span>
+                        ${replaceBtn}
+                    </div>
+                </li>`;
             });
             playersListHTML += '</ul>';
 
             teamCard.innerHTML = `
                 <h3>${captain.teamName}</h3>
-                <div class="captain-name">Capi: ${captain.username}</div>
+                <div class="captain-name">Capi: ${captain.username || captain.userName || captain.psnId || 'Desconocido'}</div>
                 ${playersListHTML}
             `;
             teamsGridEl.appendChild(teamCard);
