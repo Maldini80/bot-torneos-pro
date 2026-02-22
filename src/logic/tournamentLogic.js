@@ -4278,7 +4278,7 @@ export async function adminKickPlayerFromWeb(client, draftShortId, teamId, playe
     console.log(`[ADMIN] Jugador ${playerId} ELIMINADO COMPLETAMENTE del draft ${draftShortId} por ${adminName} desde web.`);
 }
 
-export async function forcePickFromWeb(client, draftShortId, playerId, adminName) {
+export async function forcePickFromWeb(client, draftShortId, playerId, position, adminName) {
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     if (!draft) throw new Error('Draft no encontrado.');
@@ -4290,10 +4290,11 @@ export async function forcePickFromWeb(client, draftShortId, playerId, adminName
     if (!targetPlayer) throw new Error('Jugador no encontrado en el draft.');
 
     // Reutilizamos la lógica existente de selección
-    // Usamos su posición primaria en lugar del antiguo 'NONE'
-    await handlePlayerSelectionFromWeb(client, draftShortId, currentCaptainId, playerId, targetPlayer.primaryPosition);
+    // Elegimos la poscición pasada desde el frontend, o la primaria por defecto
+    const finalPosition = position && position !== 'Todos' ? position : targetPlayer.primaryPosition;
+    await handlePlayerSelectionFromWeb(client, draftShortId, currentCaptainId, playerId, finalPosition);
 
-    console.log(`[ADMIN] Pick forzado por ${adminName} para el capitán ${currentCaptainId} con el jugador ${playerId} en la posición ${targetPlayer.primaryPosition}`);
+    console.log(`[ADMIN] Pick forzado por ${adminName} para el capitán ${currentCaptainId} con el jugador ${playerId} en la posición ${finalPosition}`);
 }
 
 export async function undoLastPick(client, draftShortId, adminName) {
@@ -4397,6 +4398,7 @@ export async function adminReplacePickFromWeb(client, draftShortId, teamId, oldP
     draft.players = playersArray;
     await updateDraftMainInterface(client, draft.shortId);
     await updatePublicMessages(client, draft);
+    await notifyVisualizer(draft);
 
     console.log(`[ADMIN] Jugador ${oldPlayerId} reemplazado por ${newPlayerId} en el equipo ${teamId} por ${adminName}.`);
 }

@@ -1181,9 +1181,14 @@ function initializeDraftView(draftId) {
 
             // ADMIN: Force Pick
             if (event.target.classList.contains('admin-force-pick-btn')) {
+                let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;
+                if (!activeFilterPos || activeFilterPos === 'Todos') {
+                    const playerRow = event.target.closest('tr');
+                    activeFilterPos = playerRow.dataset.primaryPos;
+                }
                 const playerId = event.target.dataset.playerId;
-                if (confirm('¿Forzar pick de este jugador para el capitán activo?')) {
-                    socket.send(JSON.stringify({ type: 'admin_force_pick', draftId, playerId }));
+                if (confirm('¿Forzar pick de este jugador para el capitán activo en la posición ' + activeFilterPos + '?')) {
+                    socket.send(JSON.stringify({ type: 'admin_force_pick', draftId, playerId, position: activeFilterPos }));
                 }
             }
 

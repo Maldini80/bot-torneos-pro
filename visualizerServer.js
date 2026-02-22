@@ -2233,7 +2233,7 @@ export async function startVisualizerServer(discordClient) {
                     // NUEVOS CONTROLES DE ADMINISTRADOR
                     case 'admin_force_pick':
                         if (isWsUserAdmin) {
-                            await forcePickFromWeb(client, draftId, playerId, ws.user.username);
+                            await forcePickFromWeb(client, draftId, playerId, data.position, ws.user.username);
                             await advanceDraftTurn(client, draftId);
                         } else {
                             console.warn(`[Visualizer] Acceso denegado a admin_force_pick para el usuario ${ws.user.username}`);
