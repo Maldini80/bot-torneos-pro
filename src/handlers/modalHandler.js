@@ -593,6 +593,7 @@ export async function handleModal(interaction) {
 
         const psnId = interaction.fields.getTextInputValue('captain_psn_id').trim();
         const teamName = interaction.fields.getTextInputValue('captain_team_name').trim();
+        const primaryPosition = interaction.fields.getTextInputValue('captain_primary_pos').trim().toUpperCase();
 
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
         if (!draft) return interaction.editReply({ content: '❌ Torneo/Draft no encontrado.' });
@@ -617,6 +618,7 @@ export async function handleModal(interaction) {
                 psnId: psnId,
                 whatsapp: '',
                 twitter: '',
+                primaryPosition: primaryPosition,
                 isCaptain: true,
                 verifiedAt: new Date()
             });
@@ -634,13 +636,34 @@ export async function handleModal(interaction) {
             userId: discordId,
             userName: userName,
             psnId: psnId,
+            primaryPosition: primaryPosition,
+            secondaryPosition: 'NONE',
             teamName: teamName,
             isCaptain: true
         };
 
         await db.collection('drafts').updateOne(
             { _id: draft._id },
-            { $push: { captains: newCaptain } }
+            {
+                $push: {
+                    captains: newCaptain,
+                    players: {
+                        userId: discordId,
+                        userName: userName,
+                        psnId: psnId,
+                        twitter: '',
+                        whatsapp: verifiedUser ? verifiedUser.whatsapp : '',
+                        primaryPosition: primaryPosition,
+                        secondaryPosition: 'NONE',
+                        currentTeam: teamName,
+                        isCaptain: true,
+                        captainId: discordId,
+                        strikes: 0,
+                        hasBeenReportedByCaptain: false,
+                        kickRequestPending: false
+                    }
+                }
+            }
         );
 
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });

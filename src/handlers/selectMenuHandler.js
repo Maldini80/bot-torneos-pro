@@ -1104,9 +1104,21 @@ export async function handleSelectMenu(interaction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
+        const positionInput = new TextInputBuilder()
+            .setCustomId('captain_primary_pos')
+            .setLabel("Posición Princ. (GK, DFC, CARR, MC, DC)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: MC")
+            .setRequired(true);
+
+        if (verifiedUser && verifiedUser.primaryPosition) {
+            positionInput.setValue(verifiedUser.primaryPosition);
+        }
+
         modal.addComponents(
             new ActionRowBuilder().addComponents(psnIdInput),
-            new ActionRowBuilder().addComponents(teamNameInput)
+            new ActionRowBuilder().addComponents(teamNameInput),
+            new ActionRowBuilder().addComponents(positionInput)
         );
 
         await interaction.showModal(modal);
