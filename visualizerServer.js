@@ -2209,6 +2209,13 @@ export async function startVisualizerServer(discordClient) {
                 const captainId = ws.user.id;
                 const { draftId, playerId, reason, position } = data;
 
+                const adminRoleIds = [
+                    ...(process.env.ADMIN_ROLE_IDS?.split(',') || []),
+                    process.env.ARBITER_ROLE_ID,
+                    process.env.ADMIN_ROLE_ID
+                ].filter(Boolean);
+                const isWsUserAdmin = ws.user.roles && ws.user.roles.some(r => adminRoleIds.includes(r));
+
                 switch (data.type) {
                     case 'execute_draft_pick':
                         await handlePlayerSelectionFromWeb(client, draftId, captainId, playerId, position);
@@ -2225,7 +2232,7 @@ export async function startVisualizerServer(discordClient) {
 
                     // NUEVOS CONTROLES DE ADMINISTRADOR
                     case 'admin_force_pick':
-                        if (ws.user.roles && ws.user.roles.includes('admin')) {
+                        if (isWsUserAdmin) {
                             await forcePickFromWeb(client, draftId, playerId, ws.user.username);
                             await advanceDraftTurn(client, draftId);
                         } else {
@@ -2234,7 +2241,7 @@ export async function startVisualizerServer(discordClient) {
                         break;
 
                     case 'admin_undo_pick':
-                        if (ws.user.roles && ws.user.roles.includes('admin')) {
+                        if (isWsUserAdmin) {
                             await undoLastPick(client, draftId, ws.user.username);
                         } else {
                             console.warn(`[Visualizer] Acceso denegado a admin_undo_pick para el usuario ${ws.user.username}`);
@@ -2242,7 +2249,7 @@ export async function startVisualizerServer(discordClient) {
                         break;
 
                     case 'admin_replace_pick':
-                        if (ws.user.roles && ws.user.roles.includes('admin')) {
+                        if (isWsUserAdmin) {
                             const { oldPlayerId, newPlayerId, disposition, teamId } = data;
                             await adminReplacePickFromWeb(client, draftId, teamId, oldPlayerId, newPlayerId, disposition, ws.user.username);
                         } else {
