@@ -977,18 +977,30 @@ function initializeDraftView(draftId) {
         teamsGridEl.innerHTML = '';
         draft.captains.forEach(captain => {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
+
+            const posOrder = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
+            teamPlayers.sort((a, b) => {
+                const posA = posOrder.indexOf(a.pickedForPosition || a.primaryPosition);
+                const posB = posOrder.indexOf(b.pickedForPosition || b.primaryPosition);
+                return (posA === -1 ? 99 : posA) - (posB === -1 ? 99 : posB);
+            });
+
             const teamCard = document.createElement('div');
             teamCard.className = 'team-card-draftview';
 
             let playersListHTML = '<ul class="team-roster-compact">';
             teamPlayers.forEach(p => {
                 const isSecondary = p.pickedForPosition && p.pickedForPosition !== p.primaryPosition;
+                const isCaptainFlag = p.isCaptain || p.userId === captain.userId;
+
                 let replaceBtn = '';
                 if (userRoleData && userRoleData.isAdmin && draft.status === 'seleccion') {
                     replaceBtn = `<button class="admin-init-replace-btn" data-player-id="${p.userId}" data-team-id="${captain.userId}" title="Reemplazar Jugador" style="background:transparent; border:none; cursor:pointer; padding:0; margin-left:5px;">🔄</button>`;
                 }
                 playersListHTML += `<li>
-                    <span class="player-name-compact" style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.psnId}</span>
+                    <span class="player-name-compact" style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${isCaptainFlag ? 'color: var(--winner-color); font-weight: bold;' : ''}">
+                        ${isCaptainFlag ? '⭐ ' : ''}${p.psnId}
+                    </span>
                     <div class="player-badges-compact" style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
                         <span class="pos-badge">${p.pickedForPosition || p.primaryPosition}${isSecondary ? '*' : ''}</span>
                         ${replaceBtn}
