@@ -969,6 +969,16 @@ function initializeDraftView(draftId) {
             }
         }
 
+        const exportCsvBtn = document.getElementById('export-draft-csv-btn');
+        if (exportCsvBtn) {
+            if (draft.status === 'finalizado') {
+                exportCsvBtn.style.display = 'block';
+                exportCsvBtn.onclick = () => exportDraftToCSV(draft);
+            } else {
+                exportCsvBtn.style.display = 'none';
+            }
+        }
+
         renderAvailablePlayers(draft);
         renderTeamManagementView(draft);
 
@@ -1016,6 +1026,34 @@ function initializeDraftView(draftId) {
             `;
             teamsGridEl.appendChild(teamCard);
         });
+    }
+
+    function exportDraftToCSV(draft) {
+        if (!draft || !draft.captains || !draft.players) return;
+
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Equipo,Capitán,Jugador,Posición Asignada,WhatsApp\n";
+
+        draft.captains.forEach(captain => {
+            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
+            teamPlayers.forEach(p => {
+                const teamName = `"${(captain.teamName || '').replace(/"/g, '""')}"`;
+                const captainName = `"${(captain.username || captain.userName || captain.psnId || 'Desconocido').replace(/"/g, '""')}"`;
+                const playerName = `"${(p.psnId || '').replace(/"/g, '""')}"`;
+                const position = `"${p.pickedForPosition || p.primaryPosition || ''}"`;
+                const whatsapp = `"${p.whatsapp || ''}"`;
+
+                csvContent += `${teamName},${captainName},${playerName},${position},${whatsapp}\n`;
+            });
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Draft_${draft.shortId || 'Export'}_Equipos.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     function renderAvailablePlayers(draft) {

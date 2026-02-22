@@ -172,8 +172,13 @@
         <div id="draft-live-view" class="draft-view-pane active">
             <div class="content-grid-draftview">
                 <div id="teams-container-draftview" class="animated-border">
-                    <div class="legend" style="text-align: center; margin-bottom: 10px; font-style: italic;">* = Fichado
-                        por Pos. Secundaria</div>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div class="legend" style="font-style: italic;">* = Fichado por Pos. Secundaria</div>
+                        <button id="export-draft-csv-btn" class="register-btn"
+                            style="display:none; font-size: 0.9rem; padding: 5px 15px; margin: 0;">⬇️ Exportar a
+                            CSV</button>
+                    </div>
                     <div id="teams-grid"></div>
                 </div>
                 <div id="available-players-container-draftview" class="animated-border">
