@@ -620,7 +620,6 @@ export async function handleModal(interaction) {
                     psnId: psnId,
                     whatsapp: verifiedUser && verifiedUser.whatsapp ? verifiedUser.whatsapp : '',
                     twitter: verifiedUser && verifiedUser.twitter ? verifiedUser.twitter : '',
-                    primaryPosition: primaryPosition,
                     isCaptain: true
                 },
                 $setOnInsert: { verifiedAt: new Date() }
