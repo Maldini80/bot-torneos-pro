@@ -609,13 +609,21 @@ export async function handleButton(interaction) {
 
     if (action === 'admin_add_captain_manual_start') {
         const [draftShortId] = params;
-        const userSelect = new UserSelectMenuBuilder()
-            .setCustomId(`admin_add_cap_user_sel:${draftShortId}`)
-            .setPlaceholder('Selecciona el Usuario de Discord');
+
+        const { DRAFT_POSITIONS } = await import('../../config.js');
+        const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
+            label: value,
+            value: key,
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_manual_cap_pos:${draftShortId}`)
+            .setPlaceholder('Selecciona la posición PRINCIPAL del capitán')
+            .addOptions(positionOptions);
 
         await interaction.reply({
-            content: 'Para añadir un capitán manualmente, primero selecciona a su usuario de Discord:',
-            components: [new ActionRowBuilder().addComponents(userSelect)],
+            content: 'Para añadir a un capitán manualmente, primero selecciona su posición primaria:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)],
             flags: [MessageFlags.Ephemeral]
         });
         return;

@@ -1078,8 +1078,24 @@ export async function handleSelectMenu(interaction) {
     // --- FIN DE LA SOLUCIÓN ---
 
     // --- NUEVOS FLUJOS DE SELECCIÓN DE USUARIO MANUAL ---
-    if (action === 'admin_add_cap_user_sel') {
+    if (action === 'admin_select_manual_cap_pos') {
         const [draftShortId] = params;
+        const selectedPosition = interaction.values[0];
+
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId(`admin_add_cap_user_sel:${draftShortId}:${selectedPosition}`)
+            .setPlaceholder('Selecciona el Usuario de Discord');
+
+        await interaction.reply({
+            content: `Has seleccionado la posición: **${selectedPosition}**.\n\nAhora, selecciona el usuario de Discord (empieza a escribir su nombre) para asignarle el Equipo:`,
+            components: [new ActionRowBuilder().addComponents(userSelect)],
+            flags: [MessageFlags.Ephemeral]
+        });
+        return;
+    }
+
+    if (action === 'admin_add_cap_user_sel') {
+        const [draftShortId, position] = params;
         const selectedUserId = interaction.values[0]; // Discord ID seleccionado
 
         const verifiedUser = await db.collection('verified_users').findOne({ discordId: selectedUserId });
@@ -1108,12 +1124,8 @@ export async function handleSelectMenu(interaction) {
             .setCustomId('captain_primary_pos')
             .setLabel("Posición Princ. (GK, DFC, CARR, MC, DC)")
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder("Ej: MC")
+            .setValue(position)
             .setRequired(true);
-
-        if (verifiedUser && verifiedUser.primaryPosition) {
-            positionInput.setValue(verifiedUser.primaryPosition);
-        }
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(psnIdInput),
