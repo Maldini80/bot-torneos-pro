@@ -1438,7 +1438,7 @@ async function loadOpenTournaments() {
         grid.innerHTML = tournaments.map(tour => {
             // Traducir tipo de inscripción y etiquetas
             const isPaid = tour.isPaid;
-            const isDraft = tour.tipo === 'draft';
+            const isDraft = (tour.tipo || '').toLowerCase() === 'draft' || tour.isDraft === true;
             const inscriptionLabel = isPaid ? (tr.paid || 'Pago') : (tr.free || 'Gratis');
             const priceLabel = tr.price || 'Precio';
             const teamsLabel = isDraft ? (tr.players || 'jugadores') : (tr.teams || 'equipos');

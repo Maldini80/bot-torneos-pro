@@ -73,9 +73,13 @@ function createRateLimiter(maxRequests = 30, windowMs = 60000) {
 app.use('/api/', createRateLimiter(60, 60000)); // 60 peticiones por minuto
 // --- FIN SEGURIDAD ---
 
-// Root route: serve landing page
+// Root route: serve landing page or visualizer
 app.get('/', (req, res) => {
-    res.sendFile('home.html', { root: 'public' });
+    if (req.query.tournamentId || req.query.draftId || req.query.rouletteSessionId) {
+        res.sendFile('index.html', { root: 'public' });
+    } else {
+        res.sendFile('home.html', { root: 'public' });
+    }
 });
 
 app.use(express.static('public'));
