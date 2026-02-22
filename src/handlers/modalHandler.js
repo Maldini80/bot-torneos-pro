@@ -612,16 +612,23 @@ export async function handleModal(interaction) {
 
         // --- MANEJO DE VERIFICACIÓN AUTOMÁTICA ---
         const verifiedUser = await db.collection('verified_users').findOne({ discordId: discordId });
+
+        await db.collection('verified_users').updateOne(
+            { discordId: discordId },
+            {
+                $set: {
+                    psnId: psnId,
+                    whatsapp: verifiedUser && verifiedUser.whatsapp ? verifiedUser.whatsapp : '',
+                    twitter: verifiedUser && verifiedUser.twitter ? verifiedUser.twitter : '',
+                    primaryPosition: primaryPosition,
+                    isCaptain: true
+                },
+                $setOnInsert: { verifiedAt: new Date() }
+            },
+            { upsert: true }
+        );
+
         if (!verifiedUser) {
-            await db.collection('verified_users').insertOne({
-                discordId: discordId,
-                psnId: psnId,
-                whatsapp: '',
-                twitter: '',
-                primaryPosition: primaryPosition,
-                isCaptain: true,
-                verifiedAt: new Date()
-            });
             try {
                 const guild = client.guilds.cache.get(process.env.GUILD_ID);
                 if (guild && process.env.VERIFIED_ROLE_ID) {
@@ -714,15 +721,22 @@ export async function handleModal(interaction) {
 
         // --- MANEJO DE VERIFICACIÓN AUTOMÁTICA ---
         const verifiedUser = await db.collection('verified_users').findOne({ discordId: discordId });
+
+        await db.collection('verified_users').updateOne(
+            { discordId: discordId },
+            {
+                $set: {
+                    psnId: psnId,
+                    whatsapp: whatsapp || (verifiedUser && verifiedUser.whatsapp ? verifiedUser.whatsapp : ''),
+                    twitter: twitter || (verifiedUser && verifiedUser.twitter ? verifiedUser.twitter : ''),
+                    isCaptain: false
+                },
+                $setOnInsert: { verifiedAt: new Date() }
+            },
+            { upsert: true }
+        );
+
         if (!verifiedUser) {
-            await db.collection('verified_users').insertOne({
-                discordId: discordId,
-                psnId: psnId,
-                whatsapp: whatsapp,
-                twitter: twitter,
-                isCaptain: false,
-                verifiedAt: new Date()
-            });
             try {
                 const guild = client.guilds.cache.get(process.env.GUILD_ID);
                 if (guild && process.env.VERIFIED_ROLE_ID) {
@@ -775,15 +789,22 @@ export async function handleModal(interaction) {
 
         // --- MANEJO DE VERIFICACIÓN AUTOMÁTICA ---
         const verifiedUser = await db.collection('verified_users').findOne({ discordId: discordId });
+
+        await db.collection('verified_users').updateOne(
+            { discordId: discordId },
+            {
+                $set: {
+                    psnId: psnId,
+                    whatsapp: whatsapp || (verifiedUser && verifiedUser.whatsapp ? verifiedUser.whatsapp : ''),
+                    twitter: verifiedUser && verifiedUser.twitter ? verifiedUser.twitter : '',
+                    isCaptain: false
+                },
+                $setOnInsert: { verifiedAt: new Date() }
+            },
+            { upsert: true }
+        );
+
         if (!verifiedUser) {
-            await db.collection('verified_users').insertOne({
-                discordId: discordId,
-                psnId: psnId,
-                whatsapp: whatsapp,
-                twitter: '',
-                isCaptain: false,
-                verifiedAt: new Date()
-            });
             try {
                 const guild = client.guilds.cache.get(process.env.GUILD_ID);
                 if (guild && process.env.VERIFIED_ROLE_ID) {

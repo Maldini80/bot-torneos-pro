@@ -1054,10 +1054,17 @@ function initializeDraftView(draftId) {
 
             const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
 
-            // Renderizado condicional de WhatsApp
+            // Renderizado condicional de WhatsApp (Oculto por defecto para streamings)
             let whatsappCell = '';
             if (isAuthenticated) {
-                whatsappCell = `<td data-label="WhatsApp"><span class="player-data">${player.whatsapp || 'N/A'}</span></td>`;
+                whatsappCell = `<td data-label="WhatsApp">
+                    <span class="player-data whatsapp-blur" 
+                          style="filter: blur(5px); cursor: pointer; transition: filter 0.3s;" 
+                          onclick="this.style.filter = this.style.filter === 'none' ? 'blur(5px)' : 'none'" 
+                          title="Haz clic para mostrar/ocultar">
+                        ${player.whatsapp || 'N/A'}
+                    </span>
+                </td>`;
             }
 
             row.innerHTML = `
