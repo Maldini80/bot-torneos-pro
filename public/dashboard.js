@@ -1532,8 +1532,8 @@ async function openRegistrationModal(tournamentId, isPaid, langCode) {
 // ==== GESTION MODAL DRAFT ====
 window.openDraftRegistrationModal = function (draftId) {
     // Comprobar si el usuario tiene sesión en la web
-    const userSessionDisplay = document.getElementById('user-session').style.display;
-    if (userSessionDisplay === 'none' || document.getElementById('user-session').classList.contains('hidden')) {
+    const userProfileEl = document.getElementById('user-profile');
+    if (!userProfileEl || userProfileEl.style.display === 'none' || userProfileEl.classList.contains('hidden')) {
         alert('Debes iniciar sesión con Discord para inscribirte en un Draft.');
         // Redirigir al auth pasándole el ref
         window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
