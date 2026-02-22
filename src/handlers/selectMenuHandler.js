@@ -1110,8 +1110,9 @@ export async function handleSelectMenu(interaction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        if (verifiedUser && verifiedUser.psnId) {
-            psnIdInput.setValue(verifiedUser.psnId);
+        const actualPsnIdCap = verifiedUser ? (verifiedUser.psnId || verifiedUser.gameId) : null;
+        if (actualPsnIdCap) {
+            psnIdInput.setValue(actualPsnIdCap);
         }
 
         const teamNameInput = new TextInputBuilder()
@@ -1153,8 +1154,9 @@ export async function handleSelectMenu(interaction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        if (verifiedUser && verifiedUser.psnId) {
-            psnIdInput.setValue(verifiedUser.psnId);
+        const actualPsnIdPlr = verifiedUser ? (verifiedUser.psnId || verifiedUser.gameId) : null;
+        if (actualPsnIdPlr) {
+            psnIdInput.setValue(actualPsnIdPlr);
         }
 
         const twitterInput = new TextInputBuilder()
@@ -1205,8 +1207,9 @@ export async function handleSelectMenu(interaction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        if (verifiedUser && verifiedUser.psnId) {
-            gameIdInput.setValue(verifiedUser.psnId);
+        const actualPsnIdPartic = verifiedUser ? (verifiedUser.psnId || verifiedUser.gameId) : null;
+        if (actualPsnIdPartic) {
+            gameIdInput.setValue(actualPsnIdPartic);
         }
 
         const whatsappInput = new TextInputBuilder()
