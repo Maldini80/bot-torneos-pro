@@ -1530,23 +1530,29 @@ async function openRegistrationModal(tournamentId, isPaid, langCode) {
 }
 
 // ==== GESTION MODAL DRAFT ====
-window.openDraftRegistrationModal = function (draftId) {
-    // Comprobar si el usuario tiene sesión en la web
-    const userProfileEl = document.getElementById('user-profile');
-    if (!userProfileEl || userProfileEl.style.display === 'none' || userProfileEl.classList.contains('hidden')) {
-        alert('Debes iniciar sesión con Discord para inscribirte en un Draft.');
-        // Redirigir al auth pasándole el ref
-        window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
-        return;
-    }
+window.openDraftRegistrationModal = async function (draftId) {
+    try {
+        // Comprobar si el usuario tiene sesión en la web de forma segura
+        const response = await fetch('/api/check-membership');
+        const data = await response.json();
 
-    const modal = document.getElementById('draft-registration-modal');
-    if (modal) {
-        document.getElementById('draft-reg-id').value = draftId;
-        document.getElementById('draft-primary-pos').value = '';
-        document.getElementById('draft-secondary-pos').value = 'NONE';
-        document.getElementById('draft-reg-status').textContent = '';
-        modal.classList.remove('hidden');
+        if (!data.authenticated) {
+            alert('Debes iniciar sesión con Discord para inscribirte en un Draft.');
+            window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+            return;
+        }
+
+        const modal = document.getElementById('draft-registration-modal');
+        if (modal) {
+            document.getElementById('draft-reg-id').value = draftId;
+            document.getElementById('draft-primary-pos').value = '';
+            document.getElementById('draft-secondary-pos').value = 'NONE';
+            document.getElementById('draft-reg-status').textContent = '';
+            modal.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error al comprobar sesión:', error);
+        alert('Hubo un error al verificar tu sesión. Inténtalo de nuevo.');
     }
 };
 
