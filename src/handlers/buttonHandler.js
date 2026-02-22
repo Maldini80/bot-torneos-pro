@@ -1249,11 +1249,84 @@ export async function handleButton(interaction) {
             .setCustomId(`admin_add_partic_user_sel:${draftShortId}`)
             .setPlaceholder('Selecciona el Usuario de Discord');
 
+        const ghostButtonBtn = new ButtonBuilder()
+            .setCustomId(`admin_add_ghost_partic_start:${draftShortId}`)
+            .setLabel('Añadir Fantasma (Sin Discord)')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('👻');
+
         await interaction.reply({
-            content: 'Para añadir un participante manualmente, primero selecciona a su usuario de Discord:',
-            components: [new ActionRowBuilder().addComponents(userSelect)],
+            content: 'Para añadir un participante manualmente, primero selecciona a su usuario de Discord. Si no tiene cuenta, añádele como Fantasma:',
+            components: [
+                new ActionRowBuilder().addComponents(userSelect),
+                new ActionRowBuilder().addComponents(ghostButtonBtn)
+            ],
             flags: [MessageFlags.Ephemeral]
         });
+        return;
+    }
+
+    if (action === 'admin_add_ghost_partic_start') {
+        const [draftShortId] = params;
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_ghost_partic_submit:${draftShortId}`)
+            .setTitle('Añadir Fantasma (Participante)');
+
+        const gameIdInput = new TextInputBuilder()
+            .setCustomId('ghost_game_id')
+            .setLabel("ID de Juego (PSN/EA ID)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('ghost_whatsapp')
+            .setLabel("WhatsApp (con prefijo, ej: +34)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const positionInput = new TextInputBuilder()
+            .setCustomId('ghost_position')
+            .setLabel("Posición (GK, DFC, CARR, MC, DC)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("DC")
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(gameIdInput),
+            new ActionRowBuilder().addComponents(whatsappInput),
+            new ActionRowBuilder().addComponents(positionInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_add_ghost_plr_start') {
+        const [draftShortId, position] = params;
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_ghost_plr_submit:${draftShortId}:${position}`)
+            .setTitle(`Añadir Fantasma (${position})`);
+
+        const gameIdInput = new TextInputBuilder()
+            .setCustomId('ghost_game_id')
+            .setLabel("ID de Juego (PSN/EA ID)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('ghost_whatsapp')
+            .setLabel("WhatsApp (con prefijo, ej: +34)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(gameIdInput),
+            new ActionRowBuilder().addComponents(whatsappInput)
+        );
+
+        await interaction.showModal(modal);
         return;
     }
     if (action === 'admin_unregister_draft_approve') {

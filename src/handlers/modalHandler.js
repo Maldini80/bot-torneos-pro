@@ -718,6 +718,50 @@ export async function handleModal(interaction) {
         return;
     }
 
+    // --- NUEVOS FLUJOS: JUGADORES FANTASMA ---
+    if (action === 'admin_ghost_partic_submit' || action === 'admin_ghost_plr_submit') {
+        let draftShortId, primaryPosition;
+        if (action === 'admin_ghost_partic_submit') {
+            [draftShortId] = params;
+            primaryPosition = interaction.fields.getTextInputValue('ghost_position').trim().toUpperCase();
+        } else {
+            [draftShortId, primaryPosition] = params;
+        }
+
+        const psnId = interaction.fields.getTextInputValue('ghost_game_id').trim();
+        const whatsapp = interaction.fields.getTextInputValue('ghost_whatsapp').trim();
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.reply({ content: '❌ Torneo/Draft no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+        const randomId = Math.random().toString(36).substring(2, 10);
+        const externalId = `ext_${randomId}`;
+
+        const playerData = {
+            userId: externalId,
+            userName: `Fantasma (${psnId})`,
+            psnId: psnId,
+            twitter: 'N/A', // Sin twitter
+            whatsapp: whatsapp,
+            primaryPosition: primaryPosition,
+            secondaryPosition: 'NONE',
+            currentTeam: 'Libre',
+            isCaptain: false,
+            captainId: null,
+            isExternal: true // Se marca como externo
+        };
+
+        const result = await adminAddPlayerToDraft(client, draft, playerData);
+
+        if (result.success) {
+            await interaction.reply({ content: `✅ Fantasma **${psnId}** añadido correctamente a **${primaryPosition}** (ID: ${externalId}).`, flags: [MessageFlags.Ephemeral] });
+        } else {
+            await interaction.reply({ content: `❌ ${result.message}`, flags: [MessageFlags.Ephemeral] });
+        }
+        return;
+    }
+    // --- FIN FLUJOS FANTASMA ---
+
     if (action === 'admin_edit_draft_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;

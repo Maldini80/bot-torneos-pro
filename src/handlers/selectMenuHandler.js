@@ -1192,9 +1192,18 @@ export async function handleSelectMenu(interaction) {
             .setCustomId(`admin_add_plr_user_sel:${draftShortId}:${selectedPosition}`)
             .setPlaceholder('Selecciona el Usuario de Discord');
 
+        const ghostButtonBtn = new ButtonBuilder()
+            .setCustomId(`admin_add_ghost_plr_start:${draftShortId}:${selectedPosition}`)
+            .setLabel('Añadir Fantasma (Sin Discord)')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('👻');
+
         await interaction.reply({
-            content: `Has seleccionado Posición Primaria: **${selectedPosition}**.\n\nAhora, selecciona el usuario de Discord (empieza a escribir su nombre) para continuar con la adición.`,
-            components: [new ActionRowBuilder().addComponents(userSelect)],
+            content: `Has seleccionado Posición Primaria: **${selectedPosition}**.\n\nAhora, selecciona el usuario de Discord (empieza a escribir su nombre). Si no tiene cuenta verificada, usa la opción de Fantasma.`,
+            components: [
+                new ActionRowBuilder().addComponents(userSelect),
+                new ActionRowBuilder().addComponents(ghostButtonBtn)
+            ],
             flags: [MessageFlags.Ephemeral]
         });
         return;

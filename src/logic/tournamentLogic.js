@@ -704,34 +704,30 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             for (const team of Object.values(newTournament.teams.aprobados)) {
                 const realPlayerIds = team.players.map(p => p.userId).filter(id => /^\d+$/.test(id));
 
-                const textPermissions = [
-                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                    { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-                    ...realPlayerIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
-                ];
-
                 const voicePermissions = [
-                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                    { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-                    ...realPlayerIds.map(id => ({
-                        id, allow: [
-                            PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
-                        ]
-                    }))
+                    // El canal es PÚBLICO por defecto guiado por la categoría, así que el @everyone entra
+                    { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] }
                 ];
 
-                const textChannel = await guild.channels.create({
-                    name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`, type: ChannelType.GuildText,
-                    parent: teamCategory, permissionOverwrites: textPermissions
-                });
+                // Permisos de moderación para el capitán
+                if (/^\d+$/.test(team.capitanId)) {
+                    voicePermissions.push({
+                        id: team.capitanId,
+                        allow: [
+                            PermissionsBitField.Flags.ViewChannel,
+                            PermissionsBitField.Flags.Connect,
+                            PermissionsBitField.Flags.Speak,
+                            PermissionsBitField.Flags.MuteMembers,
+                            PermissionsBitField.Flags.DeafenMembers,
+                            PermissionsBitField.Flags.MoveMembers
+                        ]
+                    });
+                }
 
                 await guild.channels.create({
                     name: `🔊 ${team.nombre}`, type: ChannelType.GuildVoice,
                     parent: teamCategory, permissionOverwrites: voicePermissions
                 });
-
-                const mentionString = realPlayerIds.map(id => `<@${id}>`).join(' ');
-                await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
 
                 if (/^\d+$/.test(team.capitanId)) {
                     await chatChannel.send({
@@ -2705,28 +2701,24 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
             const teamPlayers = draft.players.filter(p => p.captainId === team.capitanId);
             const realPlayerIds = teamPlayers.map(p => p.userId).filter(id => /^\d+$/.test(id));
 
-            const textPermissions = [
-                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-                ...realPlayerIds.map(id => ({ id, allow: [PermissionsBitField.Flags.ViewChannel] }))
-            ];
-
             const voicePermissions = [
-                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] },
-                ...realPlayerIds.map(id => ({
-                    id, allow: [
-                        PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak
-                    ]
-                }))
+                { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] }
             ];
 
-            const textChannel = await guild.channels.create({
-                name: `💬-${team.nombre.replace(/\s+/g, '-').toLowerCase()}`,
-                type: ChannelType.GuildText,
-                parent: teamCategory,
-                permissionOverwrites: textPermissions
-            });
+            // Permisos de moderador para el capitán
+            if (/^\d+$/.test(team.capitanId)) {
+                voicePermissions.push({
+                    id: team.capitanId,
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.Connect,
+                        PermissionsBitField.Flags.Speak,
+                        PermissionsBitField.Flags.MuteMembers,
+                        PermissionsBitField.Flags.DeafenMembers,
+                        PermissionsBitField.Flags.MoveMembers
+                    ]
+                });
+            }
 
             await guild.channels.create({
                 name: `🔊 ${team.nombre}`,
@@ -2734,9 +2726,6 @@ async function finalizeRouletteDrawAndStartMatches(client, tournamentId) {
                 parent: teamCategory,
                 permissionOverwrites: voicePermissions
             });
-
-            const mentionString = realPlayerIds.map(id => `<@${id}>`).join(' ');
-            await textChannel.send(`### ¡Bienvenido, equipo ${team.nombre}!\nEste es vuestro canal privado para coordinaros.\n\n**Miembros:** ${mentionString}`);
         }
     } else {
         console.warn(`[CHANNELS] No se pudo crear canales de equipo para ${tournament.shortId} por falta de categoría, rol o datos del draft.`);
