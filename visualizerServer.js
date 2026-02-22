@@ -1322,8 +1322,9 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
             const isAdmin = memberData.roles.some(roleId => adminRoleIds.includes(roleId));
 
             if (isAdmin) {
-                roleData.role = 'admin';
-                return res.json(roleData);
+                roleData.isAdmin = true;
+            } else {
+                roleData.isAdmin = false;
             }
         }
 
@@ -1389,7 +1390,11 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
             }
         }
 
-        // Si no tiene ningún rol especial, es visitante
+        // Si no tiene ningún rol especial, pero es admin de Discord
+        if (roleData.isAdmin && roleData.role === 'visitor') {
+            roleData.role = 'admin';
+        }
+
         return res.json(roleData);
 
     } catch (error) {
