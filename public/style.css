@@ -4137,6 +4137,67 @@ aside h2 {
             padding: 1.2rem;
         }
     }
+
+    /* ====================================================
+   TARJETAS DE EVENTO (BOTONES)
+   ==================================================== */
+    .tournament-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .btn-view-event,
+    .btn-join-event {
+        flex: 1;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 0.95em;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn-view-event {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+
+    .btn-view-event:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.4);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-join-event {
+        background: var(--neon-magenta);
+        border: 1px solid transparent;
+        color: white;
+    }
+
+    .btn-join-event:hover {
+        background: #FF00FF;
+        box-shadow: 0 0 15px var(--neon-magenta);
+        transform: translateY(-2px);
+    }
+
+    @media (max-width: 500px) {
+        .tournament-actions {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-view-event,
+        .btn-join-event {
+            padding: 14px;
+            font-size: 1em;
+        }
+    }
 }
 
 /* === M\u00d3VIL: Reducir part\u00edculas (landing page) === */

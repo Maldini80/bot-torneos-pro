@@ -3,7 +3,7 @@
 // ===== TRADUCCIONES INTEGRADAS =====
 const translations = {
     es: {
-        nav: { active: 'Activos', history: 'Historial', home: 'Inicio' },
+        nav: { active: 'Activos', history: 'Historial', home: 'Inicio', tournaments: 'Torneos' },
         dashboard: {
             title: 'Dashboard de Eventos',
             activeEvents: 'Eventos Activos',
@@ -172,7 +172,7 @@ const translations = {
         }
     },
     en: {
-        nav: { active: 'Active', history: 'History', home: 'Home' },
+        nav: { active: 'Active', history: 'History', home: 'Home', tournaments: 'Tournaments' },
         dashboard: {
             title: 'Events Dashboard',
             activeEvents: 'Active Events',
@@ -1475,11 +1475,11 @@ async function loadOpenTournaments() {
                         ${infoTeamsHtml}
                         <span>🎮 ${tour.format ? tour.format.toUpperCase() : 'EAFC'}</span>
                     </div>
-                    <div class="tournament-actions" style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button class="secondary-btn" onclick="window.location.href='/index.html?${isDraft ? 'draftId' : 'tournamentId'}=${tour.shortId}'" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 6px; cursor: pointer;">
+                    <div class="tournament-actions">
+                        <button class="secondary-btn btn-view-event" onclick="window.location.href='/index.html?${isDraft ? 'draftId' : 'tournamentId'}=${tour.shortId}'">
                             👁️ ${viewLabel}
                         </button>
-                        <button class="register-btn" onclick="${isDraft ? `openDraftRegistrationModal('${tour.shortId}')` : `openRegistrationModal('${tour.shortId}', ${isPaid}, '${currentLang}')`}" style="flex: 1;">
+                        <button class="register-btn btn-join-event" onclick="${isDraft ? `openDraftRegistrationModal('${tour.shortId}')` : `openRegistrationModal('${tour.shortId}', ${isPaid}, '${currentLang}')`}">
                             ⚽ ${registerLabel}
                         </button>
                     </div>
