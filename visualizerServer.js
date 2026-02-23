@@ -1555,10 +1555,10 @@ export async function startVisualizerServer(discordClient) {
                 .sort({ createdAt: -1 })
                 .toArray();
 
-            // Buscar drafts activos, pendientes, en inscripción o en curso (selección)
+            // Buscar drafts activos, pendientes, en inscripción, torneo_generado o en curso (selección)
             const drafts = await db.collection('drafts')
                 .find({
-                    status: { $in: ['active', 'pending', 'inscripcion', 'seleccion'] }
+                    status: { $in: ['active', 'pending', 'inscripcion', 'torneo_generado', 'seleccion'] }
                 })
                 .sort({ createdAt: -1 })
                 .toArray();

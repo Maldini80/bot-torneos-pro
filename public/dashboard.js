@@ -1374,6 +1374,10 @@ class DashboardApp {
 
                 if (msg.type === 'tournament' || msg.type === 'draft') {
                     this.loadActiveEvents();
+                    // Importante: también recargar la sección de torneos abiertos (inscripciones)
+                    if (typeof loadOpenTournaments === 'function') {
+                        loadOpenTournaments();
+                    }
                 }
             } catch (error) {
                 console.error('[Dashboard] Error procesando mensaje WS:', error);
