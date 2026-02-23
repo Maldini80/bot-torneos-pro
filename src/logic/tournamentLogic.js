@@ -2536,6 +2536,52 @@ export async function requestKickFromWeb(client, draftId, captainId, playerId, r
     }
 }
 
+export async function requestSubstituteFromWeb(client, draftId, captainId, outPlayerId, inPlayerId, reason) {
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftId });
+    if (!draft) throw new Error('Draft no encontrado');
+
+    const captain = draft.captains.find(c => c.userId === captainId);
+    const outPlayer = draft.players.find(p => p.userId === outPlayerId);
+    const inPlayer = draft.players.find(p => p.userId === inPlayerId);
+
+    if (!captain || !outPlayer || !inPlayer) throw new Error('Datos de jugador o capitán inválidos');
+
+    const guild = await client.guilds.fetch(process.env.GUILD_ID);
+    const channelId = draft.discordMessageIds?.casterTextChannelId || process.env.INFO_CHANNEL_ID;
+    const adminChannel = await guild.channels.fetch(channelId).catch(() => null);
+
+    if (!adminChannel) throw new Error('No se encontró el canal de administración del draft para enviar la solicitud.');
+
+    const embed = new EmbedBuilder()
+        .setTitle('🔄 Solicitud de Sustitución (Web)')
+        .setColor('#2196F3')
+        .addFields(
+            { name: 'Capitán', value: `<@${captain.userId}> (${captain.userName})`, inline: true },
+            { name: 'Equipo', value: captain.teamName, inline: true },
+            { name: '\u200B', value: '\u200B' }, // spacer
+            { name: 'Jugador Saliente', value: `<@${outPlayer.userId}> (${outPlayer.userName})`, inline: true },
+            { name: 'Agente Libre Entrante', value: `<@${inPlayer.userId}> (${inPlayer.userName})`, inline: true },
+            { name: 'Motivo', value: reason || 'N/A' }
+        );
+
+    // Limitamos la custom_id debido a reglas de Discord (max 100 char)
+    // "subreq_app:" + draftShortId(8) + ":" + capId(19) + ":" + outId(19) + ":" + inId(19) = OK
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`subreq_app:${draft.shortId}:${captainId}:${outPlayerId}:${inPlayerId}`)
+            .setLabel('Aprobar')
+            .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId(`subreq_rej:${draft.shortId}:${captainId}:${outPlayerId}:${inPlayerId}`)
+            .setLabel('Denegar')
+            .setStyle(ButtonStyle.Danger)
+    );
+
+    await adminChannel.send({ embeds: [embed], components: [row] });
+}
+
 // Y AÑADE ESTA FUNCIÓN EXTRA PARA PODER USARLA DESDE OTROS ARCHIVOS
 export async function getVerifiedPlayer(userId) {
     return await checkVerification(userId);

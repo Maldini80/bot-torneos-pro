@@ -387,16 +387,32 @@ app.get('/api/user/teams', async (req, res) => {
                 { captains: userId }
             ]
         }).project({
-            name: 1,
-            logoUrl: 1,
-            abbreviation: 1,
-            managerId: 1,
-            captains: 1
+            name: 1, logoUrl: 1, abbreviation: 1, managerId: 1, captains: 1
         }).toArray();
 
+        // 2. Buscar equipos donde es capitán en drafts generados/finalizados
+        const drafts = await db.collection('drafts').find({
+            "captains.userId": userId,
+            status: { $in: ['torneo_generado', 'finalizado', 'completed'] }
+        }).toArray();
 
+        const draftTeams = drafts.map(draft => {
+            const captainInfo = draft.captains.find(c => c.userId === userId);
+            if (!captainInfo) return null;
 
-        res.json({ teams });
+            return {
+                _id: 'draft_' + draft.shortId + '_' + userId,
+                isDraftTeam: true,
+                draftId: draft.shortId,
+                name: captainInfo.teamName || `Equipo Draft de ${captainInfo.userName}`,
+                logoUrl: captainInfo.logoUrl || 'https://i.imgur.com/2M7540p.png',
+                abbreviation: captainInfo.abbreviation || 'DFT',
+                managerId: userId, // Para la UI, el capitán del draft es el manager total
+                captains: []
+            };
+        }).filter(Boolean);
+
+        res.json({ teams: [...teams, ...draftTeams] });
     } catch (error) {
         console.error('[API Error] Error fetching user teams:', error);
         res.status(500).json({ error: 'Error al obtener equipos' });
@@ -951,9 +967,34 @@ async function checkTeamPermissions(req, res, next) {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
     try {
-        const db = getDb('test'); // FIX: Equipos están en 'test'
         const teamId = req.params.teamId;
 
+        // Manejo especial para equipos de Draft
+        if (teamId.startsWith('draft_')) {
+            const parts = teamId.split('_');
+            if (parts.length >= 3) {
+                const draftShortId = parts[1];
+                const managerId = parts.slice(2).join('_');
+
+                const db = getDb();
+                const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+                if (!draft) return res.status(404).json({ error: 'Draft no encontrado' });
+
+                if (req.user.id !== managerId) {
+                    return res.status(403).json({ error: 'No tienes permisos para gestionar este equipo de draft' });
+                }
+
+                req.isDraftTeam = true;
+                req.draft = draft;
+                req.isManager = true;
+                req.managerId = managerId;
+                req.teamId = teamId;
+                return next();
+            }
+        }
+
+        const db = getDb('test'); // FIX: Equipos están en 'test'
         const team = await db.collection('teams').findOne({ _id: new ObjectId(teamId) });
         if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
 
@@ -976,6 +1017,58 @@ async function checkTeamPermissions(req, res, next) {
 // GET Roster
 app.get('/api/teams/:teamId/roster', checkTeamPermissions, async (req, res) => {
     try {
+        if (req.isDraftTeam) {
+            const draft = req.draft;
+            const managerId = req.managerId;
+            const rosterDetails = [];
+
+            // Buscar jugadores asignados a este capitán
+            const teamPlayers = draft.players.filter(p => p.captainId === managerId);
+
+            // Añadir al propio capitán a la lista (normalmente está en teamPlayers, pero por si acaso confirmamos)
+            const isCaptainInTeam = teamPlayers.some(p => p.userId === managerId);
+
+            for (const p of teamPlayers) {
+                let discordUser = null;
+                try { discordUser = await client.users.fetch(p.userId); } catch (e) { }
+
+                rosterDetails.push({
+                    id: p.userId,
+                    username: discordUser ? discordUser.username : p.userName,
+                    global_name: discordUser?.globalName,
+                    avatar: discordUser ? discordUser.displayAvatarURL() : 'https://cdn.discordapp.com/embed/avatars/0.png',
+                    role: p.userId === managerId ? 'manager' : 'member',
+                    psnId: p.psnId || null,
+                    platform: p.platform || null,
+                    // EXTRA INFO FOR DRAFTS
+                    primaryPosition: p.primaryPosition,
+                    secondaryPosition: p.secondaryPosition,
+                    whatsapp: p.whatsapp,
+                    strikes: p.strikes || 0,
+                    isDraft: true
+                });
+            }
+
+            // Si el capitán no estaba en la lista de jugadores, añadirlo manualmente
+            if (!isCaptainInTeam) {
+                let discordUser = null;
+                try { discordUser = await client.users.fetch(managerId); } catch (e) { }
+                const capInfo = draft.captains.find(c => c.userId === managerId);
+
+                rosterDetails.push({
+                    id: managerId,
+                    username: discordUser ? discordUser.username : (capInfo ? capInfo.userName : 'Capitán'),
+                    avatar: discordUser ? discordUser.displayAvatarURL() : 'https://cdn.discordapp.com/embed/avatars/0.png',
+                    role: 'manager',
+                    psnId: capInfo?.psnId || 'Director',
+                    platform: 'SYS',
+                    isDraft: true
+                });
+            }
+
+            return res.json({ roster: rosterDetails, isManager: req.isManager });
+        }
+
         const team = req.team;
         const allIds = [team.managerId, ...(team.captains || []), team.coCaptainId, ...(team.players || [])];
         const uniqueIds = [...new Set(allIds)].filter(id => id); // Eliminar duplicados y nulos
@@ -1022,6 +1115,68 @@ app.get('/api/teams/:teamId/roster', checkTeamPermissions, async (req, res) => {
     } catch (e) {
         console.error('Error fetching roster:', e);
         res.status(500).json({ error: 'Error obteniendo plantilla' });
+    }
+});
+
+// Endpoint: Solicitud de Strike desde la web (Equipos de Draft)
+app.post('/api/draft/strike', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    const { draftId, playerId, reason } = req.body;
+    if (!draftId || !playerId) return res.status(400).json({ error: 'Faltan parámetros de draft o jugador' });
+
+    try {
+        const { requestStrikeFromWeb } = await import('./src/logic/tournamentLogic.js');
+        await requestStrikeFromWeb(client, draftId, req.user.id, playerId, reason || 'Solicitado por el capitán desde la Web');
+        res.json({ success: true, message: 'Solicitud de strike enviada a los administradores. Recibirás respuesta por Discord.' });
+    } catch (e) {
+        console.error('[Web Strike Error]', e);
+        res.status(500).json({ error: e.message || 'Error al solicitar el strike' });
+    }
+});
+
+// Endpoint: Obtener Agentes Libres de un Draft
+app.get('/api/draft/free-agents/:draftId', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    try {
+        const { draftId } = req.params;
+        const db = getDb();
+        const draft = await db.collection('drafts').findOne({ shortId: draftId });
+
+        if (!draft) return res.status(404).json({ error: 'Draft no encontrado' });
+
+        // Agentes libres: aquellos que no tienen captainId ni teamId asignado.
+        const freeAgents = draft.players.filter(p => !p.captainId && !p.teamId).map(p => ({
+            id: p.userId,
+            username: p.userName,
+            psnId: p.psnId || 'N/A',
+            whatsapp: p.whatsapp || 'N/A',
+            primaryPosition: p.primaryPosition || 'N/A',
+            platform: p.primaryPlatform || p.platform || 'N/A'
+        }));
+
+        res.json({ success: true, freeAgents });
+    } catch (e) {
+        console.error('[Free Agents Error]', e);
+        res.status(500).json({ error: 'Error al obtener agentes libres' });
+    }
+});
+
+// Endpoint: Solicitar Sustitución Web
+app.post('/api/draft/substitute', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+    const { draftId, outPlayerId, inPlayerId, reason } = req.body;
+    if (!draftId || !outPlayerId || !inPlayerId) return res.status(400).json({ error: 'Faltan parámetros' });
+
+    try {
+        const { requestSubstituteFromWeb } = await import('./src/logic/tournamentLogic.js');
+        await requestSubstituteFromWeb(client, draftId, req.user.id, outPlayerId, inPlayerId, reason || 'Sustitución desde la Web');
+        res.json({ success: true, message: 'Solicitud de sustitución enviada a los administradores. Serás notificado por Discord.' });
+    } catch (e) {
+        console.error('[Web Substitute Error]', e);
+        res.status(500).json({ error: e.message || 'Error al solicitar la sustitución' });
     }
 });
 

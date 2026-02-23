@@ -2885,6 +2885,57 @@ export async function handleButton(interaction) {
         }
         return;
     }
+
+    if (action === 'subreq_app' || action === 'subreq_rej') {
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+        const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+
+        if (!isAdmin && !isReferee) {
+            return interaction.reply({ content: '❌ Solo los administradores o árbitros pueden decidir.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferUpdate();
+        const wasApproved = action === 'subreq_app';
+        const [draftShortId, captainId, outPlayerId, inPlayerId] = params;
+
+        const originalMessage = interaction.message;
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+
+        const db = getDb();
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+
+        if (wasApproved) {
+            if (!draft) return interaction.followUp({ content: '❌ Draft no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+            try {
+                const { acceptReplacement } = await import('../logic/tournamentLogic.js');
+                await acceptReplacement(client, interaction.guild, draft, captainId, outPlayerId, inPlayerId);
+
+                originalEmbed.setColor('#2ecc71').setFooter({ text: `Sustitución aprobada por ${interaction.user.tag}` });
+                await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+
+                const captainUser = await client.users.fetch(captainId).catch(() => null);
+                if (captainUser) await captainUser.send('✅ Un administrador ha **aprobado** tu solicitud de sustitución en el draft.');
+
+                const inUser = await client.users.fetch(inPlayerId).catch(() => null);
+                if (inUser) await inUser.send(`🎉 Has sido seleccionado como **Agente Libre** para sustituir a un jugador en el equipo del draft **${draft.name}**. ¡Ya tienes acceso a los canales del equipo!`);
+
+            } catch (error) {
+                console.error('Error al aprobar sustitución:', error);
+                await interaction.followUp({ content: '❌ Error: ' + error.message, flags: [MessageFlags.Ephemeral] });
+            }
+        } else {
+            originalEmbed.setColor('#e74c3c').setFooter({ text: `Sustitución denegada por ${interaction.user.tag}` });
+            await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
+
+            const captainUser = await client.users.fetch(captainId).catch(() => null);
+            if (captainUser) await captainUser.send(`❌ Un administrador ha **denegado** tu solicitud de sustituir a un jugador por un agente libre en el draft ${draft?.name || ''}.`);
+        }
+        return;
+    }
+
     if (action === 'consult_player_data_start') {
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });

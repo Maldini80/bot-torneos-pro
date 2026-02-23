@@ -550,6 +550,40 @@
             <p id="draft-reg-status" style="margin-top:10px; font-size:0.9rem; text-align:center;"></p>
         </div>
     </div>
+
+    <!-- === MODAL SUSTITUCIÓN AGENTE LIBRE === -->
+    <div id="substitute-modal" class="modal hidden">
+        <div class="modal-content report-modal-content">
+            <span class="close-button close-substitute"
+                onclick="document.getElementById('substitute-modal').classList.add('hidden')">&times;</span>
+            <h2 class="report-modal-title">🔄 Sustituir Jugador</h2>
+            <p class="report-modal-info" id="substitute-player-info">Selecciona un agente libre para sustituir a este
+                jugador.</p>
+
+            <form id="substitute-form">
+                <input type="hidden" id="substitute-out-player-id">
+
+                <div class="form-group" style="margin-bottom: 15px; text-align: left;">
+                    <label style="color:white; display:block; margin-bottom: 5px;">Selecciona Agente Libre:</label>
+                    <select id="substitute-in-player-id" required
+                        style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
+                        <option value="" disabled selected>Cargando agentes libres...</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 25px; text-align: left;">
+                    <label style="color:white; display:block; margin-bottom: 5px;">Motivo de la sustitución:</label>
+                    <input type="text" id="substitute-reason" required placeholder="Ej: Inactividad reiterada"
+                        style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing: border-box;">
+                </div>
+
+                <button type="submit" class="register-btn"
+                    style="width:100%; background: #2196F3; border: none;">Solicitar Sustitución</button>
+            </form>
+            <p id="substitute-status" style="margin-top:10px; font-size:0.9rem; text-align:center;"></p>
+        </div>
+    </div>
+
     <script src="dashboard.js?v=2.4.4"></script>
 </body>
 

@@ -19,6 +19,7 @@ const translations = {
             status: 'Estado',
             actions: 'Acciones',
             view: 'Ver',
+            viewDraftBoard: 'Tablero Original',
             loading: 'Cargando eventos...',
             error: 'Error al cargar eventos',
             noResults: 'No se encontraron eventos',
@@ -188,6 +189,7 @@ const translations = {
             status: 'Status',
             actions: 'Actions',
             view: 'View',
+            viewDraftBoard: 'Original Board',
             loading: 'Loading events...',
             error: 'Error loading events',
             noResults: 'No events found',
@@ -874,6 +876,12 @@ class DashboardApp {
             const data = await res.json();
 
             if (res.ok) {
+                const isDraftTeam = data.roster.some(m => m.isDraft);
+                const inviteForm = document.getElementById('invite-player-form');
+                if (inviteForm) {
+                    inviteForm.style.display = (isDraftTeam || !data.isManager) ? 'none' : 'flex';
+                }
+
                 rosterList.innerHTML = data.roster.map(member => this.renderRosterItem(member, data.isManager)).join('');
 
                 // Update Co-Captain UI
@@ -904,21 +912,23 @@ class DashboardApp {
         let actions = '';
 
         if (!isMe) {
-            // Logic: Manager kicks everyone. Captain kicks members.
-            const canKick = amIManager || (this.userRoles.includes('captain') && member.role === 'member');
-            // Warning: client-side check only for UI. Server validates.
-
-            if (amIManager) {
-                // Manager Controls
-                if (member.role === 'member') {
-                    actions += `<button class="icon-btn promote-btn" title="Ascender a Capitán" onclick="dashboard.promotePlayer('${member.id}', 'captain')">⬆️</button>`;
-                } else if (member.role === 'captain') {
-                    actions += `<button class="icon-btn demote-btn" title="Degradar a Miembro" onclick="dashboard.promotePlayer('${member.id}', 'member')">⬇️</button>`;
+            if (member.isDraft) {
+                // Draft Controls
+                if (amIManager && member.role !== 'manager') {
+                    actions += `<button class="icon-btn" style="background: rgba(255, 152, 0, 0.2); border-color: rgba(255, 152, 0, 0.5); color: #ff9800" title="Poner Strike" onclick="dashboard.requestDraftStrike('${member.id}')">⚠️</button>`;
+                    actions += `<button class="icon-btn" style="background: rgba(33, 150, 243, 0.2); border-color: rgba(33, 150, 243, 0.5); color: #2196F3" title="Sustituir Jugador" onclick="dashboard.openSubstituteModal('${member.id}')">🔄</button>`;
                 }
-                actions += `<button class="icon-btn kick-btn" title="Expulsar" onclick="dashboard.kickPlayer('${member.id}')">❌</button>`;
             } else {
-                // Captain Controls (Can kick members, cannot touch Manager or other Captains)
-                if (member.role === 'member') {
+                // Normal Teams Controls
+                const canKick = amIManager || (this.userRoles.includes('captain') && member.role === 'member');
+                if (canKick) {
+                    if (amIManager) {
+                        if (member.role === 'member') {
+                            actions += `<button class="icon-btn promote-btn" title="Ascender a Capitán" onclick="dashboard.promotePlayer('${member.id}', 'captain')">⬆️</button>`;
+                        } else if (member.role === 'captain') {
+                            actions += `<button class="icon-btn demote-btn" title="Degradar a Miembro" onclick="dashboard.promotePlayer('${member.id}', 'member')">⬇️</button>`;
+                        }
+                    }
                     actions += `<button class="icon-btn kick-btn" title="Expulsar" onclick="dashboard.kickPlayer('${member.id}')">❌</button>`;
                 }
             }
@@ -927,16 +937,27 @@ class DashboardApp {
         const roleBadge = member.role === 'manager' ? '👑' : (member.role === 'captain' ? '🧢' : '👤');
         const roleName = member.role === 'manager' ? 'Manager' : (member.role === 'captain' ? 'Capitán' : 'Miembro');
 
+        let draftInfoHtml = '';
+        if (member.isDraft && amIManager && member.role !== 'manager') {
+            draftInfoHtml = `
+            <div style="font-size: 0.85em; color: #aaa; margin-top: 6px; display: flex; gap: 10px; background: rgba(255,255,255,0.05); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);">
+                ${member.primaryPosition ? `<span title="Posición">📍 ${member.primaryPosition}</span>` : ''}
+                ${member.whatsapp ? `<span title="WhatsApp">📱 ${member.whatsapp}</span>` : ''}
+                ${member.strikes > 0 ? `<span style="color:#ff9800" title="Strikes">⚠️ ${member.strikes} Stripes</span>` : ''}
+            </div>`;
+        }
+
         return `
             <div class="roster-item">
                 <div class="roster-user-info">
                     <img src="${member.avatar}" class="avatar-small">
-                    <div class="user-details">
+                    <div class="user-details" style="width: 100%;">
                         <span class="user-name">${member.username}</span>
                         <div class="user-badges">
                             <span class="role-badge ${member.role}">${roleBadge} ${roleName}</span>
-                            ${member.psnId ? `<span class="platform-badge">${member.platform.toUpperCase()}: ${member.psnId}</span>` : '<span class="unverified-badge">⚠️ No verificado</span>'}
+                            ${member.psnId ? `<span class="platform-badge">${(member.platform || 'SYS').toUpperCase()}: ${member.psnId}</span>` : '<span class="unverified-badge">⚠️ No verificado</span>'}
                         </div>
+                        ${draftInfoHtml}
                     </div>
                 </div>
                 <div class="roster-actions">
@@ -1001,6 +1022,107 @@ class DashboardApp {
             msg.className = 'status-message error';
         }
         btn.disabled = false;
+    }
+
+    async requestDraftStrike(playerId) {
+        const reason = prompt(`⚠️ Escribe el motivo para poner un STRIKE. Esta acción será notificada a los administradores:`);
+        if (!reason) return;
+
+        const teamIdParts = this.currentManagingTeamId.split('_'); // draft_XYZ_capId
+        if (teamIdParts.length < 3) return console.error('Invalid draft team ID');
+        const draftId = teamIdParts[1];
+
+        try {
+            const res = await fetch('/api/draft/strike', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ draftId, playerId, reason })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                alert('✅ ' + data.message);
+                this.loadRoster(this.currentManagingTeamId);
+            } else {
+                alert('❌ ' + (data.error || 'Hubo un error al procesar el strike.'));
+            }
+        } catch (e) {
+            console.error('Error strike:', e);
+            alert('❌ Error de conexión al solicitar el strike.');
+        }
+    }
+
+    async openSubstituteModal(playerId) {
+        const teamIdParts = this.currentManagingTeamId.split('_');
+        if (teamIdParts.length < 3) return;
+        const draftId = teamIdParts[1];
+
+        const select = document.getElementById('substitute-in-player-id');
+        select.innerHTML = '<option value="" disabled selected>Cargando agentes libres...</option>';
+        document.getElementById('substitute-out-player-id').value = playerId;
+        document.getElementById('substitute-reason').value = '';
+        document.getElementById('substitute-status').className = '';
+        document.getElementById('substitute-status').textContent = '';
+
+        document.getElementById('substitute-modal').classList.remove('hidden');
+
+        try {
+            const res = await fetch(`/api/draft/free-agents/${draftId}`);
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                if (data.freeAgents.length === 0) {
+                    select.innerHTML = '<option value="" disabled selected>No hay agentes libres disponibles</option>';
+                } else {
+                    select.innerHTML = '<option value="" disabled selected>Selecciona un jugador...</option>' +
+                        data.freeAgents.map(p => `<option value="${p.id}">${p.username} (${p.primaryPosition || 'N/A'}) - ${p.platform || 'N/A'}</option>`).join('');
+                }
+            } else {
+                select.innerHTML = '<option value="" disabled>Error al cargar libres</option>';
+            }
+        } catch (e) {
+            select.innerHTML = '<option value="" disabled>Error de conexión</option>';
+        }
+
+        const form = document.getElementById('substitute-form');
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const inPlayerId = select.value;
+            const reason = document.getElementById('substitute-reason').value;
+            const btn = form.querySelector('button');
+            const status = document.getElementById('substitute-status');
+
+            if (!inPlayerId) return;
+
+            btn.disabled = true;
+            status.textContent = 'Enviando solicitud...';
+            status.className = 'status-message';
+
+            try {
+                const submitRes = await fetch('/api/draft/substitute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ draftId, outPlayerId: playerId, inPlayerId, reason })
+                });
+                const submitData = await submitRes.json();
+
+                if (submitRes.ok && submitData.success) {
+                    status.textContent = '✅ ' + submitData.message;
+                    status.className = 'status-message success';
+                    setTimeout(() => {
+                        document.getElementById('substitute-modal').classList.add('hidden');
+                    }, 3000);
+                } else {
+                    status.textContent = '❌ ' + (submitData.error || 'Error en la solicitud');
+                    status.className = 'status-message error';
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                status.textContent = '❌ Error de conexión';
+                status.className = 'status-message error';
+                btn.disabled = false;
+            }
+        };
     }
 
     async kickPlayer(userId) {
@@ -1243,6 +1365,12 @@ class DashboardApp {
                 <span class="event-teams">👥 ${event.teamsCount} ${t(this.currentLang, 'tournament.teams')}</span>
                 ${progressInfo}
             </div>
+            ${event.id.startsWith('draft-') ? `
+            <div style="margin-top: 10px;">
+                <button class="secondary-btn" style="width: 100%; font-size: 0.8em; padding: 6px;" onclick="event.stopPropagation(); window.location.href='/index.html?draftId=${event.id.replace('draft-', '')}'">
+                    📋 ${t(this.currentLang, 'dashboard.viewDraftBoard')}
+                </button>
+            </div>` : ''}
         `;
 
         return card;
@@ -1297,6 +1425,10 @@ class DashboardApp {
                         <button class="btn-view" onclick="dashboard.openEventModal('${event.id}', '${event.type}')">
                             ${t(this.currentLang, 'dashboard.view')}
                         </button>
+                        ${event.id.startsWith('draft-') ? `
+                        <button class="btn-view" style="margin-top: 4px; background: rgba(0,246,255,0.15); border-color: rgba(0,246,255,0.3);" onclick="window.location.href='/index.html?draftId=${event.id.replace('draft-', '')}'">
+                            📋 ${t(this.currentLang, 'dashboard.viewDraftBoard')}
+                        </button>` : ''}
                     </td>
                 </tr>
             `;
