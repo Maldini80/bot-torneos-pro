@@ -4231,42 +4231,138 @@ aside h2 {
     box-shadow: 0 0 12px rgba(0, 246, 255, 0.3);
 }
 
-/* M\u00f3vil: ocultar texto del bot\u00f3n Inicio, solo icono */
-@media (max-width: 500px) {
+/* =====================================================
+   MÓVIL DASHBOARD: Todo en una fila, ultra compacto
+   ===================================================== */
+@media (max-width: 768px) {
+    .dashboard-header {
+        padding: 0 8px;
+        overflow: visible;
+    }
+
+    .dash-header-inner {
+        height: 52px;
+        gap: 4px;
+        flex-wrap: nowrap;
+        overflow: visible;
+    }
+
+    .dash-logo {
+        height: 34px;
+    }
+
+    .dash-header-right {
+        gap: 4px;
+        flex-shrink: 1;
+        min-width: 0;
+    }
+
+    /* Botón 🏠 Inicio: solo emoji, sin texto */
     .dash-nav-text {
         display: none;
     }
 
-    .dash-logo {
-        height: 38px;
-    }
-
-    .dash-header-inner {
-        height: 54px;
-        padding: 0;
-    }
-
-    .dashboard-header {
-        padding: 0 12px;
-    }
-
-    .dash-header-right {
-        gap: 6px;
-    }
-
     .dash-nav-btn {
-        padding: 6px 10px;
-        font-size: 0.85em;
+        padding: 5px 8px;
+        font-size: 1em;
+        min-width: 34px;
+        justify-content: center;
+    }
+
+    /* Selector de idioma: más pequeño */
+    .language-selector {
+        display: flex;
+        gap: 2px;
     }
 
     .lang-btn {
-        padding: 5px 8px;
-        font-size: 0.8em;
+        padding: 4px 6px;
+        font-size: 0.75em;
+        min-width: 0;
     }
 
-    /* Ocultar el nombre del usuario en móvil para no atestar el header */
+    /* Usuario logueado: ocultar nombre, solo avatar + botones icono */
     .user-name {
         display: none !important;
+    }
+
+    .user-avatar {
+        width: 28px !important;
+        height: 28px !important;
+    }
+
+    /* Botones Perfil y Salir: solo emoji */
+    .auth-btn.profile-trigger-btn .hide-mobile,
+    .auth-btn.logout-btn .hide-mobile {
+        display: none !important;
+    }
+
+    .auth-btn.profile-trigger-btn,
+    .auth-btn.logout-btn {
+        padding: 5px 8px;
+        font-size: 1em;
+        min-width: 34px;
+    }
+
+    /* Botón Discord (no logueado): compacto */
+    .auth-btn.login-btn {
+        padding: 5px 10px;
+        font-size: 0.78em;
+        gap: 4px;
+        white-space: nowrap;
+    }
+
+    .auth-btn.login-btn svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
+    /* Ocultar texto "Iniciar Sesión con Discord", mostrar solo "Discord" */
+    .auth-btn.login-btn span[data-i18n="auth.login"] {
+        display: none;
+    }
+
+    .auth-btn.login-btn::after {
+        content: 'Discord';
+        font-size: 0.85em;
+    }
+}
+
+/* =====================================================
+   RENDIMIENTO MÓVIL: Desactivar animaciones pesadas
+   ===================================================== */
+@media (max-width: 768px) {
+
+    /* Desactivar el fondo animado en móvil */
+    .animated-background {
+        animation: none !important;
+        background: linear-gradient(135deg, #0a0a1a 0%, #0d0d2b 50%, #0a0a1a 100%) !important;
+    }
+
+    /* Desactivar partículas en móvil */
+    .particles {
+        display: none !important;
+    }
+
+    /* Reducir blur costoso */
+    .dashboard-header {
+        backdrop-filter: blur(8px) !important;
+    }
+
+    /* Desactivar transiciones de hover en móvil (no hay hover) */
+    .dash-nav-btn:hover,
+    .lang-btn:hover,
+    .auth-btn:hover {
+        transform: none !important;
+        transition: none !important;
+    }
+
+    /* Desactivar animaciones de cards */
+    .event-card,
+    .history-item {
+        animation: none !important;
+        transition: none !important;
     }
 }
 
