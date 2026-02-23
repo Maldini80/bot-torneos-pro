@@ -730,15 +730,15 @@ function initializeTournamentView(tournamentId) {
 
                 matchCard.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <div style="flex: 1; display: flex; align-items: center; min-width: 0;">
+                    <div style="display: flex; align-items: center;">
                         ${teamALogo}
-                        <span style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${teamA.nombre}">${teamA.nombre}</span>
+                        <span style="font-weight: bold; white-space: nowrap;">${teamA.nombre}</span>
                     </div>
-                    <div style="padding: 0 1rem; font-size: 1.2rem; font-weight: bold; flex-shrink: 0;">
+                    <div style="padding: 0 1rem; font-size: 1.2rem; font-weight: bold; text-align: center;">
                         ${match.resultado || 'vs'}
                     </div>
-                    <div style="flex: 1; display: flex; align-items: center; justify-content: flex-end; min-width: 0;">
-                        <span style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${teamB.nombre}">${teamB.nombre}</span>
+                    <div style="display: flex; align-items: center; justify-content: flex-end;">
+                        <span style="font-weight: bold; white-space: nowrap;">${teamB.nombre}</span>
                         ${teamBLogo}
                     </div>
                 </div>
