@@ -1491,10 +1491,12 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
                 const group = event.structure.grupos[groupName];
                 if (group.equipos) {
                     for (const team of group.equipos) {
+                        const effectiveTeamId = event.draftId && team.capitanId ? `draft_${event.draftId}_${team.capitanId}` : team.id;
+
                         // Capitán principal
                         if (team.capitanId === userId) {
                             roleData.role = 'captain';
-                            roleData.teamId = team.id;
+                            roleData.teamId = effectiveTeamId;
                             roleData.teamName = team.nombre;
                             return res.json(roleData);
                         }
@@ -1502,7 +1504,7 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
                         // Mánager
                         if (team.managerId === userId) {
                             roleData.role = 'manager';
-                            roleData.teamId = team.id;
+                            roleData.teamId = effectiveTeamId;
                             roleData.teamName = team.nombre;
                             return res.json(roleData);
                         }
@@ -1510,7 +1512,7 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
                         // Co-Capitán
                         if (team.coCaptainId === userId) {
                             roleData.role = 'coCaptain';
-                            roleData.teamId = team.id;
+                            roleData.teamId = effectiveTeamId;
                             roleData.teamName = team.nombre;
                             return res.json(roleData);
                         }
@@ -1518,7 +1520,7 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
                         // Capitán Extra
                         if (team.extraCaptains && Array.isArray(team.extraCaptains) && team.extraCaptains.includes(userId)) {
                             roleData.role = 'extraCaptain';
-                            roleData.teamId = team.id;
+                            roleData.teamId = effectiveTeamId;
                             roleData.teamName = team.nombre;
                             return res.json(roleData);
                         }
