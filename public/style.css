@@ -4139,9 +4139,128 @@ aside h2 {
     }
 }
 
-/* === MÓVIL: Reducir partículas (landing page) === */
+/* === M\u00d3VIL: Reducir part\u00edculas (landing page) === */
 @media (max-width: 768px) {
     .particles .particle:nth-child(n+7) {
         display: none;
+    }
+}
+
+/* ====================================================
+   DASHBOARD HEADER
+   ==================================================== */
+.dashboard-header {
+    background: linear-gradient(to bottom,
+            rgba(0, 0, 0, 0.9) 0%,
+            rgba(10, 10, 25, 0.8) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 2px solid transparent;
+    border-image: linear-gradient(90deg,
+            transparent 0%,
+            var(--neon-cyan) 30%,
+            var(--neon-magenta) 70%,
+            transparent 100%) 1;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    padding: 0 24px;
+}
+
+.dash-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1400px;
+    margin: 0 auto;
+    height: 64px;
+    gap: 16px;
+}
+
+.dash-logo-link {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    text-decoration: none;
+}
+
+.dash-logo {
+    height: 48px;
+    width: auto;
+    transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.dash-logo:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 8px var(--neon-cyan));
+}
+
+.dash-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.dash-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dash-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    background: rgba(0, 246, 255, 0.08);
+    border: 1.5px solid rgba(0, 246, 255, 0.4);
+    color: var(--neon-cyan);
+    text-decoration: none;
+    font-family: var(--font-roboto);
+    font-weight: 600;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.dash-nav-btn:hover {
+    background: rgba(0, 246, 255, 0.18);
+    border-color: var(--neon-cyan);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(0, 246, 255, 0.3);
+}
+
+/* M\u00f3vil: ocultar texto del bot\u00f3n Inicio, solo icono */
+@media (max-width: 500px) {
+    .dash-nav-text {
+        display: none;
+    }
+
+    .dash-logo {
+        height: 38px;
+    }
+
+    .dash-header-inner {
+        height: 54px;
+        padding: 0;
+    }
+
+    .dashboard-header {
+        padding: 0 12px;
+    }
+
+    .dash-header-right {
+        gap: 6px;
+    }
+
+    .dash-nav-btn {
+        padding: 6px 10px;
+        font-size: 0.85em;
+    }
+
+    .lang-btn {
+        padding: 5px 8px;
+        font-size: 0.8em;
     }
 }
