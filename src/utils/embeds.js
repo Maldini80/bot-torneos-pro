@@ -644,15 +644,20 @@ export async function createPlayerManagementEmbed(client, player, draft, teamId,
         .setAuthor({ name: player.userName })
         .setThumbnail(await client.users.fetch(player.userId).then(u => u.displayAvatarURL()).catch(() => null));
 
+    const playerWhatsApp = player.whatsapp || (verifiedData ? verifiedData.whatsapp : null) || 'No registrado';
+
     if (verifiedData) {
         embed.addFields(
             { name: '📋 Datos de Verificación', value: '\u200B' },
             { name: 'ID de Juego', value: `\`${verifiedData.gameId}\``, inline: true },
             { name: 'Twitter', value: verifiedData.twitter ? `\`${verifiedData.twitter}\`` : '`No registrado`', inline: true },
-            { name: 'WhatsApp', value: `\`${verifiedData.whatsapp || 'No registrado'}\``, inline: true }
+            { name: 'WhatsApp', value: `\`${playerWhatsApp}\``, inline: true }
         );
     } else {
-        embed.addFields({ name: '📋 Datos de Verificación', value: 'Este usuario no está verificado.' });
+        embed.addFields(
+            { name: '📋 Datos de Verificación', value: 'Este usuario no está verificado oficialmente.' },
+            { name: 'WhatsApp', value: `\`${playerWhatsApp}\``, inline: true }
+        );
     }
 
     const captain = player.captainId ? draft.captains.find(c => c.userId === player.captainId) : null;
