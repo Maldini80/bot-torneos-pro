@@ -27,6 +27,8 @@ const translations = {
         status: {
             active: 'En curso', pending: 'Pendiente', completed: 'Finalizado',
             cancelled: 'Cancelado', registration_open: 'Inscripción abierta',
+            inscripcion: 'Inscripción abierta', inscripcion_abierta: 'Inscripción abierta',
+            en_curso: 'En curso', torneo_generado: 'Torneo generado',
             fase_de_grupos: 'Fase de grupos', octavos: 'Octavos', cuartos: 'Cuartos',
             semifinales: 'Semifinales', final: 'Final', finalizado: 'Finalizado'
         },
@@ -192,10 +194,13 @@ const translations = {
             searchPlaceholder: 'Search by name...'
         },
         status: {
-            active: 'In progress', pending: 'Pending', completed: 'Completed',
-            cancelled: 'Cancelled', registration_open: 'Registration open',
-            fase_de_grupos: 'Group stage', octavos: 'Round of 16', cuartos: 'Quarterfinals',
-            semifinales: 'Semifinals', final: 'Final', finalizado: 'Finished'
+            active: 'In Progress', pending: 'Pending', completed: 'Finished',
+            cancelled: 'Cancelled', registration_open: 'Registration Open',
+            inscripcion: 'Registration Open', inscripcion_abierta: 'Registration Open',
+            en_curso: 'In Progress', torneo_generado: 'Tournament Generated',
+            fase_de_grupos: 'Group Stage', octavos: 'Round of 16', cuartos: 'Quarterfinals',
+            semifinales: 'Semifinales', final: 'Final', finalizado: 'Finished',
+            draft_started: 'Draft Started', picking_phase: 'Picking Phase', draft_completed: 'Draft Completed'
         },
         eventTypes: { tournament: 'Tournament', draft: 'Draft', league: 'League' },
         tournament: {
