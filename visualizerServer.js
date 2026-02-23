@@ -391,7 +391,8 @@ app.get('/api/user/teams', async (req, res) => {
         }).toArray();
 
         // 2. Buscar equipos donde es capitán en drafts generados/finalizados
-        const drafts = await db.collection('drafts').find({
+        const mainDb = getDb();
+        const drafts = await mainDb.collection('drafts').find({
             "captains.userId": userId,
             status: { $in: ['torneo_generado', 'finalizado', 'completed'] }
         }).toArray();
