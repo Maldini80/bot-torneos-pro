@@ -160,7 +160,7 @@ body:not(.draft-view-style) #app-container {
 
 header {
     text-align: center;
-    padding: 15px 0 20px 0;
+    padding: 10px 0 12px 0;
     position: relative;
     margin-bottom: 20px;
     flex-shrink: 0;
@@ -362,14 +362,56 @@ header::after {
 
 /* Selector de idioma en header */
 .lang-selector {
-    position: absolute;
-    right: 20px;
-    top: 50%;
-    transform: translateY(-50%);
+    position: relative;
     display: flex;
     gap: 8px;
     z-index: 150;
-    /* Mayor que header para evitar solapamiento */
+}
+
+/* Botones de sesión en el header del draft visualizador */
+#draft-container .auth-btn {
+    display: inline-block;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-family: var(--font-roboto);
+    font-weight: bold;
+    font-size: 0.9em;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    border: 1.5px solid transparent;
+}
+
+#draft-container .auth-btn.login {
+    background: rgba(0, 246, 255, 0.08);
+    border-color: var(--neon-cyan);
+    color: var(--neon-cyan);
+}
+
+#draft-container .auth-btn.login:hover {
+    background: rgba(0, 246, 255, 0.2);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(0, 246, 255, 0.4);
+}
+
+#draft-container .auth-btn.logout {
+    background: rgba(255, 0, 229, 0.08);
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
+}
+
+#draft-container .auth-btn.logout:hover {
+    background: rgba(255, 0, 229, 0.2);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(255, 0, 229, 0.4);
+}
+
+#draft-container #user-greeting {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    display: block;
+    text-align: right;
+    margin-bottom: 4px;
 }
 
 .lang-btn {
