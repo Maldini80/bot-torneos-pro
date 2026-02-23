@@ -1878,6 +1878,17 @@ window.dashboard = dashboard;
 document.addEventListener('DOMContentLoaded', () => {
     dashboard.init();
 
+    // Check if we need to open a specific team management modal immediately
+    const urlParams = new URLSearchParams(window.location.search);
+    const manageTeamId = urlParams.get('manageTeam');
+    if (manageTeamId) {
+        const teamName = urlParams.get('teamName') || 'Mi Equipo';
+        // Wait briefly for init to fetch user profile, then open the manager
+        setTimeout(() => {
+            dashboard.openTeamManagement(manageTeamId, teamName, '');
+        }, 800);
+    }
+
     // Cargar torneos abiertos
     loadOpenTournaments();
 });

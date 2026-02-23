@@ -242,7 +242,23 @@ function displayRoleBadge(roleData) {
 
     // Mostrar equipo si es capitán
     if (roleData.teamName) {
-        teamEl.textContent = roleData.teamName;
+        let teamHtml = roleData.teamName.replace(/[&<>'"]/g,
+            tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag]));
+
+        // Add Manage button for team leaders
+        if (['captain', 'coCaptain', 'manager', 'admin', 'draftCaptain', 'extraCaptain'].includes(roleData.role) && roleData.teamId) {
+            teamHtml += `<br><button onclick="window.location.href='/dashboard.html?manageTeam=${roleData.teamId}&teamName=${encodeURIComponent(roleData.teamName)}'" 
+            style="margin-top: 5px; background: #e67e22; color: white; padding: 4px 10px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; font-size: 0.8em; text-transform: uppercase;">
+            ⚙️ Gestionar Equipo</button>`;
+        }
+
+        teamEl.innerHTML = teamHtml;
         teamEl.style.display = 'block';
     } else {
         teamEl.style.display = 'none';
