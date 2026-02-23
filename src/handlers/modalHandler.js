@@ -2022,34 +2022,47 @@ export async function handleModal(interaction) {
         }
         return;
     }
-    if (action === 'create_draft_league_qualifiers_modal') {
+    if (action === 'draft_league_all_vs_all_modal' || action === 'draft_league_custom_modal' || action === 'draft_league_swiss_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [draftShortId] = params;
-        const qualifiers = parseInt(interaction.fields.getTextInputValue('torneo_qualifiers'));
-        const roundsInput = parseInt(interaction.fields.getTextInputValue('torneo_rounds'));
 
-        if (isNaN(qualifiers) || ![2, 4, 8, 16, 32].includes(qualifiers)) {
-            return interaction.editReply({ content: '❌ Error: El número de equipos clasificatorios debe ser 2, 4, 8, o 16.' });
+        const qualifiersRaw = interaction.fields.getTextInputValue('torneo_qualifiers');
+        const qualifiers = parseInt(qualifiersRaw);
+
+        const inputKey = action === 'draft_league_all_vs_all_modal' ? 'matches_input' : 'rounds_input';
+        const roundsInput = parseInt(interaction.fields.getTextInputValue(inputKey));
+
+        if (isNaN(qualifiers) || qualifiers < 0 || (qualifiers !== 0 && ![2, 4, 8, 16, 32].includes(qualifiers))) {
+            return interaction.editReply({ content: '❌ Error: El número de equipos clasificatorios debe ser 0 (Gana el líder), 2, 4, 8, o 16.' });
         }
 
         if (isNaN(roundsInput) || roundsInput < 1) {
-            return interaction.editReply({ content: '❌ Error: El número de partidos por equipo debe ser al menos 1.' });
+            return interaction.editReply({ content: '❌ Error: El número de partidos/jornadas debe ser al menos 1.' });
         }
 
         let matchType = 'ida';
-        let leagueMode = 'all_vs_all';
+        let leagueMode = '';
         let customRounds = null;
 
-        if (roundsInput === 1) {
-            matchType = 'ida';
-        } else if (roundsInput === 2) {
-            matchType = 'idavuelta';
-        } else {
+        if (action === 'draft_league_all_vs_all_modal') {
+            leagueMode = 'all_vs_all';
+            if (roundsInput === 1) {
+                matchType = 'ida';
+            } else if (roundsInput === 2) {
+                matchType = 'idavuelta';
+            } else {
+                return interaction.editReply({ content: '❌ Error: En Todos contra Todos el valor de encuentros debe ser 1 (Ida) o 2 (Ida/Vuelta).' });
+            }
+        } else if (action === 'draft_league_custom_modal') {
             leagueMode = 'round_robin_custom';
+            matchType = 'ida'; // Ida por defecto en custom
+            customRounds = roundsInput;
+        } else if (action === 'draft_league_swiss_modal') {
+            leagueMode = 'swiss';
+            matchType = 'ida'; // Ida por defecto en suizo
             customRounds = roundsInput;
         }
 
-        // Preparamos la configuración específica de la liguilla
         const leagueConfig = {
             qualifiers: qualifiers,
             leagueMode: leagueMode,
@@ -2058,7 +2071,6 @@ export async function handleModal(interaction) {
         };
 
         try {
-            // Llamamos a la función de creación, pasándole la nueva configuración
             const newTournament = await createTournamentFromDraft(client, guild, draftShortId, 'flexible_league', leagueConfig);
             await interaction.editReply({
                 content: `✅ ¡Liguilla **"${newTournament.nombre}"** creada con éxito a partir del draft! Ya puedes gestionarla desde su hilo.`,

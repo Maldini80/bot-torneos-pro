@@ -757,30 +757,21 @@ export async function handleSelectMenu(interaction) {
         // --- INICIO DE LA LÓGICA UNIFICADA Y CORREGIDA ---
 
         if (selectedFormatId === 'flexible_league') {
-            // CAMINO A: Si es una liguilla, detenemos todo y mostramos el modal para pedir los clasificados.
-            const modal = new ModalBuilder()
-                .setCustomId(`create_draft_league_qualifiers_modal:${draftShortId}`)
-                .setTitle('Configurar Liguilla del Draft');
+            await interaction.deferUpdate();
+            const typeMenu = new StringSelectMenuBuilder()
+                .setCustomId(`draft_league_type_select:${draftShortId}`)
+                .setPlaceholder('Selecciona el tipo de Liguilla')
+                .addOptions([
+                    { label: 'Todos contra Todos (Round Robin)', value: 'all_vs_all', emoji: '⚔️' },
+                    { label: 'Liguilla Custom (Jornadas fijas)', value: 'round_robin_custom', emoji: '📅' },
+                    { label: 'Sistema Suizo', value: 'swiss', emoji: '🇨🇭' }
+                ]);
 
-            const qualifiersInput = new TextInputBuilder()
-                .setCustomId('torneo_qualifiers')
-                .setLabel("Nº de Equipos que se Clasifican")
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder("Ej: 4 (semis), 8 (cuartos)...")
-                .setRequired(true);
-
-            const roundsInput = new TextInputBuilder()
-                .setCustomId('torneo_rounds')
-                .setLabel("Partidos por equipo (Ida=1, Ida/Vuelta=2)")
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder("Ej: 1, 2, 3...")
-                .setRequired(true);
-
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(qualifiersInput),
-                new ActionRowBuilder().addComponents(roundsInput)
-            );
-            return interaction.showModal(modal);
+            await interaction.editReply({
+                content: 'Has elegido "Liguilla". Por favor, selecciona la modalidad de la misma:',
+                components: [new ActionRowBuilder().addComponents(typeMenu)]
+            });
+            return;
 
         } else {
             // CAMINO B: Si es un torneo normal (8 o 16), lo creamos y luego enviamos los botones de sorteo.
@@ -831,6 +822,76 @@ export async function handleSelectMenu(interaction) {
             }
         }
         // --- FIN DE LA LÓGICA UNIFICADA ---
+        return;
+    }
+
+    if (action === 'draft_league_type_select') {
+        const [draftShortId] = params;
+        const leagueType = interaction.values[0];
+
+        if (leagueType === 'all_vs_all') {
+            const modal = new ModalBuilder()
+                .setCustomId(`draft_league_all_vs_all_modal:${draftShortId}`)
+                .setTitle('Liguilla: Todos contra Todos');
+
+            const matchesInput = new TextInputBuilder()
+                .setCustomId('matches_input')
+                .setLabel('Nº Encuentros (1=Ida, 2=Ida/Vuelta)')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const qualifiersInput = new TextInputBuilder()
+                .setCustomId('torneo_qualifiers')
+                .setLabel('Equipos a Play-Offs (0=Líder Gana)')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Ej: 0, 4, 8...')
+                .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(matchesInput), new ActionRowBuilder().addComponents(qualifiersInput));
+            return interaction.showModal(modal);
+
+        } else if (leagueType === 'round_robin_custom') {
+            const modal = new ModalBuilder()
+                .setCustomId(`draft_league_custom_modal:${draftShortId}`)
+                .setTitle('Liguilla: Jornadas Custom');
+
+            const roundsInput = new TextInputBuilder()
+                .setCustomId('rounds_input')
+                .setLabel('Número de Jornadas a jugar')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const qualifiersInput = new TextInputBuilder()
+                .setCustomId('torneo_qualifiers')
+                .setLabel('Equipos a Play-Offs (0=Líder Gana)')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Ej: 0, 4, 8...')
+                .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(roundsInput), new ActionRowBuilder().addComponents(qualifiersInput));
+            return interaction.showModal(modal);
+
+        } else if (leagueType === 'swiss') {
+            const modal = new ModalBuilder()
+                .setCustomId(`draft_league_swiss_modal:${draftShortId}`)
+                .setTitle('Liguilla: Sistema Suizo');
+
+            const roundsInput = new TextInputBuilder()
+                .setCustomId('rounds_input')
+                .setLabel('Número de Rondas (Jornadas)')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const qualifiersInput = new TextInputBuilder()
+                .setCustomId('torneo_qualifiers')
+                .setLabel('Equipos a Play-Offs (0=Líder Gana)')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Ej: 0, 4, 8...')
+                .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(roundsInput), new ActionRowBuilder().addComponents(qualifiersInput));
+            return interaction.showModal(modal);
+        }
         return;
     }
 
