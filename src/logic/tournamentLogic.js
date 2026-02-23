@@ -818,7 +818,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         });
 
         const newDraft = {
-            _id: new ObjectId(), shortId, guildId: guild.id, name, status: 'inscripcion',
+            _id: new ObjectId(), shortId, guildId: guild.id, name, draftName: name, status: 'inscripcion', createdAt: new Date(),
             config: {
                 isPaid: config.isPaid,
                 entryFee: config.isPaid ? config.entryFee : 0,
@@ -1109,7 +1109,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
 
         // --- INICIO DE LA LÓGICA CORREGIDA ---
         const newTournament = {
-            _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta',
+            _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta', createdAt: new Date(),
             config: {
                 ...config, // Copia TODA la configuración que llega (incl. qualifiers y totalRounds)
                 format: format, // Añade el objeto de formato completo

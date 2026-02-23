@@ -1280,7 +1280,7 @@ class DashboardApp {
         tbody.innerHTML = allEvents.map(event => {
             const typeLabel = t(this.currentLang, `eventTypes.${event.type}`);
             const statusLabel = t(this.currentLang, `status.${event.status}`);
-            const date = new Date(event.createdAt).toLocaleDateString();
+            const date = event.createdAt ? new Date(event.createdAt).toLocaleDateString() : '—';
 
             return `
                 <tr>
@@ -1300,7 +1300,7 @@ class DashboardApp {
         mobileContainer.innerHTML = allEvents.map(event => {
             const typeLabel = t(this.currentLang, `eventTypes.${event.type}`);
             const statusLabel = t(this.currentLang, `status.${event.status}`);
-            const date = new Date(event.createdAt).toLocaleDateString();
+            const date = event.createdAt ? new Date(event.createdAt).toLocaleDateString() : '—';
 
             return `
                 <div class="history-item status-${event.status}" onclick="dashboard.openEventModal('${event.id}', '${event.type}')">

@@ -1578,10 +1578,10 @@ export async function startVisualizerServer(discordClient) {
                     name: d.draftName || d.nombre || `Draft ${d.shortId || 'Sin nombre'}`,
                     type: 'draft',
                     status: d.status || 'active',
-                    teamsCount: Object.keys(d.teams || {}).length || 0,
+                    teamsCount: Array.isArray(d.captains) ? d.captains.length : Object.keys(d.teams || {}).length,
                     currentPick: d.currentPickIndex || 0,
                     totalPicks: d.order?.length || 0,
-                    createdAt: d.timestamp || d.createdAt || new Date().toISOString()
+                    createdAt: d.timestamp || d.createdAt || null
                 }))
             });
         } catch (error) {
@@ -1632,8 +1632,8 @@ export async function startVisualizerServer(discordClient) {
                     format: t.format?.label || t.format || 'Desconocido',
                     teamsCount: Object.keys(t.teams?.aprobados || {}).length || 0,
                     winner: t.winner || null,
-                    createdAt: t.timestamp || t.createdAt || t.updatedAt || new Date().toISOString(),
-                    completedAt: t.updatedAt || t.timestamp || new Date().toISOString()
+                    createdAt: t.timestamp || t.createdAt || t.updatedAt || null,
+                    completedAt: t.updatedAt || t.timestamp || null
                 }));
 
                 if (type === 'tournament') results.total = tournamentCount;
@@ -1641,7 +1641,7 @@ export async function startVisualizerServer(discordClient) {
 
             if (type === 'draft' || type === 'all') {
                 const draftFilter = {
-                    status: { $in: ['completed', 'cancelled'] },
+                    status: { $in: ['completed', 'cancelled', 'torneo_generado'] },
                     ...(search ? { draftName: { $regex: search, $options: 'i' } } : {})
                 };
 
@@ -1659,9 +1659,9 @@ export async function startVisualizerServer(discordClient) {
                     name: d.draftName || d.nombre || `Draft ${d.shortId || 'Sin nombre'}`,
                     type: 'draft',
                     status: d.status || 'completed',
-                    teamsCount: Object.keys(d.teams || {}).length || 0,
-                    createdAt: d.timestamp || d.createdAt || d.updatedAt || new Date().toISOString(),
-                    completedAt: d.updatedAt || d.timestamp || new Date().toISOString()
+                    teamsCount: Array.isArray(d.captains) ? d.captains.length : Object.keys(d.teams || {}).length,
+                    createdAt: d.timestamp || d.createdAt || d.updatedAt || null,
+                    completedAt: d.updatedAt || d.timestamp || null
                 }));
 
                 if (type === 'draft') results.total = draftCount;
