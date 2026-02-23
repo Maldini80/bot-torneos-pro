@@ -141,22 +141,23 @@
         <header>
             <div class="header-content">
                 <a href="/dashboard.html" class="back-btn">← Dashboard</a>
-                <img src="logo-the-blitz.png" alt="THE BLITZ Logo" class="header-logo">
                 <div class="header-text">
+                    <h1 id="draft-name-draftview"></h1>
+                    <div class="status-line-draftview">
+                        <div id="round-info-draftview"></div>
+                        <div id="current-pick-info-draftview">Turno de: <span id="current-team-draftview"></span> | Pick
+                            #<span id="current-pick-draftview">0</span></div>
+                    </div>
+                </div>
+                <div class="draft-header-session">
                     <div id="auth-controls">
                         <div id="user-session" class="hidden">
                             <span id="user-greeting"></span>
                             <a href="/logout" class="auth-btn logout">Cerrar Sesión</a>
                         </div>
                         <div id="login-control">
-                            <a href="/login" class="auth-btn login" id="login-btn">Iniciar Sesión (Admin/Capitán)</a>
+                            <a href="/login" class="auth-btn login" id="login-btn">Iniciar Sesión</a>
                         </div>
-                    </div>
-                    <h1 id="draft-name-draftview"></h1>
-                    <div class="status-line-draftview">
-                        <div id="round-info-draftview"></div>
-                        <div id="current-pick-info-draftview">Turno de: <span id="current-team-draftview"></span> | Pick
-                            #<span id="current-pick-draftview">0</span></div>
                     </div>
                 </div>
             </div>
