@@ -1996,39 +1996,33 @@ export async function startVisualizerServer(discordClient) {
             const query = req.query.q || '';
             if (query.length < 2) return res.json({ results: [] });
 
-            // Fetch guild and search members
             const guild = await client.guilds.fetch(process.env.GUILD_ID);
-            await guild.members.fetch(); // Fetch all members to ensure cache is up to date
 
-            const lowerQuery = query.toLowerCase();
-            const matches = [];
-
-            // Search by username, global_name, or exact ID
-            guild.members.cache.forEach(member => {
-                const user = member.user;
-                const username = user.username.toLowerCase();
-                const globalName = (user.globalName || '').toLowerCase();
-                const displayName = (member.nickname || '').toLowerCase();
-
-                // Match by ID (exact) or partial username/displayname
-                if (
-                    user.id === query ||
-                    username.includes(lowerQuery) ||
-                    globalName.includes(lowerQuery) ||
-                    displayName.includes(lowerQuery)
-                ) {
-                    matches.push({
-                        discordId: user.id,
-                        username: user.globalName || user.username,
-                        avatar: user.displayAvatarURL({ size: 32 })
+            // Si es un ID exacto
+            if (/^\d{17,20}$/.test(query)) {
+                try {
+                    const member = await guild.members.fetch(query);
+                    return res.json({
+                        results: [{
+                            discordId: member.user.id,
+                            username: member.user.globalName || member.user.username,
+                            avatar: member.user.displayAvatarURL({ size: 32 })
+                        }]
                     });
+                } catch (e) {
+                    // Ignoramos y bajamos al fetch por texto por si acaso
                 }
+            }
 
-                // Limit to 10 results
-                if (matches.length >= 10) return;
-            });
+            // Buscar por texto (optimizando la API de Discord en lugar de traer todos)
+            const members = await guild.members.fetch({ query, limit: 10 });
+            const matches = members.map(member => ({
+                discordId: member.user.id,
+                username: member.user.globalName || member.user.username,
+                avatar: member.user.displayAvatarURL({ size: 32 })
+            }));
 
-            res.json({ results: matches.slice(0, 10) });
+            res.json({ results: matches });
         } catch (e) {
             console.error('[API Search Discord Members Error]:', e);
             res.status(500).json({ error: 'Error en búsqueda' });

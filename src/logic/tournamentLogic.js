@@ -671,6 +671,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
 
         const newTournament = {
             _id: new ObjectId(), shortId: tournamentShortId, guildId: guild.id, nombre: tournamentName, status: 'inscripcion_abierta',
+            draftId: draft.shortId, // Vínculo esencial con el draft original
             config, teams: { pendientes: {}, aprobados: approvedTeams, reserva: {}, coCapitanes: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
