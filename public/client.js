@@ -1114,7 +1114,7 @@ function initializeDraftView(draftId) {
                 actionButtonsHTML += `<button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>`;
             }
 
-            const statusIcon = player.currentTeam === 'Libre' ? '🔎' : '🛡️';
+            const statusIcon = '';
 
             // Renderizado condicional de WhatsApp (Oculto por defecto para streamings)
             let whatsappCell = '';

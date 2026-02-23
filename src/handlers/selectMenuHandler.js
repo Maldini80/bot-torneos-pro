@@ -996,28 +996,7 @@ export async function handleSelectMenu(interaction) {
     if (action === 'draft_register_player_pos_select_secondary') {
         const [draftShortId, primaryPosition, channelId] = params;
         const secondaryPosition = interaction.values[0];
-
-        const secondaryPositionLabel = secondaryPosition === 'NONE' ? 'Ninguna' : DRAFT_POSITIONS[secondaryPosition];
-
-        const statusMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_register_player_status_select:${draftShortId}:${primaryPosition}:${secondaryPosition}:${channelId}`)
-            .setPlaceholder('Paso 3: ¿Tienes equipo actualmente?')
-            .addOptions([
-                { label: 'Soy Agente Libre', value: 'Libre', emoji: '👋' },
-                { label: 'Tengo Equipo', value: 'Con Equipo', emoji: '🛡️' }
-            ]);
-
-        await interaction.update({
-            content: `Posiciones seleccionadas: **${DRAFT_POSITIONS[primaryPosition]}** (Primaria) y **${secondaryPositionLabel}** (Secundaria).\n\nÚltimo paso, ¿cuál es tu situación actual?`,
-            components: [new ActionRowBuilder().addComponents(statusMenu)]
-        });
-        return;
-    }
-
-    // --- INICIO DE LA SOLUCIÓN: Lógica de WhatsApp para Jugadores y Cierre de Canal ---
-    if (action === 'draft_register_player_status_select') {
-        const [draftShortId, primaryPosition, secondaryPosition, channelId] = params;
-        const teamStatus = interaction.values[0];
+        const teamStatus = 'Libre'; // Siempre agente libre — ya no se pregunta
         const verifiedData = await checkVerification(interaction.user.id);
 
         // Si el usuario está verificado pero no tiene WhatsApp, se lo pedimos.
@@ -1033,59 +1012,44 @@ export async function handleSelectMenu(interaction) {
             return interaction.showModal(whatsappModal);
         }
 
-        // Si ya tiene WhatsApp o no está verificado, continuamos al modal de inscripción final.
-        const modal = new ModalBuilder().setTitle('Finalizar Inscripción de Jugador');
-        // El customId ahora SIEMPRE incluye el channelId para poder cerrar el ticket.
-        let modalCustomId = `register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}:${channelId}`;
+        // Flujo directo: usuario verificado → inscripción sin más preguntas
+        if (verifiedData) {
+            await interaction.deferUpdate();
+            const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+            const playerData = {
+                userId: interaction.user.id, userName: interaction.user.tag,
+                psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp,
+                primaryPosition, secondaryPosition, currentTeam: 'Libre',
+                isCaptain: false, captainId: null
+            };
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+            await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
 
-        if (verifiedData) { // Si está verificado, solo pedimos el nombre del equipo si es necesario.
-            if (teamStatus === 'Con Equipo') {
-                modal.setCustomId(`register_draft_player_team_name_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${channelId}`);
-                const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("Nombre de tu equipo actual").setStyle(TextInputStyle.Short).setRequired(true);
-                modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
-            } else {
-                // Si es agente libre y verificado, se inscribe directamente sin modal.
-                await interaction.deferUpdate();
-                const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-                const playerData = {
-                    userId: interaction.user.id, userName: interaction.user.tag,
-                    psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp,
-                    primaryPosition, secondaryPosition, currentTeam: 'Libre',
-                    isCaptain: false, captainId: null
-                };
-                await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
-
-                await interaction.editReply({ content: `✅ ¡Inscripción completada! Hemos usado tus datos verificados.`, components: [] });
-
-                if (channelId && channelId !== 'no-ticket') {
-                    const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
-                    if (ticketChannel) {
-                        await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
-                        setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
-                    }
+            if (channelId && channelId !== 'no-ticket') {
+                const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
+                if (ticketChannel) {
+                    await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+                    setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
                 }
+            }
 
-                const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-                updatePublicMessages(client, updatedDraft);
-                updateDraftMainInterface(client, updatedDraft.shortId);
-                notifyVisualizer(updatedDraft);
-                return;
-            }
-        } else { // Flujo antiguo para no verificados
-            modal.setCustomId(modalCustomId);
-            const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
-            const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(twitterInput));
-            if (teamStatus === 'Con Equipo') {
-                const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("Nombre de tu equipo actual").setStyle(TextInputStyle.Short).setRequired(true);
-                modal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
-            }
+            const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+            updatePublicMessages(client, updatedDraft);
+            updateDraftMainInterface(client, updatedDraft.shortId);
+            notifyVisualizer(updatedDraft);
+            return;
         }
 
+        // Flujo para no verificados: pedimos PSN ID y Twitter
+        const modal = new ModalBuilder()
+            .setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}:${channelId}`)
+            .setTitle('Finalizar Inscripción de Jugador');
+        const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
+        const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(twitterInput));
         await interaction.showModal(modal);
         return;
     }
-    // --- FIN DE LA SOLUCIÓN ---
 
     // --- NUEVOS FLUJOS DE SELECCIÓN DE USUARIO MANUAL ---
     if (action === 'admin_select_manual_cap_pos') {
@@ -1327,7 +1291,7 @@ export async function handleSelectMenu(interaction) {
             .setPlaceholder(`Página ${safePage + 1}/${totalPages} — Elige al jugador`)
             .addOptions(pagePlayers.map(player => ({
                 label: player.psnId,
-                description: `${player.userName} | ${player.currentTeam === 'Libre' ? '🔎 Agente Libre' : '🛡️ Con equipo'}`,
+                description: player.psnId,
                 value: player.userId,
             })));
 

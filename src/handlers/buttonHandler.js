@@ -750,7 +750,7 @@ export async function handleButton(interaction) {
             .setPlaceholder(`Página ${safePage + 1}/${totalPages} — Elige al jugador`)
             .addOptions(pagePlayers.map(player => ({
                 label: player.psnId,
-                description: `${player.userName} | ${player.currentTeam === 'Libre' ? '🔎 Agente Libre' : '🛡️ Con equipo'}`,
+                description: `${player.userName}`,
                 value: player.userId,
             })));
 
