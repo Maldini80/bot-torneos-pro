@@ -1355,7 +1355,7 @@ function initializeDraftView(draftId) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(16);
             doc.setTextColor(...COLORS.headerText);
-            doc.text('🏷️ AGENTES LIBRES', 10, 12);
+            doc.text('AGENTES LIBRES', 10, 12);
 
             // Filtrar y ordenar agentes libres: posición → alfabético
             const captainUserIds = new Set(allCaptains.map(c => c.userId));
