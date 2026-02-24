@@ -856,6 +856,10 @@ function initializeDraftView(draftId) {
     let lastShownPickData = null;
     let socket;
 
+    // Captain substitute mode (from dashboard redirect)
+    window.captainSubstituteMode = false;
+    window.captainSubstituteData = null;
+
     async function initialize() {
         await checkUserSession();
         await checkUserRoleInEvent(draftId);
@@ -863,6 +867,38 @@ function initializeDraftView(draftId) {
         fetchInitialData();
         setupEventListeners();
         setupFilters();
+
+        // Detectar modo sustitución desde URL params
+        const urlSearchParams = new URLSearchParams(window.location.search);
+        const substituteFor = urlSearchParams.get('substituteFor');
+        const teamParam = urlSearchParams.get('team');
+        if (substituteFor && teamParam && currentUser) {
+            window.captainSubstituteMode = true;
+            window.captainSubstituteData = { outPlayerId: substituteFor, teamId: teamParam };
+
+            // Mostrar banner de modo sustitución
+            let banner = document.getElementById('captain-substitute-banner');
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'captain-substitute-banner';
+                banner.style = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg, #2196F3, #1976D2); color:#fff; padding:15px 25px; z-index:9999; border-radius:10px; text-align:center; font-weight:bold; width:90%; max-width:600px; box-shadow:0 4px 20px rgba(33,150,243,0.5); border:1px solid rgba(255,255,255,0.2);';
+                document.body.appendChild(banner);
+            }
+            banner.innerHTML = `🔄 MODO SUSTITUCIÓN<br><span style="font-size:13px; font-weight:normal;">Selecciona un agente libre de la tabla para sustituir al jugador. Puedes ver su ficha antes de confirmar.</span><br><button id="captain-cancel-substitute-btn" style="margin-top:10px; padding:8px 20px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.4); border-radius:6px; cursor:pointer; font-weight:bold;">❌ Cancelar y Volver</button>`;
+
+            document.getElementById('captain-cancel-substitute-btn').onclick = () => {
+                window.captainSubstituteMode = false;
+                window.captainSubstituteData = null;
+                document.getElementById('captain-substitute-banner')?.remove();
+                // Volver al dashboard
+                window.location.href = '/dashboard.html';
+            };
+
+            // Scroll a la tabla de disponibles
+            setTimeout(() => {
+                document.querySelector('.players-table-container')?.scrollIntoView({ behavior: 'smooth' });
+            }, 1000);
+        }
     }
 
     async function checkUserSession() {
@@ -1116,8 +1152,12 @@ function initializeDraftView(draftId) {
 
             let actionButtonsHTML = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
 
+            // CAPTAIN SUBSTITUTE MODE
+            if (window.captainSubstituteMode) {
+                actionButtonsHTML = `<button class="captain-substitute-select-btn" data-player-id="${player.userId}" data-player-psn="${player.psnId}" data-draft-id="${draft.shortId}" style="background:linear-gradient(135deg, #2196F3, #1565C0); color:white; padding:6px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; font-size:0.85rem;">🔄 Sustituir por este</button> <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="margin-left:4px;">🪪 Ficha</button>`;
+            }
             // ADMIN CONTROLS: REPLACE MODE OR FORCE PICK
-            if (userRoleData && userRoleData.isAdmin && draft.status === 'seleccion') {
+            else if (userRoleData && userRoleData.isAdmin && draft.status === 'seleccion') {
                 if (window.adminReplaceMode) {
                     actionButtonsHTML = `<button class="admin-finalize-replace-btn" data-new-player-id="${player.userId}" data-new-player-psn="${player.psnId}" style="background-color:#E62429; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Sustituir por este</button>`;
                 } else {
@@ -1126,7 +1166,7 @@ function initializeDraftView(draftId) {
             }
 
             // Si se cumplen las condiciones, añadimos el botón de ver detalles
-            if (canViewDetails) {
+            if (canViewDetails && !window.captainSubstituteMode) {
                 actionButtonsHTML += `<button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>`;
             }
 
@@ -1348,6 +1388,53 @@ function initializeDraftView(draftId) {
                     showPlayerDetailsModal(draftId, playerId);
                 } else {
                     console.error('Faltan datos en el botón para mostrar la ficha (draftId o playerId).');
+                }
+            }
+
+            // CAPTAIN: Substitute Mode - Select player
+            if (event.target.classList.contains('captain-substitute-select-btn')) {
+                const newPlayerId = event.target.dataset.playerId;
+                const newPlayerPsn = event.target.dataset.playerPsn;
+                const draftIdForSub = event.target.dataset.draftId;
+                const outPlayerId = window.captainSubstituteData?.outPlayerId;
+
+                if (!outPlayerId) return;
+
+                // Primero mostrar ficha del jugador, luego confirmar
+                const reason = prompt(`¿Quieres sustituir al jugador por ${newPlayerPsn}?\n\nEscribe el motivo de la sustitución:`);
+
+                if (reason && reason.trim() !== '') {
+                    // Llamar al endpoint existente
+                    fetch('/api/draft/substitute', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            draftId: draftIdForSub,
+                            outPlayerId: outPlayerId,
+                            inPlayerId: newPlayerId,
+                            reason: reason.trim()
+                        })
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('✅ ' + (data.message || 'Solicitud de sustitución enviada a los administradores.'));
+                                window.captainSubstituteMode = false;
+                                window.captainSubstituteData = null;
+                                document.getElementById('captain-substitute-banner')?.remove();
+                                // Limpiar URL params sin recargar
+                                const cleanUrl = window.location.pathname + '?draftId=' + draftIdForSub;
+                                window.history.replaceState({}, '', cleanUrl);
+                                // Re-render
+                                if (currentDraftState) renderAvailablePlayers(currentDraftState);
+                            } else {
+                                alert('❌ ' + (data.error || 'Error al solicitar la sustitución'));
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Error substitute:', err);
+                            alert('❌ Error de conexión al solicitar la sustitución');
+                        });
                 }
             }
 

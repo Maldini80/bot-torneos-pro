@@ -1056,73 +1056,10 @@ class DashboardApp {
         const teamIdParts = this.currentManagingTeamId.split('_');
         if (teamIdParts.length < 3) return;
         const draftId = teamIdParts[1];
+        const teamCaptainId = teamIdParts[2];
 
-        const select = document.getElementById('substitute-in-player-id');
-        select.innerHTML = '<option value="" disabled selected>Cargando agentes libres...</option>';
-        document.getElementById('substitute-out-player-id').value = playerId;
-        document.getElementById('substitute-reason').value = '';
-        document.getElementById('substitute-status').className = '';
-        document.getElementById('substitute-status').textContent = '';
-
-        document.getElementById('substitute-modal').classList.remove('hidden');
-
-        try {
-            const res = await fetch(`/api/draft/free-agents/${draftId}`);
-            const data = await res.json();
-
-            if (res.ok && data.success) {
-                if (data.freeAgents.length === 0) {
-                    select.innerHTML = '<option value="" disabled selected>No hay agentes libres disponibles</option>';
-                } else {
-                    select.innerHTML = '<option value="" disabled selected>Selecciona un jugador...</option>' +
-                        data.freeAgents.map(p => `<option value="${p.id}">${p.username} (${p.primaryPosition || 'N/A'}) - ${p.platform || 'N/A'}</option>`).join('');
-                }
-            } else {
-                select.innerHTML = '<option value="" disabled>Error al cargar libres</option>';
-            }
-        } catch (e) {
-            select.innerHTML = '<option value="" disabled>Error de conexión</option>';
-        }
-
-        const form = document.getElementById('substitute-form');
-        form.onsubmit = async (e) => {
-            e.preventDefault();
-            const inPlayerId = select.value;
-            const reason = document.getElementById('substitute-reason').value;
-            const btn = form.querySelector('button');
-            const status = document.getElementById('substitute-status');
-
-            if (!inPlayerId) return;
-
-            btn.disabled = true;
-            status.textContent = 'Enviando solicitud...';
-            status.className = 'status-message';
-
-            try {
-                const submitRes = await fetch('/api/draft/substitute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ draftId, outPlayerId: playerId, inPlayerId, reason })
-                });
-                const submitData = await submitRes.json();
-
-                if (submitRes.ok && submitData.success) {
-                    status.textContent = '✅ ' + submitData.message;
-                    status.className = 'status-message success';
-                    setTimeout(() => {
-                        document.getElementById('substitute-modal').classList.add('hidden');
-                    }, 3000);
-                } else {
-                    status.textContent = '❌ ' + (submitData.error || 'Error en la solicitud');
-                    status.className = 'status-message error';
-                    btn.disabled = false;
-                }
-            } catch (err) {
-                status.textContent = '❌ Error de conexión';
-                status.className = 'status-message error';
-                btn.disabled = false;
-            }
-        };
+        // Redirigir al tablero del draft en modo sustitución
+        window.location.href = `/index.html?draftId=${draftId}&substituteFor=${playerId}&team=${teamCaptainId}`;
     }
 
     async kickPlayer(userId) {
