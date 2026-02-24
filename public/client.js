@@ -1251,6 +1251,177 @@ function initializeDraftView(draftId) {
             doc.rect(0, pageHeight - 3, pageWidth, 3, 'F');
         });
 
+        // === PÁGINA RESUMEN DE EQUIPOS (solo admins) ===
+        if (userRoleData && userRoleData.isAdmin) {
+            const posOrder = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
+            const allCaptains = draft.captains;
+
+            // Calcular cuántos equipos caben por página (3 columnas aprox)
+            const colWidth = (pageWidth - 20) / 3;
+            let currentX = 10;
+            let currentY = 0;
+            let pageStarted = false;
+
+            const startNewSummaryPage = () => {
+                doc.addPage();
+                doc.setFillColor(...COLORS.bg);
+                doc.rect(0, 0, pageWidth, pageHeight, 'F');
+                doc.setFillColor(...COLORS.accent);
+                doc.rect(0, 0, pageWidth, 14, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(13);
+                doc.setTextColor(...COLORS.headerText);
+                doc.text('📋 RESUMEN DE EQUIPOS — ' + (draft.draftName || draft.name), pageWidth / 2, 10, { align: 'center' });
+                currentX = 10;
+                currentY = 22;
+                pageStarted = true;
+            };
+
+            startNewSummaryPage();
+
+            allCaptains.forEach((captain, cIdx) => {
+                const teamPlayers = draft.players
+                    .filter(p => p.captainId === captain.userId && !p.isCaptain)
+                    .sort((a, b) => {
+                        const posA = posOrder.indexOf(a.primaryPosition);
+                        const posB = posOrder.indexOf(b.primaryPosition);
+                        if (posA !== posB) return posA - posB;
+                        return (a.psnId || '').localeCompare(b.psnId || '');
+                    });
+
+                // Altura necesaria: título (8) + jugadores (5 cada uno) + padding (6)
+                const blockHeight = 8 + teamPlayers.length * 5 + 6;
+
+                // ¿Necesitamos nueva fila o nueva página?
+                if (currentY + blockHeight > pageHeight - 10) {
+                    currentX += colWidth;
+                    currentY = 22;
+                    if (currentX + colWidth > pageWidth) {
+                        startNewSummaryPage();
+                    }
+                }
+
+                // Caja del equipo
+                doc.setFillColor(25, 25, 48);
+                doc.roundedRect(currentX, currentY, colWidth - 5, blockHeight, 3, 3, 'F');
+
+                // Nombre del equipo
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9);
+                doc.setTextColor(...COLORS.teamText);
+                doc.text(captain.teamName || 'Sin nombre', currentX + 3, currentY + 6);
+
+                // Jugadores
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7.5);
+                teamPlayers.forEach((p, pIdx) => {
+                    const yPos = currentY + 12 + pIdx * 5;
+                    // Posición con color
+                    doc.setTextColor(...COLORS.headerBg);
+                    doc.text(p.pickedForPosition || p.primaryPosition || '??', currentX + 3, yPos);
+                    // Nombre
+                    doc.setTextColor(...COLORS.text);
+                    doc.text(p.psnId || 'N/A', currentX + 18, yPos);
+                });
+
+                currentY += blockHeight + 3;
+            });
+
+            // Footer resumen
+            doc.setFontSize(8);
+            doc.setTextColor(...COLORS.textMuted);
+            doc.text('Resumen para compartir en la comunidad', 10, pageHeight - 8);
+
+            // === PÁGINA AGENTES LIBRES (solo admins) ===
+            doc.addPage();
+            doc.setFillColor(...COLORS.bg);
+            doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+            // Barra superior
+            doc.setFillColor(230, 126, 34); // naranja
+            doc.rect(0, 0, pageWidth, 18, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.setTextColor(...COLORS.headerText);
+            doc.text('🏷️ AGENTES LIBRES', 10, 12);
+
+            // Filtrar y ordenar agentes libres: posición → alfabético
+            const captainUserIds = new Set(allCaptains.map(c => c.userId));
+            const freeAgents = draft.players
+                .filter(p => (p.captainId === null || p.captainId === undefined) && !p.isCaptain && !captainUserIds.has(p.userId))
+                .sort((a, b) => {
+                    const posA = posOrder.indexOf(a.primaryPosition);
+                    const posB = posOrder.indexOf(b.primaryPosition);
+                    if (posA !== posB) return posA - posB;
+                    return (a.psnId || '').localeCompare(b.psnId || '');
+                });
+
+            doc.setFontSize(10);
+            doc.setTextColor(...COLORS.headerText);
+            doc.text(`Total: ${freeAgents.length} jugadores`, pageWidth - 10, 12, { align: 'right' });
+
+            if (freeAgents.length === 0) {
+                doc.setFontSize(14);
+                doc.setTextColor(...COLORS.textMuted);
+                doc.text('No hay agentes libres disponibles.', pageWidth / 2, 50, { align: 'center' });
+            } else {
+                const freeTableData = freeAgents.map((p, i) => [
+                    i + 1,
+                    p.psnId || 'N/A',
+                    p.primaryPosition || 'N/A',
+                    p.secondaryPosition && p.secondaryPosition !== 'NONE' ? p.secondaryPosition : '-',
+                    p.whatsapp || 'N/A',
+                    p.twitter || 'N/A',
+                    p.strikes || 0
+                ]);
+
+                doc.autoTable({
+                    startY: 25,
+                    head: [['#', 'JUGADOR (PSN)', 'POSICIÓN', 'POS. SEC.', 'WHATSAPP', 'TWITTER', 'STRIKES']],
+                    body: freeTableData,
+                    theme: 'plain',
+                    styles: {
+                        fillColor: COLORS.rowEven,
+                        textColor: COLORS.text,
+                        fontSize: 9,
+                        cellPadding: 3,
+                        lineColor: [40, 40, 60],
+                        lineWidth: 0.2,
+                        font: 'helvetica',
+                    },
+                    headStyles: {
+                        fillColor: [45, 30, 15],
+                        textColor: [230, 126, 34],
+                        fontSize: 9,
+                        fontStyle: 'bold',
+                        halign: 'center',
+                    },
+                    alternateRowStyles: {
+                        fillColor: COLORS.rowOdd,
+                    },
+                    columnStyles: {
+                        0: { halign: 'center', cellWidth: 12 },
+                        1: { fontStyle: 'bold' },
+                        2: { halign: 'center' },
+                        3: { halign: 'center' },
+                        4: { halign: 'center' },
+                        5: { halign: 'center' },
+                        6: { halign: 'center', cellWidth: 18 },
+                    },
+                    margin: { left: 10, right: 10 },
+                });
+            }
+
+            // Footer
+            doc.setFontSize(8);
+            doc.setTextColor(...COLORS.textMuted);
+            doc.text(`${draft.draftName || draft.name} — Agentes Libres`, 10, pageHeight - 8);
+
+            // Línea decorativa inferior
+            doc.setFillColor(230, 126, 34);
+            doc.rect(0, pageHeight - 3, pageWidth, 3, 'F');
+        }
+
         // Guardar
         const fileName = `Draft_${draft.shortId || 'Export'}_Equipos.pdf`;
         doc.save(fileName);
