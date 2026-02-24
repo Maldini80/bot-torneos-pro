@@ -2195,18 +2195,22 @@ export async function requestStrike(client, draft, interactorId, teamId, reporte
             permissionOverwrites: [
                 {
                     id: guild.id, // @everyone
+                    type: 0, // ROLE
                     deny: [PermissionsBitField.Flags.ViewChannel],
                 },
                 {
                     id: ARBITRO_ROLE_ID, // Rol de Árbitro/Admin
+                    type: 0, // ROLE
                     allow: [PermissionsBitField.Flags.ViewChannel],
                 },
                 {
                     id: reporter.userId, // El capitán que reporta
+                    type: 1, // MEMBER
                     allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
                 },
                 {
                     id: reportedPlayerId, // El jugador reportado
+                    type: 1, // MEMBER
                     allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
                 }
             ],
