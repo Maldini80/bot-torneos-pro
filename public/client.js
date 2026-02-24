@@ -1108,8 +1108,12 @@ function initializeDraftView(draftId) {
 
         // Filtrar equipos según rol
         let captainsToExport = draft.captains;
+        console.log('[PDF Export] draft.captains:', draft.captains?.length, 'isAdmin:', userRoleData?.isAdmin, 'currentUser:', currentUser?.id);
         if (userRoleData && !userRoleData.isAdmin && currentUser) {
             captainsToExport = draft.captains.filter(c => c.userId === currentUser.id);
+            console.log('[PDF Export] Filtrado para capitán, equipos:', captainsToExport.length);
+        } else {
+            console.log('[PDF Export] Admin: exportando todos los equipos:', captainsToExport.length);
         }
 
         if (captainsToExport.length === 0) {
@@ -1192,7 +1196,7 @@ function initializeDraftView(draftId) {
             }
 
             // Tabla de jugadores
-            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId && !p.isCaptain);
+            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
 
             const tableData = teamPlayers.map((p, i) => [
                 i + 1,
@@ -1281,7 +1285,7 @@ function initializeDraftView(draftId) {
 
             allCaptains.forEach((captain, cIdx) => {
                 const teamPlayers = draft.players
-                    .filter(p => p.captainId === captain.userId && !p.isCaptain)
+                    .filter(p => p.captainId === captain.userId)
                     .sort((a, b) => {
                         const posA = posOrder.indexOf(a.primaryPosition);
                         const posB = posOrder.indexOf(b.primaryPosition);
