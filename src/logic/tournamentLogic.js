@@ -2538,7 +2538,7 @@ export async function requestKickFromWeb(client, draftId, captainId, playerId, r
 }
 
 export async function requestSubstituteFromWeb(client, draftId, captainId, outPlayerId, inPlayerId, reason) {
-    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    // EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle ya importados arriba via ESM
     const db = getDb();
     const draft = await db.collection('drafts').findOne({ shortId: draftId });
     if (!draft) throw new Error('Draft no encontrado');
