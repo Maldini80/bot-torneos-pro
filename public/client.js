@@ -1195,8 +1195,16 @@ function initializeDraftView(draftId) {
                 subtitleY += 7;
             }
 
-            // Tabla de jugadores
-            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
+            // Tabla de jugadores — ordenados por posición y luego alfabéticamente
+            const posOrder = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
+            const teamPlayers = draft.players
+                .filter(p => p.captainId === captain.userId)
+                .sort((a, b) => {
+                    const posA = posOrder.indexOf(a.primaryPosition ?? a.pickedForPosition ?? '');
+                    const posB = posOrder.indexOf(b.primaryPosition ?? b.pickedForPosition ?? '');
+                    if (posA !== posB) return posA - posB;
+                    return (a.psnId || '').localeCompare(b.psnId || '');
+                });
 
             const tableData = teamPlayers.map((p, i) => [
                 i + 1,
