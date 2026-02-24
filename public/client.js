@@ -1023,9 +1023,9 @@ function initializeDraftView(draftId) {
 
         const exportCsvBtn = document.getElementById('export-draft-csv-btn');
         if (exportCsvBtn) {
-            if (draft.status === 'finalizado' && userRoleData && (userRoleData.isAdmin || userRoleData.role === 'draftCaptain')) {
+            if ((draft.status === 'finalizado' || draft.status === 'torneo_generado') && userRoleData && (userRoleData.isAdmin || userRoleData.role === 'draftCaptain')) {
                 exportCsvBtn.style.display = 'block';
-                exportCsvBtn.onclick = () => exportDraftToCSV(draft);
+                exportCsvBtn.onclick = () => exportDraftToPDF(draft);
             } else {
                 exportCsvBtn.style.display = 'none';
             }
@@ -1080,37 +1080,180 @@ function initializeDraftView(draftId) {
         });
     }
 
-    function exportDraftToCSV(draft) {
+    function exportDraftToPDF(draft) {
         if (!draft || !draft.captains || !draft.players) return;
+        if (typeof window.jspdf === 'undefined') {
+            alert('Error: la librería de PDF no se ha cargado. Recarga la página e inténtalo de nuevo.');
+            return;
+        }
 
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-        csvContent += "Equipo;Capitán;Jugador;Posición Asignada;WhatsApp\n";
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
 
+        // Colores del tema
+        const COLORS = {
+            bg: [15, 15, 26],         // #0f0f1a
+            headerBg: [0, 188, 212],  // #00bcd4 (cyan accent)
+            headerText: [255, 255, 255],
+            teamBg: [25, 25, 45],     // dark card
+            teamText: [0, 230, 255],  // cyan
+            rowEven: [20, 20, 38],
+            rowOdd: [30, 30, 55],
+            text: [220, 220, 230],
+            textMuted: [150, 150, 170],
+            accent: [230, 36, 41],    // #E62429 red
+        };
+
+        // Filtrar equipos según rol
         let captainsToExport = draft.captains;
         if (userRoleData && !userRoleData.isAdmin && currentUser) {
             captainsToExport = draft.captains.filter(c => c.userId === currentUser.id);
         }
 
-        captainsToExport.forEach(captain => {
-            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
-            teamPlayers.forEach(p => {
-                const teamName = `"${(captain.teamName || '').replace(/"/g, '""')}"`;
-                const captainName = `"${(captain.username || captain.userName || captain.psnId || 'Desconocido').replace(/"/g, '""')}"`;
-                const playerName = `"${(p.psnId || '').replace(/"/g, '""')}"`;
-                const position = `"${p.pickedForPosition || p.primaryPosition || ''}"`;
-                const whatsapp = `"${p.whatsapp || ''}"`;
+        if (captainsToExport.length === 0) {
+            alert('No hay equipos para exportar.');
+            return;
+        }
 
-                csvContent += `${teamName};${captainName};${playerName};${position};${whatsapp}\n`;
+        // === PORTADA ===
+        doc.setFillColor(...COLORS.bg);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+        // Línea decorativa superior
+        doc.setFillColor(...COLORS.headerBg);
+        doc.rect(0, 0, pageWidth, 4, 'F');
+
+        // Título principal
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(36);
+        doc.setTextColor(...COLORS.headerBg);
+        doc.text('DRAFT', pageWidth / 2, 55, { align: 'center' });
+
+        doc.setFontSize(28);
+        doc.setTextColor(...COLORS.text);
+        doc.text(draft.draftName || draft.name || 'Sin nombre', pageWidth / 2, 70, { align: 'center' });
+
+        // Línea separadora
+        doc.setDrawColor(...COLORS.headerBg);
+        doc.setLineWidth(0.5);
+        doc.line(pageWidth / 2 - 40, 78, pageWidth / 2 + 40, 78);
+
+        // Info del draft
+        doc.setFontSize(12);
+        doc.setTextColor(...COLORS.textMuted);
+        const dateStr = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+        doc.text(`Equipos: ${captainsToExport.length}`, pageWidth / 2, 90, { align: 'center' });
+        doc.text(`Jugadores totales: ${draft.players.filter(p => !p.isCaptain).length}`, pageWidth / 2, 97, { align: 'center' });
+        doc.text(`Fecha de exportación: ${dateStr}`, pageWidth / 2, 104, { align: 'center' });
+
+        // Branding
+        doc.setFontSize(14);
+        doc.setTextColor(...COLORS.accent);
+        doc.text('THE BLITZ', pageWidth / 2, pageHeight - 25, { align: 'center' });
+        doc.setFontSize(9);
+        doc.setTextColor(...COLORS.textMuted);
+        doc.text('Powered by Bot Torneos Pro', pageWidth / 2, pageHeight - 18, { align: 'center' });
+
+        // Línea decorativa inferior
+        doc.setFillColor(...COLORS.accent);
+        doc.rect(0, pageHeight - 4, pageWidth, 4, 'F');
+
+        // === PÁGINAS DE EQUIPOS ===
+        captainsToExport.forEach((captain, idx) => {
+            doc.addPage();
+
+            // Fondo
+            doc.setFillColor(...COLORS.bg);
+            doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+            // Barra superior con nombre del equipo
+            doc.setFillColor(...COLORS.headerBg);
+            doc.rect(0, 0, pageWidth, 18, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.setTextColor(...COLORS.headerText);
+            doc.text(`${captain.teamName || 'Equipo sin nombre'}`, 10, 12);
+
+            // Info del capitán
+            doc.setFontSize(10);
+            doc.setTextColor(...COLORS.headerText);
+            const captainPsn = captain.psnId || captain.userName || 'N/A';
+            doc.text(`Capitán: ${captainPsn}`, pageWidth - 10, 12, { align: 'right' });
+
+            // Subtítulo con EAFC team si existe
+            let subtitleY = 25;
+            if (captain.eafcTeamName) {
+                doc.setFontSize(9);
+                doc.setTextColor(...COLORS.textMuted);
+                doc.text(`EAFC Team: ${captain.eafcTeamName}`, 10, subtitleY);
+                subtitleY += 7;
+            }
+
+            // Tabla de jugadores
+            const teamPlayers = draft.players.filter(p => p.captainId === captain.userId && !p.isCaptain);
+
+            const tableData = teamPlayers.map((p, i) => [
+                i + 1,
+                p.psnId || 'N/A',
+                p.pickedForPosition || p.primaryPosition || 'N/A',
+                p.secondaryPosition && p.secondaryPosition !== 'NONE' ? p.secondaryPosition : '-',
+                p.whatsapp || 'N/A',
+                p.twitter || 'N/A',
+                p.strikes || 0
+            ]);
+
+            doc.autoTable({
+                startY: subtitleY + 3,
+                head: [['#', 'JUGADOR (PSN)', 'POSICIÓN', 'POS. SEC.', 'WHATSAPP', 'TWITTER', 'STRIKES']],
+                body: tableData,
+                theme: 'plain',
+                styles: {
+                    fillColor: COLORS.rowEven,
+                    textColor: COLORS.text,
+                    fontSize: 10,
+                    cellPadding: 4,
+                    lineColor: [40, 40, 60],
+                    lineWidth: 0.2,
+                    font: 'helvetica',
+                },
+                headStyles: {
+                    fillColor: [35, 35, 65],
+                    textColor: COLORS.headerBg,
+                    fontSize: 9,
+                    fontStyle: 'bold',
+                    halign: 'center',
+                },
+                alternateRowStyles: {
+                    fillColor: COLORS.rowOdd,
+                },
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 12 },
+                    1: { fontStyle: 'bold' },
+                    2: { halign: 'center' },
+                    3: { halign: 'center' },
+                    4: { halign: 'center' },
+                    5: { halign: 'center' },
+                    6: { halign: 'center', cellWidth: 18 },
+                },
+                margin: { left: 10, right: 10 },
             });
+
+            // Footer de la página
+            doc.setFontSize(8);
+            doc.setTextColor(...COLORS.textMuted);
+            doc.text(`${draft.draftName || draft.name} — Equipo ${idx + 1} de ${captainsToExport.length}`, 10, pageHeight - 8);
+            doc.text(`Pág. ${idx + 2}`, pageWidth - 10, pageHeight - 8, { align: 'right' });
+
+            // Línea decorativa inferior
+            doc.setFillColor(...COLORS.headerBg);
+            doc.rect(0, pageHeight - 3, pageWidth, 3, 'F');
         });
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `Draft_${draft.shortId || 'Export'}_Equipos.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Guardar
+        const fileName = `Draft_${draft.shortId || 'Export'}_Equipos.pdf`;
+        doc.save(fileName);
     }
 
     function renderAvailablePlayers(draft) {
@@ -1138,7 +1281,10 @@ function initializeDraftView(draftId) {
             legendEl.style.display = isMyTurn ? 'none' : 'block';
         }
 
-        let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false);
+        // IDs de capitanes para excluirlos de "disponibles"
+        const captainUserIds = new Set((draft.captains || []).map(c => c.userId));
+
+        let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false && !captainUserIds.has(p.userId));
 
         availablePlayers.sort(sortPlayersAdvanced);
 
