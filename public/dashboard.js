@@ -1510,6 +1510,10 @@ class DashboardApp {
                     if (typeof loadOpenTournaments === 'function') {
                         loadOpenTournaments();
                     }
+                    // Auto-refrescar roster si hay un modal de equipo abierto
+                    if (this.currentManagingTeamId) {
+                        this.loadRoster(this.currentManagingTeamId);
+                    }
                 }
             } catch (error) {
                 console.error('[Dashboard] Error procesando mensaje WS:', error);
@@ -1670,94 +1674,328 @@ async function openRegistrationModal(tournamentId, isPaid, langCode) {
     }
 }
 
-// ==== GESTION MODAL DRAFT ====
-window.openDraftRegistrationModal = async function (draftId) {
-    try {
-        // Comprobar si el usuario tiene sesión en la web de forma segura
-        const response = await fetch('/api/check-membership');
-        const data = await response.json();
+// ==== GESTION MODAL DRAFT (WIZARD MULTI-PASO) ====
 
-        if (!data.authenticated) {
+// Reglas oficiales (mismas que embeds.js ruleEmbeds)
+const DRAFT_RULES = [
+    {
+        title: '📜 REGLAMENTO OFICIAL DE PARTIDO',
+        content: `⏱️ <b>Salidas del Partido</b><br>
+Máximo de 2 salidas por equipo, antes del minuto 10 del partido.
+Salir del partido una tercera vez o después del minuto 10 podrá ser sancionado.<br><br>
+⏳ <b>Tiempo de Cortesía 10 minutos</b><br><br>
+📏 <b>Sin Límites de Altura</b><br><br>
+🚫 <b>Sin PlayStyles Prohibidos</b>`
+    },
+    {
+        title: '📋 GUÍA DE REPORTES, PRUEBAS Y DISPUTAS',
+        content: `• Al finalizar el partido, ambos capitanes debéis pulsar el botón 'Reportar Resultado' y poner el resultado.<br><br>
+• <b>Si detectas una irregularidad,</b> pulsar el botón 'Solicitar Arbitraje' y explicar el problema a los árbitros en el hilo.`
+    },
+    {
+        title: '⚠️ SANCIONES POR INCUMPLIMIENTO',
+        content: `Las siguientes acciones conllevarán sanciones directas:<br><br>
+• <b>Incumplimiento del Tiempo de Cortesía:</b><br>
+• <b>Consecuencia:</b> Partido perdido 1-0.`
+    }
+];
+
+let draftWizardState = { role: null, ruleStep: 0, totalRules: 1, preCheckData: null };
+
+// Helper: mostrar solo un paso del wizard
+function showDraftStep(stepId) {
+    document.querySelectorAll('#draft-registration-modal .draft-step').forEach(el => el.classList.add('hidden'));
+    const step = document.getElementById(stepId);
+    if (step) step.classList.remove('hidden');
+}
+
+window.openDraftRegistrationModal = async function (draftId) {
+    // Comprobar sesión primero
+    try {
+        const authRes = await fetch('/api/check-membership');
+        const authData = await authRes.json();
+        if (!authData.authenticated) {
             alert('Debes iniciar sesión con Discord para inscribirte en un Draft.');
             window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
             return;
         }
+    } catch (e) {
+        alert('Error al verificar tu sesión. Inténtalo de nuevo.');
+        return;
+    }
 
-        if (!data.user?.isVerified) {
-            alert('Tu cuenta no está verificada. Por favor, ve a la sección "Perfil" de esta web y vincula tu ID de juego para poder participar.');
+    // Reset wizard state
+    draftWizardState = { role: null, ruleStep: 0, totalRules: 1, preCheckData: null };
+    document.getElementById('draft-reg-id').value = draftId;
+    document.getElementById('draft-reg-role').value = 'player';
+
+    // Mostrar modal en estado loading
+    showDraftStep('draft-step-loading');
+    document.getElementById('draft-registration-modal').classList.remove('hidden');
+
+    try {
+        // Llamar al pre-check centralizado
+        const res = await fetch(`/api/draft/${draftId}/pre-check`);
+        if (res.status === 401) {
+            alert('Sesión expirada. Por favor, inicia sesión de nuevo.');
+            window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+            return;
+        }
+        const data = await res.json();
+        draftWizardState.preCheckData = data;
+
+        // Validaciones en cascada
+        if (!data.draftExists || data.draftStatus !== 'inscripcion') {
+            document.getElementById('draft-unavailable-msg').textContent =
+                !data.draftExists ? 'Este draft no existe.' : 'Las inscripciones para este draft están cerradas.';
+            showDraftStep('draft-step-unavailable');
+            return;
+        }
+        if (!data.isMember) {
+            showDraftStep('draft-step-not-member');
+            return;
+        }
+        if (!data.isVerified) {
+            showDraftStep('draft-step-not-verified');
+            return;
+        }
+        if (data.isBlocked) {
+            document.getElementById('draft-blocked-msg').textContent =
+                `Tienes ${data.strikes} strikes acumulados. No puedes participar en nuevos drafts.`;
+            showDraftStep('draft-step-blocked');
+            return;
+        }
+        if (data.isAlreadyRegistered) {
+            showDraftStep('draft-step-already');
             return;
         }
 
-        const modal = document.getElementById('draft-registration-modal');
-        if (modal) {
-            document.getElementById('draft-reg-id').value = draftId;
-            document.getElementById('draft-primary-pos').value = '';
-            document.getElementById('draft-secondary-pos').value = 'NONE';
-            document.getElementById('draft-reg-status').textContent = '';
-            modal.classList.remove('hidden');
+        // Todo OK → mostrar selector de rol
+        const captainBtn = document.getElementById('draft-captain-btn');
+        const captainFullMsg = document.getElementById('draft-captain-full-msg');
+        if (data.currentCaptains >= data.maxCaptains) {
+            captainBtn.disabled = true;
+            captainBtn.style.opacity = '0.5';
+            captainBtn.style.cursor = 'not-allowed';
+            captainFullMsg.classList.remove('hidden');
+        } else {
+            captainBtn.disabled = false;
+            captainBtn.style.opacity = '1';
+            captainBtn.style.cursor = 'pointer';
+            captainFullMsg.classList.add('hidden');
         }
+        showDraftStep('draft-step-role');
+
     } catch (error) {
-        console.error('Error al comprobar sesión:', error);
-        alert('Hubo un error al verificar tu sesión. Inténtalo de nuevo.');
+        console.error('Error en pre-check de draft:', error);
+        document.getElementById('draft-unavailable-msg').textContent = 'Error al comprobar el estado del draft.';
+        showDraftStep('draft-step-unavailable');
     }
 };
+
+window.selectDraftRole = function (role) {
+    draftWizardState.role = role;
+    document.getElementById('draft-reg-role').value = role;
+    draftWizardState.ruleStep = 0;
+    draftWizardState.totalRules = (role === 'player') ? 1 : 3;
+    showNextDraftRule();
+};
+
+function showNextDraftRule() {
+    if (draftWizardState.ruleStep >= draftWizardState.totalRules) {
+        // Todas las reglas aceptadas → mostrar formulario
+        if (draftWizardState.role === 'captain') {
+            setupCaptainForm();
+            showDraftStep('draft-step-captain-form');
+        } else {
+            setupPlayerForm();
+            showDraftStep('draft-step-player-form');
+        }
+        return;
+    }
+    const rule = DRAFT_RULES[draftWizardState.ruleStep];
+    document.getElementById('draft-rules-content').innerHTML = `<h3 style="color:#f1c40f; margin-top:0;">${rule.title}</h3><div>${rule.content}</div>`;
+    document.getElementById('draft-rules-counter').textContent =
+        `Paso ${draftWizardState.ruleStep + 1} de ${draftWizardState.totalRules} - Debes aceptar todas las normas para poder inscribirte.`;
+    showDraftStep('draft-step-rules');
+}
+
+window.acceptDraftRule = function () {
+    draftWizardState.ruleStep++;
+    showNextDraftRule();
+};
+
+function setupPlayerForm() {
+    // Mostrar campo WhatsApp si no tiene
+    const showWhatsapp = !(draftWizardState.preCheckData?.hasWhatsapp);
+    document.getElementById('draft-whatsapp-group').classList.toggle('hidden', !showWhatsapp);
+    // Reset form
+    document.getElementById('draft-primary-pos').value = '';
+    document.getElementById('draft-secondary-pos').value = 'NONE';
+    document.getElementById('draft-player-status').textContent = '';
+    if (showWhatsapp) {
+        document.getElementById('draft-whatsapp').value = '';
+        document.getElementById('draft-whatsapp-confirm').value = '';
+    }
+}
+
+function setupCaptainForm() {
+    const showWhatsapp = !(draftWizardState.preCheckData?.hasWhatsapp);
+    document.getElementById('draft-cap-whatsapp-group').classList.toggle('hidden', !showWhatsapp);
+    // Reset form
+    document.getElementById('draft-cap-position').value = '';
+    document.getElementById('draft-cap-team-name').value = '';
+    document.getElementById('draft-cap-eafc-name').value = '';
+    document.getElementById('draft-cap-stream-platform').value = 'twitch';
+    document.getElementById('draft-cap-stream-user').value = '';
+    document.getElementById('draft-captain-status').textContent = '';
+    if (showWhatsapp) {
+        document.getElementById('draft-cap-whatsapp').value = '';
+        document.getElementById('draft-cap-whatsapp-confirm').value = '';
+    }
+}
+
+// Función de submit compartida
+async function submitDraftRegistration(role, formData) {
+    const draftId = document.getElementById('draft-reg-id').value;
+    const statusEl = document.getElementById(role === 'captain' ? 'draft-captain-status' : 'draft-player-status');
+    const submitBtn = document.getElementById(role === 'captain' ? 'draft-captain-form' : 'draft-player-form')
+        .querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Inscribiendo...';
+    statusEl.textContent = '';
+
+    try {
+        const response = await fetch(`/api/draft/${draftId}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            document.getElementById('draft-success-msg').textContent = data.message;
+            showDraftStep('draft-step-success');
+            setTimeout(() => {
+                window.closeDraftModal();
+                if (typeof loadOpenTournaments === 'function') loadOpenTournaments();
+            }, 2500);
+        } else {
+            throw new Error(data.error || 'Error al inscribirse');
+        }
+    } catch (err) {
+        statusEl.textContent = err.message;
+        statusEl.style.color = '#f04747';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+}
 
 window.closeDraftModal = function () {
     const modal = document.getElementById('draft-registration-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-    }
+    if (modal) modal.classList.add('hidden');
 };
 
-// Event listener para el form de Draft
+// Event listeners para los formularios de Draft
 document.addEventListener('DOMContentLoaded', () => {
-    const draftForm = document.getElementById('draft-reg-form');
-    if (draftForm) {
-        draftForm.addEventListener('submit', async (e) => {
+    // Formulario JUGADOR
+    const playerForm = document.getElementById('draft-player-form');
+    if (playerForm) {
+        playerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const draftId = document.getElementById('draft-reg-id').value;
             const primaryPos = document.getElementById('draft-primary-pos').value;
             const secondaryPos = document.getElementById('draft-secondary-pos').value;
-            const statusEl = document.getElementById('draft-reg-status');
-            const submitBtn = draftForm.querySelector('button[type="submit"]');
 
             if (!primaryPos) {
-                statusEl.textContent = 'Debes seleccionar una posición principal.';
+                document.getElementById('draft-player-status').textContent = 'Debes seleccionar una posición principal.';
+                document.getElementById('draft-player-status').style.color = '#f04747';
+                return;
+            }
+
+            // Validar WhatsApp si se muestra
+            let whatsapp = null;
+            if (!document.getElementById('draft-whatsapp-group').classList.contains('hidden')) {
+                const wa = document.getElementById('draft-whatsapp').value.trim();
+                const waConfirm = document.getElementById('draft-whatsapp-confirm').value.trim();
+                if (!wa) {
+                    document.getElementById('draft-player-status').textContent = 'El WhatsApp es obligatorio.';
+                    document.getElementById('draft-player-status').style.color = '#f04747';
+                    return;
+                }
+                if (wa !== waConfirm) {
+                    document.getElementById('draft-player-status').textContent = 'Los números de WhatsApp no coinciden.';
+                    document.getElementById('draft-player-status').style.color = '#f04747';
+                    return;
+                }
+                whatsapp = wa;
+            }
+
+            await submitDraftRegistration('player', {
+                role: 'player', primaryPosition: primaryPos,
+                secondaryPosition: secondaryPos, whatsapp
+            });
+        });
+    }
+
+    // Formulario CAPITÁN
+    const captainForm = document.getElementById('draft-captain-form');
+    if (captainForm) {
+        captainForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const position = document.getElementById('draft-cap-position').value;
+            const teamName = document.getElementById('draft-cap-team-name').value.trim();
+            const eafcTeamName = document.getElementById('draft-cap-eafc-name').value.trim();
+            const streamPlatform = document.getElementById('draft-cap-stream-platform').value;
+            const streamUsername = document.getElementById('draft-cap-stream-user').value.trim();
+            const statusEl = document.getElementById('draft-captain-status');
+
+            if (!position) {
+                statusEl.textContent = 'Debes seleccionar tu posición.';
+                statusEl.style.color = '#f04747';
+                return;
+            }
+            if (!teamName) {
+                statusEl.textContent = 'Debes indicar un nombre de equipo.';
+                statusEl.style.color = '#f04747';
+                return;
+            }
+            if (!eafcTeamName) {
+                statusEl.textContent = 'Debes indicar el nombre de tu equipo en EAFC.';
+                statusEl.style.color = '#f04747';
+                return;
+            }
+            if (!streamUsername) {
+                statusEl.textContent = 'Debes indicar tu usuario de stream.';
                 statusEl.style.color = '#f04747';
                 return;
             }
 
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Inscribiendo...';
-            statusEl.textContent = '';
-
-            try {
-                const response = await fetch(`/api/draft/${draftId}/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ primaryPosition: primaryPos, secondaryPosition: secondaryPos })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    statusEl.textContent = data.message;
-                    statusEl.style.color = '#43B581';
-                    setTimeout(() => {
-                        window.closeDraftModal();
-                        // Refrescar tarjetas de torneos para actualizar el count
-                        loadOpenTournaments();
-                    }, 1500);
-                } else {
-                    throw new Error(data.error || 'Error al inscribirse');
+            // Validar WhatsApp si se muestra
+            let whatsapp = null;
+            if (!document.getElementById('draft-cap-whatsapp-group').classList.contains('hidden')) {
+                const wa = document.getElementById('draft-cap-whatsapp').value.trim();
+                const waConfirm = document.getElementById('draft-cap-whatsapp-confirm').value.trim();
+                if (!wa) {
+                    statusEl.textContent = 'El WhatsApp es obligatorio.';
+                    statusEl.style.color = '#f04747';
+                    return;
                 }
-            } catch (err) {
-                statusEl.textContent = err.message;
-                statusEl.style.color = '#f04747';
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Confirmar Inscripción';
+                if (wa !== waConfirm) {
+                    statusEl.textContent = 'Los números de WhatsApp no coinciden.';
+                    statusEl.style.color = '#f04747';
+                    return;
+                }
+                whatsapp = wa;
             }
+
+            await submitDraftRegistration('captain', {
+                role: 'captain', primaryPosition: position,
+                teamName, eafcTeamName, streamPlatform, streamUsername, whatsapp
+            });
         });
     }
 });

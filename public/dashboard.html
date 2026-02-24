@@ -509,45 +509,205 @@
         </div>
     </div>
 
-    <!-- === MODAL INSCRIPCION DRAFT === -->
+    <!-- === MODAL INSCRIPCION DRAFT (WIZARD) === -->
     <div id="draft-registration-modal" class="modal hidden">
-        <div class="modal-content report-modal-content">
+        <div class="modal-content report-modal-content" style="max-width: 500px;">
             <span class="close-button close-draft-reg" onclick="closeDraftModal()">&times;</span>
-            <h2 class="report-modal-title">Inscripción al Draft</h2>
-            <p class="report-modal-info">Selecciona tus posiciones para participar en el draft.</p>
+            <input type="hidden" id="draft-reg-id">
+            <input type="hidden" id="draft-reg-role" value="player">
 
-            <form id="draft-reg-form">
-                <input type="hidden" id="draft-reg-id">
-                <div class="form-group" style="margin-bottom: 15px; text-align: left;">
-                    <label style="color:white; display:block; margin-bottom: 5px;">Posición Principal:</label>
-                    <select id="draft-primary-pos" required
-                        style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
-                        <option value="" disabled selected>Selecciona tu posición principal...</option>
-                        <option value="GK">POR (Portero)</option>
-                        <option value="DFC">DFC (Defensa Central)</option>
-                        <option value="CARR">CARR (Lateral/Carrilero)</option>
-                        <option value="MC">MC (MedioCentro/Pivote)</option>
-                        <option value="DC">DC (Delantero/Extremo)</option>
-                    </select>
+            <!-- PASO: Loading/Pre-check -->
+            <div id="draft-step-loading" class="draft-step">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">⏳ Comprobando tu cuenta...</h2>
+                <p class="report-modal-info">Esto tomará solo un momento.</p>
+            </div>
+
+            <!-- PASO: No verificado -->
+            <div id="draft-step-not-verified" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">⚠️ Cuenta no verificada</h2>
+                <p class="report-modal-info">Para participar en drafts, debes verificar tu cuenta primero vinculando tu
+                    ID de juego.</p>
+                <button onclick="document.getElementById('profile-btn')?.click(); closeDraftModal();"
+                    class="register-btn" style="width:100%; margin-top:15px; padding:12px;">
+                    ✅ Ir a Mi Perfil para Verificarme
+                </button>
+            </div>
+
+            <!-- PASO: Bloqueado por strikes -->
+            <div id="draft-step-blocked" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">❌ Inscripción Bloqueada</h2>
+                <p class="report-modal-info" id="draft-blocked-msg"></p>
+            </div>
+
+            <!-- PASO: Ya inscrito -->
+            <div id="draft-step-already" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">ℹ️ Ya estás inscrito</h2>
+                <p class="report-modal-info">Ya tienes una inscripción activa, pendiente de aprobación o de pago en este
+                    draft.</p>
+            </div>
+
+            <!-- PASO: No miembro Discord -->
+            <div id="draft-step-not-member" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">❌ No eres miembro del servidor</h2>
+                <p class="report-modal-info">Debes ser miembro de nuestro servidor de Discord para inscribirte en
+                    drafts.</p>
+                <a href="https://discord.gg/zEy9ztp8QM" target="_blank" class="register-btn"
+                    style="width:100%; margin-top:15px; padding:12px; display:block; text-align:center; text-decoration:none;">
+                    Unirme al Servidor de Discord
+                </a>
+            </div>
+
+            <!-- PASO: Draft no disponible -->
+            <div id="draft-step-unavailable" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">❌ Draft no disponible</h2>
+                <p class="report-modal-info" id="draft-unavailable-msg">Este draft no existe o las inscripciones están
+                    cerradas.</p>
+            </div>
+
+            <!-- PASO 1: Elegir rol -->
+            <div id="draft-step-role" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">Inscripción al Draft</h2>
+                <p class="report-modal-info">Tu cuenta está verificada. ¿Cómo quieres participar?</p>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button onclick="selectDraftRole('player')" class="register-btn"
+                        style="flex:1; padding:14px; font-size:1rem;">
+                        👤 Jugador
+                    </button>
+                    <button onclick="selectDraftRole('captain')" id="draft-captain-btn" class="register-btn"
+                        style="flex:1; padding:14px; font-size:1rem; background: linear-gradient(135deg, #f39c12, #e67e22);">
+                        👑 Capitán
+                    </button>
                 </div>
+                <p id="draft-captain-full-msg" class="hidden"
+                    style="color: #f39c12; font-size:0.85rem; margin-top:8px;">
+                    ⚠️ El cupo de capitanes está lleno.
+                </p>
+            </div>
 
-                <div class="form-group" style="margin-bottom: 25px; text-align: left;">
-                    <label style="color:white; display:block; margin-bottom: 5px;">Posición Secundaria
-                        (Opcional):</label>
-                    <select id="draft-secondary-pos"
-                        style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
-                        <option value="NONE">Ninguna</option>
-                        <option value="GK">POR (Portero)</option>
-                        <option value="DFC">DFC (Defensa Central)</option>
-                        <option value="CARR">CARR (Lateral/Carrilero)</option>
-                        <option value="MC">MC (MedioCentro/Pivote)</option>
-                        <option value="DC">DC (Delantero/Extremo)</option>
-                    </select>
+            <!-- PASO 2: Reglas -->
+            <div id="draft-step-rules" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">📜 Reglas del Draft</h2>
+                <div id="draft-rules-content"
+                    style="text-align:left; background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; margin:10px 0; max-height:250px; overflow-y:auto; color:#ddd; font-size:0.9rem; line-height:1.6;">
                 </div>
+                <p id="draft-rules-counter" style="font-size:0.85rem; color:#aaa; margin-bottom:10px;"></p>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="acceptDraftRule()" class="register-btn" style="flex:1; padding:12px;">
+                        ✅ Acepto / I Accept
+                    </button>
+                    <button onclick="closeDraftModal()" class="register-btn"
+                        style="flex:1; padding:12px; background: #e74c3c;">
+                        ❌ Rechazar / Decline
+                    </button>
+                </div>
+            </div>
 
-                <button type="submit" class="register-btn" style="width:100%;">Confirmar Inscripción</button>
-            </form>
-            <p id="draft-reg-status" style="margin-top:10px; font-size:0.9rem; text-align:center;"></p>
+            <!-- PASO 3A: Formulario JUGADOR -->
+            <div id="draft-step-player-form" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">👤 Inscripción como Jugador</h2>
+                <form id="draft-player-form">
+                    <div class="form-group" style="margin-bottom: 12px; text-align: left;">
+                        <label style="color:white; display:block; margin-bottom: 5px;">Posición Principal:</label>
+                        <select id="draft-primary-pos" required
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
+                            <option value="" disabled selected>Selecciona tu posición principal...</option>
+                            <option value="GK">POR (Portero)</option>
+                            <option value="DFC">DFC (Defensa Central)</option>
+                            <option value="CARR">CARR (Lateral/Carrilero)</option>
+                            <option value="MC">MC (MedioCentro/Pivote)</option>
+                            <option value="DC">DC (Delantero/Extremo)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px; text-align: left;">
+                        <label style="color:white; display:block; margin-bottom: 5px;">Posición Secundaria
+                            (Opcional):</label>
+                        <select id="draft-secondary-pos"
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
+                            <option value="NONE">Ninguna</option>
+                            <option value="GK">POR (Portero)</option>
+                            <option value="DFC">DFC (Defensa Central)</option>
+                            <option value="CARR">CARR (Lateral/Carrilero)</option>
+                            <option value="MC">MC (MedioCentro/Pivote)</option>
+                            <option value="DC">DC (Delantero/Extremo)</option>
+                        </select>
+                    </div>
+                    <div id="draft-whatsapp-group" class="form-group hidden"
+                        style="margin-bottom: 12px; text-align: left;">
+                        <label style="color:white; display:block; margin-bottom: 5px;">📱 WhatsApp (requerido):</label>
+                        <input type="text" id="draft-whatsapp" placeholder="+34 600 123 456"
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; margin-bottom:8px; box-sizing:border-box;">
+                        <input type="text" id="draft-whatsapp-confirm" placeholder="Confirma tu WhatsApp"
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing:border-box;">
+                    </div>
+                    <button type="submit" class="register-btn"
+                        style="width:100%; padding:12px; margin-top:10px;">Confirmar Inscripción</button>
+                </form>
+                <p id="draft-player-status" style="margin-top:10px; font-size:0.9rem; text-align:center;"></p>
+            </div>
+
+            <!-- PASO 3B: Formulario CAPITÁN -->
+            <div id="draft-step-captain-form" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">👑 Inscripción como Capitán</h2>
+                <form id="draft-captain-form">
+                    <div class="form-group" style="margin-bottom: 10px; text-align: left;">
+                        <label style="color:white; display:block; margin-bottom: 4px;">Tu Posición como Jugador:</label>
+                        <select id="draft-cap-position" required
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
+                            <option value="" disabled selected>Selecciona...</option>
+                            <option value="GK">POR (Portero)</option>
+                            <option value="DFC">DFC (Defensa Central)</option>
+                            <option value="CARR">CARR (Lateral/Carrilero)</option>
+                            <option value="MC">MC (MedioCentro/Pivote)</option>
+                            <option value="DC">DC (Delantero/Extremo)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px; text-align: left;">
+                        <label style="color:white; display:block; margin-bottom: 4px;">Nombre de tu Equipo:</label>
+                        <input type="text" id="draft-cap-team-name" required placeholder="Ej: Los Galácticos"
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing:border-box;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px; text-align: left;">
+                        <label style="color:white; display:block; margin-bottom: 4px;">Nombre de tu Equipo en
+                            EAFC:</label>
+                        <input type="text" id="draft-cap-eafc-name" required placeholder="Nombre en el juego"
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing:border-box;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px; text-align: left;">
+                        <label style="color:white; display:block; margin-bottom: 4px;">Plataforma de
+                            Transmisión:</label>
+                        <select id="draft-cap-stream-platform"
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
+                            <option value="twitch">Twitch</option>
+                            <option value="youtube">YouTube</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px; text-align: left;">
+                        <label style="color:white; display:block; margin-bottom: 4px;">Tu usuario de Stream:</label>
+                        <input type="text" id="draft-cap-stream-user" required placeholder="Tu username"
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing:border-box;">
+                    </div>
+                    <div id="draft-cap-whatsapp-group" class="form-group hidden"
+                        style="margin-bottom: 10px; text-align: left;">
+                        <label style="color:white; display:block; margin-bottom: 4px;">📱 WhatsApp (requerido):</label>
+                        <input type="text" id="draft-cap-whatsapp" placeholder="+34 600 123 456"
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; margin-bottom:8px; box-sizing:border-box;">
+                        <input type="text" id="draft-cap-whatsapp-confirm" placeholder="Confirma tu WhatsApp"
+                            style="width: 100%; padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing:border-box;">
+                    </div>
+                    <button type="submit" class="register-btn"
+                        style="width:100%; padding:12px; margin-top:10px; background: linear-gradient(135deg, #f39c12, #e67e22);">
+                        Solicitar Inscripción como Capitán
+                    </button>
+                </form>
+                <p id="draft-captain-status" style="margin-top:10px; font-size:0.9rem; text-align:center;"></p>
+            </div>
+
+            <!-- PASO: Éxito -->
+            <div id="draft-step-success" class="draft-step hidden">
+                <h2 class="report-modal-title" style="font-size:1.3rem;">✅ ¡Inscripción completada!</h2>
+                <p class="report-modal-info" id="draft-success-msg"></p>
+            </div>
+
         </div>
     </div>
 

@@ -785,19 +785,96 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
     }
 });
 
-// NUEVO: Inscribirse en un Draft desde la web
-app.post('/api/draft/:draftId/register', async (req, res) => {
+// Pre-check de inscripción a Draft (validaciones centralizadas para el wizard web)
+app.get('/api/draft/:draftId/pre-check', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
     try {
         const userId = req.user.id;
+        const db = getDb();
+
+        // 1. Verificación
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: userId });
+
+        // 2. Strikes
+        const playerRecord = await db.collection('player_records').findOne({ userId });
+        const strikes = playerRecord?.strikes || 0;
+
+        // 3. Membresía Discord
+        let isMember = req.user.isMember;
+        if (isMember === undefined) {
+            try {
+                const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
+                    headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+                isMember = response.ok;
+                req.user.isMember = isMember;
+            } catch (e) {
+                console.error('Error verificando membresía en pre-check:', e);
+                isMember = false;
+            }
+        }
+
+        // 4. Estado del draft
+        const draft = await db.collection('drafts').findOne({ shortId: req.params.draftId });
+
+        // 5. ¿Ya inscrito?
+        const isAlreadyRegistered = !!(
+            draft?.captains?.some(c => c.userId === userId) ||
+            draft?.players?.some(p => p.userId === userId) ||
+            (draft?.pendingCaptains && draft.pendingCaptains[userId]) ||
+            (draft?.pendingPayments && draft.pendingPayments[userId])
+        );
+
+        res.json({
+            isVerified: !!verifiedUser,
+            hasWhatsapp: !!(verifiedUser?.whatsapp),
+            gameId: verifiedUser?.gameId || null,
+            strikes,
+            isBlocked: strikes >= 3,
+            isMember: !!isMember,
+            isAlreadyRegistered,
+            draftExists: !!draft,
+            draftStatus: draft?.status || null,
+            isPaid: !!(draft?.config?.isPaid),
+            entryFee: draft?.config?.entryFee || 0,
+            maxCaptains: draft?.config?.maxCaptains || draft?.config?.numTeams || 8,
+            currentCaptains: draft?.captains?.length || 0
+        });
+    } catch (error) {
+        console.error('[Draft Pre-check] Error:', error);
+        res.status(500).json({ error: 'Error al comprobar el estado de inscripción.' });
+    }
+});
+
+// Inscribirse en un Draft desde la web (flujo completo: jugador + capitán)
+app.post('/api/draft/:draftId/register', async (req, res) => {
+    try {
+        if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+        const userId = req.user.id;
         const { draftId } = req.params;
-        const { primaryPosition, secondaryPosition } = req.body;
+        const { primaryPosition, secondaryPosition, role, teamName,
+            eafcTeamName, streamPlatform, streamUsername, whatsapp } = req.body;
 
         if (!primaryPosition) {
             return res.status(400).json({ error: 'Debes seleccionar al menos una posición principal.' });
         }
 
-        let isMember = req.user.isMember;
+        const db = getDb();
 
+        // --- VALIDACIÓN 1: Verificación server-side ---
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: userId });
+        if (!verifiedUser) {
+            return res.status(403).json({ error: 'Tu cuenta no está verificada. Ve a tu Perfil y vincula tu ID de juego.' });
+        }
+
+        // --- VALIDACIÓN 2: Strikes ---
+        const playerRecord = await db.collection('player_records').findOne({ userId });
+        if (playerRecord && playerRecord.strikes >= 3) {
+            return res.status(403).json({ error: `Tienes ${playerRecord.strikes} strikes acumulados. No puedes inscribirte.` });
+        }
+
+        // --- VALIDACIÓN 3: Membresía Discord ---
+        let isMember = req.user.isMember;
         if (isMember === undefined) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
@@ -809,7 +886,6 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
                 isMember = false;
             }
         }
-
         if (!isMember) {
             return res.status(403).json({
                 error: 'Debes ser miembro del servidor Discord para inscribirte en drafts',
@@ -818,38 +894,173 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
             });
         }
 
-        const db = getDb();
+        // --- VALIDACIÓN 4: Draft existe y está en inscripción ---
         const draft = await db.collection('drafts').findOne({ shortId: draftId });
-
-        if (!draft) {
-            return res.status(404).json({ error: 'Draft no encontrado' });
-        }
-
+        if (!draft) return res.status(404).json({ error: 'Draft no encontrado.' });
         if (draft.status !== 'inscripcion') {
             return res.status(400).json({ error: 'Las inscripciones para este Draft están cerradas.' });
         }
 
-        if (draft.players && draft.players.some(p => p.userId === userId)) {
-            return res.status(400).json({ error: 'Ya estás inscrito en este Draft.' });
+        // --- VALIDACIÓN 5: No ya inscrito ---
+        const isAlreadyRegistered = draft.captains?.some(c => c.userId === userId) ||
+            draft.players?.some(p => p.userId === userId) ||
+            (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
+            (draft.pendingPayments && draft.pendingPayments[userId]);
+        if (isAlreadyRegistered) {
+            return res.status(400).json({ error: 'Ya estás inscrito, pendiente de aprobación o de pago en este draft.' });
         }
 
+        // --- Guardar WhatsApp si se proporcionó y no lo tenía ---
+        if (whatsapp && !verifiedUser.whatsapp) {
+            await db.collection('verified_users').updateOne(
+                { discordId: userId }, { $set: { whatsapp: whatsapp.trim() } }
+            );
+        }
+        const finalWhatsapp = (whatsapp ? whatsapp.trim() : '') || verifiedUser.whatsapp || '';
+
+        // --- Obtener nombre de Discord ---
         const discordUserResponse = await fetch(`https://discord.com/api/v10/users/${userId}`, {
             headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
         });
         const discordUser = await discordUserResponse.json();
         const userName = discordUser.global_name || discordUser.username;
+        const psnId = verifiedUser.gameId || verifiedUser.psnId || userName;
 
+        // =============================================
+        // === FLUJO CAPITÁN ===
+        // =============================================
+        if (role === 'captain') {
+            if (!teamName?.trim()) return res.status(400).json({ error: 'Debes indicar un nombre de equipo.' });
+            if (!eafcTeamName?.trim()) return res.status(400).json({ error: 'Debes indicar el nombre de tu equipo en EAFC.' });
+            if (!streamUsername?.trim()) return res.status(400).json({ error: 'Debes indicar tu usuario de stream.' });
+
+            const maxCaptains = draft.config?.maxCaptains || draft.config?.numTeams || 8;
+            if (draft.captains.length >= maxCaptains) {
+                return res.status(400).json({ error: 'Ya se alcanzó el máximo de capitanes.' });
+            }
+            if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.trim().toLowerCase())) {
+                return res.status(400).json({ error: 'Ya existe un equipo con ese nombre.' });
+            }
+
+            const streamChannel = streamPlatform === 'twitch'
+                ? `https://twitch.tv/${streamUsername.trim()}`
+                : `https://youtube.com/@${streamUsername.trim()}`;
+
+            const captainData = {
+                userId, userName, teamName: teamName.trim(), eafcTeamName: eafcTeamName.trim(),
+                streamChannel, psnId, twitter: verifiedUser.twitter || '',
+                whatsapp: finalWhatsapp, position: primaryPosition
+            };
+            const playerData = {
+                userId, userName, psnId, twitter: verifiedUser.twitter || '',
+                whatsapp: finalWhatsapp, primaryPosition,
+                secondaryPosition: secondaryPosition || 'NONE',
+                currentTeam: teamName.trim(), isCaptain: true, captainId: userId
+            };
+
+            if (draft.config?.isPaid) {
+                // Draft de pago: guardar en pendingPayments y notificar por Discord
+                await db.collection('drafts').updateOne({ _id: draft._id },
+                    { $set: { [`pendingPayments.${userId}`]: { captainData, playerData } } }
+                );
+                // Intentar enviar DM de pago por Discord
+                if (client) {
+                    try {
+                        const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+                        const user = await client.users.fetch(userId);
+                        const embedDm = new EmbedBuilder()
+                            .setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`)
+                            .setDescription(`Para confirmar tu plaza como **Capitán**, realiza el pago de **${draft.config.entryFee}€**.\n\nUna vez realizado, pulsa el botón de abajo.`)
+                            .setColor('#e67e22');
+                        const confirmButton = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId(`draft_payment_confirm_start:${draftId}`).setLabel('✅ Ya he Pagado').setStyle(ButtonStyle.Success)
+                        );
+                        await user.send({ embeds: [embedDm], components: [confirmButton] });
+                    } catch (dmErr) {
+                        console.warn('[Draft Register Web] No se pudo enviar DM de pago:', dmErr.message);
+                    }
+                }
+                return res.json({ success: true, message: '¡Solicitud recibida! Revisa tus mensajes de Discord para completar el pago.' });
+            } else {
+                // Draft gratis: pendingCaptains → aprobación admin
+                await db.collection('drafts').updateOne({ _id: draft._id },
+                    {
+                        $set: {
+                            [`pendingCaptains.${userId}`]: captainData,
+                            [`pendingPlayers.${userId}`]: playerData
+                        }
+                    }
+                );
+                // Notificar en Discord para aprobación
+                if (client) {
+                    try {
+                        const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+                        const approvalChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
+                        const adminEmbed = new EmbedBuilder()
+                            .setColor('#5865F2')
+                            .setTitle('🔔 Nueva Solicitud de Capitán (desde Web)')
+                            .setDescription(`**Draft:** ${draft.name}`)
+                            .addFields(
+                                { name: 'Nombre de Equipo', value: captainData.teamName, inline: true },
+                                { name: 'Capitán', value: userName, inline: true },
+                                { name: 'PSN ID', value: psnId, inline: false },
+                                { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false },
+                                { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
+                                { name: 'Twitter', value: verifiedUser.twitter || 'No proporcionado', inline: false }
+                            );
+                        const adminButtons = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId(`draft_approve_captain:${draftId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+                            new ButtonBuilder().setCustomId(`draft_reject_captain:${draftId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+                        );
+                        await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
+                    } catch (notifyErr) {
+                        console.error('[Draft Register Web] Error notificando a Discord:', notifyErr);
+                    }
+                }
+                return res.json({ success: true, message: '¡Tu solicitud para ser capitán ha sido enviada! Un admin la revisará pronto.' });
+            }
+        }
+
+        // =============================================
+        // === FLUJO JUGADOR ===
+        // =============================================
         const newPlayer = {
-            userId: userId,
-            userName: userName,
-            psnId: req.user.psnId || userName,
-            primaryPosition: primaryPosition,
+            userId, userName, psnId,
+            twitter: verifiedUser.twitter || '',
+            whatsapp: finalWhatsapp,
+            primaryPosition,
             secondaryPosition: secondaryPosition || 'NONE',
             currentTeam: 'Libre',
             captainId: null,
             isCaptain: false
         };
 
+        if (draft.config?.isPaid) {
+            // Draft de pago: pendingPayments
+            await db.collection('drafts').updateOne({ _id: draft._id },
+                { $set: { [`pendingPayments.${userId}`]: { playerData: newPlayer } } }
+            );
+            // Intentar enviar DM de pago por Discord
+            if (client) {
+                try {
+                    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+                    const user = await client.users.fetch(userId);
+                    const embedDm = new EmbedBuilder()
+                        .setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`)
+                        .setDescription(`Para confirmar tu plaza como **Jugador**, realiza el pago de **${draft.config.entryFee}€**.\n\nUna vez realizado, pulsa el botón de abajo.`)
+                        .setColor('#e67e22');
+                    const confirmButton = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId(`draft_payment_confirm_start:${draftId}`).setLabel('✅ Ya he Pagado').setStyle(ButtonStyle.Success)
+                    );
+                    await user.send({ embeds: [embedDm], components: [confirmButton] });
+                } catch (dmErr) {
+                    console.warn('[Draft Register Web] No se pudo enviar DM de pago (jugador):', dmErr.message);
+                }
+            }
+            return res.json({ success: true, message: '¡Inscripción recibida! Revisa tus mensajes de Discord para completar el pago.' });
+        }
+
+        // Draft gratis: inscripción directa
         const result = await db.collection('drafts').updateOne(
             { _id: draft._id },
             { $push: { players: newPlayer } }
@@ -858,18 +1069,13 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
         if (result.modifiedCount > 0) {
             const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
             if (client) {
-                const { updateDraftMainInterface } = await import('./src/logic/tournamentLogic.js');
+                const { updateDraftMainInterface, notifyVisualizer } = await import('./src/logic/tournamentLogic.js');
                 const { updateDraftManagementPanel } = await import('./src/utils/panelManager.js');
-                const { notifyVisualizer } = await import('./src/logic/tournamentLogic.js');
                 await updateDraftMainInterface(client, draftId);
                 await updateDraftManagementPanel(client, updatedDraft);
                 await notifyVisualizer(updatedDraft);
             }
-
-            return res.json({
-                success: true,
-                message: '¡Inscripción al Draft completada exitosamente!'
-            });
+            return res.json({ success: true, message: '¡Inscripción al Draft completada exitosamente!' });
         } else {
             return res.status(500).json({ error: 'No se pudo completar la inscripción.' });
         }
