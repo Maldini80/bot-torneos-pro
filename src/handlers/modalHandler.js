@@ -2058,7 +2058,7 @@ export async function handleModal(interaction) {
             matchType = 'ida'; // Ida por defecto en custom
             customRounds = roundsInput;
         } else if (action === 'draft_league_swiss_modal') {
-            leagueMode = 'swiss';
+            leagueMode = 'custom_rounds';
             matchType = 'ida'; // Ida por defecto en suizo
             customRounds = roundsInput;
         }
