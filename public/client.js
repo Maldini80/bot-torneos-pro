@@ -1283,7 +1283,7 @@ function initializeDraftView(draftId) {
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(13);
                 doc.setTextColor(...COLORS.headerText);
-                doc.text('📋 RESUMEN DE EQUIPOS — ' + (draft.draftName || draft.name), pageWidth / 2, 10, { align: 'center' });
+                doc.text('RESUMEN DE EQUIPOS — ' + (draft.draftName || draft.name), pageWidth / 2, 10, { align: 'center' });
                 currentX = 10;
                 currentY = 22;
                 pageStarted = true;
