@@ -3569,6 +3569,59 @@ export async function startNextKnockoutRound(client, guild, tournament) {
                 const grupoA = [...currentTournament.structure.grupos['Grupo A'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo A'));
                 const grupoB = [...currentTournament.structure.grupos['Grupo B'].equipos].sort((a, b) => sortTeams(a, b, currentTournament, 'Grupo B'));
                 clasificados.push(grupoA[0], grupoB[1], grupoB[0], grupoA[1]);
+            } else if (format.bestThirds > 0) {
+                // ── FORMATO CON MEJORES TERCEROS (ej: 12 equipos — 3 grupos) ──────────
+                const bombo1 = [], bombo2 = [], thirds = [];
+                for (const groupName of gruposOrdenados) {
+                    const sorted = [...currentTournament.structure.grupos[groupName].equipos]
+                        .sort((a, b) => sortTeams(a, b, currentTournament, groupName));
+                    if (sorted[0]) bombo1.push({ team: JSON.parse(JSON.stringify(sorted[0])), group: groupName });
+                    if (sorted[1]) bombo2.push({ team: JSON.parse(JSON.stringify(sorted[1])), group: groupName });
+                    if (sorted[2]) thirds.push({ team: JSON.parse(JSON.stringify(sorted[2])), group: groupName });
+                }
+
+                // Ordenar los terceros entre sí: pts → dg → gf
+                thirds.sort((a, b) => {
+                    const sA = a.team.stats, sB = b.team.stats;
+                    if (sB.pts !== sA.pts) return sB.pts - sA.pts;
+                    if (sB.dg !== sA.dg) return sB.dg - sA.dg;
+                    return sB.gf - sA.gf;
+                });
+                const bestThirdsSelected = thirds.slice(0, format.bestThirds);
+                const eliminated3rds = thirds.slice(format.bestThirds);
+
+                // Anunciar clasificados en el canal de info
+                const infoCh = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
+                if (infoCh) {
+                    const lines = [
+                        ...bombo1.map(({ team, group }) => `🥇 **1º ${group}** — ${team.nombre}`),
+                        ...bombo2.map(({ team, group }) => `🥈 **2º ${group}** — ${team.nombre}`),
+                        ...bestThirdsSelected.map(({ team, group }, i) =>
+                            `🔶 **Mejor 3º #${i + 1}** (${group}) — ${team.nombre}  ·  ${team.stats.pts}pts  ${team.stats.dg >= 0 ? '+' : ''}${team.stats.dg}dg`),
+                        ...eliminated3rds.map(({ team, group }) =>
+                            `❌ **3º eliminado** (${group}) — ${team.nombre}  ·  ${team.stats.pts}pts  ${team.stats.dg >= 0 ? '+' : ''}${team.stats.dg}dg`)
+                    ];
+                    await infoCh.send({
+                        embeds: [new EmbedBuilder()
+                            .setColor('#e67e22')
+                            .setTitle('🌍 ¡Fase de Grupos Finalizada! — 8 Clasificados a Cuartos')
+                            .setDescription(lines.join('\n'))
+                            .setFooter({ text: currentTournament.nombre })
+                            .setTimestamp()
+                        ]
+                    }).catch(console.error);
+                }
+
+                // Construir los 8 clasificados y generar cuartos de final
+                const allQualifiers = [
+                    ...bombo1.map(x => x.team),
+                    ...bombo2.map(x => x.team),
+                    ...bestThirdsSelected.map(x => x.team)
+                ];
+                const partidos = crearPartidosEliminatoria(allQualifiers, siguienteRondaKey);
+                currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
+                clasificados = null;
+                // ───────────────────────────────────────────────────────────────────
             } else {
                 const bombo1 = []; const bombo2 = [];
                 for (const groupName of gruposOrdenados) {

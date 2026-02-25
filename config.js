@@ -88,6 +88,15 @@ export const TOURNAMENT_FORMATS = {
         description_en: '8 groups of 4. The top 2 qualify for the round of 16.',
         size: 32, groups: 8, qualifiersPerGroup: 2, knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final']
     },
+    '12_teams_quarters_worldcup': {
+        label: '12 Equipos (Mundial — Cuartos)',
+        description: '3 grupos de 4. Top 2 de cada grupo + 2 mejores terceros → cuartos de final.',
+        description_en: '3 groups of 4. Top 2 from each group + 2 best 3rd-place teams → quarterfinals.',
+        size: 12, groups: 3, qualifiersPerGroup: 2,
+        bestThirds: 2, // Los 2 mejores 3os clasifican a cuartos
+        knockoutStages: ['cuartos', 'semifinales', 'final'],
+        isDraftCompatible: true,
+    },
     'flexible_league': {
         label: 'Liguilla',
         description: 'Una única liga donde se juegan 3 jornadas. El número de clasificados es personalizable.',

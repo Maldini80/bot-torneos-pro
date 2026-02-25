@@ -930,6 +930,46 @@ export function createClassificationEmbed(tournament) {
             });
         }
     }
+
+    // ── MEJOR(ES) TERCERO(S) EN TIEMPO REAL (solo para formatos con bestThirds) ──
+    const format = tournament.config?.format;
+    if (format?.bestThirds > 0 && tournament.status === 'fase_de_grupos') {
+        const thirds = [];
+        for (const groupName of sortedGroups) {
+            const grupo = tournament.structure.grupos[groupName];
+            if (!grupo) continue;
+            const sorted = [...grupo.equipos].sort((a, b) => sortTeams(a, b, groupName));
+            if (sorted[2]) thirds.push({ team: sorted[2], group: groupName });
+        }
+        thirds.sort((a, b) => {
+            const sA = a.team.stats, sB = b.team.stats;
+            if (sB.pts !== sA.pts) return sB.pts - sA.pts;
+            if (sB.dg !== sA.dg) return sB.dg - sA.dg;
+            return sB.gf - sA.gf;
+        });
+        if (thirds.length > 0) {
+            const nameW = 14;
+            const header = 'EQUIPO/TEAM'.padEnd(nameW) + 'GRP  PTS  GF  GC   DG';
+            let text = '';
+            thirds.forEach(({ team: e, group }, i) => {
+                const qualifying = i < format.bestThirds;
+                const marker = qualifying ? '✅' : '❌';
+                const name = e.nombre.slice(0, nameW - 1).padEnd(nameW);
+                const grp = group.replace('Grupo ', '').padStart(3);
+                const pts = (e.stats.pts || 0).toString().padStart(3);
+                const gf = (e.stats.gf || 0).toString().padStart(3);
+                const gc = (e.stats.gc || 0).toString().padStart(3);
+                const dg = ((e.stats.dg || 0) >= 0 ? '+' : '') + (e.stats.dg || 0);
+                text += `${marker} ${name}${grp}  ${pts}  ${gf}  ${gc}  ${dg.padStart(4)}\n`;
+            });
+            embed.addFields({
+                name: `🔶 Mejores Terceros (${format.bestThirds} clasifican a cuartos)`,
+                value: '```\n' + header + '\n' + text.trim() + '\n```'
+            });
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
+
     return { embeds: [embed] };
 }
 
