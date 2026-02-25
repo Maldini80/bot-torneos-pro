@@ -1,22 +1,22 @@
 // ===== TRADUCCIONES =====
 const translations = {
     es: {
-        backBtn: 'â† Dashboard',
-        classification: 'ClasificaciÃ³n',
+        backBtn: '← Dashboard',
+        classification: 'Clasificación',
         calendar: 'Calendario',
         brackets: 'Eliminatorias',
         teams: 'Equipos',
-        finishedTitle: 'ðŸ† TORNEO FINALIZADO',
-        finishedText: 'Â¡Gracias por participar y seguir la retransmisiÃ³n!',
-        champion: 'ðŸ† CampeÃ³n:',
+        finishedTitle: '🏆 TORNEO FINALIZADO',
+        finishedText: '¡Gracias por participar y seguir la retransmisión!',
+        champion: '🏆 Campeón:',
         noMatches: 'No hay partidos en juego.',
         tournamentFinished: 'El torneo ha finalizado.',
-        noTeams: 'AÃºn no hay equipos aprobados.',
+        noTeams: 'Aún no hay equipos aprobados.',
         noGroups: 'El sorteo de grupos no se ha realizado.',
-        noCalendar: 'El calendario se mostrarÃ¡ cuando comience el torneo.',
+        noCalendar: 'El calendario se mostrará cuando comience el torneo.',
         noBrackets: 'Las eliminatorias no han comenzado.',
-        captain: 'CapitÃ¡n:',
-        coCaptain: 'Co-CapitÃ¡n:',
+        captain: 'Capitán:',
+        coCaptain: 'Co-Capitán:',
         loading: 'Cargando datos del evento...',
         errorNoId: 'Error: No se ha especificado un ID de evento en la URL.',
         liveMatches: 'Partidos en Directo',
@@ -32,12 +32,12 @@ const translations = {
         bh: 'BH',
         // Roles
         roleAdmin: 'ADMIN',
-        roleCaptain: 'CAPITÃN',
-        roleCoCaptain: 'CO-CAPITÃN',
-        roleExtraCaptain: 'CAPITÃN EXTRA',
-        roleManager: 'MÃNAGER',
-        roleMatchGuide: 'GUÃA DE PARTIDO',
-        roleDraftCaptain: 'CAPITÃN DE DRAFT',
+        roleCaptain: 'CAPITÁN',
+        roleCoCaptain: 'CO-CAPITÁN',
+        roleExtraCaptain: 'CAPITÁN EXTRA',
+        roleManager: 'MÁNAGER',
+        roleMatchGuide: 'GUÍA DE PARTIDO',
+        roleDraftCaptain: 'CAPITÁN DE DRAFT',
         roleVisitor: 'VISITANTE',
         myTeam: 'Mi Equipo',
         matchSchedule: 'Calendario de Partidos',
@@ -50,14 +50,14 @@ const translations = {
         reportResult: 'Reportar Resultado'
     },
     en: {
-        backBtn: 'â† Dashboard',
+        backBtn: '← Dashboard',
         classification: 'Standings',
         calendar: 'Schedule',
         brackets: 'Playoffs',
         teams: 'Teams',
-        finishedTitle: 'ðŸ† TOURNAMENT FINISHED',
+        finishedTitle: '🏆 TOURNAMENT FINISHED',
         finishedText: 'Thank you for participating and following the broadcast!',
-        champion: 'ðŸ† Champion:',
+        champion: '🏆 Champion:',
         noMatches: 'No live matches.',
         tournamentFinished: 'The tournament has finished.',
         noTeams: 'No approved teams yet.',
@@ -122,7 +122,7 @@ function updateLanguage() {
         viewButtons[3].textContent = t('teams');
     }
 
-    // Actualizar select mÃ³vil
+    // Actualizar select móvil
     const mobileSelect = document.getElementById('mobile-view-select');
     if (mobileSelect && mobileSelect.options.length >= 4) {
         mobileSelect.options[0].textContent = t('classification');
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ===== DETECCIÃ“N DE ROL EN EVENTO =====
+// ===== DETECCIÓN DE ROL EN EVENTO =====
 let userRoleData = null;
 
 async function checkUserRoleInEvent(eventId) {
@@ -214,18 +214,18 @@ function displayRoleBadge(roleData) {
     const labelEl = document.getElementById('role-label');
     const teamEl = document.getElementById('role-team');
 
-    // Ãconos por tipo de rol
+    // Íconos por tipo de rol
     const roleIcons = {
-        admin: 'ðŸ‘‘',
-        captain: 'âš½',
-        coCaptain: 'âš½',
-        extraCaptain: 'âš½',
-        draftCaptain: 'ðŸŽ¯',
-        manager: 'ðŸ‘”',
-        matchGuide: 'ðŸ“‹'
+        admin: '👑',
+        captain: '⚽',
+        coCaptain: '⚽',
+        extraCaptain: '⚽',
+        draftCaptain: '🎯',
+        manager: '👔',
+        matchGuide: '📋'
     };
 
-    // Mapeo de roles a claves de traducciÃ³n
+    // Mapeo de roles a claves de traducción
     const roleKeys = {
         admin: 'roleAdmin',
         captain: 'roleCaptain',
@@ -237,10 +237,10 @@ function displayRoleBadge(roleData) {
     };
 
     // Actualizar badge
-    iconEl.textContent = roleIcons[roleData.role] || 'ðŸ‘¤';
+    iconEl.textContent = roleIcons[roleData.role] || '👤';
     labelEl.textContent = t(roleKeys[roleData.role]);
 
-    // Mostrar equipo si es capitÃ¡n
+    // Mostrar equipo si es capitán
     if (roleData.teamName) {
         let teamHtml = roleData.teamName.replace(/[&<>'"]/g,
             tag => ({
@@ -255,7 +255,7 @@ function displayRoleBadge(roleData) {
         if (['captain', 'coCaptain', 'manager', 'admin', 'draftCaptain', 'extraCaptain'].includes(roleData.role) && roleData.teamId) {
             teamHtml += `<br><button onclick="window.location.href='/dashboard.html?manageTeam=${roleData.teamId}&teamName=${encodeURIComponent(roleData.teamName)}'" 
             style="margin-top: 5px; background: #e67e22; color: white; padding: 4px 10px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; font-size: 0.8em; text-transform: uppercase;">
-            âš™ï¸ Gestionar Equipo</button>`;
+            ⚙️ Gestionar Equipo</button>`;
         }
 
         teamEl.innerHTML = teamHtml;
@@ -264,7 +264,7 @@ function displayRoleBadge(roleData) {
         teamEl.style.display = 'none';
     }
 
-    // Aplicar clase CSS segÃºn el rol
+    // Aplicar clase CSS según el rol
     badgeEl.className = `user-role-badge role-${roleData.role}`;
     badgeEl.style.display = 'flex';
 }
@@ -372,16 +372,16 @@ function initializeTournamentView(tournamentId) {
             renderMyMatches(tournament);
         }
 
-        // Si estÃ¡ finalizado, mostrar vista especial Y mantener las pestaÃ±as visibles
+        // Si está finalizado, mostrar vista especial Y mantener las pestañas visibles
         if (tournament.status === 'finalizado') {
-            // Asegurarse que el view-switcher estÃ© visible
+            // Asegurarse que el view-switcher esté visible
             viewSwitcherEl.style.display = 'flex';
             document.querySelector('.mobile-view-switcher').style.display = 'block';
 
-            // Mostrar tambiÃ©n la vista de "finalizado" en partidos en directo
+            // Mostrar también la vista de "finalizado" en partidos en directo
             liveMatchesListEl.innerHTML = '';
 
-            // Obtener el campeÃ³n
+            // Obtener el campeón
             const finalMatch = tournament.structure.eliminatorias?.final;
             let championHTML = '';
             if (finalMatch && finalMatch.resultado) {
@@ -391,7 +391,7 @@ function initializeTournamentView(tournamentId) {
                     <div class="finished-tournament-banner">
                         <h2>${t('finishedTitle')}</h2>
                         <p>${t('finishedText')}</p>
-                        <h3>${t('champion')} ${champion.nombre} ðŸ†</h3>
+                        <h3>${t('champion')} ${champion.nombre} 🏆</h3>
                     </div>
                 `;
             } else {
@@ -399,14 +399,14 @@ function initializeTournamentView(tournamentId) {
             }
             liveMatchesListEl.innerHTML = championHTML;
 
-            // Activar la vista de clasificaciÃ³n por defecto
+            // Activar la vista de clasificación por defecto
             if (!mainPanelEl.querySelector('.view-pane.active')) {
                 mainPanelEl.querySelector('[data-view="classification-view"]').click();
             }
             return;
         }
 
-        // Torneos en curso: lÃ³gicaexistente
+        // Torneos en curso: lógicaexistente
         viewSwitcherEl.style.display = 'flex';
         finishedViewEl.classList.remove('active');
         if (!mainPanelEl.querySelector('.view-pane.active')) {
@@ -418,15 +418,15 @@ function initializeTournamentView(tournamentId) {
         teamListContainerEl.innerHTML = '';
         const teams = Object.values(tournament.teams.aprobados).sort((a, b) => a.nombre.localeCompare(b.nombre));
         if (teams.length === 0) {
-            teamListContainerEl.innerHTML = '<p class="placeholder">AÃºn no hay equipos aprobados.</p>';
+            teamListContainerEl.innerHTML = '<p class="placeholder">Aún no hay equipos aprobados.</p>';
             return;
         }
         teams.forEach(team => {
             const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-large" alt="Logo de ${team.nombre}">` : '';
             const isDraftTeam = team.players && team.players.length > 0;
-            let metaHTML = `<div class="team-meta"><span>CapitÃ¡n: ${team.capitanTag}</span>`;
+            let metaHTML = `<div class="team-meta"><span>Capitán: ${team.capitanTag}</span>`;
             if (team.coCaptainTag) {
-                metaHTML += `<span>Co-CapitÃ¡n: ${team.coCaptainTag}</span>`;
+                metaHTML += `<span>Co-Capitán: ${team.coCaptainTag}</span>`;
             }
             metaHTML += '</div>';
             const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@', '')}" target="_blank" class="team-link-btn">Twitter</a>` : '';
@@ -506,56 +506,13 @@ function initializeTournamentView(tournamentId) {
             groupHTML += '</div>';
             groupsContainerEl.innerHTML += groupHTML;
         });
-
-        // == MEJORES TERCEROS EN TIEMPO REAL ==
-        const fmt = tournament.config && tournament.config.format;
-        if (fmt && fmt.bestThirds > 0 && tournament.status === 'fase_de_grupos') {
-            const sortFn = function(a, b) {
-                if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
-                if (b.stats.dg !== a.stats.dg) return b.stats.dg - a.stats.dg;
-                return b.stats.gf - a.stats.gf;
-            };
-            const thirds = sortedGroupNames.map(function(gn) {
-                const s = [...groups[gn].equipos].sort(sortFn);
-                return s[2] ? { team: s[2], group: gn } : null;
-            }).filter(Boolean);
-            thirds.sort(function(a, b) { return sortFn(a.team, b.team); });
-            if (thirds.length > 0) {
-                let thirdsHTML = '<div class="group-container">' +
-                    '<h3 class="group-title">' + String.fromCodePoint(0x1F536) + ' Mejores Terceros <span style="background:#e67e22;color:#fff;border-radius:12px;padding:2px 10px;font-size:0.7em;font-weight:600;">' + fmt.bestThirds + ' clasifican</span></h3>' +
-                    '<div class="classification-table-header">' +
-                    '<div class="header-team-info"><span class="header-pos">' + t('position') + '</span><span class="header-team-name">' + t('team') + '</span></div>' +
-                    '<div class="header-stats-grid"><span class="header-stat">GRP</span><span class="header-stat">' + t('pts') + '</span><span class="header-stat">' + t('pj') + '</span><span class="header-stat">' + t('gf') + '</span><span class="header-stat">' + t('gc') + '</span><span class="header-stat">' + t('dg') + '</span></div>' +
-                    '</div>';
-                thirds.forEach(function(item, index) {
-                    const qualifying = index < fmt.bestThirds;
-                    const dg = item.team.stats.dg > 0 ? '+' + item.team.stats.dg : item.team.stats.dg;
-                    const logo = item.team.logoUrl ? '<img src="' + item.team.logoUrl + '" class="team-logo-small" alt="">' : '<div class="team-logo-placeholder"></div>';
-                    const badge = qualifying ? '<span style="color:#27ae60;font-size:1.1em;">&#x2705;</span>' : '<span style="color:#e74c3c;font-size:1.1em;">&#x274c;</span>';
-                    const rowStyle = qualifying ? 'border-left:3px solid #27ae60;' : 'border-left:3px solid #e74c3c;opacity:0.75;';
-                    thirdsHTML += '<div class="team-stat-card" style="' + rowStyle + '">' +
-                        '<div class="team-info-classification"><span class="team-position">' + badge + '</span>' + logo + '<span class="team-name-classification">' + item.team.nombre + '</span></div>' +
-                        '<div class="team-stats-grid">' +
-                        '<div class="stat-item"><span class="stat-value" style="color:#e67e22;font-weight:bold;">' + item.group.replace('Grupo ', '') + '</span></div>' +
-                        '<div class="stat-item"><span class="stat-value">' + item.team.stats.pts + '</span></div>' +
-                        '<div class="stat-item"><span class="stat-value">' + item.team.stats.pj + '</span></div>' +
-                        '<div class="stat-item"><span class="stat-value">' + item.team.stats.gf + '</span></div>' +
-                        '<div class="stat-item"><span class="stat-value">' + item.team.stats.gc + '</span></div>' +
-                        '<div class="stat-item"><span class="stat-value">' + dg + '</span></div>' +
-                        '</div></div>';
-                });
-                thirdsHTML += '</div>';
-                groupsContainerEl.innerHTML += thirdsHTML;
-            }
-        }
-        // == FIN MEJORES TERCEROS ==
     }
 
     function renderCalendar(tournament) {
         const groups = tournament.structure.calendario;
         calendarContainerEl.innerHTML = '';
         if (Object.keys(groups).length === 0) {
-            calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrarÃ¡ cuando comience el torneo.</p>';
+            calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrará cuando comience el torneo.</p>';
             return;
         }
 
@@ -774,7 +731,7 @@ function initializeTournamentView(tournamentId) {
                 // Chat button if thread exists
                 if (match.threadId && tournament.guildId) {
                     const threadUrl = `https://discord.com/channels/${tournament.guildId}/${match.threadId}`;
-                    actionsHTML += `<a href="${threadUrl}" target="_blank" class="action-btn" style="text-decoration:none; padding: 8px 15px; background: #5865F2; color: white; border-radius: 6px; display: inline-block; margin-right: 10px;">ðŸ’¬ ${t('chatMatch')}</a>`;
+                    actionsHTML += `<a href="${threadUrl}" target="_blank" class="action-btn" style="text-decoration:none; padding: 8px 15px; background: #5865F2; color: white; border-radius: 6px; display: inline-block; margin-right: 10px;">💬 ${t('chatMatch')}</a>`;
                 }
 
                 // Note: Report via Discord only
@@ -877,7 +834,7 @@ function initializeTournamentView(tournamentId) {
 } // Fin de initializeTournamentView
 
 function initializeDraftView(draftId) {
-    // ... (El cÃ³digo de initializeDraftView no necesita cambios)
+    // ... (El código de initializeDraftView no necesita cambios)
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
@@ -911,7 +868,7 @@ function initializeDraftView(draftId) {
         setupEventListeners();
         setupFilters();
 
-        // Detectar modo sustituciÃ³n desde URL params
+        // Detectar modo sustitución desde URL params
         const urlSearchParams = new URLSearchParams(window.location.search);
         const substituteFor = urlSearchParams.get('substituteFor');
         const teamParam = urlSearchParams.get('team');
@@ -919,7 +876,7 @@ function initializeDraftView(draftId) {
             window.captainSubstituteMode = true;
             window.captainSubstituteData = { outPlayerId: substituteFor, teamId: teamParam };
 
-            // Mostrar banner de modo sustituciÃ³n
+            // Mostrar banner de modo sustitución
             let banner = document.getElementById('captain-substitute-banner');
             if (!banner) {
                 banner = document.createElement('div');
@@ -927,7 +884,7 @@ function initializeDraftView(draftId) {
                 banner.style = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg, #2196F3, #1976D2); color:#fff; padding:15px 25px; z-index:9999; border-radius:10px; text-align:center; font-weight:bold; width:90%; max-width:600px; box-shadow:0 4px 20px rgba(33,150,243,0.5); border:1px solid rgba(255,255,255,0.2);';
                 document.body.appendChild(banner);
             }
-            banner.innerHTML = `ðŸ”„ MODO SUSTITUCIÃ“N<br><span style="font-size:13px; font-weight:normal;">Selecciona un agente libre de la tabla para sustituir al jugador. Puedes ver su ficha antes de confirmar.</span><br><button id="captain-cancel-substitute-btn" style="margin-top:10px; padding:8px 20px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.4); border-radius:6px; cursor:pointer; font-weight:bold;">âŒ Cancelar y Volver</button>`;
+            banner.innerHTML = `🔄 MODO SUSTITUCIÓN<br><span style="font-size:13px; font-weight:normal;">Selecciona un agente libre de la tabla para sustituir al jugador. Puedes ver su ficha antes de confirmar.</span><br><button id="captain-cancel-substitute-btn" style="margin-top:10px; padding:8px 20px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.4); border-radius:6px; cursor:pointer; font-weight:bold;">❌ Cancelar y Volver</button>`;
 
             document.getElementById('captain-cancel-substitute-btn').onclick = () => {
                 window.captainSubstituteMode = false;
@@ -960,7 +917,7 @@ function initializeDraftView(draftId) {
                 if (loginControlEl) loginControlEl.classList.remove('hidden');
             }
         } catch (e) {
-            console.error("Error al verificar la sesiÃ³n:", e);
+            console.error("Error al verificar la sesión:", e);
         }
     }
 
@@ -1030,7 +987,7 @@ function initializeDraftView(draftId) {
                 const undoBtn = document.createElement('button');
                 undoBtn.id = 'admin-undo-btn';
                 undoBtn.className = 'admin-btn undo-btn';
-                undoBtn.innerHTML = 'âª Deshacer Pick';
+                undoBtn.innerHTML = '⏪ Deshacer Pick';
                 undoBtn.style.marginTop = '10px';
                 undoBtn.style.backgroundColor = '#e74c3c';
                 undoBtn.style.color = '#fff';
@@ -1039,12 +996,12 @@ function initializeDraftView(draftId) {
                 undoBtn.style.borderRadius = '5px';
                 undoBtn.style.cursor = 'pointer';
                 undoBtn.onclick = () => {
-                    if (confirm('Â¿Seguro que quieres deshacer el Ãºltimo pick? El turno retrocederÃ¡ y el jugador volverÃ¡ a la lista de Libres.')) {
+                    if (confirm('¿Seguro que quieres deshacer el último pick? El turno retrocederá y el jugador volverá a la lista de Libres.')) {
                         socket.send(JSON.stringify({ type: 'admin_undo_pick', draftId: draft.shortId }));
                     }
                 };
 
-                // AÃ±adirlo debajo del bloque de info del turno
+                // Añadirlo debajo del bloque de info del turno
                 const currentPickBoard = document.querySelector('.current-pick-board');
                 if (currentPickBoard) {
                     currentPickBoard.appendChild(undoBtn);
@@ -1100,11 +1057,11 @@ function initializeDraftView(draftId) {
 
                 let replaceBtn = '';
                 if (userRoleData && userRoleData.isAdmin && draft.status === 'seleccion') {
-                    replaceBtn = `<button class="admin-init-replace-btn" data-player-id="${p.userId}" data-team-id="${captain.userId}" title="Reemplazar Jugador" style="background:transparent; border:none; cursor:pointer; padding:0; margin-left:5px;">ðŸ”„</button>`;
+                    replaceBtn = `<button class="admin-init-replace-btn" data-player-id="${p.userId}" data-team-id="${captain.userId}" title="Reemplazar Jugador" style="background:transparent; border:none; cursor:pointer; padding:0; margin-left:5px;">🔄</button>`;
                 }
                 playersListHTML += `<li>
                     <span class="player-name-compact" style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${isCaptainFlag ? 'color: var(--winner-color); font-weight: bold;' : ''}">
-                        ${isCaptainFlag ? 'â­ ' : ''}${p.psnId}
+                        ${isCaptainFlag ? '⭐ ' : ''}${p.psnId}
                     </span>
                     <div class="player-badges-compact" style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
                         <span class="pos-badge">${p.pickedForPosition || p.primaryPosition}${isSecondary ? '*' : ''}</span>
@@ -1126,7 +1083,7 @@ function initializeDraftView(draftId) {
     function exportDraftToPDF(draft) {
         if (!draft || !draft.captains || !draft.players) return;
         if (typeof window.jspdf === 'undefined') {
-            alert('Error: la librerÃ­a de PDF no se ha cargado. Recarga la pÃ¡gina e intÃ©ntalo de nuevo.');
+            alert('Error: la librería de PDF no se ha cargado. Recarga la página e inténtalo de nuevo.');
             return;
         }
 
@@ -1135,7 +1092,7 @@ function initializeDraftView(draftId) {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        // â”€â”€ Paleta de colores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Paleta de colores ──────────────────────────────────────────────────
         const C = {
             bg:          [12, 12, 22],
             headerBg:    [0, 188, 212],
@@ -1185,7 +1142,7 @@ function initializeDraftView(draftId) {
             if (right) doc.text(right, pageWidth - 10, pageHeight - 6, { align: 'right' });
         }
 
-        // Filtrar equipos segÃºn rol
+        // Filtrar equipos según rol
         let captainsToExport = draft.captains;
         console.log('[PDF Export] total captains:', draft.captains?.length, 'isAdmin:', userRoleData?.isAdmin);
         if (userRoleData && !userRoleData.isAdmin && currentUser) {
@@ -1196,7 +1153,7 @@ function initializeDraftView(draftId) {
         const draftTitle = draft.draftName || draft.name || 'Draft';
         const dateStr = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 
-        // â•â• PORTADA â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // ══ PORTADA ══════════════════════════════════════════════════════════
         doc.setFillColor(...C.bg);
         doc.rect(0, 0, pageWidth, pageHeight, 'F');
         doc.setFillColor(...C.headerBg);
@@ -1227,7 +1184,7 @@ function initializeDraftView(draftId) {
         doc.setFillColor(...C.accent);
         doc.rect(0, pageHeight - 4, pageWidth, 4, 'F');
 
-        // â•â• PÃGINAS INDIVIDUALES POR EQUIPO â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // ══ PÁGINAS INDIVIDUALES POR EQUIPO ══════════════════════════════════
         captainsToExport.forEach((captain, idx) => {
             doc.addPage();
             drawPageChrome(C.headerBg, captain.teamName || 'Equipo', 'Capitan: ' + (captain.psnId || captain.userName || 'N/A'));
@@ -1290,15 +1247,15 @@ function initializeDraftView(draftId) {
                 margin: { left: 10, right: 10 },
             });
 
-            drawFooter(draftTitle + ' â€” Equipo ' + (idx + 1) + ' de ' + captainsToExport.length, 'Pag. ' + (idx + 2));
+            drawFooter(draftTitle + ' — Equipo ' + (idx + 1) + ' de ' + captainsToExport.length, 'Pag. ' + (idx + 2));
         });
 
-        // â•â• RESUMEN: TODOS LOS EQUIPOS EN UNA PÃGINA (solo admins) â•â•â•â•â•â•â•â•â•â•â•
+        // ══ RESUMEN: TODOS LOS EQUIPOS EN UNA PÁGINA (solo admins) ═══════════
         if (userRoleData && userRoleData.isAdmin) {
             const allCaptains = draft.captains;
 
             doc.addPage();
-            drawPageChrome(C.accent, 'RESUMEN DE EQUIPOS â€” ' + draftTitle, allCaptains.length + ' equipos Â· ' + dateStr);
+            drawPageChrome(C.accent, 'RESUMEN DE EQUIPOS — ' + draftTitle, allCaptains.length + ' equipos · ' + dateStr);
 
             const contentW = pageWidth - 20;
             const contentH = pageHeight - 30;
@@ -1307,7 +1264,7 @@ function initializeDraftView(draftId) {
             ), 1);
             const blockH = 8 + maxPlayersPerTeam * 5 + 4;
 
-            // Elegir nÂº de columnas para que quepan todos en una pÃ¡gina
+            // Elegir nº de columnas para que quepan todos en una página
             let numCols = 2;
             for (let cols = 6; cols >= 2; cols--) {
                 const rows = Math.ceil(allCaptains.length / cols);
@@ -1342,17 +1299,17 @@ function initializeDraftView(draftId) {
                 const maxNameLen = Math.floor((colW - 10) / 2.2);
                 doc.text((captain.teamName || 'Sin nombre').substring(0, maxNameLen), x + 5, y + 6);
 
-                // CapitÃ¡n
+                // Capitán
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(7.5);
                 doc.setTextColor(...C.captainGold);
-                const capName = (captain.psnId || captain.userName || 'â€”').substring(0, maxNameLen);
+                const capName = (captain.psnId || captain.userName || '—').substring(0, maxNameLen);
                 doc.text('* ' + capName, x + 5, y + 11.5);
 
                 // Jugadores
                 teamPlayers.forEach((p, pIdx) => {
                     const py = y + 16.5 + pIdx * 5;
-                    // Badge posiciÃ³n
+                    // Badge posición
                     doc.setFillColor(...C.headerBg);
                     doc.roundedRect(x + 5, py - 3.2, 12, 4.2, 1, 1, 'F');
                     doc.setFont('helvetica', 'bold');
@@ -1372,9 +1329,9 @@ function initializeDraftView(draftId) {
                 if (col >= numCols) { col = 0; row++; }
             });
 
-            drawFooter('Resumen para compartir en el grupo', allCaptains.length + ' equipos â€” THE BLITZ');
+            drawFooter('Resumen para compartir en el grupo', allCaptains.length + ' equipos — THE BLITZ');
 
-            // â•â• AGENTES LIBRES â€” UNA SOLA PÃGINA â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            // ══ AGENTES LIBRES — UNA SOLA PÁGINA ════════════════════════════
             doc.addPage();
             drawPageChrome(C.orange, 'AGENTES LIBRES', '');
 
@@ -1406,7 +1363,7 @@ function initializeDraftView(draftId) {
                     p.strikes || 0
                 ]);
 
-                // Font size dinÃ¡mico para que quepan en una sola pÃ¡gina
+                // Font size dinámico para que quepan en una sola página
                 const availableH = pageHeight - 38;
                 const estRowH = 8;
                 const fsBase = 10;
@@ -1451,29 +1408,29 @@ function initializeDraftView(draftId) {
                 });
             }
 
-            drawFooter(draftTitle + ' â€” Agentes Libres', 'THE BLITZ');
+            drawFooter(draftTitle + ' — Agentes Libres', 'THE BLITZ');
         }
 
         // Guardar
         doc.save('Draft_' + (draft.shortId || 'Export') + '_Equipos.pdf');
     }st translations = {
     es: {
-        backBtn: 'â† Dashboard',
-        classification: 'ClasificaciÃ³n',
+        backBtn: '← Dashboard',
+        classification: 'Clasificación',
         calendar: 'Calendario',
         brackets: 'Eliminatorias',
         teams: 'Equipos',
-        finishedTitle: 'ðŸ† TORNEO FINALIZADO',
-        finishedText: 'Â¡Gracias por participar y seguir la retransmisiÃ³n!',
-        champion: 'ðŸ† CampeÃ³n:',
+        finishedTitle: '🏆 TORNEO FINALIZADO',
+        finishedText: '¡Gracias por participar y seguir la retransmisión!',
+        champion: '🏆 Campeón:',
         noMatches: 'No hay partidos en juego.',
         tournamentFinished: 'El torneo ha finalizado.',
-        noTeams: 'AÃºn no hay equipos aprobados.',
+        noTeams: 'Aún no hay equipos aprobados.',
         noGroups: 'El sorteo de grupos no se ha realizado.',
-        noCalendar: 'El calendario se mostrarÃ¡ cuando comience el torneo.',
+        noCalendar: 'El calendario se mostrará cuando comience el torneo.',
         noBrackets: 'Las eliminatorias no han comenzado.',
-        captain: 'CapitÃ¡n:',
-        coCaptain: 'Co-CapitÃ¡n:',
+        captain: 'Capitán:',
+        coCaptain: 'Co-Capitán:',
         loading: 'Cargando datos del evento...',
         errorNoId: 'Error: No se ha especificado un ID de evento en la URL.',
         liveMatches: 'Partidos en Directo',
@@ -1489,12 +1446,12 @@ function initializeDraftView(draftId) {
         bh: 'BH',
         // Roles
         roleAdmin: 'ADMIN',
-        roleCaptain: 'CAPITÃN',
-        roleCoCaptain: 'CO-CAPITÃN',
-        roleExtraCaptain: 'CAPITÃN EXTRA',
-        roleManager: 'MÃNAGER',
-        roleMatchGuide: 'GUÃA DE PARTIDO',
-        roleDraftCaptain: 'CAPITÃN DE DRAFT',
+        roleCaptain: 'CAPITÁN',
+        roleCoCaptain: 'CO-CAPITÁN',
+        roleExtraCaptain: 'CAPITÁN EXTRA',
+        roleManager: 'MÁNAGER',
+        roleMatchGuide: 'GUÍA DE PARTIDO',
+        roleDraftCaptain: 'CAPITÁN DE DRAFT',
         roleVisitor: 'VISITANTE',
         myTeam: 'Mi Equipo',
         matchSchedule: 'Calendario de Partidos',
@@ -1507,14 +1464,14 @@ function initializeDraftView(draftId) {
         reportResult: 'Reportar Resultado'
     },
     en: {
-        backBtn: 'â† Dashboard',
+        backBtn: '← Dashboard',
         classification: 'Standings',
         calendar: 'Schedule',
         brackets: 'Playoffs',
         teams: 'Teams',
-        finishedTitle: 'ðŸ† TOURNAMENT FINISHED',
+        finishedTitle: '🏆 TOURNAMENT FINISHED',
         finishedText: 'Thank you for participating and following the broadcast!',
-        champion: 'ðŸ† Champion:',
+        champion: '🏆 Champion:',
         noMatches: 'No live matches.',
         tournamentFinished: 'The tournament has finished.',
         noTeams: 'No approved teams yet.',
@@ -1579,7 +1536,7 @@ function updateLanguage() {
         viewButtons[3].textContent = t('teams');
     }
 
-    // Actualizar select mÃ³vil
+    // Actualizar select móvil
     const mobileSelect = document.getElementById('mobile-view-select');
     if (mobileSelect && mobileSelect.options.length >= 4) {
         mobileSelect.options[0].textContent = t('classification');
@@ -1640,7 +1597,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ===== DETECCIÃ“N DE ROL EN EVENTO =====
+// ===== DETECCIÓN DE ROL EN EVENTO =====
 let userRoleData = null;
 
 async function checkUserRoleInEvent(eventId) {
@@ -1671,18 +1628,18 @@ function displayRoleBadge(roleData) {
     const labelEl = document.getElementById('role-label');
     const teamEl = document.getElementById('role-team');
 
-    // Ãconos por tipo de rol
+    // Íconos por tipo de rol
     const roleIcons = {
-        admin: 'ðŸ‘‘',
-        captain: 'âš½',
-        coCaptain: 'âš½',
-        extraCaptain: 'âš½',
-        draftCaptain: 'ðŸŽ¯',
-        manager: 'ðŸ‘”',
-        matchGuide: 'ðŸ“‹'
+        admin: '👑',
+        captain: '⚽',
+        coCaptain: '⚽',
+        extraCaptain: '⚽',
+        draftCaptain: '🎯',
+        manager: '👔',
+        matchGuide: '📋'
     };
 
-    // Mapeo de roles a claves de traducciÃ³n
+    // Mapeo de roles a claves de traducción
     const roleKeys = {
         admin: 'roleAdmin',
         captain: 'roleCaptain',
@@ -1694,10 +1651,10 @@ function displayRoleBadge(roleData) {
     };
 
     // Actualizar badge
-    iconEl.textContent = roleIcons[roleData.role] || 'ðŸ‘¤';
+    iconEl.textContent = roleIcons[roleData.role] || '👤';
     labelEl.textContent = t(roleKeys[roleData.role]);
 
-    // Mostrar equipo si es capitÃ¡n
+    // Mostrar equipo si es capitán
     if (roleData.teamName) {
         let teamHtml = roleData.teamName.replace(/[&<>'"]/g,
             tag => ({
@@ -1712,7 +1669,7 @@ function displayRoleBadge(roleData) {
         if (['captain', 'coCaptain', 'manager', 'admin', 'draftCaptain', 'extraCaptain'].includes(roleData.role) && roleData.teamId) {
             teamHtml += `<br><button onclick="window.location.href='/dashboard.html?manageTeam=${roleData.teamId}&teamName=${encodeURIComponent(roleData.teamName)}'" 
             style="margin-top: 5px; background: #e67e22; color: white; padding: 4px 10px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; font-size: 0.8em; text-transform: uppercase;">
-            âš™ï¸ Gestionar Equipo</button>`;
+            ⚙️ Gestionar Equipo</button>`;
         }
 
         teamEl.innerHTML = teamHtml;
@@ -1721,7 +1678,7 @@ function displayRoleBadge(roleData) {
         teamEl.style.display = 'none';
     }
 
-    // Aplicar clase CSS segÃºn el rol
+    // Aplicar clase CSS según el rol
     badgeEl.className = `user-role-badge role-${roleData.role}`;
     badgeEl.style.display = 'flex';
 }
@@ -1829,16 +1786,16 @@ function initializeTournamentView(tournamentId) {
             renderMyMatches(tournament);
         }
 
-        // Si estÃ¡ finalizado, mostrar vista especial Y mantener las pestaÃ±as visibles
+        // Si está finalizado, mostrar vista especial Y mantener las pestañas visibles
         if (tournament.status === 'finalizado') {
-            // Asegurarse que el view-switcher estÃ© visible
+            // Asegurarse que el view-switcher esté visible
             viewSwitcherEl.style.display = 'flex';
             document.querySelector('.mobile-view-switcher').style.display = 'block';
 
-            // Mostrar tambiÃ©n la vista de "finalizado" en partidos en directo
+            // Mostrar también la vista de "finalizado" en partidos en directo
             liveMatchesListEl.innerHTML = '';
 
-            // Obtener el campeÃ³n
+            // Obtener el campeón
             const finalMatch = tournament.structure.eliminatorias?.final;
             let championHTML = '';
             if (finalMatch && finalMatch.resultado) {
@@ -1848,7 +1805,7 @@ function initializeTournamentView(tournamentId) {
                     <div class="finished-tournament-banner">
                         <h2>${t('finishedTitle')}</h2>
                         <p>${t('finishedText')}</p>
-                        <h3>${t('champion')} ${champion.nombre} ðŸ†</h3>
+                        <h3>${t('champion')} ${champion.nombre} 🏆</h3>
                     </div>
                 `;
             } else {
@@ -1856,14 +1813,14 @@ function initializeTournamentView(tournamentId) {
             }
             liveMatchesListEl.innerHTML = championHTML;
 
-            // Activar la vista de clasificaciÃ³n por defecto
+            // Activar la vista de clasificación por defecto
             if (!mainPanelEl.querySelector('.view-pane.active')) {
                 mainPanelEl.querySelector('[data-view="classification-view"]').click();
             }
             return;
         }
 
-        // Torneos en curso: lÃ³gicaexistente
+        // Torneos en curso: lógicaexistente
         viewSwitcherEl.style.display = 'flex';
         finishedViewEl.classList.remove('active');
         if (!mainPanelEl.querySelector('.view-pane.active')) {
@@ -1875,15 +1832,15 @@ function initializeTournamentView(tournamentId) {
         teamListContainerEl.innerHTML = '';
         const teams = Object.values(tournament.teams.aprobados).sort((a, b) => a.nombre.localeCompare(b.nombre));
         if (teams.length === 0) {
-            teamListContainerEl.innerHTML = '<p class="placeholder">AÃºn no hay equipos aprobados.</p>';
+            teamListContainerEl.innerHTML = '<p class="placeholder">Aún no hay equipos aprobados.</p>';
             return;
         }
         teams.forEach(team => {
             const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-large" alt="Logo de ${team.nombre}">` : '';
             const isDraftTeam = team.players && team.players.length > 0;
-            let metaHTML = `<div class="team-meta"><span>CapitÃ¡n: ${team.capitanTag}</span>`;
+            let metaHTML = `<div class="team-meta"><span>Capitán: ${team.capitanTag}</span>`;
             if (team.coCaptainTag) {
-                metaHTML += `<span>Co-CapitÃ¡n: ${team.coCaptainTag}</span>`;
+                metaHTML += `<span>Co-Capitán: ${team.coCaptainTag}</span>`;
             }
             metaHTML += '</div>';
             const twitterLink = team.twitter ? `<a href="https://twitter.com/${team.twitter.replace('@', '')}" target="_blank" class="team-link-btn">Twitter</a>` : '';
@@ -1969,7 +1926,7 @@ function initializeTournamentView(tournamentId) {
         const groups = tournament.structure.calendario;
         calendarContainerEl.innerHTML = '';
         if (Object.keys(groups).length === 0) {
-            calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrarÃ¡ cuando comience el torneo.</p>';
+            calendarContainerEl.innerHTML = '<p class="placeholder">El calendario se mostrará cuando comience el torneo.</p>';
             return;
         }
 
@@ -2188,7 +2145,7 @@ function initializeTournamentView(tournamentId) {
                 // Chat button if thread exists
                 if (match.threadId && tournament.guildId) {
                     const threadUrl = `https://discord.com/channels/${tournament.guildId}/${match.threadId}`;
-                    actionsHTML += `<a href="${threadUrl}" target="_blank" class="action-btn" style="text-decoration:none; padding: 8px 15px; background: #5865F2; color: white; border-radius: 6px; display: inline-block; margin-right: 10px;">ðŸ’¬ ${t('chatMatch')}</a>`;
+                    actionsHTML += `<a href="${threadUrl}" target="_blank" class="action-btn" style="text-decoration:none; padding: 8px 15px; background: #5865F2; color: white; border-radius: 6px; display: inline-block; margin-right: 10px;">💬 ${t('chatMatch')}</a>`;
                 }
 
                 // Note: Report via Discord only
@@ -2291,7 +2248,7 @@ function initializeTournamentView(tournamentId) {
 } // Fin de initializeTournamentView
 
 function initializeDraftView(draftId) {
-    // ... (El cÃ³digo de initializeDraftView no necesita cambios)
+    // ... (El código de initializeDraftView no necesita cambios)
     const loadingEl = document.getElementById('loading');
     const draftContainerEl = document.getElementById('draft-container');
     const draftNameEl = document.getElementById('draft-name-draftview');
@@ -2325,7 +2282,7 @@ function initializeDraftView(draftId) {
         setupEventListeners();
         setupFilters();
 
-        // Detectar modo sustituciÃ³n desde URL params
+        // Detectar modo sustitución desde URL params
         const urlSearchParams = new URLSearchParams(window.location.search);
         const substituteFor = urlSearchParams.get('substituteFor');
         const teamParam = urlSearchParams.get('team');
@@ -2333,7 +2290,7 @@ function initializeDraftView(draftId) {
             window.captainSubstituteMode = true;
             window.captainSubstituteData = { outPlayerId: substituteFor, teamId: teamParam };
 
-            // Mostrar banner de modo sustituciÃ³n
+            // Mostrar banner de modo sustitución
             let banner = document.getElementById('captain-substitute-banner');
             if (!banner) {
                 banner = document.createElement('div');
@@ -2341,7 +2298,7 @@ function initializeDraftView(draftId) {
                 banner.style = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg, #2196F3, #1976D2); color:#fff; padding:15px 25px; z-index:9999; border-radius:10px; text-align:center; font-weight:bold; width:90%; max-width:600px; box-shadow:0 4px 20px rgba(33,150,243,0.5); border:1px solid rgba(255,255,255,0.2);';
                 document.body.appendChild(banner);
             }
-            banner.innerHTML = `ðŸ”„ MODO SUSTITUCIÃ“N<br><span style="font-size:13px; font-weight:normal;">Selecciona un agente libre de la tabla para sustituir al jugador. Puedes ver su ficha antes de confirmar.</span><br><button id="captain-cancel-substitute-btn" style="margin-top:10px; padding:8px 20px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.4); border-radius:6px; cursor:pointer; font-weight:bold;">âŒ Cancelar y Volver</button>`;
+            banner.innerHTML = `🔄 MODO SUSTITUCIÓN<br><span style="font-size:13px; font-weight:normal;">Selecciona un agente libre de la tabla para sustituir al jugador. Puedes ver su ficha antes de confirmar.</span><br><button id="captain-cancel-substitute-btn" style="margin-top:10px; padding:8px 20px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.4); border-radius:6px; cursor:pointer; font-weight:bold;">❌ Cancelar y Volver</button>`;
 
             document.getElementById('captain-cancel-substitute-btn').onclick = () => {
                 window.captainSubstituteMode = false;
@@ -2374,7 +2331,7 @@ function initializeDraftView(draftId) {
                 if (loginControlEl) loginControlEl.classList.remove('hidden');
             }
         } catch (e) {
-            console.error("Error al verificar la sesiÃ³n:", e);
+            console.error("Error al verificar la sesión:", e);
         }
     }
 
@@ -2444,7 +2401,7 @@ function initializeDraftView(draftId) {
                 const undoBtn = document.createElement('button');
                 undoBtn.id = 'admin-undo-btn';
                 undoBtn.className = 'admin-btn undo-btn';
-                undoBtn.innerHTML = 'âª Deshacer Pick';
+                undoBtn.innerHTML = '⏪ Deshacer Pick';
                 undoBtn.style.marginTop = '10px';
                 undoBtn.style.backgroundColor = '#e74c3c';
                 undoBtn.style.color = '#fff';
@@ -2453,12 +2410,12 @@ function initializeDraftView(draftId) {
                 undoBtn.style.borderRadius = '5px';
                 undoBtn.style.cursor = 'pointer';
                 undoBtn.onclick = () => {
-                    if (confirm('Â¿Seguro que quieres deshacer el Ãºltimo pick? El turno retrocederÃ¡ y el jugador volverÃ¡ a la lista de Libres.')) {
+                    if (confirm('¿Seguro que quieres deshacer el último pick? El turno retrocederá y el jugador volverá a la lista de Libres.')) {
                         socket.send(JSON.stringify({ type: 'admin_undo_pick', draftId: draft.shortId }));
                     }
                 };
 
-                // AÃ±adirlo debajo del bloque de info del turno
+                // Añadirlo debajo del bloque de info del turno
                 const currentPickBoard = document.querySelector('.current-pick-board');
                 if (currentPickBoard) {
                     currentPickBoard.appendChild(undoBtn);
@@ -2514,11 +2471,11 @@ function initializeDraftView(draftId) {
 
                 let replaceBtn = '';
                 if (userRoleData && userRoleData.isAdmin && draft.status === 'seleccion') {
-                    replaceBtn = `<button class="admin-init-replace-btn" data-player-id="${p.userId}" data-team-id="${captain.userId}" title="Reemplazar Jugador" style="background:transparent; border:none; cursor:pointer; padding:0; margin-left:5px;">ðŸ”„</button>`;
+                    replaceBtn = `<button class="admin-init-replace-btn" data-player-id="${p.userId}" data-team-id="${captain.userId}" title="Reemplazar Jugador" style="background:transparent; border:none; cursor:pointer; padding:0; margin-left:5px;">🔄</button>`;
                 }
                 playersListHTML += `<li>
                     <span class="player-name-compact" style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${isCaptainFlag ? 'color: var(--winner-color); font-weight: bold;' : ''}">
-                        ${isCaptainFlag ? 'â­ ' : ''}${p.psnId}
+                        ${isCaptainFlag ? '⭐ ' : ''}${p.psnId}
                     </span>
                     <div class="player-badges-compact" style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
                         <span class="pos-badge">${p.pickedForPosition || p.primaryPosition}${isSecondary ? '*' : ''}</span>
@@ -2540,7 +2497,7 @@ function initializeDraftView(draftId) {
     function exportDraftToPDF(draft) {
         if (!draft || !draft.captains || !draft.players) return;
         if (typeof window.jspdf === 'undefined') {
-            alert('Error: la librerÃ­a de PDF no se ha cargado. Recarga la pÃ¡gina e intÃ©ntalo de nuevo.');
+            alert('Error: la librería de PDF no se ha cargado. Recarga la página e inténtalo de nuevo.');
             return;
         }
 
@@ -2563,12 +2520,12 @@ function initializeDraftView(draftId) {
             accent: [230, 36, 41],    // #E62429 red
         };
 
-        // Filtrar equipos segÃºn rol
+        // Filtrar equipos según rol
         let captainsToExport = draft.captains;
         console.log('[PDF Export] draft.captains:', draft.captains?.length, 'isAdmin:', userRoleData?.isAdmin, 'currentUser:', currentUser?.id);
         if (userRoleData && !userRoleData.isAdmin && currentUser) {
             captainsToExport = draft.captains.filter(c => c.userId === currentUser.id);
-            console.log('[PDF Export] Filtrado para capitÃ¡n, equipos:', captainsToExport.length);
+            console.log('[PDF Export] Filtrado para capitán, equipos:', captainsToExport.length);
         } else {
             console.log('[PDF Export] Admin: exportando todos los equipos:', captainsToExport.length);
         }
@@ -2582,11 +2539,11 @@ function initializeDraftView(draftId) {
         doc.setFillColor(...COLORS.bg);
         doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-        // LÃ­nea decorativa superior
+        // Línea decorativa superior
         doc.setFillColor(...COLORS.headerBg);
         doc.rect(0, 0, pageWidth, 4, 'F');
 
-        // TÃ­tulo principal
+        // Título principal
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(36);
         doc.setTextColor(...COLORS.headerBg);
@@ -2596,7 +2553,7 @@ function initializeDraftView(draftId) {
         doc.setTextColor(...COLORS.text);
         doc.text(draft.draftName || draft.name || 'Sin nombre', pageWidth / 2, 70, { align: 'center' });
 
-        // LÃ­nea separadora
+        // Línea separadora
         doc.setDrawColor(...COLORS.headerBg);
         doc.setLineWidth(0.5);
         doc.line(pageWidth / 2 - 40, 78, pageWidth / 2 + 40, 78);
@@ -2607,7 +2564,7 @@ function initializeDraftView(draftId) {
         const dateStr = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
         doc.text(`Equipos: ${captainsToExport.length}`, pageWidth / 2, 90, { align: 'center' });
         doc.text(`Jugadores totales: ${draft.players.filter(p => !p.isCaptain).length}`, pageWidth / 2, 97, { align: 'center' });
-        doc.text(`Fecha de exportaciÃ³n: ${dateStr}`, pageWidth / 2, 104, { align: 'center' });
+        doc.text(`Fecha de exportación: ${dateStr}`, pageWidth / 2, 104, { align: 'center' });
 
         // Branding
         doc.setFontSize(14);
@@ -2617,11 +2574,11 @@ function initializeDraftView(draftId) {
         doc.setTextColor(...COLORS.textMuted);
         doc.text('Powered by Bot Torneos Pro', pageWidth / 2, pageHeight - 18, { align: 'center' });
 
-        // LÃ­nea decorativa inferior
+        // Línea decorativa inferior
         doc.setFillColor(...COLORS.accent);
         doc.rect(0, pageHeight - 4, pageWidth, 4, 'F');
 
-        // === PÃGINAS DE EQUIPOS ===
+        // === PÁGINAS DE EQUIPOS ===
         captainsToExport.forEach((captain, idx) => {
             doc.addPage();
 
@@ -2637,13 +2594,13 @@ function initializeDraftView(draftId) {
             doc.setTextColor(...COLORS.headerText);
             doc.text(`${captain.teamName || 'Equipo sin nombre'}`, 10, 12);
 
-            // Info del capitÃ¡n
+            // Info del capitán
             doc.setFontSize(10);
             doc.setTextColor(...COLORS.headerText);
             const captainPsn = captain.psnId || captain.userName || 'N/A';
-            doc.text(`CapitÃ¡n: ${captainPsn}`, pageWidth - 10, 12, { align: 'right' });
+            doc.text(`Capitán: ${captainPsn}`, pageWidth - 10, 12, { align: 'right' });
 
-            // SubtÃ­tulo con EAFC team si existe
+            // Subtítulo con EAFC team si existe
             let subtitleY = 25;
             if (captain.eafcTeamName) {
                 doc.setFontSize(9);
@@ -2652,7 +2609,7 @@ function initializeDraftView(draftId) {
                 subtitleY += 7;
             }
 
-            // Tabla de jugadores â€” ordenados por posiciÃ³n y luego alfabÃ©ticamente
+            // Tabla de jugadores — ordenados por posición y luego alfabéticamente
             const posOrder = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
             const teamPlayers = draft.players
                 .filter(p => p.captainId === captain.userId)
@@ -2675,7 +2632,7 @@ function initializeDraftView(draftId) {
 
             doc.autoTable({
                 startY: subtitleY + 3,
-                head: [['#', 'JUGADOR (PSN)', 'POSICIÃ“N', 'POS. SEC.', 'WHATSAPP', 'TWITTER', 'STRIKES']],
+                head: [['#', 'JUGADOR (PSN)', 'POSICIÓN', 'POS. SEC.', 'WHATSAPP', 'TWITTER', 'STRIKES']],
                 body: tableData,
                 theme: 'plain',
                 styles: {
@@ -2709,23 +2666,23 @@ function initializeDraftView(draftId) {
                 margin: { left: 10, right: 10 },
             });
 
-            // Footer de la pÃ¡gina
+            // Footer de la página
             doc.setFontSize(8);
             doc.setTextColor(...COLORS.textMuted);
-            doc.text(`${draft.draftName || draft.name} â€” Equipo ${idx + 1} de ${captainsToExport.length}`, 10, pageHeight - 8);
-            doc.text(`PÃ¡g. ${idx + 2}`, pageWidth - 10, pageHeight - 8, { align: 'right' });
+            doc.text(`${draft.draftName || draft.name} — Equipo ${idx + 1} de ${captainsToExport.length}`, 10, pageHeight - 8);
+            doc.text(`Pág. ${idx + 2}`, pageWidth - 10, pageHeight - 8, { align: 'right' });
 
-            // LÃ­nea decorativa inferior
+            // Línea decorativa inferior
             doc.setFillColor(...COLORS.headerBg);
             doc.rect(0, pageHeight - 3, pageWidth, 3, 'F');
         });
 
-        // === PÃGINA RESUMEN DE EQUIPOS (solo admins) ===
+        // === PÁGINA RESUMEN DE EQUIPOS (solo admins) ===
         if (userRoleData && userRoleData.isAdmin) {
             const posOrder = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
             const allCaptains = draft.captains;
 
-            // Calcular cuÃ¡ntos equipos caben por pÃ¡gina (3 columnas aprox)
+            // Calcular cuántos equipos caben por página (3 columnas aprox)
             const colWidth = (pageWidth - 20) / 3;
             let currentX = 10;
             let currentY = 0;
@@ -2740,7 +2697,7 @@ function initializeDraftView(draftId) {
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(13);
                 doc.setTextColor(...COLORS.headerText);
-                doc.text('RESUMEN DE EQUIPOS â€” ' + (draft.draftName || draft.name), pageWidth / 2, 10, { align: 'center' });
+                doc.text('RESUMEN DE EQUIPOS — ' + (draft.draftName || draft.name), pageWidth / 2, 10, { align: 'center' });
                 currentX = 10;
                 currentY = 22;
                 pageStarted = true;
@@ -2758,10 +2715,10 @@ function initializeDraftView(draftId) {
                         return (a.psnId || '').localeCompare(b.psnId || '');
                     });
 
-                // Altura necesaria: tÃ­tulo (8) + jugadores (5 cada uno) + padding (6)
+                // Altura necesaria: título (8) + jugadores (5 cada uno) + padding (6)
                 const blockHeight = 8 + teamPlayers.length * 5 + 6;
 
-                // Â¿Necesitamos nueva fila o nueva pÃ¡gina?
+                // ¿Necesitamos nueva fila o nueva página?
                 if (currentY + blockHeight > pageHeight - 10) {
                     currentX += colWidth;
                     currentY = 22;
@@ -2785,7 +2742,7 @@ function initializeDraftView(draftId) {
                 doc.setFontSize(7.5);
                 teamPlayers.forEach((p, pIdx) => {
                     const yPos = currentY + 12 + pIdx * 5;
-                    // PosiciÃ³n con color
+                    // Posición con color
                     doc.setTextColor(...COLORS.headerBg);
                     doc.text(p.pickedForPosition || p.primaryPosition || '??', currentX + 3, yPos);
                     // Nombre
@@ -2801,7 +2758,7 @@ function initializeDraftView(draftId) {
             doc.setTextColor(...COLORS.textMuted);
             doc.text('Resumen para compartir en la comunidad', 10, pageHeight - 8);
 
-            // === PÃGINA AGENTES LIBRES (solo admins) ===
+            // === PÁGINA AGENTES LIBRES (solo admins) ===
             doc.addPage();
             doc.setFillColor(...COLORS.bg);
             doc.rect(0, 0, pageWidth, pageHeight, 'F');
@@ -2814,7 +2771,7 @@ function initializeDraftView(draftId) {
             doc.setTextColor(...COLORS.headerText);
             doc.text('AGENTES LIBRES', 10, 12);
 
-            // Filtrar y ordenar agentes libres: posiciÃ³n â†’ alfabÃ©tico
+            // Filtrar y ordenar agentes libres: posición → alfabético
             const captainUserIds = new Set(allCaptains.map(c => c.userId));
             const freeAgents = draft.players
                 .filter(p => (p.captainId === null || p.captainId === undefined) && !p.isCaptain && !captainUserIds.has(p.userId))
@@ -2846,7 +2803,7 @@ function initializeDraftView(draftId) {
 
                 doc.autoTable({
                     startY: 25,
-                    head: [['#', 'JUGADOR (PSN)', 'POSICIÃ“N', 'POS. SEC.', 'WHATSAPP', 'TWITTER', 'STRIKES']],
+                    head: [['#', 'JUGADOR (PSN)', 'POSICIÓN', 'POS. SEC.', 'WHATSAPP', 'TWITTER', 'STRIKES']],
                     body: freeTableData,
                     theme: 'plain',
                     styles: {
@@ -2884,9 +2841,9 @@ function initializeDraftView(draftId) {
             // Footer
             doc.setFontSize(8);
             doc.setTextColor(...COLORS.textMuted);
-            doc.text(`${draft.draftName || draft.name} â€” Agentes Libres`, 10, pageHeight - 8);
+            doc.text(`${draft.draftName || draft.name} — Agentes Libres`, 10, pageHeight - 8);
 
-            // LÃ­nea decorativa inferior
+            // Línea decorativa inferior
             doc.setFillColor(230, 126, 34);
             doc.rect(0, pageHeight - 3, pageWidth, 3, 'F');
         }
@@ -2901,7 +2858,7 @@ function initializeDraftView(draftId) {
         const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
         const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
 
-        // --- NUEVA LÃ“GICA DE VISIBILIDAD DE DETALLES ---
+        // --- NUEVA LÓGICA DE VISIBILIDAD DE DETALLES ---
         const canViewDetails = currentUser && (draft.status === 'finalizado' || draft.status === 'torneo_generado');
         const isAuthenticated = !!currentUser;
 
@@ -2940,20 +2897,20 @@ function initializeDraftView(draftId) {
 
             // CAPTAIN SUBSTITUTE MODE
             if (window.captainSubstituteMode) {
-                actionButtonsHTML = `<button class="captain-substitute-select-btn" data-player-id="${player.userId}" data-player-psn="${player.psnId}" data-draft-id="${draft.shortId}" style="background:linear-gradient(135deg, #2196F3, #1565C0); color:white; padding:6px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; font-size:0.85rem;">ðŸ”„ Sustituir por este</button> <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="margin-left:4px;">ðŸªª Ficha</button>`;
+                actionButtonsHTML = `<button class="captain-substitute-select-btn" data-player-id="${player.userId}" data-player-psn="${player.psnId}" data-draft-id="${draft.shortId}" style="background:linear-gradient(135deg, #2196F3, #1565C0); color:white; padding:6px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; font-size:0.85rem;">🔄 Sustituir por este</button> <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="margin-left:4px;">🪪 Ficha</button>`;
             }
             // ADMIN CONTROLS: REPLACE MODE OR FORCE PICK
             else if (userRoleData && userRoleData.isAdmin && draft.status === 'seleccion') {
                 if (window.adminReplaceMode) {
                     actionButtonsHTML = `<button class="admin-finalize-replace-btn" data-new-player-id="${player.userId}" data-new-player-psn="${player.psnId}" style="background-color:#E62429; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Sustituir por este</button>`;
                 } else {
-                    actionButtonsHTML = `<button class="admin-force-pick-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="background-color:#3498db; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer;">âš¡ Forzar Pick</button>`;
+                    actionButtonsHTML = `<button class="admin-force-pick-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="background-color:#3498db; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer;">⚡ Forzar Pick</button>`;
                 }
             }
 
-            // Si se cumplen las condiciones, aÃ±adimos el botÃ³n de ver detalles
+            // Si se cumplen las condiciones, añadimos el botón de ver detalles
             if (canViewDetails && !window.captainSubstituteMode) {
-                actionButtonsHTML += `<button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">ðŸªª Ver Ficha</button>`;
+                actionButtonsHTML += `<button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>`;
             }
 
             const statusIcon = '';
@@ -2977,7 +2934,7 @@ function initializeDraftView(draftId) {
             ${whatsappCell}
             <td data-label="Pos. Primaria" class="col-primary"><span class="player-data">${player.primaryPosition}</span></td>
             <td data-label="Pos. Secundaria" class="col-secondary"><span class="player-data">${secPos}</span></td>
-            <td data-label="AcciÃ³n" class="col-action">${actionButtonsHTML}</td>
+            <td data-label="Acción" class="col-action">${actionButtonsHTML}</td>
         `;
             playersTableBodyEl.appendChild(row);
         });
@@ -3018,7 +2975,7 @@ function initializeDraftView(draftId) {
             if (activeFilterPos === 'Todos') {
                 isVisible = true;
             } else if (activeFilterPos === 'Medios') {
-                // LÃ³gica especial para el filtro de Medios
+                // Lógica especial para el filtro de Medios
                 if (isMyTurn) {
                     if (hasPrimaryMatchesInData) {
                         if (MIDFIELDER_POSITIONS.includes(primaryPos)) isVisible = true;
@@ -3084,7 +3041,7 @@ function initializeDraftView(draftId) {
                     activeFilterPos = playerRow.dataset.primaryPos;
                 }
                 const playerId = event.target.dataset.playerId;
-                if (confirm('Â¿Forzar pick de este jugador para el capitÃ¡n activo en la posiciÃ³n ' + activeFilterPos + '?')) {
+                if (confirm('¿Forzar pick de este jugador para el capitán activo en la posición ' + activeFilterPos + '?')) {
                     socket.send(JSON.stringify({ type: 'admin_force_pick', draftId, playerId, position: activeFilterPos }));
                 }
             }
@@ -3110,9 +3067,9 @@ function initializeDraftView(draftId) {
                     window.adminReplaceMode = false;
                     window.adminReplaceData = null;
                     document.getElementById('admin-replace-banner')?.remove();
-                    // El socket harÃ¡ el re-render cuando llegue el nuevo state
+                    // El socket hará el re-render cuando llegue el nuevo state
                 } else if (dispositionStr !== null) {
-                    alert('AcciÃ³n cancelada. Has introducido un comando no vÃ¡lido.');
+                    alert('Acción cancelada. Has introducido un comando no válido.');
                 }
             }
         });
@@ -3120,7 +3077,7 @@ function initializeDraftView(draftId) {
         rosterManagementContainer.addEventListener('click', (event) => {
             const target = event.target;
             const playerId = target.dataset.playerId;
-            const draftId = target.dataset.draftId; // Lo necesitamos aquÃ­ tambiÃ©n
+            const draftId = target.dataset.draftId; // Lo necesitamos aquí también
 
             if (target.classList.contains('btn-strike')) {
                 const reason = prompt("Por favor, introduce un motivo breve para el strike (ej: inactividad, toxicidad):");
@@ -3132,9 +3089,9 @@ function initializeDraftView(draftId) {
             }
 
             if (target.classList.contains('btn-kick')) {
-                const reason = prompt("Por favor, introduce un motivo breve para solicitar la expulsiÃ³n:");
+                const reason = prompt("Por favor, introduce un motivo breve para solicitar la expulsión:");
                 if (reason && reason.trim() !== '') {
-                    if (confirm(`Â¿EstÃ¡s seguro de que quieres solicitar la EXPULSIÃ“N de este jugador por el motivo "${reason.trim()}"? Un administrador deberÃ¡ aprobarlo.`)) {
+                    if (confirm(`¿Estás seguro de que quieres solicitar la EXPULSIÓN de este jugador por el motivo "${reason.trim()}"? Un administrador deberá aprobarlo.`)) {
                         socket.send(JSON.stringify({ type: 'request_kick', draftId, playerId, reason: reason.trim() }));
                         target.disabled = true;
                         target.textContent = 'Solicitud Pendiente';
@@ -3142,14 +3099,14 @@ function initializeDraftView(draftId) {
                 }
             }
 
-            // --- BLOQUE AÃ‘ADIDO ---
+            // --- BLOQUE AÑADIDO ---
             if (target.classList.contains('details-btn')) {
                 showPlayerDetailsModal(draftId, playerId);
             }
-            // --- FIN DEL BLOQUE AÃ‘ADIDO ---
+            // --- FIN DEL BLOQUE AÑADIDO ---
         });
 
-        // LÃ³gica para cerrar el nuevo modal
+        // Lógica para cerrar el nuevo modal
         const detailsModal = document.getElementById('player-details-modal');
         const closeDetailsButton = detailsModal.querySelector('.close-button');
 
@@ -3161,19 +3118,19 @@ function initializeDraftView(draftId) {
         });
         // --- INICIO DEL NUEVO BLOQUE DE ESCUCHA GLOBAL ---
         document.addEventListener('click', function (event) {
-            // Solo nos interesa si se hizo clic en un botÃ³n con la clase 'details-btn'
+            // Solo nos interesa si se hizo clic en un botón con la clase 'details-btn'
             if (event.target.classList.contains('details-btn')) {
                 const playerId = event.target.dataset.playerId;
                 const draftId = event.target.dataset.draftId;
 
                 // Debug log que pediste:
-                console.log('BotÃ³n de Ficha clickeado, datos:', { draftId, playerId });
+                console.log('Botón de Ficha clickeado, datos:', { draftId, playerId });
 
                 // Si tenemos los datos, mostramos la ventana
                 if (draftId && playerId) {
                     showPlayerDetailsModal(draftId, playerId);
                 } else {
-                    console.error('Faltan datos en el botÃ³n para mostrar la ficha (draftId o playerId).');
+                    console.error('Faltan datos en el botón para mostrar la ficha (draftId o playerId).');
                 }
             }
 
@@ -3187,7 +3144,7 @@ function initializeDraftView(draftId) {
                 if (!outPlayerId) return;
 
                 // Primero mostrar ficha del jugador, luego confirmar
-                const reason = prompt(`Â¿Quieres sustituir al jugador por ${newPlayerPsn}?\n\nEscribe el motivo de la sustituciÃ³n:`);
+                const reason = prompt(`¿Quieres sustituir al jugador por ${newPlayerPsn}?\n\nEscribe el motivo de la sustitución:`);
 
                 if (reason && reason.trim() !== '') {
                     // Llamar al endpoint existente
@@ -3204,7 +3161,7 @@ function initializeDraftView(draftId) {
                         .then(res => res.json())
                         .then(data => {
                             if (data.success) {
-                                alert('âœ… ' + (data.message || 'Solicitud de sustituciÃ³n enviada a los administradores.'));
+                                alert('✅ ' + (data.message || 'Solicitud de sustitución enviada a los administradores.'));
                                 window.captainSubstituteMode = false;
                                 window.captainSubstituteData = null;
                                 document.getElementById('captain-substitute-banner')?.remove();
@@ -3214,12 +3171,12 @@ function initializeDraftView(draftId) {
                                 // Re-render
                                 if (currentDraftState) renderAvailablePlayers(currentDraftState);
                             } else {
-                                alert('âŒ ' + (data.error || 'Error al solicitar la sustituciÃ³n'));
+                                alert('❌ ' + (data.error || 'Error al solicitar la sustitución'));
                             }
                         })
                         .catch(err => {
                             console.error('Error substitute:', err);
-                            alert('âŒ Error de conexiÃ³n al solicitar la sustituciÃ³n');
+                            alert('❌ Error de conexión al solicitar la sustitución');
                         });
                 }
             }
@@ -3251,7 +3208,7 @@ function initializeDraftView(draftId) {
                     }
                 };
 
-                // Forzar re-render de la tabla para mostrar los botones de confirmaciÃ³n
+                // Forzar re-render de la tabla para mostrar los botones de confirmación
                 if (typeof currentDraftState !== 'undefined') {
                     renderAvailablePlayers(currentDraftState);
                     // Scroll a la tabla de disponibles suave
@@ -3302,12 +3259,12 @@ function initializeDraftView(draftId) {
             const kickRequestPending = player.kickRequestPending || false;
 
             const reportButtonText = hasBeenReported ? 'Reportado' : 'Reportar (Strike)';
-            const kickButtonText = kickRequestPending ? 'Solicitud Pendiente' : 'Solicitar ExpulsiÃ³n';
+            const kickButtonText = kickRequestPending ? 'Solicitud Pendiente' : 'Solicitar Expulsión';
 
             card.innerHTML = `
             <div class="player-management-info">
                 <h3>${player.psnId}</h3>
-                <p>PosiciÃ³n: ${player.primaryPosition}</p>
+                <p>Posición: ${player.primaryPosition}</p>
                 <p>Strikes: <span class="strikes">${strikes}</span></p>
             </div>
             <div class="management-actions">
@@ -3317,7 +3274,7 @@ function initializeDraftView(draftId) {
                 <button class="btn-kick" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" ${kickRequestPending ? 'disabled' : ''}>
                     ${kickButtonText}
                 </button>
-                <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">ðŸªª Ver Ficha</button>
+                <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>
             </div>
         `;
             rosterManagementContainer.appendChild(card);
@@ -3342,7 +3299,7 @@ function initializeDraftView(draftId) {
             const pickNumber = startPickOfRound + i + 1;
             let pickIndexInOrder;
 
-            // LÃ³gica Snake Draft
+            // Lógica Snake Draft
             if ((currentRound + 1) % 2 !== 0) { // Ronda impar (1, 3, 5...)
                 pickIndexInOrder = i;
             } else { // Ronda par (2, 4, 6...)
@@ -3372,7 +3329,7 @@ function initializeDraftView(draftId) {
         }, 4500);
 
         const bannerEl = document.getElementById('last-pick-banner');
-        bannerEl.innerHTML = `<strong>Ãšltimo Pick:</strong> ${player.psnId} âž” ${captain.teamName}`;
+        bannerEl.innerHTML = `<strong>Último Pick:</strong> ${player.psnId} ➔ ${captain.teamName}`;
         bannerEl.classList.add('visible');
     }
     async function showPlayerDetailsModal(draftId, playerId) {
@@ -3439,10 +3396,10 @@ function initializeRouletteView(sessionId) {
     // *** NUEVO: Escucha las actualizaciones del torneo para llenar los grupos ***
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        console.log('[DEBUG 6] ActualizaciÃ³n recibida del bot:', message);
+        console.log('[DEBUG 6] Actualización recibida del bot:', message);
 
         if (message.type === 'tournament' && message.id === currentTournamentId) {
-            console.log('[DEBUG 7] Â¡IDs coinciden! Actualizando la lista de grupos.', { id_recibido: message.id, id_esperado: currentTournamentId });
+            console.log('[DEBUG 7] ¡IDs coinciden! Actualizando la lista de grupos.', { id_recibido: message.id, id_esperado: currentTournamentId });
             updateGroupDisplay(message.data.structure.grupos);
         }
     };
@@ -3463,7 +3420,7 @@ function initializeRouletteView(sessionId) {
                     spinButton.textContent = 'GIRAR RULETA';
                     statusEl.textContent = `Listos para sortear. ${teams.length} equipos restantes.`;
                 } else {
-                    statusEl.textContent = 'Â¡SORTEO FINALIZADO!';
+                    statusEl.textContent = '¡SORTEO FINALIZADO!';
                     spinButton.textContent = 'COMPLETADO';
                     spinButton.disabled = true;
                 }
@@ -3471,12 +3428,12 @@ function initializeRouletteView(sessionId) {
         } catch (error) { statusEl.textContent = 'Error al conectar con el servidor.'; }
     }
 
-    // *** NUEVO: FunciÃ³n para actualizar la lista de grupos en la barra lateral ***
+    // *** NUEVO: Función para actualizar la lista de grupos en la barra lateral ***
     function updateGroupDisplay(groups) {
         groupAList.innerHTML = '';
         groupBList.innerHTML = '';
-        groupCList.innerHTML = ''; // <-- AÃ‘ADIDO
-        groupDList.innerHTML = ''; // <-- AÃ‘ADIDO
+        groupCList.innerHTML = ''; // <-- AÑADIDO
+        groupDList.innerHTML = ''; // <-- AÑADIDO
 
         if (groups['Grupo A']) {
             groups['Grupo A'].equipos.forEach(team => {
@@ -3492,7 +3449,7 @@ function initializeRouletteView(sessionId) {
                 groupBList.appendChild(li);
             });
         }
-        // --- BLOQUE AÃ‘ADIDO ---
+        // --- BLOQUE AÑADIDO ---
         if (groups['Grupo C']) {
             groups['Grupo C'].equipos.forEach(team => {
                 const li = document.createElement('li');
@@ -3517,7 +3474,7 @@ function initializeRouletteView(sessionId) {
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
         if (teams.length > 12) {
-            // Si hay muchos equipos (ej. 16), usamos una fuente mÃ¡s pequeÃ±a
+            // Si hay muchos equipos (ej. 16), usamos una fuente más pequeña
             ctx.font = 'bold 16px Bebas Neue';
         } else {
             // Si hay pocos equipos (ej. 8), usamos la fuente grande de siempre
@@ -3545,7 +3502,7 @@ function initializeRouletteView(sessionId) {
         if (teams.length === 0) return;
         spinButton.disabled = true;
         statusEl.textContent = 'Girando...';
-        // *** MODIFICADO: MÃ¡s fuerza y duraciÃ³n para un giro mÃ¡s emocionante ***
+        // *** MODIFICADO: Más fuerza y duración para un giro más emocionante ***
         spinAngleStart = Math.random() * 20 + 30;
         spinTime = 0;
         spinTimeTotal = Math.random() * 2000 + 7000;
@@ -3570,7 +3527,7 @@ function initializeRouletteView(sessionId) {
         const index = Math.floor((360 - degrees % 360) / arc);
         const winner = teams[index];
 
-        statusEl.textContent = `Asignando a... Â¡${winner.name}!`;
+        statusEl.textContent = `Asignando a... ¡${winner.name}!`;
         console.log('[DEBUG 1] Enviando resultado al bot:', { sessionId: sessionId, teamId: winner.id });
 
         if (socket.readyState === WebSocket.OPEN) {
