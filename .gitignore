@@ -4,3 +4,4 @@ node_modules/
 mock_server_test.js
 update_settings.js
 verify_quotas.js
+scripts/
