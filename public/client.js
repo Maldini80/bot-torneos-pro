@@ -1,4 +1,4 @@
-﻿// ===== TRADUCCIONES =====
+// ===== TRADUCCIONES =====
 const translations = {
     es: {
         backBtn: 'â† Dashboard',
