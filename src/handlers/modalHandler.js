@@ -3,7 +3,7 @@
 import { ObjectId } from 'mongodb';
 import { getDb, updateBotSettings } from '../../database.js';
 // --- CÓDIGO MODIFICADO Y CORRECTO ---
-import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer, createTournamentFromDraft, handleImportedPlayers, addSinglePlayerToDraft, sendPaymentApprovalRequest } from '../logic/tournamentLogic.js';
+import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer, createTournamentFromDraft, handleImportedPlayers, addSinglePlayerToDraft, sendPaymentApprovalRequest, adminAddPlayerToDraft } from '../logic/tournamentLogic.js';
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 // --- LÍNEA CORREGIDA Y COMPLETA ---
