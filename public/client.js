@@ -1061,12 +1061,13 @@ function initializeDraftView(draftId) {
         }
 
         // Check for new picks to show alert
-        if (draft.lastPick && (!lastShownPickData || lastShownPickData.pickNumber !== draft.lastPick.pickNumber)) {
-            const captain = draft.captains.find(c => c.userId === draft.lastPick.captainId);
-            const player = draft.players.find(p => p.userId === draft.lastPick.playerId);
+        const lastPick = draft.selection?.lastPick;
+        if (lastPick && (!lastShownPickData || lastShownPickData.pickNumber !== lastPick.pickNumber)) {
+            const captain = draft.captains.find(c => c.userId === lastPick.captainId);
+            const player = draft.players.find(p => p.userId === lastPick.playerId);
             if (captain && player) {
-                showPickAlert(draft.lastPick.pickNumber, player, captain);
-                lastShownPickData = draft.lastPick;
+                showPickAlert(lastPick.pickNumber, player, captain);
+                lastShownPickData = lastPick;
             }
         }
 

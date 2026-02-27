@@ -194,6 +194,8 @@ export async function handlePlayerSelection(client, draftShortId, captainId, sel
             pickNumber: draft.selection.currentPick,
             playerPsnId: player.psnId,
             captainTeamName: captain.teamName,
+            captainId: captainId,
+            playerId: selectedPlayerId,
             position: pickedForPosition
         };
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
@@ -300,7 +302,7 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
             { $set: { "players.$.captainId": captainId, "players.$.pickedForPosition": pickedForPosition } }
         );
 
-        const lastPickInfo = { pickNumber: draft.selection.currentPick, playerPsnId: player.psnId, captainTeamName: captain.teamName, position: pickedForPosition };
+        const lastPickInfo = { pickNumber: draft.selection.currentPick, playerPsnId: player.psnId, captainTeamName: captain.teamName, captainId: captainId, playerId: selectedPlayerId, position: pickedForPosition };
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
 
         if (/^\d+$/.test(selectedPlayerId)) {
