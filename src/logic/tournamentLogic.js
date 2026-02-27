@@ -372,13 +372,17 @@ export async function approveDraftCaptain(client, draft, captainData) {
         captainId: captainData.userId
     };
 
-    // --- FIX: Si ya existía como jugador (ej: importado de WhatsApp), eliminarlo primero ---
-    const existingPlayer = draft.players.find(p => p.userId === captainData.userId);
+    // --- FIX: Si ya existía como jugador (por userId O por psnId de una importación manual), eliminarlo primero ---
+    const existingPlayer = draft.players.find(p =>
+        p.userId === captainData.userId ||
+        (p.psnId.toLowerCase() === captainData.psnId.toLowerCase() && !p.isCaptain)
+    );
     if (existingPlayer) {
         await db.collection('drafts').updateOne(
             { _id: draft._id },
-            { $pull: { players: { userId: captainData.userId } } }
+            { $pull: { players: { userId: existingPlayer.userId } } }
         );
+        console.log(`[DRAFT] Entrada fantasma/manual "${existingPlayer.psnId}" (${existingPlayer.userId}) eliminada al aprobar como capitán a ${captainData.userId}`);
     }
 
     await db.collection('drafts').updateOne(
