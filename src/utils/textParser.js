@@ -35,6 +35,10 @@ export function parsePlayerList(text) {
     // Función auxiliar para limpiar un nombre de jugador
     function cleanGameId(raw) {
         let gameId = raw.replace(listPrefixRegex, '').trim();
+
+        // Novedad: Si el nombre contiene un número de teléfono pegado al principio (ej "650798522 JOSSEBI"), lo quitamos
+        gameId = gameId.replace(/^(?:\+?\d[\d\s\-\.]{7,})\s+/, '').trim();
+
         gameId = gameId.replace(emojiRegex, '').trim();
         gameId = gameId.replace(/\s*\(.*\)$/, '').trim(); // Quitar paréntesis extras con info
         return gameId;

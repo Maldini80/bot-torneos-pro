@@ -3994,7 +3994,13 @@ export async function handleImportedPlayers(client, draftShortId, text) {
             continue;
         }
 
-        const matchInImport = importedMap.get(currentP.whatsapp) || importedMap.get(currentP.psnId.toLowerCase());
+        let matchInImport = null;
+        if (currentP.whatsapp && currentP.whatsapp !== '') {
+            matchInImport = importedMap.get(currentP.whatsapp);
+        }
+        if (!matchInImport && currentP.psnId) {
+            matchInImport = importedMap.get(currentP.psnId.toLowerCase());
+        }
 
         if (matchInImport) {
             // El jugador está en la lista importada -> SE QUEDA
@@ -4020,11 +4026,13 @@ export async function handleImportedPlayers(client, draftShortId, text) {
         // Escapar caracteres especiales en gameId para evitar SyntaxError en la RegExp
         const escapedGameId = p.gameId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+        const queryOr = [{ gameId: { $regex: new RegExp(`^${escapedGameId}$`, 'i') } }];
+        if (p.whatsapp && p.whatsapp !== '') {
+            queryOr.push({ whatsapp: p.whatsapp });
+        }
+
         const verifiedUser = await db.collection('verified_users').findOne({
-            $or: [
-                { gameId: { $regex: new RegExp(`^${escapedGameId}$`, 'i') } },
-                { whatsapp: p.whatsapp }
-            ]
+            $or: queryOr
         });
 
         let playerData;
@@ -4034,7 +4042,7 @@ export async function handleImportedPlayers(client, draftShortId, text) {
             playerData = {
                 userId: verifiedUser.discordId,
                 userName: verifiedUser.discordTag,
-                psnId: verifiedUser.gameId, // Use verified ID
+                psnId: p.gameId, // Force use of the TXT name, to fix old name display bugs
                 twitter: verifiedUser.twitter,
                 whatsapp: verifiedUser.whatsapp,
                 primaryPosition: p.position,
