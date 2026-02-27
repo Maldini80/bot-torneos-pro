@@ -331,7 +331,7 @@ app.post('/api/user/verify', async (req, res) => {
     if (!validPlatforms.includes(platform)) return res.status(400).json({ error: 'Plataforma no válida' });
 
     try {
-        const db = getDb('test'); // FIX: Guardar verificación en 'test' (DB compartida)
+        const db = getDb(); // FIX: Usar la BD por defecto (tournamentBotDb) para que el draft lo reconozca
 
         // Comprobar si el ID ya está usado por otro discordId
         const existing = await db.collection('verified_users').findOne({
