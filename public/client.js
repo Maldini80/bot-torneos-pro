@@ -1665,7 +1665,9 @@ function initializeDraftView(draftId) {
 
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({ type: 'execute_draft_pick', draftId, playerId, position: activeFilterPos }));
-                    document.querySelectorAll('.pick-btn').forEach(btn => btn.disabled = true);
+                    // Desactivar TODOS los botones de pick y force-pick hasta que llegue la confirmación
+                    document.querySelectorAll('.pick-btn').forEach(btn => { btn.disabled = true; btn.textContent = '⏳'; });
+                    document.querySelectorAll('.admin-force-pick-btn').forEach(btn => { btn.disabled = true; btn.textContent = '⏳'; });
                 }
             }
 
@@ -1679,6 +1681,9 @@ function initializeDraftView(draftId) {
                 const playerId = event.target.dataset.playerId;
                 if (confirm('¿Forzar pick de este jugador para el capitán activo en la posición ' + activeFilterPos + '?')) {
                     socket.send(JSON.stringify({ type: 'admin_force_pick', draftId, playerId, position: activeFilterPos }));
+                    // Desactivar TODOS los botones hasta que llegue la confirmación del servidor
+                    document.querySelectorAll('.admin-force-pick-btn').forEach(btn => { btn.disabled = true; btn.textContent = '⏳'; });
+                    document.querySelectorAll('.pick-btn').forEach(btn => { btn.disabled = true; btn.textContent = '⏳'; });
                 }
             }
 
