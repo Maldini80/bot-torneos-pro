@@ -981,8 +981,9 @@ function initializeDraftView(draftId) {
             // Manejar errores de pick (cupo lleno, turno incorrecto, etc.)
             if (message.type === 'pick_error' || message.type === 'ws_error') {
                 showErrorToast(message.message || 'Error desconocido al procesar la acción.');
-                // Re-habilitar botones de pick y force-pick que se quedaron desactivados
-                document.querySelectorAll('.pick-btn, .admin-force-pick-btn').forEach(btn => btn.disabled = false);
+                // Re-habilitar botones y restaurar texto original
+                document.querySelectorAll('.pick-btn').forEach(btn => { btn.disabled = false; btn.textContent = 'Elegir'; });
+                document.querySelectorAll('.admin-force-pick-btn').forEach(btn => { btn.disabled = false; btn.textContent = 'Forzar Pick'; });
             }
         };
     }
