@@ -142,7 +142,23 @@ export async function updateDraftMainInterface(client, draftShortId) {
 
         if (discordMessageIds.mainInterfacePlayerMessageId) {
             const playerMsg = await channel.messages.fetch(discordMessageIds.mainInterfacePlayerMessageId).catch(() => null);
-            if (playerMsg) await playerMsg.edit({ embeds: playersEmbeds });
+            if (playerMsg) {
+                // FIX: Truncar embeds para no superar el límite de 6000 caracteres de Discord
+                let totalSize = 0;
+                const safeEmbeds = [];
+                for (const embed of playersEmbeds) {
+                    const embedJson = embed.toJSON ? embed.toJSON() : embed;
+                    const embedSize = JSON.stringify(embedJson).length;
+                    if (totalSize + embedSize > 5800) {
+                        // Añadir un embed final indicando que la lista está truncada
+                        safeEmbeds.push(new EmbedBuilder().setColor('#e67e22').setDescription('⚠️ **Lista truncada.** Consulta la web del draft para ver todos los jugadores disponibles.'));
+                        break;
+                    }
+                    safeEmbeds.push(embed);
+                    totalSize += embedSize;
+                }
+                await playerMsg.edit({ embeds: safeEmbeds });
+            }
         }
 
         if (discordMessageIds.mainInterfaceTeamsMessageId) {
@@ -4482,55 +4498,54 @@ export async function undoLastPick(client, draftShortId, adminName) {
     const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
     if (!draft) throw new Error('Draft no encontrado.');
 
-    if (draft.selection.currentPick === 0) throw new Error('No hay picks para deshacer.');
+    if (draft.selection.currentPick <= 1) throw new Error('No hay picks para deshacer.');
 
-    // 1. Identificar el pick anterior
-    const previousTurnIndex = draft.selection.turn > 0 ? draft.selection.turn - 1 : draft.selection.order.length - 1;
-    const previousCaptainId = draft.selection.order[previousTurnIndex];
+    // 1. Identificar el pick anterior usando lastPick o buscando el último jugador pickeado
+    const lastPick = draft.selection.lastPick;
+    let playerToUndo;
 
-    // Necesitamos saber QUÉ jugador se pickeó. Esto es complejo porque no guardamos un historial de "picks" per se,
-    // sino que añadimos al equipo.
-    // ESTRATEGIA: Buscar el último jugador añadido al equipo del capitán anterior.
-    // Asumimos que el último en el array 'players' del equipo es el último pick.
-
-    const team = draft.teams.find(t => t.userId === previousCaptainId);
-    if (!team || team.players.length === 0) throw new Error('No se pudo encontrar el último pick para deshacer.');
-
-    const lastPlayer = team.players.pop(); // Sacamos al último jugador
-
-    // 2. Devolver al jugador a la pool (resetear sus datos)
-    // Buscamos al jugador en la lista global 'draft.players' y lo actualizamos
-    const playerInPool = draft.players.find(p => p.userId === lastPlayer.userId);
-    if (playerInPool) {
-        playerInPool.currentTeam = 'Libre';
-        playerInPool.captainId = null;
+    if (lastPick && lastPick.playerId) {
+        // Usar el lastPick guardado para identificar exactamente qué jugador deshacer
+        playerToUndo = draft.players.find(p => p.userId === lastPick.playerId);
     }
 
-    // 3. Retroceder el turno
+    if (!playerToUndo) {
+        // Fallback: buscar el último jugador que fue asignado (basado en el capitán del turno anterior)
+        const previousTurnIndex = draft.selection.turn > 0 ? draft.selection.turn - 1 : draft.selection.order.length - 1;
+        const previousCaptainId = draft.selection.order[previousTurnIndex];
+        const teamPlayers = draft.players.filter(p => p.captainId === previousCaptainId && !p.isCaptain);
+        if (teamPlayers.length === 0) throw new Error('No se pudo encontrar el último pick para deshacer.');
+        playerToUndo = teamPlayers[teamPlayers.length - 1];
+    }
+
+    // 2. Devolver al jugador a la pool (limpiar captainId y pickedForPosition)
+    const previousTurnIndex = draft.selection.turn > 0 ? draft.selection.turn - 1 : draft.selection.order.length - 1;
     const newCurrentPick = draft.selection.currentPick - 1;
 
     await db.collection('drafts').updateOne(
-        { _id: draft._id },
+        { _id: draft._id, "players.userId": playerToUndo.userId },
         {
             $set: {
-                players: draft.players,
-                teams: draft.teams,
+                "players.$.captainId": null,
+                "players.$.pickedForPosition": null,
                 "selection.turn": previousTurnIndex,
                 "selection.currentPick": newCurrentPick,
-                "selection.isPicking": false, // Reseteamos estado de picking
-                "selection.activeInteractionId": null
+                "selection.isPicking": false,
+                "selection.activeInteractionId": null,
+                "selection.lastPick": null  // Limpiar lastPick para evitar alertas fantasma
             }
         }
     );
+
+    console.log(`[ADMIN] Pick deshecho por ${adminName}: jugador ${playerToUndo.psnId} devuelto a la pool.`);
 
     // Update interfaces
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
     await updateDraftMainInterface(client, updatedDraft.shortId);
     await updatePublicMessages(client, updatedDraft);
     await updateDraftManagementPanel(client, updatedDraft);
+    await updateCaptainControlPanel(client, updatedDraft);
     await notifyVisualizer(updatedDraft);
-
-    console.log(`[ADMIN] Pick deshecho por ${adminName}. Jugador ${lastPlayer.psnId} devuelto a la pool. Turno devuelto a ${previousCaptainId}.`);
 }
 
 export async function adminReplacePickFromWeb(client, draftShortId, teamId, oldPlayerId, newPlayerId, disposition, adminName) {
