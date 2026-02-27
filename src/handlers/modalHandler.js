@@ -1177,9 +1177,34 @@ export async function handleModal(interaction) {
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
             } else {
-                await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+                // FIX: Comprobar si ya existe una entrada manual con el mismo psnId (importada vía texto/admin)
+                const existingManualPlayer = draft.players.find(p =>
+                    p.psnId.toLowerCase() === psnId.toLowerCase() && p.userId !== userId && !p.isCaptain
+                );
 
-                await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
+                if (existingManualPlayer) {
+                    // Actualizar la entrada existente con los datos reales de Discord
+                    await db.collection('drafts').updateOne(
+                        { _id: draft._id, "players.userId": existingManualPlayer.userId },
+                        {
+                            $set: {
+                                "players.$.userId": userId,
+                                "players.$.userName": interaction.user.tag,
+                                "players.$.psnId": psnId,
+                                "players.$.twitter": twitter || existingManualPlayer.twitter,
+                                "players.$.whatsapp": whatsapp || existingManualPlayer.whatsapp,
+                                "players.$.primaryPosition": primaryPosition || existingManualPlayer.primaryPosition,
+                                "players.$.secondaryPosition": secondaryPosition || existingManualPlayer.secondaryPosition,
+                                "players.$.currentTeam": playerData.currentTeam
+                            }
+                        }
+                    );
+                    console.log(`[DRAFT] Jugador manual "${existingManualPlayer.psnId}" (${existingManualPlayer.userId}) fusionado con cuenta Discord ${userId} (${interaction.user.tag})`);
+                    await interaction.editReply(`✅ ¡Te has inscrito como jugador! (Tu entrada importada previamente ha sido actualizada con tu cuenta de Discord.)`);
+                } else {
+                    await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+                    await interaction.editReply(`✅ ¡Te has inscrito como jugador!`);
+                }
 
                 if (isFromTicket) {
                     const ticketChannel = await client.channels.fetch(ticketChannelId).catch(() => null);
