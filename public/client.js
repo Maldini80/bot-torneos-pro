@@ -1051,7 +1051,7 @@ function initializeDraftView(draftId) {
                 };
 
                 // Añadirlo debajo del bloque de info del turno
-                const currentPickBoard = document.querySelector('.current-pick-board');
+                const currentPickBoard = document.querySelector('.status-line-draftview');
                 if (currentPickBoard) {
                     currentPickBoard.appendChild(undoBtn);
                 }
