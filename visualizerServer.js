@@ -14,6 +14,23 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'disc
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
 import { processMatchResult, finalizeMatchThread, findMatch } from './src/logic/matchLogic.js';
 
+// FIX: Mutex por draft para evitar race conditions en picks concurrentes
+const draftLocks = new Map();
+async function withDraftLock(draftId, fn) {
+    while (draftLocks.get(draftId)) {
+        await draftLocks.get(draftId);
+    }
+    let resolve;
+    const promise = new Promise(r => resolve = r);
+    draftLocks.set(draftId, promise);
+    try {
+        return await fn();
+    } finally {
+        draftLocks.delete(draftId);
+        resolve();
+    }
+}
+
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { startVpgBot } = require('./src/vpg_bot/index.js');
@@ -2638,8 +2655,10 @@ export async function startVisualizerServer(discordClient) {
 
                 switch (data.type) {
                     case 'execute_draft_pick':
-                        await handlePlayerSelectionFromWeb(client, draftId, captainId, playerId, position);
-                        await advanceDraftTurn(client, draftId);
+                        await withDraftLock(draftId, async () => {
+                            await handlePlayerSelectionFromWeb(client, draftId, captainId, playerId, position);
+                            await advanceDraftTurn(client, draftId);
+                        });
                         break;
 
                     case 'report_player':
@@ -2653,8 +2672,10 @@ export async function startVisualizerServer(discordClient) {
                     // NUEVOS CONTROLES DE ADMINISTRADOR
                     case 'admin_force_pick':
                         if (isWsUserAdmin) {
-                            await forcePickFromWeb(client, draftId, playerId, data.position, ws.user.username);
-                            await advanceDraftTurn(client, draftId);
+                            await withDraftLock(draftId, async () => {
+                                await forcePickFromWeb(client, draftId, playerId, data.position, ws.user.username);
+                                await advanceDraftTurn(client, draftId);
+                            });
                         } else {
                             console.warn(`[Visualizer] Acceso denegado a admin_force_pick para el usuario ${ws.user.username}`);
                         }
@@ -2662,7 +2683,9 @@ export async function startVisualizerServer(discordClient) {
 
                     case 'admin_undo_pick':
                         if (isWsUserAdmin) {
-                            await undoLastPick(client, draftId, ws.user.username);
+                            await withDraftLock(draftId, async () => {
+                                await undoLastPick(client, draftId, ws.user.username);
+                            });
                         } else {
                             console.warn(`[Visualizer] Acceso denegado a admin_undo_pick para el usuario ${ws.user.username}`);
                         }
@@ -2670,8 +2693,10 @@ export async function startVisualizerServer(discordClient) {
 
                     case 'admin_replace_pick':
                         if (isWsUserAdmin) {
-                            const { oldPlayerId, newPlayerId, disposition, teamId } = data;
-                            await adminReplacePickFromWeb(client, draftId, teamId, oldPlayerId, newPlayerId, disposition, ws.user.username);
+                            await withDraftLock(draftId, async () => {
+                                const { oldPlayerId, newPlayerId, disposition, teamId } = data;
+                                await adminReplacePickFromWeb(client, draftId, teamId, oldPlayerId, newPlayerId, disposition, ws.user.username);
+                            });
                         } else {
                             console.warn(`[Visualizer] Acceso denegado a admin_replace_pick para el usuario ${ws.user.username}`);
                         }
