@@ -667,6 +667,14 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             throw new Error('Este draft no ha finalizado o no existe.');
         }
 
+        // FIX: Comprobar si ya existe un torneo creado desde este draft (evitar doble-clic / E11000)
+        const tournamentShortId = `draft-${draft.shortId}`;
+        const existingTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (existingTournament) {
+            console.warn(`[CREATE TOURNAMENT FROM DRAFT] El torneo ${tournamentShortId} ya existe. Retornando el existente.`);
+            return existingTournament;
+        }
+
         const approvedTeams = {};
         for (const captain of draft.captains) {
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
@@ -681,7 +689,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
         }
 
         const tournamentName = `Torneo Draft - ${draft.name}`;
-        const tournamentShortId = `draft-${draft.shortId}`;
+        // tournamentShortId ya declarado arriba en el guard de duplicados
         const format = TOURNAMENT_FORMATS[formatId];
         if (!format) throw new Error(`Formato de torneo inválido: ${formatId}`);
 
@@ -1083,6 +1091,16 @@ export async function advanceDraftTurn(client, draftShortId) {
         await updateDraftMainInterface(client, finalDraftState.shortId);
         await updatePublicMessages(client, finalDraftState);
         await updateCaptainControlPanel(client, finalDraftState);
+        await notifyVisualizer(finalDraftState); // FIX: Notificar a la web para que renderice el pick 11 y muestre estado finalizado
+
+        // FIX: Enviar mensaje de finalización al canal de Discord
+        try {
+            const draftChannel = await client.channels.fetch(finalDraftState.discordChannelId);
+            if (draftChannel) {
+                await draftChannel.send('**✅ ¡LA FASE DE SELECCIÓN HA SIDO COMPLETADA! Ya se puede proceder a crear el torneo.**');
+            }
+        } catch (e) { console.warn('[DRAFT] No se pudo enviar mensaje de finalización:', e.message); }
+
         return;
     }
 

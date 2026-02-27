@@ -656,11 +656,12 @@ export async function handleModal(interaction) {
         };
 
         // --- FIX: Si el usuario ya estaba como jugador (ej: importado de WhatsApp), eliminarlo primero ---
-        const existingPlayer = draft.players.find(p => p.userId === discordId);
+        // Buscar por userId O por psnId (case-insensitive) para cubrir jugadores importados por TXT
+        const existingPlayer = draft.players.find(p => p.userId === discordId || p.psnId.toLowerCase() === psnId.toLowerCase());
         if (existingPlayer) {
             await db.collection('drafts').updateOne(
                 { _id: draft._id },
-                { $pull: { players: { userId: discordId } } }
+                { $pull: { players: { userId: existingPlayer.userId } } }
             );
         }
 

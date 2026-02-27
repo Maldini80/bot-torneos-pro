@@ -2677,7 +2677,13 @@ export async function startVisualizerServer(discordClient) {
                         }
                         break;
                 }
-            } catch (e) { console.error('Error procesando mensaje de WebSocket:', e); }
+            } catch (e) {
+                console.error('Error procesando mensaje de WebSocket:', e);
+                // Enviar el error de vuelta al cliente que lo causó para desbloquear la UI
+                if (ws.readyState === ws.OPEN) {
+                    ws.send(JSON.stringify({ type: 'ws_error', message: e.message || 'Error interno del servidor.' }));
+                }
+            }
         });
     });
 
