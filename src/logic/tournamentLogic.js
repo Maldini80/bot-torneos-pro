@@ -489,26 +489,62 @@ export async function requestUnregisterFromDraft(client, draft, userId, reason) 
 
     const notificationsThread = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
 
-    // Call auto-unregistration directly for regular players
-    await approveUnregisterFromDraft(client, draft, userId);
+    // Si el draft está en fase de inscripción -> Baja automática
+    if (draft.status === 'inscripcion') {
+        // Ejecutar baja automática
+        await approveUnregisterFromDraft(client, draft, userId);
 
-    if (notificationsThread) {
+        if (notificationsThread) {
+            const embed = new EmbedBuilder()
+                .setColor('#e74c3c')
+                .setTitle('👋 Un Jugador se ha dado de baja')
+                .setDescription(`El jugador **${player.userName}** (${player.psnId}) se ha dado de baja del draft automáticamente.`)
+                .addFields({ name: 'Motivo', value: reason || 'N/A' })
+                .setFooter({ text: `Draft: ${draft.name} | ID del Jugador: ${userId}` });
+
+            if (player.captainId) {
+                embed.addFields({ name: 'Equipo que abandona', value: `Equipo de <@${player.captainId}>` });
+            }
+
+            await notificationsThread.send({ embeds: [embed] });
+        }
+
+        return { success: true, message: "✅ Te has dado de baja del draft correctamente." };
+    }
+    // Si el draft YA HA EMPEZADO (ej. 'seleccion' o 'finalizado') -> Requiere aprobación de admin
+    else {
+        if (!notificationsThread) {
+            return { success: false, message: "Error interno del bot al encontrar el canal de notificaciones." };
+        }
+
         const embed = new EmbedBuilder()
-            .setColor('#e74c3c')
-            .setTitle('👋 Un Jugador se ha dado de baja')
-            .setDescription(`El jugador **${player.userName}** (${player.psnId}) se ha dado de baja del draft.`)
-            .addFields({ name: 'Motivo', value: reason || 'N/A' })
+            .setColor('#e67e22') // Naranja de advertencia/revisión
+            .setTitle('👋 Solicitud de Baja de Jugador')
+            .setDescription(`El jugador **${player.userName}** (${player.psnId}) solicita darse de baja, pero el draft **ya ha comenzado**.\nRequiere aprobación manual.`)
+            .addFields({ name: 'Motivo / Estado', value: reason || 'N/A' })
             .setFooter({ text: `Draft: ${draft.name} | ID del Jugador: ${userId}` });
 
         if (player.captainId) {
-            embed.addFields({ name: 'Equipo que abandona', value: `Equipo de <@${player.captainId}>` });
+            embed.addFields({ name: 'Equipo Actual', value: `Equipo de <@${player.captainId}>` });
         }
 
-        await notificationsThread.send({ embeds: [embed] });
-    }
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_unregister_draft_approve:${draft.shortId}:${userId}`).setLabel('Aprobar Baja (Eliminar)').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`admin_unregister_draft_reject:${draft.shortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+        );
 
-    // Since approveUnregisterFromDraft sends DM, we return success so interaction is edited successfully.
-    return { success: true, message: "✅ Te has dado de baja del draft correctamente." };
+        await notificationsThread.send({ embeds: [embed], components: [row] });
+
+        if (player.captainId) {
+            try {
+                const captainUser = await client.users.fetch(player.captainId);
+                await captainUser.send(`⚠️ **Alerta de Plantilla:** El jugador **${player.psnId}** ha solicitado darse de baja de tu equipo.\nEl draft ya ha comenzado, un administrador revisará la solicitud.`);
+            } catch (e) { console.warn(`No se pudo notificar al capitán ${player.captainId} de la solicitud de baja.`); }
+        }
+
+        return { success: true, message: "⚠️ El draft ya ha comenzado. Tu solicitud de baja ha sido enviada a los administradores para su evaluación." };
+    }
 }
 export async function endDraft(client, draft) {
     await setBotBusy(true);

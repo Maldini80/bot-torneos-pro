@@ -1124,9 +1124,6 @@ app.post('/api/draft/:draftId/unregister', async (req, res) => {
         const draft = await db.collection('drafts').findOne({ shortId: draftId });
 
         if (!draft) return res.status(404).json({ error: 'Draft no encontrado.' });
-        if (draft.status === 'finalizado') {
-            return res.status(400).json({ error: 'El draft ya ha finalizado.' });
-        }
 
         const { requestUnregisterFromDraft } = await import('./src/logic/tournamentLogic.js');
 
