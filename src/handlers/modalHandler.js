@@ -1945,6 +1945,20 @@ export async function handleModal(interaction) {
             }
         }
 
+        const notificationsThread = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
+        if (notificationsThread) {
+            const embed = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle('👋 Nuevo Jugador Inscrito (Discord)')
+                .setDescription(`El jugador **${playerData.userName}** (${playerData.psnId}) se ha apuntado al draft.`)
+                .addFields(
+                    { name: 'Posición Principal', value: primaryPosition, inline: true },
+                    { name: 'Equipo Actual', value: currentTeam || 'Libre', inline: true }
+                )
+                .setFooter({ text: `Draft: ${draft.name} | ID del Jugador: ${playerData.userId}` });
+            await notificationsThread.send({ embeds: [embed] });
+        }
+
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         updatePublicMessages(client, updatedDraft);
         updateDraftMainInterface(client, updatedDraft.shortId);

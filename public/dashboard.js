@@ -1837,6 +1837,44 @@ window.closeDraftModal = function () {
     if (modal) modal.classList.add('hidden');
 };
 
+window.requestDraftUnregister = async function () {
+    const draftId = document.getElementById('draft-reg-id').value;
+    const btn = document.getElementById('draft-unregister-btn');
+    const statusEl = document.getElementById('draft-unregister-status');
+
+    if (!confirm('¿Estás seguro de que deseas darte de baja de este draft?')) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Procesando...';
+    statusEl.textContent = '';
+
+    try {
+        const response = await fetch(`/api/draft/${draftId}/unregister`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'Darse de baja desde la web' })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            statusEl.textContent = data.message;
+            statusEl.style.color = '#2ecc71';
+            setTimeout(() => {
+                window.closeDraftModal();
+                if (typeof loadOpenTournaments === 'function') loadOpenTournaments();
+            }, 2500);
+        } else {
+            throw new Error(data.error || 'Error al darse de baja');
+        }
+    } catch (err) {
+        statusEl.textContent = err.message;
+        statusEl.style.color = '#f04747';
+        btn.disabled = false;
+        btn.textContent = '🚪 Darse de Baja';
+    }
+};
+
 // Event listeners para los formularios de Draft
 document.addEventListener('DOMContentLoaded', () => {
     // Formulario JUGADOR

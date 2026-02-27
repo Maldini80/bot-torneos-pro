@@ -1080,6 +1080,26 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
                 await updateDraftMainInterface(client, draftId);
                 await updateDraftManagementPanel(client, updatedDraft);
                 await notifyVisualizer(updatedDraft);
+
+                // Notificar en Discord
+                try {
+                    const { EmbedBuilder } = await import('discord.js');
+                    const notificationsThread = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId).catch(() => null);
+                    if (notificationsThread) {
+                        const embed = new EmbedBuilder()
+                            .setColor('#2ecc71')
+                            .setTitle('👋 Nuevo Jugador Inscrito (Web)')
+                            .setDescription(`El jugador **${newPlayer.userName}** (${newPlayer.psnId}) se ha apuntado al draft desde la web.`)
+                            .addFields(
+                                { name: 'Posición Principal', value: primaryPosition, inline: true },
+                                { name: 'Equipo Actual', value: newPlayer.currentTeam || 'Libre', inline: true }
+                            )
+                            .setFooter({ text: `Draft: ${draft.name} | ID del Jugador: ${newPlayer.userId}` });
+                        await notificationsThread.send({ embeds: [embed] });
+                    }
+                } catch (notifyErr) {
+                    console.error('[Draft Register Web] Error notificando a Discord:', notifyErr);
+                }
             }
             return res.json({ success: true, message: '¡Inscripción al Draft completada exitosamente!' });
         } else {
@@ -1089,6 +1109,45 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
     } catch (error) {
         console.error('[Draft Register Web] Error:', error);
         res.status(500).json({ error: 'Error interno del servidor al procesar la inscripción al Draft' });
+    }
+});
+
+// Darse de baja de un draft desde la web
+app.post('/api/draft/:draftId/unregister', async (req, res) => {
+    try {
+        if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+        const userId = req.user.id;
+        const { draftId } = req.params;
+        const { reason } = req.body;
+
+        const db = getDb();
+        const draft = await db.collection('drafts').findOne({ shortId: draftId });
+
+        if (!draft) return res.status(404).json({ error: 'Draft no encontrado.' });
+        if (draft.status === 'finalizado') {
+            return res.status(400).json({ error: 'El draft ya ha finalizado.' });
+        }
+
+        const { requestUnregisterFromDraft } = await import('./src/logic/tournamentLogic.js');
+
+        const result = await requestUnregisterFromDraft(client, draft, userId, reason || 'Baja solicitada desde la web');
+
+        if (result.success) {
+            // Update UI/Visualizer after unregistering
+            const updatedDraft = await db.collection('drafts').findOne({ shortId: draftId });
+            const { updateDraftMainInterface, notifyVisualizer } = await import('./src/logic/tournamentLogic.js');
+            const { updateDraftManagementPanel } = await import('./src/utils/panelManager.js');
+            await updateDraftMainInterface(client, draftId);
+            await updateDraftManagementPanel(client, updatedDraft);
+            await notifyVisualizer(updatedDraft);
+
+            return res.json({ success: true, message: result.message });
+        } else {
+            return res.status(400).json({ error: result.message });
+        }
+    } catch (error) {
+        console.error('[Draft Unregister Web] Error:', error);
+        res.status(500).json({ error: 'Error interno del servidor al procesar la baja' });
     }
 });
 
