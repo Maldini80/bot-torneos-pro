@@ -163,7 +163,19 @@ export async function updateDraftMainInterface(client, draftShortId) {
 
         if (discordMessageIds.mainInterfaceTeamsMessageId) {
             const teamMsg = await channel.messages.fetch(discordMessageIds.mainInterfaceTeamsMessageId).catch(() => null);
-            if (teamMsg) await teamMsg.edit({ embeds: [teamsEmbed] });
+            if (teamMsg) {
+                const teamsEmbedJson = teamsEmbed.toJSON ? teamsEmbed.toJSON() : teamsEmbed;
+                const teamsSize = JSON.stringify(teamsEmbedJson).length;
+                if (teamsSize > 5800) {
+                    const truncatedTeamsEmbed = new EmbedBuilder()
+                        .setColor('#2ecc71')
+                        .setTitle('Equipos del Draft')
+                        .setDescription('⚠️ **Lista de equipos demasiado larga para Discord.** Consulta la web del draft para ver las plantillas completas.');
+                    await teamMsg.edit({ embeds: [truncatedTeamsEmbed] });
+                } else {
+                    await teamMsg.edit({ embeds: [teamsEmbed] });
+                }
+            }
         }
 
         if (discordMessageIds.turnOrderMessageId) {
