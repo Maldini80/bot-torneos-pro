@@ -980,7 +980,7 @@ function initializeDraftView(draftId) {
             }
             // Manejar errores de pick (cupo lleno, turno incorrecto, etc.)
             if (message.type === 'pick_error' || message.type === 'ws_error') {
-                alert('⚠️ ' + (message.message || 'Error desconocido al procesar la acción.'));
+                showErrorToast(message.message || 'Error desconocido al procesar la acción.');
                 // Re-habilitar botones de pick y force-pick que se quedaron desactivados
                 document.querySelectorAll('.pick-btn, .admin-force-pick-btn').forEach(btn => btn.disabled = false);
             }
@@ -1968,6 +1968,41 @@ function initializeDraftView(draftId) {
         bannerEl.innerHTML = `<strong>Último Pick:</strong> ${player.psnId} ➔ ${captain.teamName}`;
         bannerEl.classList.add('visible');
     }
+
+    function showErrorToast(message) {
+        // Eliminar toast anterior si existe
+        const existing = document.getElementById('error-toast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.id = 'error-toast';
+        toast.style.cssText = `
+            position: fixed; top: -80px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff;
+            padding: 16px 30px; border-radius: 10px; z-index: 9999;
+            font-family: 'Rajdhani', sans-serif; font-size: 1.1em; font-weight: 600;
+            box-shadow: 0 6px 25px rgba(231, 76, 60, 0.5); border: 1px solid rgba(255,255,255,0.15);
+            text-align: center; max-width: 90%; width: max-content;
+            transition: top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+            opacity: 0;
+        `;
+        toast.innerHTML = `⚠️ ${message}`;
+        document.body.appendChild(toast);
+
+        // Animar entrada
+        requestAnimationFrame(() => {
+            toast.style.top = '25px';
+            toast.style.opacity = '1';
+        });
+
+        // Auto-cerrar en 4 segundos
+        setTimeout(() => {
+            toast.style.top = '-80px';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 500);
+        }, 4000);
+    }
+
     async function showPlayerDetailsModal(draftId, playerId) {
         const modal = document.getElementById('player-details-modal');
         const modalPlayerName = document.getElementById('modal-player-name');
