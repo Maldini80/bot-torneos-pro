@@ -1446,12 +1446,20 @@ export async function approveTeam(client, tournament, teamData) {
                 for (const extraCaptainId of teamData.extraCaptains) {
                     if (/^\d+$/.test(extraCaptainId)) {
                         try {
-                            // Dar permisos en los canales del torneo
-                            await chatChannel.permissionOverwrites.edit(extraCaptainId, { ViewChannel: true, SendMessages: true });
-                            await matchesChannel.permissionOverwrites.edit(extraCaptainId, { ViewChannel: true, SendMessages: false });
+                            // CORRECCIÓN: Resolver el miembro antes de editar permisos para evitar InvalidType
+                            const guild = await client.guilds.fetch(latestTournament.guildId);
+                            const extraMember = await guild.members.fetch(extraCaptainId).catch(() => null);
+                            if (!extraMember) {
+                                console.warn(`[EXTRA CAPTAIN] No se encontró al miembro ${extraCaptainId} en el servidor. Omitiendo permisos.`);
+                                continue;
+                            }
+
+                            // Dar permisos en los canales del torneo usando el miembro resuelto
+                            await chatChannel.permissionOverwrites.edit(extraMember, { ViewChannel: true, SendMessages: true });
+                            await matchesChannel.permissionOverwrites.edit(extraMember, { ViewChannel: true, SendMessages: false });
 
                             // Notificar al usuario
-                            const user = await client.users.fetch(extraCaptainId).catch(() => null);
+                            const user = extraMember.user;
                             if (user) {
                                 const embed = new EmbedBuilder()
                                     .setColor('#2ecc71')
@@ -1459,6 +1467,10 @@ export async function approveTeam(client, tournament, teamData) {
                                     .setDescription(`Has sido añadido como capitán adicional del equipo **${teamData.nombre}** en el torneo **${latestTournament.nombre}**.\n\nTienes acceso a los canales de chat y partidos para gestionar a tu equipo.`);
                                 await user.send({ embeds: [embed] }).catch(() => null);
                             }
+
+                            // Añadir al hilo de notificaciones
+                            const notificationsThread = await client.channels.fetch(latestTournament.discordMessageIds.notificationsThreadId).catch(() => null);
+                            if (notificationsThread) await notificationsThread.members.add(extraCaptainId).catch(() => { });
 
                         } catch (e) {
                             console.error(`Error al procesar extraCaptain ${extraCaptainId}:`, e);

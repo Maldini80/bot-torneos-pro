@@ -459,7 +459,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('paginate_')) {
-        await interaction.deferUpdate();
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate();
         const parts = customId.split('_');
         const paginationId = parts[1];
         const newPage = parseInt(parts[2], 10);

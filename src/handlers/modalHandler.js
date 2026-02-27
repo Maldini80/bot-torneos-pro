@@ -36,7 +36,14 @@ export async function handleModal(interaction) {
         const gameId = interaction.fields.getTextInputValue('game_id_input').trim();
         const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
         const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
-        const whatsappConfirm = interaction.fields.getTextInputValue('whatsapp_confirm_input').trim();
+
+        // El campo de confirmación de WhatsApp puede no existir en todas las versiones del modal
+        let whatsappConfirm = whatsapp; // Por defecto, sin confirmación = aceptar
+        try {
+            whatsappConfirm = interaction.fields.getTextInputValue('whatsapp_confirm_input').trim();
+        } catch (e) {
+            // Campo no incluido en esta versión del modal, se omite la validación
+        }
 
         if (whatsapp !== whatsappConfirm) {
             return interaction.editReply({ content: '❌ **Error:** Los números de WhatsApp no coinciden. Por favor, inténtalo de nuevo.' });
@@ -1234,7 +1241,14 @@ export async function handleModal(interaction) {
 
         const [formatId, type, matchType] = params;
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
-        const shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        let shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+        // Garantizar unicidad del shortId para evitar E11000 duplicate key error
+        let suffix = 1;
+        while (await db.collection('tournaments').findOne({ shortId })) {
+            suffix++;
+            shortId = `${nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${suffix}`;
+        }
 
         const config = { formatId, isPaid: type === 'pago', matchType: matchType };
 
@@ -1584,7 +1598,16 @@ export async function handleModal(interaction) {
         return;
     }
     if (action === 'report_result_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // El canal del hilo de partido puede haber sido borrado entre la apertura del modal y su envío
+        try {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        } catch (deferError) {
+            if (deferError.code === 10003) { // Unknown Channel
+                console.warn(`[REPORT RESULT] El canal del hilo de partido ya no existe. No se puede procesar el resultado.`);
+                return;
+            }
+            throw deferError; // Re-lanzar si es otro error
+        }
         const [matchId, tournamentShortId] = params;
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const { partido } = findMatch(tournament, matchId);
