@@ -342,6 +342,15 @@ export async function approveDraftCaptain(client, draft, captainData) {
         captainId: captainData.userId
     };
 
+    // --- FIX: Si ya existía como jugador (ej: importado de WhatsApp), eliminarlo primero ---
+    const existingPlayer = draft.players.find(p => p.userId === captainData.userId);
+    if (existingPlayer) {
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $pull: { players: { userId: captainData.userId } } }
+        );
+    }
+
     await db.collection('drafts').updateOne(
         { _id: draft._id },
         {

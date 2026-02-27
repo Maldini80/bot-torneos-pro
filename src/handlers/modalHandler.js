@@ -655,6 +655,16 @@ export async function handleModal(interaction) {
             isCaptain: true
         };
 
+        // --- FIX: Si el usuario ya estaba como jugador (ej: importado de WhatsApp), eliminarlo primero ---
+        const existingPlayer = draft.players.find(p => p.userId === discordId);
+        if (existingPlayer) {
+            await db.collection('drafts').updateOne(
+                { _id: draft._id },
+                { $pull: { players: { userId: discordId } } }
+            );
+        }
+
+        // Ahora añadir como capitán + jugador-capitán
         await db.collection('drafts').updateOne(
             { _id: draft._id },
             {
@@ -664,14 +674,14 @@ export async function handleModal(interaction) {
                         userId: discordId,
                         userName: userName,
                         psnId: psnId,
-                        twitter: '',
-                        whatsapp: verifiedUser ? verifiedUser.whatsapp : '',
+                        twitter: existingPlayer?.twitter || '',
+                        whatsapp: existingPlayer?.whatsapp || (verifiedUser ? verifiedUser.whatsapp : ''),
                         primaryPosition: primaryPosition,
                         secondaryPosition: 'NONE',
                         currentTeam: teamName,
                         isCaptain: true,
                         captainId: discordId,
-                        strikes: 0,
+                        strikes: existingPlayer?.strikes || 0,
                         hasBeenReportedByCaptain: false,
                         kickRequestPending: false
                     }
