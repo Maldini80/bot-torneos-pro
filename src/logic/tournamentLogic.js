@@ -1122,18 +1122,14 @@ export async function advanceDraftTurn(client, draftShortId) {
         return;
     }
 
-    const round = Math.floor((draft.selection.currentPick - 1) / draft.captains.length);
-    let nextTurnIndex = draft.selection.turn;
+    // Calcular el SIGUIENTE turno directamente desde el pick actual (evitando off-by-one con incrementos)
+    const nextPick = draft.selection.currentPick + 1; // El pick que se va a mostrar ahora
+    const numCaptains = draft.captains.length;
+    const nextRound = Math.floor((nextPick - 1) / numCaptains);  // Ronda 0-indexed
+    const posInRound = (nextPick - 1) % numCaptains;             // Posición dentro de la ronda
 
-    const isTurnaroundPick = (draft.selection.currentPick) % draft.captains.length === 0;
-
-    if (!isTurnaroundPick) {
-        if (round % 2 === 0) {
-            nextTurnIndex++;
-        } else {
-            nextTurnIndex--;
-        }
-    }
+    // Snake: rondas pares van 0→N-1, rondas impares van N-1→0
+    const nextTurnIndex = (nextRound % 2 === 0) ? posInRound : (numCaptains - 1 - posInRound);
 
     await db.collection('drafts').updateOne(
         { _id: draft._id },
@@ -4519,8 +4515,12 @@ export async function undoLastPick(client, draftShortId, adminName) {
     }
 
     // 2. Devolver al jugador a la pool (limpiar captainId y pickedForPosition)
-    const previousTurnIndex = draft.selection.turn > 0 ? draft.selection.turn - 1 : draft.selection.order.length - 1;
+    // Calcular el turno correcto para el pick anterior usando la fórmula snake
     const newCurrentPick = draft.selection.currentPick - 1;
+    const numCaptains = draft.captains.length;
+    const prevRound = Math.floor((newCurrentPick - 1) / numCaptains);
+    const prevPosInRound = (newCurrentPick - 1) % numCaptains;
+    const previousTurnIndex = (prevRound % 2 === 0) ? prevPosInRound : (numCaptains - 1 - prevPosInRound);
 
     await db.collection('drafts').updateOne(
         { _id: draft._id, "players.userId": playerToUndo.userId },
