@@ -1024,12 +1024,18 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
         // =============================================
         // === FLUJO JUGADOR ===
         // =============================================
+        // Si la posición secundaria es igual a la principal, la anulamos
+        let safeSecondaryPos = secondaryPosition || 'NONE';
+        if (safeSecondaryPos === primaryPosition) {
+            safeSecondaryPos = 'NONE';
+        }
+
         const newPlayer = {
             userId, userName, psnId,
             twitter: verifiedUser.twitter || '',
             whatsapp: finalWhatsapp,
             primaryPosition,
-            secondaryPosition: secondaryPosition || 'NONE',
+            secondaryPosition: safeSecondaryPos,
             currentTeam: 'Libre',
             captainId: null,
             isCaptain: false
