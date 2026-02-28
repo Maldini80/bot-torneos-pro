@@ -2575,13 +2575,6 @@ export async function handleSelectMenu(interaction) {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        const paymentRefInput = new TextInputBuilder()
-            .setCustomId('payment_ref_input')
-            .setLabel("Método de Pago / Referencia")
-            .setPlaceholder("Ej: Bizum, PayPal, Efectivo...")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
         const streamInput = new TextInputBuilder()
             .setCustomId('stream_input')
             .setLabel("Canal de Stream (Opcional)")
@@ -2590,7 +2583,6 @@ export async function handleSelectMenu(interaction) {
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(teamNameInput),
-            new ActionRowBuilder().addComponents(paymentRefInput),
             new ActionRowBuilder().addComponents(streamInput)
         );
 

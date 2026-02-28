@@ -122,7 +122,6 @@ export async function handleModal(interaction) {
         const [tournamentShortId, userId] = params;
 
         const teamName = interaction.fields.getTextInputValue('team_name_input');
-        const paymentRef = interaction.fields.getTextInputValue('payment_ref_input');
         const streamChannel = interaction.fields.getTextInputValue('stream_input') || null;
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
@@ -143,7 +142,7 @@ export async function handleModal(interaction) {
             logoUrl: user.displayAvatarURL(),
             twitter: null,
             streamChannel: streamChannel,
-            paypal: paymentRef, // Guardamos la referencia del pago manual aquí
+            paypal: null, // Ya no pedimos referencia de pago en inscripción manual
             inscritoEn: new Date(),
             isPaid: true,
             isManualRegistration: true
@@ -154,7 +153,7 @@ export async function handleModal(interaction) {
             const { approveTeam } = await import('../logic/tournamentLogic.js');
             await approveTeam(client, tournament, teamData);
 
-            await interaction.editReply({ content: `✅ **Inscripción Manual Completada**\nEl equipo **${teamName}** (Capitán: ${user.tag}) ha sido inscrito en el torneo.\nReferencia de pago: ${paymentRef}` });
+            await interaction.editReply({ content: `✅ **Inscripción Manual Completada**\nEl equipo **${teamName}** (Capitán: ${user.tag}) ha sido inscrito en el torneo.` });
 
         } catch (error) {
             console.error(error);
