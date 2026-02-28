@@ -146,8 +146,13 @@ export async function handleButton(interaction) {
         if (!tournament) {
             return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
         }
+        const managerId = interaction.user.id;
 
+        const isAlreadyRegistered = tournament.teams.aprobados?.[managerId] || tournament.teams.pendientes?.[managerId] || tournament.teams.pendingPayments?.[managerId] || tournament.teams.pendingApproval?.[managerId] || tournament.teams.reserva?.[managerId];
 
+        if (isAlreadyRegistered) {
+            return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación, o en la lista de reserva de este torneo.', flags: [MessageFlags.Ephemeral] });
+        }
 
         // --- MODIFICACIÓN: TORNEOS DE PAGO (Flujo simplificado) ---
         if (tournament.config.isPaid) {
@@ -181,13 +186,6 @@ export async function handleButton(interaction) {
         // --- FIN MODIFICACIÓN ---
 
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
-        const managerId = interaction.user.id;
-
-        const isAlreadyRegistered = tournament.teams.aprobados[managerId] || tournament.teams.pendientes[managerId] || (tournament.teams.reserva && tournament.teams.reserva[managerId]);
-        if (isAlreadyRegistered) {
-            return interaction.editReply({ content: '❌ Ya estás inscrito o en la lista de reserva de este torneo.' });
-        }
 
         const team = await getDb('test').collection('teams').findOne({
             $or: [{ managerId: managerId }, { captains: managerId }],
