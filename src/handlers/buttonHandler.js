@@ -3513,12 +3513,7 @@ export async function handleButton(interaction) {
                     `🇬🇧 Your team has been officially approved and entered into the tournament!\nTo confirm your spot, please process the fee payment: **${tournament.config.entryFee}€**.`
                 )
                 .addFields(
-                    { name: '💰 Métodos de Pago / Payment Methods', value: paymentInstructions },
-                    {
-                        name: '📝 Nota Importante / Important Note', value:
-                            'Una vez realizado el pago, contacta al Admin enviándole el comprobante.\n' +
-                            'Once the payment is done, contact the Admin sending the receipt.'
-                    }
+                    { name: '💰 Métodos de Pago / Payment Methods', value: paymentInstructions }
                 );
 
             await user.send({ embeds: [paymentEmbed] });
