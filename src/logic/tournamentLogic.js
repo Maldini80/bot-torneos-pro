@@ -1400,6 +1400,49 @@ export async function startGroupStage(client, guild, tournament) {
         }
         // --- FIN DE LA LÓGICA CORREGIDA ---
 
+        // --- FIX: Generar canales de audio si es torneo de pago ---
+        if (updatedTournament.config.isPaid) {
+            const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
+            const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
+
+            if (teamCategory && arbitroRole) {
+                console.log(`[CHANNELS] Creando canales de equipo automáticos para el torneo de pago ${updatedTournament.shortId}`);
+                for (const team of Object.values(updatedTournament.teams.aprobados)) {
+                    const voicePermissions = [
+                        { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] }
+                    ];
+
+                    // Permisos de moderador para el capitán (igual que en los drafts)
+                    if (/^\d+$/.test(team.capitanId)) {
+                        voicePermissions.push({
+                            id: team.capitanId,
+                            allow: [
+                                PermissionsBitField.Flags.ViewChannel,
+                                PermissionsBitField.Flags.Connect,
+                                PermissionsBitField.Flags.Speak,
+                                PermissionsBitField.Flags.MuteMembers,
+                                PermissionsBitField.Flags.DeafenMembers,
+                                PermissionsBitField.Flags.MoveMembers
+                            ]
+                        });
+                    }
+
+                    await guild.channels.create({
+                        name: `🔊 ${team.nombre}`,
+                        type: ChannelType.GuildVoice,
+                        parent: teamCategory,
+                        permissionOverwrites: voicePermissions
+                    }).catch(error => console.error(`[CHANNELS] Error al crear canal para ${team.nombre}:`, error));
+
+                    // Pequeña pausa para no hacer spam a la API de Discord
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            } else {
+                console.warn(`[CHANNELS] No se pudo crear canales de equipo para ${updatedTournament.shortId} por falta de categoría o rol.`);
+            }
+        }
+        // --- FIN FIX ---
+
         // Paso 4: Actualizar todas las interfaces públicas
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournamentData._id });
         await updatePublicMessages(client, finalTournamentState);
