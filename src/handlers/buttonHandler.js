@@ -199,9 +199,12 @@ export async function handleButton(interaction) {
                     console.error('[PAID REG] Error enviando solicitud al admin:', err);
                 });
 
-                // Dar permiso de voz en Canal A (background, sin bloquear respuesta)
+                // Dar permiso de voz y editar mensaje según subtipo (Draft vs Cash Cup)
+                const isDraft = tournament.config.paidSubType === 'draft';
                 const seleccionVoiceId = tournament.discordMessageIds?.seleccionCapitanesVoiceId;
-                if (seleccionVoiceId) {
+
+                if (isDraft && seleccionVoiceId) {
+                    // Dar permiso de voz en Canal A (background)
                     client.channels.fetch(seleccionVoiceId).then(voiceChannel => {
                         if (voiceChannel) {
                             voiceChannel.permissionOverwrites.create(managerId, {
@@ -209,13 +212,17 @@ export async function handleButton(interaction) {
                             }).catch(err => console.error('[VOZ] Error dando permiso Canal A:', err));
                         }
                     }).catch(() => { });
-                }
 
-                // Mensaje con mención al canal de voz
-                const canalMention = seleccionVoiceId ? `<#${seleccionVoiceId}>` : 'el canal de selección';
-                await interaction.editReply({
-                    content: `✅ Solicitud enviada. Un administrador revisará tu solicitud.\nMientras tanto, puedes acceder al canal ${canalMention} para hablar con otros capitanes pendientes y ver el stream de selección.`
-                });
+                    // Mensaje Draft
+                    await interaction.editReply({
+                        content: `✅ Solicitud enviada. Un administrador revisará tu solicitud.\nMientras tanto, puedes acceder al canal <#${seleccionVoiceId}> para hablar con otros capitanes pendientes y ver el stream de selección.`
+                    });
+                } else {
+                    // Mensaje Cash Cup (o fallback si no hay canal)
+                    await interaction.editReply({
+                        content: `✅ Has mandado solicitud para participar en la Cash Cup, espera respuesta en tu DM sobre si te aprueba o rechaza Administracion.`
+                    });
+                }
 
             } catch (error) {
                 console.error('[PAID REG] Error al procesar inscripción:', error);

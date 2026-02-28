@@ -1256,8 +1256,8 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         }
         console.log(`[CREATE] Panel de gestión y URL del visualizador enviados para ${shortId}.`);
 
-        // --- CANALES DE VOZ PARA TORNEOS DE PAGO ---
-        if (config.isPaid) {
+        // --- CANALES DE VOZ PARA TORNEOS DE PAGO (SOLO DRAFT EXTERNO) ---
+        if (config.isPaid && config.paidSubType === 'draft') {
             try {
                 const voiceBasePermissions = [
                     { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect] },
@@ -1274,7 +1274,7 @@ export async function createNewTournament(client, guild, name, shortId, config) 
                 createdResources.channels.push(seleccionChannel.id);
 
                 const aprobadosChannel = await guild.channels.create({
-                    name: `✅ Aprobados - ${name.substring(0, 40)}`,
+                    name: `🎙️ Capitanes - ${name.substring(0, 40)}`,
                     type: ChannelType.GuildVoice,
                     parent: TEAM_CHANNELS_CATEGORY_ID,
                     permissionOverwrites: [...voiceBasePermissions] // Copia para evitar referencia compartida

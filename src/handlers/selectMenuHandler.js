@@ -1532,6 +1532,22 @@ export async function handleSelectMenu(interaction) {
 
         // --- NUEVA LÓGICA PARA LIGA FLEXIBLE ---
         if (formatId === 'flexible_league') {
+            if (type === 'pago') {
+                const subtypeMenu = new StringSelectMenuBuilder()
+                    .setCustomId(`admin_create_paid_flexible_subtype`)
+                    .setPlaceholder('Paso 3: ¿Draft externo o Cash Cup?')
+                    .addOptions([
+                        { label: 'Draft externo', description: 'Crea canales de voz para selección', value: 'draft', emoji: '🎙️' },
+                        { label: 'Cash Cup', description: 'Sin canales de voz', value: 'cash_cup', emoji: '💰' }
+                    ]);
+
+                return interaction.update({
+                    content: `Tipo seleccionado: **De Pago**. Ahora especifica el formato:`,
+                    components: [new ActionRowBuilder().addComponents(subtypeMenu)]
+                });
+            }
+
+            // Flujo normal para liga flexible gratis
             const modal = new ModalBuilder()
                 .setCustomId(`create_tournament:${formatId}:${type}:flexible`)
                 .setTitle('Crear Liguilla Flexible');
@@ -1548,41 +1564,31 @@ export async function handleSelectMenu(interaction) {
             modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
             modal.addComponents(new ActionRowBuilder().addComponents(qualifiersInput));
 
-            if (type === 'pago') {
-                // Para torneos de pago, sacrificamos el campo de fecha de inicio para que quepan los 5 campos
-                const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
-
-                const prizesInput = new TextInputBuilder()
-                    .setCustomId('torneo_prizes')
-                    .setLabel("Premios: Campeón / Finalista (€)")
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true)
-                    .setPlaceholder('Ej: 100/50');
-
-                const paymentMethodsInput = new TextInputBuilder()
-                    .setCustomId('torneo_payment_methods')
-                    .setLabel("Métodos Pago: PayPal / Bizum")
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(false)
-                    .setPlaceholder('Ej: mi@email.com / 600111222');
-
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(entryFeeInput),
-                    new ActionRowBuilder().addComponents(prizesInput),
-                    new ActionRowBuilder().addComponents(paymentMethodsInput)
-                );
-            } else {
-                // Si es gratis, sí nos cabe la fecha de inicio
-                const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
-                modal.addComponents(new ActionRowBuilder().addComponents(startTimeInput));
-            }
+            const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
+            modal.addComponents(new ActionRowBuilder().addComponents(startTimeInput));
 
             await interaction.showModal(modal);
             return;
         }
         // --- FIN NUEVA LÓGICA ---
 
-        // CAMINO NORMAL: Si no es liga flexible, mostramos el selector de "Solo Ida" / "Ida y Vuelta"
+        // CAMINO NORMAL: Si es de pago, preguntamos si es Draft Externo o Cash Cup antes de seguir
+        if (type === 'pago') {
+            const subtypeMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_create_paid_subtype:${formatId}`)
+                .setPlaceholder('Paso 3: ¿Draft externo o Cash Cup?')
+                .addOptions([
+                    { label: 'Draft externo', description: 'Crea canales de voz para selección', value: 'draft', emoji: '🎙️' },
+                    { label: 'Cash Cup', description: 'Sin canales de voz', value: 'cash_cup', emoji: '💰' }
+                ]);
+
+            return interaction.update({
+                content: `Tipo seleccionado: **De Pago**. Ahora especifica el formato:`,
+                components: [new ActionRowBuilder().addComponents(subtypeMenu)]
+            });
+        }
+
+        // Si es gratuito, pasamos directo al tipo de partido
         const matchTypeMenu = new StringSelectMenuBuilder()
             .setCustomId(`admin_create_match_type:${formatId}:${type}`)
             .setPlaceholder('Paso 3: Selecciona el tipo de partidos')
@@ -1600,7 +1606,76 @@ export async function handleSelectMenu(interaction) {
             ]);
 
         await interaction.update({
-            content: `Tipo seleccionado: **${type === 'pago' ? 'De Pago' : 'Gratuito'}**. Ahora, define las rondas:`,
+            content: `Tipo seleccionado: **Gratuito**. Ahora, define las rondas:`,
+            components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
+        });
+
+    } else if (action === 'admin_create_paid_flexible_subtype') {
+        const paidSubType = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId(`create_tournament:flexible_league:pago:flexible:${paidSubType}`)
+            .setTitle('Crear Liguilla Flexible (De Pago)');
+
+        const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+
+        const qualifiersInput = new TextInputBuilder()
+            .setCustomId('torneo_qualifiers')
+            .setLabel("Nº de Equipos que se Clasifican")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: 4 (semis), 8 (cuartos)...")
+            .setRequired(true);
+
+        const entryFeeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Inscripción por Equipo (€)").setStyle(TextInputStyle.Short).setRequired(true);
+
+        const prizesInput = new TextInputBuilder()
+            .setCustomId('torneo_prizes')
+            .setLabel("Premios: Campeón / Finalista (€)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setPlaceholder('Ej: 100/50');
+
+        const paymentMethodsInput = new TextInputBuilder()
+            .setCustomId('torneo_payment_methods')
+            .setLabel("Métodos Pago: PayPal / Bizum")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false)
+            .setPlaceholder('Ej: mi@email.com / 600111222');
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(nombreInput),
+            new ActionRowBuilder().addComponents(qualifiersInput),
+            new ActionRowBuilder().addComponents(entryFeeInput),
+            new ActionRowBuilder().addComponents(prizesInput),
+            new ActionRowBuilder().addComponents(paymentMethodsInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+
+    } else if (action === 'admin_create_paid_subtype') {
+        const [formatId] = params;
+        const paidSubType = interaction.values[0];
+
+        // Ahora mostramos el selector de tipo de partido (pasando el subtipo como parámetro extra)
+        const matchTypeMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_create_match_type:${formatId}:pago:${paidSubType}`)
+            .setPlaceholder('Paso 4: Selecciona el tipo de partidos')
+            .addOptions([
+                {
+                    label: 'Solo Ida (3 Jornadas)',
+                    description: 'Los equipos de cada grupo se enfrentan una vez.',
+                    value: 'ida'
+                },
+                {
+                    label: 'Ida y Vuelta (6 Jornadas)',
+                    description: 'Los equipos de cada grupo se enfrentan dos veces.',
+                    value: 'idavuelta'
+                }
+            ]);
+
+        await interaction.update({
+            content: `Seleccionado: **${paidSubType === 'draft' ? 'Draft externo' : 'Cash Cup'}**. Ahora, define las rondas:`,
             components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
         });
 
@@ -1940,11 +2015,14 @@ export async function handleSelectMenu(interaction) {
         return;
     }
     else if (action === 'admin_create_match_type') {
-        const [formatId, type] = params;
+        const [formatId, type, paidSubType] = params;
         const matchType = interaction.values[0];
 
+        const customIdBase = `create_tournament:${formatId}:${type}:${matchType}`;
+        const finalCustomId = paidSubType ? `${customIdBase}:${paidSubType}` : customIdBase;
+
         const modal = new ModalBuilder()
-            .setCustomId(`create_tournament:${formatId}:${type}:${matchType}`)
+            .setCustomId(finalCustomId)
             .setTitle('Finalizar Creación de Torneo');
 
         const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);

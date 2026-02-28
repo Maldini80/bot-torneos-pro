@@ -1340,7 +1340,7 @@ export async function handleModal(interaction) {
             flags: [MessageFlags.Ephemeral]
         });
 
-        const [formatId, type, matchType] = params;
+        const [formatId, type, matchType, paidSubType] = params;
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         let shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
@@ -1352,6 +1352,9 @@ export async function handleModal(interaction) {
         }
 
         const config = { formatId, isPaid: type === 'pago', matchType: matchType };
+        if (paidSubType) {
+            config.paidSubType = paidSubType; // 'draft' o 'cash_cup'
+        }
 
         // Safe read for start time (might be missing in paid flexible leagues)
         try {
