@@ -167,6 +167,52 @@ export async function handleModal(interaction) {
     // --- LÓGICA ORIGINAL DEL BOT (CON CORRECCIONES DE FLAGS) ---
     // =======================================================
 
+    // --- FIX: Handler para el modal de convertir a liguilla flexible ---
+    if (action === 'edit_tournament_to_flexible') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: '❌ Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+        let qualifiers = 0;
+        try {
+            qualifiers = parseInt(interaction.fields.getTextInputValue('torneo_qualifiers')) || 0;
+        } catch (e) { }
+
+        // Mantenemos guardado temporalmente la config para el siguiente paso (elegir el modo liguilla)
+        const pendingId = `pending_edit_${tournamentShortId}_${Date.now()}`;
+        await db.collection('pending_tournaments').insertOne({
+            pendingId,
+            action: 'edit_format',
+            targetTournamentShortId: tournamentShortId,
+            newFormatId: 'flexible_league',
+            qualifiers: qualifiers,
+            createdAt: new Date()
+        });
+
+        // Exactamente los mismos botones que en create_tournament
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`create_flexible_league_mode:swiss:${pendingId}`)
+                .setLabel('Sistema Suizo')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(`create_flexible_league_mode:round_robin:${pendingId}`)
+                .setLabel('Todos contra Todos')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId(`create_flexible_league_mode:custom_league:${pendingId}`)
+                .setLabel('Liga Personalizada')
+                .setStyle(ButtonStyle.Success)
+        );
+
+        await interaction.reply({
+            content: `Has seleccionado **Liguilla Flexible** con **${qualifiers} clasificados**.\n\nAhora elige el modo de enfrentamientos definitivos:`,
+            components: [row]
+        });
+        return;
+    }
+    // --- FIN FIX ---
+
     // =======================================================
     // --- NUEVA LÓGICA DE INSCRIPCIÓN DE PAGO SIMPLIFICADA ---
     // =======================================================
@@ -2275,6 +2321,28 @@ export async function handleModal(interaction) {
         config.leagueMode = 'custom_rounds';
         config.customRounds = rounds;
 
+        // --- FIX: Revisar si estamos CREANDO o EDITANDO un formato ---
+        if (pendingData.action === 'edit_format') {
+            const { targetTournamentShortId, newFormatId, qualifiers } = pendingData;
+
+            await db.collection('tournaments').updateOne(
+                { shortId: targetTournamentShortId },
+                {
+                    $set: {
+                        'config.formatId': newFormatId,
+                        'config.leagueMode': 'custom_rounds',
+                        'config.customRounds': rounds,
+                        'config.qualifiers': qualifiers
+                    }
+                }
+            );
+
+            await interaction.editReply(`✅ Formato actualizado a: **Liguilla Flexible (Suizo - ${rounds} rondas)** con ${qualifiers} clasificados.`);
+            await db.collection('pending_tournaments').deleteOne({ pendingId });
+            return;
+        }
+        // --- FIN FIX ---
+
         try {
             const result = await createNewTournament(client, guild, nombre, shortId, config);
             if (result.success) {
@@ -2303,6 +2371,28 @@ export async function handleModal(interaction) {
         const { nombre, shortId, config } = pendingData;
         config.leagueMode = 'round_robin_custom';
         config.customRounds = rounds;
+
+        // --- FIX: Revisar si estamos CREANDO o EDITANDO un formato ---
+        if (pendingData.action === 'edit_format') {
+            const { targetTournamentShortId, newFormatId, qualifiers } = pendingData;
+
+            await db.collection('tournaments').updateOne(
+                { shortId: targetTournamentShortId },
+                {
+                    $set: {
+                        'config.formatId': newFormatId,
+                        'config.leagueMode': 'round_robin_custom',
+                        'config.customRounds': rounds,
+                        'config.qualifiers': qualifiers
+                    }
+                }
+            );
+
+            await interaction.editReply(`✅ Formato actualizado a: **Liguilla Flexible (Custom - ${rounds} jornadas)** con ${qualifiers} clasificados.`);
+            await db.collection('pending_tournaments').deleteOne({ pendingId });
+            return;
+        }
+        // --- FIN FIX ---
 
         try {
             const result = await createNewTournament(client, guild, nombre, shortId, config);

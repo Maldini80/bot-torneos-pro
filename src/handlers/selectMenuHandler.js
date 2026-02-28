@@ -1605,12 +1605,30 @@ export async function handleSelectMenu(interaction) {
         });
 
     } else if (action === 'admin_change_format_select') {
-        await interaction.deferUpdate();
-
         const [tournamentShortId] = params;
         const newFormatId = interaction.values[0];
-        await updateTournamentConfig(interaction.client, tournamentShortId, { formatId: newFormatId });
 
+        // --- FIX: Si cambiamos a Liguilla Flexible, pedimos los clasificados mediante un modal ---
+        if (newFormatId === 'flexible_league') {
+            const modal = new ModalBuilder()
+                .setCustomId(`edit_tournament_to_flexible:${tournamentShortId}`)
+                .setTitle('Configurar Liguilla Flexible');
+
+            const qualifiersInput = new TextInputBuilder()
+                .setCustomId('torneo_qualifiers')
+                .setLabel("Nº de Equipos que se Clasifican")
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder("Ej: 4 (semis), 8 (cuartos)...")
+                .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(qualifiersInput));
+            await interaction.showModal(modal);
+            return;
+        }
+
+        // Si es cualquier otro formato, actualizamos directamente y de forma silente
+        await interaction.deferUpdate();
+        await updateTournamentConfig(interaction.client, tournamentShortId, { formatId: newFormatId });
         await interaction.editReply({ content: `✅ Formato actualizado a: **${TOURNAMENT_FORMATS[newFormatId].label}**.`, components: [] });
 
     } else if (action === 'admin_change_type_select') {

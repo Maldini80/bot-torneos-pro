@@ -1888,13 +1888,34 @@ export async function handleButton(interaction) {
 
             modal.addComponents(new ActionRowBuilder().addComponents(roundsInput));
             await interaction.showModal(modal);
-        } else {
             // Round Robin Completo (All vs All)
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
             const pendingData = await db.collection('pending_tournaments').findOne({ pendingId });
             if (!pendingData) {
                 return interaction.editReply('❌ Error: Datos no encontrados.');
             }
+
+            // --- FIX: Revisar si estamos CREANDO o EDITANDO un formato ---
+            if (pendingData.action === 'edit_format') {
+                const { targetTournamentShortId, newFormatId, qualifiers } = pendingData;
+
+                // Actualizar DB del torneo existente
+                await db.collection('tournaments').updateOne(
+                    { shortId: targetTournamentShortId },
+                    {
+                        $set: {
+                            'config.formatId': newFormatId,
+                            'config.leagueMode': 'round_robin',
+                            'config.qualifiers': qualifiers
+                        }
+                    }
+                );
+
+                await interaction.editReply(`✅ Formato actualizado a: **Liguilla Flexible (Todos contra Todos)** con ${qualifiers} clasificados.`);
+                await db.collection('pending_tournaments').deleteOne({ pendingId });
+                return;
+            }
+            // --- FIN FIX ---
 
             const { nombre, shortId, config } = pendingData;
             config.leagueMode = 'round_robin';
