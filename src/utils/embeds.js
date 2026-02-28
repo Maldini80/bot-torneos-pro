@@ -750,9 +750,14 @@ export function createTournamentStatusEmbed(tournament) {
     let formatDescription = TOURNAMENT_FORMATS[tournament.config.formatId].description;
 
     if (tournament.config.formatId === 'flexible_league') {
-        const mode = tournament.config.leagueMode === 'all_vs_all'
-            ? "🔄 **Todos contra Todos**"
-            : `🔢 **Personalizado (${tournament.config.customRounds} partidos/equipo)**`;
+        let mode = "🔢 **Personalizado**";
+        if (tournament.config.leagueMode === 'all_vs_all' || tournament.config.leagueMode === 'round_robin') {
+            mode = "🔄 **Todos contra Todos**";
+        } else if (tournament.config.leagueMode === 'custom_rounds') {
+            mode = `🇨🇭 **Sistema Suizo (${tournament.config.customRounds} rondas)**`;
+        } else if (tournament.config.leagueMode === 'round_robin_custom') {
+            mode = `🔢 **Liguilla Personalizada (${tournament.config.customRounds} jornadas)**`;
+        }
 
         const qualifiers = tournament.config.qualifiers === 0
             ? "🏆 **Liga Pura** (Gana el líder, sin eliminatorias)"
