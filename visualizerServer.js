@@ -760,19 +760,25 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
             });
         }
 
-        // TORNEOS DE PAGO - Sistema de doble aprobación
+        // TORNEOS DE PAGO - Flujo simplificado (sin preguntas, nombre automático)
         else {
-            if (!teamData?.teamName || !teamData?.eafcTeamName) {
-                return res.status(400).json({ error: 'Faltan datos del equipo (nombre, EAFC team)' });
+            // Check rechazados
+            if (tournament.teams?.rechazados?.[userId]) {
+                return res.status(403).json({ error: '❌ Has sido rechazado de este torneo. Solo un administrador puede desbloquearte.' });
             }
+
+            // Auto-generar nombre si no viene (flujo simplificado)
+            const rawName = teamData?.teamName || req.user.username || 'Jugador';
+            const sanitizedName = rawName.replace(/[^\p{L}\p{N}\s\-]/gu, '').trim().substring(0, 20) || req.user.username.substring(0, 20);
+            const autoTeamName = rawName === teamData?.teamName ? rawName : `TEAM ${sanitizedName}`;
 
             const finalTeamData = {
                 userId: userId,
                 userTag: req.user.username,
-                teamName: teamData.teamName,
-                eafcTeamName: teamData.eafcTeamName,
-                streamChannel: teamData.streamChannel || '',
-                twitter: teamData.twitter || '',
+                teamName: autoTeamName,
+                eafcTeamName: teamData?.eafcTeamName || autoTeamName,
+                streamChannel: teamData?.streamChannel || '',
+                twitter: teamData?.twitter || '',
                 registeredAt: new Date(),
                 status: 'awaiting_payment_info_approval'
             };

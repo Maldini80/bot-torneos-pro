@@ -10,7 +10,7 @@ import {
     approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft,
     approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
     forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement, prepareRouletteDraw, kickPlayerFromDraft, createNewTournament,
-    handleImportedPlayers
+    handleImportedPlayers, sendPaymentApprovalRequest
 } from '../logic/tournamentLogic.js';
 import {
     checkVerification, startVerificationWizard, showVerificationModal, startProfileUpdateWizard, approveProfileUpdate, rejectProfileUpdate, openProfileUpdateThread
@@ -154,33 +154,75 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación, o en la lista de reserva de este torneo.', flags: [MessageFlags.Ephemeral] });
         }
 
-        // --- MODIFICACIÓN: TORNEOS DE PAGO (Flujo simplificado) ---
+        // --- MODIFICACIÓN: TORNEOS DE PAGO (Flujo simplificado sin modal) ---
         if (tournament.config.isPaid) {
-            const modal = new ModalBuilder()
-                .setCustomId(`register_paid_team_modal:${tournamentShortId}`)
-                .setTitle(`Inscripción: ${tournament.nombre.substring(0, 30)}`);
+            // Check si el usuario fue rechazado previamente
+            if (tournament.teams.rechazados && tournament.teams.rechazados[managerId]) {
+                return interaction.reply({
+                    content: '❌ Has sido rechazado de este torneo. Solo un administrador puede desbloquearte para volver a inscribirte.',
+                    flags: [MessageFlags.Ephemeral]
+                });
+            }
 
-            const teamNameInput = new TextInputBuilder()
-                .setCustomId('team_name_input')
-                .setLabel("Nombre de tu equipo")
-                .setStyle(TextInputStyle.Short)
-                .setMinLength(3)
-                .setMaxLength(30)
-                .setRequired(true);
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-            const streamLinkInput = new TextInputBuilder()
-                .setCustomId('stream_link_input')
-                .setLabel("Canal de Retransmisión (Opcional)")
-                .setPlaceholder("Pega aquí el enlace a tu canal (Twitch/YouTube)")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(false);
+            // Auto-generar nombre del equipo desde el apodo del servidor
+            const rawName = interaction.member.displayName || interaction.user.username;
+            const sanitizedName = rawName.replace(/[^\p{L}\p{N}\s\-]/gu, '').trim().substring(0, 20) || interaction.user.username.substring(0, 20);
+            const autoTeamName = `TEAM ${sanitizedName}`;
 
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(teamNameInput),
-                new ActionRowBuilder().addComponents(streamLinkInput)
-            );
+            const teamData = {
+                id: managerId,
+                nombre: autoTeamName,
+                eafcTeamName: autoTeamName,
+                capitanId: managerId,
+                capitanTag: interaction.user.tag,
+                coCaptainId: null,
+                coCaptainTag: null,
+                logoUrl: interaction.user.displayAvatarURL(),
+                twitter: '',
+                streamChannel: '',
+                paypal: null,
+                inscritoEn: new Date(),
+                isPaid: true
+            };
 
-            await interaction.showModal(modal);
+            try {
+                // Guardar en pendingPayments
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { [`teams.pendingPayments.${managerId}`]: teamData } }
+                );
+
+                // Enviar solicitud al admin (background)
+                sendPaymentApprovalRequest(client, tournament, teamData, interaction.user).catch(err => {
+                    console.error('[PAID REG] Error enviando solicitud al admin:', err);
+                });
+
+                // Dar permiso de voz en Canal A (background, sin bloquear respuesta)
+                const seleccionVoiceId = tournament.discordMessageIds?.seleccionCapitanesVoiceId;
+                if (seleccionVoiceId) {
+                    client.channels.fetch(seleccionVoiceId).then(voiceChannel => {
+                        if (voiceChannel) {
+                            voiceChannel.permissionOverwrites.create(managerId, {
+                                ViewChannel: true, Connect: true, Speak: true
+                            }).catch(err => console.error('[VOZ] Error dando permiso Canal A:', err));
+                        }
+                    }).catch(() => { });
+                }
+
+                // Mensaje con mención al canal de voz
+                const canalMention = seleccionVoiceId ? `<#${seleccionVoiceId}>` : 'el canal de selección';
+                await interaction.editReply({
+                    content: `✅ Solicitud enviada. Un administrador revisará tu solicitud.\nMientras tanto, puedes acceder al canal ${canalMention} para hablar con otros capitanes pendientes y ver el stream de selección.`
+                });
+
+            } catch (error) {
+                console.error('[PAID REG] Error al procesar inscripción:', error);
+                await interaction.editReply({
+                    content: '❌ Ocurrió un error al procesar tu solicitud. Por favor, inténtalo de nuevo o contacta con un administrador.'
+                });
+            }
             return;
         }
         // --- FIN MODIFICACIÓN ---
@@ -2078,6 +2120,13 @@ export async function handleButton(interaction) {
 
         await approveTeam(client, tournament, teamData);
 
+        // --- DAR PERMISO VOZ CANAL B (Aprobados) - background ---
+        if (tournament.config?.isPaid && tournament.discordMessageIds?.capitanesAprobadosVoiceId) {
+            client.channels.fetch(tournament.discordMessageIds.capitanesAprobadosVoiceId).then(vc => {
+                if (vc) vc.permissionOverwrites.create(captainId, { ViewChannel: true, Connect: true, Speak: true }).catch(e => console.error('[VOZ] Error Canal B approve:', e));
+            }).catch(() => { });
+        }
+
         // Clean up from source
         if (sourceCollection === 'pendingPayments') {
             await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.pendingPayments.${captainId}`]: "" } });
@@ -2150,15 +2199,83 @@ export async function handleButton(interaction) {
             await user.send(`❌ 🇪🇸 Tu inscripción para el equipo **${teamData.nombre}** en el torneo **${tournament.nombre}** ha sido **rechazada**.\n🇬🇧 Your registration for the team **${teamData.nombre}** in the **${tournament.nombre}** tournament has been **rejected**.`);
         } catch (e) { console.warn(`No se pudo enviar MD de rechazo al usuario ${captainId}`); }
 
+        // --- GUARDAR EN RECHAZADOS + QUITAR VOZ CANAL A ---
+        if (tournament.config?.isPaid) {
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.rechazados.${captainId}`]: { rejectedAt: new Date() } } }
+            );
+
+            // Quitar permiso Canal A (background)
+            const seleccionVoiceId = tournament.discordMessageIds?.seleccionCapitanesVoiceId;
+            if (seleccionVoiceId) {
+                client.channels.fetch(seleccionVoiceId).then(vc => {
+                    if (vc) vc.permissionOverwrites.delete(captainId).catch(e => console.error('[VOZ] Error quitando permiso Canal A:', e));
+                }).catch(() => { });
+            }
+        }
+        // --- FIN RECHAZADOS ---
+
         const originalMessage = interaction.message;
         const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
         originalEmbed.setFooter({ text: `Rechazado por ${interaction.user.tag}` }).setColor('#e74c3c');
 
+        // Botón de desbloquear (solo para torneos de pago)
+        const newComponents = [];
+        if (tournament.config?.isPaid) {
+            newComponents.push(new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`admin_unblock_user:${captainId}:${tournamentShortId}`)
+                    .setLabel('🔓 Desbloquear / Unblock')
+                    .setStyle(ButtonStyle.Secondary)
+            ));
+        } else {
+            const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
+            disabledRow.components.forEach(c => c.setDisabled(true));
+            newComponents.push(disabledRow);
+        }
+
+        await originalMessage.edit({ embeds: [originalEmbed], components: newComponents });
+        await interaction.editReply(`❌ Equipo rechazado y capitán notificado.`);
+        return;
+    }
+
+    // --- NUEVO: DESBLOQUEAR USUARIO RECHAZADO ---
+    if (action === 'admin_unblock_user') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [userId, tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        // Eliminar de rechazados
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $unset: { [`teams.rechazados.${userId}`]: '' } }
+        );
+
+        // Restaurar permiso Canal A (background)
+        const seleccionVoiceId = tournament.discordMessageIds?.seleccionCapitanesVoiceId;
+        if (seleccionVoiceId) {
+            client.channels.fetch(seleccionVoiceId).then(vc => {
+                if (vc) vc.permissionOverwrites.create(userId, { ViewChannel: true, Connect: true, Speak: true }).catch(e => console.error('[VOZ] Error restaurando permiso Canal A:', e));
+            }).catch(() => { });
+        }
+
+        // Notificar al usuario por DM
+        try {
+            const user = await client.users.fetch(userId);
+            await user.send(`🔓 Has sido desbloqueado del torneo **${tournament.nombre}**. Ya puedes volver a inscribirte.`);
+        } catch (e) { console.warn(`No se pudo notificar desbloqueo a ${userId}`); }
+
+        // Deshabilitar botón de desbloqueo
+        const originalMessage = interaction.message;
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+        originalEmbed.setFooter({ text: `Desbloqueado por ${interaction.user.tag}` }).setColor('#f1c40f');
         const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
-
         await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-        await interaction.editReply(`❌ Equipo rechazado y capitán notificado.`);
+
+        await interaction.editReply(`🔓 Usuario <@${userId}> desbloqueado. Ya puede volver a inscribirse.`);
         return;
     }
     if (action === 'admin_kick') {
@@ -2192,6 +2309,15 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
         if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
+
+        // --- ELIMINAR CANAL A (Selección) ---
+        const seleccionVoiceId = tournament.discordMessageIds?.seleccionCapitanesVoiceId;
+        if (seleccionVoiceId) {
+            client.channels.fetch(seleccionVoiceId).then(vc => {
+                if (vc) vc.delete('Sorteo forzado - Canal de selección eliminado').catch(e => console.error('[VOZ] Error eliminando Canal A:', e));
+            }).catch(() => { });
+        }
+        // --- FIN ELIMINAR CANAL A ---
 
         await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Esto puede tardar varios minutos.` });
 
@@ -2233,6 +2359,16 @@ export async function handleButton(interaction) {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: 'Error: No se pudo encontrar ese torneo.' });
+
+        // --- ELIMINAR CANAL B (Aprobados) ---
+        const aprobadosVoiceId = tournament.discordMessageIds?.capitanesAprobadosVoiceId;
+        if (aprobadosVoiceId) {
+            client.channels.fetch(aprobadosVoiceId).then(vc => {
+                if (vc) vc.delete('Torneo finalizado - Canal de aprobados eliminado').catch(e => console.error('[VOZ] Error eliminando Canal B:', e));
+            }).catch(() => { });
+        }
+        // --- FIN ELIMINAR CANAL B ---
+
         await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Los canales se borrarán en breve.` });
         await endTournament(client, tournament);
         return;
@@ -3476,6 +3612,13 @@ export async function handleButton(interaction) {
         // 2. Aprobar al equipo oficialmente en el torneo
         await approveTeam(client, tournament, teamData);
 
+        // --- DAR PERMISO VOZ CANAL B (Aprobados) - background ---
+        if (tournament.config?.isPaid && tournament.discordMessageIds?.capitanesAprobadosVoiceId) {
+            client.channels.fetch(tournament.discordMessageIds.capitanesAprobadosVoiceId).then(vc => {
+                if (vc) vc.permissionOverwrites.create(captainId, { ViewChannel: true, Connect: true, Speak: true }).catch(e => console.error('[VOZ] Error Canal B payment_info:', e));
+            }).catch(() => { });
+        }
+
         // Limpiamos los arrays pendientes
         await db.collection('tournaments').updateOne(
             { _id: tournament._id },
@@ -3567,6 +3710,13 @@ export async function handleButton(interaction) {
 
         // Usamos approveTeam para gestionar la entrada oficial
         await approveTeam(client, tournament, teamData);
+
+        // --- DAR PERMISO VOZ CANAL B (Aprobados) - background ---
+        if (tournament.config?.isPaid && tournament.discordMessageIds?.capitanesAprobadosVoiceId) {
+            client.channels.fetch(tournament.discordMessageIds.capitanesAprobadosVoiceId).then(vc => {
+                if (vc) vc.permissionOverwrites.create(userId, { ViewChannel: true, Connect: true, Speak: true }).catch(e => console.error('[VOZ] Error Canal B payment:', e));
+            }).catch(() => { });
+        }
 
         await interaction.editReply({ content: `✅ Pago aprobado para **${pendingData.teamName}**. El equipo ha sido inscrito.`, components: [] });
         return;

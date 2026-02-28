@@ -1582,20 +1582,13 @@ async function openRegistrationModal(tournamentId, isPaid, langCode) {
     const lang = langCode || getCurrentLanguage();
     const tr = window.dashboard?.translations?.[lang]?.tournaments?.prompts || {};
 
-    // TORNEO DE PAGO - Sistema de doble aprobación
+    // TORNEO DE PAGO - Inscripción directa sin preguntas
     if (isPaid) {
-        // 1. Nombre del Equipo (sirve para EAFC también)
-        const teamName = prompt(tr.teamName || 'Nombre de tu equipo:');
-        if (!teamName) return;
-
-        // 2. Canal de Stream (Opcional)
-        const streamChannel = prompt(tr.stream || 'Canal de transmisión (opcional):') || '';
-
-        // Enviamos datos simplificados (Twitter vacío, EAFC = TeamName)
+        // Enviamos sin nombre — el backend lo auto-genera con el nombre del usuario
         await registerTournament(tournamentId, {
-            teamName,
-            eafcTeamName: teamName,
-            streamChannel,
+            teamName: null,
+            eafcTeamName: null,
+            streamChannel: '',
             twitter: ''
         }, null);
     }

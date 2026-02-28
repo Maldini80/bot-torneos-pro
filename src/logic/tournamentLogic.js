@@ -1200,10 +1200,10 @@ export async function createNewTournament(client, guild, name, shortId, config) 
                 format: format, // Añade el objeto de formato completo
                 matchType: config.matchType || 'ida',
             },
-            teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {} },
+            teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {}, rechazados: {} },
             structure: { grupos: {}, calendario: {}, eliminatorias: { rondaActual: null } },
             discordChannelIds: { infoChannelId: infoChannel.id, matchesChannelId: matchesChannel.id, chatChannelId: chatChannel.id },
-            discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null, casterThreadId: null }
+            discordMessageIds: { statusMessageId: null, classificationMessageId: null, calendarMessageId: null, managementThreadId: null, notificationsThreadId: null, casterThreadId: null, seleccionCapitanesVoiceId: null, capitanesAprobadosVoiceId: null }
         };
         // --- FIN DE LA LÓGICA CORREGIDA ---
 
@@ -1255,6 +1255,48 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             await publishTournamentVisualizerURL(client, finalTournament);
         }
         console.log(`[CREATE] Panel de gestión y URL del visualizador enviados para ${shortId}.`);
+
+        // --- CANALES DE VOZ PARA TORNEOS DE PAGO ---
+        if (config.isPaid) {
+            try {
+                const voiceBasePermissions = [
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect] },
+                    { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect] }
+                ];
+                if (arbitroRole) voiceBasePermissions.push({ id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak, PermissionsBitField.Flags.Stream] });
+
+                const seleccionChannel = await guild.channels.create({
+                    name: `🔍 Selección - ${name.substring(0, 40)}`,
+                    type: ChannelType.GuildVoice,
+                    parent: TEAM_CHANNELS_CATEGORY_ID,
+                    permissionOverwrites: voiceBasePermissions
+                });
+                createdResources.channels.push(seleccionChannel.id);
+
+                const aprobadosChannel = await guild.channels.create({
+                    name: `✅ Aprobados - ${name.substring(0, 40)}`,
+                    type: ChannelType.GuildVoice,
+                    parent: TEAM_CHANNELS_CATEGORY_ID,
+                    permissionOverwrites: [...voiceBasePermissions] // Copia para evitar referencia compartida
+                });
+                createdResources.channels.push(aprobadosChannel.id);
+
+                await db.collection('tournaments').updateOne(
+                    { _id: newTournament._id },
+                    {
+                        $set: {
+                            'discordMessageIds.seleccionCapitanesVoiceId': seleccionChannel.id,
+                            'discordMessageIds.capitanesAprobadosVoiceId': aprobadosChannel.id
+                        }
+                    }
+                );
+                console.log(`[CREATE] Canales de voz de pago creados para ${shortId}: Selección=${seleccionChannel.id}, Aprobados=${aprobadosChannel.id}`);
+            } catch (voiceError) {
+                console.error(`[CREATE] Error al crear canales de voz de pago para ${shortId}:`, voiceError);
+                // No es crítico — el torneo se crea igual, solo sin canales de voz
+            }
+        }
+        // --- FIN CANALES DE VOZ ---
 
         (async () => {
             const settings = await getBotSettings();
