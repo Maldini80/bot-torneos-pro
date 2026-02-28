@@ -164,6 +164,27 @@ export async function handleButton(interaction) {
                 });
             }
 
+            const isDraft = tournament.config.paidSubType === 'draft';
+
+            if (isDraft) {
+                // Para Draft Externo: mostramos modal pidiendo WhatsApp
+                const modal = new ModalBuilder()
+                    .setCustomId(`register_draft_team_modal:${tournamentShortId}`)
+                    .setTitle('Inscripción Draft Externo');
+
+                const whatsappInput = new TextInputBuilder()
+                    .setCustomId('whatsapp_input')
+                    .setLabel('Tu número de WhatsApp')
+                    .setPlaceholder('Ej: +34 600123456 (obligatorio)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                modal.addComponents(new ActionRowBuilder().addComponents(whatsappInput));
+                await interaction.showModal(modal);
+                return;
+            }
+
+            // Para Cash Cup: Flujo automático directo
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
             // Auto-generar nombre del equipo desde el apodo del servidor
@@ -199,30 +220,10 @@ export async function handleButton(interaction) {
                     console.error('[PAID REG] Error enviando solicitud al admin:', err);
                 });
 
-                // Dar permiso de voz y editar mensaje según subtipo (Draft vs Cash Cup)
-                const isDraft = tournament.config.paidSubType === 'draft';
-                const seleccionVoiceId = tournament.discordMessageIds?.seleccionCapitanesVoiceId;
-
-                if (isDraft && seleccionVoiceId) {
-                    // Dar permiso de voz en Canal A (background)
-                    client.channels.fetch(seleccionVoiceId).then(voiceChannel => {
-                        if (voiceChannel) {
-                            voiceChannel.permissionOverwrites.create(managerId, {
-                                ViewChannel: true, Connect: true, Speak: true
-                            }).catch(err => console.error('[VOZ] Error dando permiso Canal A:', err));
-                        }
-                    }).catch(() => { });
-
-                    // Mensaje Draft
-                    await interaction.editReply({
-                        content: `✅ Solicitud enviada. Un administrador revisará tu solicitud.\nMientras tanto, puedes acceder al canal <#${seleccionVoiceId}> para hablar con otros capitanes pendientes y ver el stream de selección.`
-                    });
-                } else {
-                    // Mensaje Cash Cup (o fallback si no hay canal)
-                    await interaction.editReply({
-                        content: `✅ Has mandado solicitud para participar en la Cash Cup, espera respuesta en tu DM sobre si te aprueba o rechaza Administracion.`
-                    });
-                }
+                // Mensaje Cash Cup (o fallback si no hay canal)
+                await interaction.editReply({
+                    content: `✅ Has mandado solicitud para participar en la Cash Cup, espera respuesta en tu DM sobre si te aprueba o rechaza Administracion.`
+                });
 
             } catch (error) {
                 console.error('[PAID REG] Error al procesar inscripción:', error);

@@ -5107,8 +5107,13 @@ export async function sendPaymentApprovalRequest(client, tournament, teamData, u
                 { name: 'Usuario', value: `<@${user.id}> (${user.username})`, inline: true },
                 { name: 'Equipo', value: teamData.teamName || teamData.nombre || 'Desconocido', inline: true },
                 { name: 'Stream', value: teamData.streamChannel || 'N/A', inline: true }
-            )
-            .setFooter({ text: 'Aprueba para enviarle la información de pago' });
+            );
+
+        if (teamData.whatsapp) {
+            embed.addFields({ name: 'WhatsApp', value: teamData.whatsapp, inline: true });
+        }
+
+        embed.setFooter({ text: 'Aprueba para enviarle la información de pago' });
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()

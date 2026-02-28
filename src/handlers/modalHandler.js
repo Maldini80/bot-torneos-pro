@@ -275,6 +275,82 @@ export async function handleModal(interaction) {
         return;
     }
 
+    // =======================================================
+    // --- LÓGICA DE DRAFT EXTERNO (WHATSAPP MODAL) ---
+    // =======================================================
+    if (action === 'register_draft_team_modal') {
+        const [tournamentShortId] = params;
+        const managerId = interaction.user.id;
+        const whatsappNumber = interaction.fields.getTextInputValue('whatsapp_input');
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.reply({ content: '❌ El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        // Auto-generar nombre de equipo igual que Cash Cup
+        const rawName = interaction.member.displayName || interaction.user.username;
+        const sanitizedName = rawName.replace(/[^\p{L}\p{N}\s\-]/gu, '').trim().substring(0, 20) || interaction.user.username.substring(0, 20);
+        const autoTeamName = `TEAM ${sanitizedName}`;
+
+        const teamData = {
+            id: managerId,
+            nombre: autoTeamName,
+            eafcTeamName: autoTeamName,
+            capitanId: managerId,
+            capitanTag: interaction.user.tag,
+            coCaptainId: null,
+            coCaptainTag: null,
+            logoUrl: interaction.user.displayAvatarURL(),
+            twitter: '',
+            streamChannel: '',
+            paypal: null,
+            whatsapp: whatsappNumber, // Guardamos WhatsApp extraído del modal
+            inscritoEn: new Date(),
+            isPaid: true
+        };
+
+        try {
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.pendingPayments.${managerId}`]: teamData } }
+            );
+
+            // Importación dinámica limpia
+            const { sendPaymentApprovalRequest } = await import('../logic/tournamentLogic.js');
+
+            // Enviar solicitud background al admin
+            sendPaymentApprovalRequest(client, tournament, teamData, interaction.user).catch(err => {
+                console.error('[DRAFT REG] Error enviando solicitud al admin:', err);
+            });
+
+            // Otorgar permisos al canal A de voz
+            const seleccionVoiceId = tournament.discordMessageIds?.seleccionCapitanesVoiceId;
+            if (seleccionVoiceId) {
+                client.channels.fetch(seleccionVoiceId).then(voiceChannel => {
+                    if (voiceChannel) {
+                        voiceChannel.permissionOverwrites.create(managerId, {
+                            ViewChannel: true, Connect: true, Speak: true
+                        }).catch(err => console.error('[VOZ] Error dando permiso Canal Draft:', err));
+                    }
+                }).catch(() => { });
+            }
+
+            // Mensaje confirmación (siempre con mención al canal porque es Draft)
+            const canalMention = seleccionVoiceId ? `<#${seleccionVoiceId}>` : 'el canal de selección';
+            await interaction.editReply({
+                content: `✅ Solicitud enviada.\nUn administrador revisará la inscripción y te contactará.\nMientras tanto, puedes acceder a ${canalMention} para hablar con otros capitanes pendientes y ver el stream de selección.`
+            });
+
+        } catch (error) {
+            console.error('[DRAFT REG] Error:', error);
+            await interaction.editReply({ content: '❌ Hubo un error procesando tu inscripción al Draft Externo.' });
+        }
+        return;
+    }
+
     if (action === 'inscripcion_final_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
