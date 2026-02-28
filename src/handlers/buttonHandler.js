@@ -1888,6 +1888,7 @@ export async function handleButton(interaction) {
 
             modal.addComponents(new ActionRowBuilder().addComponents(roundsInput));
             await interaction.showModal(modal);
+        } else {
             // Round Robin Completo (All vs All)
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
             const pendingData = await db.collection('pending_tournaments').findOne({ pendingId });
@@ -1899,17 +1900,11 @@ export async function handleButton(interaction) {
             if (pendingData.action === 'edit_format') {
                 const { targetTournamentShortId, newFormatId, qualifiers } = pendingData;
 
-                // Actualizar DB del torneo existente
-                await db.collection('tournaments').updateOne(
-                    { shortId: targetTournamentShortId },
-                    {
-                        $set: {
-                            'config.formatId': newFormatId,
-                            'config.leagueMode': 'round_robin',
-                            'config.qualifiers': qualifiers
-                        }
-                    }
-                );
+                await updateTournamentConfig(client, targetTournamentShortId, {
+                    formatId: newFormatId,
+                    leagueMode: 'round_robin',
+                    qualifiers: qualifiers
+                });
 
                 await interaction.editReply(`✅ Formato actualizado a: **Liguilla Flexible (Todos contra Todos)** con ${qualifiers} clasificados.`);
                 await db.collection('pending_tournaments').deleteOne({ pendingId });
@@ -3450,31 +3445,52 @@ export async function handleButton(interaction) {
             return interaction.editReply('❌ Torneo no encontrado');
         }
 
-        // CORRECCIÓN: Buscar en pendingPayments (donde guarda la web/modal) o pendingApproval (legacy)
-        const pendingData = tournament.teams.pendingPayments?.[captainId] || tournament.teams.pendingApproval?.[captainId];
+        // Buscar en pendientes (donde guarda la web/modal actual)
+        const pendingData = tournament.teams.pendientes?.[captainId] || tournament.teams.pendingPayments?.[captainId] || tournament.teams.pendingApproval?.[captainId];
 
         if (!pendingData) {
             console.log(`[DEBUG] Solicitud no encontrada para ${captainId} en torneo ${tournamentShortId}`);
             return interaction.editReply('❌ Solicitud no encontrada o ya procesada');
         }
 
-        // 1. Mover de pendingApproval → pendingPayments
+        // 1. Construir objeto de equipo final directamente (Aprobamos instantáneamente)
+        const teamData = {
+            id: captainId, // En torneos de pago, el ID del equipo es el ID del usuario
+            nombre: pendingData.teamName || pendingData.nombre || 'Desconocido',
+            eafcTeamName: pendingData.eafcTeamName || pendingData.teamName || pendingData.nombre || 'Desconocido',
+            capitanId: captainId,
+            capitanTag: pendingData.userTag || pendingData.capitanTag || 'Desconocido',
+            coCaptainId: null,
+            coCaptainTag: null,
+            logoUrl: pendingData.logoUrl || null,
+            twitter: pendingData.twitter || 'N/A',
+            streamChannel: pendingData.streamChannel || null,
+            paypal: null,
+            inscritoEn: new Date(),
+            isPaid: false // Queda pendiente de pago real
+        };
+
+        if (teamData.nombre === 'Desconocido' && teamData.capitanTag) {
+            teamData.nombre = `Equipo de ${teamData.capitanTag}`;
+            teamData.eafcTeamName = teamData.nombre;
+        }
+
+        // 2. Aprobar al equipo oficialmente en el torneo
+        await approveTeam(client, tournament, teamData);
+
+        // Limpiamos los arrays pendientes
         await db.collection('tournaments').updateOne(
             { _id: tournament._id },
             {
-                $set: {
-                    [`teams.pendingPayments.${captainId}`]: {
-                        ...pendingData,
-                        status: 'awaiting_payment',
-                        paymentInfoSentAt: new Date(),
-                        paypal: null
-                    }
-                },
-                $unset: { [`teams.pendingApproval.${captainId}`]: "" }
+                $unset: {
+                    [`teams.pendientes.${captainId}`]: "",
+                    [`teams.pendingPayments.${captainId}`]: "",
+                    [`teams.pendingApproval.${captainId}`]: ""
+                }
             }
         );
 
-        // 2. Construir info de pago
+        // 3. Construir info de pago
         let paymentInstructions = '';
         if (tournament.config.paypalEmail) {
             paymentInstructions += `\n- **PayPal:** \`${tournament.config.paypalEmail}\``;
@@ -3483,47 +3499,40 @@ export async function handleButton(interaction) {
             paymentInstructions += `\n- **Bizum:** \`${tournament.config.bizumNumber}\``;
         }
         if (!paymentInstructions) {
-            paymentInstructions = "\n*No hay métodos configurados. Contacta con un administrador.*";
+            paymentInstructions = "\n*No hay métodos configurados. Contacta con un administrador para realizar el pago.*";
         }
 
-        // 3. Enviar DM al usuario con info de pago
+        // 4. Enviar DM al usuario con info de pago (sin botón)
         try {
             const user = await client.users.fetch(captainId);
             const paymentEmbed = new EmbedBuilder()
                 .setColor('#2ecc71')
-                .setTitle(`✅ Solicitud Aprobada - ${tournament.nombre}`)
+                .setTitle(`✅ Aprobado Oficialmente - ${tournament.nombre}`)
                 .setDescription(
-                    `🇪🇸 ¡Tu solicitud ha sido aprobada! Para confirmar tu plaza, realiza el pago de **${tournament.config.entryFee}€**.\n\n` +
-                    `🇬🇧 Your request has been approved! To confirm your spot, make the payment of **${tournament.config.entryFee}€**.`
+                    `🇪🇸 ¡Tú equipo ha sido aprobado oficialmente y ha entrado al torneo!\nPara confirmar tu plaza, por favor procesa el pago de la cuota: **${tournament.config.entryFee}€**.\n\n` +
+                    `🇬🇧 Your team has been officially approved and entered into the tournament!\nTo confirm your spot, please process the fee payment: **${tournament.config.entryFee}€**.`
                 )
                 .addFields(
                     { name: '💰 Métodos de Pago / Payment Methods', value: paymentInstructions },
                     {
-                        name: '📋 Instrucciones / Instructions', value:
-                            '1. Realiza el pago / Make the payment\n' +
-                            '2. Pulsa el botón de abajo / Click the button below'
+                        name: '📝 Nota Importante / Important Note', value:
+                            'Una vez realizado el pago, contacta al Admin enviándole el comprobante.\n' +
+                            'Once the payment is done, contact the Admin sending the receipt.'
                     }
                 );
 
-            const confirmButton = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`payment_confirm_start:${tournamentShortId}`)
-                    .setLabel('✅ Ya he realizado el Pago / Payment Done')
-                    .setStyle(ButtonStyle.Success)
-            );
-
-            await user.send({ embeds: [paymentEmbed], components: [confirmButton] });
+            await user.send({ embeds: [paymentEmbed] });
 
             // Deshabilitar botones del mensaje de admin
             const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
             disabledRow.components.forEach(c => c.setDisabled(true));
             await interaction.message.edit({ components: [disabledRow] });
 
-            await interaction.editReply(`✅ Información de pago enviada a <@${captainId}>`);
+            await interaction.editReply(`✅ Equipo aprobado y metido al torneo al instante. MD enviado a <@${captainId}> informando de que debe pagar.`);
 
         } catch (error) {
             console.error('Error enviando DM:', error);
-            await interaction.editReply(`⚠️ Aprobado pero no se pudo enviar DM. Contacta con <@${captainId}> manualmente.`);
+            await interaction.editReply(`⚠️ Equipo metido en el torneo, pero no se pudo enviar DM. Contacta con <@${captainId}> manualmente para el cobro.`);
         }
         return;
     }

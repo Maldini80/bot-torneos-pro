@@ -2325,17 +2325,12 @@ export async function handleModal(interaction) {
         if (pendingData.action === 'edit_format') {
             const { targetTournamentShortId, newFormatId, qualifiers } = pendingData;
 
-            await db.collection('tournaments').updateOne(
-                { shortId: targetTournamentShortId },
-                {
-                    $set: {
-                        'config.formatId': newFormatId,
-                        'config.leagueMode': 'custom_rounds',
-                        'config.customRounds': rounds,
-                        'config.qualifiers': qualifiers
-                    }
-                }
-            );
+            await updateTournamentConfig(client, targetTournamentShortId, {
+                formatId: newFormatId,
+                leagueMode: 'custom_rounds',
+                customRounds: rounds,
+                qualifiers: qualifiers
+            });
 
             await interaction.editReply(`✅ Formato actualizado a: **Liguilla Flexible (Suizo - ${rounds} rondas)** con ${qualifiers} clasificados.`);
             await db.collection('pending_tournaments').deleteOne({ pendingId });
@@ -2376,17 +2371,12 @@ export async function handleModal(interaction) {
         if (pendingData.action === 'edit_format') {
             const { targetTournamentShortId, newFormatId, qualifiers } = pendingData;
 
-            await db.collection('tournaments').updateOne(
-                { shortId: targetTournamentShortId },
-                {
-                    $set: {
-                        'config.formatId': newFormatId,
-                        'config.leagueMode': 'round_robin_custom',
-                        'config.customRounds': rounds,
-                        'config.qualifiers': qualifiers
-                    }
-                }
-            );
+            await updateTournamentConfig(client, targetTournamentShortId, {
+                formatId: newFormatId,
+                leagueMode: 'round_robin_custom',
+                customRounds: rounds,
+                qualifiers: qualifiers
+            });
 
             await interaction.editReply(`✅ Formato actualizado a: **Liguilla Flexible (Custom - ${rounds} jornadas)** con ${qualifiers} clasificados.`);
             await db.collection('pending_tournaments').deleteOne({ pendingId });
