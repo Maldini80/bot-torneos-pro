@@ -1400,49 +1400,6 @@ export async function startGroupStage(client, guild, tournament) {
         }
         // --- FIN DE LA LÓGICA CORREGIDA ---
 
-        // --- FIX: Generar canales de audio si es torneo de pago ---
-        if (updatedTournament.config.isPaid) {
-            const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
-            const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
-
-            if (teamCategory && arbitroRole) {
-                console.log(`[CHANNELS] Creando canales de equipo automáticos para el torneo de pago ${updatedTournament.shortId}`);
-                for (const team of Object.values(updatedTournament.teams.aprobados)) {
-                    const voicePermissions = [
-                        { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] }
-                    ];
-
-                    // Permisos de moderador para el capitán (igual que en los drafts)
-                    if (/^\d+$/.test(team.capitanId)) {
-                        voicePermissions.push({
-                            id: team.capitanId,
-                            allow: [
-                                PermissionsBitField.Flags.ViewChannel,
-                                PermissionsBitField.Flags.Connect,
-                                PermissionsBitField.Flags.Speak,
-                                PermissionsBitField.Flags.MuteMembers,
-                                PermissionsBitField.Flags.DeafenMembers,
-                                PermissionsBitField.Flags.MoveMembers
-                            ]
-                        });
-                    }
-
-                    await guild.channels.create({
-                        name: `🔊 ${team.nombre}`,
-                        type: ChannelType.GuildVoice,
-                        parent: teamCategory,
-                        permissionOverwrites: voicePermissions
-                    }).catch(error => console.error(`[CHANNELS] Error al crear canal para ${team.nombre}:`, error));
-
-                    // Pequeña pausa para no hacer spam a la API de Discord
-                    await new Promise(r => setTimeout(r, 500));
-                }
-            } else {
-                console.warn(`[CHANNELS] No se pudo crear canales de equipo para ${updatedTournament.shortId} por falta de categoría o rol.`);
-            }
-        }
-        // --- FIN FIX ---
-
         // Paso 4: Actualizar todas las interfaces públicas
         const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournamentData._id });
         await updatePublicMessages(client, finalTournamentState);
@@ -1483,6 +1440,50 @@ export async function approveTeam(client, tournament, teamData) {
         latestTournament.teams.aprobados[teamData.capitanId] = teamData;
         if (latestTournament.teams.pendientes[teamData.capitanId]) delete latestTournament.teams.pendientes[teamData.capitanId];
         if (latestTournament.teams.reserva[teamData.capitanId]) delete latestTournament.teams.reserva[teamData.capitanId];
+
+        // --- FIX: Crear canal de voz del equipo al aprobarlo (si es torneo de pago) ---
+        if (latestTournament.config && latestTournament.config.isPaid) {
+            try {
+                const guild = await client.guilds.fetch(tournament.guildId);
+                const teamCategory = await guild.channels.fetch(TEAM_CHANNELS_CATEGORY_ID).catch(() => null);
+                const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
+
+                if (teamCategory && arbitroRole) {
+                    const voicePermissions = [
+                        { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] }
+                    ];
+
+                    if (/^\d+$/.test(teamData.capitanId)) {
+                        voicePermissions.push({
+                            id: teamData.capitanId,
+                            allow: [
+                                PermissionsBitField.Flags.ViewChannel,
+                                PermissionsBitField.Flags.Connect,
+                                PermissionsBitField.Flags.Speak,
+                                PermissionsBitField.Flags.MuteMembers,
+                                PermissionsBitField.Flags.DeafenMembers,
+                                PermissionsBitField.Flags.MoveMembers
+                            ]
+                        });
+                    }
+
+                    const voiceChannel = await guild.channels.create({
+                        name: `🔊 ${teamData.nombre}`,
+                        type: ChannelType.GuildVoice,
+                        parent: teamCategory,
+                        permissionOverwrites: voicePermissions
+                    });
+
+                    // Guardamos el ID del canal en los datos del equipo para poder borrarlo/renombrarlo luego
+                    latestTournament.teams.aprobados[teamData.capitanId].voiceChannelId = voiceChannel.id;
+                    teamData.voiceChannelId = voiceChannel.id;
+                    console.log(`[CHANNELS] Canal creado ${voiceChannel.id} para equipo ${teamData.nombre} en torneo ${latestTournament.shortId}`);
+                }
+            } catch (err) {
+                console.error(`[CHANNELS] Error creando canal de voz en approveTeam para ${teamData.nombre}:`, err);
+            }
+        }
+        // --- FIN FIX ---
 
         if (/^\d+$/.test(teamData.capitanId)) {
             try {
@@ -1925,6 +1926,21 @@ export async function kickTeam(client, tournament, captainId) {
     }
     // --- FIN LÓGICA EXTRA CAPTAINS (CLEANUP) ---
 
+    // --- FIX: Eliminar el canal de voz si existiese ---
+    if (teamData.voiceChannelId) {
+        try {
+            const guild = await client.guilds.fetch(tournament.guildId);
+            const voiceChannel = await guild.channels.fetch(teamData.voiceChannelId).catch(() => null);
+            if (voiceChannel) {
+                await voiceChannel.delete('Equipo expulsado del torneo');
+                console.log(`[CHANNELS] Canal de voz ${voiceChannel.id} eliminado del equipo expulsado ${teamData.nombre}.`);
+            }
+        } catch (err) {
+            console.error(`[CHANNELS] Error eliminando canal de voz de ${teamData.nombre} en kickTeam:`, err);
+        }
+    }
+    // --- FIN FIX ---
+
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.aprobados.${captainId}`]: "" } });
 
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
@@ -2083,8 +2099,7 @@ async function cleanupTournament(client, tournament) {
         try {
             const resource = await client.channels.fetch(resourceId).catch(() => null);
             if (resource) await resource.delete();
-        }
-        catch (err) {
+        } catch (err) {
             if (err.code !== 10003) console.error(`Fallo al borrar recurso ${resourceId}: ${err.message}`);
         }
     };
@@ -2095,6 +2110,17 @@ async function cleanupTournament(client, tournament) {
     for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) {
         await deleteResourceSafe(threadId);
     }
+
+    // --- FIX: Limpiar canales de voz automáticos de equipos (Torneos de Pago) ---
+    if (tournament.config && tournament.config.isPaid && tournament.teams && tournament.teams.aprobados) {
+        for (const team of Object.values(tournament.teams.aprobados)) {
+            if (team.voiceChannelId) {
+                await deleteResourceSafe(team.voiceChannelId);
+                console.log(`[CHANNELS] Canal de voz ${team.voiceChannelId} eliminado durante la limpieza del torneo ${tournament.shortId}`);
+            }
+        }
+    }
+    // --- FIN FIX ---
 
     // --- INICIO DE LA CORRECCIÓN ---
     // Ahora, también borramos el mensaje de estado del canal público.

@@ -399,6 +399,25 @@ export async function handleModal(interaction) {
         const newStreamChannel = interaction.fields.getTextInputValue('stream_url_input');
         const newLogoUrl = interaction.fields.getTextInputValue('logo_url_input'); // AÑADE ESTA LÍNEA
 
+        // --- FIX: Renombrar canal de voz si el nombre del equipo cambió ---
+        const currentTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (currentTournament && currentTournament.teams && currentTournament.teams.aprobados[captainId]) {
+            const oldTeamData = currentTournament.teams.aprobados[captainId];
+            if (oldTeamData.nombre !== newTeamName && oldTeamData.voiceChannelId) {
+                try {
+                    const guild = await client.guilds.fetch(currentTournament.guildId);
+                    const voiceChannel = await guild.channels.fetch(oldTeamData.voiceChannelId).catch(() => null);
+                    if (voiceChannel) {
+                        await voiceChannel.setName(`🔊 ${newTeamName}`);
+                        console.log(`[CHANNELS] Canal de voz renombrado de '🔊 ${oldTeamData.nombre}' a '🔊 ${newTeamName}'`);
+                    }
+                } catch (err) {
+                    console.error(`[CHANNELS] Error renombrando canal de voz para el equipo editado:`, err);
+                }
+            }
+        }
+        // --- FIN FIX ---
+
         await db.collection('tournaments').updateOne(
             { shortId: tournamentShortId },
             {
