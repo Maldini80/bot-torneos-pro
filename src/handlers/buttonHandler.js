@@ -157,7 +157,7 @@ export async function handleButton(interaction) {
 
             const teamNameInput = new TextInputBuilder()
                 .setCustomId('team_name_input')
-                .setLabel("Nombre del Club EAFC")
+                .setLabel("Nombre de tu equipo")
                 .setStyle(TextInputStyle.Short)
                 .setMinLength(3)
                 .setMaxLength(30)

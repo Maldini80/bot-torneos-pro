@@ -5064,9 +5064,7 @@ export async function sendPaymentApprovalRequest(client, tournament, teamData, u
             .addFields(
                 { name: 'Usuario', value: `<@${user.id}> (${user.username})`, inline: true },
                 { name: 'Equipo', value: teamData.teamName || teamData.nombre || 'Desconocido', inline: true },
-                { name: 'EAFC Team', value: teamData.eafcTeamName, inline: false },
-                { name: 'Stream', value: teamData.streamChannel || 'N/A', inline: true },
-                { name: 'Twitter', value: teamData.twitter || 'N/A', inline: true }
+                { name: 'Stream', value: teamData.streamChannel || 'N/A', inline: true }
             )
             .setFooter({ text: 'Aprueba para enviarle la información de pago' });
 
