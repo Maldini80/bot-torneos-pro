@@ -456,6 +456,8 @@ function initializeTournamentView(tournamentId) {
             const group = groups[groupName];
             const sortedTeams = [...group.equipos].sort((a, b) => {
                 if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
+                // Buchholz tiebreaker para liguilla suiza (igual que Discord)
+                if ((a.stats.buchholz || 0) !== (b.stats.buchholz || 0)) return (b.stats.buchholz || 0) - (a.stats.buchholz || 0);
                 if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
                 return b.stats.gf - a.stats.gf;
             });
