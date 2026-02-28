@@ -2317,10 +2317,6 @@ export async function handleModal(interaction) {
             return interaction.editReply('❌ Error: No se encontraron los datos del torneo pendiente.');
         }
 
-        const { nombre, shortId, config } = pendingData;
-        config.leagueMode = 'custom_rounds';
-        config.customRounds = rounds;
-
         // --- FIX: Revisar si estamos CREANDO o EDITANDO un formato ---
         if (pendingData.action === 'edit_format') {
             const { targetTournamentShortId, newFormatId, qualifiers } = pendingData;
@@ -2337,6 +2333,10 @@ export async function handleModal(interaction) {
             return;
         }
         // --- FIN FIX ---
+
+        const { nombre, shortId, config } = pendingData;
+        config.leagueMode = 'custom_rounds';
+        config.customRounds = rounds;
 
         try {
             const result = await createNewTournament(client, guild, nombre, shortId, config);
@@ -2363,10 +2363,6 @@ export async function handleModal(interaction) {
             return interaction.editReply('❌ Error: No se encontraron los datos del torneo pendiente.');
         }
 
-        const { nombre, shortId, config } = pendingData;
-        config.leagueMode = 'round_robin_custom';
-        config.customRounds = rounds;
-
         // --- FIX: Revisar si estamos CREANDO o EDITANDO un formato ---
         if (pendingData.action === 'edit_format') {
             const { targetTournamentShortId, newFormatId, qualifiers } = pendingData;
@@ -2383,6 +2379,10 @@ export async function handleModal(interaction) {
             return;
         }
         // --- FIN FIX ---
+
+        const { nombre, shortId, config } = pendingData;
+        config.leagueMode = 'round_robin_custom';
+        config.customRounds = rounds;
 
         try {
             const result = await createNewTournament(client, guild, nombre, shortId, config);
