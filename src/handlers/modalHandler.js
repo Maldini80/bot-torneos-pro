@@ -217,9 +217,9 @@ export async function handleModal(interaction) {
             await sendPaymentApprovalRequest(client, tournament, teamData, interaction.user);
 
             await interaction.editReply({
-                content: `✅ **Solicitud enviada a los Administradores.**\n\n` +
+                content: `✅ **Solicitud enviada.**\n\n` +
                     `Hemos notificado al staff sobre tu interés en inscribir al equipo **${teamName}**.\n` +
-                    `Un administrador revisará tu solicitud y te enviará un **Mensaje Directo (DM)** con la información de pago.\n\n` +
+                    `Un administrador revisará tu solicitud y el sistema te enviará un Mensaje Directo (DM) con la información de pago una vez seas aprobado.\n\n` +
                     `⚠️ **Importante:** Asegúrate de tener los mensajes directos abiertos para recibir los datos de pago.`
             });
 
