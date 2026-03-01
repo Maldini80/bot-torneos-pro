@@ -2887,17 +2887,48 @@ aside h2 {
     .classification-table-header,
     .team-stats-grid,
     table {
-        min-width: 600px !important;
-        /* Force scroll */
-        width: 100%;
-        font-size: 0.9em !important;
-        /* Readable text size */
+        min-width: 100% !important;
+        /* Changed from 600px to avoid massive scroll if not needed */
+        width: max-content;
+        /* Allow it to grow if needed */
+        font-size: 0.8em !important;
+        /* Smaller text size for mobile */
     }
 
     /* Ensure rows display correctly */
     .team-stat-card {
-        min-width: 600px;
-        /* Make card wide enough */
+        min-width: 100%;
+        /* Changed from 600px */
+        width: max-content;
+        padding: 8px 10px;
+        /* Reduced padding */
+    }
+
+    .team-position {
+        font-size: 1em;
+        width: 20px;
+    }
+
+    .team-name-classification {
+        max-width: 120px;
+        /* Truncate long names */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.9em;
+    }
+
+    /* Make stat items strictly compact */
+    .stat-item {
+        width: 35px;
+        margin: 0;
+        padding: 0;
+    }
+
+    .header-stat {
+        width: 35px;
+        text-align: center;
+        font-size: 0.9em;
     }
 
     /* Bracket scroll fix */
