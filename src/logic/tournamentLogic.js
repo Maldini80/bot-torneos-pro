@@ -1544,8 +1544,10 @@ export async function approveTeam(client, tournament, teamData) {
                     );
                 }
 
-                await user.send({ embeds: [embed] });
-                console.log(`[DEBUG] Notification sent to ${teamData.capitanId}`);
+                await user.send({ embeds: [embed] }).catch(e => {
+                    console.warn(`[WARNING] No se pudo enviar MD de aprobación a ${teamData.capitanId}: ${e.message}`);
+                });
+                console.log(`[DEBUG] Notification flow finished for ${teamData.capitanId}`);
 
                 const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
                 const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
