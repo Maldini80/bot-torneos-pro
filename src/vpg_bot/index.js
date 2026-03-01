@@ -186,12 +186,16 @@ async function startVpgBot() {
             }
 
         } catch (error) {
-            // Si el error es "Unknown Interaction" (código 10062), es probable que sea por un "arranque en frío" de Render.
-            // En este caso, simplemente lo registramos en la consola y no intentamos responder al usuario,
-            // porque la interacción ya ha expirado y causaría otro error.
+            // Ignorar errores por "Arranque en frío" de Render (10062)
             if (error.code === 10062) {
                 console.warn(`[VPG] Se ignoró un error de "Interacción Desconocida" (código 10062), probablemente debido a un arranque en frío.`);
-                return; // Detenemos la ejecución aquí para este caso específico.
+                return;
+            }
+
+            // Ignorar errores por "Doble Clic / Interacción ya respondida" (40060)
+            if (error.code === 40060) {
+                console.warn(`[VPG] Se ignoró un error (40060): La interacción ya fue respondida (posible doble clic del usuario).`);
+                return;
             }
 
             // Para todos los demás errores, mantenemos la lógica de notificar al usuario.
@@ -203,14 +207,17 @@ async function startVpgBot() {
             };
 
             try {
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp(errorMessage);
-                } else {
-                    await interaction.reply(errorMessage);
+                // Solo intentar responder si la interacción sigue viva y no ha sido respondida
+                if (!interaction.isReplied()) {
+                    if (interaction.deferred) {
+                        await interaction.followUp(errorMessage);
+                    } else {
+                        await interaction.reply(errorMessage);
+                    }
                 }
             } catch (followUpError) {
                 // Este catch interno previene un crash si el envío del mensaje de error también falla.
-                console.error("[VPG] No se pudo enviar el mensaje de error al usuario:", followUpError);
+                // console.error("[VPG] No se pudo enviar el mensaje de error al usuario:", followUpError);
             }
         }
     });
