@@ -1588,24 +1588,6 @@ aside h2 {
         margin-top: 20px;
     }
 
-    /* --- Corrección para la tarjeta de estadísticas --- */
-    .team-stat-card {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-
-    .team-stats-grid {
-        width: 100%;
-        display: flex;
-        justify-content: space-around;
-    }
-
-    .stat-item {
-        width: auto;
-        flex: 1;
-    }
-
     /* --- Corrección para calendario y eliminatorias --- */
     .calendar-match {
         flex-direction: column;

@@ -456,14 +456,28 @@ function initializeTournamentView(tournamentId) {
             const group = groups[groupName];
             const sortedTeams = [...group.equipos].sort((a, b) => {
                 if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
-                // Buchholz tiebreaker para liguilla suiza (igual que Discord)
-                if ((a.stats.buchholz || 0) !== (b.stats.buchholz || 0)) return (b.stats.buchholz || 0) - (a.stats.buchholz || 0);
+
+                // Buchholz solo para sistema suizo
+                if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom_rounds') {
+                    if ((a.stats.buchholz || 0) !== (b.stats.buchholz || 0)) return (b.stats.buchholz || 0) - (a.stats.buchholz || 0);
+                }
+
                 if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
-                return b.stats.gf - a.stats.gf;
+                if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
+
+                // Desempate por enfrentamiento directo (como en embeds.js)
+                const enfrentamiento = tournament.structure.calendario[groupName]?.find(p => p.resultado && ((p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id)));
+                if (enfrentamiento) {
+                    const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
+                    if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
+                    else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
+                }
+
+                return a.nombre.localeCompare(b.nombre);
             });
 
-            // Detectar si hay campo BH (Buchholz) para liguilla suiza
-            const hasBH = sortedTeams.some(team => team.stats.buchholz !== undefined);
+            // Detectar si hay campo BH (Buchholz) para liguilla suiza de forma segura
+            const hasBH = tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom_rounds';
 
             let groupHTML = `<div class="group-container">
                 <h3 class="group-title">${groupName}</h3>
