@@ -31,23 +31,11 @@ async function withDraftLock(draftId, fn) {
     }
 }
 
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const { startVpgBot } = require('./src/vpg_bot/index.js');
-
-let client; // FIX: Variable global para acceder al cliente desde cualquier endpoint
-
-// Inicializar bot VPG para notificaciones
-try {
-    console.log('[Visualizer] Inicializando cliente Discord...');
-    const botInstance = await startVpgBot();
-    if (botInstance) {
-        client = botInstance;
-        console.log('[Visualizer] Cliente Discord listo.');
-    }
-} catch (error) {
-    console.error('[Visualizer] Error fatal al iniciar bot Discord:', error);
-}
+// FIX: Variable global para acceder al cliente VPG desde cualquier endpoint.
+// Se rellena desde index.js mediante setVisualizerClient() DESPUÉS de que el VPG bot arranque.
+// Antes se llamaba a startVpgBot() aquí también, lo que creaba una SEGUNDA instancia del bot
+// con el mismo token, generando conflictos de sesión en Discord y caídas del sistema.
+let client;
 
 const app = express();
 // FIX: Middlewares esenciales para que funcione el body parser y archivos estáticos
@@ -170,6 +158,12 @@ export const visualizerStateHandler = {
     },
     sendToUser: sendToUser
 };
+
+// FIX: Función para inyectar el cliente VPG desde index.js (evitar doble inicio del bot)
+export function setVisualizerClient(vpgClientInstance) {
+    client = vpgClientInstance;
+    console.log('[Visualizer] Cliente VPG inyectado correctamente.');
+}
 
 const sessionParser = session({
     secret: process.env.SESSION_SECRET,

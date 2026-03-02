@@ -1,6 +1,6 @@
 // index.js (Versión Limpia para Background Worker)
 import { Client, GatewayIntentBits, Events, MessageFlags, EmbedBuilder } from 'discord.js';
-import { startVisualizerServer } from './visualizerServer.js'; // <-- AÑADIR ESTA LÍNEA
+import { startVisualizerServer, setVisualizerClient } from './visualizerServer.js';
 import { advanceDraftTurn, handlePlayerSelectionFromWeb } from './src/logic/tournamentLogic.js';
 import 'dotenv/config';
 import { connectDb, getDb } from './database.js';
@@ -18,6 +18,12 @@ process.on('uncaughtException', (error, origin) => {
     console.error(error);
     console.error('💥 ORIGEN DEL ERROR:');
     console.error(origin);
+});
+
+// FIX: Capturar promesas rechazadas que antes mataban el proceso silenciosamente
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️ PROMESA RECHAZADA SIN CAPTURAR:');
+    console.error(reason);
 });
 
 export let isBotBusy = false;
@@ -165,10 +171,15 @@ async function startBot() {
     // Iniciar el segundo bot (VPG) y guardar el client
     const vpgClient = await startVpgBot();
     setVpgClient(vpgClient);
+    // FIX: Inyectar el cliente VPG en el visualizer para que los endpoints de la API web funcionen
+    setVisualizerClient(vpgClient);
     console.log('[VPG] Client del VPG Bot guardado para notificaciones web');
 
+    // FIX: Proteger con .catch() para que un error transitorio no mate el proceso
     setInterval(() => {
-        checkOverdueMatches(client);
+        checkOverdueMatches(client).catch(err => {
+            console.error('[VIGILANTE] Error en checkOverdueMatches:', err.message);
+        });
     }, 60000);
 }
 

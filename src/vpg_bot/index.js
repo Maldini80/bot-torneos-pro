@@ -222,13 +222,8 @@ async function startVpgBot() {
         }
     });
 
-    // DESPERTADOR INTERNO
-    // Nota: El bot principal ya tiene su propio mecanismo de keep-alive si es un web service.
-    // Eliminamos el servidor HTTP de este bot para evitar el error EADDRINUSE (puerto en uso).
-    const selfPingUrl = `https://bot-vpg-pro.onrender.com`; // Ajusta si es necesario
-    setInterval(() => {
-        axios.get(selfPingUrl).catch(() => { });
-    }, 5 * 60 * 1000);
+    // NOTA: El self-ping antiguo a bot-vpg-pro.onrender.com fue eliminado.
+    // Ahora ambos bots corren en el mismo proceso y el keep-alive lo maneja el bot principal.
 
 
     // IMPORTANTE: Usamos una variable de entorno DIFERENTE para el token de este bot
