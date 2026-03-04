@@ -2592,7 +2592,8 @@ export async function handleButton(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;
 
-        if (!interaction.member._roles.includes(process.env.ADMIN_ROLE_ID)) {
+        const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!isAdminOrRef) {
             return interaction.editReply({ content: '❌ No tienes permisos para usar este botón.' });
         }
 
