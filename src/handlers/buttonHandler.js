@@ -1995,10 +1995,9 @@ export async function handleButton(interaction) {
         const approvedTeams = Object.values(tournament.teams.aprobados);
         const waitlistedTeams = tournament.teams.reserva ? Object.values(tournament.teams.reserva) : [];
 
-        // NUEVO: Comprobar roles de admin/árbitro y si el torneo es de pago
+        // NUEVO: Comprobar roles de admin/árbitro
         const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
-        const isPaidTournament = tournament.config.isPaid === true;
-        const showWhatsapp = isAdminOrRef && isPaidTournament;
+        const showWhatsapp = isAdminOrRef;
 
         let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
 
