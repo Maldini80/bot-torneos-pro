@@ -20,7 +20,7 @@ import { updateAdminPanel } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
 import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
 import { generateExcelImage } from '../utils/twitter.js';
-import * as xlsx from 'xlsx';
+import ExcelJS from 'exceljs';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 
@@ -2455,38 +2455,69 @@ export async function handleButton(interaction) {
                 return interaction.followUp({ content: '❌ No se encontró ningún jugador válido en el texto. Verifica el formato.', flags: [MessageFlags.Ephemeral] });
             }
 
-            const imageResult = await generateExcelImage(parsedPlayers, tournament.nombre);
-
-            if (!imageResult.success) {
-                return interaction.followUp({ content: `❌ Error al generar la imagen: ${imageResult.error}\nTexto original procesado correctamente, pero falló la visualización.`, flags: [MessageFlags.Ephemeral] });
-            }
-
-            // Generar archivo Excel (.xlsx) real
-            const worksheetData = [
-                ['ORDEN', 'NOMBRE', 'POSICIÓN', 'TELÉFONO / PAGO']
-            ];
+            // Agrupar jugadores por posición en columnas
+            const posColumns = {
+                'GK': { header: 'PORTEROS', color: 'FFFFFF00', players: [] },
+                'DFC': { header: 'DEFENSAS', color: 'FF00CC00', players: [] },
+                'CARR': { header: 'CARRILEROS', color: 'FF00BFFF', players: [] },
+                'MC': { header: 'MEDIOS', color: 'FFFF8C00', players: [] },
+                'DC': { header: 'DELANTEROS', color: 'FFFF3333', players: [] }
+            };
 
             parsedPlayers.forEach(p => {
-                worksheetData.push([
-                    p.order || '',
-                    p.name || '',
-                    p.position || '',
-                    p.phone || ''
-                ]);
+                const key = p.position || 'DC'; // si no tiene posición, va a delanteros
+                if (posColumns[key]) {
+                    posColumns[key].players.push(`${p.order}. ${p.name}`);
+                } else {
+                    posColumns['DC'].players.push(`${p.order}. ${p.name}`);
+                }
             });
 
-            const worksheet = xlsx.utils.aoa_to_sheet(worksheetData);
-            const workbook = xlsx.utils.book_new();
-            xlsx.utils.book_append_sheet(workbook, worksheet, 'Capitanes');
+            const workbook = new ExcelJS.Workbook();
+            const ws = workbook.addWorksheet(tournament.nombre || 'Capitanes');
 
-            // Crear buffer y adjunto de Discord
+            const columnKeys = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
+
+            // Cabeceras
+            const headerRow = ws.getRow(1);
+            columnKeys.forEach((key, colIdx) => {
+                const cell = headerRow.getCell(colIdx + 1);
+                cell.value = posColumns[key].header;
+                cell.font = { bold: true, color: { argb: 'FF000000' }, size: 12 };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: posColumns[key].color } };
+                cell.alignment = { horizontal: 'center' };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
+
+            // Calcular máximo de filas
+            const maxRows = Math.max(...columnKeys.map(k => posColumns[k].players.length));
+
+            for (let r = 0; r < maxRows; r++) {
+                const row = ws.getRow(r + 2);
+                columnKeys.forEach((key, colIdx) => {
+                    const cell = row.getCell(colIdx + 1);
+                    const playerList = posColumns[key].players;
+                    if (r < playerList.length) {
+                        cell.value = playerList[r];
+                    } else {
+                        cell.value = '';
+                    }
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: posColumns[key].color } };
+                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                });
+            }
+
+            // Ajuste de ancho de columnas
+            ws.columns = columnKeys.map(() => ({ width: 28 }));
+
+            // Generar buffer y adjunto
             const { AttachmentBuilder } = await import('discord.js');
-            const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-            const excelAttachment = new AttachmentBuilder(excelBuffer, { name: `Capitanes_${tournamentShortId}.xlsx` });
+            const excelBuffer = await workbook.xlsx.writeBuffer();
+            const excelAttachment = new AttachmentBuilder(Buffer.from(excelBuffer), { name: `Capitanes_${tournamentShortId}.xlsx` });
 
             await interaction.channel.send({
-                content: `📊 **Draft Externo:** Lista procesada para el torneo **${tournament.nombre}** (solicitada por <@${interaction.user.id}>).\nPuedes descargar el **archivo Excel adjunto** (.xlsx) o reenviar la imagen generada.`,
-                files: [imageResult.url, excelAttachment]
+                content: `📊 **Draft Externo:** Lista procesada para el torneo **${tournament.nombre}** (solicitada por <@${interaction.user.id}>).\nDescarga el archivo Excel con las posiciones organizadas por columnas de colores.`,
+                files: [excelAttachment]
             });
 
             return interaction.followUp({ content: '✅ Lista procesada, archivo Excel e imagen enviados al canal correctamente.', flags: [MessageFlags.Ephemeral] });
