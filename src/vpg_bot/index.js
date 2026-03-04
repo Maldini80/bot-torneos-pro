@@ -145,7 +145,7 @@ async function startVpgBot() {
                 content: message.content,
                 username: message.member.displayName,
                 avatarURL: team.logoUrl,
-                allowedMentions: { parse: ['users', 'roles', 'everyone'] }
+                allowedMentions: { parse: ['users'] }
             });
         } catch (error) {
             if (error.code !== 10008) {
@@ -235,7 +235,7 @@ async function startVpgBot() {
         return;
     }
 
-    console.log(`[VPG] Intentando conectar con token: ${vpgToken.substring(0, 10)}...`);
+    console.log('[VPG] Intentando conectar...');
     client.login(vpgToken.trim());
 
     // Exportar el client para que otros módulos puedan usarlo

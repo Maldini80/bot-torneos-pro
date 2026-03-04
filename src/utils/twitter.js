@@ -1,7 +1,7 @@
 // src/utils/twitter.js
 import { TwitterApi } from 'twitter-api-v2';
 import 'dotenv/config';
-import fetch from 'node-fetch';
+// Node 18+ incluye fetch nativo, no se necesita node-fetch
 import { getBotSettings } from '../../database.js';
 
 // --- CONFIGURACIÓN GLOBAL ---
@@ -10,10 +10,10 @@ const GLOBAL_HASHTAG = '#VPGLightnings';
 // NO SE USA NINGUNA URL DE IMAGEN DE FONDO PARA GARANTIZAR LA FIABILIDAD
 
 const client = new TwitterApi({
-  appKey: process.env.TWITTER_API_KEY,
-  appSecret: process.env.TWITTER_API_KEY_SECRET,
-  accessToken: process.env.TWITTER_ACCESS_TOKEN,
-  accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+    appKey: process.env.TWITTER_API_KEY,
+    appSecret: process.env.TWITTER_API_KEY_SECRET,
+    accessToken: process.env.TWITTER_ACCESS_TOKEN,
+    accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
 });
 
 const twitterClient = client.readWrite;
@@ -251,11 +251,11 @@ export async function postTournamentUpdate(eventType, data) {
             break;
         }
         case 'GROUP_STAGE_START': {
-             const tournament = data;
-             tweetText = `¡ARRANCA LA FASE DE GRUPOS DEL TORNEO "${tournament.nombre.toUpperCase()}"! 🔥\n\n¡Mucha suerte a todos los equipos!\n\n${GLOBAL_HASHTAG}`;
-             htmlContent = generateGroupStartHtml(tournament);
-             logMessage = `Tweet de inicio de fase de grupos para ${tournament.nombre}`;
-             break;
+            const tournament = data;
+            tweetText = `¡ARRANCA LA FASE DE GRUPOS DEL TORNEO "${tournament.nombre.toUpperCase()}"! 🔥\n\n¡Mucha suerte a todos los equipos!\n\n${GLOBAL_HASHTAG}`;
+            htmlContent = generateGroupStartHtml(tournament);
+            logMessage = `Tweet de inicio de fase de grupos para ${tournament.nombre}`;
+            break;
         }
         case 'GROUP_STAGE_END': {
             const tournament = data;

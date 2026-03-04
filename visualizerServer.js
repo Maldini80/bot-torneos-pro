@@ -178,7 +178,7 @@ const sessionParser = session({
         touchAfter: 24 * 3600 // Lazy update (1 día)
     }),
     cookie: {
-        secure: process.env.BASE_URL.startsWith('https'),
+        secure: (process.env.BASE_URL || '').startsWith('https'),
         maxAge: 14 * 24 * 60 * 60 * 1000 // 14 días
     }
 });
