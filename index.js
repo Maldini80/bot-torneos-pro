@@ -1,6 +1,5 @@
-// index.js (Versión Limpia para Background Worker)
 import { Client, GatewayIntentBits, Events, MessageFlags, EmbedBuilder } from 'discord.js';
-import { startVisualizerServer, setVisualizerClient } from './visualizerServer.js';
+import { startVisualizerServer } from './visualizerServer.js';
 import { advanceDraftTurn, handlePlayerSelectionFromWeb } from './src/logic/tournamentLogic.js';
 import 'dotenv/config';
 import { connectDb, getDb } from './database.js';
@@ -171,8 +170,6 @@ async function startBot() {
     // Iniciar el segundo bot (VPG) y guardar el client
     const vpgClient = await startVpgBot();
     setVpgClient(vpgClient);
-    // FIX: Inyectar el cliente VPG en el visualizer para que los endpoints de la API web funcionen
-    setVisualizerClient(vpgClient);
     console.log('[VPG] Client del VPG Bot guardado para notificaciones web');
 
     // FIX: Proteger con .catch() para que un error transitorio no mate el proceso

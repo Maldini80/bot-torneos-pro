@@ -159,11 +159,7 @@ export const visualizerStateHandler = {
     sendToUser: sendToUser
 };
 
-// FIX: Función para inyectar el cliente VPG desde index.js (evitar doble inicio del bot)
-export function setVisualizerClient(vpgClientInstance) {
-    client = vpgClientInstance;
-    console.log('[Visualizer] Cliente VPG inyectado correctamente.');
-}
+// Export was previously setVisualizerClient, now removed.
 
 const sessionParser = session({
     secret: process.env.SESSION_SECRET,
