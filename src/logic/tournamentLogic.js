@@ -5174,7 +5174,14 @@ export async function approveExternalDraftCaptain(client, tournamentShortId, win
     }
 
     // Delegate tournament logic channels setups, DM sending and database storing to the core approveTeam method.
-    await approveTeam(client, tournament, teamData);
+    try {
+        console.log(`[ExtDraft Roulette] Calling approveTeam for captain ${teamData.capitanId || teamData.id} in ${tournament.shortId}`);
+        await approveTeam(client, tournament, teamData);
+        console.log(`[ExtDraft Roulette] ✅ approveTeam completed successfully`);
+    } catch (approveError) {
+        console.error(`[ExtDraft Roulette] ❌ approveTeam threw:`, approveError);
+        return { success: false, error: `Error al aprobar: ${approveError.message}` };
+    }
 
     // Clean up auxiliary collections
     if (sourceCollection) {

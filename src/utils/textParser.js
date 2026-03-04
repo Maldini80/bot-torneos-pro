@@ -20,31 +20,19 @@ export function parsePlayerList(text) {
         'DELANTEROS': 'DC', 'DELANTERO': 'DC', 'DC': 'DC', 'ARIETES': 'DC'
     };
 
-    // Regex para detectar un número de teléfono (9+ dígitos, opcionalmente con +, espacios, guiones)
     const phoneRegex = /(\+?\d[\d\s\-\.]{8,})/;
-
-    // Regex para limpiar emojis
     const emojiRegex = /[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu;
-
-    // Regex para quitar el prefijo numérico de lista (ej: "1. ", "23)", "4-")
     const listPrefixRegex = /^(?:\d+[\.)\-\s]*)?/;
-
-    // Regex para extraer posición del nombre de jugador
     const positionRegex = /\b(GK|PORTERO|DFC|DF|CENTRAL|LTD|LTI|LATERAL|CARR|CARRILERO|MCD|MC|MCO|MEDIO|MP|EI|ED|EXTREMO|DC|DELANTERO|ARIETE)\b/i;
 
-    // Función auxiliar para limpiar un nombre de jugador
     function cleanGameId(raw) {
         let gameId = raw.replace(listPrefixRegex, '').trim();
-
-        // Novedad: Si el nombre contiene un número de teléfono pegado al principio (ej "650798522 JOSSEBI"), lo quitamos
         gameId = gameId.replace(/^(?:\+?\d[\d\s\-\.]{7,})\s+/, '').trim();
-
         gameId = gameId.replace(emojiRegex, '').trim();
-        gameId = gameId.replace(/\s*\(.*\)$/, '').trim(); // Quitar paréntesis extras con info
+        gameId = gameId.replace(/\s*\(.*\)$/, '').trim();
         return gameId;
     }
 
-    // Función auxiliar para extraer posición del nombre y limpiar
     function extractPosition(gameId) {
         let position = currentPosition;
         const posMatch = gameId.match(positionRegex);
@@ -61,13 +49,11 @@ export function parsePlayerList(text) {
         return { gameId, position };
     }
 
-    // Función para verificar si una línea es puramente un teléfono (con o sin prefijo 📲)
     function isPhoneLine(line) {
         const cleaned = line.replace(/📲/g, '').replace(/[^\d\+\s\-\.]/g, '').trim();
         return cleaned.length > 0 && cleaned.replace(/[^\d]/g, '').length >= 8;
     }
 
-    // Función para verificar si una línea es un slot vacío (ej: "16." o "📲")
     function isEmptySlot(line) {
         const cleaned = line.replace(/📲/g, '').replace(/[\d\.)\-\s]/g, '').trim();
         return cleaned.length === 0;
@@ -76,11 +62,9 @@ export function parsePlayerList(text) {
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
 
-        // 1. Ignorar líneas inútiles
         if (line.includes('CIERRE DE LISTA') || line.includes('ENCUESTA') || line.includes('DIRECTO EN TWITCH')) continue;
         if (line.includes('CIERRE CAPITANES') || line.includes('INICIO DEL DIRECTO') || line.includes('INICIO DEL TORNEO')) continue;
 
-        // 2. Detectar cabeceras de posición PRIMERO
         const upperLine = line.toUpperCase().replace(/[^A-Z0-9\s]/g, '');
         let isHeader = false;
         for (const [key, value] of Object.entries(positionMap)) {
@@ -93,39 +77,24 @@ export function parsePlayerList(text) {
         }
         if (isHeader) continue;
 
-        // 3. Ignorar líneas vacías, solo número de lista, o solo 📲
         if (isEmptySlot(line)) {
-            // Mirar si la siguiente línea también es un slot vacío (📲 sin número)
-            if (i + 1 < lines.length && isEmptySlot(lines[i + 1])) {
-                i++; // Saltar la siguiente línea vacía también
-            }
+            if (i + 1 < lines.length && isEmptySlot(lines[i + 1])) i++;
             continue;
         }
 
-        // 4. Si la línea es solo un teléfono (📲XXXXXX), saltarla (fue consumida o es huérfana)
-        if (isPhoneLine(line) && !line.match(/[a-zA-Z_]{2,}/)) {
-            continue;
-        }
+        if (isPhoneLine(line) && !line.match(/[a-zA-Z_]{2,}/)) continue;
 
-        // 5. Intento: Nombre y teléfono en la MISMA línea
-        // El truco es que el nombre viene ANTES del teléfono. Usamos una estrategia más robusta:
-        // Buscar el teléfono al FINAL de la línea, y todo lo de antes es el nombre.
         const phoneInLineMatch = line.match(/^(.+?)\s+(\+?\d[\d\s\-\.]{8,})\s*$/);
         if (phoneInLineMatch) {
             let rawName = phoneInLineMatch[1];
             let whatsapp = phoneInLineMatch[2].replace(/[^\d\+]/g, '');
             let gameId = cleanGameId(rawName);
 
-            // Caso especial: "650798522 JOSSEBI" → el número está antes del nombre
-            // Si el gameId parece ser un número de teléfono, buscar el nombre al final
             if (/^\d{8,}$/.test(gameId)) {
-                // El nombre real está en la parte del "teléfono"
-                // Intentar: el gameId real es lo que hay después del número
                 const reversedMatch = line.match(/^(?:\d+[\.)\-\s]*)?\s*\d{8,}\s+(.+?)$/);
                 if (reversedMatch) {
                     gameId = reversedMatch[1].trim();
-                    whatsapp = ''; // El número que encontramos era el que teníamos como "nombre"
-                    // Intentar ver si la siguiente línea tiene el teléfono real
+                    whatsapp = '';
                     if (i + 1 < lines.length) {
                         const nextPhoneMatch = lines[i + 1].match(/.*?(\+?\d[\d\s\-\.]{8,})/);
                         if (nextPhoneMatch && isPhoneLine(lines[i + 1])) {
@@ -141,16 +110,11 @@ export function parsePlayerList(text) {
 
             if (gameId.length >= 2 && !/^\d+$/.test(gameId)) {
                 players.push({ gameId, whatsapp, position: extracted.position });
-
-                // Si la siguiente línea es un teléfono huérfano (📲 sin nada), saltarla
-                if (i + 1 < lines.length && isPhoneLine(lines[i + 1]) && !lines[i + 1].match(/[a-zA-Z_]{2,}/)) {
-                    i++;
-                }
+                if (i + 1 < lines.length && isPhoneLine(lines[i + 1]) && !lines[i + 1].match(/[a-zA-Z_]{2,}/)) i++;
                 continue;
             }
         }
 
-        // 6. Intento: Multilínea (Nombre en esta línea, Teléfono en la siguiente)
         if (i + 1 < lines.length) {
             const nextLine = lines[i + 1];
             const nextPhoneMatch = nextLine.match(/.*?(\+?\d[\d\s\-\.]{8,})/);
@@ -163,16 +127,13 @@ export function parsePlayerList(text) {
                 const extracted = extractPosition(gameId);
                 gameId = extracted.gameId;
 
-                // Evitar falsos positivos: nombre demasiado corto o puramente numérico
                 if (gameId.length >= 2 && !/^\d+$/.test(gameId)) {
                     players.push({ gameId, whatsapp, position: extracted.position });
-                    i++; // Saltar la siguiente línea (teléfono consumido)
+                    i++;
                     continue;
                 }
             }
 
-            // 7. Caso especial: Nombre en esta línea, siguiente es 📲 VACÍO (sin número)
-            // El jugador se apuntó pero no puso teléfono → aceptarlo sin whatsapp
             if (nextLine.includes('📲') && !nextLine.match(/\d{8,}/)) {
                 let gameId = cleanGameId(line);
                 const extracted = extractPosition(gameId);
@@ -180,7 +141,7 @@ export function parsePlayerList(text) {
 
                 if (gameId.length >= 2 && !/^\d+$/.test(gameId)) {
                     players.push({ gameId, whatsapp: '', position: extracted.position });
-                    i++; // Saltar el 📲 vacío
+                    i++;
                     continue;
                 }
             }
@@ -192,98 +153,110 @@ export function parsePlayerList(text) {
 
 export function parseExternalDraftWhatsappList(text) {
     const lines = text.split('\n');
-
-    // Mapa de secciones (headers de posición en formato WhatsApp)
     const sectionMap = {
         'PORTERO': 'GK', 'PORTEROS': 'GK', 'POR': 'GK', 'GK': 'GK',
         'DEFENSA': 'DFC', 'DEFENSAS': 'DFC', 'DFC': 'DFC', 'DEF': 'DFC', 'CENTRAL': 'DFC', 'CENTRALES': 'DFC',
-        'LATERAL': 'CARR', 'LATERALES': 'CARR', 'CARRILERO': 'CARR', 'CARRILEROS': 'CARR', 'CARR': 'CARR', 'LTI': 'CARR', 'LTD': 'CARR',
+        'LATERAL': 'CARR', 'LATERALES': 'CARR', 'CARRILERO': 'CARR', 'CARRILEROS': 'CARR', 'CARR': 'CARR',
         'MEDIO': 'MC', 'MEDIOS': 'MC', 'MEDIOCENTRO': 'MC', 'MEDIOCENTROS': 'MC', 'MC': 'MC', 'MCD': 'MC', 'MCO': 'MC', 'CENTROCAMPISTA': 'MC', 'CENTROCAMPISTAS': 'MC',
-        'DELANTERO': 'DC', 'DELANTEROS': 'DC', 'DC': 'DC', 'EXTREMO': 'DC', 'EXTREMOS': 'DC', 'EI': 'DC', 'ED': 'DC', 'SD': 'DC', 'ATACANTE': 'DC', 'ATACANTES': 'DC',
+        'EXTREMO': 'MC', 'EXTREMOS': 'MC',
+        'DELANTERO': 'DC', 'DELANTEROS': 'DC', 'DC': 'DC', 'ATACANTE': 'DC', 'ATACANTES': 'DC',
         'MEDIA PUNTA': 'MC', 'MEDIAPUNTA': 'MC', 'MP': 'MC'
     };
-
-    // Regex para detectar una línea de encabezado de sección: *PORTEROS* 🧤 o similar
-    const sectionHeaderRegex = /^\*?\s*([A-ZÁÉÍÓÚÑ\s]+?)\s*\*?\s*(?:🧤|⚽|🏃|🔵|🔴|🟢|🟡|⚡|🎯|👊|💪|🦶|🤾)?$/i;
-
-    // Regex para detectar si una línea es un jugador (empieza con un número)
-    const playerLineRegex = /^\s*(\d+)[\.\-\)\s]+(.+)/;
-
-    // Regex para detectar línea de solo teléfono
+    const inlinePosMap = {
+        'GK': 'GK', 'POR': 'GK', 'PT': 'GK', 'PORTERO': 'GK',
+        'DFC': 'DFC', 'DEF': 'DFC', 'CB': 'DFC', 'CENTRAL': 'DFC',
+        'LTI': 'CARR', 'LTD': 'CARR', 'CARR': 'CARR', 'CAR': 'CARR', 'LAT': 'CARR', 'LATERAL': 'CARR', 'LI': 'CARR', 'LD': 'CARR',
+        'MC': 'MC', 'MCD': 'MC', 'MCO': 'MC', 'MD': 'MC', 'MI': 'MC', 'CDM': 'MC', 'CM': 'MC', 'CAM': 'MC', 'MP': 'MC',
+        'EI': 'MC', 'ED': 'MC', 'EXTREMO': 'MC',
+        'DC': 'DC', 'SD': 'DC', 'ST': 'DC', 'DEL': 'DC', 'CF': 'DC', 'SS': 'DC'
+    };
+    const playerLineRegex = /^\s*(\d+)[.\-)\s]+(.+)/;
     const phoneOnlyRegex = /^\s*(\+?\d[\d\s\-\.]{6,})\s*$/;
 
-    // Líneas a ignorar (instrucciones, precios, separadores, encabezados del torneo)
-    function isIgnoredLine(line) {
-        const trimmed = line.trim();
-        if (trimmed === '' || trimmed === '—' || trimmed === '——' || trimmed === '———') return true;
-        if (/^\*?\d{1,2}:\d{2}/.test(trimmed)) return true; // horas como *18:30 CIERRE*
-        if (/^🏆/.test(trimmed)) return true; // premios
-        if (/^(apuntarse|inscri|cierre|inicio|draft|goldencup|torneo)/i.test(trimmed.replace(/\*/g, ''))) return true;
-        if (/^\*[^*]+\*$/.test(trimmed) && !sectionHeaderRegex.test(trimmed)) return true; // texto entre asteriscos genérico
+    function clean(l) { return l.replace(/[\u200B-\u200F\u2028-\u202F\u2060\uFEFF]/g, '').trim(); }
+    function isIgnored(l) {
+        const t = clean(l);
+        if (!t || /^[—\-_=]{1,}$/.test(t)) return true;
+        if (/^\*?\d{1,2}:\d{2}/.test(t)) return true;
+        const na = t.replace(/\*/g, '').trim();
+        if (/^(apuntarse|inscri|cierre|inicio|draft|goldencup|torneo|cup|liga)/i.test(na)) return true;
         return false;
+    }
+    function extractInlinePos(name) {
+        let found = null, cn = name;
+        // (DFC), (MC/MCO)
+        const p1 = name.match(/\(([A-Za-z\/\s]{2,15})\)/);
+        if (p1) {
+            for (const c of p1[1].split(/[\/\s,]+/)) {
+                const u = c.trim().toUpperCase();
+                if (inlinePosMap[u]) { found = inlinePosMap[u]; break; }
+            }
+            if (found) cn = name.replace(p1[0], '').trim();
+        }
+        // mc/mcd at end
+        if (!found) {
+            const p2 = name.match(/\s([A-Za-z]{2,5}(?:\/[A-Za-z]{2,5})+)\s*$/);
+            if (p2) {
+                for (const c of p2[1].split('/')) {
+                    const u = c.trim().toUpperCase();
+                    if (inlinePosMap[u]) { found = inlinePosMap[u]; break; }
+                }
+                if (found) cn = name.replace(p2[0], '').trim();
+            }
+        }
+        // Position word at end: "nombre DFC"
+        if (!found) {
+            const p3 = name.match(/[\s,]+([A-Za-z]{2,8})\s*$/);
+            if (p3) {
+                const u = p3[1].toUpperCase();
+                if (inlinePosMap[u]) { found = inlinePosMap[u]; cn = name.replace(p3[0], '').trim(); }
+            }
+        }
+        return { position: found, cleanedName: cn };
     }
 
     let currentPosition = '';
     const players = [];
-    let orderCounter = 0;
-
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trim();
+        const trimmed = clean(lines[i]);
+        if (isIgnored(trimmed)) continue;
 
-        if (isIgnoredLine(trimmed)) continue;
+        // Section header?
+        const sec = trimmed.replace(/\*/g, '').replace(/[^\w\sÁÉÍÓÚÑáéíóúñ]/g, '').trim().toUpperCase();
+        if (sec.length < 25 && sectionMap[sec]) { currentPosition = sectionMap[sec]; continue; }
 
-        // ¿Es una cabecera de sección/posición?
-        const sectionMatch = trimmed.replace(/\*/g, '').replace(/🧤|⚽|🏃|🔵|🔴|🟢|🟡|⚡|🎯|👊|💪|🦶|🤾/g, '').trim().toUpperCase();
-        if (sectionMap[sectionMatch]) {
-            currentPosition = sectionMap[sectionMatch];
-            continue;
-        }
-
-        // ¿Es una línea de jugador? (empieza con número)
-        const playerMatch = trimmed.match(playerLineRegex);
-        if (playerMatch) {
-            orderCounter++;
-            const order = playerMatch[1];
-            let name = playerMatch[2].trim();
+        // Player line?
+        const pm = trimmed.match(playerLineRegex);
+        if (pm) {
+            const order = pm[1];
+            let name = pm[2].trim();
             let phone = '';
 
-            // Extraer teléfono si va en la misma línea
-            const inlinePhone = name.match(/([\s,;|]+)(\+?\d[\d\s\-\.]{6,})$/);
-            if (inlinePhone) {
-                phone = inlinePhone[2].replace(/[\s\-\.]/g, '').trim();
-                name = name.replace(inlinePhone[0], '').trim();
-            }
+            // Inline phone at end of name
+            const ip = name.match(/([\s,;|]+)(\+?\d[\d\s\-\.]{6,})$/);
+            if (ip) { phone = ip[2].replace(/[\s\-\.]/g, ''); name = name.replace(ip[0], '').trim(); }
 
-            // Limpiar emojis y caracteres extraños del nombre
-            name = name.replace(/📱|📲|📞|🧤|⚽|🏃|🔵|🔴|🟢|🟡|⚡|🎯|👊|💪|🦶|🤾/g, '').trim();
+            // Inline position from name
+            const { position: inlinePos, cleanedName } = extractInlinePos(name);
+            name = cleanedName.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
 
-            // Mirar si la SIGUIENTE línea es un teléfono (formato WhatsApp típico)
+            // Next line phone?
             if (!phone && i + 1 < lines.length) {
-                const nextLine = lines[i + 1].trim();
-                const nextPhoneMatch = nextLine.match(phoneOnlyRegex);
-                if (nextPhoneMatch) {
-                    phone = nextPhoneMatch[1].replace(/[\s\-\.]/g, '').trim();
-                    i++; // Saltar esa línea
-                }
+                const nl = clean(lines[i + 1]);
+                const np = nl.match(phoneOnlyRegex);
+                if (np) { phone = np[1].replace(/[\s\-\.]/g, ''); i++; }
             }
 
-            players.push({
-                order: order,
-                name: name,
-                position: currentPosition,
-                phone: phone
-            });
+            players.push({ order, name, position: inlinePos || currentPosition || '', phone });
             continue;
         }
 
-        // ¿Es una línea de solo teléfono suelta? (asociar al último jugador)
-        const phoneOnly = trimmed.match(phoneOnlyRegex);
-        if (phoneOnly && players.length > 0 && !players[players.length - 1].phone) {
-            players[players.length - 1].phone = phoneOnly[1].replace(/[\s\-\.]/g, '').trim();
+        // Phone-only line?
+        const po = trimmed.match(phoneOnlyRegex);
+        if (po && players.length > 0 && !players[players.length - 1].phone) {
+            players[players.length - 1].phone = po[1].replace(/[\s\-\.]/g, '');
             continue;
         }
     }
-
     return players;
 }

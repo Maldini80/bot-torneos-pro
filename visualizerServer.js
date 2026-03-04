@@ -2300,11 +2300,18 @@ export async function startVisualizerServer(discordClient) {
             checkList(tournament.teams.pendingPayments);
             checkList(tournament.teams.pendientes);
 
-            if (candidates.length === 0) {
-                return res.json({ candidates: [], error: 'No hay candidatos pendientes.' });
+            // Recopilar capitanes ya aprobados para mostrar en la sidebar
+            const approvedCaptains = [];
+            if (tournament.teams.aprobados) {
+                Object.values(tournament.teams.aprobados).forEach(team => {
+                    approvedCaptains.push({
+                        name: team.nombre || team.teamName || 'Equipo',
+                        captain: team.capitanTag || team.ownerName || ''
+                    });
+                });
             }
 
-            res.json({ candidates, tournamentName: tournament.nombre, tournamentId: tournament.shortId });
+            res.json({ candidates, approvedCaptains, tournamentName: tournament.nombre, tournamentId: tournament.shortId });
         } catch (error) {
             console.error(`[API Roulette Ext Error]: ${error.message}`);
             res.status(500).send({ error: 'Error interno del servidor.' });
@@ -2318,17 +2325,20 @@ export async function startVisualizerServer(discordClient) {
 
             if (!winnerId) return res.status(400).send({ error: 'No se ha proporcionado el ID del ganador.' });
 
+            console.log(`[Roulette Confirm] Attempting to approve winnerId=${winnerId} in tournament=${tournamentId}`);
             const result = await approveExternalDraftCaptain(client, tournamentId, winnerId);
 
             if (result.success) {
+                console.log(`[Roulette Confirm] ✅ Successfully approved ${winnerId}`);
                 res.json({ success: true });
             } else {
+                console.error(`[Roulette Confirm] ❌ Failed: ${result.error}`);
                 res.status(400).send({ error: result.error });
             }
 
         } catch (error) {
-            console.error(`[API Roulette Ext Confirm Error]: ${error.message}`);
-            res.status(500).send({ error: 'Error procesando al ganador.' });
+            console.error(`[API Roulette Ext Confirm Error]:`, error);
+            res.status(500).send({ error: `Error procesando al ganador: ${error.message}` });
         }
     });
     // --- FIN NUEVO ---

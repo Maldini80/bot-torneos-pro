@@ -2255,9 +2255,11 @@ function initializeExtRouletteView(tournamentId) {
     const statusEl = document.getElementById('roulette-status');
     const ctx = canvas.getContext('2d');
 
-    // Ocultar barra de grupos porque no aplica aquí
+    // Repurpose sidebar to show approved captains instead of groups
     const sidebar = document.querySelector('.groups-sidebar');
-    if (sidebar) sidebar.style.display = 'none';
+    if (sidebar) {
+        sidebar.innerHTML = '<h2 style="color:#2ecc71;text-align:center;margin-bottom:10px;">CAPITANES APROBADOS</h2><div id="approved-captains-list" style="padding:5px;"></div>';
+    }
 
     // Ajustar diseño para centrar la ruleta
     if (rouletteContainerEl) rouletteContainerEl.style.justifyContent = 'center';
@@ -2270,12 +2272,29 @@ function initializeExtRouletteView(tournamentId) {
 
     const colors = ["#E62429", "#222222", "#FFFFFF", "#555555"];
 
+    function updateApprovedList(approvedCaptains) {
+        const listEl = document.getElementById('approved-captains-list');
+        if (!listEl) return;
+        if (!approvedCaptains || approvedCaptains.length === 0) {
+            listEl.innerHTML = '<p style="color:#888;font-size:14px;text-align:center;">Aún no hay capitanes aprobados.</p>';
+            return;
+        }
+        listEl.innerHTML = approvedCaptains.map((c, i) =>
+            `<div style="padding:6px 10px;margin-bottom:4px;background:rgba(46,204,113,0.15);border-left:3px solid #2ecc71;border-radius:4px;font-size:14px;">
+                <span style="color:#2ecc71;font-weight:bold;">${i + 1}.</span> ${c.name}
+            </div>`
+        ).join('');
+    }
+
     async function fetchCandidates() {
         spinButton.disabled = true;
         spinButton.textContent = 'CARGANDO CANDIDATOS...';
         try {
             const response = await fetch(`/api/external-draft/roulette/${tournamentId}`);
             const data = await response.json();
+
+            // Always update the approved list
+            updateApprovedList(data.approvedCaptains || []);
 
             if (response.ok) {
                 teams = data.candidates || [];
