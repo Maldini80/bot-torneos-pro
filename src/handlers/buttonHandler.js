@@ -681,41 +681,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-    if (action === 'captain_pick_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [draftShortId] = params;
-        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
-        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
-
-        if (draft.status !== 'seleccion') {
-            return interaction.editReply({ content: '❌ El draft no está en fase de selección.' });
-        }
-
-        const currentCaptainId = draft.selection.order[draft.selection.turn];
-        if (interaction.user.id !== currentCaptainId && !isAdmin) {
-            const currentCaptain = draft.captains.find(c => c.userId === currentCaptainId);
-            return interaction.editReply({
-                content: `❌ No es tu turno. Ahora le toca a **${currentCaptain ? currentCaptain.teamName : 'otro capitán'}**.`
-            });
-        }
-
-        const { DRAFT_POSITIONS } = await import('../../config.js');
-        const positionOptions = Object.entries(DRAFT_POSITIONS).map(([key, value]) => ({
-            label: value,
-            value: key,
-        }));
-
-        const positionMenu = new StringSelectMenuBuilder()
-            .setCustomId(`draft_pick_by_position:${draftShortId}:${currentCaptainId}`)
-            .setPlaceholder('Elige la posición que quieres cubrir')
-            .addOptions(positionOptions);
-
-        await interaction.editReply({
-            content: `✅ **Es tu turno** (Pick #${draft.selection.currentPick}). Selecciona la posición del jugador que quieres fichar:`,
-            components: [new ActionRowBuilder().addComponents(positionMenu)]
-        });
-        return;
-    }
+    // [DUPLICADO ELIMINADO] captain_pick_start — la versión correcta con isPicking está más abajo (L1551+)
 
     if (action === 'draft_pick_page') {
         await interaction.deferUpdate();
@@ -2721,24 +2687,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-    if (action === 'admin_prize_paid') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId, userId, prizeType] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-
-        await confirmPrizePayment(client, userId, prizeType, tournament);
-
-        const originalMessage = interaction.message;
-        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
-        originalEmbed.setTitle(`✅ PAGO REALIZADO: ${prizeType.toUpperCase()}`).setColor('#2ecc71').setFooter({ text: `Marcado como pagado por ${interaction.user.tag}` });
-
-        const disabledRow = ActionRowBuilder.from(originalMessage.components[0]);
-        disabledRow.components.forEach(c => c.setDisabled(true));
-
-        await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
-        await interaction.editReply(`✅ Pago marcado como realizado. Se ha notificado a <@${userId}>.`);
-        return;
-    }
+    // [DUPLICADO ELIMINADO] admin_prize_paid — la versión correcta con deferUpdate y labels 'PAGADO' está más abajo
 
     if (action === 'admin_manage_waitlist') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -3365,37 +3314,6 @@ export async function handleButton(interaction) {
         }
     }
 
-    if (action === 'user_exit_without_registering') {
-        const [channelId] = params;
-        const ticket = await db.collection('verificationtickets').findOne({ channelId });
-
-        if (interaction.user.id !== ticket.userId) {
-            return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
-        }
-
-        try {
-            // Intenta responder. Si ya se respondió, el catch lo manejará.
-            await interaction.reply({
-                content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.`,
-                flags: [MessageFlags.Ephemeral]
-            });
-        } catch (error) {
-            if (error.code !== 'InteractionAlreadyReplied') {
-                // Si es un error diferente, lo lanzamos para que se registre.
-                throw error;
-            }
-            // Si es 'InteractionAlreadyReplied', lo ignoramos y continuamos.
-            console.warn(`[WARN] Interacción 'user_exit_without_registering' ya respondida. Se procederá al cierre del canal de todas formas.`);
-        }
-
-        // Esta parte se ejecuta siempre, incluso si la interacción ya fue respondida.
-        const channel = await client.channels.fetch(channelId).catch(() => null);
-        if (channel) {
-            await channel.send('El usuario ha decidido salir. Este canal se cerrará en 10 segundos.');
-            setTimeout(() => channel.delete('Usuario salió del proceso.').catch(console.error), 10000);
-        }
-    }
-
     if (action === 'admin_close_ticket') {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             return interaction.reply({ content: '❌ Solo los administradores pueden usar este botón.', flags: [MessageFlags.Ephemeral] });
@@ -3533,33 +3451,7 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
-    if (action === 'admin_kick_team_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const approvedTeams = Object.values(tournament.teams.aprobados);
-
-        if (approvedTeams.length === 0) {
-            return interaction.editReply({ content: 'No hay equipos aprobados en este torneo para expulsar.' });
-        }
-
-        const teamOptions = approvedTeams.map(team => ({
-            label: team.nombre,
-            description: `Capitán: ${team.capitanTag}`,
-            value: team.capitanId
-        }));
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_kick_team_select:${tournamentShortId}`)
-            .setPlaceholder('Selecciona el equipo a expulsar')
-            .addOptions(teamOptions);
-
-        await interaction.editReply({
-            content: 'Por favor, selecciona de la lista el equipo que deseas expulsar del torneo. Esta acción es irreversible.',
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
-        });
-        return;
-    }
+    // [DUPLICADO ELIMINADO] admin_kick_team_start — la versión correcta con interaction.reply está más arriba
     if (action === 'create_flexible_league_start') {
         const modal = new ModalBuilder()
             .setCustomId('create_flexible_league_modal')
@@ -3714,36 +3606,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-    // --- LÓGICA DE PAGO PARA TORNEOS ---
-    if (action === 'payment_confirm_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('❌ Este torneo ya no existe.');
-
-        const notificationsChannel = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
-        if (!notificationsChannel) return interaction.editReply('Error interno: No se pudo encontrar el canal de notificaciones.');
-
-        const userId = interaction.user.id;
-        const pendingData = tournament.teams.pendingPayments ? tournament.teams.pendingPayments[userId] : null;
-
-        if (!pendingData) return interaction.editReply('❌ No se encontró tu inscripción pendiente. Por favor, inscríbete de nuevo.');
-
-        // Pedimos el PayPal/Bizum al usuario para facilitar la comprobación
-        const modal = new ModalBuilder()
-            .setCustomId(`payment_confirm_submit:${tournamentShortId}`)
-            .setTitle('Confirmar Pago');
-
-        const refInput = new TextInputBuilder()
-            .setCustomId('payment_ref_input')
-            .setLabel("Tu PayPal/Bizum (para comprobar)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(new ActionRowBuilder().addComponents(refInput));
-        await interaction.showModal(modal);
-        return;
-    }
+    // [DUPLICADO ELIMINADO] payment_confirm_start — este handler hacía deferReply antes de showModal (imposible en Discord.js). La versión correcta está en el bloque modalActions
 
     if (action === 'payment_confirm_submit') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -3752,7 +3615,7 @@ export async function handleButton(interaction) {
         const userId = interaction.user.id;
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const pendingData = tournament.teams.pendingPayments[userId];
+        const pendingData = tournament.teams.pendingPayments?.[userId];
         const notificationsChannel = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId);
 
         const adminEmbed = new EmbedBuilder().setColor('#f1c40f').setTitle(`💰 Notificación de Pago: ${tournament.nombre}`).addFields(
@@ -3879,7 +3742,7 @@ export async function handleButton(interaction) {
         await interaction.deferUpdate();
         const [tournamentShortId, userId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const pendingData = tournament.teams.pendingPayments[userId];
+        const pendingData = tournament.teams.pendingPayments?.[userId];
 
         if (!pendingData) {
             return interaction.followUp({ content: '❌ Error: No se encontraron los datos pendientes de este usuario.', flags: [MessageFlags.Ephemeral] });
