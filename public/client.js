@@ -2256,10 +2256,14 @@ function initializeExtRouletteView(tournamentId) {
     const ctx = canvas.getContext('2d');
 
     // Repurpose sidebar to show approved captains instead of groups
-    const sidebar = document.querySelector('.groups-sidebar');
+    const sidebar = document.getElementById('roulette-sidebar');
     if (sidebar) {
         sidebar.innerHTML = '<h2 style="color:#2ecc71;text-align:center;margin-bottom:10px;">CAPITANES APROBADOS</h2><div id="approved-captains-list" style="padding:5px;"></div>';
     }
+
+    // Ocultar logo VPG del centro
+    const logo = document.getElementById('roulette-logo');
+    if (logo) logo.style.display = 'none';
 
     // Ajustar diseño para centrar la ruleta
     if (rouletteContainerEl) rouletteContainerEl.style.justifyContent = 'center';
