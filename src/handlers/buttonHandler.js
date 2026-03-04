@@ -172,22 +172,72 @@ export async function handleButton(interaction) {
             }
 
             const isDraft = tournament.config.paidSubType === 'draft';
-            const modalTitle = isDraft ? 'Inscripción Draft Externo' : 'Inscripción Torneo de Pago';
 
-            // Para todos los torneos de pago mostramos el modal pidiendo WhatsApp
-            const modal = new ModalBuilder()
-                .setCustomId(`register_paid_team_modal:${tournamentShortId}`)
-                .setTitle(modalTitle);
+            if (isDraft) {
+                // Para Draft Externo: mostramos modal pidiendo WhatsApp
+                const modal = new ModalBuilder()
+                    .setCustomId(`register_draft_team_modal:${tournamentShortId}`)
+                    .setTitle('Inscripción Draft Externo');
 
-            const whatsappInput = new TextInputBuilder()
-                .setCustomId('whatsapp_input')
-                .setLabel('Tu número de WhatsApp')
-                .setPlaceholder('Ej: +34 600123456 (obligatorio)')
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
+                const whatsappInput = new TextInputBuilder()
+                    .setCustomId('whatsapp_input')
+                    .setLabel('Tu número de WhatsApp')
+                    .setPlaceholder('Ej: +34 600123456 (obligatorio)')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
 
-            modal.addComponents(new ActionRowBuilder().addComponents(whatsappInput));
-            await interaction.showModal(modal);
+                modal.addComponents(new ActionRowBuilder().addComponents(whatsappInput));
+                await interaction.showModal(modal);
+                return;
+            }
+
+            // Para Cash Cup: Flujo automático directo
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+            // Auto-generar nombre del equipo desde el apodo del servidor
+            const rawName = interaction.member.displayName || interaction.user.username;
+            const sanitizedName = rawName.replace(/[^\p{L}\p{N}\s\-]/gu, '').trim().substring(0, 20) || interaction.user.username.substring(0, 20);
+            const autoTeamName = `TEAM ${sanitizedName}`;
+
+            const teamData = {
+                id: managerId,
+                nombre: autoTeamName,
+                eafcTeamName: autoTeamName,
+                capitanId: managerId,
+                capitanTag: interaction.user.tag,
+                coCaptainId: null,
+                coCaptainTag: null,
+                logoUrl: interaction.user.displayAvatarURL(),
+                twitter: '',
+                streamChannel: '',
+                paypal: null,
+                inscritoEn: new Date(),
+                isPaid: true
+            };
+
+            try {
+                // Guardar en pendingPayments
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { [`teams.pendingPayments.${managerId}`]: teamData } }
+                );
+
+                // Enviar solicitud al admin (background)
+                sendPaymentApprovalRequest(client, tournament, teamData, interaction.user).catch(err => {
+                    console.error('[PAID REG] Error enviando solicitud al admin:', err);
+                });
+
+                // Mensaje Cash Cup (o fallback si no hay canal)
+                await interaction.editReply({
+                    content: `✅ Has mandado solicitud para participar en la Cash Cup, espera respuesta en tu DM sobre si te aprueba o rechaza Administracion.`
+                });
+
+            } catch (error) {
+                console.error('[PAID REG] Error al procesar inscripción:', error);
+                await interaction.editReply({
+                    content: '❌ Ocurrió un error al procesar tu solicitud. Por favor, inténtalo de nuevo o contacta con un administrador.'
+                });
+            }
             return;
         }
         // --- FIN MODIFICACIÓN ---
