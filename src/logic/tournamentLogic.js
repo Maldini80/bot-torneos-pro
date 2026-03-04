@@ -5141,37 +5141,40 @@ export async function approveExternalDraftCaptain(client, tournamentShortId, win
     const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
     if (!tournament) return { success: false, error: 'Torneo no encontrado' };
 
-    let teamData = null;
+    let rawData = null;
     let sourceCollection = null;
 
     if (tournament.teams.pendingApproval && tournament.teams.pendingApproval[winnerId]) {
-        teamData = tournament.teams.pendingApproval[winnerId];
+        rawData = tournament.teams.pendingApproval[winnerId];
         sourceCollection = 'pendingApproval';
     } else if (tournament.teams.pendingPayments && tournament.teams.pendingPayments[winnerId]) {
-        const ppData = tournament.teams.pendingPayments[winnerId];
-        teamData = {
-            id: ppData.userId,
-            nombre: ppData.teamName,
-            eafcTeamName: ppData.eafcTeamName,
-            capitanId: ppData.userId,
-            capitanTag: ppData.userTag,
-            coCaptainId: null,
-            coCaptainTag: null,
-            bandera: '🏳️',
-            paypal: ppData.paypal || null,
-            streamChannel: ppData.streamChannel,
-            twitter: ppData.twitter || '',
-            inscritoEn: ppData.registeredAt
-        };
+        rawData = tournament.teams.pendingPayments[winnerId];
         sourceCollection = 'pendingPayments';
     } else if (tournament.teams.pendientes && tournament.teams.pendientes[winnerId]) {
-        teamData = tournament.teams.pendientes[winnerId];
+        rawData = tournament.teams.pendientes[winnerId];
         sourceCollection = 'pendientes';
     }
 
-    if (!teamData) {
+    if (!rawData) {
         return { success: false, error: 'Candidato no encontrado en ninguna lista de pendientes.' };
     }
+
+    // Standarize the data structure because different collections use different field names
+    // (e.g. pendingApproval uses userId/teamName, while approveTeam expects capitanId/nombre)
+    const teamData = {
+        id: rawData.capitanId || rawData.userId || rawData.id || winnerId,
+        nombre: rawData.nombre || rawData.teamName || 'Equipo Sin Nombre',
+        eafcTeamName: rawData.eafcTeamName || null,
+        capitanId: rawData.capitanId || rawData.userId || winnerId,
+        capitanTag: rawData.capitanTag || rawData.userTag || '',
+        coCaptainId: rawData.coCaptainId || null,
+        coCaptainTag: rawData.coCaptainTag || null,
+        bandera: rawData.bandera || '🏳️',
+        paypal: rawData.paypal || null,
+        streamChannel: rawData.streamChannel || '',
+        twitter: rawData.twitter || '',
+        inscritoEn: rawData.inscritoEn || rawData.registeredAt || new Date()
+    };
 
     // Delegate tournament logic channels setups, DM sending and database storing to the core approveTeam method.
     try {
