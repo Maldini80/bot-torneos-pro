@@ -17,7 +17,10 @@ import {
 } from '../logic/verificationLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel, createTeamStatsEmbed, createTournamentsBoardEmbed } from '../utils/embeds.js';
+import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
+import { generateExcelImage } from '../utils/twitter.js';
+import * as xlsx from 'xlsx';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 
@@ -2393,7 +2396,7 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.reply({ content: 'Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
 
-        const rouletteUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/roulette?torneo=${tournament.shortId}`;
+        const rouletteUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/?torneo=${tournament.shortId}`;
 
         const embed = new EmbedBuilder()
             .setColor('#2ecc71')
@@ -2413,19 +2416,89 @@ export async function handleButton(interaction) {
 
     if (action === 'admin_draft_ext_import_start') {
         const [tournamentShortId] = params;
-        const modal = new ModalBuilder()
-            .setCustomId(`admin_draft_ext_import_submit:${tournamentShortId}`)
-            .setTitle('Importar Draft WhatsApp');
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
 
-        const dataInput = new TextInputBuilder()
-            .setCustomId('whatsapp_data')
-            .setLabel("Pega aquí la lista de WhatsApp")
-            .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder("1. Maldini (DFC)\n2. Juan Perez 📱 600123456\n...")
-            .setRequired(true);
+        await interaction.reply({
+            content: `⏳ **Modo Importación Activado para: ${tournament.nombre}**\n\nPor favor, **escribe o pega aquí mismo** la lista completa, o **sube un archivo \`.txt\`** con los datos en los próximos **5 minutos**.\n*(Este método soporta listas ilimitadas, saltándose el límite de Discord).*`,
+            flags: [MessageFlags.Ephemeral]
+        });
 
-        modal.addComponents(new ActionRowBuilder().addComponents(dataInput));
-        return interaction.showModal(modal);
+        // Configurar colector de mensajes para el canal actual, solo del usuario que apretó el botón
+        const filter = m => m.author.id === interaction.user.id;
+        try {
+            const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 300000, errors: ['time'] });
+            const responseMsg = collected.first();
+            let textData = '';
+
+            // Si subió un archivo .txt, descargarlo
+            if (responseMsg.attachments.size > 0) {
+                const attachment = responseMsg.attachments.first();
+                if (attachment.name.endsWith('.txt')) {
+                    const fetch = (await import('node-fetch')).default;
+                    const res = await fetch(attachment.url);
+                    textData = await res.text();
+                } else {
+                    return interaction.followUp({ content: '❌ El archivo subido no es un `.txt` válido. Intenta de nuevo.', flags: [MessageFlags.Ephemeral] });
+                }
+            } else {
+                // Si fue texto directo
+                textData = responseMsg.content;
+            }
+
+            // Opcional: borrar el mensaje gigantesco de WhatsApp para mantener limpio el canal admin
+            try { await responseMsg.delete(); } catch (e) { }
+
+            const parsedPlayers = parseExternalDraftWhatsappList(textData);
+
+            if (parsedPlayers.length === 0) {
+                return interaction.followUp({ content: '❌ No se encontró ningún jugador válido en el texto. Verifica el formato.', flags: [MessageFlags.Ephemeral] });
+            }
+
+            const imageResult = await generateExcelImage(parsedPlayers, tournament.nombre);
+
+            if (!imageResult.success) {
+                return interaction.followUp({ content: `❌ Error al generar la imagen: ${imageResult.error}\nTexto original procesado correctamente, pero falló la visualización.`, flags: [MessageFlags.Ephemeral] });
+            }
+
+            // Generar archivo Excel (.xlsx) real
+            const worksheetData = [
+                ['ORDEN', 'NOMBRE', 'POSICIÓN', 'TELÉFONO / PAGO']
+            ];
+
+            parsedPlayers.forEach(p => {
+                worksheetData.push([
+                    p.order || '',
+                    p.name || '',
+                    p.position || '',
+                    p.phone || ''
+                ]);
+            });
+
+            const worksheet = xlsx.utils.aoa_to_sheet(worksheetData);
+            const workbook = xlsx.utils.book_new();
+            xlsx.utils.book_append_sheet(workbook, worksheet, 'Capitanes');
+
+            // Crear buffer y adjunto de Discord
+            const { AttachmentBuilder } = await import('discord.js');
+            const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+            const excelAttachment = new AttachmentBuilder(excelBuffer, { name: `Capitanes_${tournamentShortId}.xlsx` });
+
+            await interaction.channel.send({
+                content: `📊 **Draft Externo:** Lista procesada para el torneo **${tournament.nombre}** (solicitada por <@${interaction.user.id}>).\nPuedes descargar el **archivo Excel adjunto** (.xlsx) o reenviar la imagen generada.`,
+                files: [imageResult.url, excelAttachment]
+            });
+
+            return interaction.followUp({ content: '✅ Lista procesada, archivo Excel e imagen enviados al canal correctamente.', flags: [MessageFlags.Ephemeral] });
+
+        } catch (error) {
+            console.error('Error importando WhatsApp Collector:', error);
+            if (error instanceof Map && error.size === 0) {
+                return interaction.followUp({ content: '⏳ Tiempo agotado. No enviaste la lista en los 5 minutos dados. Vuelve a hacer clic en "Importar".', flags: [MessageFlags.Ephemeral] });
+            } else {
+                return interaction.followUp({ content: '❌ Ha ocurrido un error inesperado al procesar tu mensaje.', flags: [MessageFlags.Ephemeral] });
+            }
+        }
     }
     if (action === 'admin_end_tournament') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });

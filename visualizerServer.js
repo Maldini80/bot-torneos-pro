@@ -80,7 +80,7 @@ app.use('/api/', createRateLimiter(60, 60000)); // 60 peticiones por minuto
 
 // Root route: serve landing page or visualizer
 app.get('/', (req, res) => {
-    if (req.query.tournamentId || req.query.draftId || req.query.rouletteSessionId) {
+    if (req.query.tournamentId || req.query.draftId || req.query.rouletteSessionId || req.query.torneo) {
         res.sendFile('index.html', { root: 'public' });
     } else {
         res.sendFile('home.html', { root: 'public' });
