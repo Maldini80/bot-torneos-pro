@@ -281,7 +281,7 @@ export async function handleModal(interaction) {
     // =======================================================
     // --- LÓGICA DE DRAFT EXTERNO (WHATSAPP MODAL) ---
     // =======================================================
-    if (action === 'register_draft_team_modal') {
+    if (action === 'register_paid_team_modal') {
         const [tournamentShortId] = params;
         const managerId = interaction.user.id;
         const whatsappNumber = interaction.fields.getTextInputValue('whatsapp_input');
@@ -326,26 +326,35 @@ export async function handleModal(interaction) {
 
             // Enviar solicitud background al admin
             sendPaymentApprovalRequest(client, tournament, teamData, interaction.user).catch(err => {
-                console.error('[DRAFT REG] Error enviando solicitud al admin:', err);
+                console.error('[PAID REG] Error enviando solicitud al admin:', err);
             });
 
-            // Otorgar permisos al canal A de voz
-            const seleccionVoiceId = tournament.discordMessageIds?.seleccionCapitanesVoiceId;
-            if (seleccionVoiceId) {
-                client.channels.fetch(seleccionVoiceId).then(voiceChannel => {
-                    if (voiceChannel) {
-                        voiceChannel.permissionOverwrites.create(managerId, {
-                            ViewChannel: true, Connect: true, Speak: true
-                        }).catch(err => console.error('[VOZ] Error dando permiso Canal Draft:', err));
-                    }
-                }).catch(() => { });
+            const isDraft = tournament.config.paidSubType === 'draft';
+
+            // Mensaje confirmación
+            if (isDraft) {
+                // Otorgar permisos al canal A de voz solo si es draft
+                const seleccionVoiceId = tournament.discordMessageIds?.seleccionCapitanesVoiceId;
+                if (seleccionVoiceId) {
+                    client.channels.fetch(seleccionVoiceId).then(voiceChannel => {
+                        if (voiceChannel) {
+                            voiceChannel.permissionOverwrites.create(managerId, {
+                                ViewChannel: true, Connect: true, Speak: true
+                            }).catch(err => console.error('[VOZ] Error dando permiso Canal Draft:', err));
+                        }
+                    }).catch(() => { });
+                }
+
+                const canalMention = seleccionVoiceId ? `<#${seleccionVoiceId}>` : 'el canal de selección';
+                await interaction.editReply({
+                    content: `✅ Solicitud enviada.\nUn administrador revisará la inscripción y te contactará.\nMientras tanto, puedes acceder a ${canalMention} para hablar con otros capitanes pendientes y ver el stream de selección.`
+                });
+            } else {
+                // Mensaje simplificado para Cash Cups
+                await interaction.editReply({
+                    content: `✅ Has mandado solicitud para participar en la modalidad de pago. Espera respuesta en tu DM sobre si Administración te aprueba o rechaza.`
+                });
             }
-
-            // Mensaje confirmación (siempre con mención al canal porque es Draft)
-            const canalMention = seleccionVoiceId ? `<#${seleccionVoiceId}>` : 'el canal de selección';
-            await interaction.editReply({
-                content: `✅ Solicitud enviada.\nUn administrador revisará la inscripción y te contactará.\nMientras tanto, puedes acceder a ${canalMention} para hablar con otros capitanes pendientes y ver el stream de selección.`
-            });
 
         } catch (error) {
             console.error('[DRAFT REG] Error:', error);
