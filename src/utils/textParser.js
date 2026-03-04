@@ -191,48 +191,99 @@ export function parsePlayerList(text) {
 }
 
 export function parseExternalDraftWhatsappList(text) {
-    const lines = text.split('\n').filter(line => line.trim() !== '');
+    const lines = text.split('\n');
 
-    // Configuración robusta de Regex
-    const posRegex = /\b(GK|POR|PT|DFC|LTI|LTD|CARR|MC|MCD|MCO|MD|MI|ED|EI|SD|DC)\b/i;
-    const phoneRegex = /(\+?\d[\d\s\-\.]{7,})/;
-    const orderRegex = /(?:^|\s)(\d+)(?:[\.\-\)]\s|\s)/;
+    // Mapa de secciones (headers de posición en formato WhatsApp)
+    const sectionMap = {
+        'PORTERO': 'GK', 'PORTEROS': 'GK', 'POR': 'GK', 'GK': 'GK',
+        'DEFENSA': 'DFC', 'DEFENSAS': 'DFC', 'DFC': 'DFC', 'DEF': 'DFC', 'CENTRAL': 'DFC', 'CENTRALES': 'DFC',
+        'LATERAL': 'CARR', 'LATERALES': 'CARR', 'CARRILERO': 'CARR', 'CARRILEROS': 'CARR', 'CARR': 'CARR', 'LTI': 'CARR', 'LTD': 'CARR',
+        'MEDIO': 'MC', 'MEDIOS': 'MC', 'MEDIOCENTRO': 'MC', 'MEDIOCENTROS': 'MC', 'MC': 'MC', 'MCD': 'MC', 'MCO': 'MC', 'CENTROCAMPISTA': 'MC', 'CENTROCAMPISTAS': 'MC',
+        'DELANTERO': 'DC', 'DELANTEROS': 'DC', 'DC': 'DC', 'EXTREMO': 'DC', 'EXTREMOS': 'DC', 'EI': 'DC', 'ED': 'DC', 'SD': 'DC', 'ATACANTE': 'DC', 'ATACANTES': 'DC',
+        'MEDIA PUNTA': 'MC', 'MEDIAPUNTA': 'MC', 'MP': 'MC'
+    };
 
-    return lines.map(line => {
-        let order = '';
-        let phone = '';
-        let pos = '';
-        let name = line;
+    // Regex para detectar una línea de encabezado de sección: *PORTEROS* 🧤 o similar
+    const sectionHeaderRegex = /^\*?\s*([A-ZÁÉÍÓÚÑ\s]+?)\s*\*?\s*(?:🧤|⚽|🏃|🔵|🔴|🟢|🟡|⚡|🎯|👊|💪|🦶|🤾)?$/i;
 
-        const orderMatch = line.match(orderRegex);
-        if (orderMatch) {
-            order = orderMatch[1];
-            name = name.replace(orderMatch[0], ' ');
+    // Regex para detectar si una línea es un jugador (empieza con un número)
+    const playerLineRegex = /^\s*(\d+)[\.\-\)\s]+(.+)/;
+
+    // Regex para detectar línea de solo teléfono
+    const phoneOnlyRegex = /^\s*(\+?\d[\d\s\-\.]{6,})\s*$/;
+
+    // Líneas a ignorar (instrucciones, precios, separadores, encabezados del torneo)
+    function isIgnoredLine(line) {
+        const trimmed = line.trim();
+        if (trimmed === '' || trimmed === '—' || trimmed === '——' || trimmed === '———') return true;
+        if (/^\*?\d{1,2}:\d{2}/.test(trimmed)) return true; // horas como *18:30 CIERRE*
+        if (/^🏆/.test(trimmed)) return true; // premios
+        if (/^(apuntarse|inscri|cierre|inicio|draft|goldencup|torneo)/i.test(trimmed.replace(/\*/g, ''))) return true;
+        if (/^\*[^*]+\*$/.test(trimmed) && !sectionHeaderRegex.test(trimmed)) return true; // texto entre asteriscos genérico
+        return false;
+    }
+
+    let currentPosition = '';
+    const players = [];
+    let orderCounter = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (isIgnoredLine(trimmed)) continue;
+
+        // ¿Es una cabecera de sección/posición?
+        const sectionMatch = trimmed.replace(/\*/g, '').replace(/🧤|⚽|🏃|🔵|🔴|🟢|🟡|⚡|🎯|👊|💪|🦶|🤾/g, '').trim().toUpperCase();
+        if (sectionMap[sectionMatch]) {
+            currentPosition = sectionMap[sectionMatch];
+            continue;
         }
 
-        const phoneMatch = name.match(phoneRegex);
-        if (phoneMatch) {
-            phone = phoneMatch[1].trim();
-            name = name.replace(phoneMatch[0], ' ');
+        // ¿Es una línea de jugador? (empieza con número)
+        const playerMatch = trimmed.match(playerLineRegex);
+        if (playerMatch) {
+            orderCounter++;
+            const order = playerMatch[1];
+            let name = playerMatch[2].trim();
+            let phone = '';
+
+            // Extraer teléfono si va en la misma línea
+            const inlinePhone = name.match(/([\s,;|]+)(\+?\d[\d\s\-\.]{6,})$/);
+            if (inlinePhone) {
+                phone = inlinePhone[2].replace(/[\s\-\.]/g, '').trim();
+                name = name.replace(inlinePhone[0], '').trim();
+            }
+
+            // Limpiar emojis y caracteres extraños del nombre
+            name = name.replace(/📱|📲|📞|🧤|⚽|🏃|🔵|🔴|🟢|🟡|⚡|🎯|👊|💪|🦶|🤾/g, '').trim();
+
+            // Mirar si la SIGUIENTE línea es un teléfono (formato WhatsApp típico)
+            if (!phone && i + 1 < lines.length) {
+                const nextLine = lines[i + 1].trim();
+                const nextPhoneMatch = nextLine.match(phoneOnlyRegex);
+                if (nextPhoneMatch) {
+                    phone = nextPhoneMatch[1].replace(/[\s\-\.]/g, '').trim();
+                    i++; // Saltar esa línea
+                }
+            }
+
+            players.push({
+                order: order,
+                name: name,
+                position: currentPosition,
+                phone: phone
+            });
+            continue;
         }
 
-        const posMatch = name.match(posRegex);
-        if (posMatch) {
-            let extractedPos = posMatch[1].toUpperCase();
-            // Normalizar a los colores requeridos si es posible
-            if (['POR', 'PT'].includes(extractedPos)) extractedPos = 'GK';
-            if (['LTI', 'LTD'].includes(extractedPos)) extractedPos = 'CARR';
-            if (['MCD', 'MD', 'MI', 'MCO'].includes(extractedPos)) extractedPos = 'MC';
-            if (['EI', 'ED', 'SD'].includes(extractedPos)) extractedPos = 'DC';
-
-            pos = extractedPos;
-            name = name.replace(posMatch[0], ' ');
-            name = name.replace(/[\(\)]/g, ' ');
+        // ¿Es una línea de solo teléfono suelta? (asociar al último jugador)
+        const phoneOnly = trimmed.match(phoneOnlyRegex);
+        if (phoneOnly && players.length > 0 && !players[players.length - 1].phone) {
+            players[players.length - 1].phone = phoneOnly[1].replace(/[\s\-\.]/g, '').trim();
+            continue;
         }
+    }
 
-        // Limpieza final del nombre
-        name = name.replace(/📱|📲|📞/g, '').replace(/\s+/g, ' ').trim();
-
-        return { order, name, pos, phone, raw: line };
-    });
+    return players;
 }
