@@ -216,69 +216,6 @@ export async function handleModal(interaction) {
     // --- FIN FIX ---
 
     // =======================================================
-    // --- NUEVA LÓGICA DE INSCRIPCIÓN DE PAGO SIMPLIFICADA ---
-    // =======================================================
-
-    if (action === 'register_paid_team_modal') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
-        const [tournamentShortId] = params;
-        const teamName = interaction.fields.getTextInputValue('team_name_input');
-        const streamLink = interaction.fields.getTextInputValue('stream_link_input') || 'No especificado';
-
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-
-        if (!tournament) {
-            return interaction.editReply({ content: '❌ El torneo no existe.' });
-        }
-
-
-
-        // --- LÓGICA UNIFICADA: ENVIAR SOLICITUD DE APROBACIÓN AL ADMIN (Igual que Web) ---
-        // Construimos el objeto de equipo con los datos del formulario
-        const teamData = {
-            id: interaction.user.id,
-            nombre: teamName,
-            eafcTeamName: teamName, // Mismo nombre para ambos
-            capitanId: interaction.user.id,
-            capitanTag: interaction.user.tag,
-            coCaptainId: null,
-            coCaptainTag: null,
-            logoUrl: interaction.user.displayAvatarURL(),
-            twitter: "", // Eliminado
-            streamChannel: streamLink,
-            paypal: null,
-            inscritoEn: new Date(),
-            isPaid: true
-        };
-
-        try {
-            // Guardamos temporalmente en 'pendingPayments' para evitar duplicados inmediatos
-            // aunque sendPaymentApprovalRequest ya maneja parte de esto, es bueno tener un registro local db
-            if (!tournament.teams.pendingPayments) tournament.teams.pendingPayments = {};
-            await db.collection('tournaments').updateOne(
-                { _id: tournament._id },
-                { $set: { [`teams.pendingPayments.${interaction.user.id}`]: teamData } }
-            );
-
-            // Enviamos la solicitud al canal de admins
-            await sendPaymentApprovalRequest(client, tournament, teamData, interaction.user);
-
-            await interaction.editReply({
-                content: `✅ **Solicitud enviada.**\n\n` +
-                    `Hemos notificado al staff sobre tu interés en inscribir al equipo **${teamName}**.\n` +
-                    `Un administrador revisará tu solicitud y el sistema te enviará un Mensaje Directo (DM) con la información de pago una vez seas aprobado.\n\n` +
-                    `⚠️ **Importante:** Asegúrate de tener los mensajes directos abiertos para recibir los datos de pago.`
-            });
-
-        } catch (error) {
-            console.error('Error al enviar solicitud de aprobación en Discord:', error);
-            await interaction.editReply({ content: '❌ Ocurrió un error al procesar tu solicitud. Por favor, inténtalo de nuevo o contacta con un administrador.' });
-        }
-        return;
-    }
-
-    // =======================================================
     // --- LÓGICA DE DRAFT EXTERNO (WHATSAPP MODAL) ---
     // =======================================================
     if (action === 'register_paid_team_modal') {
