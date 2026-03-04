@@ -17,7 +17,7 @@ import {
 } from '../logic/verificationLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel, createTeamStatsEmbed, createTournamentsBoardEmbed } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
 import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
 import { generateExcelImage } from '../utils/twitter.js';
 import * as xlsx from 'xlsx';
