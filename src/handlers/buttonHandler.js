@@ -3664,6 +3664,8 @@ export async function handleButton(interaction) {
             logoUrl: pendingData.logoUrl || null,
             twitter: pendingData.twitter || 'N/A',
             streamChannel: pendingData.streamChannel || null,
+            whatsapp: pendingData.whatsapp || '',
+            adminMessageId: pendingData.adminMessageId || null,
             paypal: null,
             inscritoEn: new Date(),
             isPaid: false // Queda pendiente de pago real
@@ -3760,6 +3762,8 @@ export async function handleButton(interaction) {
             logoUrl: pendingData.logoUrl,
             twitter: pendingData.twitter,
             streamChannel: pendingData.streamChannel,
+            whatsapp: pendingData.whatsapp || '',
+            adminMessageId: pendingData.adminMessageId || null,
             paypal: null, // Ya pagó
             inscritoEn: new Date(),
             isPaid: true
