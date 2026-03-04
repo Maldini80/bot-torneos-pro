@@ -7,10 +7,13 @@ import { createNewTournament, updateTournamentConfig, updatePublicMessages, forc
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
 import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
 // --- LÍNEA CORREGIDA Y COMPLETA ---
-import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField, TextInputBuilder, TextInputStyle, ModalBuilder } from 'discord.js';
+import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField, TextInputBuilder, TextInputStyle, ModalBuilder, AttachmentBuilder } from 'discord.js';
+import * as xlsx from 'xlsx';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { createDraftStatusEmbed } from '../utils/embeds.js';
+import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
+import { generateExcelImage } from '../utils/twitter.js';
 const VERIFICATION_TICKET_CATEGORY_ID = '1396814712649551974';
 
 export async function handleModal(interaction) {
@@ -2475,5 +2478,54 @@ export async function handleModal(interaction) {
             await interaction.editReply('❌ Error crítico al crear el torneo.');
         }
         return;
+    }
+
+    if (action === 'admin_draft_ext_import_submit') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('Error: Torneo no encontrado.');
+
+        const textData = interaction.fields.getTextInputValue('whatsapp_data');
+        const parsedPlayers = parseExternalDraftWhatsappList(textData);
+
+        if (parsedPlayers.length === 0) {
+            return interaction.editReply('❌ No se encontró ningún jugador válido en el texto. Verifica el formato.');
+        }
+
+        const imageResult = await generateExcelImage(parsedPlayers, tournament.nombre);
+
+        if (!imageResult.success) {
+            return interaction.editReply(`❌ Error al generar la imagen: ${imageResult.error}\nTexto original procesado correctamente, pero falló la visualización.`);
+        }
+
+        // Generar archivo Excel (.xlsx) real
+        const worksheetData = [
+            ['ORDEN', 'NOMBRE', 'POSICIÓN', 'TELÉFONO / PAGO']
+        ];
+
+        parsedPlayers.forEach(p => {
+            worksheetData.push([
+                p.order || '',
+                p.name || '',
+                p.position || '',
+                p.phone || ''
+            ]);
+        });
+
+        const worksheet = xlsx.utils.aoa_to_sheet(worksheetData);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Capitanes');
+
+        // Crear buffer y adjunto de Discord
+        const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const excelAttachment = new AttachmentBuilder(excelBuffer, { name: `Capitanes_${tournamentShortId}.xlsx` });
+
+        await interaction.channel.send({
+            content: `📊 **Draft Externo:** Lista procesada para el torneo **${tournament.nombre}** (solicitada por <@${interaction.user.id}>).\nPuedes descargar el **archivo Excel adjunto** (.xlsx) o reenviar la imagen generada.`,
+            files: [imageResult.url, excelAttachment]
+        });
+
+        return interaction.editReply('✅ Lista procesada, archivo Excel e imagen enviados al canal correctamente.');
     }
 }

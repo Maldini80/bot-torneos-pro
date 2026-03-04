@@ -343,3 +343,47 @@ export async function postTournamentUpdate(eventType, data) {
         return { success: false, error: e.message };
     }
 }
+
+export async function generateExcelImage(players, tournamentName) {
+    const getColor = (pos) => {
+        switch (pos) {
+            case 'GK': return '#f1c40f'; // Amarillo
+            case 'DFC': return '#2ecc71'; // Verde
+            case 'MC': return '#e67e22'; // Naranja
+            case 'CARR': return '#3498db'; // Azul celeste
+            case 'DC': return '#e74c3c'; // Rojo
+            default: return '#95a5a6'; // Gris por defecto
+        }
+    };
+
+    const tableRows = players.map(p => `
+        <tr>
+            <td style="text-align:center;">${p.order || '-'}</td>
+            <td><strong>${p.name}</strong></td>
+            <td style="background-color: ${getColor(p.pos)}; font-weight: bold; color: #fff; text-align:center;">${p.pos || 'N/A'}</td>
+            <td style="font-family: monospace;">${p.phone || 'No aportado'}</td>
+        </tr>
+    `).join('');
+
+    const htmlContent = `
+        <div style="background: #ffffff; color: #333; padding: 30px; border-radius: 12px; width: 800px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+            <h1 style="text-align: center; margin-bottom: 20px; color: #2c3e50;">📊 Draft Externo: ${tournamentName}</h1>
+            <table style="width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #bdc3c7;">
+                <thead>
+                    <tr style="background: #ecf0f1; color: #2c3e50; text-align: left; border-bottom: 2px solid #bdc3c7;">
+                        <th style="padding: 15px; text-align:center; width: 10%; border-right: 1px solid #bdc3c7;">#</th>
+                        <th style="padding: 15px; width: 40%; border-right: 1px solid #bdc3c7;">Jugador</th>
+                        <th style="padding: 15px; text-align:center; width: 15%; border-right: 1px solid #bdc3c7;">Posición</th>
+                        <th style="padding: 15px; width: 35%;">WhatsApp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows.replace(/<td/g, '<td style="border-bottom: 1px solid #ecf0f1; border-right: 1px solid #ecf0f1; padding: 12px;"')}
+                </tbody>
+            </table>
+            <p style="text-align: center; margin-top: 20px; color: #7f8c8d; font-size: 14px;">Generado por el Panel de Administración</p>
+        </div>
+    `;
+
+    return await generateHtmlImage(htmlContent);
+}

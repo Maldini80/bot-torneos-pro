@@ -1988,22 +1988,47 @@ export async function handleButton(interaction) {
         const approvedTeams = Object.values(tournament.teams.aprobados);
         const waitlistedTeams = tournament.teams.reserva ? Object.values(tournament.teams.reserva) : [];
 
+        // NUEVO: Comprobar roles de admin/árbitro y si el torneo es de pago
+        const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        const isPaidTournament = tournament.config.type === 'pago';
+        const showWhatsapp = isAdminOrRef && isPaidTournament;
+
         let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
 
         if (approvedTeams.length > 0) {
-            description = approvedTeams.map((team, index) => {
+            const approvedStrings = await Promise.all(approvedTeams.map(async (team, index) => {
                 let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}`;
                 if (team.coCaptainTag) teamString += `, Co-Cap: ${team.coCaptainTag}`;
                 teamString += `)`;
+
+                if (showWhatsapp) {
+                    let whatsapp = team.whatsapp;
+                    if (!whatsapp) {
+                        const capitanData = await db.collection('users_vpg').findOne({ discordId: team.capitanId });
+                        if (capitanData && capitanData.whatsapp) whatsapp = capitanData.whatsapp;
+                    }
+                    if (whatsapp) teamString += ` - 📱 ${whatsapp}`;
+                }
                 return teamString;
-            }).join('\n');
+            }));
+            description = approvedStrings.join('\n');
         }
 
         if (waitlistedTeams.length > 0) {
-            const waitlistDescription = waitlistedTeams.map((team, index) => {
+            const waitlistStrings = await Promise.all(waitlistedTeams.map(async (team, index) => {
                 let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag})`;
+
+                if (showWhatsapp) {
+                    let whatsapp = team.whatsapp;
+                    if (!whatsapp) {
+                        const capitanData = await db.collection('users_vpg').findOne({ discordId: team.capitanId });
+                        if (capitanData && capitanData.whatsapp) whatsapp = capitanData.whatsapp;
+                    }
+                    if (whatsapp) teamString += ` - 📱 ${whatsapp}`;
+                }
                 return teamString;
-            }).join('\n');
+            }));
+            const waitlistDescription = waitlistStrings.join('\n');
 
             if (approvedTeams.length > 0) {
                 description += `\n\n---\n`;
@@ -2361,6 +2386,46 @@ export async function handleButton(interaction) {
             });
 
         return;
+    }
+
+    if (action === 'admin_draft_ext_roulette') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+        const rouletteUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/roulette?torneo=${tournament.shortId}`;
+
+        const embed = new EmbedBuilder()
+            .setColor('#2ecc71')
+            .setTitle('🎲 Ruleta de Capitanes (Draft Externo)')
+            .setDescription(`Haz clic en el botón de abajo para abrir la ruleta de este torneo.\n\n⚠️ **Importante:** Solo administradores pueden girar y confirmar capitanes.`)
+            .setFooter({ text: 'El enlace es seguro y privado.' });
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setLabel('Abrir Ruleta en el Navegador')
+                .setStyle(ButtonStyle.Link)
+                .setURL(rouletteUrl)
+        );
+
+        return interaction.reply({ embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] });
+    }
+
+    if (action === 'admin_draft_ext_import_start') {
+        const [tournamentShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_draft_ext_import_submit:${tournamentShortId}`)
+            .setTitle('Importar Draft WhatsApp');
+
+        const dataInput = new TextInputBuilder()
+            .setCustomId('whatsapp_data')
+            .setLabel("Pega aquí la lista de WhatsApp")
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder("1. Maldini (DFC)\n2. Juan Perez 📱 600123456\n...")
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(dataInput));
+        return interaction.showModal(modal);
     }
     if (action === 'admin_end_tournament') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });

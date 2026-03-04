@@ -25,7 +25,8 @@
     "passport": "^0.7.0",
     "passport-discord": "^0.1.4",
     "twitter-api-v2": "^1.16.2",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "xlsx": "^0.18.5"
   },
   "engines": {
     "node": "18.x"

@@ -246,13 +246,31 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setDisabled(isBusy)
     );
 
-
+    // ROW 5: External Draft specific actions
+    const row5 = new ActionRowBuilder();
+    if (tournament.config.paidSubType === 'draft') {
+        row5.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_draft_ext_roulette:${tournament.shortId}`)
+                .setLabel('Seleccionar capitanes por ruleta')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🎲')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
+                .setCustomId(`admin_draft_ext_import_start:${tournament.shortId}`)
+                .setLabel('Importar desde WhatsApp')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📥')
+                .setDisabled(isBusy)
+        );
+    }
 
     const components = [];
     if (row1.components.length > 0) components.push(row1);
     if (row2.components.length > 0) components.push(row2);
     if (row3.components.length > 0) components.push(row3);
     if (row4.components.length > 0) components.push(row4);
+    if (row5.components.length > 0) components.push(row5);
 
     return { embeds: [embed], components };
 }

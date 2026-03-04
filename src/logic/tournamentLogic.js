@@ -5135,3 +5135,58 @@ export async function sendPaymentApprovalRequest(client, tournament, teamData, u
         console.error('[Payment Approval Request] Error sending notification:', error);
     }
 }
+
+export async function approveExternalDraftCaptain(client, tournamentShortId, winnerId) {
+    const db = getDb();
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) return { success: false, error: 'Torneo no encontrado' };
+
+    let teamData = null;
+    let sourceCollection = null;
+
+    if (tournament.teams.pendingApproval && tournament.teams.pendingApproval[winnerId]) {
+        teamData = tournament.teams.pendingApproval[winnerId];
+        sourceCollection = 'pendingApproval';
+    } else if (tournament.teams.pendingPayments && tournament.teams.pendingPayments[winnerId]) {
+        const ppData = tournament.teams.pendingPayments[winnerId];
+        teamData = {
+            id: ppData.userId,
+            nombre: ppData.teamName,
+            eafcTeamName: ppData.eafcTeamName,
+            capitanId: ppData.userId,
+            capitanTag: ppData.userTag,
+            coCaptainId: null,
+            coCaptainTag: null,
+            bandera: '🏳️',
+            paypal: ppData.paypal || null,
+            streamChannel: ppData.streamChannel,
+            twitter: ppData.twitter || '',
+            inscritoEn: ppData.registeredAt
+        };
+        sourceCollection = 'pendingPayments';
+    } else if (tournament.teams.pendientes && tournament.teams.pendientes[winnerId]) {
+        teamData = tournament.teams.pendientes[winnerId];
+        sourceCollection = 'pendientes';
+    }
+
+    if (!teamData) {
+        return { success: false, error: 'Candidato no encontrado en ninguna lista de pendientes.' };
+    }
+
+    // Delegate tournament logic channels setups, DM sending and database storing to the core approveTeam method.
+    await approveTeam(client, tournament, teamData);
+
+    // Clean up auxiliary collections
+    if (sourceCollection) {
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { [`teams.${sourceCollection}.${winnerId}`]: "" } });
+    }
+
+    // Permissions for voice channel (channel B)
+    if (tournament.config?.isPaid && tournament.discordMessageIds?.capitanesAprobadosVoiceId) {
+        client.channels.fetch(tournament.discordMessageIds.capitanesAprobadosVoiceId).then(vc => {
+            if (vc) vc.permissionOverwrites.create(winnerId, { ViewChannel: true, Connect: true, Speak: true }).catch(e => console.error('[VOZ] Error al dar permisos:', e));
+        }).catch(() => { });
+    }
+
+    return { success: true };
+}

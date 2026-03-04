@@ -189,3 +189,50 @@ export function parsePlayerList(text) {
 
     return players;
 }
+
+export function parseExternalDraftWhatsappList(text) {
+    const lines = text.split('\n').filter(line => line.trim() !== '');
+
+    // Configuración robusta de Regex
+    const posRegex = /\b(GK|POR|PT|DFC|LTI|LTD|CARR|MC|MCD|MCO|MD|MI|ED|EI|SD|DC)\b/i;
+    const phoneRegex = /(\+?\d[\d\s\-\.]{7,})/;
+    const orderRegex = /(?:^|\s)(\d+)(?:[\.\-\)]\s|\s)/;
+
+    return lines.map(line => {
+        let order = '';
+        let phone = '';
+        let pos = '';
+        let name = line;
+
+        const orderMatch = line.match(orderRegex);
+        if (orderMatch) {
+            order = orderMatch[1];
+            name = name.replace(orderMatch[0], ' ');
+        }
+
+        const phoneMatch = name.match(phoneRegex);
+        if (phoneMatch) {
+            phone = phoneMatch[1].trim();
+            name = name.replace(phoneMatch[0], ' ');
+        }
+
+        const posMatch = name.match(posRegex);
+        if (posMatch) {
+            let extractedPos = posMatch[1].toUpperCase();
+            // Normalizar a los colores requeridos si es posible
+            if (['POR', 'PT'].includes(extractedPos)) extractedPos = 'GK';
+            if (['LTI', 'LTD'].includes(extractedPos)) extractedPos = 'CARR';
+            if (['MCD', 'MD', 'MI', 'MCO'].includes(extractedPos)) extractedPos = 'MC';
+            if (['EI', 'ED', 'SD'].includes(extractedPos)) extractedPos = 'DC';
+
+            pos = extractedPos;
+            name = name.replace(posMatch[0], ' ');
+            name = name.replace(/[\(\)]/g, ' ');
+        }
+
+        // Limpieza final del nombre
+        name = name.replace(/📱|📲|📞/g, '').replace(/\s+/g, ' ').trim();
+
+        return { order, name, pos, phone, raw: line };
+    });
+}

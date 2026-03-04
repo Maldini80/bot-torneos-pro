@@ -8,7 +8,7 @@ import MongoStore from 'connect-mongo';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
-import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest, adminReplacePickFromWeb } from './src/logic/tournamentLogic.js';
+import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest, adminReplacePickFromWeb, approveExternalDraftCaptain } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
@@ -2274,6 +2274,64 @@ export async function startVisualizerServer(discordClient) {
             res.status(500).send({ error: 'Error interno del servidor.' });
         }
     });
+
+    // --- NUEVO: API para Ruleta de Draft Externo ---
+    app.get('/api/external-draft/roulette/:tournamentId', async (req, res) => {
+        try {
+            const { tournamentId } = req.params;
+            const db = getDb();
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentId });
+
+            if (!tournament) return res.status(404).send({ error: 'Torneo no encontrado.' });
+
+            const candidates = [];
+            const checkList = (list) => {
+                if (!list) return;
+                Object.values(list).forEach(team => {
+                    candidates.push({
+                        id: team.id || team.ownerId || team.userId || team.capitanId, // userId is for pendingPayments
+                        name: team.nombre || team.teamName || team.ownerName || 'Usuario Desconocido',
+                        ownerId: team.ownerId || team.userId || team.capitanId
+                    });
+                });
+            };
+
+            checkList(tournament.teams.pendingApproval);
+            checkList(tournament.teams.pendingPayments);
+            checkList(tournament.teams.pendientes);
+
+            if (candidates.length === 0) {
+                return res.json({ candidates: [], error: 'No hay candidatos pendientes.' });
+            }
+
+            res.json({ candidates, tournamentName: tournament.nombre, tournamentId: tournament.shortId });
+        } catch (error) {
+            console.error(`[API Roulette Ext Error]: ${error.message}`);
+            res.status(500).send({ error: 'Error interno del servidor.' });
+        }
+    });
+
+    app.post('/api/external-draft/roulette/:tournamentId/confirm', isAdmin, async (req, res) => {
+        try {
+            const { tournamentId } = req.params;
+            const { winnerId } = req.body;
+
+            if (!winnerId) return res.status(400).send({ error: 'No se ha proporcionado el ID del ganador.' });
+
+            const result = await approveExternalDraftCaptain(client, tournamentId, winnerId);
+
+            if (result.success) {
+                res.json({ success: true });
+            } else {
+                res.status(400).send({ error: result.error });
+            }
+
+        } catch (error) {
+            console.error(`[API Roulette Ext Confirm Error]: ${error.message}`);
+            res.status(500).send({ error: 'Error procesando al ganador.' });
+        }
+    });
+    // --- FIN NUEVO ---
 
     //  Search Discord server members in real-time
     app.get('/api/search-verified-users', async (req, res) => {
