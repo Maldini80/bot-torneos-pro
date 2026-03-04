@@ -465,13 +465,14 @@ function initializeTournamentView(tournamentId) {
                 if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
                 if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
 
-                // Desempate por enfrentamiento directo (como en embeds.js)
                 const enfrentamiento = tournament.structure.calendario[groupName]?.find(p => p.resultado && ((p.equipoA.id === a.id && p.equipoB.id === b.id) || (p.equipoA.id === b.id && p.equipoB.id === a.id)));
                 if (enfrentamiento) {
                     const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
                     if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
                     else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
                 }
+
+                if ((a.stats.pg || 0) !== (b.stats.pg || 0)) return (b.stats.pg || 0) - (a.stats.pg || 0);
 
                 return a.nombre.localeCompare(b.nombre);
             });

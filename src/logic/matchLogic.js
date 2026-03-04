@@ -165,11 +165,17 @@ async function updateGroupStageStats(tournament, partido) {
 
     if (golesA > golesB) {
         equipoA.stats.pts += 3;
+        equipoA.stats.pg = (equipoA.stats.pg || 0) + 1;
+        equipoB.stats.pp = (equipoB.stats.pp || 0) + 1;
     } else if (golesB > golesA) {
         equipoB.stats.pts += 3;
+        equipoB.stats.pg = (equipoB.stats.pg || 0) + 1;
+        equipoA.stats.pp = (equipoA.stats.pp || 0) + 1;
     } else {
         equipoA.stats.pts += 1;
         equipoB.stats.pts += 1;
+        equipoA.stats.pe = (equipoA.stats.pe || 0) + 1;
+        equipoB.stats.pe = (equipoB.stats.pe || 0) + 1;
     }
 }
 
@@ -191,11 +197,21 @@ export async function revertStats(tournament, partido) {
     equipoA.stats.dg = equipoA.stats.gf - equipoA.stats.gc;
     equipoB.stats.dg = equipoB.stats.gf - equipoB.stats.gc;
 
-    if (oldGolesA > oldGolesB) equipoA.stats.pts = Math.max(0, equipoA.stats.pts - 3);
-    else if (oldGolesB > oldGolesA) equipoB.stats.pts = Math.max(0, equipoB.stats.pts - 3);
+    if (oldGolesA > oldGolesB) {
+        equipoA.stats.pts = Math.max(0, equipoA.stats.pts - 3);
+        equipoA.stats.pg = Math.max(0, (equipoA.stats.pg || 0) - 1);
+        equipoB.stats.pp = Math.max(0, (equipoB.stats.pp || 0) - 1);
+    }
+    else if (oldGolesB > oldGolesA) {
+        equipoB.stats.pts = Math.max(0, equipoB.stats.pts - 3);
+        equipoB.stats.pg = Math.max(0, (equipoB.stats.pg || 0) - 1);
+        equipoA.stats.pp = Math.max(0, (equipoA.stats.pp || 0) - 1);
+    }
     else {
         equipoA.stats.pts = Math.max(0, equipoA.stats.pts - 1);
         equipoB.stats.pts = Math.max(0, equipoB.stats.pts - 1);
+        equipoA.stats.pe = Math.max(0, (equipoA.stats.pe || 0) - 1);
+        equipoB.stats.pe = Math.max(0, (equipoB.stats.pe || 0) - 1);
     }
 }
 

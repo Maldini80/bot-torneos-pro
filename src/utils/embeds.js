@@ -877,6 +877,9 @@ export function createClassificationEmbed(tournament) {
             if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
             else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
         }
+
+        if ((a.stats.pg || 0) !== (b.stats.pg || 0)) return (b.stats.pg || 0) - (a.stats.pg || 0);
+
         // Validar que ambos nombres existan antes de comparar
         if (!a.nombre || !b.nombre) {
             console.warn('[SORT WARNING] Equipo con nombre null detectado:', { a: a?.nombre, b: b?.nombre });
@@ -892,8 +895,8 @@ export function createClassificationEmbed(tournament) {
         const equiposOrdenados = [...grupo.equipos].sort((a, b) => sortTeams(a, b, groupName));
         const nameWidth = 16;
         const header = isSwiss
-            ? "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  PTS  BH  GF  GC   DG"
-            : "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  PTS  GF  GC   DG";
+            ? "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  V  PTS  BH  GF  GC   DG"
+            : "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  V  PTS  GF  GC   DG";
 
         let currentFieldText = "";
         let part = 1;
@@ -901,6 +904,7 @@ export function createClassificationEmbed(tournament) {
         for (const e of equiposOrdenados) {
             const teamName = e.nombre.slice(0, nameWidth - 1).padEnd(nameWidth);
             const pj = (e.stats.pj || 0).toString().padStart(2);
+            const pg = (e.stats.pg || 0).toString().padStart(1);
             const pts = (e.stats.pts || 0).toString().padStart(3);
             const gf = (e.stats.gf || 0).toString().padStart(3);
             const gc = (e.stats.gc || 0).toString().padStart(3);
@@ -911,9 +915,9 @@ export function createClassificationEmbed(tournament) {
             let row;
             if (isSwiss) {
                 const bh = (e.stats.buchholz || 0).toString().padStart(3);
-                row = `${teamName}${pj}  ${pts}  ${bh}  ${gf}  ${gc}  ${paddedDg}\n`;
+                row = `${teamName}${pj}  ${pg}  ${pts}  ${bh}  ${gf}  ${gc}  ${paddedDg}\n`;
             } else {
-                row = `${teamName}${pj}  ${pts}  ${gf}  ${gc}  ${paddedDg}\n`;
+                row = `${teamName}${pj}  ${pg}  ${pts}  ${gf}  ${gc}  ${paddedDg}\n`;
             }
 
             if (currentFieldText.length + row.length > 900) {

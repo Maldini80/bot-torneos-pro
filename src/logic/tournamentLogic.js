@@ -2920,7 +2920,7 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
     const teamObject = {
         id: captainData.userId, nombre: captainData.teamName, capitanId: captainData.userId,
         logoUrl: captainData.logoUrl, eafcTeamName: captainData.eafcTeamName,
-        stats: { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 }
+        stats: { pj: 0, pg: 0, pe: 0, pp: 0, pts: 0, gf: 0, gc: 0, dg: 0 }
     };
 
     await db.collection('tournaments').updateOne(
@@ -3067,7 +3067,7 @@ async function generateGroupBasedSchedule(tournament, preserveGroups = false) {
             const grupoIndex = Math.floor(i / tamanoGrupo);
             const nombreGrupo = `Grupo ${String.fromCharCode(65 + grupoIndex)}`;
             if (!grupos[nombreGrupo]) grupos[nombreGrupo] = { equipos: [] };
-            teams[i].stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
+            teams[i].stats = { pj: 0, pg: 0, pe: 0, pp: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
             grupos[nombreGrupo].equipos.push(teams[i]);
         }
         tournament.structure.grupos = grupos;
@@ -3116,7 +3116,7 @@ async function generateFlexibleLeagueSchedule(tournament, preserveGroups = false
 
         // Inicializar stats
         teams.forEach(team => {
-            team.stats = { pj: 0, pts: 0, gf: 0, gc: 0, dg: 0, buchholz: 0 }; // Añadido buchholz
+            team.stats = { pj: 0, pg: 0, pe: 0, pp: 0, pts: 0, gf: 0, gc: 0, dg: 0, buchholz: 0 }; // Añadido buchholz
         });
     }
 
