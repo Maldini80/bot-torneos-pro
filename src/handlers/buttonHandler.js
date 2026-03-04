@@ -2009,8 +2009,13 @@ export async function handleButton(interaction) {
                 if (showWhatsapp) {
                     let whatsapp = team.whatsapp;
                     if (!whatsapp) {
-                        const capitanData = await db.collection('users_vpg').findOne({ discordId: team.capitanId });
-                        if (capitanData && capitanData.whatsapp) whatsapp = capitanData.whatsapp;
+                        let capitanData = await db.collection('users_vpg').findOne({ discordId: team.capitanId });
+                        if (capitanData && capitanData.whatsapp) {
+                            whatsapp = capitanData.whatsapp;
+                        } else {
+                            capitanData = await db.collection('verified_users').findOne({ discordId: team.capitanId });
+                            if (capitanData && capitanData.whatsapp) whatsapp = capitanData.whatsapp;
+                        }
                     }
                     if (whatsapp) teamString += `\n   📱 WA: **${whatsapp}**`;
                 }
@@ -2026,8 +2031,13 @@ export async function handleButton(interaction) {
                 if (showWhatsapp) {
                     let whatsapp = team.whatsapp;
                     if (!whatsapp) {
-                        const capitanData = await db.collection('users_vpg').findOne({ discordId: team.capitanId });
-                        if (capitanData && capitanData.whatsapp) whatsapp = capitanData.whatsapp;
+                        let capitanData = await db.collection('users_vpg').findOne({ discordId: team.capitanId });
+                        if (capitanData && capitanData.whatsapp) {
+                            whatsapp = capitanData.whatsapp;
+                        } else {
+                            capitanData = await db.collection('verified_users').findOne({ discordId: team.capitanId });
+                            if (capitanData && capitanData.whatsapp) whatsapp = capitanData.whatsapp;
+                        }
                     }
                     if (whatsapp) teamString += ` - 📱 ${whatsapp}`;
                 }
@@ -2605,7 +2615,8 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
 
-        if (!interaction.member._roles.includes(process.env.ADMIN_ROLE_ID)) {
+        const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!isAdminOrRef) {
             return interaction.editReply({ content: '❌ No tienes permisos para usar este botón.' });
         }
 
