@@ -1673,7 +1673,17 @@ export async function handleModal(interaction) {
                     { name: 'Twitter', value: twitter || 'No proporcionado', inline: false }
                 );
             const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_approve:${interaction.user.id}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`admin_reject:${interaction.user.id}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
-            await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
+            const sentMessage = await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
+
+            // Save adminMessageId to database
+            const db = getDb();
+            if (tournament.teams.pendingApproval && tournament.teams.pendingApproval[interaction.user.id]) {
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { [`teams.pendingApproval.${interaction.user.id}.adminMessageId`]: sentMessage.id } }
+                );
+            }
+
             await interaction.editReply('✅ 🇪🇸 ¡Tu inscripción ha sido recibida! Un admin la revisará pronto.\n🇬🇧 Your registration has been received! An admin will review it shortly.');
         }
         return;

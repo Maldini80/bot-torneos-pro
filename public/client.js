@@ -2280,11 +2280,11 @@ function initializeExtRouletteView(tournamentId) {
         const listEl = document.getElementById('approved-captains-list');
         if (!listEl) return;
         if (!approvedCaptains || approvedCaptains.length === 0) {
-            listEl.innerHTML = '<p style="color:#888;font-size:14px;text-align:center;">Aún no hay capitanes aprobados.</p>';
+            listEl.innerHTML = '<p style="color:#888;font-size:18px;text-align:center;">Aún no hay capitanes aprobados.</p>';
             return;
         }
         listEl.innerHTML = approvedCaptains.map((c, i) =>
-            `<div style="padding:6px 10px;margin-bottom:4px;background:rgba(46,204,113,0.15);border-left:3px solid #2ecc71;border-radius:4px;font-size:14px;">
+            `<div style="padding:12px 15px;margin-bottom:8px;background:rgba(46,204,113,0.15);border-left:5px solid #2ecc71;border-radius:6px;font-size:20px;">
                 <span style="color:#2ecc71;font-weight:bold;">${i + 1}.</span> ${c.name}
             </div>`
         ).join('');

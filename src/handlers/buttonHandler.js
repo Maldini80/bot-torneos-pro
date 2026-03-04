@@ -157,6 +157,10 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación, o en la lista de reserva de este torneo.', flags: [MessageFlags.Ephemeral] });
         }
 
+        if (tournament.config?.registrationClosed) {
+            return interaction.reply({ content: '❌ Las inscripciones para este torneo están actualmente cerradas.', flags: [MessageFlags.Ephemeral] });
+        }
+
         // --- MODIFICACIÓN: TORNEOS DE PAGO (Flujo simplificado sin modal) ---
         if (tournament.config.isPaid) {
             // Check si el usuario fue rechazado previamente
@@ -1993,16 +1997,15 @@ export async function handleButton(interaction) {
 
         // NUEVO: Comprobar roles de admin/árbitro y si el torneo es de pago
         const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
-        const isPaidTournament = tournament.config.type === 'pago';
+        const isPaidTournament = tournament.config.isPaid === true;
         const showWhatsapp = isAdminOrRef && isPaidTournament;
 
         let description = '🇪🇸 Aún no hay equipos inscritos.\n🇬🇧 No teams have registered yet.';
 
         if (approvedTeams.length > 0) {
             const approvedStrings = await Promise.all(approvedTeams.map(async (team, index) => {
-                let teamString = `${index + 1}. **${team.nombre}** (Cap: ${team.capitanTag}`;
-                if (team.coCaptainTag) teamString += `, Co-Cap: ${team.coCaptainTag}`;
-                teamString += `)`;
+                let teamString = `${index + 1}. **${team.nombre}**\n   👤 Cap: \`${team.capitanTag}\``;
+                if (team.coCaptainTag) teamString += ` | Co-Cap: \`${team.coCaptainTag}\``;
 
                 if (showWhatsapp) {
                     let whatsapp = team.whatsapp;
@@ -2010,9 +2013,9 @@ export async function handleButton(interaction) {
                         const capitanData = await db.collection('users_vpg').findOne({ discordId: team.capitanId });
                         if (capitanData && capitanData.whatsapp) whatsapp = capitanData.whatsapp;
                     }
-                    if (whatsapp) teamString += ` - 📱 ${whatsapp}`;
+                    if (whatsapp) teamString += `\n   📱 WA: **${whatsapp}**`;
                 }
-                return teamString;
+                return teamString + '\n';
             }));
             description = approvedStrings.join('\n');
         }
@@ -2595,6 +2598,67 @@ export async function handleButton(interaction) {
         const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ components: [disabledRow] });
+    }
+
+    if (action === 'admin_toggle_registration') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
+
+        if (!interaction.member._roles.includes(process.env.ADMIN_ROLE_ID)) {
+            return interaction.editReply({ content: '❌ No tienes permisos para usar este botón.' });
+        }
+
+        const currentState = tournament.config.registrationClosed || false;
+        const newState = !currentState;
+
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $set: { 'config.registrationClosed': newState } }
+        );
+
+        // Update the admin panel to reflect the new state
+        tournament.config.registrationClosed = newState;
+        const { createTournamentManagementPanel } = await import('../utils/embeds.js');
+        const { embeds, components } = createTournamentManagementPanel(tournament);
+        await interaction.message.edit({ embeds, components });
+
+        await interaction.editReply({ content: `✅ Inscripciones **${newState ? 'CERRADAS' : 'ABIERTAS'}** para el torneo.` });
+        return;
+    }
+
+    if (action === 'admin_kick_captain') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [captainId, tournamentShortId] = params;
+
+        if (!interaction.member._roles.includes(process.env.ADMIN_ROLE_ID)) {
+            return interaction.editReply({ content: '❌ No tienes permisos para usar este botón.' });
+        }
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
+
+        const teamData = tournament.teams?.aprobados?.[captainId];
+        if (!teamData) {
+            return interaction.editReply({ content: "Error: El capitán no está en la lista de aprobados." });
+        }
+
+        const { kickTeam } = await import('../logic/tournamentLogic.js');
+        await kickTeam(client, tournament, captainId);
+
+        // Edit the message to show it was kicked and remove buttons
+        const updatedRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('disabled_kicked_btn')
+                .setLabel('Expulsado')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true)
+        );
+        await interaction.message.edit({ components: [updatedRow] });
+
+        await interaction.editReply({ content: `✅ **${teamData.nombre}** ha sido expulsado del torneo.` });
+        return;
     }
 
     if (action === 'darse_baja_start') {

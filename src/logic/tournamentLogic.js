@@ -1659,6 +1659,47 @@ export async function approveTeam(client, tournament, teamData) {
     }
     // --- FIN LÓGICA EXTRA CAPTAINS ---
 
+    // --- LÓGICA DE BOTÓN EXPULSAR EN EL CANAL DE ADMINS ---
+    if (teamData.adminMessageId && latestTournament.discordMessageIds?.notificationsThreadId) {
+        try {
+            const notificationsThread = await client.channels.fetch(latestTournament.discordMessageIds.notificationsThreadId).catch(() => null);
+            if (notificationsThread) {
+                const adminMsg = await notificationsThread.messages.fetch(teamData.adminMessageId).catch(() => null);
+                if (adminMsg && adminMsg.components && adminMsg.components.length > 0) {
+                    const oldRow = adminMsg.components[0];
+                    const newRow = new ActionRowBuilder();
+
+                    oldRow.components.forEach(btn => {
+                        const customId = btn.customId || '';
+                        if (customId.startsWith('admin_approve')) {
+                            // Swap for Expulsar button
+                            newRow.addComponents(
+                                new ButtonBuilder()
+                                    .setCustomId(`admin_kick_captain:${teamData.capitanId}:${tournament.shortId}`)
+                                    .setLabel('Expulsar Capitán')
+                                    .setStyle(ButtonStyle.Danger)
+                            );
+                        } else if (customId.startsWith('admin_reject')) {
+                            // Remove reject button entirely since they are approved now
+                        } else {
+                            // Keep any other buttons intact
+                            newRow.addComponents(ButtonBuilder.from(btn));
+                        }
+                    });
+
+                    if (newRow.components.length > 0) {
+                        await adminMsg.edit({ components: [newRow] });
+                    } else {
+                        await adminMsg.edit({ components: [] });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`[ERROR] Fallo al actualizar botón de admin a Expulsar para ${teamData.nombre}:`, error);
+        }
+    }
+    // --- FIN LÓGICA DE BOTÓN EXPULSAR ---
+
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
     await updatePublicMessages(client, updatedTournament);
@@ -5090,10 +5131,11 @@ export async function sendPaymentApprovalRequest(client, tournament, teamData, u
         // Fallback al canal global si no hay hilo
         if (!approvalChannelId) {
             approvalChannelId = process.env.ADMIN_APPROVAL_CHANNEL_ID;
-            if (!approvalChannelId) {
-                console.error('[Payment Approval Request] ADMIN_APPROVAL_CHANNEL_ID not configured');
-                return null;
-            }
+        }
+
+        if (!approvalChannelId) {
+            console.error('[Payment Approval Request] Ningún canal de aprobación configurado.');
+            return null;
         }
 
         const channel = await client.channels.fetch(approvalChannelId);
@@ -5129,8 +5171,28 @@ export async function sendPaymentApprovalRequest(client, tournament, teamData, u
                 .setStyle(ButtonStyle.Danger)
         );
 
-        await channel.send({ embeds: [embed], components: [row] });
-        console.log(`[Payment Approval Request] Web registration notification sent for ${teamData.teamName}`);
+        const sentMessage = await channel.send({ embeds: [embed], components: [row] });
+
+        // Save the message ID so we can edit the buttons later if auto-approved by roulette
+        const db = getDb();
+
+        // Find which collection the team is currently in to update the adminMessageId
+        const isPendingPayment = tournament.teams.pendingPayments && tournament.teams.pendingPayments[user.id];
+        const isPendingApproval = tournament.teams.pendingApproval && tournament.teams.pendingApproval[user.id];
+
+        if (isPendingPayment) {
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.pendingPayments.${user.id}.adminMessageId`]: sentMessage.id } }
+            );
+        } else if (isPendingApproval) {
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.pendingApproval.${user.id}.adminMessageId`]: sentMessage.id } }
+            );
+        }
+
+        console.log(`[Payment Approval Request] Web registration notification sent for ${teamData.teamName || teamData.nombre}`);
 
     } catch (error) {
         console.error('[Payment Approval Request] Error sending notification:', error);
