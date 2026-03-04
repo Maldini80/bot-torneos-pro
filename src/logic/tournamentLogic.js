@@ -1492,12 +1492,13 @@ export async function approveTeam(client, tournament, teamData) {
 
                 if (teamCategory && arbitroRole) {
                     const voicePermissions = [
-                        { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] }
+                        { id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel], type: 0 }
                     ];
 
                     if (/^\d+$/.test(teamData.capitanId)) {
                         voicePermissions.push({
                             id: teamData.capitanId,
+                            type: 1,
                             allow: [
                                 PermissionsBitField.Flags.ViewChannel,
                                 PermissionsBitField.Flags.Connect,
