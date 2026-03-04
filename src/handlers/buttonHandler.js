@@ -544,7 +544,7 @@ export async function handleButton(interaction) {
 
     if (action.startsWith('admin_panel_')) {
         try {
-            const view = action.split('_')[2];
+            const view = action.replace('admin_panel_', '');
             const panelContent = await createGlobalAdminPanel(view);
             await interaction.update(panelContent);
         } catch (error) {

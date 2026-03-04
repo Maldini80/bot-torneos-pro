@@ -23,7 +23,7 @@ export async function updateAdminPanel(client) {
     const msg = await fetchGlobalCreationPanel(client);
     if (!msg) return;
     // La creación del panel ahora es asíncrona
-    const panelContent = await createGlobalAdminPanel(isBotBusy);
+    const panelContent = await createGlobalAdminPanel('main', isBotBusy);
     try {
         await msg.edit(panelContent);
     } catch (error) {

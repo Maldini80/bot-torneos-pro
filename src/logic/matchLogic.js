@@ -184,18 +184,18 @@ export async function revertStats(tournament, partido) {
 
     equipoA.stats.pj = Math.max(0, equipoA.stats.pj - 1);
     equipoB.stats.pj = Math.max(0, equipoB.stats.pj - 1);
-    equipoA.stats.gf -= oldGolesA;
-    equipoB.stats.gf -= oldGolesB;
-    equipoA.stats.gc -= oldGolesB;
-    equipoB.stats.gc -= oldGolesA;
+    equipoA.stats.gf = Math.max(0, equipoA.stats.gf - oldGolesA);
+    equipoB.stats.gf = Math.max(0, equipoB.stats.gf - oldGolesB);
+    equipoA.stats.gc = Math.max(0, equipoA.stats.gc - oldGolesB);
+    equipoB.stats.gc = Math.max(0, equipoB.stats.gc - oldGolesA);
     equipoA.stats.dg = equipoA.stats.gf - equipoA.stats.gc;
     equipoB.stats.dg = equipoB.stats.gf - equipoB.stats.gc;
 
-    if (oldGolesA > oldGolesB) equipoA.stats.pts -= 3;
-    else if (oldGolesB > oldGolesA) equipoB.stats.pts -= 3;
+    if (oldGolesA > oldGolesB) equipoA.stats.pts = Math.max(0, equipoA.stats.pts - 3);
+    else if (oldGolesB > oldGolesA) equipoB.stats.pts = Math.max(0, equipoB.stats.pts - 3);
     else {
-        equipoA.stats.pts -= 1;
-        equipoB.stats.pts -= 1;
+        equipoA.stats.pts = Math.max(0, equipoA.stats.pts - 1);
+        equipoB.stats.pts = Math.max(0, equipoB.stats.pts - 1);
     }
 }
 
@@ -213,9 +213,14 @@ export async function checkOverdueMatches(client) {
         // En torneos de pago, NO validamos automáticamente por inactividad.
         if (tournament.config.isPaid) continue;
 
+        const eliminatoriasRaw = tournament.structure.eliminatorias || {};
+        const eliminatoriasMatches = Object.entries(eliminatoriasRaw)
+            .filter(([key]) => key !== 'rondaActual')
+            .map(([, val]) => Array.isArray(val) ? val : [val])
+            .flat();
         const allMatches = [
             ...Object.values(tournament.structure.calendario || {}).flat(),
-            ...Object.values(tournament.structure.eliminatorias || {}).flat()
+            ...eliminatoriasMatches
         ];
 
         const guild = await client.guilds.fetch(tournament.guildId).catch(() => null);
