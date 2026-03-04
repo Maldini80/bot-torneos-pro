@@ -2031,6 +2031,20 @@ export async function kickTeam(client, tournament, captainId) {
 
     const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
 
+    // Notificar al capitán expulsado por DM
+    if (/^\d+$/.test(captainId)) {
+        try {
+            const kickedUser = await client.users.fetch(captainId);
+            const embed = new EmbedBuilder()
+                .setColor('#e74c3c')
+                .setTitle(`❌ Expulsado del Torneo: ${tournament.nombre}`)
+                .setDescription(`Tu equipo **${teamData.nombre}** ha sido eliminado del torneo por un administrador.`);
+            await kickedUser.send({ embeds: [embed] }).catch(() => null);
+        } catch (e) {
+            console.warn(`[KICK] No se pudo enviar DM al capitán expulsado ${captainId}`);
+        }
+    }
+
     try {
         const casterThread = await client.channels.fetch(updatedTournament.discordMessageIds.casterThreadId).catch(() => null);
         if (casterThread) {
@@ -2957,7 +2971,15 @@ export async function handleRouletteSpinResult(client, sessionId, teamId) {
     const groupName = `Grupo ${nextGroup}`;
 
     const draft = await db.collection('drafts').findOne({ shortId: tournament.shortId.replace('draft-', '') });
+    if (!draft) {
+        console.error(`[ROULETTE] Draft no encontrado para torneo ${tournament.shortId}`);
+        return;
+    }
     const captainData = draft.captains.find(c => c.userId === teamId);
+    if (!captainData) {
+        console.error(`[ROULETTE] Capitán ${teamId} no encontrado en el draft ${draft.shortId}`);
+        return;
+    }
 
     const teamObject = {
         id: captainData.userId, nombre: captainData.teamName, capitanId: captainData.userId,
@@ -5042,15 +5064,20 @@ export async function sendRegistrationRequest(client, tournament, team, user, pa
             channelId = process.env.ADMIN_APPROVAL_CHANNEL_ID || '1405086450583732245';
         }
 
-        const channel = await client.channels.fetch(channelId).catch(() => null);
+        let channel = await client.channels.fetch(channelId).catch(() => null);
         if (!channel) {
             console.error(`[sendRegistrationRequest] No se pudo encontrar canal/hilo ${channelId}`);
-            // Fallback al canal global si falló el hilo
+            // Fallback al canal global si falló el hilo (sin recursión)
             const globalChannelId = process.env.ADMIN_APPROVAL_CHANNEL_ID || '1405086450583732245';
             if (channelId !== globalChannelId) {
-                return sendRegistrationRequest(client, tournament, team, user, paymentUrl); // Reintentar con global (cuidado con recursión infinita si global falla tb)
+                channel = await client.channels.fetch(globalChannelId).catch(() => null);
+                if (!channel) {
+                    console.error(`[sendRegistrationRequest] Canal global de fallback tampoco encontrado.`);
+                    return null;
+                }
+            } else {
+                return null;
             }
-            return null;
         }
 
         const isPaid = tournament.inscripcion === 'Pago';
@@ -5236,6 +5263,8 @@ export async function approveExternalDraftCaptain(client, tournamentShortId, win
         paypal: rawData.paypal || null,
         streamChannel: rawData.streamChannel || '',
         twitter: rawData.twitter || '',
+        whatsapp: rawData.whatsapp || '',
+        adminMessageId: rawData.adminMessageId || null,
         inscritoEn: rawData.inscritoEn || rawData.registeredAt || new Date()
     };
 
