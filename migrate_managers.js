@@ -43,8 +43,9 @@ async function run() {
 
                     // Lookup team in 'teams' collection
                     // We use a regex for case-insensitive match on name
+                    const escapedName = teamData.nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const registeredTeam = await db.collection('teams').findOne({
-                        name: { $regex: new RegExp(`^${teamData.nombre}$`, 'i') },
+                        name: { $regex: new RegExp(`^${escapedName}$`, 'i') },
                         guildId: tournament.guildId
                     });
 

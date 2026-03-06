@@ -5,7 +5,7 @@ import 'dotenv/config';
 import { getBotSettings } from '../../database.js';
 
 // --- CONFIGURACIÓN GLOBAL ---
-const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
+import { DISCORD_INVITE_LINK } from '../../config.js';
 const GLOBAL_HASHTAG = '#VPGLightnings';
 // NO SE USA NINGUNA URL DE IMAGEN DE FONDO PARA GARANTIZAR LA FIABILIDAD
 

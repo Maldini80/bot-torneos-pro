@@ -208,7 +208,7 @@ async function startVpgBot() {
 
             try {
                 // Solo intentar responder si la interacción sigue viva y no ha sido respondida
-                if (!interaction.isReplied()) {
+                if (!interaction.replied) {
                     if (interaction.deferred) {
                         await interaction.followUp(errorMessage);
                     } else {

@@ -9,12 +9,12 @@ import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/mat
 // --- LÍNEA CORREGIDA Y COMPLETA ---
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField, TextInputBuilder, TextInputStyle, ModalBuilder, AttachmentBuilder } from 'discord.js';
 import * as xlsx from 'xlsx';
-import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
+import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID, VERIFICATION_TICKET_CATEGORY_ID } from '../../config.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { createDraftStatusEmbed } from '../utils/embeds.js';
 import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
 import { generateExcelImage } from '../utils/twitter.js';
-const VERIFICATION_TICKET_CATEGORY_ID = '1396814712649551974';
+
 
 export async function handleModal(interaction) {
     const customId = interaction.customId;

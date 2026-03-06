@@ -11,7 +11,7 @@ async function fetchGlobalCreationPanel(client) {
         if (!channel) return null;
 
         const messages = await channel.messages.fetch({ limit: 50 });
-        const panel = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Panel de Creación'));
+        const panel = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.startsWith('Panel de Creación'));
         return panel;
     } catch (e) {
         console.error("Error al buscar el panel de creación global:", e.message);

@@ -143,7 +143,7 @@ client.on(Events.MessageCreate, async message => {
                     .setTimestamp();
 
                 await channel.send({ embeds: [embed] });
-                await message.delete();
+                await message.delete().catch(() => { });
             }
         }
     } catch (error) {

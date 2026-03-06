@@ -7,6 +7,8 @@ export const ADMIN_APPROVAL_CHANNEL_ID = '1405086450583732245'; // Canal para so
 export const TOURNAMENT_CATEGORY_ID = '1394444274623582358';
 // NUEVO: ID de la Categoría donde se crearán los canales privados de cada equipo del draft
 export const TEAM_CHANNELS_CATEGORY_ID = '1392406963463262209';
+// ID de la Categoría donde se crean los canales de verificación/tickets
+export const VERIFICATION_TICKET_CATEGORY_ID = '1396814712649551974';
 
 // Se añade la constante para el enlace de invitación al servidor de Discord
 export const DISCORD_INVITE_LINK = 'https://discord.gg/zEy9ztp8QM';
@@ -29,7 +31,7 @@ export const CHANNELS = {
 
 // Configuración de Pagos
 export const PAYMENT_CONFIG = {
-    PAYPAL_EMAIL: 'Jgm141400@gmail.com'
+    PAYPAL_EMAIL: process.env.PAYPAL_EMAIL || 'Jgm141400@gmail.com'
 };
 
 // Configuración para el sistema de Draft

@@ -3,7 +3,7 @@
 import { notifyVisualizer, updateDraftMainInterface } from '../logic/tournamentLogic.js';
 import { getDb } from '../../database.js';
 import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, MessageFlags } from 'discord.js';
-import { VERIFIED_ROLE_ID, ADMIN_APPROVAL_CHANNEL_ID } from '../../config.js';
+import { VERIFIED_ROLE_ID, ADMIN_APPROVAL_CHANNEL_ID, VERIFICATION_TICKET_CATEGORY_ID } from '../../config.js';
 
 // =======================================================
 // --- SISTEMA DE VERIFICACIÓN DE CUENTA ---
@@ -102,7 +102,7 @@ export async function showVerificationModal(interaction, platform, draftShortId 
 export async function processVerification(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const db = getDb();
-    const [platform] = interaction.customId.split(':');
+    const [, platform] = interaction.customId.split(':');
     const gameId = interaction.fields.getTextInputValue('game_id_input').trim();
     const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
     const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
@@ -175,7 +175,7 @@ export async function handleProfileUpdateSelection(interaction) {
 
 export async function processProfileUpdate(interaction) {
     await interaction.deferReply({ ephemeral: true });
-    const [fieldToUpdate] = interaction.customId.split(':');
+    const [, fieldToUpdate] = interaction.customId.split(':');
     const newValue = interaction.fields.getTextInputValue('new_value_input');
     const reason = interaction.fields.getTextInputValue('reason_input');
     const verificationData = await checkVerification(interaction.user.id);
@@ -273,7 +273,7 @@ export async function openProfileUpdateThread(interaction) {
     // Se reemplaza la creación de hilos por la creación de canales privados
     // para evitar el error de permisos 'Missing Access'.
 
-    const VERIFICATION_TICKET_CATEGORY_ID = '1396814712649551974'; // ID de la categoría de tickets
+
     const [, userId] = interaction.customId.split(':');
     const user = await interaction.guild.members.fetch(userId);
 
