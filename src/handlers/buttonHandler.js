@@ -1484,6 +1484,7 @@ export async function handleButton(interaction) {
 
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         await updateDraftMainInterface(client, updatedDraft.shortId);
+        const { updatePublicMessages } = await import('../logic/tournamentLogic.js');
         await updatePublicMessages(client, updatedDraft);
 
         await interaction.followUp({ content: `La acción se ha completada.`, flags: [MessageFlags.Ephemeral] });
@@ -2507,6 +2508,7 @@ export async function handleButton(interaction) {
         const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ components: [disabledRow] });
+        return;
     }
 
     if (action === 'cocaptain_reject') {
@@ -2523,6 +2525,7 @@ export async function handleButton(interaction) {
         const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
         disabledRow.components.forEach(c => c.setDisabled(true));
         await interaction.message.edit({ components: [disabledRow] });
+        return;
     }
 
     if (action === 'admin_toggle_registration') {
@@ -2596,6 +2599,7 @@ export async function handleButton(interaction) {
 
         const result = await requestUnregister(client, tournament, interaction.user.id);
         await interaction.editReply({ content: result.message });
+        return;
     }
 
     if (action === 'darse_baja_draft_start') {
@@ -2845,6 +2849,7 @@ export async function handleButton(interaction) {
                 console.warn(`[CLAIM UPDATE] No se pudo actualizar el mensaje de notificación del ticket ${ticket._id}.`, error.message);
             }
         }
+        return;
     }
 
     if (action === 'approve_verification') {
@@ -2923,6 +2928,7 @@ export async function handleButton(interaction) {
         await originalMessage.edit({ embeds: [finalEmbedInTicket], components: [disabledAdminRow] });
 
         await db.collection('verificationtickets').updateOne({ _id: ticket._id }, { $set: { status: 'closed' } });
+        return;
     }
     if (action === 'reject_verification_start') {
         // CORRECCIÓN: Añadida comprobación de permisos
@@ -3080,7 +3086,7 @@ export async function handleButton(interaction) {
         return interaction.reply({
             content: 'Por favor, selecciona al usuario verificado cuyo perfil quieres modificar.',
             components: [new ActionRowBuilder().addComponents(userSelect)],
-            ephemeral: true
+            flags: [MessageFlags.Ephemeral]
         });
     }
     // --- REEMPLAZA TU BLOQUE 'admin_strike_approve / reject' CON ESTE ---
@@ -3281,6 +3287,7 @@ export async function handleButton(interaction) {
             components: [row],
             flags: [MessageFlags.Ephemeral]
         });
+        return;
     }
 
     if (action === 'user_exit_without_registering') {
@@ -3312,6 +3319,7 @@ export async function handleButton(interaction) {
             await channel.send('El usuario ha decidido salir. Este canal se cerrará en 10 segundos.');
             setTimeout(() => channel.delete('Usuario salió del proceso.').catch(console.error), 10000);
         }
+        return;
     }
 
     if (action === 'admin_close_ticket') {
@@ -3335,6 +3343,7 @@ export async function handleButton(interaction) {
             await channel.send(`Ticket cerrado manualmente por <@${interaction.user.id}>. Este canal se cerrará en 10 segundos.`);
             setTimeout(() => channel.delete('Ticket cerrado manualmente por admin.').catch(console.error), 10000);
         }
+        return;
     }
 
     if (action === 'captain_view_free_agents') {
