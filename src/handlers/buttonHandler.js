@@ -10,13 +10,13 @@ import {
     approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft,
     approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
     forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement, prepareRouletteDraw, kickPlayerFromDraft, createNewTournament,
-    handleImportedPlayers, sendPaymentApprovalRequest
+    handleImportedPlayers, sendPaymentApprovalRequest, updateTournamentConfig, updateDraftMainInterface
 } from '../logic/tournamentLogic.js';
 import {
     checkVerification, startVerificationWizard, showVerificationModal, startProfileUpdateWizard, approveProfileUpdate, rejectProfileUpdate, openProfileUpdateThread
 } from '../logic/verificationLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
-import { updateAdminPanel } from '../utils/panelManager.js';
+import { updateAdminPanel, updateTournamentManagementThread } from '../utils/panelManager.js';
 import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
 import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
 import { generateExcelImage } from '../utils/twitter.js';
