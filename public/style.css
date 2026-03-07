@@ -1790,9 +1790,9 @@ aside h2 {
     grid-template-columns: 2fr 1fr;
     /* Diseño de 2 columnas */
     align-items: center;
-    padding: 40px;
+    padding: 20px;
     box-sizing: border-box;
-    gap: 40px;
+    gap: 20px;
 }
 
 #roulette-main-content {
@@ -1811,7 +1811,7 @@ aside h2 {
 
 #roulette-canvas {
     max-width: 100%;
-    max-height: 75vh;
+    max-height: 82vh;
     object-fit: contain;
 }
 
@@ -1872,6 +1872,33 @@ aside h2 {
     background-color: #555;
     color: #999;
     cursor: not-allowed;
+}
+
+#roulette-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#finalize-button {
+    font-family: var(--font-bebas);
+    font-size: 1.8em;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    background-color: #e74c3c;
+    color: white;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: transform 0.2s, background-color 0.2s;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+}
+
+#finalize-button:hover {
+    transform: scale(1.05);
+    background-color: #c0392b;
 }
 
 #roulette-status {

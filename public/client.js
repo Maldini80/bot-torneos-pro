@@ -2171,13 +2171,14 @@ function initializeRouletteView(sessionId) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
-        if (teams.length > 12) {
-            // Si hay muchos equipos (ej. 16), usamos una fuente más pequeña
-            ctx.font = 'bold 16px Bebas Neue';
-        } else {
-            // Si hay pocos equipos (ej. 8), usamos la fuente grande de siempre
-            ctx.font = 'bold 24px Bebas Neue';
-        }
+        // Escala de fuente granular según cantidad de equipos
+        let fontSize;
+        if (teams.length <= 8) fontSize = 22;
+        else if (teams.length <= 16) fontSize = 16;
+        else if (teams.length <= 30) fontSize = 13;
+        else fontSize = 10;
+        ctx.font = `bold ${fontSize}px Bebas Neue, sans-serif`;
+        const maxLen = teams.length > 20 ? 12 : 18;
         teams.forEach((team, i) => {
             const angle = startAngle + i * arc;
             ctx.fillStyle = colors[i % colors.length];
@@ -2186,12 +2187,16 @@ function initializeRouletteView(sessionId) {
             ctx.arc(400, 400, 0, angle + arc, angle, true);
             ctx.stroke();
             ctx.fill();
+            // Texto radial a lo largo del gajo
             ctx.save();
             ctx.fillStyle = (i % colors.length === 2) ? '#000000' : '#FFFFFF';
-            ctx.translate(400 + Math.cos(angle + arc / 2) * 200, 400 + Math.sin(angle + arc / 2) * 200);
-            ctx.rotate(angle + arc / 2 + Math.PI / 2);
+            ctx.translate(400, 400);
+            ctx.rotate(angle + arc / 2);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
             const text = team.name;
-            ctx.fillText(text, -ctx.measureText(text).width / 2, 0);
+            const displayText = text.length > maxLen ? text.substring(0, maxLen - 1) + '…' : text;
+            ctx.fillText(displayText, 380 * 0.55, 0);
             ctx.restore();
         });
     }
@@ -2322,13 +2327,14 @@ function initializeExtRouletteView(tournamentId) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
-        if (teams.length > 20) {
-            ctx.font = 'bold 10px Bebas Neue';
-        } else if (teams.length > 12) {
-            ctx.font = 'bold 16px Bebas Neue';
-        } else {
-            ctx.font = 'bold 24px Bebas Neue';
-        }
+        // Escala de fuente granular según cantidad de equipos
+        let fontSize;
+        if (teams.length <= 8) fontSize = 22;
+        else if (teams.length <= 16) fontSize = 16;
+        else if (teams.length <= 30) fontSize = 13;
+        else fontSize = 10;
+        ctx.font = `bold ${fontSize}px Bebas Neue, sans-serif`;
+        const maxLen = teams.length > 20 ? 12 : 18;
         teams.forEach((team, i) => {
             const angle = startAngle + i * arc;
             ctx.fillStyle = colors[i % colors.length];
@@ -2337,12 +2343,16 @@ function initializeExtRouletteView(tournamentId) {
             ctx.arc(400, 400, 0, angle + arc, angle, true);
             ctx.stroke();
             ctx.fill();
+            // Texto radial a lo largo del gajo
             ctx.save();
             ctx.fillStyle = (i % colors.length === 2) ? '#000000' : '#FFFFFF';
-            ctx.translate(400 + Math.cos(angle + arc / 2) * 200, 400 + Math.sin(angle + arc / 2) * 200);
-            ctx.rotate(angle + arc / 2 + Math.PI / 2);
+            ctx.translate(400, 400);
+            ctx.rotate(angle + arc / 2);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
             const text = team.name;
-            ctx.fillText(text, -ctx.measureText(text).width / 2, 0);
+            const displayText = text.length > maxLen ? text.substring(0, maxLen - 1) + '…' : text;
+            ctx.fillText(displayText, 380 * 0.55, 0);
             ctx.restore();
         });
     }
@@ -2408,19 +2418,16 @@ function initializeExtRouletteView(tournamentId) {
     fetchCandidates();
     spinButton.addEventListener('click', spin);
 
-    // Añadir botón de finalizar ruleta
+    // Añadir botón de finalizar ruleta dentro del contenedor de botones
     const finalizeBtn = document.createElement('button');
     finalizeBtn.textContent = 'FINALIZAR RULETA / VOLVER';
-    finalizeBtn.style.marginTop = '20px';
-    finalizeBtn.style.background = '#e74c3c';
-    finalizeBtn.style.border = 'none';
-    finalizeBtn.style.color = 'white';
-    finalizeBtn.style.padding = '10px 20px';
-    finalizeBtn.style.fontSize = '18px';
-    finalizeBtn.style.fontFamily = 'Bebas Neue';
-    finalizeBtn.style.cursor = 'pointer';
+    finalizeBtn.id = 'finalize-button';
     finalizeBtn.onclick = () => { window.location.href = '/home.html'; };
 
-    // Lo ponemos al lado o debajo del botón de girar
-    spinButton.insertAdjacentElement('afterend', finalizeBtn);
+    const buttonsContainer = document.getElementById('roulette-buttons');
+    if (buttonsContainer) {
+        buttonsContainer.appendChild(finalizeBtn);
+    } else {
+        spinButton.insertAdjacentElement('afterend', finalizeBtn);
+    }
 }
