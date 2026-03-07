@@ -2343,6 +2343,32 @@ export async function handleButton(interaction) {
         return interaction.reply({ embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] });
     }
 
+    if (action === 'admin_draft_ext_pickorder') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+        const approvedCount = Object.keys(tournament.teams.aprobados || {}).length;
+        if (approvedCount < 2) return interaction.reply({ content: '❌ Se necesitan al menos 2 capitanes aprobados para sortear el orden.', flags: [MessageFlags.Ephemeral] });
+
+        const pickOrderUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/?pickorder=${tournament.shortId}`;
+
+        const embed = new EmbedBuilder()
+            .setColor('#f1c40f')
+            .setTitle('🏆 Sorteo de Orden de Picks (Draft Externo)')
+            .setDescription(`Haz clic en el botón de abajo para abrir la ruleta de orden de picks.\n\n📋 **Capitanes aprobados:** ${approvedCount}\n\n⚠️ **Nota:** Este sorteo es puramente visual. No modifica nada en el servidor ni en Discord.`)
+            .setFooter({ text: 'El enlace es seguro y privado.' });
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setLabel('Abrir Ruleta de Orden de Picks')
+                .setStyle(ButtonStyle.Link)
+                .setURL(pickOrderUrl)
+        );
+
+        return interaction.reply({ embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] });
+    }
+
     if (action === 'admin_draft_ext_import_start') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });

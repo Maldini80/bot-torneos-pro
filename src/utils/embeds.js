@@ -264,6 +264,12 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
                 .setEmoji('🎲')
                 .setDisabled(isBusy),
             new ButtonBuilder()
+                .setCustomId(`admin_draft_ext_pickorder:${tournament.shortId}`)
+                .setLabel('Sortear Orden de Picks')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🏆')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
                 .setCustomId(`admin_draft_ext_import_start:${tournament.shortId}`)
                 .setLabel('Importar desde WhatsApp')
                 .setStyle(ButtonStyle.Secondary)

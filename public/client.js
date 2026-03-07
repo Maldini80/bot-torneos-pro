@@ -169,10 +169,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const draftId = urlParams.get('draftId');
     const rouletteSessionId = urlParams.get('rouletteSessionId');
     const extRouletteTorneo = urlParams.get('torneo');
+    const pickOrderTorneo = urlParams.get('pickorder');
 
     if (rouletteSessionId) {
         document.body.classList.add('draft-view-style');
         initializeRouletteView(rouletteSessionId);
+    } else if (pickOrderTorneo) {
+        document.body.classList.add('draft-view-style');
+        initializePickOrderRouletteView(pickOrderTorneo);
     } else if (extRouletteTorneo) {
         document.body.classList.add('draft-view-style');
         initializeExtRouletteView(extRouletteTorneo);
@@ -2430,4 +2434,210 @@ function initializeExtRouletteView(tournamentId) {
     } else {
         spinButton.insertAdjacentElement('afterend', finalizeBtn);
     }
+}
+
+// ============================================================
+// RULETA VISUAL DE ORDEN DE PICKS (Draft Externo)
+// Puramente visual — no envía datos al servidor ni a Discord
+// ============================================================
+function initializePickOrderRouletteView(tournamentId) {
+    const loadingEl = document.getElementById('loading');
+    const rouletteContainerEl = document.getElementById('roulette-container');
+    const canvas = document.getElementById('roulette-canvas');
+    const ctx = canvas.getContext('2d');
+    const spinButton = document.getElementById('spin-button');
+    const statusEl = document.getElementById('roulette-status');
+    const sidebar = document.getElementById('roulette-sidebar');
+
+    // Ocultar logo central
+    const logoEl = document.getElementById('roulette-logo');
+    if (logoEl) logoEl.style.display = 'none';
+
+    // Configurar sidebar como lista de orden de picks
+    sidebar.innerHTML = `
+        <h2>ORDEN DE PICKS</h2>
+        <div id="pickorder-list" class="pickorder-list-container">
+            <p id="pickorder-placeholder" style="color:#888; text-align:center; font-style:italic; padding:20px;">
+                Gira la ruleta para comenzar...
+            </p>
+        </div>
+    `;
+
+    const colors = ["#E62429", "#222222", "#FFFFFF", "#555555"];
+    let teams = [];
+    let orderedPicks = [];
+    let startAngle = 0;
+    let spinAngleStart = 0;
+    let spinTime = 0;
+    let spinTimeTotal = 0;
+    let isSpinning = false;
+
+    async function fetchCaptains() {
+        try {
+            const response = await fetch(`/api/external-draft/pickorder/${tournamentId}`);
+            if (!response.ok) throw new Error('Error fetching captains');
+            const data = await response.json();
+            teams = data.captains || [];
+
+            if (teams.length === 0) {
+                statusEl.textContent = 'No hay capitanes aprobados.';
+                spinButton.disabled = true;
+                spinButton.textContent = 'SIN CAPITANES';
+                return;
+            }
+
+            statusEl.textContent = `${teams.length} capitanes — ¡Listos para sortear!`;
+            spinButton.disabled = false;
+            spinButton.textContent = 'GIRAR RULETA';
+            drawRoulette();
+        } catch (err) {
+            statusEl.textContent = 'Error cargando capitanes.';
+            console.error(err);
+        }
+    }
+
+    function drawRoulette() {
+        if (teams.length === 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(400, 400, 380, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 32px Bebas Neue, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('¡ORDEN COMPLETO!', 400, 400);
+            return;
+        }
+        const arc = Math.PI * 2 / teams.length;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+
+        let fontSize;
+        if (teams.length <= 8) fontSize = 22;
+        else if (teams.length <= 16) fontSize = 16;
+        else if (teams.length <= 30) fontSize = 13;
+        else fontSize = 10;
+        ctx.font = `bold ${fontSize}px Bebas Neue, sans-serif`;
+        const maxLen = teams.length > 20 ? 12 : 18;
+
+        teams.forEach((team, i) => {
+            const angle = startAngle + i * arc;
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.beginPath();
+            ctx.arc(400, 400, 380, angle, angle + arc, false);
+            ctx.arc(400, 400, 0, angle + arc, angle, true);
+            ctx.stroke();
+            ctx.fill();
+            // Texto radial a lo largo del gajo
+            ctx.save();
+            ctx.fillStyle = (i % colors.length === 2) ? '#000000' : '#FFFFFF';
+            ctx.translate(400, 400);
+            ctx.rotate(angle + arc / 2);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const text = team.name;
+            const displayText = text.length > maxLen ? text.substring(0, maxLen - 1) + '…' : text;
+            ctx.fillText(displayText, 380 * 0.55, 0);
+            ctx.restore();
+        });
+    }
+
+    function easeOut(t, b, c, d) {
+        const ts = (t /= d) * t;
+        const tc = ts * t;
+        return b + c * (tc + -3 * ts + 3 * t);
+    }
+
+    function spin() {
+        if (teams.length === 0 || isSpinning) return;
+        isSpinning = true;
+        spinButton.disabled = true;
+        statusEl.textContent = 'Girando...';
+        spinAngleStart = Math.random() * 20 + 30;
+        spinTime = 0;
+        spinTimeTotal = Math.random() * 2000 + 7000;
+        animate();
+    }
+
+    function animate() {
+        spinTime += 30;
+        if (spinTime >= spinTimeTotal) {
+            stopSpinning();
+            return;
+        }
+        const spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+        startAngle += (spinAngle * Math.PI / 180);
+        drawRoulette();
+        requestAnimationFrame(animate);
+    }
+
+    function stopSpinning() {
+        isSpinning = false;
+        const arc = Math.PI * 2 / teams.length;
+        // El puntero está arriba (270°), calculamos qué gajo coincide
+        const normalizedAngle = ((Math.PI * 3 / 2 - startAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        const winnerIndex = Math.floor(normalizedAngle / arc) % teams.length;
+        const winner = teams[winnerIndex];
+
+        const pickNumber = orderedPicks.length + 1;
+        orderedPicks.push({ number: pickNumber, name: winner.name });
+
+        statusEl.textContent = `Pick #${pickNumber} — ${winner.name}`;
+
+        // Añadir a la lista de picks
+        addPickToList(pickNumber, winner.name);
+
+        // Quitar el ganador de los equipos
+        teams.splice(winnerIndex, 1);
+
+        // Redibujar tras breve pausa
+        setTimeout(() => {
+            drawRoulette();
+
+            if (teams.length === 0) {
+                statusEl.textContent = '¡SORTEO DE ORDEN COMPLETO!';
+                spinButton.textContent = 'COMPLETADO';
+                spinButton.disabled = true;
+            } else {
+                statusEl.textContent = `Quedan ${teams.length} — ¡Sigue girando!`;
+                spinButton.disabled = false;
+            }
+        }, 2000);
+    }
+
+    function addPickToList(number, name) {
+        const placeholder = document.getElementById('pickorder-placeholder');
+        if (placeholder) placeholder.remove();
+
+        const listContainer = document.getElementById('pickorder-list');
+        const item = document.createElement('div');
+        item.className = 'pickorder-item';
+        item.innerHTML = `
+            <span class="pickorder-number">#${number}</span>
+            <span class="pickorder-name">${name}</span>
+        `;
+        listContainer.appendChild(item);
+    }
+
+    // Añadir botón finalizar
+    const finalizeBtn = document.createElement('button');
+    finalizeBtn.textContent = 'FINALIZAR / VOLVER';
+    finalizeBtn.id = 'finalize-button';
+    finalizeBtn.onclick = () => { window.location.href = '/home.html'; };
+
+    const buttonsContainer = document.getElementById('roulette-buttons');
+    if (buttonsContainer) {
+        buttonsContainer.appendChild(finalizeBtn);
+    } else {
+        spinButton.insertAdjacentElement('afterend', finalizeBtn);
+    }
+
+    // Iniciar
+    loadingEl.classList.add('hidden');
+    rouletteContainerEl.classList.remove('hidden');
+    fetchCaptains();
+    spinButton.addEventListener('click', spin);
 }

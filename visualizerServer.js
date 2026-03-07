@@ -2339,6 +2339,33 @@ export async function startVisualizerServer(discordClient) {
     });
     // --- FIN NUEVO ---
 
+    // --- NUEVO: API para Ruleta de Orden de Picks (Draft Externo) ---
+    app.get('/api/external-draft/pickorder/:tournamentId', async (req, res) => {
+        try {
+            const { tournamentId } = req.params;
+            const db = getDb();
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentId });
+
+            if (!tournament) return res.status(404).send({ error: 'Torneo no encontrado.' });
+
+            const captains = [];
+            if (tournament.teams.aprobados) {
+                Object.values(tournament.teams.aprobados).forEach(team => {
+                    captains.push({
+                        id: team.capitanId || team.id,
+                        name: team.nombre || team.teamName || 'Equipo'
+                    });
+                });
+            }
+
+            res.json({ captains, tournamentName: tournament.nombre });
+        } catch (error) {
+            console.error(`[API Pickorder Error]: ${error.message}`);
+            res.status(500).send({ error: 'Error interno del servidor.' });
+        }
+    });
+    // --- FIN NUEVO ---
+
     //  Search Discord server members in real-time
     app.get('/api/search-verified-users', async (req, res) => {
         try {
