@@ -2643,6 +2643,7 @@ export async function handleButton(interaction) {
             const result = await requestUnregisterFromDraft(client, draft, interaction.user.id, "Agente Libre (no fichado)");
             await interaction.editReply({ content: result.message });
         }
+        return;
     }
 
     if (action === 'admin_unregister_approve') {
