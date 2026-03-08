@@ -1193,8 +1193,15 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         }
 
         // --- INICIO DE LA LÓGICA CORREGIDA ---
+        let initialRegistrationsClosed = false;
+        if (config.isPaid && config.paidSubType === 'draft') {
+            initialRegistrationsClosed = true; // Jugadores (Web)
+            config.registrationClosed = true;  // Capitanes (Discord)
+        }
+
         const newTournament = {
             _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta', createdAt: new Date(),
+            registrationsClosed: initialRegistrationsClosed,
             config: {
                 ...config, // Copia TODA la configuración que llega (incl. qualifiers y totalRounds)
                 format: format, // Añade el objeto de formato completo
