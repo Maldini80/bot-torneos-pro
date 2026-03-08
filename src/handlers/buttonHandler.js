@@ -4099,65 +4099,57 @@ export async function handleButton(interaction) {
             return interaction.editReply('No hay inscritos aún.');
         }
 
-        const posColors = {
-            GK: { fill: 'FF4CAF50', font: 'FFFFFFFF', name: 'Portero' },     // Green
-            DFC: { fill: 'FF2196F3', font: 'FFFFFFFF', name: 'Defensa' },    // Blue
-            CARR: { fill: 'FFFF9800', font: 'FF000000', name: 'Carrilero' },  // Orange
-            MC: { fill: 'FF9C27B0', font: 'FFFFFFFF', name: 'Medio' },       // Purple
-            DC: { fill: 'FFF44336', font: 'FFFFFFFF', name: 'Delantero' }     // Red
+        const posColumns = {
+            'GK': { header: 'PORTEROS', color: 'FFFFFF00', players: [] },
+            'DFC': { header: 'DEFENSAS', color: 'FF00CC00', players: [] },
+            'CARR': { header: 'CARRILEROS', color: 'FF00BFFF', players: [] },
+            'MC': { header: 'MEDIOS', color: 'FFFF8C00', players: [] },
+            'DC': { header: 'DELANTEROS', color: 'FFFF3333', players: [] }
         };
 
+        registrations.forEach(r => {
+            const key = r.position || 'DC';
+            if (posColumns[key]) {
+                const idx = posColumns[key].players.length + 1;
+                posColumns[key].players.push(`${idx}. ${r.gameId}\n📲${r.whatsapp}`);
+            }
+        });
+
         const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('Inscritos');
+        const ws = workbook.addWorksheet('Inscritos');
+        const columnKeys = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
 
-        // Header
-        sheet.columns = [
-            { header: '#', key: 'num', width: 5 },
-            { header: 'ID Jugador', key: 'gameId', width: 25 },
-            { header: 'WhatsApp', key: 'whatsapp', width: 15 },
-            { header: 'Posición', key: 'position', width: 14 },
-            { header: 'Discord', key: 'discord', width: 20 },
-            { header: 'Fecha', key: 'date', width: 18 }
-        ];
+        // Cabeceras con color
+        const headerRow = ws.getRow(1);
+        columnKeys.forEach((key, colIdx) => {
+            const cell = headerRow.getCell(colIdx + 1);
+            cell.value = posColumns[key].header;
+            cell.font = { bold: true, color: { argb: 'FF000000' }, size: 12 };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: posColumns[key].color } };
+            cell.alignment = { horizontal: 'center' };
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        });
 
-        // Style header
-        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF333333' } };
-
-        // Group by position, ordered
-        let rowNum = 2;
-        for (const pos of ['GK', 'DFC', 'CARR', 'MC', 'DC']) {
-            const group = registrations.filter(r => r.position === pos);
-            if (group.length === 0) continue;
-
-            group.forEach((r, i) => {
-                const row = sheet.addRow({
-                    num: i + 1,
-                    gameId: r.gameId,
-                    whatsapp: r.whatsapp,
-                    position: posColors[pos].name,
-                    discord: r.discordUsername || '',
-                    date: r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES') : ''
-                });
-
-                // Color the row by position
-                row.eachCell(cell => {
-                    cell.fill = {
-                        type: 'pattern', pattern: 'solid',
-                        fgColor: { argb: posColors[pos].fill }
-                    };
-                    cell.font = { color: { argb: posColors[pos].font } };
-                    cell.border = {
-                        bottom: { style: 'thin', color: { argb: 'FF666666' } }
-                    };
-                });
-                rowNum++;
+        // Rellenar jugadores por columna
+        const maxRows = Math.max(...columnKeys.map(k => posColumns[k].players.length));
+        for (let r = 0; r < maxRows; r++) {
+            const row = ws.getRow(r + 2);
+            row.height = 35; // Para que quepan las 2 líneas (nombre + whatsapp)
+            columnKeys.forEach((key, colIdx) => {
+                const cell = row.getCell(colIdx + 1);
+                const playerList = posColumns[key].players;
+                cell.value = r < playerList.length ? playerList[r] : '';
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: posColumns[key].color } };
+                cell.alignment = { wrapText: true, vertical: 'middle' };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
         }
 
+        ws.columns = columnKeys.map(() => ({ width: 28 }));
+
         const excelBuffer = await workbook.xlsx.writeBuffer();
         return interaction.editReply({
-            content: `📊 Excel con ${registrations.length} inscritos (colores por posición):`,
+            content: `📊 Excel con ${registrations.length} inscritos (columnas por posición):`,
             files: [{ attachment: Buffer.from(excelBuffer), name: `inscritos_${tournamentShortId}.xlsx` }]
         });
     }
