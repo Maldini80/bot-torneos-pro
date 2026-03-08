@@ -159,25 +159,26 @@ export async function handleButton(interaction) {
 
         // --- NUEVO FORMATO DE DRAFTS EXTERNOS: JUGADORES DESDE DISCORD ---
         if (tournament.config.isPaid && tournament.config.paidSubType === 'draft') {
-            const playerReg = await db.collection('external_draft_registrations').findOne({
-                tournamentId: tournamentShortId,
-                userId: interaction.user.id
-            });
-
-            if (playerReg) {
-                // Ya inscrito como jugador
-                const btnRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`ext_reg_edit_start:${tournamentShortId}`).setLabel('Modificar mis Datos').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
-                    new ButtonBuilder().setCustomId(`ext_reg_cancel:${tournamentShortId}`).setLabel('Darme de Baja').setStyle(ButtonStyle.Danger).setEmoji('❌')
-                );
-                return interaction.reply({
-                    content: `✅ **Ya estás inscrito en este draft como ${playerReg.position}**.\n\n¿Qué deseas hacer?`,
-                    components: [btnRow],
-                    flags: [MessageFlags.Ephemeral]
-                });
-            }
-
+            // SOLO comprobar si es jugador si las inscripciones de jugadores están ABIERTAS
             if (tournament.registrationsClosed === false) {
+                const playerReg = await db.collection('external_draft_registrations').findOne({
+                    tournamentId: tournamentShortId,
+                    userId: interaction.user.id
+                });
+
+                if (playerReg) {
+                    // Ya inscrito como jugador
+                    const btnRow = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId(`ext_reg_edit_start:${tournamentShortId}`).setLabel('Modificar mis Datos').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+                        new ButtonBuilder().setCustomId(`ext_reg_cancel:${tournamentShortId}`).setLabel('Darme de Baja').setStyle(ButtonStyle.Danger).setEmoji('❌')
+                    );
+                    return interaction.reply({
+                        content: `✅ **Ya estás inscrito en este draft como ${playerReg.position}**.\n\n¿Qué deseas hacer?`,
+                        components: [btnRow],
+                        flags: [MessageFlags.Ephemeral]
+                    });
+                }
+
                 const selectMenu = new StringSelectMenuBuilder()
                     .setCustomId(`ext_reg_player_pos:${tournamentShortId}`)
                     .setPlaceholder('Selecciona tu posición en el campo...')
