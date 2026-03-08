@@ -1828,12 +1828,6 @@ export async function handleButton(interaction) {
                     description: 'Modifica el icono del canal de anuncios de torneos.',
                     value: CHANNELS.TOURNAMENTS_STATUS,
                     emoji: '🏆'
-                },
-                {
-                    label: 'Canal de Drafts',
-                    description: 'Modifica el icono del canal de anuncios de drafts.',
-                    value: CHANNELS.DRAFTS_STATUS,
-                    emoji: '📝'
                 }
             ]);
 
@@ -3401,7 +3395,7 @@ export async function handleButton(interaction) {
         try {
             // Intenta responder. Si ya se respondió, el catch lo manejará.
             await interaction.reply({
-                content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.DRAFTS_STATUS}>.`,
+                content: `De acuerdo, te sales sin inscribirte. Recuerda que siempre podrás hacerlo más tarde desde el canal <#${CHANNELS.TOURNAMENTS_STATUS}>.`,
                 flags: [MessageFlags.Ephemeral]
             });
         } catch (error) {

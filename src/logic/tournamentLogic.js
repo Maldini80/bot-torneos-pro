@@ -616,7 +616,7 @@ async function fullCleanupDraft(client, draft) {
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.warRoomVoiceChannelId);
 
     try {
-        const globalChannel = await client.channels.fetch(CHANNELS.DRAFTS_STATUS);
+        const globalChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS);
         await deleteResourceSafe(globalChannel.messages.fetch.bind(globalChannel.messages), discordMessageIds.statusMessageId);
     } catch (e) {
         console.warn("No se pudo encontrar o borrar el mensaje de estado del draft.");
@@ -926,7 +926,7 @@ export async function createNewDraft(client, guild, name, shortId, config) {
         newDraft.discordMessageIds.mainInterfaceTeamsMessageId = teamsMessage.id;
         newDraft.discordMessageIds.turnOrderMessageId = turnOrderMessage.id;
 
-        const globalStatusChannel = await client.channels.fetch(CHANNELS.DRAFTS_STATUS);
+        const globalStatusChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS);
         const statusMsg = await globalStatusChannel.send(createDraftStatusEmbed(newDraft));
         newDraft.discordMessageIds.statusMessageId = statusMsg.id;
 
@@ -2314,7 +2314,7 @@ export async function updatePublicMessages(client, entity) {
 
     if (isDraft) {
         // Si es un draft, usamos el canal de drafts
-        statusChannelId = CHANNELS.DRAFTS_STATUS;
+        statusChannelId = CHANNELS.TOURNAMENTS_STATUS;
         statusEmbed = createDraftStatusEmbed(latestState);
     } else {
         // Si es un torneo, usamos el canal de torneos
