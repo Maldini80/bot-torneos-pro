@@ -3343,6 +3343,7 @@ export async function handleButton(interaction) {
     if (action === 'consult_player_data_start') {
         const [draftShortId] = params;
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.reply({ content: '❌ Draft no encontrado.', flags: [MessageFlags.Ephemeral] });
         const member = interaction.member;
 
         const isCaptain = draft.captains.some(c => c.userId === member.id);
@@ -3367,6 +3368,7 @@ export async function handleButton(interaction) {
     if (action === 'user_continue_to_register') {
         const [draftShortId, channelId] = params;
         const ticket = await db.collection('verificationtickets').findOne({ channelId });
+        if (!ticket) return interaction.reply({ content: '❌ Ticket de verificación no encontrado.', flags: [MessageFlags.Ephemeral] });
 
         if (interaction.user.id !== ticket.userId) {
             return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
@@ -3390,6 +3392,7 @@ export async function handleButton(interaction) {
     if (action === 'user_exit_without_registering') {
         const [channelId] = params;
         const ticket = await db.collection('verificationtickets').findOne({ channelId });
+        if (!ticket) return interaction.reply({ content: '❌ Ticket de verificación no encontrado.', flags: [MessageFlags.Ephemeral] });
 
         if (interaction.user.id !== ticket.userId) {
             return interaction.reply({ content: '❌ Este botón no es para ti.', flags: [MessageFlags.Ephemeral] });
