@@ -241,6 +241,139 @@ export async function handleSelectMenu(interaction) {
     }
 
     // =======================================================
+    // --- LÓGICA ADMINISTRADOR DRAFT EXTERNO ---
+    // =======================================================
+    if (action === 'ext_reg_admin_add_user_sel') {
+        const [tournamentShortId] = params;
+        const targetUserId = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId(`ext_reg_admin_add_submit:${tournamentShortId}:${targetUserId}`)
+            .setTitle('Inscripción Manual (Admin)');
+
+        const gameIdInput = new TextInputBuilder()
+            .setCustomId('admin_add_gameId')
+            .setLabel('Game ID (PSN/Xbox/EA)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('admin_add_whatsapp')
+            .setLabel('Nº WhatsApp (+34...)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const positionInput = new TextInputBuilder()
+            .setCustomId('admin_add_position')
+            .setLabel('Posición (GK, DFC, CARR, MC, DC)')
+            .setPlaceholder('Escribe una: GK, DFC, CARR, MC, DC')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(gameIdInput),
+            new ActionRowBuilder().addComponents(whatsappInput),
+            new ActionRowBuilder().addComponents(positionInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'ext_reg_admin_kick_pos' || action === 'ext_reg_admin_kick_page') {
+        const isPage = action === 'ext_reg_admin_kick_page';
+        const tournamentShortId = isPage ? params[0] : params[0];
+        const selectedPosition = isPage ? params[1] : interaction.values[0];
+        const pageIndex = isPage ? parseInt(interaction.values[0]) : 0;
+
+        const players = await db.collection('external_draft_registrations')
+            .find({ tournamentId: tournamentShortId, position: selectedPosition })
+            .toArray();
+
+        if (players.length === 0) {
+            return interaction.reply({ content: `ℹ️ No hay inscritos en la posición **${selectedPosition}**.`, flags: [MessageFlags.Ephemeral] });
+        }
+
+        players.sort((a, b) => (a.gameId || '').localeCompare(b.gameId || ''));
+
+        const pageSize = 25;
+        if (players.length > pageSize && !isPage) {
+            const pageCount = Math.ceil(players.length / pageSize);
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const start = i * pageSize + 1;
+                const end = Math.min((i + 1) * pageSize, players.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (${start}-${end})`,
+                    value: `${i}`,
+                });
+            }
+
+            const pageMenu = new StringSelectMenuBuilder()
+                .setCustomId(`ext_reg_admin_kick_page:${tournamentShortId}:${selectedPosition}`)
+                .setPlaceholder(`Selecciona una página (Posición: ${selectedPosition})`)
+                .addOptions(pageOptions);
+
+            return interaction.reply({
+                content: `Hay demasiados jugadores en la posición **${selectedPosition}** para mostrarlos todos. Selecciona una página:`,
+                components: [new ActionRowBuilder().addComponents(pageMenu)],
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
+        const startIdx = pageIndex * pageSize;
+        const pagePlayers = players.slice(startIdx, startIdx + pageSize);
+
+        const options = pagePlayers.map(p => ({
+            label: p.gameId || 'Desconocido',
+            description: `Discord: ${p.discordTag || 'Sin Tag'}`,
+            value: p.userId,
+            emoji: '👤'
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`ext_reg_admin_kick_sel:${tournamentShortId}`)
+            .setPlaceholder(`Selecciona un jugador (${selectedPosition}) para expulsar`)
+            .addOptions(options);
+
+        // Si venimos de la página, editamos. Si venimos del menú de posición, hacemos update/reply
+        if (isPage) {
+            await interaction.update({
+                content: `Elige al jugador en la posición **${selectedPosition}** (Pág ${pageIndex + 1}) que deseas expulsar:`,
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+        } else {
+            await interaction.reply({
+                content: `Elige al jugador en la posición **${selectedPosition}** que deseas expulsar:`,
+                components: [new ActionRowBuilder().addComponents(selectMenu)],
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+        return;
+    }
+
+    if (action === 'ext_reg_admin_kick_sel') {
+        const [tournamentShortId] = params;
+        const userId = interaction.values[0];
+
+        await interaction.deferUpdate();
+
+        const player = await db.collection('external_draft_registrations').findOne({ tournamentId: tournamentShortId, userId: userId });
+        if (!player) return interaction.editReply({ content: 'Jugador no encontrado.', components: [] });
+
+        const confButtons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`ext_reg_admin_kick_conf:${tournamentShortId}:${userId}`).setLabel('✅ Sí, expulsarlo').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId(`ext_reg_admin_kick_canc:${tournamentShortId}`).setLabel('❌ No, cancelar').setStyle(ButtonStyle.Secondary)
+        );
+
+        await interaction.editReply({
+            content: `⚠️ **¿Estás completamente seguro de que quieres expulsar a <@${userId}> (${player.gameId}) de la posición ${player.position}?**\nEsta acción no se puede deshacer de forma automática.`,
+            components: [confButtons]
+        });
+        return;
+    }
+
+    // =======================================================
     // --- LÓGICA DE DRAFT EXTERNO JUGADORES (DISCORD NATIVO) ---
     // =======================================================
     if (action === 'ext_reg_player_pos') {
