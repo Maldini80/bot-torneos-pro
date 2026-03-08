@@ -3913,94 +3913,64 @@ export async function handleButton(interaction) {
     // --- BOTONES DE GESTIÓN DE INSCRIPCIONES WEB (DRAFT EXTERNO) ---
     // ========================================================
 
-    // Botón principal: muestra submenu con todas las opciones
-    if (action === 'ext_reg_manage') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+    async function getExtRegManageMenu(tournamentShortId, dbParam) {
+        const trn = await dbParam.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!trn) return null;
 
-        const regPlayersOpen = tournament.registrationsClosed === false;
-        const regCaptainsClosed = tournament.config.registrationClosed === true;
+        const regPlayersOpen = trn.registrationsClosed === false;
+        const regCaptainsClosed = trn.config.registrationClosed === true;
 
-        // Stats
         const pipeline = [
             { $match: { tournamentId: tournamentShortId } },
             { $group: { _id: '$position', count: { $sum: 1 } } }
         ];
-        const results = await db.collection('external_draft_registrations').aggregate(pipeline).toArray();
-        const stats = { GK: 0, DFC: 0, CARR: 0, MC: 0, DC: 0 };
-        results.forEach(r => { if (stats.hasOwnProperty(r._id)) stats[r._id] = r.count; });
-        const total = Object.values(stats).reduce((a, b) => a + b, 0);
+        const results = await dbParam.collection('external_draft_registrations').aggregate(pipeline).toArray();
+        const menuStats = { GK: 0, DFC: 0, CARR: 0, MC: 0, DC: 0 };
+        results.forEach(r => { if (menuStats.hasOwnProperty(r._id)) menuStats[r._id] = r.count; });
+        const menuTotal = Object.values(menuStats).reduce((a, b) => a + b, 0);
 
-        const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
-        const playersStatus = regPlayersOpen ? '🟢 ABIERTAS' : (tournament.registrationsClosed === true ? '🔴 CERRADAS' : '⚪ SIN ABRIR');
+        const menuLink = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
+        const playersStatus = regPlayersOpen ? '🟢 ABIERTAS' : (trn.registrationsClosed === true ? '🔴 CERRADAS' : '⚪ SIN ABRIR');
         const captainsStatus = !regCaptainsClosed ? '🟢 ABIERTAS' : '🔴 CERRADAS';
 
         const row1 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_open_players:${tournamentShortId}`)
-                .setLabel('Abrir Jugadores (Web)')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('▶️')
-                .setDisabled(regPlayersOpen),
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_close_players:${tournamentShortId}`)
-                .setLabel('Cerrar Jugadores')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('⏹️')
-                .setDisabled(!regPlayersOpen)
+            new ButtonBuilder().setCustomId(`ext_reg_open_players:${tournamentShortId}`).setLabel('Abrir Jugadores (Web)').setStyle(ButtonStyle.Success).setEmoji('▶️').setDisabled(regPlayersOpen),
+            new ButtonBuilder().setCustomId(`ext_reg_close_players:${tournamentShortId}`).setLabel('Cerrar Jugadores').setStyle(ButtonStyle.Danger).setEmoji('⏹️').setDisabled(!regPlayersOpen)
         );
 
         const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_open_captains:${tournamentShortId}`)
-                .setLabel('Abrir Capitanes (Discord)')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('👥')
-                .setDisabled(!regCaptainsClosed),
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_close_captains:${tournamentShortId}`)
-                .setLabel('Cerrar Capitanes')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('🔒')
-                .setDisabled(regCaptainsClosed)
+            new ButtonBuilder().setCustomId(`ext_reg_open_captains:${tournamentShortId}`).setLabel('Abrir Capitanes (Discord)').setStyle(ButtonStyle.Success).setEmoji('👥').setDisabled(!regCaptainsClosed),
+            new ButtonBuilder().setCustomId(`ext_reg_close_captains:${tournamentShortId}`).setLabel('Cerrar Capitanes').setStyle(ButtonStyle.Danger).setEmoji('🔒').setDisabled(regCaptainsClosed)
         );
 
         const row3 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_link:${tournamentShortId}`)
-                .setLabel('Link Web')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('🔗'),
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_export_text:${tournamentShortId}`)
-                .setLabel('Exportar TXT')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📄')
-                .setDisabled(total === 0),
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_export_excel:${tournamentShortId}`)
-                .setLabel('Exportar Excel')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📊')
-                .setDisabled(total === 0)
+            new ButtonBuilder().setCustomId(`ext_reg_link:${tournamentShortId}`).setLabel('Link Web').setStyle(ButtonStyle.Secondary).setEmoji('🔗'),
+            new ButtonBuilder().setCustomId(`ext_reg_export_text:${tournamentShortId}`).setLabel('Exportar TXT').setStyle(ButtonStyle.Secondary).setEmoji('📄').setDisabled(menuTotal === 0),
+            new ButtonBuilder().setCustomId(`ext_reg_export_excel:${tournamentShortId}`).setLabel('Exportar Excel').setStyle(ButtonStyle.Secondary).setEmoji('📊').setDisabled(menuTotal === 0)
         );
 
-        return interaction.editReply({
-            content: `📋 **Gestión de Inscripciones — ${tournament.nombre}**\n\n**Jugadores (Web):** ${playersStatus}\n**Capitanes (Discord):** ${captainsStatus}\n🔗 Link: ${link}\n\n📊 **${total} inscritos** — 🥅 ${stats.GK} POR · 🧱 ${stats.DFC} DFC · ⚡ ${stats.CARR} CARR · 🎩 ${stats.MC} MC · 🏟️ ${stats.DC} DC`,
+        return {
+            content: `📋 **Gestión de Inscripciones — ${trn.nombre}**\n\n**Jugadores (Web):** ${playersStatus}\n**Capitanes (Discord):** ${captainsStatus}\n🔗 Link: ${menuLink}\n\n📊 **${menuTotal} inscritos** — 🥅 ${menuStats.GK} POR · 🧱 ${menuStats.DFC} DFC · ⚡ ${menuStats.CARR} CARR · 🎩 ${menuStats.MC} MC · 🏟️ ${menuStats.DC} DC`,
             components: [row1, row2, row3]
-        });
+        };
+    }
+
+    // Botón principal: muestra submenu con todas las opciones
+    if (action === 'ext_reg_manage') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const menu = await getExtRegManageMenu(tournamentShortId, db);
+        if (!menu) return interaction.editReply('❌ Torneo no encontrado.');
+        return interaction.editReply(menu);
     }
 
     // Abrir inscripciones de Jugadores (WEB)
     if (action === 'ext_reg_open_players') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+        if (!tournament) return;
 
-        // Crear hilo de log
         const notifChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID).catch(() => null);
         let threadId = tournament.registrationLogThreadId;
 
@@ -4022,13 +3992,13 @@ export async function handleButton(interaction) {
             );
         }
 
-        const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
-        return interaction.editReply(`✅ **Inscripciones de jugadores (web) abiertas.**\n\nLink: ${link}`);
+        const menu = await getExtRegManageMenu(tournamentShortId, db);
+        return interaction.editReply(menu);
     }
 
     // Cerrar inscripciones de Jugadores (WEB)
     if (action === 'ext_reg_close_players') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
 
         await db.collection('tournaments').updateOne(
@@ -4036,7 +4006,6 @@ export async function handleButton(interaction) {
             { $set: { registrationsClosed: true } }
         );
 
-        // Notificar en el hilo de log
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (tournament && tournament.registrationLogThreadId) {
             const logChannel = await client.channels.fetch(tournament.registrationLogThreadId).catch(() => null);
@@ -4052,29 +4021,33 @@ export async function handleButton(interaction) {
                 await logChannel.send(`🔒 **INSCRIPCIONES WEB CERRADAS**\nTotal final: ${total} inscritos`);
             }
         }
-        return interaction.editReply('✅ **Inscripciones de jugadores cerradas.** El formulario web ya no aceptará más registros.');
+
+        const menu = await getExtRegManageMenu(tournamentShortId, db);
+        return interaction.editReply(menu);
     }
 
     // Abrir inscripciones de Capitanes (DISCORD)
     if (action === 'ext_reg_open_captains') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
         await db.collection('tournaments').updateOne(
             { shortId: tournamentShortId },
             { $set: { 'config.registrationClosed': false } }
         );
-        return interaction.editReply('✅ **Inscripciones de capitanes abiertas.** Los usuarios ahora pueden inscribirse como capitanes vía Discord (canal del torneo). Vuelve a abrir este menú para actualizar los botones.');
+        const menu = await getExtRegManageMenu(tournamentShortId, db);
+        return interaction.editReply(menu);
     }
 
     // Cerrar inscripciones de Capitanes (DISCORD)
     if (action === 'ext_reg_close_captains') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
         await db.collection('tournaments').updateOne(
             { shortId: tournamentShortId },
             { $set: { 'config.registrationClosed': true } }
         );
-        return interaction.editReply('✅ **Inscripciones de capitanes cerradas.** El botón de inscribir equipo en Discord ha sido deshabilitado. Vuelve a abrir este menú para actualizar los botones.');
+        const menu = await getExtRegManageMenu(tournamentShortId, db);
+        return interaction.editReply(menu);
     }
 
     // Generar link de inscripción
