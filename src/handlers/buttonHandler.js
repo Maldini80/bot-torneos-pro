@@ -3920,7 +3920,8 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
 
-        const regOpen = tournament.registrationsClosed === false;
+        const regPlayersOpen = tournament.registrationsClosed === false;
+        const regCaptainsClosed = tournament.config.registrationClosed === true;
 
         // Stats
         const pipeline = [
@@ -3933,32 +3934,48 @@ export async function handleButton(interaction) {
         const total = Object.values(stats).reduce((a, b) => a + b, 0);
 
         const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
-        const statusText = regOpen ? '🟢 **ABIERTAS**' : (tournament.registrationsClosed === true ? '🔴 **CERRADAS**' : '⚪ **SIN ABRIR**');
+        const playersStatus = regPlayersOpen ? '🟢 ABIERTAS' : (tournament.registrationsClosed === true ? '🔴 CERRADAS' : '⚪ SIN ABRIR');
+        const captainsStatus = !regCaptainsClosed ? '🟢 ABIERTAS' : '🔴 CERRADAS';
 
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId(`ext_reg_open:${tournamentShortId}`)
-                .setLabel('Abrir Inscripciones')
+                .setCustomId(`ext_reg_open_players:${tournamentShortId}`)
+                .setLabel('Abrir Jugadores (Web)')
                 .setStyle(ButtonStyle.Success)
-                .setEmoji('📋')
-                .setDisabled(regOpen),
+                .setEmoji('▶️')
+                .setDisabled(regPlayersOpen),
             new ButtonBuilder()
-                .setCustomId(`ext_reg_close:${tournamentShortId}`)
-                .setLabel('Cerrar Jugadores / Abrir Capis')
+                .setCustomId(`ext_reg_close_players:${tournamentShortId}`)
+                .setLabel('Cerrar Jugadores')
                 .setStyle(ButtonStyle.Danger)
-                .setEmoji('🔒')
-                .setDisabled(!regOpen),
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_link:${tournamentShortId}`)
-                .setLabel('Copiar Link')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('🔗')
+                .setEmoji('⏹️')
+                .setDisabled(!regPlayersOpen)
         );
 
         const row2 = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
+                .setCustomId(`ext_reg_open_captains:${tournamentShortId}`)
+                .setLabel('Abrir Capitanes (Discord)')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('👥')
+                .setDisabled(!regCaptainsClosed),
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_close_captains:${tournamentShortId}`)
+                .setLabel('Cerrar Capitanes')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔒')
+                .setDisabled(regCaptainsClosed)
+        );
+
+        const row3 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_link:${tournamentShortId}`)
+                .setLabel('Link Web')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🔗'),
+            new ButtonBuilder()
                 .setCustomId(`ext_reg_export_text:${tournamentShortId}`)
-                .setLabel('Exportar Lista (TXT)')
+                .setLabel('Exportar TXT')
                 .setStyle(ButtonStyle.Secondary)
                 .setEmoji('📄')
                 .setDisabled(total === 0),
@@ -3971,33 +3988,33 @@ export async function handleButton(interaction) {
         );
 
         return interaction.editReply({
-            content: `📋 **Gestión de Inscripciones — ${tournament.nombre}**\n\nEstado: ${statusText}\n🔗 Link: ${link}\n\n📊 **${total} inscritos** — 🥅 ${stats.GK} POR · 🧱 ${stats.DFC} DFC · ⚡ ${stats.CARR} CARR · 🎩 ${stats.MC} MC · 🏟️ ${stats.DC} DC`,
-            components: [row1, row2]
+            content: `📋 **Gestión de Inscripciones — ${tournament.nombre}**\n\n**Jugadores (Web):** ${playersStatus}\n**Capitanes (Discord):** ${captainsStatus}\n🔗 Link: ${link}\n\n📊 **${total} inscritos** — 🥅 ${stats.GK} POR · 🧱 ${stats.DFC} DFC · ⚡ ${stats.CARR} CARR · 🎩 ${stats.MC} MC · 🏟️ ${stats.DC} DC`,
+            components: [row1, row2, row3]
         });
     }
 
-    // Abrir inscripciones de jugadores
-    if (action === 'ext_reg_open') {
+    // Abrir inscripciones de Jugadores (WEB)
+    if (action === 'ext_reg_open_players') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
 
-        // Crear hilo de log en el canal de avisos
+        // Crear hilo de log
         const notifChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID).catch(() => null);
         let threadId = tournament.registrationLogThreadId;
 
         if (!threadId && notifChannel) {
             const thread = await notifChannel.threads.create({
                 name: `📋 Log Inscripciones — ${tournament.nombre}`,
-                reason: 'Log automático de inscripciones de jugadores'
+                reason: 'Log automático'
             });
             threadId = thread.id;
             await db.collection('tournaments').updateOne(
                 { shortId: tournamentShortId },
                 { $set: { registrationLogThreadId: threadId, registrationsClosed: false } }
             );
-            await thread.send(`📋 **Log de Inscripciones — ${tournament.nombre}**\nAquí se registrarán automáticamente todas las inscripciones, ediciones y bajas de jugadores.`);
+            await thread.send(`📋 **Log de Inscripciones — ${tournament.nombre}**\nAquí se registran las inscripciones web.`);
         } else {
             await db.collection('tournaments').updateOne(
                 { shortId: tournamentShortId },
@@ -4006,21 +4023,11 @@ export async function handleButton(interaction) {
         }
 
         const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
-        return interaction.editReply(`✅ **Inscripciones abiertas**\n\n📋 Link: ${link}\n${threadId ? `📝 Log: <#${threadId}>` : ''}\n\nComparte este link en WhatsApp o Discord.`);
+        return interaction.editReply(`✅ **Inscripciones de jugadores (web) abiertas.**\n\nLink: ${link}`);
     }
 
-    // Generar link de inscripción
-    if (action === 'ext_reg_link') {
-        const [tournamentShortId] = params;
-        const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
-        return interaction.reply({
-            content: `📋 **Link de inscripción:**\n${link}`,
-            flags: [MessageFlags.Ephemeral]
-        });
-    }
-
-    // Cerrar inscripciones jugadores / Abrir capitanes
-    if (action === 'ext_reg_close') {
+    // Cerrar inscripciones de Jugadores (WEB)
+    if (action === 'ext_reg_close_players') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
 
@@ -4029,7 +4036,7 @@ export async function handleButton(interaction) {
             { $set: { registrationsClosed: true } }
         );
 
-        // Log
+        // Notificar en el hilo de log
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (tournament && tournament.registrationLogThreadId) {
             const logChannel = await client.channels.fetch(tournament.registrationLogThreadId).catch(() => null);
@@ -4042,11 +4049,42 @@ export async function handleButton(interaction) {
                 const stats = { GK: 0, DFC: 0, CARR: 0, MC: 0, DC: 0 };
                 results.forEach(r => { if (stats.hasOwnProperty(r._id)) stats[r._id] = r.count; });
                 const total = Object.values(stats).reduce((a, b) => a + b, 0);
-                await logChannel.send(`🔒 **INSCRIPCIONES CERRADAS**\n\n**Total final: ${total} inscritos**\n🥅 ${stats.GK} POR · 🧱 ${stats.DFC} DFC · ⚡ ${stats.CARR} CARR · 🎩 ${stats.MC} MC · 🏟️ ${stats.DC} DC`);
+                await logChannel.send(`🔒 **INSCRIPCIONES WEB CERRADAS**\nTotal final: ${total} inscritos`);
             }
         }
+        return interaction.editReply('✅ **Inscripciones de jugadores cerradas.** El formulario web ya no aceptará más registros.');
+    }
 
-        return interaction.editReply('✅ **Inscripciones de jugadores cerradas.** El formulario web ahora muestra "Inscripciones cerradas". Puedes abrir la inscripción de capitanes.');
+    // Abrir inscripciones de Capitanes (DISCORD)
+    if (action === 'ext_reg_open_captains') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'config.registrationClosed': false } }
+        );
+        return interaction.editReply('✅ **Inscripciones de capitanes abiertas.** Los usuarios ahora pueden inscribirse como capitanes vía Discord (canal del torneo). Vuelve a abrir este menú para actualizar los botones.');
+    }
+
+    // Cerrar inscripciones de Capitanes (DISCORD)
+    if (action === 'ext_reg_close_captains') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'config.registrationClosed': true } }
+        );
+        return interaction.editReply('✅ **Inscripciones de capitanes cerradas.** El botón de inscribir equipo en Discord ha sido deshabilitado. Vuelve a abrir este menú para actualizar los botones.');
+    }
+
+    // Generar link de inscripción
+    if (action === 'ext_reg_link') {
+        const [tournamentShortId] = params;
+        const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
+        return interaction.reply({
+            content: `📋 **Link de inscripción:**\n${link}`,
+            flags: [MessageFlags.Ephemeral]
+        });
     }
 
     // Exportar lista WhatsApp (texto)
