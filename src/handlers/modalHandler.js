@@ -229,9 +229,10 @@ export async function handleModal(interaction) {
 
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
+        const safeGameId = gameId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const existingGameId = await db.collection('external_draft_registrations').findOne({
             tournamentId: tournamentShortId,
-            gameId: new RegExp(`^${gameId}$`, 'i'),
+            gameId: new RegExp(`^${safeGameId}$`, 'i'),
             userId: { $ne: interaction.user.id }
         });
 

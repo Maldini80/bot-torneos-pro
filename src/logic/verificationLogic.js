@@ -109,7 +109,8 @@ export async function processVerification(interaction) {
     const user = interaction.user;
     const member = interaction.member;
 
-    const existingVerification = await db.collection('verified_users').findOne({ $or: [{ discordId: user.id }, { gameId: { $regex: new RegExp(`^${gameId}$`, 'i') } }] });
+    const safeGameId = gameId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existingVerification = await db.collection('verified_users').findOne({ $or: [{ discordId: user.id }, { gameId: { $regex: new RegExp(`^${safeGameId}$`, 'i') } }] });
     if (existingVerification) {
         return interaction.editReply('❌ **Error:** Tu cuenta de Discord o este ID de Juego ya han sido verificados previamente.');
     }

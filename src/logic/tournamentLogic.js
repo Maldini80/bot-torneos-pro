@@ -1476,7 +1476,8 @@ export async function approveTeam(client, tournament, teamData) {
     if (latestTournament.config.format.size === 0 || currentApprovedTeamsCount < maxTeams) {
         // --- PHASE 3: MANAGER INTEGRATION ---
         try {
-            const registeredTeam = await getDb('test').collection('teams').findOne({ name: { $regex: new RegExp(`^${teamData.nombre}$`, 'i') }, guildId: tournament.guildId });
+            const safeTeamName = teamData.nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const registeredTeam = await getDb('test').collection('teams').findOne({ name: { $regex: new RegExp(`^${safeTeamName}$`, 'i') }, guildId: tournament.guildId });
             if (registeredTeam && registeredTeam.managerId) {
                 console.log(`[MANAGER SYNC] Linking manager ${registeredTeam.managerId} to tournament team ${teamData.nombre}`);
                 teamData.managerId = registeredTeam.managerId;
