@@ -4011,6 +4011,11 @@ export async function handleButton(interaction) {
         );
 
         const row3 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`ext_reg_admin_add_start:${tournamentShortId}`).setLabel('Inscribir Manual').setStyle(ButtonStyle.Success).setEmoji('➕'),
+            new ButtonBuilder().setCustomId(`ext_reg_admin_kick_start:${tournamentShortId}`).setLabel('Expulsar Jugador').setStyle(ButtonStyle.Danger).setEmoji('✖️').setDisabled(menuTotal === 0)
+        );
+
+        const row4 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`ext_reg_link:${tournamentShortId}`).setLabel('Link Web').setStyle(ButtonStyle.Secondary).setEmoji('🔗'),
             new ButtonBuilder().setCustomId(`ext_reg_export_text:${tournamentShortId}`).setLabel('Exportar TXT').setStyle(ButtonStyle.Secondary).setEmoji('📄').setDisabled(menuTotal === 0),
             new ButtonBuilder().setCustomId(`ext_reg_export_excel:${tournamentShortId}`).setLabel('Exportar Excel').setStyle(ButtonStyle.Secondary).setEmoji('📊').setDisabled(menuTotal === 0)
@@ -4018,9 +4023,86 @@ export async function handleButton(interaction) {
 
         return {
             content: `📋 **Gestión de Inscripciones — ${trn.nombre}**\n\n**Jugadores (Web):** ${playersStatus}\n**Capitanes (Discord):** ${captainsStatus}\n🔗 Link: ${menuLink}\n\n📊 **${menuTotal} inscritos** — 🥅 ${menuStats.GK} POR · 🧱 ${menuStats.DFC} DFC · ⚡ ${menuStats.CARR} CARR · 🎩 ${menuStats.MC} MC · 🏟️ ${menuStats.DC} DC`,
-            components: [row1, row2, row3]
+            components: [row1, row2, row3, row4]
         };
     }
+
+    // --- NUEVOS FLUJOS DE ADMINISTRACIÓN DRAFT EXTERNO ---
+
+    if (action === 'ext_reg_admin_add_start') {
+        const [tournamentShortId] = params;
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId(`ext_reg_admin_add_user_sel:${tournamentShortId}`)
+            .setPlaceholder('Selecciona o busca un usuario');
+
+        await interaction.reply({
+            content: '🔎 Selecciona al usuario del servidor de Discord al que vas a inscribir manualmente:',
+            components: [new ActionRowBuilder().addComponents(userSelect)],
+            flags: [MessageFlags.Ephemeral]
+        });
+        return;
+    }
+
+    if (action === 'ext_reg_admin_kick_start') {
+        const [tournamentShortId] = params;
+        const posMenu = new StringSelectMenuBuilder()
+            .setCustomId(`ext_reg_admin_kick_pos:${tournamentShortId}`)
+            .setPlaceholder('Filtra por Posición')
+            .addOptions([
+                { label: 'Porteros (GK)', value: 'GK', emoji: '🥅' },
+                { label: 'Defensas (DFC)', value: 'DFC', emoji: '🧱' },
+                { label: 'Carrileros (CARR)', value: 'CARR', emoji: '⚡' },
+                { label: 'Medios (MC)', value: 'MC', emoji: '🎩' },
+                { label: 'Delanteros (DC)', value: 'DC', emoji: '🏟️' }
+            ]);
+
+        await interaction.reply({
+            content: '📍 Selecciona la **posición** del jugador que quieres expulsar:',
+            components: [new ActionRowBuilder().addComponents(posMenu)],
+            flags: [MessageFlags.Ephemeral]
+        });
+        return;
+    }
+
+    if (action === 'ext_reg_admin_kick_conf') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, userId] = params;
+
+        const existing = await db.collection('external_draft_registrations').findOne({
+            tournamentId: tournamentShortId,
+            userId: userId
+        });
+
+        if (existing) {
+            await db.collection('external_draft_registrations').deleteOne({ tournamentId: tournamentShortId, userId: userId });
+
+            const trn = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (trn && trn.registrationLogThreadId) {
+                const logChannel = await client.channels.fetch(trn.registrationLogThreadId).catch(() => null);
+                if (logChannel) {
+                    await logChannel.send(`🚨 **EXPULSIÓN (Admin):** <@${userId}> (${existing.gameId} - ${existing.position}) ha sido expulsado del draft por <@${interaction.user.id}>.`);
+                }
+            }
+            await interaction.editReply({ content: `✅ **Jugador <@${userId}> expulsado correctamente.**`, components: [] });
+
+            const menu = await getExtRegManageMenu(tournamentShortId, db);
+            if (menu && interaction.message && interaction.message.reference) {
+                try {
+                    const sourceMsg = await interaction.channel.messages.fetch(interaction.message.reference.messageId);
+                    if (sourceMsg) await sourceMsg.edit(menu);
+                } catch (e) { }
+            }
+        } else {
+            await interaction.editReply({ content: '❌ El jugador ya había sido eliminado o no se encontró.', components: [] });
+        }
+        return;
+    }
+
+    if (action === 'ext_reg_admin_kick_canc') {
+        await interaction.update({ content: '❌ Acción cancelada. No se ha expulsado al jugador.', components: [] });
+        return;
+    }
+
 
     // Botón principal: muestra submenu con todas las opciones
     if (action === 'ext_reg_manage') {

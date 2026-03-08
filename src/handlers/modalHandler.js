@@ -282,6 +282,86 @@ export async function handleModal(interaction) {
         return interaction.editReply(replyMsg);
     }
 
+    if (action === 'ext_reg_admin_add_submit') {
+        const [tournamentShortId, targetUserId] = params;
+        const gameId = interaction.fields.getTextInputValue('admin_add_gameId').trim();
+        const whatsappNumber = interaction.fields.getTextInputValue('admin_add_whatsapp').replace(/\s+/g, '');
+        let position = interaction.fields.getTextInputValue('admin_add_position').trim().toUpperCase();
+
+        const validPositions = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
+        if (!validPositions.includes(position)) {
+            // Unify names to specific ones if they write others
+            if (['PORTERO', 'POR'].includes(position)) position = 'GK';
+            else if (['DEF', 'CENTRAL'].includes(position)) position = 'DFC';
+            else if (['LAT', 'LATERAL'].includes(position)) position = 'CARR';
+            else if (['MEDIO', 'MCD', 'MCO'].includes(position)) position = 'MC';
+            else if (['DEL', 'DELANTERO', 'EI', 'ED'].includes(position)) position = 'DC';
+            else return interaction.reply({ content: '❌ Posición inválida. Debe ser GK, DFC, CARR, MC o DC.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        if (!/^\+?[0-9]{8,15}$/.test(whatsappNumber)) {
+            return interaction.reply({ content: '❌ Número de WhatsApp inválido.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const safeGameId = gameId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const existingGameId = await db.collection('external_draft_registrations').findOne({
+            tournamentId: tournamentShortId,
+            gameId: new RegExp(`^${safeGameId}$`, 'i'),
+            userId: { $ne: targetUserId }
+        });
+
+        if (existingGameId) {
+            return interaction.editReply('❌ **Ese ID en el juego ya está registrado** por otro usuario.');
+        }
+
+        const existingWhatsapp = await db.collection('external_draft_registrations').findOne({
+            tournamentId: tournamentShortId,
+            whatsapp: whatsappNumber,
+            userId: { $ne: targetUserId }
+        });
+
+        if (existingWhatsapp) {
+            return interaction.editReply('❌ Ese número de teléfono ya está registrado en este torneo.');
+        }
+
+        // Obtener el tag del usuario para los registros (hacemos un fetch por si no está cacheado)
+        let targetUserTag = 'UsuarioManual';
+        try {
+            const fetchedUser = await client.users.fetch(targetUserId);
+            if (fetchedUser) targetUserTag = fetchedUser.tag;
+        } catch (e) { }
+
+        const data = {
+            tournamentId: tournamentShortId,
+            userId: targetUserId,
+            discordTag: targetUserTag,
+            gameId: gameId,
+            whatsapp: whatsappNumber,
+            position: position,
+            registeredAt: new Date(),
+            manuallyAdded: true
+        };
+
+        const result = await db.collection('external_draft_registrations').updateOne(
+            { tournamentId: tournamentShortId, userId: targetUserId },
+            { $set: data },
+            { upsert: true }
+        );
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (tournament && tournament.registrationLogThreadId) {
+            const logChannel = await client.channels.fetch(tournament.registrationLogThreadId).catch(() => null);
+            if (logChannel) {
+                await logChannel.send(`🧲 **INSCRIPCIÓN MANUAL (Admin):** <@${targetUserId}> (${gameId}) ha sido inscrito forzosamente como **${position}** por <@${interaction.user.id}>.`);
+            }
+        }
+
+        await interaction.editReply(`✅ **Inscripción completada.** <@${targetUserId}> ahora es **${position}**.`);
+        return;
+    }
+
     // =======================================================
     // --- LÓGICA DE DRAFT EXTERNO y CUP (CAPITANES MODAL) ---
     // =======================================================
