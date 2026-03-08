@@ -4104,37 +4104,6 @@ export async function handleButton(interaction) {
     // --- NUEVOS HANDLERS: FLUJO REGISTRO JUGADOR DRAFT EXTERNO ---
     // ========================================================
 
-    if (action === 'ext_reg_player_pos') {
-        const [tournamentShortId] = params;
-        const position = interaction.values[0]; // Ej: 'GK', 'DC'
-
-        const modal = new ModalBuilder()
-            .setCustomId(`ext_reg_player_modal:${tournamentShortId}:${position}`)
-            .setTitle(`Inscripción como ${position}`);
-
-        const gameIdInput = new TextInputBuilder()
-            .setCustomId('gameIdInput')
-            .setLabel('Tu ID en el Juego')
-            .setPlaceholder('Ej: xXPacoXx_99')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const whatsappInput = new TextInputBuilder()
-            .setCustomId('whatsappInput')
-            .setLabel('+34 seguido de tu número SIN ESPACIOS')
-            .setPlaceholder('Ej: +34600123456 (obligatorio para grupos)')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(gameIdInput),
-            new ActionRowBuilder().addComponents(whatsappInput)
-        );
-
-        await interaction.showModal(modal);
-        return;
-    }
-
     if (action === 'ext_reg_edit_start') {
         const [tournamentShortId] = params;
 
