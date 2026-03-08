@@ -4111,7 +4111,7 @@ export async function handleButton(interaction) {
             const key = r.position || 'DC';
             if (posColumns[key]) {
                 const idx = posColumns[key].players.length + 1;
-                posColumns[key].players.push(`${idx}. ${r.gameId}\n📲${r.whatsapp}`);
+                posColumns[key].players.push(`${idx}. ${r.gameId}`);
             }
         });
 
