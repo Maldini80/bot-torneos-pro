@@ -121,7 +121,7 @@ export async function setChannelIcon(client, channelId, icon) {
 
         // Identificamos el nombre base CORRECTO según el ID del canal
         if (channelId === CHANNELS.TOURNAMENTS_STATUS) {
-            baseName = '📢-torneos-tournaments';
+            baseName = '📢-inscripciones';
         } else {
             console.warn(`[WARN] Se intentó cambiar el icono de un canal no reconocido con ID: ${channelId}`);
             return;
