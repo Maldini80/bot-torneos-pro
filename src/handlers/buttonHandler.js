@@ -3913,6 +3913,69 @@ export async function handleButton(interaction) {
     // --- BOTONES DE GESTIÓN DE INSCRIPCIONES WEB (DRAFT EXTERNO) ---
     // ========================================================
 
+    // Botón principal: muestra submenu con todas las opciones
+    if (action === 'ext_reg_manage') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+
+        const regOpen = tournament.registrationsClosed === false;
+
+        // Stats
+        const pipeline = [
+            { $match: { tournamentId: tournamentShortId } },
+            { $group: { _id: '$position', count: { $sum: 1 } } }
+        ];
+        const results = await db.collection('external_draft_registrations').aggregate(pipeline).toArray();
+        const stats = { GK: 0, DFC: 0, CARR: 0, MC: 0, DC: 0 };
+        results.forEach(r => { if (stats.hasOwnProperty(r._id)) stats[r._id] = r.count; });
+        const total = Object.values(stats).reduce((a, b) => a + b, 0);
+
+        const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
+        const statusText = regOpen ? '🟢 **ABIERTAS**' : (tournament.registrationsClosed === true ? '🔴 **CERRADAS**' : '⚪ **SIN ABRIR**');
+
+        const row1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_open:${tournamentShortId}`)
+                .setLabel('Abrir Inscripciones')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('📋')
+                .setDisabled(regOpen),
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_close:${tournamentShortId}`)
+                .setLabel('Cerrar Jugadores / Abrir Capis')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔒')
+                .setDisabled(!regOpen),
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_link:${tournamentShortId}`)
+                .setLabel('Copiar Link')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🔗')
+        );
+
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_export_text:${tournamentShortId}`)
+                .setLabel('Exportar Lista (TXT)')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📄')
+                .setDisabled(total === 0),
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_export_excel:${tournamentShortId}`)
+                .setLabel('Exportar Excel')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📊')
+                .setDisabled(total === 0)
+        );
+
+        return interaction.editReply({
+            content: `📋 **Gestión de Inscripciones — ${tournament.nombre}**\n\nEstado: ${statusText}\n🔗 Link: ${link}\n\n📊 **${total} inscritos** — 🥅 ${stats.GK} POR · 🧱 ${stats.DFC} DFC · ⚡ ${stats.CARR} CARR · 🎩 ${stats.MC} MC · 🏟️ ${stats.DC} DC`,
+            components: [row1, row2]
+        });
+    }
+
     // Abrir inscripciones de jugadores
     if (action === 'ext_reg_open') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -3954,23 +4017,6 @@ export async function handleButton(interaction) {
             content: `📋 **Link de inscripción:**\n${link}`,
             flags: [MessageFlags.Ephemeral]
         });
-    }
-
-    // Ver resumen de inscritos
-    if (action === 'ext_reg_summary') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [tournamentShortId] = params;
-
-        const pipeline = [
-            { $match: { tournamentId: tournamentShortId } },
-            { $group: { _id: '$position', count: { $sum: 1 } } }
-        ];
-        const results = await db.collection('external_draft_registrations').aggregate(pipeline).toArray();
-        const stats = { GK: 0, DFC: 0, CARR: 0, MC: 0, DC: 0 };
-        results.forEach(r => { if (stats.hasOwnProperty(r._id)) stats[r._id] = r.count; });
-        const total = Object.values(stats).reduce((a, b) => a + b, 0);
-
-        return interaction.editReply(`📊 **Resumen de Inscritos**\n\n**Total: ${total}**\n🥅 Portero: ${stats.GK}\n🧱 Defensa: ${stats.DFC}\n⚡ Carrilero: ${stats.CARR}\n🎩 Medio: ${stats.MC}\n🏟️ Delantero: ${stats.DC}`);
     }
 
     // Cerrar inscripciones jugadores / Abrir capitanes
@@ -4032,11 +4078,87 @@ export async function handleButton(interaction) {
             text += '\n';
         }
 
-        // Send as text file to avoid Discord character limit
         const buffer = Buffer.from(text, 'utf-8');
         return interaction.editReply({
             content: `📋 Lista de ${registrations.length} inscritos:`,
             files: [{ attachment: buffer, name: `inscritos_${tournamentShortId}.txt` }]
+        });
+    }
+
+    // Exportar Excel con colores por posición
+    if (action === 'ext_reg_export_excel') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+
+        const registrations = await db.collection('external_draft_registrations')
+            .find({ tournamentId: tournamentShortId })
+            .sort({ createdAt: 1 })
+            .toArray();
+
+        if (registrations.length === 0) {
+            return interaction.editReply('No hay inscritos aún.');
+        }
+
+        const posColors = {
+            GK: { fill: 'FF4CAF50', font: 'FFFFFFFF', name: 'Portero' },     // Green
+            DFC: { fill: 'FF2196F3', font: 'FFFFFFFF', name: 'Defensa' },    // Blue
+            CARR: { fill: 'FFFF9800', font: 'FF000000', name: 'Carrilero' },  // Orange
+            MC: { fill: 'FF9C27B0', font: 'FFFFFFFF', name: 'Medio' },       // Purple
+            DC: { fill: 'FFF44336', font: 'FFFFFFFF', name: 'Delantero' }     // Red
+        };
+
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Inscritos');
+
+        // Header
+        sheet.columns = [
+            { header: '#', key: 'num', width: 5 },
+            { header: 'ID Jugador', key: 'gameId', width: 25 },
+            { header: 'WhatsApp', key: 'whatsapp', width: 15 },
+            { header: 'Posición', key: 'position', width: 14 },
+            { header: 'Discord', key: 'discord', width: 20 },
+            { header: 'Fecha', key: 'date', width: 18 }
+        ];
+
+        // Style header
+        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF333333' } };
+
+        // Group by position, ordered
+        let rowNum = 2;
+        for (const pos of ['GK', 'DFC', 'CARR', 'MC', 'DC']) {
+            const group = registrations.filter(r => r.position === pos);
+            if (group.length === 0) continue;
+
+            group.forEach((r, i) => {
+                const row = sheet.addRow({
+                    num: i + 1,
+                    gameId: r.gameId,
+                    whatsapp: r.whatsapp,
+                    position: posColors[pos].name,
+                    discord: r.discordUsername || '',
+                    date: r.createdAt ? new Date(r.createdAt).toLocaleString('es-ES') : ''
+                });
+
+                // Color the row by position
+                row.eachCell(cell => {
+                    cell.fill = {
+                        type: 'pattern', pattern: 'solid',
+                        fgColor: { argb: posColors[pos].fill }
+                    };
+                    cell.font = { color: { argb: posColors[pos].font } };
+                    cell.border = {
+                        bottom: { style: 'thin', color: { argb: 'FF666666' } }
+                    };
+                });
+                rowNum++;
+            });
+        }
+
+        const excelBuffer = await workbook.xlsx.writeBuffer();
+        return interaction.editReply({
+            content: `📊 Excel con ${registrations.length} inscritos (colores por posición):`,
+            files: [{ attachment: Buffer.from(excelBuffer), name: `inscritos_${tournamentShortId}.xlsx` }]
         });
     }
 }

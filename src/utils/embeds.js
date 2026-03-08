@@ -276,42 +276,15 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    // ROW 5: External Draft - Registration Management
+    // ROW 5: External Draft - Single button for registration management
     const row5 = new ActionRowBuilder();
     if (tournament.config.paidSubType === 'draft') {
-        // regOpen: explicitly false means open, true means closed, undefined means never configured
-        const regOpen = tournament.registrationsClosed === false;
-        const regClosed = tournament.registrationsClosed === true;
         row5.addComponents(
             new ButtonBuilder()
-                .setCustomId(`ext_reg_open:${tournament.shortId}`)
-                .setLabel('Abrir Inscripciones')
-                .setStyle(ButtonStyle.Success)
+                .setCustomId(`ext_reg_manage:${tournament.shortId}`)
+                .setLabel('Gestionar Inscripciones')
+                .setStyle(ButtonStyle.Primary)
                 .setEmoji('📋')
-                .setDisabled(isBusy || regOpen),
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_close:${tournament.shortId}`)
-                .setLabel('Cerrar Jugadores / Abrir Capis')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('🔄')
-                .setDisabled(isBusy || !regOpen),
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_link:${tournament.shortId}`)
-                .setLabel('Link')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('🔗')
-                .setDisabled(isBusy),
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_summary:${tournament.shortId}`)
-                .setLabel('Ver Inscritos')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📊')
-                .setDisabled(isBusy),
-            new ButtonBuilder()
-                .setCustomId(`ext_reg_export_text:${tournament.shortId}`)
-                .setLabel('Exportar Lista')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📥')
                 .setDisabled(isBusy)
         );
     }
