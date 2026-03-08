@@ -157,6 +157,28 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación, o en la lista de reserva de este torneo.', flags: [MessageFlags.Ephemeral] });
         }
 
+        // --- NUEVA LÓGICA: REDIRECCIÓN A WEB PARA JUGADORES (Drafts Externos) ---
+        if (tournament.config.isPaid && tournament.config.paidSubType === 'draft') {
+            if (tournament.registrationsClosed === false) {
+                const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
+
+                const linkRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setLabel('Ir a la Web de Inscripción')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(link)
+                        .setEmoji('🌐')
+                );
+
+                return interaction.reply({
+                    content: `👤 **Inscripción de Jugadores Abierta**\n\nPara inscribirte en el draft como jugador, debes hacerlo a través de nuestra página web pulsando el botón de abajo.\n\n*(Si quieres inscribir a tu equipo como capitán, espera a que se abran las inscripciones de capitanes vía Discord)*`,
+                    components: [linkRow],
+                    flags: [MessageFlags.Ephemeral]
+                });
+            }
+        }
+        // --- FIN DE NUEVA LÓGICA ---
+
         if (tournament.config?.registrationClosed) {
             return interaction.reply({ content: '❌ Las inscripciones para este torneo están actualmente cerradas.', flags: [MessageFlags.Ephemeral] });
         }
