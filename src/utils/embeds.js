@@ -135,11 +135,13 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             new ButtonBuilder().setCustomId(`admin_notify_changes:${tournament.shortId}`).setLabel('Notificar Cambios').setStyle(ButtonStyle.Primary).setEmoji('📢').setDisabled(isBusy || !hasCaptains)
         );
 
-        // Agregar botón de Cerrar/Abrir Inscripción
-        const isRegistrationClosed = tournament.config.registrationClosed === true;
-        const toggleBtnLabel = isRegistrationClosed ? 'Abrir Inscripción' : 'Cerrar Inscripción';
-        const toggleBtnStyle = isRegistrationClosed ? ButtonStyle.Success : ButtonStyle.Danger;
-        row1.addComponents(new ButtonBuilder().setCustomId(`admin_toggle_registration:${tournament.shortId}`).setLabel(toggleBtnLabel).setStyle(toggleBtnStyle).setEmoji(isRegistrationClosed ? '🔓' : '🔒').setDisabled(isBusy));
+        // Agregar botón de Cerrar/Abrir Inscripción (solo para torneos NO draft externo, que usan su propio sistema)
+        if (tournament.config.paidSubType !== 'draft') {
+            const isRegistrationClosed = tournament.config.registrationClosed === true;
+            const toggleBtnLabel = isRegistrationClosed ? 'Abrir Inscripción' : 'Cerrar Inscripción';
+            const toggleBtnStyle = isRegistrationClosed ? ButtonStyle.Success : ButtonStyle.Danger;
+            row1.addComponents(new ButtonBuilder().setCustomId(`admin_toggle_registration:${tournament.shortId}`).setLabel(toggleBtnLabel).setStyle(toggleBtnStyle).setEmoji(isRegistrationClosed ? '🔓' : '🔒').setDisabled(isBusy));
+        }
 
         if (tournament.teams.reserva && Object.keys(tournament.teams.reserva).length > 0) {
             row1.addComponents(
