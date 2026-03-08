@@ -216,7 +216,73 @@ export async function handleModal(interaction) {
     // --- FIN FIX ---
 
     // =======================================================
-    // --- LÓGICA DE DRAFT EXTERNO (WHATSAPP MODAL) ---
+    // --- LÓGICA DE DRAFT EXTERNO JUGADORES (DISCORD NATIVO) ---
+    // =======================================================
+    if (action === 'ext_reg_player_modal') {
+        const [tournamentShortId, position] = params;
+        const gameId = interaction.fields.getTextInputValue('gameIdInput').trim();
+        const whatsappNumber = interaction.fields.getTextInputValue('whatsappInput').replace(/\s+/g, '');
+
+        if (!/^\+?[0-9]{8,15}$/.test(whatsappNumber)) {
+            return interaction.reply({ content: '❌ Número de WhatsApp inválido. Asegúrate de incluir el prefijo (ej: +34) y que no tenga espacios.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const existingGameId = await db.collection('external_draft_registrations').findOne({
+            tournamentId: tournamentShortId,
+            gameId: new RegExp(`^${gameId}$`, 'i'),
+            userId: { $ne: interaction.user.id }
+        });
+
+        if (existingGameId) {
+            return interaction.editReply('❌ **Ese ID en el juego ya está registrado** por otro usuario.');
+        }
+
+        const existingWhatsapp = await db.collection('external_draft_registrations').findOne({
+            tournamentId: tournamentShortId,
+            whatsapp: whatsappNumber,
+            userId: { $ne: interaction.user.id }
+        });
+
+        if (existingWhatsapp) {
+            return interaction.editReply('❌ **Ese número de WhatsApp ya está registrado** por otro usuario.');
+        }
+
+        const registrationData = {
+            tournamentId: tournamentShortId,
+            userId: interaction.user.id,
+            discordUsername: interaction.user.tag,
+            gameId: gameId,
+            whatsapp: whatsappNumber,
+            position: position,
+            timestamp: new Date()
+        };
+
+        const result = await db.collection('external_draft_registrations').updateOne(
+            { tournamentId: tournamentShortId, userId: interaction.user.id },
+            { $set: registrationData },
+            { upsert: true }
+        );
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (tournament && tournament.registrationLogThreadId) {
+            const logChannel = await client.channels.fetch(tournament.registrationLogThreadId).catch(() => null);
+            if (logChannel) {
+                const actionText = result.matchedCount > 0 ? '✏️ MODIFICACIÓN JUGADOR (Discord)' : '✅ NUEVO JUGADOR (Discord)';
+                await logChannel.send(`${actionText}:\nUsuario: <@${interaction.user.id}>\nID: ${gameId}\nPosición: **${position}**`);
+            }
+        }
+
+        const replyMsg = result.matchedCount > 0
+            ? `✅ **Inscripción actualizada.** Tu posición ahora es **${position}** y tu ID es **${gameId}**.`
+            : `✅ **¡Inscripción completada!** Te has registrado como **${position}** en el draft.\n\nPuedes volver a pulsar el botón de Inscribirme si necesitas modificar tus datos o darte de baja.`;
+
+        return interaction.editReply(replyMsg);
+    }
+
+    // =======================================================
+    // --- LÓGICA DE DRAFT EXTERNO y CUP (CAPITANES MODAL) ---
     // =======================================================
     if (action === 'register_paid_team_modal') {
         const [tournamentShortId] = params;

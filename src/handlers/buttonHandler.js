@@ -154,11 +154,54 @@ export async function handleButton(interaction) {
         const isAlreadyRegistered = tournament.teams.aprobados?.[managerId] || tournament.teams.pendientes?.[managerId] || tournament.teams.pendingPayments?.[managerId] || tournament.teams.pendingApproval?.[managerId] || tournament.teams.reserva?.[managerId];
 
         if (isAlreadyRegistered) {
-            return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación, o en la lista de reserva de este torneo.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: '❌ Ya estás inscrito como capitán o mánager de un equipo en este torneo.', flags: [MessageFlags.Ephemeral] });
         }
 
+        // --- NUEVO FORMATO DE DRAFTS EXTERNOS: JUGADORES DESDE DISCORD ---
+        if (tournament.config.isPaid && tournament.config.paidSubType === 'draft') {
+            const playerReg = await db.collection('external_draft_registrations').findOne({
+                tournamentId: tournamentShortId,
+                userId: interaction.user.id
+            });
+
+            if (playerReg) {
+                // Ya inscrito como jugador
+                const btnRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`ext_reg_edit_start:${tournamentShortId}`).setLabel('Modificar mis Datos').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+                    new ButtonBuilder().setCustomId(`ext_reg_cancel:${tournamentShortId}`).setLabel('Darme de Baja').setStyle(ButtonStyle.Danger).setEmoji('❌')
+                );
+                return interaction.reply({
+                    content: `✅ **Ya estás inscrito en este draft como ${playerReg.position}**.\n\n¿Qué deseas hacer?`,
+                    components: [btnRow],
+                    flags: [MessageFlags.Ephemeral]
+                });
+            }
+
+            if (tournament.registrationsClosed === false) {
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId(`ext_reg_player_pos:${tournamentShortId}`)
+                    .setPlaceholder('Selecciona tu posición en el campo...')
+                    .addOptions([
+                        { label: 'Portero (POR)', value: 'GK', emoji: '🥅' },
+                        { label: 'Defensa (DFC)', value: 'DFC', emoji: '🧱' },
+                        { label: 'Carrilero (CARR)', value: 'CARR', emoji: '⚡' },
+                        { label: 'Medio (MC)', value: 'MC', emoji: '🎩' },
+                        { label: 'Delantero (DC)', value: 'DC', emoji: '🏟️' }
+                    ]);
+
+                const posRow = new ActionRowBuilder().addComponents(selectMenu);
+
+                return interaction.reply({
+                    content: `👤 **Inscripción de Jugadores Abierta**\n\nPor favor, selecciona la posición principal en la que deseas jugar:`,
+                    components: [posRow],
+                    flags: [MessageFlags.Ephemeral]
+                });
+            }
+        }
+        // --- FIN DEL FLUJO DE JUGADOR ---
+
         if (tournament.config?.registrationClosed) {
-            return interaction.reply({ content: '❌ Las inscripciones para este torneo están actualmente cerradas.', flags: [MessageFlags.Ephemeral] });
+            return interaction.reply({ content: '❌ Las inscripciones de capitanes para este torneo están cerradas.', flags: [MessageFlags.Ephemeral] });
         }
 
         // --- MODIFICACIÓN: TORNEOS DE PAGO (Flujo simplificado sin modal) ---
@@ -4054,9 +4097,92 @@ export async function handleButton(interaction) {
     if (action === 'ext_reg_link') {
         const [tournamentShortId] = params;
         const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
-        return interaction.reply({
-            content: `📋 **Link de inscripción:**\n${link}`,
-            flags: [MessageFlags.Ephemeral]
+        return interaction.reply({ content: `🔗 **Link de inscripción:**\n${link}`, flags: [MessageFlags.Ephemeral] });
+    }
+
+    // ========================================================
+    // --- NUEVOS HANDLERS: FLUJO REGISTRO JUGADOR DRAFT EXTERNO ---
+    // ========================================================
+
+    if (action === 'ext_reg_player_pos') {
+        const [tournamentShortId] = params;
+        const position = interaction.values[0]; // Ej: 'GK', 'DC'
+
+        const modal = new ModalBuilder()
+            .setCustomId(`ext_reg_player_modal:${tournamentShortId}:${position}`)
+            .setTitle(`Inscripción como ${position}`);
+
+        const gameIdInput = new TextInputBuilder()
+            .setCustomId('gameIdInput')
+            .setLabel('Tu ID en el Juego')
+            .setPlaceholder('Ej: xXPacoXx_99')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('whatsappInput')
+            .setLabel('+34 seguido de tu número SIN ESPACIOS')
+            .setPlaceholder('Ej: +34600123456 (obligatorio para grupos)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(gameIdInput),
+            new ActionRowBuilder().addComponents(whatsappInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'ext_reg_edit_start') {
+        const [tournamentShortId] = params;
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`ext_reg_player_pos:${tournamentShortId}`)
+            .setPlaceholder('Selecciona tu NUEVA posición...')
+            .addOptions([
+                { label: 'Portero (POR)', value: 'GK', emoji: '🥅' },
+                { label: 'Defensa (DFC)', value: 'DFC', emoji: '🧱' },
+                { label: 'Carrilero (CARR)', value: 'CARR', emoji: '⚡' },
+                { label: 'Medio (MC)', value: 'MC', emoji: '🎩' },
+                { label: 'Delantero (DC)', value: 'DC', emoji: '🏟️' }
+            ]);
+
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+
+        return interaction.update({
+            content: `👤 **Editando tu inscripción**\n\n¿En qué posición quieres jugar ahora? Moveremos tu inscripción a esa posición.\n*(Tendrás que volver a escribir tu ID y WhatsApp en el siguiente paso)*`,
+            components: [row]
+        });
+    }
+
+    if (action === 'ext_reg_cancel') {
+        const [tournamentShortId] = params;
+
+        const existing = await db.collection('external_draft_registrations').findOne({
+            tournamentId: tournamentShortId,
+            userId: interaction.user.id
+        });
+
+        if (existing) {
+            await db.collection('external_draft_registrations').deleteOne({
+                tournamentId: tournamentShortId,
+                userId: interaction.user.id
+            });
+
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (tournament && tournament.registrationLogThreadId) {
+                const logChannel = await client.channels.fetch(tournament.registrationLogThreadId).catch(() => null);
+                if (logChannel) {
+                    await logChannel.send(`❌ **BAJA JUGADOR (Discord):** <@${interaction.user.id}> (${existing.gameId}) se ha dado de baja. Liberada plaza de **${existing.position}**.`);
+                }
+            }
+        }
+
+        return interaction.update({
+            content: `✅ **Baja completada.** Te has dado de baja de este Draft correctamente. Ya no ocupas plaza.`,
+            components: []
         });
     }
 
