@@ -87,6 +87,11 @@ app.get('/', (req, res) => {
     }
 });
 
+// Registration form page
+app.get('/inscripcion/:tournamentId', (req, res) => {
+    res.sendFile('inscripcion.html', { root: 'public' });
+});
+
 app.use(express.static('public'));
 
 const server = http.createServer(app);
@@ -2366,7 +2371,329 @@ export async function startVisualizerServer(discordClient) {
     });
     // --- FIN NUEVO ---
 
-    //  Search Discord server members in real-time
+    // --- SISTEMA DE INSCRIPCIÓN WEB PARA DRAFTS EXTERNOS ---
+
+    // Helper: normalizar WhatsApp
+    function normalizeWhatsApp(number) {
+        if (!number) return '';
+        let clean = String(number).replace(/[\s\-\(\)\.]/g, '');
+        clean = clean.replace(/^(\+34|0034)/, '');
+        return clean;
+    }
+
+    // Helper: obtener stats de inscritos por posición
+    async function getRegistrationStats(db, tournamentId) {
+        const pipeline = [
+            { $match: { tournamentId } },
+            { $group: { _id: '$position', count: { $sum: 1 } } }
+        ];
+        const results = await db.collection('external_draft_registrations').aggregate(pipeline).toArray();
+        const stats = { GK: 0, DFC: 0, CARR: 0, MC: 0, DC: 0 };
+        results.forEach(r => { if (stats.hasOwnProperty(r._id)) stats[r._id] = r.count; });
+        return stats;
+    }
+
+    // Helper: enviar log al hilo de inscripciones (si existe)
+    async function sendRegistrationLog(db, tournamentId, message) {
+        try {
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentId });
+            if (!tournament || !tournament.registrationLogThreadId) return;
+            const channel = await client.channels.fetch(tournament.registrationLogThreadId);
+            if (channel) await channel.send(message);
+        } catch (e) {
+            console.warn('[Registration Log] Error enviando log:', e.message);
+        }
+    }
+
+    const POSITION_LABELS = { 'GK': 'Portero', 'DFC': 'Defensa', 'CARR': 'Carrilero', 'MC': 'Medio', 'DC': 'Delantero' };
+    const POSITION_SHORT = { 'GK': 'POR', 'DFC': 'DFC', 'CARR': 'CARR', 'MC': 'MC', 'DC': 'DC' };
+
+    // GET: Estado de inscripción del usuario actual
+    app.get('/api/external-draft/registration/:tournamentId', async (req, res) => {
+        try {
+            const { tournamentId } = req.params;
+            const db = getDb();
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentId });
+
+            if (!tournament) {
+                return res.status(404).json({ error: 'Torneo no encontrado.' });
+            }
+
+            const stats = await getRegistrationStats(db, tournamentId);
+            const closed = tournament.registrationsClosed === true;
+
+            if (!req.user) {
+                return res.json({ tournamentName: tournament.nombre, stats, closed });
+            }
+
+            // Check current registration
+            const registration = await db.collection('external_draft_registrations').findOne({
+                tournamentId,
+                discordId: req.user.id
+            });
+
+            // Check previous data from other tournaments
+            let previousData = null;
+            if (!registration) {
+                const prevReg = await db.collection('external_draft_registrations').findOne(
+                    { discordId: req.user.id, tournamentId: { $ne: tournamentId } },
+                    { sort: { createdAt: -1 } }
+                );
+                if (prevReg) {
+                    previousData = { gameId: prevReg.gameId, whatsapp: prevReg.whatsapp };
+                }
+            }
+
+            res.json({
+                tournamentName: tournament.nombre,
+                stats,
+                closed,
+                registration: registration ? {
+                    gameId: registration.gameId,
+                    whatsapp: registration.whatsapp,
+                    position: registration.position
+                } : null,
+                previousData
+            });
+        } catch (error) {
+            console.error('[Registration GET Error]:', error.message);
+            res.status(500).json({ error: 'Error interno del servidor.' });
+        }
+    });
+
+    // GET: Info pública del torneo (sin auth)
+    app.get('/api/external-draft/registration/:tournamentId/info', async (req, res) => {
+        try {
+            const { tournamentId } = req.params;
+            const db = getDb();
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentId });
+            if (!tournament) return res.status(404).json({ error: 'No encontrado' });
+            const stats = await getRegistrationStats(db, tournamentId);
+            res.json({ tournamentName: tournament.nombre, stats, closed: tournament.registrationsClosed === true });
+        } catch (e) {
+            res.status(500).json({ error: 'Error' });
+        }
+    });
+
+    // POST: Inscribirse
+    app.post('/api/external-draft/register/:tournamentId', async (req, res) => {
+        try {
+            if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+            const { tournamentId } = req.params;
+            const { gameId, whatsapp, position } = req.body;
+            const db = getDb();
+
+            // Validar
+            if (!gameId || !whatsapp || !position) {
+                return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
+            }
+            if (!['GK', 'DFC', 'CARR', 'MC', 'DC'].includes(position)) {
+                return res.status(400).json({ error: 'Posición inválida.' });
+            }
+
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentId });
+            if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado.' });
+            if (tournament.registrationsClosed) return res.status(403).json({ error: 'Las inscripciones están cerradas.' });
+
+            // Check if already registered (by Discord ID)
+            const existing = await db.collection('external_draft_registrations').findOne({
+                tournamentId, discordId: req.user.id
+            });
+            if (existing) {
+                // Update instead of create (edit flow)
+                const oldPosition = existing.position;
+                await db.collection('external_draft_registrations').updateOne(
+                    { _id: existing._id },
+                    { $set: { gameId: sanitizeInput(gameId, 50), whatsapp: normalizeWhatsApp(whatsapp), position, updatedAt: new Date() } }
+                );
+                const stats = await getRegistrationStats(db, tournamentId);
+                const updatedReg = { gameId: sanitizeInput(gameId, 50), whatsapp: normalizeWhatsApp(whatsapp), position };
+
+                // Log
+                if (oldPosition !== position) {
+                    const statsLine = `📊 Total: ${Object.values(stats).reduce((a, b) => a + b, 0)} inscritos (${stats.GK} POR · ${stats.DFC} DFC · ${stats.CARR} CARR · ${stats.MC} MC · ${stats.DC} DC)`;
+                    await sendRegistrationLog(db, tournamentId, `✏️ **${req.user.global_name || req.user.username}** ha cambiado de **${POSITION_LABELS[oldPosition]}** a **${POSITION_LABELS[position]}**\n${statsLine}`);
+                }
+
+                return res.json({ registration: updatedReg, stats });
+            }
+
+            // Check IP limit
+            const userIP = req.ip;
+            const ipCount = await db.collection('external_draft_registrations').countDocuments({
+                tournamentId, ip: userIP
+            });
+            if (ipCount >= 1) {
+                // Alert admin but don't block - just warn
+                const stats = await getRegistrationStats(db, tournamentId);
+                // Log alert
+                await sendRegistrationLog(db, tournamentId, `⚠️ **Alerta IP**: La IP \`${userIP}\` ya tiene ${ipCount} inscripción(es). **${req.user.global_name || req.user.username}** intenta inscribirse también.`);
+            }
+
+            // Check WhatsApp uniqueness
+            const normalizedWA = normalizeWhatsApp(whatsapp);
+            const waExists = await db.collection('external_draft_registrations').findOne({
+                tournamentId, whatsapp: normalizedWA
+            });
+            if (waExists) {
+                return res.status(409).json({ error: 'Este número de WhatsApp ya está registrado.' });
+            }
+
+            // Create registration
+            const registration = {
+                tournamentId,
+                discordId: req.user.id,
+                discordUsername: req.user.global_name || req.user.username,
+                gameId: sanitizeInput(gameId, 50),
+                whatsapp: normalizedWA,
+                position,
+                ip: userIP,
+                createdAt: new Date()
+            };
+            await db.collection('external_draft_registrations').insertOne(registration);
+
+            const stats = await getRegistrationStats(db, tournamentId);
+
+            // Log
+            const statsLine = `📊 Total: ${Object.values(stats).reduce((a, b) => a + b, 0)} inscritos (${stats.GK} POR · ${stats.DFC} DFC · ${stats.CARR} CARR · ${stats.MC} MC · ${stats.DC} DC)`;
+            await sendRegistrationLog(db, tournamentId, `✅ **${req.user.global_name || req.user.username}** se ha inscrito como **${POSITION_LABELS[position]}** — ID: \`${sanitizeInput(gameId, 50)}\`\n${statsLine}`);
+
+            res.json({
+                registration: { gameId: registration.gameId, whatsapp: registration.whatsapp, position: registration.position },
+                stats
+            });
+        } catch (error) {
+            console.error('[Registration POST Error]:', error.message);
+            res.status(500).json({ error: 'Error interno del servidor.' });
+        }
+    });
+
+    // DELETE: Darse de baja
+    app.delete('/api/external-draft/register/:tournamentId', async (req, res) => {
+        try {
+            if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+
+            const { tournamentId } = req.params;
+            const db = getDb();
+
+            const registration = await db.collection('external_draft_registrations').findOne({
+                tournamentId, discordId: req.user.id
+            });
+            if (!registration) return res.status(404).json({ error: 'No estás inscrito.' });
+
+            await db.collection('external_draft_registrations').deleteOne({ _id: registration._id });
+
+            const stats = await getRegistrationStats(db, tournamentId);
+            const statsLine = `📊 Total: ${Object.values(stats).reduce((a, b) => a + b, 0)} inscritos (${stats.GK} POR · ${stats.DFC} DFC · ${stats.CARR} CARR · ${stats.MC} MC · ${stats.DC} DC)`;
+            await sendRegistrationLog(db, tournamentId, `❌ **${req.user.global_name || req.user.username}** se ha dado de baja (era ${POSITION_LABELS[registration.position]})\n${statsLine}`);
+
+            res.json({ success: true, stats });
+        } catch (error) {
+            console.error('[Registration DELETE Error]:', error.message);
+            res.status(500).json({ error: 'Error interno del servidor.' });
+        }
+    });
+
+    // GET: Listar todos los inscritos (admin)
+    app.get('/api/external-draft/registrations/:tournamentId', isAdmin, async (req, res) => {
+        try {
+            const { tournamentId } = req.params;
+            const db = getDb();
+            const registrations = await db.collection('external_draft_registrations')
+                .find({ tournamentId })
+                .sort({ createdAt: 1 })
+                .toArray();
+
+            const stats = await getRegistrationStats(db, tournamentId);
+            res.json({ registrations, stats });
+        } catch (error) {
+            console.error('[Registrations List Error]:', error.message);
+            res.status(500).json({ error: 'Error interno.' });
+        }
+    });
+
+    // DELETE: Admin borra un jugador
+    app.delete('/api/external-draft/registrations/:tournamentId/:regId', isAdmin, async (req, res) => {
+        try {
+            const { tournamentId, regId } = req.params;
+            const db = getDb();
+            const result = await db.collection('external_draft_registrations').deleteOne({
+                _id: new ObjectId(regId), tournamentId
+            });
+            if (result.deletedCount === 0) return res.status(404).json({ error: 'No encontrado.' });
+            const stats = await getRegistrationStats(db, tournamentId);
+            res.json({ success: true, stats });
+        } catch (error) {
+            res.status(500).json({ error: 'Error interno.' });
+        }
+    });
+
+    // POST: Admin añade jugador manualmente
+    app.post('/api/external-draft/registrations/:tournamentId/manual', isAdmin, async (req, res) => {
+        try {
+            const { tournamentId } = req.params;
+            const { gameId, whatsapp, position, discordUsername } = req.body;
+            const db = getDb();
+
+            if (!gameId || !whatsapp || !position) {
+                return res.status(400).json({ error: 'Campos obligatorios.' });
+            }
+
+            const registration = {
+                tournamentId,
+                discordId: 'manual_' + Date.now(),
+                discordUsername: discordUsername || 'Manual',
+                gameId: sanitizeInput(gameId, 50),
+                whatsapp: normalizeWhatsApp(whatsapp),
+                position,
+                ip: 'admin',
+                createdAt: new Date(),
+                addedByAdmin: true
+            };
+            await db.collection('external_draft_registrations').insertOne(registration);
+            const stats = await getRegistrationStats(db, tournamentId);
+            res.json({ success: true, stats });
+        } catch (error) {
+            res.status(500).json({ error: 'Error interno.' });
+        }
+    });
+
+    // GET: Exportar lista WhatsApp (texto plano)
+    app.get('/api/external-draft/export-text/:tournamentId', isAdmin, async (req, res) => {
+        try {
+            const { tournamentId } = req.params;
+            const db = getDb();
+            const registrations = await db.collection('external_draft_registrations')
+                .find({ tournamentId })
+                .sort({ createdAt: 1 })
+                .toArray();
+
+            const groups = { GK: [], DFC: [], CARR: [], MC: [], DC: [] };
+            registrations.forEach(r => {
+                if (groups[r.position]) groups[r.position].push(r);
+            });
+
+            const posEmojis = { GK: '🥅', DFC: '🧱', CARR: '⚡', MC: '🎩', DC: '🏟' };
+            const posNames = { GK: 'PORTEROS', DFC: 'DEFENSAS', CARR: 'CARRILEROS', MC: 'MEDIOS', DC: 'DELANTEROS' };
+
+            let text = '';
+            for (const pos of ['GK', 'DFC', 'CARR', 'MC', 'DC']) {
+                text += `${posNames[pos]}${posEmojis[pos]}\n\n`;
+                groups[pos].forEach((r, i) => {
+                    text += `${i + 1}. ${r.gameId}\n📲${r.whatsapp}\n`;
+                });
+                text += '\n';
+            }
+
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            res.send(text);
+        } catch (error) {
+            res.status(500).json({ error: 'Error interno.' });
+        }
+    });
+
+    // --- FIN SISTEMA DE INSCRIPCIÓN WEB ---
     app.get('/api/search-verified-users', async (req, res) => {
         try {
             const query = req.query.q || '';

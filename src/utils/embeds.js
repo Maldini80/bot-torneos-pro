@@ -243,7 +243,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    // ROW 4: Destructive actions
+    // ROW 4: Destructive actions + External Draft tools (roulette, import)
     row4.addComponents(
         new ButtonBuilder()
             .setCustomId(`admin_end_tournament:${tournament.shortId}`)
@@ -253,25 +253,63 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setDisabled(isBusy)
     );
 
-    // ROW 5: External Draft specific actions
-    const row5 = new ActionRowBuilder();
     if (tournament.config.paidSubType === 'draft') {
-        row5.addComponents(
+        row4.addComponents(
             new ButtonBuilder()
                 .setCustomId(`admin_draft_ext_roulette:${tournament.shortId}`)
-                .setLabel('Seleccionar capitanes por ruleta')
+                .setLabel('Ruleta Capitanes')
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji('🎲')
                 .setDisabled(isBusy),
             new ButtonBuilder()
                 .setCustomId(`admin_draft_ext_pickorder:${tournament.shortId}`)
-                .setLabel('Sortear Orden de Picks')
+                .setLabel('Orden Picks')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('🏆')
                 .setDisabled(isBusy),
             new ButtonBuilder()
                 .setCustomId(`admin_draft_ext_import_start:${tournament.shortId}`)
-                .setLabel('Importar desde WhatsApp')
+                .setLabel('Importar WA')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📥')
+                .setDisabled(isBusy)
+        );
+    }
+
+    // ROW 5: External Draft - Registration Management
+    const row5 = new ActionRowBuilder();
+    if (tournament.config.paidSubType === 'draft') {
+        // regOpen: explicitly false means open, true means closed, undefined means never configured
+        const regOpen = tournament.registrationsClosed === false;
+        const regClosed = tournament.registrationsClosed === true;
+        row5.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_open:${tournament.shortId}`)
+                .setLabel('Abrir Inscripciones')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('📋')
+                .setDisabled(isBusy || regOpen),
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_close:${tournament.shortId}`)
+                .setLabel('Cerrar Jugadores / Abrir Capis')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔄')
+                .setDisabled(isBusy || !regOpen),
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_link:${tournament.shortId}`)
+                .setLabel('Link')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🔗')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_summary:${tournament.shortId}`)
+                .setLabel('Ver Inscritos')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📊')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_export_text:${tournament.shortId}`)
+                .setLabel('Exportar Lista')
                 .setStyle(ButtonStyle.Secondary)
                 .setEmoji('📥')
                 .setDisabled(isBusy)

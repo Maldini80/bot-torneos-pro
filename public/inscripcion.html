@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BLITZ - Inscripción Draft Externo</title>
+    <link rel="stylesheet" href="style.css?v=2.0.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700;900&family=Rajdhani:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: #050510;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        /* Background */
+        .reg-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at 50% 0%, rgba(0, 255, 255, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 100%, rgba(138, 43, 226, 0.06) 0%, transparent 50%),
+                #050510;
+            z-index: 0;
+        }
+
+        /* Main container */
+        .reg-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+            padding: 2rem 1.5rem;
+            margin: 1rem;
+        }
+
+        /* Logo */
+        .reg-logo {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .reg-logo img {
+            width: 80px;
+            height: 80px;
+            filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.3));
+        }
+
+        /* Title */
+        .reg-title {
+            font-family: 'Exo 2', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            text-align: center;
+            background: linear-gradient(135deg, #00ffff, #8a2be2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.3rem;
+        }
+
+        .reg-tournament-name {
+            text-align: center;
+            font-size: 1.1rem;
+            color: #aaa;
+            margin-bottom: 2rem;
+        }
+
+        /* Card */
+        .reg-card {
+            background: rgba(15, 15, 30, 0.85);
+            border: 1px solid rgba(0, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 2rem 1.5rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Login state */
+        .login-prompt {
+            text-align: center;
+            color: #ccc;
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .discord-login-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 16px 24px;
+            background: #5865F2;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            font-family: 'Rajdhani', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .discord-login-btn:hover {
+            background: #4752C4;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(88, 101, 242, 0.4);
+        }
+
+        .discord-login-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Logged in header */
+        .reg-user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 1.5rem;
+            padding: 12px 16px;
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 255, 0.15);
+            border-radius: 12px;
+        }
+
+        .reg-user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #00ffff;
+        }
+
+        .reg-user-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .reg-user-check {
+            margin-left: auto;
+            color: #2ecc71;
+            font-size: 1.2rem;
+        }
+
+        /* Form */
+        .reg-form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .reg-form-group label {
+            display: block;
+            color: #00ffff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .reg-form-group input,
+        .reg-form-group select {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(10, 10, 25, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            font-family: 'Rajdhani', sans-serif;
+            transition: border-color 0.3s;
+            -webkit-appearance: none;
+        }
+
+        .reg-form-group input:focus,
+        .reg-form-group select:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 12px rgba(0, 255, 255, 0.15);
+        }
+
+        .reg-form-group input.error,
+        .reg-form-group select.error {
+            border-color: #e74c3c;
+        }
+
+        .reg-form-group .error-msg {
+            color: #e74c3c;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .reg-form-group .error-msg.visible {
+            display: block;
+        }
+
+        /* Submit button */
+        .reg-submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #00ffff, #0088aa);
+            color: #050510;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            font-family: 'Exo 2', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .reg-submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 255, 255, 0.3);
+        }
+
+        .reg-submit-btn:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Already registered view */
+        .reg-status-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            background: rgba(46, 204, 113, 0.1);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            border-radius: 10px;
+            color: #2ecc71;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .reg-data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .reg-data-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .reg-data-value {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .reg-action-btns {
+            display: flex;
+            gap: 12px;
+            margin-top: 1.5rem;
+        }
+
+        .reg-edit-btn {
+            flex: 1;
+            padding: 14px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: 'Rajdhani', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .reg-edit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+
+        .reg-unsub-btn {
+            flex: 1;
+            padding: 14px;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: 'Rajdhani', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .reg-unsub-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        /* Closed state */
+        .reg-closed-icon {
+            text-align: center;
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .reg-closed-text {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #e74c3c;
+            font-weight: 700;
+        }
+
+        /* Not member */
+        .reg-not-member-text {
+            text-align: center;
+            color: #f39c12;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .discord-join-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background: #5865F2;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        /* Status message */
+        .reg-status-msg {
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-weight: 600;
+            display: none;
+        }
+
+        .reg-status-msg.success {
+            display: block;
+            background: rgba(46, 204, 113, 0.15);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            color: #2ecc71;
+        }
+
+        .reg-status-msg.error {
+            display: block;
+            background: rgba(231, 76, 60, 0.15);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            color: #e74c3c;
+        }
+
+        /* Loading spinner */
+        .reg-loading {
+            text-align: center;
+            padding: 3rem 0;
+            color: #888;
+        }
+
+        .reg-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 255, 255, 0.2);
+            border-top-color: #00ffff;
+            border-radius: 50%;
+            animation: regSpin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes regSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Counter */
+        .reg-counter {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding: 10px;
+            background: rgba(0, 255, 255, 0.05);
+            border-radius: 8px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+
+        .reg-counter strong {
+            color: #00ffff;
+        }
+
+        /* Confirm modal */
+        .reg-confirm-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .reg-confirm-overlay.visible {
+            display: flex;
+        }
+
+        .reg-confirm-box {
+            background: #1a1a2e;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 380px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .reg-confirm-box h3 {
+            margin-bottom: 1rem;
+            color: #e74c3c;
+        }
+
+        .reg-confirm-box p {
+            color: #ccc;
+            margin-bottom: 1.5rem;
+        }
+
+        .reg-confirm-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .reg-confirm-yes {
+            flex: 1;
+            padding: 12px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+        }
+
+        .reg-confirm-no {
+            flex: 1;
+            padding: 12px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+        }
+
+        /* Footer */
+        .reg-footer {
+            text-align: center;
+            color: #444;
+            font-size: 0.8rem;
+            margin-top: 2rem;
+            padding-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Responsive */
+        @media (max-width: 520px) {
+            .reg-container {
+                padding: 1rem;
+                margin: 0.5rem;
+            }
+
+            .reg-title {
+                font-size: 1.5rem;
+            }
+
+            .reg-card {
+                padding: 1.5rem 1rem;
+            }
+
+            .reg-action-btns {
+                flex-direction: column;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="reg-bg"></div>
+
+    <div class="reg-container">
+        <!-- Logo -->
+        <div class="reg-logo">
+            <img src="logo-the-blitz.png" alt="THE BLITZ">
+        </div>
+
+        <h1 class="reg-title">INSCRIPCIÓN AL DRAFT</h1>
+        <p class="reg-tournament-name" id="tournament-name">Cargando...</p>
+
+        <!-- Loading state -->
+        <div class="reg-card" id="state-loading">
+            <div class="reg-loading">
+                <div class="reg-spinner"></div>
+                <p>Cargando datos...</p>
+            </div>
+        </div>
+
+        <!-- Login state -->
+        <div class="reg-card hidden" id="state-login">
+            <p class="login-prompt">Para inscribirte necesitas iniciar sesión con tu cuenta de Discord.</p>
+            <a href="/login" class="discord-login-btn" id="login-btn">
+                <svg width="24" height="24" viewBox="0 0 71 55" fill="none">
+                    <path
+                        d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.504 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3935 44.2785 53.4831 44.2898 53.5502 44.3433C53.9057 44.6363 54.2779 44.9293 54.6529 45.2082C54.7816 45.304 54.7732 45.504 54.6333 45.5858C52.8646 46.6197 51.0259 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.038 50.6034 51.2554 52.5699 52.5959 54.435C52.6519 54.5139 52.7526 54.5477 52.845 54.5195C58.6464 52.7249 64.529 50.0174 70.6019 45.5576C70.6551 45.5182 70.6887 45.459 70.6943 45.3942C72.1747 30.0791 68.2147 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978Z"
+                        fill="white" />
+                </svg>
+                INICIAR SESIÓN CON DISCORD
+            </a>
+        </div>
+
+        <!-- Not member state -->
+        <div class="reg-card hidden" id="state-not-member">
+            <p class="reg-not-member-text">⚠️ Debes estar en el servidor de Discord de THE BLITZ para inscribirte.</p>
+            <a href="https://discord.gg/zEy9ztp8QM" target="_blank" class="discord-join-btn">Unirse al Servidor de
+                Discord</a>
+        </div>
+
+        <!-- Closed state -->
+        <div class="reg-card hidden" id="state-closed">
+            <div class="reg-closed-icon">🔒</div>
+            <p class="reg-closed-text">Las inscripciones están cerradas</p>
+        </div>
+
+        <!-- Error state -->
+        <div class="reg-card hidden" id="state-error">
+            <div class="reg-closed-icon">❌</div>
+            <p class="reg-closed-text" id="error-message">Este torneo no existe o no está disponible.</p>
+        </div>
+
+        <!-- Registration form -->
+        <div class="reg-card hidden" id="state-form">
+            <div class="reg-user-info">
+                <img class="reg-user-avatar" id="user-avatar" src="" alt="">
+                <span class="reg-user-name" id="user-name"></span>
+                <span class="reg-user-check">✅</span>
+            </div>
+
+            <form id="registration-form">
+                <div class="reg-form-group">
+                    <label for="field-gameid">ID de Jugador</label>
+                    <input type="text" id="field-gameid" placeholder="Tu ID en el juego" required minlength="2"
+                        maxlength="50">
+                    <p class="error-msg" id="err-gameid">Este campo es obligatorio</p>
+                </div>
+
+                <div class="reg-form-group">
+                    <label for="field-whatsapp">WhatsApp</label>
+                    <input type="tel" id="field-whatsapp" placeholder="612345678" required>
+                    <p class="error-msg" id="err-whatsapp">Introduce un número de WhatsApp válido</p>
+                </div>
+
+                <div class="reg-form-group">
+                    <label for="field-position">Posición</label>
+                    <select id="field-position" required>
+                        <option value="" disabled selected>Selecciona tu posición...</option>
+                        <option value="GK">🥅 Portero</option>
+                        <option value="DFC">🧱 Defensa</option>
+                        <option value="CARR">⚡ Carrilero</option>
+                        <option value="MC">🎩 Medio</option>
+                        <option value="DC">🏟️ Delantero</option>
+                    </select>
+                    <p class="error-msg" id="err-position">Debes seleccionar una posición</p>
+                </div>
+
+                <button type="submit" class="reg-submit-btn" id="submit-btn">INSCRIBIRSE</button>
+                <div class="reg-status-msg" id="form-status"></div>
+            </form>
+        </div>
+
+        <!-- Already registered state -->
+        <div class="reg-card hidden" id="state-registered">
+            <div class="reg-status-badge">✅ Ya estás inscrito</div>
+
+            <div class="reg-data-row">
+                <span class="reg-data-label">ID de Jugador</span>
+                <span class="reg-data-value" id="reg-gameid"></span>
+            </div>
+            <div class="reg-data-row">
+                <span class="reg-data-label">WhatsApp</span>
+                <span class="reg-data-value" id="reg-whatsapp"></span>
+            </div>
+            <div class="reg-data-row">
+                <span class="reg-data-label">Posición</span>
+                <span class="reg-data-value" id="reg-position"></span>
+            </div>
+
+            <div class="reg-action-btns">
+                <button class="reg-edit-btn" id="edit-btn">✏️ EDITAR DATOS</button>
+                <button class="reg-unsub-btn" id="unsub-btn">❌ DARME DE BAJA</button>
+            </div>
+            <div class="reg-status-msg" id="registered-status"></div>
+        </div>
+
+        <!-- Inscription counter -->
+        <div class="reg-counter hidden" id="reg-counter">
+            <strong id="counter-total">0</strong> inscritos —
+            <span id="counter-breakdown"></span>
+        </div>
+    </div>
+
+    <!-- Confirm unsubscribe modal -->
+    <div class="reg-confirm-overlay" id="confirm-overlay">
+        <div class="reg-confirm-box">
+            <h3>⚠️ Confirmar baja</h3>
+            <p>¿Estás seguro de que quieres darte de baja? Se borrarán todos tus datos de inscripción.</p>
+            <div class="reg-confirm-btns">
+                <button class="reg-confirm-yes" id="confirm-yes">SÍ, DARME DE BAJA</button>
+                <button class="reg-confirm-no" id="confirm-no">CANCELAR</button>
+            </div>
+        </div>
+    </div>
+
+    <p class="reg-footer">Powered by THE BLITZ © 2026</p>
+
+    <script>
+        // === REGISTRATION PAGE CONTROLLER ===
+        const pathParts = window.location.pathname.split('/');
+        const tournamentId = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
+        let currentUser = null;
+        let currentRegistration = null;
+
+        const POSITION_LABELS = {
+            'GK': '🥅 Portero',
+            'DFC': '🧱 Defensa',
+            'CARR': '⚡ Carrilero',
+            'MC': '🎩 Medio',
+            'DC': '🏟️ Delantero'
+        };
+
+        const POSITION_SHORT = {
+            'GK': 'POR', 'DFC': 'DFC', 'CARR': 'CARR', 'MC': 'MC', 'DC': 'DC'
+        };
+
+        // Show/hide states
+        function showState(stateId) {
+            ['state-loading', 'state-login', 'state-not-member', 'state-closed',
+                'state-error', 'state-form', 'state-registered'].forEach(id => {
+                    document.getElementById(id).classList.add('hidden');
+                });
+            document.getElementById(stateId).classList.remove('hidden');
+        }
+
+        // Normalize WhatsApp number
+        function normalizeWhatsApp(number) {
+            let clean = number.replace(/[\s\-\(\)\.]/g, '');
+            clean = clean.replace(/^(\+34|0034)/, '');
+            return clean;
+        }
+
+        // Update counter
+        function updateCounter(stats) {
+            if (!stats) return;
+            const counterEl = document.getElementById('reg-counter');
+            const totalEl = document.getElementById('counter-total');
+            const breakdownEl = document.getElementById('counter-breakdown');
+
+            const total = (stats.GK || 0) + (stats.DFC || 0) + (stats.CARR || 0) + (stats.MC || 0) + (stats.DC || 0);
+            totalEl.textContent = total;
+            breakdownEl.textContent = `${stats.GK || 0} POR · ${stats.DFC || 0} DFC · ${stats.CARR || 0} CARR · ${stats.MC || 0} MC · ${stats.DC || 0} DC`;
+            counterEl.classList.remove('hidden');
+        }
+
+        // Initialize
+        async function init() {
+            if (!tournamentId) {
+                showState('state-error');
+                document.getElementById('error-message').textContent = 'URL inválida. No se especificó ningún torneo.';
+                return;
+            }
+
+            // Save the return URL for after login
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.href = `/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+
+            try {
+                // Check auth
+                const authRes = await fetch('/api/check-membership');
+                const authData = await authRes.json();
+
+                if (!authData.authenticated) {
+                    showState('state-login');
+                    // Still try to load tournament name and counter
+                    await loadTournamentInfo();
+                    return;
+                }
+
+                currentUser = authData.user;
+
+                if (!authData.isMember) {
+                    showState('state-not-member');
+                    await loadTournamentInfo();
+                    return;
+                }
+
+                // Check registration status
+                const regRes = await fetch(`/api/external-draft/registration/${tournamentId}`);
+                const regData = await regRes.json();
+
+                if (regRes.status === 404) {
+                    showState('state-error');
+                    document.getElementById('error-message').textContent = regData.error || 'Torneo no encontrado.';
+                    return;
+                }
+
+                // Set tournament name
+                if (regData.tournamentName) {
+                    document.getElementById('tournament-name').textContent = regData.tournamentName;
+                }
+
+                // Update counter
+                if (regData.stats) {
+                    updateCounter(regData.stats);
+                }
+
+                // Check if inscriptions are closed
+                if (regData.closed) {
+                    showState('state-closed');
+                    return;
+                }
+
+                // Show user info
+                const avatarHash = currentUser.avatar;
+                const avatarUrl = avatarHash
+                    ? `https://cdn.discordapp.com/avatars/${currentUser.id}/${avatarHash}.png`
+                    : 'https://cdn.discordapp.com/embed/avatars/0.png';
+                document.getElementById('user-avatar').src = avatarUrl;
+                document.getElementById('user-name').textContent = currentUser.global_name || currentUser.username;
+
+                if (regData.registration) {
+                    // Already registered
+                    currentRegistration = regData.registration;
+                    showRegisteredState(regData.registration);
+                } else {
+                    // Show form — pre-fill if previous data exists
+                    if (regData.previousData) {
+                        document.getElementById('field-gameid').value = regData.previousData.gameId || '';
+                        document.getElementById('field-whatsapp').value = regData.previousData.whatsapp || '';
+                    }
+                    showState('state-form');
+                }
+
+            } catch (err) {
+                console.error('Init error:', err);
+                showState('state-error');
+                document.getElementById('error-message').textContent = 'Error de conexión. Intenta de nuevo.';
+            }
+        }
+
+        async function loadTournamentInfo() {
+            try {
+                const res = await fetch(`/api/external-draft/registration/${tournamentId}/info`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.tournamentName) {
+                        document.getElementById('tournament-name').textContent = data.tournamentName;
+                    }
+                    if (data.stats) updateCounter(data.stats);
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        function showRegisteredState(reg) {
+            document.getElementById('reg-gameid').textContent = reg.gameId;
+            document.getElementById('reg-whatsapp').textContent = reg.whatsapp;
+            document.getElementById('reg-position').textContent = POSITION_LABELS[reg.position] || reg.position;
+            showState('state-registered');
+        }
+
+        // Form submission
+        document.getElementById('registration-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const gameId = document.getElementById('field-gameid').value.trim();
+            const whatsapp = document.getElementById('field-whatsapp').value.trim();
+            const position = document.getElementById('field-position').value;
+            let valid = true;
+
+            // Validate
+            if (!gameId) {
+                document.getElementById('err-gameid').classList.add('visible');
+                document.getElementById('field-gameid').classList.add('error');
+                valid = false;
+            } else {
+                document.getElementById('err-gameid').classList.remove('visible');
+                document.getElementById('field-gameid').classList.remove('error');
+            }
+
+            const normalizedWA = normalizeWhatsApp(whatsapp);
+            if (!normalizedWA || normalizedWA.length < 6) {
+                document.getElementById('err-whatsapp').classList.add('visible');
+                document.getElementById('field-whatsapp').classList.add('error');
+                valid = false;
+            } else {
+                document.getElementById('err-whatsapp').classList.remove('visible');
+                document.getElementById('field-whatsapp').classList.remove('error');
+            }
+
+            if (!position) {
+                document.getElementById('err-position').classList.add('visible');
+                document.getElementById('field-position').classList.add('error');
+                valid = false;
+            } else {
+                document.getElementById('err-position').classList.remove('visible');
+                document.getElementById('field-position').classList.remove('error');
+            }
+
+            if (!valid) return;
+
+            const btn = document.getElementById('submit-btn');
+            const statusEl = document.getElementById('form-status');
+            btn.disabled = true;
+            btn.textContent = 'INSCRIBIENDO...';
+            statusEl.className = 'reg-status-msg';
+            statusEl.style.display = 'none';
+
+            try {
+                const res = await fetch(`/api/external-draft/register/${tournamentId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gameId, whatsapp: normalizedWA, position })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    statusEl.textContent = '✅ ¡Te has inscrito correctamente!';
+                    statusEl.className = 'reg-status-msg success';
+                    if (data.stats) updateCounter(data.stats);
+                    // Show registered state after brief delay
+                    setTimeout(() => {
+                        currentRegistration = data.registration;
+                        showRegisteredState(data.registration);
+                    }, 1500);
+                } else {
+                    statusEl.textContent = '❌ ' + (data.error || 'Error al inscribirse');
+                    statusEl.className = 'reg-status-msg error';
+                    btn.disabled = false;
+                    btn.textContent = 'INSCRIBIRSE';
+                }
+            } catch (err) {
+                statusEl.textContent = '❌ Error de conexión. Intenta de nuevo.';
+                statusEl.className = 'reg-status-msg error';
+                btn.disabled = false;
+                btn.textContent = 'INSCRIBIRSE';
+            }
+        });
+
+        // Edit button
+        document.getElementById('edit-btn').addEventListener('click', () => {
+            if (!currentRegistration) return;
+            // Pre-fill form with current data
+            document.getElementById('field-gameid').value = currentRegistration.gameId;
+            document.getElementById('field-whatsapp').value = currentRegistration.whatsapp;
+            document.getElementById('field-position').value = currentRegistration.position;
+            // Change submit button to "update"
+            document.getElementById('submit-btn').textContent = 'GUARDAR CAMBIOS';
+            showState('state-form');
+        });
+
+        // Unsubscribe
+        document.getElementById('unsub-btn').addEventListener('click', () => {
+            document.getElementById('confirm-overlay').classList.add('visible');
+        });
+
+        document.getElementById('confirm-no').addEventListener('click', () => {
+            document.getElementById('confirm-overlay').classList.remove('visible');
+        });
+
+        document.getElementById('confirm-yes').addEventListener('click', async () => {
+            const btn = document.getElementById('confirm-yes');
+            btn.disabled = true;
+            btn.textContent = 'PROCESANDO...';
+
+            try {
+                const res = await fetch(`/api/external-draft/register/${tournamentId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    document.getElementById('confirm-overlay').classList.remove('visible');
+                    currentRegistration = null;
+                    // Reset form
+                    document.getElementById('registration-form').reset();
+                    document.getElementById('submit-btn').textContent = 'INSCRIBIRSE';
+                    const statusEl = document.getElementById('form-status');
+                    statusEl.textContent = '✅ Te has dado de baja correctamente.';
+                    statusEl.className = 'reg-status-msg success';
+                    showState('state-form');
+                    if (data.stats) updateCounter(data.stats);
+                } else {
+                    alert(data.error || 'Error al darse de baja');
+                }
+            } catch (err) {
+                alert('Error de conexión');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'SÍ, DARME DE BAJA';
+        });
+
+        // Clear errors on input
+        document.querySelectorAll('#registration-form input, #registration-form select').forEach(el => {
+            el.addEventListener('input', () => {
+                el.classList.remove('error');
+                const errId = 'err-' + el.id.replace('field-', '');
+                const errEl = document.getElementById(errId);
+                if (errEl) errEl.classList.remove('visible');
+            });
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+
+</html>

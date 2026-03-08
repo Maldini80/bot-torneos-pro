@@ -3908,4 +3908,135 @@ export async function handleButton(interaction) {
         }
         return;
     }
+
+    // ========================================================
+    // --- BOTONES DE GESTIÓN DE INSCRIPCIONES WEB (DRAFT EXTERNO) ---
+    // ========================================================
+
+    // Abrir inscripciones de jugadores
+    if (action === 'ext_reg_open') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+
+        // Crear hilo de log en el canal de avisos
+        const notifChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID).catch(() => null);
+        let threadId = tournament.registrationLogThreadId;
+
+        if (!threadId && notifChannel) {
+            const thread = await notifChannel.threads.create({
+                name: `📋 Log Inscripciones — ${tournament.nombre}`,
+                reason: 'Log automático de inscripciones de jugadores'
+            });
+            threadId = thread.id;
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { $set: { registrationLogThreadId: threadId, registrationsClosed: false } }
+            );
+            await thread.send(`📋 **Log de Inscripciones — ${tournament.nombre}**\nAquí se registrarán automáticamente todas las inscripciones, ediciones y bajas de jugadores.`);
+        } else {
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { $set: { registrationsClosed: false } }
+            );
+        }
+
+        const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
+        return interaction.editReply(`✅ **Inscripciones abiertas**\n\n📋 Link: ${link}\n${threadId ? `📝 Log: <#${threadId}>` : ''}\n\nComparte este link en WhatsApp o Discord.`);
+    }
+
+    // Generar link de inscripción
+    if (action === 'ext_reg_link') {
+        const [tournamentShortId] = params;
+        const link = `${process.env.BASE_URL}/inscripcion/${tournamentShortId}`;
+        return interaction.reply({
+            content: `📋 **Link de inscripción:**\n${link}`,
+            flags: [MessageFlags.Ephemeral]
+        });
+    }
+
+    // Ver resumen de inscritos
+    if (action === 'ext_reg_summary') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+
+        const pipeline = [
+            { $match: { tournamentId: tournamentShortId } },
+            { $group: { _id: '$position', count: { $sum: 1 } } }
+        ];
+        const results = await db.collection('external_draft_registrations').aggregate(pipeline).toArray();
+        const stats = { GK: 0, DFC: 0, CARR: 0, MC: 0, DC: 0 };
+        results.forEach(r => { if (stats.hasOwnProperty(r._id)) stats[r._id] = r.count; });
+        const total = Object.values(stats).reduce((a, b) => a + b, 0);
+
+        return interaction.editReply(`📊 **Resumen de Inscritos**\n\n**Total: ${total}**\n🥅 Portero: ${stats.GK}\n🧱 Defensa: ${stats.DFC}\n⚡ Carrilero: ${stats.CARR}\n🎩 Medio: ${stats.MC}\n🏟️ Delantero: ${stats.DC}`);
+    }
+
+    // Cerrar inscripciones jugadores / Abrir capitanes
+    if (action === 'ext_reg_close') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { registrationsClosed: true } }
+        );
+
+        // Log
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (tournament && tournament.registrationLogThreadId) {
+            const logChannel = await client.channels.fetch(tournament.registrationLogThreadId).catch(() => null);
+            if (logChannel) {
+                const pipeline = [
+                    { $match: { tournamentId: tournamentShortId } },
+                    { $group: { _id: '$position', count: { $sum: 1 } } }
+                ];
+                const results = await db.collection('external_draft_registrations').aggregate(pipeline).toArray();
+                const stats = { GK: 0, DFC: 0, CARR: 0, MC: 0, DC: 0 };
+                results.forEach(r => { if (stats.hasOwnProperty(r._id)) stats[r._id] = r.count; });
+                const total = Object.values(stats).reduce((a, b) => a + b, 0);
+                await logChannel.send(`🔒 **INSCRIPCIONES CERRADAS**\n\n**Total final: ${total} inscritos**\n🥅 ${stats.GK} POR · 🧱 ${stats.DFC} DFC · ⚡ ${stats.CARR} CARR · 🎩 ${stats.MC} MC · 🏟️ ${stats.DC} DC`);
+            }
+        }
+
+        return interaction.editReply('✅ **Inscripciones de jugadores cerradas.** El formulario web ahora muestra "Inscripciones cerradas". Puedes abrir la inscripción de capitanes.');
+    }
+
+    // Exportar lista WhatsApp (texto)
+    if (action === 'ext_reg_export_text') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+
+        const registrations = await db.collection('external_draft_registrations')
+            .find({ tournamentId: tournamentShortId })
+            .sort({ createdAt: 1 })
+            .toArray();
+
+        if (registrations.length === 0) {
+            return interaction.editReply('No hay inscritos aún.');
+        }
+
+        const groups = { GK: [], DFC: [], CARR: [], MC: [], DC: [] };
+        registrations.forEach(r => { if (groups[r.position]) groups[r.position].push(r); });
+
+        const posEmojis = { GK: '🥅', DFC: '🧱', CARR: '⚡', MC: '🎩', DC: '🏟' };
+        const posNames = { GK: 'PORTEROS', DFC: 'DEFENSAS', CARR: 'CARRILEROS', MC: 'MEDIOS', DC: 'DELANTEROS' };
+
+        let text = '';
+        for (const pos of ['GK', 'DFC', 'CARR', 'MC', 'DC']) {
+            text += `${posNames[pos]}${posEmojis[pos]}\n\n`;
+            groups[pos].forEach((r, i) => {
+                text += `${i + 1}. ${r.gameId}\n📲${r.whatsapp}\n`;
+            });
+            text += '\n';
+        }
+
+        // Send as text file to avoid Discord character limit
+        const buffer = Buffer.from(text, 'utf-8');
+        return interaction.editReply({
+            content: `📋 Lista de ${registrations.length} inscritos:`,
+            files: [{ attachment: buffer, name: `inscritos_${tournamentShortId}.txt` }]
+        });
+    }
 }
