@@ -2661,11 +2661,37 @@ export async function handleButton(interaction) {
     }
 
     if (action === 'darse_baja_start') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
+        if (!tournament) return interaction.reply({ content: "Error: Torneo no encontrado.", flags: [MessageFlags.Ephemeral] });
 
+        // --- NUEVA LÓGICA: COMPROBAR SI ES JUGADOR DRAFT EXTERNO ---
+        if (tournament.config && tournament.config.isPaid && tournament.config.paidSubType === 'draft') {
+            const playerReg = await db.collection('external_draft_registrations').findOne({
+                tournamentId: tournamentShortId,
+                userId: interaction.user.id
+            });
+
+            if (playerReg) {
+                // Eliminar jugador de external_draft_registrations
+                await db.collection('external_draft_registrations').deleteOne({
+                    tournamentId: tournamentShortId,
+                    userId: interaction.user.id
+                });
+
+                if (tournament.registrationLogThreadId) {
+                    const logChannel = await client.channels.fetch(tournament.registrationLogThreadId).catch(() => null);
+                    if (logChannel) {
+                        await logChannel.send(`❌ **BAJA JUGADOR (Discord Botón Rojo):** <@${interaction.user.id}> (${playerReg.gameId}) se ha dado de baja. Liberada plaza de **${playerReg.position}**.`);
+                    }
+                }
+
+                return interaction.reply({ content: `✅ **Baja completada.** Te has dado de baja de este Draft correctamente. Ya no ocupas plaza.`, flags: [MessageFlags.Ephemeral] });
+            }
+        }
+        // --- FIN LÓGICA JUGADOR ---
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const result = await requestUnregister(client, tournament, interaction.user.id);
         await interaction.editReply({ content: result.message });
         return;
