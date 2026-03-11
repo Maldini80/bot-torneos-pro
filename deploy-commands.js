@@ -32,6 +32,26 @@ const commands = [
             option.setName('titulo')
                 .setDescription('El texto principal que aparecerá en la imagen.')
                 .setRequired(true)),
+     new SlashCommandBuilder()
+        .setName('promocionar-whatsapp')
+        .setDescription('Envía un Dm masivo a TODOS los miembros del servidor con un anuncio y link de WhatsApp.')
+        .setDefaultMemberPermissions(0) // 0 significa administrador
+        .addStringOption(option =>
+            option.setName('titulo')
+                .setDescription('Título principal del mensaje')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('texto')
+                .setDescription('El texto explicativo o llamada a la acción')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('enlace_whatsapp')
+                .setDescription('El link de invitación al grupo (ej: https://chat.whatsapp.com/...)')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('url_imagen_imgur')
+                .setDescription('Opcional: URL directa de la imagen en Imgur (ej: https://i.imgur.com/foto.png)')
+                .setRequired(false)),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);
