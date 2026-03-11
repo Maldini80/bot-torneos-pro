@@ -4120,7 +4120,8 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return;
 
-        const notifChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID).catch(() => null);
+        // Fetching the specifically requested channel for logs
+        const notifChannel = await client.channels.fetch('1402099941685465168').catch(() => null);
         let threadId = tournament.registrationLogThreadId;
 
         if (!threadId && notifChannel) {
@@ -4133,7 +4134,11 @@ export async function handleButton(interaction) {
                 { shortId: tournamentShortId },
                 { $set: { registrationLogThreadId: threadId, registrationsClosed: false } }
             );
-            await thread.send(`📋 **Log de Inscripciones — ${tournament.nombre}**\nAquí se registran las inscripciones web.`);
+            try {
+                await thread.send(`📋 **Log de Inscripciones — ${tournament.nombre}**\nAquí se registran las inscripciones web. <@&${ARBITRO_ROLE_ID}>`);
+            } catch (e) {
+                console.error(`Error al enviar mensaje inicial al hilo de logs:`, e);
+            }
         } else {
             await db.collection('tournaments').updateOne(
                 { shortId: tournamentShortId },

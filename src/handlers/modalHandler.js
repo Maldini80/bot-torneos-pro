@@ -270,8 +270,26 @@ export async function handleModal(interaction) {
         if (tournament && tournament.registrationLogThreadId) {
             const logChannel = await client.channels.fetch(tournament.registrationLogThreadId).catch(() => null);
             if (logChannel) {
-                const actionText = result.matchedCount > 0 ? '✏️ MODIFICACIÓN JUGADOR (Discord)' : '✅ NUEVO JUGADOR (Discord)';
-                await logChannel.send(`${actionText}:\nUsuario: <@${interaction.user.id}>\nID: ${gameId}\nPosición: **${position}**`);
+                // Generar estadísticas agregadas idénticas a la web
+                const pipeline = [
+                    { $match: { tournamentId: tournamentShortId } },
+                    { $group: { _id: '$position', count: { $sum: 1 } } }
+                ];
+                const statsArray = await db.collection('external_draft_registrations').aggregate(pipeline).toArray();
+                const stats = { GK: 0, DFC: 0, CARR: 0, MC: 0, DC: 0 };
+                statsArray.forEach(r => { if (stats.hasOwnProperty(r._id)) stats[r._id] = r.count; });
+                const total = Object.values(stats).reduce((a, b) => a + b, 0);
+
+                const posNames = { GK: 'Portero', DFC: 'Defensa', CARR: 'Carrilero', MC: 'Medio', DC: 'Delantero' };
+                const posName = posNames[position] || position;
+                
+                const statsLine = `📊 Total: ${total} inscritos (${stats.GK} POR · ${stats.DFC} DFC · ${stats.CARR} CARR · ${stats.MC} MC · ${stats.DC} DC)`;
+                
+                if (result.matchedCount > 0) {
+                    await logChannel.send(`✏️ **${interaction.user.tag}** ha modificado su posición a **${posName}**\n${statsLine}`);
+                } else {
+                    await logChannel.send(`✅ **${interaction.user.tag}** se ha inscrito como **${posName}** — ID: \`${gameId}\`\n${statsLine}`);
+                }
             }
         }
 

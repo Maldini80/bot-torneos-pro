@@ -2215,7 +2215,12 @@ async function cleanupTournament(client, tournament) {
     for (const channelId of Object.values(discordChannelIds)) {
         await deleteResourceSafe(channelId);
     }
-    for (const threadId of [discordMessageIds.managementThreadId, discordMessageIds.notificationsThreadId, discordMessageIds.casterThreadId]) {
+    for (const threadId of [
+        discordMessageIds.managementThreadId,
+        discordMessageIds.notificationsThreadId,
+        discordMessageIds.casterThreadId,
+        tournament.registrationLogThreadId
+    ]) {
         await deleteResourceSafe(threadId);
     }
 
