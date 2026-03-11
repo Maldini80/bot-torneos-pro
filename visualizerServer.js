@@ -1281,6 +1281,11 @@ async function checkTeamPermissions(req, res, next) {
             }
         }
 
+        // Validar que el teamId tiene formato de ObjectId válido (24 caracteres hexadecimales)
+        if (!/^[a-fA-F0-9]{24}$/.test(teamId)) {
+            return res.status(400).json({ error: 'ID de equipo inválido' });
+        }
+
         const db = getDb('test'); // FIX: Equipos están en 'test'
         const team = await db.collection('teams').findOne({ _id: new ObjectId(teamId) });
         if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
