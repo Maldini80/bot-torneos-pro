@@ -5,6 +5,10 @@ import { createGlobalAdminPanel } from '../utils/embeds.js';
 import { languageRoles, CHANNELS } from '../../config.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
 import { generateHtmlImage } from '../utils/twitter.js';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const promocionarWhatsapp = require('../vpg_bot/commands/promocionar-whatsapp.js');
 
 export async function handleCommand(interaction) {
     const { commandName } = interaction;
@@ -154,6 +158,11 @@ export async function handleCommand(interaction) {
             content: `🔗 **Panel de Administración Web**\nAccede aquí para gestionar drafts en tiempo real:\n${url}`,
             flags: [MessageFlags.Ephemeral]
         });
+    }
+
+    if (commandName === 'promocionar-whatsapp') {
+        // Ejecutar el módulo exportado (CommonJS) desde nuestro entorno ESM 
+        await promocionarWhatsapp.execute(interaction);
     }
 }
 
