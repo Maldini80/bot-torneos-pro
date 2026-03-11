@@ -324,12 +324,21 @@ export async function handleSelectMenu(interaction) {
         const startIdx = pageIndex * pageSize;
         const pagePlayers = players.slice(startIdx, startIdx + pageSize);
 
-        const options = pagePlayers.map(p => ({
-            label: p.gameId || 'Desconocido',
-            description: `Discord: ${p.discordTag || 'Sin Tag'}`,
-            value: p.userId,
-            emoji: '👤'
-        }));
+        const options = pagePlayers
+            .filter(p => p.userId) // Filtrar jugadores sin userId válido
+            .map(p => ({
+                label: p.gameId || 'Desconocido',
+                description: `Discord: ${p.discordTag || 'Sin Tag'}`,
+                value: String(p.userId),
+                emoji: '👤'
+            }));
+
+        if (options.length === 0) {
+            return interaction.reply({
+                content: '❌ No se encontraron jugadores con datos válidos en esta posición.',
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`ext_reg_admin_kick_sel:${tournamentShortId}`)
