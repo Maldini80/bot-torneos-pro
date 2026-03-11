@@ -47,7 +47,8 @@ module.exports = {
                 return interaction.editReply({ content: '❌ No se encontraron usuarios humanos válidos en el servidor.' });
             }
 
-            await interaction.editReply({ content: `🔎 Se encontraron **${humanMembers.size}** miembros (excluidos bots). Iniciando el envío masivo... (recibirás una actualización cada 10 envíos)` });
+            // Enviar mensaje al usuario avisando de la transición a DM
+            await interaction.editReply({ content: `✅ ¡Proceso de envío masivo iniciado! Encontrados **${humanMembers.size}** miembros (excluidos bots).\n\n⚠️ Dado que el proceso tomará más de 15 minutos, **te enviaré las actualizaciones de progreso por Mensaje Directo (DM)** cada 50 envíos para evitar desconexiones.` });
 
             // 3. Crear el mensaje (Embed + Botón)
             const promoEmbed = new EmbedBuilder()
@@ -85,12 +86,13 @@ module.exports = {
                     failedCount++;
                 }
 
-                // Avisar del progreso cada 10 usuarios procesados
-                if (processedCount % 10 === 0 && processedCount < totalMembers) {
-                    await interaction.followUp({
-                        content: `⏳ Procesando... ${processedCount} de ${totalMembers} revisados. (Enviados: ${notifiedCount} | DMs Cerrados: ${failedCount})`,
-                        flags: MessageFlags.Ephemeral
-                    });
+                // Avisar del progreso cada 50 usuarios procesados POR DM AL ADMIN
+                if (processedCount % 50 === 0 && processedCount < totalMembers) {
+                    try {
+                        await interaction.user.send(`⏳ **[Progreso Comando Promocional]** ${processedCount} / ${totalMembers} revisados... (Entregados: ${notifiedCount} | DMs Cerrados: ${failedCount})`);
+                    } catch (dmError) {
+                         // Ignorar si el admin tiene DMs cerrados... irónico.
+                    }
                 }
 
                 // PAUSA CRÍTICA: 1 segundo de seguridad para evitar Rate Limits de Discord
@@ -103,16 +105,20 @@ module.exports = {
                                `👥 Miembros en el servidor: ${totalMembers}\n` +
                                `📬 Mensajes entregados con éxito: **${notifiedCount}**\n` +
                                `❌ DMs cerrados (no se pudo enviar): **${failedCount}**\n\n` +
-                               `*El anuncio ha terminado de circular por el servidor.*`;
+                               `*El anuncio ha terminado de circular por todo el servidor.*`;
 
-            await interaction.followUp({
-                content: finalMessage,
-                flags: MessageFlags.Ephemeral
-            });
+            try {
+                await interaction.user.send(finalMessage);
+            } catch (dmFinalError) {
+                console.log('[VPG] Promoción finalizada pero no se pudo DM al admin el reporte final.');
+            }
 
         } catch (error) {
             console.error('Error en /promocionar-whatsapp:', error);
-            await interaction.editReply({ content: '❌ Ocurrió un error grave al intentar recopilar la lista de miembros o procesar el envío.' });
+            try {
+                // Al capturar un error general (NO de caducidad webhooks), avisar al admin por DM si es posible.
+                await interaction.user.send(`❌ Ocurrió un error grave al procesar el envío masivo: ${error.message}`);
+            } catch(e) {}
         }
     },
 };
