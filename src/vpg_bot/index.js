@@ -141,12 +141,22 @@ async function startVpgBot() {
             if (!webhook) {
                 webhook = await message.channel.createWebhook({ name: webhookName, avatar: client.user.displayAvatarURL(), reason: 'Webhook para el chat de equipos' });
             }
-            await webhook.send({
-                content: message.content,
+            const webhookPayload = {
                 username: message.member.displayName,
                 avatarURL: team.logoUrl,
                 allowedMentions: { parse: ['users'] }
-            });
+            };
+            if (message.content) webhookPayload.content = message.content;
+            if (message.attachments.size > 0) {
+                webhookPayload.files = [...message.attachments.values()].map(a => ({
+                    attachment: a.url,
+                    name: a.name
+                }));
+            }
+            // Evitar enviar mensaje en blanco (ej: si era un sticker no soportado)
+            if (!webhookPayload.content && !webhookPayload.files) return;
+            
+            await webhook.send(webhookPayload);
         } catch (error) {
             if (error.code !== 10008) {
                 console.error(`[VPG] Error en la lógica del chat de equipo:`, error);
