@@ -26,7 +26,8 @@ module.exports = {
                 .setRequired(false)),
 
     async execute(interaction) {
-        // Responder en efímero para que solo el admin vea el progreso
+        // 🚨 MUY IMPORTANTE: Responder INMEDIATAMENTE a Discord para tener 15 minutos de tiempo de vida.
+        // Si no se hace esto antes del fetch, el comando caduca en 3 segundos y da "La aplicacion no responde"
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const titulo = interaction.options.getString('titulo');
@@ -35,8 +36,8 @@ module.exports = {
         const imagenUrl = interaction.options.getString('url_imagen_imgur');
 
         try {
-            // 1. Obtener la lista completa de miembros del servidor
-            await interaction.editReply({ content: '⏳ Recopilando lista de miembros del servidor... Esto puede tardar unos segundos.' });
+            // 1. Ahora sí, con el token asegurado, obtenemos la lista completa sin prisa
+            await interaction.editReply({ content: '⏳ Recopilando lista de miembros del servidor... Esto puede tardar unos segundos dependiendo del tamaño.' });
             const members = await interaction.guild.members.fetch();
             
             // 2. Filtrar para descartar bots
