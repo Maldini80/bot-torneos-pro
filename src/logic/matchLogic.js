@@ -226,8 +226,13 @@ export async function checkOverdueMatches(client) {
     if (activeTournaments.length === 0) return;
 
     for (const tournament of activeTournaments) {
+        // [VIGILANTE APAGADO TEMPORALMENTE]
+        // Desactivado para evitar condiciones de carrera al guardar resultados, 
+        // especialmente en sistema suizo gratuito.
+        continue;
+        
         // En torneos de pago, NO validamos automáticamente por inactividad.
-        if (tournament.config.isPaid) continue;
+        // if (tournament.config.isPaid) continue;
 
         const eliminatoriasRaw = tournament.structure.eliminatorias || {};
         const eliminatoriasMatches = Object.entries(eliminatoriasRaw)

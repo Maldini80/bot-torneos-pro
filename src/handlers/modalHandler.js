@@ -2000,9 +2000,15 @@ export async function handleModal(interaction) {
         if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('Error: Los goles deben ser números.');
         const resultString = `${golesA}-${golesB}`;
 
-        const processedMatch = await processMatchResult(client, guild, tournament, matchId, resultString);
-        await interaction.editReply(`✅ Resultado forzado a **${resultString}** por un administrador.`);
-        await finalizeMatchThread(client, processedMatch, resultString);
+        // Responder ANTES del procesamiento pesado para evitar expiración de la interacción o error 10008 (hilo borrado)
+        await interaction.editReply(`✅ Resultado forzado a **${resultString}** por un administrador. Procesando...`);
+
+        try {
+            const processedMatch = await processMatchResult(client, guild, tournament, matchId, resultString);
+            await finalizeMatchThread(client, processedMatch, resultString);
+        } catch (error) {
+            console.error(`[FORCE RESULT] Error al procesar resultado forzado para ${matchId}:`, error);
+        }
 
         return;
     }
