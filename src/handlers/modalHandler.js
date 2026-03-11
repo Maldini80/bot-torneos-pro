@@ -253,6 +253,7 @@ export async function handleModal(interaction) {
         const registrationData = {
             tournamentId: tournamentShortId,
             userId: interaction.user.id,
+            discordId: interaction.user.id,
             discordUsername: interaction.user.tag,
             gameId: gameId,
             whatsapp: whatsappNumber,
@@ -260,11 +261,21 @@ export async function handleModal(interaction) {
             timestamp: new Date()
         };
 
-        const result = await db.collection('external_draft_registrations').updateOne(
-            { tournamentId: tournamentShortId, userId: interaction.user.id },
-            { $set: registrationData },
-            { upsert: true }
-        );
+        const existingReg = await db.collection('external_draft_registrations').findOne({
+            tournamentId: tournamentShortId,
+            $or: [{ userId: interaction.user.id }, { discordId: interaction.user.id }]
+        });
+
+        let isUpdate = false;
+        if (existingReg) {
+            await db.collection('external_draft_registrations').updateOne(
+                { _id: existingReg._id },
+                { $set: registrationData }
+            );
+            isUpdate = true;
+        } else {
+            await db.collection('external_draft_registrations').insertOne(registrationData);
+        }
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (tournament && tournament.registrationLogThreadId) {
@@ -285,7 +296,7 @@ export async function handleModal(interaction) {
                 
                 const statsLine = `📊 Total: ${total} inscritos (${stats.GK} POR · ${stats.DFC} DFC · ${stats.CARR} CARR · ${stats.MC} MC · ${stats.DC} DC)`;
                 
-                if (result.matchedCount > 0) {
+                if (isUpdate) {
                     await logChannel.send(`✏️ **${interaction.user.tag}** ha modificado su posición a **${posName}**\n${statsLine}`);
                 } else {
                     await logChannel.send(`✅ **${interaction.user.tag}** se ha inscrito como **${posName}** — ID: \`${gameId}\`\n${statsLine}`);

@@ -2501,9 +2501,10 @@ export async function startVisualizerServer(discordClient) {
             if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado.' });
             if (tournament.registrationsClosed) return res.status(403).json({ error: 'Las inscripciones están cerradas.' });
 
-            // Check if already registered (by Discord ID)
+            // Check if already registered (by Discord ID or userId)
             const existing = await db.collection('external_draft_registrations').findOne({
-                tournamentId, discordId: req.user.id
+                tournamentId, 
+                $or: [{ discordId: req.user.id }, { userId: req.user.id }]
             });
             if (existing) {
                 // Update instead of create (edit flow)
@@ -2549,6 +2550,7 @@ export async function startVisualizerServer(discordClient) {
             const registration = {
                 tournamentId,
                 discordId: req.user.id,
+                userId: req.user.id,
                 discordUsername: req.user.global_name || req.user.username,
                 gameId: sanitizeInput(gameId, 50),
                 whatsapp: normalizedWA,
@@ -2583,7 +2585,8 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
 
             const registration = await db.collection('external_draft_registrations').findOne({
-                tournamentId, discordId: req.user.id
+                tournamentId, 
+                $or: [{ discordId: req.user.id }, { userId: req.user.id }]
             });
             if (!registration) return res.status(404).json({ error: 'No estás inscrito.' });
 

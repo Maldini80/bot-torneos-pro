@@ -2664,14 +2664,13 @@ export async function handleButton(interaction) {
         if (tournament.config && tournament.config.isPaid && tournament.config.paidSubType === 'draft') {
             const playerReg = await db.collection('external_draft_registrations').findOne({
                 tournamentId: tournamentShortId,
-                userId: interaction.user.id
+                $or: [{ userId: interaction.user.id }, { discordId: interaction.user.id }]
             });
 
             if (playerReg) {
                 // Eliminar jugador de external_draft_registrations
                 await db.collection('external_draft_registrations').deleteOne({
-                    tournamentId: tournamentShortId,
-                    userId: interaction.user.id
+                    _id: playerReg._id
                 });
 
                 if (tournament.registrationLogThreadId) {
@@ -4242,13 +4241,12 @@ export async function handleButton(interaction) {
 
         const existing = await db.collection('external_draft_registrations').findOne({
             tournamentId: tournamentShortId,
-            userId: interaction.user.id
+            $or: [{ userId: interaction.user.id }, { discordId: interaction.user.id }]
         });
 
         if (existing) {
             await db.collection('external_draft_registrations').deleteOne({
-                tournamentId: tournamentShortId,
-                userId: interaction.user.id
+                _id: existing._id
             });
 
             const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
