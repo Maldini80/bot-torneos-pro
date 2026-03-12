@@ -304,7 +304,7 @@ export async function handleModal(interaction) {
             }
         }
 
-        const replyMsg = result.matchedCount > 0
+        const replyMsg = isUpdate
             ? `✅ **Inscripción actualizada.** Tu posición ahora es **${position}** y tu ID es **${gameId}**.`
             : `✅ **¡Inscripción completada!** Te has registrado como **${position}** en el draft.\n\nPuedes volver a pulsar el botón de Inscribirme si necesitas modificar tus datos o darte de baja.`;
 
