@@ -2028,6 +2028,13 @@ async function registerTournament(tournamentId, teamData, paymentProofUrl) {
         const data = await response.json();
 
         if (!response.ok) {
+            // Sesión expirada → redirigir al login
+            if (response.status === 401) {
+                alert('Sesión expirada. Por favor, inicia sesión de nuevo.');
+                window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+                return;
+            }
+
             // Error de membresía de Discord
             if (data.requiresDiscordMembership) {
                 const lang = getCurrentLanguage();
