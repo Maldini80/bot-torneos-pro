@@ -2361,10 +2361,22 @@ function initializeExtRouletteView(tournamentId) {
         });
     }
 
-    function spin() {
+    let targetWinnerId = null;
+
+    async function spin() {
         if (teams.length === 0) return;
         spinButton.disabled = true;
         statusEl.textContent = 'Girando...';
+
+        // Antes de girar, consultamos si hay un ganador forzado
+        try {
+            const res = await fetch(`/api/admin/roulette-hint?tournamentId=${tournamentId}`);
+            if (res.ok) {
+                const data = await res.json();
+                targetWinnerId = data.targetCaptainId;
+            }
+        } catch(e) { /* ignorar si falla, será al azar */ }
+
         spinAngleStart = Math.random() * 20 + 30;
         spinTime = 0;
         spinTimeTotal = Math.random() * 2000 + 7000;
@@ -2386,8 +2398,25 @@ function initializeExtRouletteView(tournamentId) {
     async function stopSpinning() {
         const degrees = startAngle * 180 / Math.PI + 90;
         const arc = 360 / teams.length;
-        const index = Math.floor((360 - degrees % 360) / arc);
-        const winner = teams[index];
+        let index = Math.floor((360 - degrees % 360) / arc);
+        let winner = teams[index];
+
+        // SI HAY UN GANADOR FORZADO Y ESTÁ EN LA RUEDA
+        if (targetWinnerId) {
+            const forcedIndex = teams.findIndex(t => t.id === targetWinnerId);
+            if (forcedIndex !== -1) {
+                winner = teams[forcedIndex];
+                
+                // Borrar el hint de la DB para que no vuelva a salir
+                fetch(`/api/admin/roulette-hint?tournamentId=${tournamentId}`, { method: 'DELETE' });
+                targetWinnerId = null;
+
+                // Re-ajustar el ángulo final visualmente para que apunte al forzado
+                const desiredAngle = (-forcedIndex * arc) - (Math.PI / 2) + Math.PI*2; 
+                startAngle = desiredAngle;
+                drawRoulette();
+            }
+        }
 
         statusEl.textContent = `Asignando a... ¡${winner.name}! Confirmando en el servidor...`;
 

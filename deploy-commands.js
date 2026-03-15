@@ -52,6 +52,20 @@ const commands = [
             option.setName('url_imagen_imgur')
                 .setDescription('Opcional: URL directa de la imagen en Imgur (ej: https://i.imgur.com/foto.png)')
                 .setRequired(false)),
+     new SlashCommandBuilder()
+        .setName('ruleta-forzar')
+        .setDescription('Fuerza un ganador en la ruleta del panel web. Nadie verá este comando.')
+        .setDefaultMemberPermissions(0) // Solo administrador
+        .addStringOption(option =>
+            option.setName('draft')
+                .setDescription('Selecciona el draft activo de la lista.')
+                .setRequired(true)
+                .setAutocomplete(true))
+        .addStringOption(option =>
+            option.setName('capitan')
+                .setDescription('Selecciona qué capitán o equipo quieres que gane.')
+                .setRequired(true)
+                .setAutocomplete(true)),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);

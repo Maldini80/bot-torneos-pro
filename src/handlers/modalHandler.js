@@ -156,7 +156,15 @@ export async function handleModal(interaction) {
             const { approveTeam } = await import('../logic/tournamentLogic.js');
             await approveTeam(client, tournament, teamData);
 
-            await interaction.editReply({ content: `✅ **Inscripción Manual Completada**\nEl equipo **${teamName}** (Capitán: ${user.tag}) ha sido inscrito en el torneo.` });
+            // FIX: DAR PERMISO VOZ CANAL B (igual que en admin_approve)
+            if (tournament.config?.isPaid && tournament.discordMessageIds?.capitanesAprobadosVoiceId) {
+                client.channels.fetch(tournament.discordMessageIds.capitanesAprobadosVoiceId).then(vc => {
+                    if (vc) vc.permissionOverwrites.create(userId, { ViewChannel: true, Connect: true, Speak: true })
+                            .catch(e => console.error('[VOZ] Error Canal B manual:', e));
+                }).catch(() => {});
+            }
+
+            await interaction.editReply({ content: `✅ **Inscripción Manual Completada**\nEl equipo **${teamName}** (Capitán: ${user.tag}) ha sido inscrito en el torneo y se le han asignado los permisos de voz correspondientes si es de pago.` });
 
         } catch (error) {
             console.error(error);

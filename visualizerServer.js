@@ -213,6 +213,58 @@ app.get('/api/user', (req, res) => {
     res.json(req.user || null);
 });
 
+// ===============================================
+// === ENDPOINTS PARA LA RULETA TRUCADA ===
+// ===============================================
+
+// Obtener el hint (ganador forzado) para el draft/torneo actual
+app.get('/api/admin/roulette-hint', async (req, res) => {
+    // Solo permitimos esto si el usuario está autenticado y es admin (podemos chequear roles o ID de propietario)
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+    
+    // Verificación simple: si es el OWNER, o si tiene un rol específico.
+    // Asumiremos que si la petición se hace, validamos el OWNER_DISCORD_ID
+    if (req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No tienes permisos para consultar hints de ruleta' });
+    }
+
+    const tournamentId = req.query.tournamentId;
+    if (!tournamentId) return res.status(400).json({ error: 'Falta tournamentId' });
+
+    try {
+        const db = getDb();
+        const config = await db.collection('bot_settings').findOne({ _id: 'globalConfig' });
+        
+        if (config && config.riggedRoulette && config.riggedRoulette.tournamentShortId === tournamentId) {
+            return res.json({ targetCaptainId: config.riggedRoulette.captainId });
+        }
+        res.json({ targetCaptainId: null });
+    } catch (e) {
+        console.error('Error obteniendo roulette hint:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Borrar el hint una vez usado
+app.delete('/api/admin/roulette-hint', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    try {
+        const db = getDb();
+        await db.collection('bot_settings').updateOne(
+            { _id: 'globalConfig' },
+            { $unset: { riggedRoulette: "" } }
+        );
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error borrando roulette hint:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+// ===============================================
+
 // Endpoint: Verificar membresía y estado de usuario
 app.get('/api/check-membership', async (req, res) => {
     if (!req.user) {

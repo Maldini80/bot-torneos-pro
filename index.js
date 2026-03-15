@@ -77,7 +77,7 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 
     try {
-        if (interaction.isChatInputCommand()) await handleCommand(interaction);
+        if (interaction.isChatInputCommand() || interaction.isAutocomplete()) await handleCommand(interaction);
         else if (interaction.isButton()) await handleButton(interaction);
         else if (interaction.isModalSubmit()) await handleModal(interaction);
         else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) await handleSelectMenu(interaction);

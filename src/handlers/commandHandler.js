@@ -163,6 +163,122 @@ export async function handleCommand(interaction) {
     if (commandName === 'promocionar-whatsapp') {
         // Ejecutar el módulo exportado (CommonJS) desde nuestro entorno ESM 
         await promocionarWhatsapp.execute(interaction);
+        return;
+    }
+
+    // ==========================================
+    // --- LÓGICA DE /ruleta-forzar ---
+    // ==========================================
+    if (commandName === 'ruleta-forzar') {
+        const ownerId = process.env.OWNER_DISCORD_ID;
+
+        // Doble seguridad: Solo el OWNER puede ver/ejecutar esto
+        if (interaction.user.id !== ownerId) {
+            if (interaction.isChatInputCommand()) {
+                 return interaction.reply({ content: '❌ Comando desconocido o sin permisos.', flags: [MessageFlags.Ephemeral] });
+            }
+            return;
+        }
+
+        const db = getDb();
+
+        // 1. GESTIÓN DE AUTOCOMPLETADO
+        if (interaction.isAutocomplete()) {
+            const focusedOption = interaction.options.getFocused(true);
+
+            // A) Autocompletar DRAFT
+            if (focusedOption.name === 'draft') {
+                const drafts = await db.collection('tournaments').find({ 
+                    'config.paidSubType': 'draft',
+                    status: { $in: ['inscripcion_abierta', 'en_curso'] }
+                }).toArray();
+
+                const filtered = drafts.filter(d => d.nombre.toLowerCase().includes(focusedOption.value.toLowerCase()));
+                
+                await interaction.respond(
+                    filtered.slice(0, 25).map(d => ({ name: d.nombre, value: d.shortId }))
+                );
+            }
+
+            // B) Autocompletar CAPITÁN (dependiendo del draft seleccionado)
+            if (focusedOption.name === 'capitan') {
+                const draftId = interaction.options.getString('draft');
+                if (!draftId) return interaction.respond([]); // Si no ha elegido draft, no podemos dar capitanes
+
+                const tournament = await db.collection('tournaments').findOne({ shortId: draftId });
+                if (!tournament || !tournament.teams) {
+                    return interaction.respond([]); 
+                }
+
+                const candidates = [];
+                const checkList = (list) => {
+                    if (!list) return;
+                    Object.values(list).forEach(team => {
+                        candidates.push({
+                            id: team.id || team.ownerId || team.userId || team.capitanId,
+                            name: team.nombre || team.teamName || team.ownerName || 'Usuario Desconocido',
+                            tag: team.capitanTag || team.ownerName || ''
+                        });
+                    });
+                };
+
+                // Extraemos a los candidatos reales que aparecen en la ruleta externa
+                checkList(tournament.teams.pendingApproval);
+                checkList(tournament.teams.pendingPayments);
+                checkList(tournament.teams.pendientes);
+
+                const filtered = candidates.filter(c => 
+                    c.name.toLowerCase().includes(focusedOption.value.toLowerCase()) || 
+                    c.tag.toLowerCase().includes(focusedOption.value.toLowerCase())
+                );
+
+                await interaction.respond(
+                    filtered.slice(0, 25).map(c => ({ 
+                        name: `${c.name} (${c.tag || 'Candidato'})`, 
+                        value: String(c.id)
+                    }))
+                );
+            }
+            return;
+        }
+
+        // 2. EJECUCIÓN DEL COMANDO
+        if (interaction.isChatInputCommand()) {
+            const draftId = interaction.options.getString('draft');
+            const capitanId = interaction.options.getString('capitan');
+
+            try {
+                const tournament = await db.collection('tournaments').findOne({ shortId: draftId });
+                if (!tournament) {
+                    return interaction.reply({ content: '❌ Draft no encontrado.', flags: [MessageFlags.Ephemeral] });
+                }
+
+                const capitanSelect = 
+                    tournament.teams?.pendingApproval?.[capitanId] || 
+                    tournament.teams?.pendingPayments?.[capitanId] || 
+                    tournament.teams?.pendientes?.[capitanId];
+
+                if (!capitanSelect) {
+                    return interaction.reply({ content: '❌ Ese capitán no está entre los candidatos pendientes.', flags: [MessageFlags.Ephemeral] });
+                }
+
+                // Guardar el forzado temporalmente en la BD (bot_settings)
+                await db.collection('bot_settings').updateOne(
+                    { _id: 'globalConfig' },
+                    { $set: { riggedRoulette: { tournamentShortId: draftId, captainId: capitanId } } },
+                    { upsert: true }
+                );
+
+                await interaction.reply({ 
+                    content: `🤫 **Ruleta Trucada Activada.**\n\nEl equipo **${capitanSelect.nombre}** de <@${capitanId}> ganará el próximo giro de la ruleta web en **${tournament.nombre}**.\n*Nota: Este truco se borrará automáticamente tras el giro.*`, 
+                    flags: [MessageFlags.Ephemeral] 
+                });
+
+            } catch (error) {
+                console.error('[RULETA] Error forzando resultado:', error);
+                await interaction.reply({ content: '❌ Hubo un error al forzar la ruleta.', flags: [MessageFlags.Ephemeral] });
+            }
+        }
     }
 }
 
