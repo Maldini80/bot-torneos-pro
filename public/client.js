@@ -2368,18 +2368,58 @@ function initializeExtRouletteView(tournamentId) {
         spinButton.disabled = true;
         statusEl.textContent = 'Girando...';
 
-        // Antes de girar, consultamos si hay un ganador forzado
+        // 1. Consultamos si a nivel servidor existe un ganador forzado (desde Discord)
         try {
             const res = await fetch(`/api/admin/roulette-hint?tournamentId=${tournamentId}`);
             if (res.ok) {
                 const data = await res.json();
                 targetWinnerId = data.targetCaptainId;
             }
-        } catch(e) { /* ignorar si falla, será al azar */ }
+        } catch(e) { 
+            // Ignoramos errores transaccionales, se procederá azarosamente
+        }
 
-        spinAngleStart = Math.random() * 20 + 30;
+        // 2. Calculamos los parámetros físicos del giro
+        spinAngleStart = Math.random() * 20 + 30; // Velocidad pico
+        spinTimeTotal = Math.random() * 2000 + 7000; // Duración total en milisegundos
         spinTime = 0;
-        spinTimeTotal = Math.random() * 2000 + 7000;
+
+        // 3. Pre-simulación: ¿Cuántos rads en total girará con esta "fuerza"?
+        // Simulamos matemáticamente ejecutando la fórmula easeOut para acumular todo el giro:
+        let totalRotation = 0;
+        let t = 0;
+        while (t < spinTimeTotal) {
+            t += 30;
+            if (t > spinTimeTotal) break;
+            const stepSpinAngle = spinAngleStart - easeOut(t, 0, spinAngleStart, spinTimeTotal);
+            totalRotation += (stepSpinAngle * Math.PI / 180);
+        }
+
+        // 4. Manipulación inicial (TRUCO INDETECTABLE)
+        if (targetWinnerId) {
+            const forcedIndex = teams.findIndex(team => team.id === targetWinnerId);
+            if (forcedIndex !== -1) {
+                const arc = Math.PI * 2 / teams.length;
+                // Calculamos en qué radián (dentro del gajo del ganador) queremos que pare exactamente
+                // Modificador sutil al azar dentro del mismo gajo (para que no pare siempre en el borde exacto)
+                const safeMargin = arc * 0.1; 
+                const randomSpotInArc = safeMargin + Math.random() * (arc - 2 * safeMargin); 
+                
+                // Calculamos el ángulo final estático que haría apuntar la flecha a ese gajo forzado:
+                // La flecha está arriba (270 grados = 1.5 PI radianes) 
+                const desiredFinalAngle = Math.PI * 1.5 - (forcedIndex * arc) - randomSpotInArc;
+                
+                // Sobrescribimos matemáticamente el inicio:
+                // Si empezamos X radianes atrás del objetivo final, acabaremos justo ahí.
+                // Restamos la inercia acumulada para cuadrar de reversa:
+                startAngle = desiredFinalAngle - totalRotation;
+                
+                // Borramos la instrucción en BBDD (consumida) en background
+                fetch(`/api/admin/roulette-hint?tournamentId=${tournamentId}`, { method: 'DELETE' }).catch(()=>{});
+            }
+        }
+
+        targetWinnerId = null; // Reiniciamos local el hint
         animate();
     }
 
@@ -2397,25 +2437,17 @@ function initializeExtRouletteView(tournamentId) {
 
     async function stopSpinning() {
         const degrees = startAngle * 180 / Math.PI + 90;
-        const arc = 360 / teams.length;
-        let index = Math.floor((360 - degrees % 360) / arc);
-        let winner = teams[index];
+        const normalizedDegrees = ((360 - degrees % 360) + 360) % 360; // Siempre seguro de ser [0,359] positivos
+        const arcDegrees = 360 / teams.length;
+        
+        const index = Math.floor(normalizedDegrees / arcDegrees) % teams.length;
+        const winner = teams[index];
 
-        // SI HAY UN GANADOR FORZADO Y ESTÁ EN LA RUEDA
-        if (targetWinnerId) {
-            const forcedIndex = teams.findIndex(t => t.id === targetWinnerId);
-            if (forcedIndex !== -1) {
-                winner = teams[forcedIndex];
-                
-                // Borrar el hint de la DB para que no vuelva a salir
-                fetch(`/api/admin/roulette-hint?tournamentId=${tournamentId}`, { method: 'DELETE' });
-                targetWinnerId = null;
-
-                // Re-ajustar el ángulo final visualmente para que apunte al forzado
-                const desiredAngle = (-forcedIndex * arc) - (Math.PI / 2) + Math.PI*2; 
-                startAngle = desiredAngle;
-                drawRoulette();
-            }
+        // Validar que realmente tenemos ganador antes de continuar (por tolerancia extrema antifallos)
+        if (!winner) {
+           statusEl.textContent = 'Tratando de confirmar ganador...';
+           setTimeout(() => { fetchCandidates(); }, 2000);
+           return;
         }
 
         statusEl.textContent = `Asignando a... ¡${winner.name}! Confirmando en el servidor...`;
