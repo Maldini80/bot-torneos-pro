@@ -103,7 +103,9 @@ app.get('/healthz', (req, res) => {
     res.status(200).send('OK');
 });
 
-app.set('trust proxy', 1);
+// FIX: Habilitar confianza en proxies inversos (Render, Nginx, Cloudflare) 
+// para que req.ip contenga la IP real del usuario en lugar de la del balanceador interno.
+app.set('trust proxy', true);
 
 const draftStates = new Map();
 const tournamentStates = new Map();
@@ -2578,7 +2580,8 @@ export async function startVisualizerServer(discordClient) {
             }
 
             // Check IP limit
-            const userIP = req.ip;
+            // Intentar leer explícitamente la cabecera x-forwarded-for por seguridad extra
+            const userIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
             const ipCount = await db.collection('external_draft_registrations').countDocuments({
                 tournamentId, ip: userIP
             });
