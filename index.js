@@ -86,7 +86,8 @@ client.on(Events.InteractionCreate, async interaction => {
         // Ignoramos los errores comunes de tiempo de respuesta que no son críticos.
         const knownDiscordErrors = [
             10062, // Unknown interaction (ha expirado por el tiempo)
-            40060  // Interaction has already been acknowledged (ya fue respondida o expiró)
+            40060, // Interaction has already been acknowledged (ya fue respondida o expiró)
+            10008  // Unknown Message (mensaje efímero expirado o canal borrado)
         ];
 
         if (error.code && knownDiscordErrors.includes(error.code)) {

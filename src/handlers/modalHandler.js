@@ -2022,8 +2022,12 @@ export async function handleModal(interaction) {
             // PRIMER REPORTE: Avisamos y esperamos
             // Si es gratuito, el cronómetro de 3 minutos empieza a contar (gracias a reportedAt).
             const opponentMentions = opponentCaptainIds.map(id => `<@${id}>`).join(' ');
-            await interaction.editReply({ content: `✅ Resultado (**${reportedResult}**) guardado. Esperando confirmación del rival...` });
-            await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado el resultado: **${reportedResult}**. ${opponentMentions}, por favor usad el botón para confirmar el vuestro.`);
+            try {
+                await interaction.editReply({ content: `✅ Resultado (**${reportedResult}**) guardado. Esperando confirmación del rival...` });
+                await interaction.channel.send(`ℹ️ <@${reporterId}> ha reportado el resultado: **${reportedResult}**. ${opponentMentions}, por favor usad el botón para confirmar el vuestro.`);
+            } catch (replyError) {
+                console.warn(`[REPORT RESULT] No se pudo confirmar visualmente el resultado ${reportedResult} (el mensaje o canal ya no existe). El resultado SÍ fue guardado en la DB.`);
+            }
         }
         return;
     }
