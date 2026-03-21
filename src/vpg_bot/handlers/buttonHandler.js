@@ -751,6 +751,8 @@ const handler = async (client, interaction) => {
                 await interaction.editReply({ content: successMessage, components: [] });
             }
         }
+        team.markModified('captains');
+        team.markModified('players');
         await team.save();
         return;
     }
