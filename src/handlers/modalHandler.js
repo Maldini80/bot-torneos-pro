@@ -5,7 +5,7 @@ import { getDb, updateBotSettings } from '../../database.js';
 // --- CÓDIGO MODIFICADO Y CORRECTO ---
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer, createTournamentFromDraft, handleImportedPlayers, addSinglePlayerToDraft, sendPaymentApprovalRequest, adminAddPlayerToDraft } from '../logic/tournamentLogic.js';
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
-import { processMatchResult, findMatch, finalizeMatchThread } from '../logic/matchLogic.js';
+import { processMatchResult, findMatch, findMatchPath, finalizeMatchThread } from '../logic/matchLogic.js';
 // --- LÍNEA CORREGIDA Y COMPLETA ---
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField, TextInputBuilder, TextInputStyle, ModalBuilder, AttachmentBuilder } from 'discord.js';
 import * as xlsx from 'xlsx';
@@ -1997,17 +1997,43 @@ export async function handleModal(interaction) {
             }
         }
 
-        // Guardamos el estado actual en la DB (por si es el primer reporte)
-        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { "structure": tournament.structure } });
+        // PASO 1: Guardamos ATÓMICAMENTE solo nuestro reporte en la DB.
+        // Usamos la ruta exacta al campo para evitar race conditions.
+        const matchPath = findMatchPath(tournament, matchId);
+        if (!matchPath) return interaction.editReply('Error: Ruta del partido no encontrada en la estructura.');
 
-        if (opponentReport) {
-            if (opponentReport.score === reportedResult) {
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $set: { [`${matchPath}.reportedScores.${reporterId}`]: { score: reportedResult, reportedAt: new Date(), teamId: myTeam.id } } }
+        );
+
+        // PASO 2: Re-leer el torneo DESPUÉS de guardar, para ver si el rival ya guardó el suyo.
+        tournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+        const { partido: updatedPartido } = findMatch(tournament, matchId);
+
+        // Buscamos el reporte del rival en los datos FRESCOS de la DB
+        let freshOpponentReport = null;
+        let freshOpponentReporterId = null;
+        for (const id of opponentCaptainIds) {
+            if (updatedPartido.reportedScores && updatedPartido.reportedScores[id]) {
+                freshOpponentReport = updatedPartido.reportedScores[id];
+                freshOpponentReporterId = id;
+                break;
+            }
+        }
+
+        if (freshOpponentReport) {
+            if (freshOpponentReport.score === reportedResult) {
                 // COINCIDENCIA: Finalizamos el partido
                 await interaction.editReply({ content: '✅ **Confirmado:** Tu resultado coincide con el del rival. Finalizando el partido...' });
 
-                tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-                const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
-                await finalizeMatchThread(client, processedMatch, reportedResult);
+                try {
+                    const processedMatch = await processMatchResult(client, guild, tournament, matchId, reportedResult);
+                    await finalizeMatchThread(client, processedMatch, reportedResult);
+                } catch (error) {
+                    console.error(`[REPORT RESULT] Error al finalizar el partido ${matchId}:`, error);
+                    await interaction.editReply({ content: '⚠️ El resultado coincide, pero hubo un error al procesar. Un admin debe forzar el resultado.' }).catch(() => {});
+                }
             } else {
                 // CONFLICTO: Avisamos a árbitros
                 await interaction.editReply({ content: '❌ **Conflicto:** El resultado que has puesto NO coincide con el del rival. Se ha avisado a los árbitros.' });
@@ -2015,7 +2041,7 @@ export async function handleModal(interaction) {
                 const thread = interaction.channel;
                 if (thread.isThread()) {
                     await thread.setName(`⚠️-DISPUTA-${thread.name}`.slice(0, 100));
-                    await thread.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> **DISPUTA DETECTADA**\n\n- <@${reporterId}> (${myTeam.nombre}) dice: **${reportedResult}**\n- <@${opponentReporterId}> (${opponentTeam.nombre}) dice: **${opponentReport.score}**\n\nPor favor, revisad las pruebas.` });
+                    await thread.send({ content: `🚨 <@&${ARBITRO_ROLE_ID}> **DISPUTA DETECTADA**\n\n- <@${reporterId}> (${myTeam.nombre}) dice: **${reportedResult}**\n- <@${freshOpponentReporterId}> (${opponentTeam.nombre}) dice: **${freshOpponentReport.score}**\n\nPor favor, revisad las pruebas.` });
                 }
             }
         } else {

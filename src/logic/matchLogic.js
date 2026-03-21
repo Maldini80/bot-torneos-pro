@@ -141,6 +141,26 @@ export function findMatch(tournament, matchId) {
     return { partido: null, fase: null };
 }
 
+export function findMatchPath(tournament, matchId) {
+    for (const groupName in tournament.structure.calendario) {
+        const matches = tournament.structure.calendario[groupName];
+        const idx = matches.findIndex(p => p.matchId === matchId);
+        if (idx !== -1) return `structure.calendario.${groupName}.${idx}`;
+    }
+    for (const stage of Object.keys(tournament.structure.eliminatorias)) {
+        if (stage === 'rondaActual') continue;
+        const stageData = tournament.structure.eliminatorias[stage];
+        if (!stageData) continue;
+        if (Array.isArray(stageData)) {
+            const idx = stageData.findIndex(p => p && p.matchId === matchId);
+            if (idx !== -1) return `structure.eliminatorias.${stage}.${idx}`;
+        } else if (stageData.matchId === matchId) {
+            return `structure.eliminatorias.${stage}`;
+        }
+    }
+    return null;
+}
+
 async function updateGroupStageStats(tournament, partido) {
     const [golesA, golesB] = partido.resultado.split('-').map(Number);
 
