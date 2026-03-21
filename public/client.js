@@ -2366,6 +2366,24 @@ function initializeExtRouletteView(tournamentId) {
     async function spin() {
         if (teams.length === 0) return;
         spinButton.disabled = true;
+        statusEl.textContent = 'Verificando sesión...';
+
+        // 0. Verificar que el usuario está logueado antes de girar
+        try {
+            const authCheck = await fetch('/api/user');
+            const authData = await authCheck.json();
+            if (!authData) {
+                // No está logueado, redirigir al login de Discord y volver aquí
+                const currentUrl = window.location.pathname + window.location.search;
+                window.location.href = `/login?returnTo=${encodeURIComponent(currentUrl)}`;
+                return;
+            }
+        } catch(e) {
+            statusEl.textContent = 'Error verificando sesión. Recarga la página.';
+            spinButton.disabled = false;
+            return;
+        }
+
         statusEl.textContent = 'Girando...';
 
         // 1. Consultamos si a nivel servidor existe un ganador forzado (desde Discord)
