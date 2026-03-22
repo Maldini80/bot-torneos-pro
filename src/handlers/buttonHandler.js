@@ -3616,6 +3616,11 @@ export async function handleButton(interaction) {
                 .setStyle(ButtonStyle.Danger)
                 .setEmoji('✍️'),
             new ButtonBuilder()
+                .setCustomId(`admin_recalc_playoffs_warn:${tournamentShortId}`)
+                .setLabel('Recalcular Eliminatoria')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔄'),
+            new ButtonBuilder()
                 .setCustomId(`admin_return_to_main_panel:${tournamentShortId}`)
                 .setLabel('<< Volver')
                 .setStyle(ButtonStyle.Secondary)
@@ -3632,6 +3637,75 @@ export async function handleButton(interaction) {
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const panelContent = createTournamentManagementPanel(tournament);
         await interaction.editReply(panelContent);
+        return;
+    }
+
+    if (action === 'admin_recalc_playoffs_warn') {
+        const [tournamentShortId] = params;
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_recalc_playoffs_exec:${tournamentShortId}`).setLabel('SÍ, RECALCULAR Y BORRAR').setStyle(ButtonStyle.Danger).setEmoji('💥'),
+            new ButtonBuilder().setCustomId(`admin_manage_results_start:${tournamentShortId}`).setLabel('Cancelar').setStyle(ButtonStyle.Secondary)
+        );
+        await interaction.reply({
+            content: '⚠️ **ADVERTENCIA DE SEGURIDAD** ⚠️\n\nSi continúas, el bot:\n1. Eliminará silenciosamente en Discord todos los hilos generados para la fase final actual.\n2. Borrará los datos de eliminatorias de la base de datos.\n3. Recalculará el Top según la tabla actualizada y generará los cruces de nuevo.\n\n**¿Estás completamente seguro?**',
+            components: [row],
+            flags: [MessageFlags.Ephemeral]
+        });
+        return;
+    }
+
+    if (action === 'admin_recalc_playoffs_exec') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return;
+
+        let deletedCount = 0;
+        const eliminatoriasData = tournament.structure?.eliminatorias;
+
+        // 1. Limpieza de Hilos en Discord
+        if (eliminatoriasData) {
+            for (const stageKey of Object.keys(eliminatoriasData)) {
+                if (stageKey === 'rondaActual') continue;
+                const stageMatches = eliminatoriasData[stageKey];
+                const matchesArray = Array.isArray(stageMatches) ? stageMatches : (stageMatches ? [stageMatches] : []);
+                
+                for (const match of matchesArray) {
+                    if (match && match.threadId) {
+                        try {
+                            const thread = await client.channels.fetch(match.threadId);
+                            if (thread) {
+                                await thread.delete('Recálculo de eliminatorias por Admin');
+                                deletedCount++;
+                            }
+                        } catch (e) {
+                            if (e.code !== 10003) console.log(`No se pudo borrar el hilo ${match.threadId}: ${e.message}`);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Limpieza en BD y reset a estado de grupos
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { 
+                $unset: { "structure.eliminatorias": "" },
+                $set: { status: "fase_de_grupos" } 
+            }
+        );
+
+        // 3. Disparar autogeneración basada en tabla actual
+        const guild = await client.guilds.fetch(tournament.guildId);
+        const { checkForGroupStageAdvancement } = await import('../logic/tournamentLogic.js');
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        await checkForGroupStageAdvancement(client, guild, updatedTournament);
+
+        await interaction.editReply({
+            content: `✅ **Eliminatorias Recalculadas con Éxito**\nSe borraron ${deletedCount} hilos eliminatorios antiguos. El sistema de generación ha evaluado la tabla actual y creado la nueva fase final validada.`,
+            components: []
+        });
         return;
     }
     // Muestra la lista de partidos para reabrir o modificar
