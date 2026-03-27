@@ -212,7 +212,12 @@ app.get('/logout', (req, res) => {
 });
 
 app.get('/api/user', (req, res) => {
-    res.json(req.user || null);
+    if (req.user) {
+        const userWithAdmin = { ...req.user, isAdmin: req.user.id === process.env.OWNER_DISCORD_ID };
+        res.json(userWithAdmin);
+    } else {
+        res.json(null);
+    }
 });
 
 // ===============================================
