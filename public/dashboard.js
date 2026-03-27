@@ -677,26 +677,7 @@ class DashboardApp {
     }
 
     async setupCreateTeamForm() {
-        // Load available leagues
-        const leagueSelect = document.getElementById('team-league');
-        if (leagueSelect) {
-            try {
-                const res = await fetch('/api/leagues');
-                const data = await res.json();
-
-                if (data.success && data.leagues.length > 0) {
-                    leagueSelect.innerHTML = `<option value="">${this.t('createTeam.leagueSelect')}</option>` +
-                        data.leagues.map(league => `<option value="${league}">${league}</option>`).join('');
-                } else {
-                    leagueSelect.innerHTML = `<option value="">${this.t('createTeam.leagueNone')}</option>`;
-                    leagueSelect.disabled = true;
-                }
-            } catch (error) {
-                console.error('Error loading leagues:', error);
-                leagueSelect.innerHTML = `<option value="">${this.t('createTeam.leagueError')}</option>`;
-                leagueSelect.disabled = true;
-            }
-        }
+        // Form Logic
 
         // Preview Logic
         const logoInput = document.getElementById('team-logo');
@@ -728,21 +709,11 @@ class DashboardApp {
                 errorBox.classList.add('hidden');
 
                 const data = {
-                    league: document.getElementById('team-league').value,
                     teamName: document.getElementById('team-name').value,
                     teamAbbr: document.getElementById('team-abbr').value,
                     teamTwitter: document.getElementById('team-twitter').value,
                     logoUrl: document.getElementById('team-logo').value
                 };
-
-                // Validate league selection
-                if (!data.league) {
-                    errorBox.textContent = this.t('createTeam.leagueValidation');
-                    errorBox.classList.remove('hidden');
-                    btn.disabled = false;
-                    btn.textContent = this.t('createTeam.requestTeam');
-                    return;
-                }
 
                 try {
                     const res = await fetch('/api/teams/request', {

@@ -137,13 +137,13 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Tabla de Ranking */
         .ranking-container {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: 10px;
             backdrop-filter: blur(10px);
-            overflow: hidden;
+            overflow-x: auto;
+            white-space: nowrap;
             box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
         }
 
@@ -402,6 +402,7 @@
             <button class="tab-btn active" onclick="switchTab('ranking')">🏆 Ranking Global</button>
             <button class="tab-btn" onclick="switchTab('hof')">⭐ Hall Of Fame</button>
             <button class="tab-btn" id="adminBackfillBtn" style="display: none; border-color: #ff0055;" onclick="triggerBackfill()">🛠️ Recalcular Stats (Admin)</button>
+            <button class="tab-btn" id="adminRefreshLeaguesBtn" style="display: none; border-color: #00e5ff;" onclick="triggerLeagueRefresh()">🛡️ Recalcular Ligas (Admin)</button>
         </div>
 
         <div id="ranking" class="content-section active">
@@ -441,6 +442,7 @@
                 if (user && user.isAdmin) {
                     isAdminVisitor = true;
                     document.getElementById('adminBackfillBtn').style.display = 'inline-block';
+                    document.getElementById('adminRefreshLeaguesBtn').style.display = 'inline-block';
                 }
             } catch (e) { console.error(e); }
         }
@@ -459,6 +461,30 @@
                     alert('✅ Éxito: ' + data.message);
                     loadRanking();
                     loadHallOfFame();
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            } catch (e) {
+                alert('❌ Error de red al intentar ejecutar.');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function triggerLeagueRefresh() {
+            if (!confirm("⚠️ ¿Estás seguro de recalcular de forma masiva las ligas de TODOS los equipos en base a su ELO actual?")) return;
+            const btn = document.getElementById('adminRefreshLeaguesBtn');
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ Recalculando...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/admin/recalculate-leagues', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ Éxito: ' + data.message);
+                    loadRanking();
                 } else {
                     alert('❌ Error: ' + data.error);
                 }
@@ -529,6 +555,18 @@
                         streakHtml = `<span class="streak-ice"><i class="fas fa-snowflake"></i> L${stats.currentLossStreak}</span>`;
                     }
 
+                    const currentElo = team.elo || 1000;
+                    let leagueBadge = '';
+                    if (currentElo >= 1550) {
+                        leagueBadge = '<span style="background:linear-gradient(45deg, #00d2ff, #3a7bd5); color:#fff; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle; text-shadow: 0 1px 2px rgba(0,0,0,0.4);">DIAMOND</span>';
+                    } else if (currentElo >= 1300) {
+                        leagueBadge = '<span style="background:var(--gold); color:#000; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle;">GOLD</span>';
+                    } else if (currentElo >= 1000) {
+                        leagueBadge = '<span style="background:var(--silver); color:#000; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle;">SILVER</span>';
+                    } else {
+                        leagueBadge = '<span style="background:var(--bronze); color:#fff; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle;">BRONZE</span>';
+                    }
+
                     const row = document.createElement('tr');
                     if (rank <= 3) row.classList.add(`rank-${rank}`);
 
@@ -539,13 +577,13 @@
                                 <img src="${team.logoUrl || 'https://i.imgur.com/X2YIZh4.png'}" class="team-logo" alt="logo" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
                                 <div>
                                     <div class="team-name">${team.name}</div>
-                                    <div class="team-abbr">${team.abbreviation}</div>
+                                    <div class="team-abbr">${team.abbreviation} ${leagueBadge}</div>
                                 </div>
                             </div>
                         </td>
                         <td class="elo-score">
-                            ${team.elo || 1000}
-                            ${isAdminVisitor ? `<button class="edit-btn" onclick="openEditElo('${team._id}', ${team.elo || 1000}, '${team.name}')" title="Editar ELO"><i class="fas fa-pencil-alt"></i></button>` : ''}
+                            ${currentElo}
+                            ${isAdminVisitor ? `<button class="edit-btn" onclick="openEditElo('${team._id}', ${currentElo}, '${team.name}')" title="Editar ELO"><i class="fas fa-pencil-alt"></i></button>` : ''}
                         </td>
                         <td class="stats-cell stats-hide-mobile">${wins} - ${draws} - ${losses}</td>
                         <td class="stats-cell stats-hide-mobile">${streakHtml}</td>

@@ -327,6 +327,41 @@ app.post('/api/elo/update', async (req, res) => {
     }
 });
 
+app.post('/api/admin/recalculate-leagues', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    try {
+        const testDb = getDb('test'); 
+        console.log('[LEAGUES] Inciando migración masiva de Ligas según ELO...');
+
+        const teams = await testDb.collection('teams').find({}).toArray();
+        let modifiedCount = 0;
+
+        for (const team of teams) {
+            const elo = team.elo || 1000;
+            let newLeague = 'BRONZE';
+            if (elo >= 1550) newLeague = 'DIAMOND';
+            else if (elo >= 1300) newLeague = 'GOLD';
+            else if (elo >= 1000) newLeague = 'SILVER';
+            
+            if (team.league !== newLeague) {
+                await testDb.collection('teams').updateOne(
+                    { _id: team._id },
+                    { $set: { league: newLeague } }
+                );
+                modifiedCount++;
+            }
+        }
+        console.log(`[LEAGUES] Migración completada. Modificados ${modifiedCount} equipos.`);
+        res.json({ success: true, message: `Migración completada. Modificados ${modifiedCount} equipos.` });
+    } catch (e) {
+        console.error('Error en migración de ligas:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
 app.post('/api/admin/run-backfill', async (req, res) => {
     if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
         return res.status(403).json({ error: 'No autorizado' });
@@ -779,13 +814,13 @@ app.get('/api/leagues', async (req, res) => {
 app.post('/api/teams/request', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
-    const { league, teamName: rawTeamName, teamAbbr: rawTeamAbbr, teamTwitter, logoUrl } = req.body;
+    const { teamName: rawTeamName, teamAbbr: rawTeamAbbr, teamTwitter, logoUrl } = req.body;
     const teamName = sanitizeInput(rawTeamName, 40);
     const teamAbbr = sanitizeInput(rawTeamAbbr, 5);
 
     // Validaciones básicas
-    if (!league || !teamName || !teamAbbr) {
-        return res.status(400).json({ error: 'Faltan campos requeridos (liga, nombre, abreviatura)' });
+    if (!teamName || !teamAbbr) {
+        return res.status(400).json({ error: 'Faltan campos requeridos (nombre, abreviatura)' });
     }
     if (teamName.length < 3) {
         return res.status(400).json({ error: 'El nombre debe tener al menos 3 caracteres' });
@@ -1494,6 +1529,7 @@ async function sendWebTeamRequestToDiscord(teamData, user) {
     const { createRequire } = await import('module');
     const require = createRequire(import.meta.url);
     const { getVpgClient } = require('./src/vpg_bot/index.js');
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = await import('discord.js');
 
     const vpgClient = getVpgClient();
 
@@ -1511,8 +1547,7 @@ async function sendWebTeamRequestToDiscord(teamData, user) {
         throw new Error('Canal de aprobación no encontrado');
     }
 
-    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle }
-        = await import('discord.js');
+
 
     const avatarURL = user.avatar
         ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
@@ -1531,19 +1566,24 @@ async function sendWebTeamRequestToDiscord(teamData, user) {
             { name: 'Nombre del Equipo', value: teamData.teamName },
             { name: 'Abreviatura', value: teamData.teamAbbr },
             { name: 'Twitter del Equipo', value: teamData.teamTwitter || 'No especificado' },
-            { name: 'URL del Logo', value: `[Ver Logo](${teamData.logoUrl})` },
-            { name: 'Liga Seleccionada', value: teamData.leagueName }
+            { name: 'URL del Logo', value: `[Ver Logo](${teamData.logoUrl})` }
         )
         .setTimestamp()
         .setFooter({ text: 'Solicitud creada desde la web' });
 
-    const safeLeague = teamData.leagueName.replace(/\s/g, '_');
+    const selectRow = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`approve_team_select_${user.id}`)
+            .setPlaceholder('Elige la liga para APROBAR este equipo')
+            .addOptions([
+                { label: '💎 Liga DIAMOND (1550+ ELO)', value: '1550_DIAMOND', description: 'Empieza con 1550 Puntos' },
+                { label: '👑 Liga GOLD (1300-1549 ELO)', value: '1300_GOLD', description: 'Empieza con 1300 Puntos' },
+                { label: '⚙️ Liga SILVER (1000-1299 ELO)', value: '1000_SILVER', description: 'Empieza con 1000 Puntos' },
+                { label: '🥉 Liga BRONZE (<1000 ELO)', value: '700_BRONZE', description: 'Empieza con 700 Puntos' }
+            ])
+    );
 
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`approve_request_${user.id}_${safeLeague}`)
-            .setLabel('Aprobar')
-            .setStyle(ButtonStyle.Success),
+    const buttonRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`reject_request_${user.id}`)
             .setLabel('Rechazar')
@@ -1553,7 +1593,7 @@ async function sendWebTeamRequestToDiscord(teamData, user) {
     await channel.send({
         content: `**[WEB]** Solicitante: <@${user.id}>`,
         embeds: [embed],
-        components: [row]
+        components: [selectRow, buttonRow]
     });
 
     console.log(`[Discord Notification] Solicitud de equipo enviada al canal de aprobación`);

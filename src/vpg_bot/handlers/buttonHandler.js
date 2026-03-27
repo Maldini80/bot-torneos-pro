@@ -137,13 +137,29 @@ async function sendApprovalRequest(interaction, client, { vpgUsername, teamName,
     const embed = new EmbedBuilder().setTitle('📝 Nueva Solicitud de Registro').setColor('Orange').setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() }).setThumbnail(logoUrl && logoUrl.startsWith('http') ? logoUrl : null)
         .addFields(
             { name: 'Usuario VPG', value: vpgUsername }, { name: 'Nombre del Equipo', value: teamName }, { name: 'Abreviatura', value: teamAbbr },
-            { name: 'Twitter del Equipo', value: teamTwitter || 'No especificado' }, { name: 'URL del Logo', value: `[Ver Logo](${logoUrl})` }, { name: 'Liga Seleccionada', value: leagueName }
+            { name: 'Twitter del Equipo', value: teamTwitter || 'No especificado' }, { name: 'URL del Logo', value: `[Ver Logo](${logoUrl})` }
         ).setTimestamp();
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`approve_request_${interaction.user.id}_${safeLeagueName}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`reject_request_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+
+    const selectRow = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`approve_team_select_${interaction.user.id}`)
+            .setPlaceholder('Elige la liga para APROBAR este equipo')
+            .addOptions([
+                { label: '💎 Liga DIAMOND (1550+ ELO)', value: '1550_DIAMOND', description: 'Empieza con 1550 Puntos' },
+                { label: '👑 Liga GOLD (1300-1549 ELO)', value: '1300_GOLD', description: 'Empieza con 1300 Puntos' },
+                { label: '⚙️ Liga SILVER (1000-1299 ELO)', value: '1000_SILVER', description: 'Empieza con 1000 Puntos' },
+                { label: '🥉 Liga BRONZE (<1000 ELO)', value: '700_BRONZE', description: 'Empieza con 700 Puntos' }
+            ])
     );
-    await approvalChannel.send({ content: `**Solicitante:** <@${interaction.user.id}>`, embeds: [embed], components: [row] });
+
+    const buttonRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`reject_request_${interaction.user.id}`)
+            .setLabel('Rechazar')
+            .setStyle(ButtonStyle.Danger)
+    );
+
+    await approvalChannel.send({ content: `**Solicitante:** <@${interaction.user.id}>`, embeds: [embed], components: [selectRow, buttonRow] });
 }
 
 
@@ -530,25 +546,28 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'request_manager_role_button') {
-        await interaction.deferReply({ ephemeral: true });
         const existingTeam = await Team.findOne({ $or: [{ managerId: user.id }, { captains: user.id }, { players: user.id }], guildId: guild.id });
         if (existingTeam) {
             const errorMessage = t('errorAlreadyInTeam', member).replace('{teamName}', existingTeam.name);
-            return interaction.editReply({ content: errorMessage });
+            return interaction.reply({ content: errorMessage, ephemeral: true });
         }
 
-        const leagues = await League.find({ guildId: guild.id });
-        if (leagues.length === 0) {
-            return interaction.editReply({ content: t('errorNoLeaguesConfigured', member) });
-        }
+        const modalTitle = t('registerModalTitle', member).replace('{leagueName}', 'PENDIENTE');
+        const modal = new ModalBuilder().setCustomId(`manager_request_modal_PENDIENTE`).setTitle(modalTitle);
 
-        const leagueOptions = leagues.map(l => ({ label: l.name, value: l.name }));
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('select_league_for_registration')
-            .setPlaceholder(t('selectLeaguePlaceholder', member))
-            .addOptions(leagueOptions);
+        const vpgUsernameInput = new TextInputBuilder().setCustomId('vpgUsername').setLabel(t('vpgUsernameLabel', member)).setStyle(TextInputStyle.Short).setRequired(true);
+        const teamNameInput = new TextInputBuilder().setCustomId('teamName').setLabel(t('teamNameLabel', member)).setStyle(TextInputStyle.Short).setRequired(true);
+        const teamAbbrInput = new TextInputBuilder().setCustomId('teamAbbr').setLabel(t('teamAbbrLabel', member)).setStyle(TextInputStyle.Short).setRequired(true).setMinLength(3).setMaxLength(3);
+        const teamTwitterInput = new TextInputBuilder().setCustomId('teamTwitterInput').setLabel(t('teamTwitterLabel', member)).setStyle(TextInputStyle.Short).setRequired(false);
 
-        return interaction.editReply({ content: t('promptSelectLeagueStep1', member), components: [new ActionRowBuilder().addComponents(selectMenu)] });
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(vpgUsernameInput),
+            new ActionRowBuilder().addComponents(teamNameInput),
+            new ActionRowBuilder().addComponents(teamAbbrInput),
+            new ActionRowBuilder().addComponents(teamTwitterInput)
+        );
+
+        return interaction.showModal(modal);
     }
 
     if (customId.startsWith('ask_logo_yes_')) {

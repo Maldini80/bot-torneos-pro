@@ -738,4 +738,85 @@ module.exports = async (client, interaction) => {
         const successMessage = t('scheduledPanelCreatedSuccess', member).replace('{channel}', channel.toString());
         return interaction.editReply({ content: successMessage });
     }
+
+    // ===========================================================================
+    // == LÓGICA DE APROBACIÓN DE EQUIPOS VÍA SELECT MENU (LIGAS GOLD/SILVER/BRONZE) ==
+    // ===========================================================================
+    if (customId.startsWith('approve_team_select_')) {
+        await interaction.deferUpdate();
+        const esAprobador = member.permissions.has(PermissionFlagsBits.Administrator) || member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        if (!esAprobador) return interaction.followUp({ content: 'No tienes permisos para esta acción.', flags: MessageFlags.Ephemeral });
+
+        const parts = customId.split('_');
+        const applicantId = parts[3];
+        const selectedValue = values[0];
+        const [eloStr, leagueName] = selectedValue.split('_');
+        const startingElo = parseInt(eloStr, 10) || 1000;
+
+        const originalEmbed = interaction.message.embeds[0];
+        if (!originalEmbed) return interaction.followUp({ content: 'Error: No se pudo encontrar el embed de la solicitud original.', flags: MessageFlags.Ephemeral });
+
+        const teamNameField = originalEmbed.fields.find(f => f.name === 'Nombre del Equipo');
+        const teamAbbrField = originalEmbed.fields.find(f => f.name === 'Abreviatura');
+        const teamTwitterField = originalEmbed.fields.find(f => f.name === 'Twitter del Equipo');
+        
+        if (!teamNameField || !teamAbbrField) return interaction.followUp({ content: 'Error: El embed de datos está incompleto.', flags: MessageFlags.Ephemeral });
+
+        const teamName = teamNameField.value;
+        const teamAbbr = teamAbbrField.value;
+        const teamTwitter = teamTwitterField ? teamTwitterField.value : 'No especificado';
+        
+        const logoUrl = originalEmbed.thumbnail ? originalEmbed.thumbnail.url : 'https://i.imgur.com/V4J2Fcf.png';
+
+        const applicantMember = await guild.members.fetch(applicantId).catch(() => null);
+        if (!applicantMember) return interaction.followUp({ content: `El usuario solicitante ya no está en el servidor.`, flags: MessageFlags.Ephemeral });
+
+        const existingTeam = await Team.findOne({ $or: [{ name: teamName }, { managerId: applicantId }], guildId: guild.id });
+        if (existingTeam) return interaction.followUp({ content: `Error: Ya existe un equipo con el nombre "${teamName}" o el usuario ya es mánager.`, flags: MessageFlags.Ephemeral });
+
+        const newTeam = new Team({
+            name: teamName,
+            abbreviation: teamAbbr,
+            guildId: guild.id,
+            league: leagueName,
+            logoUrl: logoUrl,
+            twitterHandle: teamTwitter === 'No especificado' ? null : teamTwitter,
+            managerId: applicantId,
+            elo: startingElo
+        });
+        await newTeam.save();
+
+        await applicantMember.roles.add(process.env.MANAGER_ROLE_ID).catch(() => {});
+        await applicantMember.roles.add(process.env.PLAYER_ROLE_ID).catch(() => {});
+        await applicantMember.setNickname(`|MG| ${teamAbbr} ${applicantMember.user.username}`).catch(err => console.log(`No se pudo cambiar apodo: ${err.message}`));
+
+        const disabledRow = ActionRowBuilder.from(interaction.message.components[0]);
+        disabledRow.components.forEach(c => c.setDisabled(true));
+        let componentsToUpdate = [disabledRow];
+        // si hay un boton de rechazar y lo queremos deshabilitar tb, pero como le damos a replace, solo deshabilito el select menu
+        
+        const updatedEmbed = EmbedBuilder.from(originalEmbed);
+        updatedEmbed.addFields({ name: 'Liga Asignada', value: `${leagueName} (ELO: ${startingElo})` });
+        updatedEmbed.setColor('Green');
+        
+        await interaction.message.edit({ components: componentsToUpdate, embeds: [updatedEmbed] });
+
+        try {
+            const managerGuideEmbed = new EmbedBuilder()
+                .setTitle(t('managerGuideTitle', applicantMember).replace('{teamName}', teamName))
+                .setColor('Gold')
+                .setImage('https://i.imgur.com/KjamtCg.jpeg')
+                .setDescription(t('managerGuideDescription', applicantMember))
+                .addFields(
+                    { name: t('managerGuideStep1Title', applicantMember), value: t('managerGuideStep1Value', applicantMember) },
+                    { name: t('managerGuideStep2Title', applicantMember), value: t('managerGuideStep2Value', applicantMember) },
+                    { name: t('managerGuideStep3Title', applicantMember), value: t('managerGuideStep3Value', applicantMember) }
+                );
+            await applicantMember.send({ embeds: [managerGuideEmbed] });
+        } catch (dmError) {
+            console.log(`AVISO: No se pudo enviar el MD de guía al nuevo mánager ${applicantMember.user.tag}.`);
+        }
+
+        return interaction.followUp({ content: `✅ Equipo **${teamName}** creado en Liga **${leagueName}**. ELO Inicial: **${startingElo}**.`, flags: MessageFlags.Ephemeral });
+    }
 };
