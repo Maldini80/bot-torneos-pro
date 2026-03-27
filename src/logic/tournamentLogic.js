@@ -2145,7 +2145,7 @@ export async function endTournament(client, tournament) {
         // --- ELO: Distribución por clasificación final de torneo (Ligas o manual) ---
         try {
             const { distributeTournamentElo } = await import('./eloLogic.js');
-            await distributeTournamentElo(finalTournamentState);
+            await distributeTournamentElo(client, finalTournamentState);
         } catch (eloError) {
             console.error(`[ELO] Error al aplicar ELO de torneo en endTournament ${tournament.shortId}:`, eloError.message);
         }
@@ -4123,7 +4123,7 @@ export async function handleFinalResult(client, guild, tournament) {
     // --- ELO: Distribución por clasificación final de torneo ---
     try {
         const { distributeTournamentElo } = await import('./eloLogic.js');
-        await distributeTournamentElo(updatedTournament);
+        await distributeTournamentElo(client, updatedTournament);
     } catch (eloError) {
         console.error(`[ELO] Error al aplicar ELO de torneo ${tournament.shortId}:`, eloError.message);
     }

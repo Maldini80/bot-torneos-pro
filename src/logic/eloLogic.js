@@ -38,7 +38,7 @@ function getLeagueByElo(elo) {
 /**
  * Función principal que se llama cuando un torneo finaliza
  */
-export async function distributeTournamentElo(tournamentState) {
+export async function distributeTournamentElo(client, tournamentState) {
     if (tournamentState.config?.isPaid) {
         console.log(`[ELO] Torneo de pago ${tournamentState.shortId} omitido para ELO.`);
         return { success: true, message: 'Torneo de pago omitido' };
@@ -56,6 +56,7 @@ export async function distributeTournamentElo(tournamentState) {
     console.log(`[ELO] Calculando recompensas de final de torneo: ${tournamentState.shortId}...`);
 
     let eloUpdates = {};
+    let eloSummary = []; // Array para la tabla de Discord
 
     const hasPlayoffs = !!(tournamentState.structure?.eliminatorias && Object.keys(tournamentState.structure.eliminatorias).length > 0 && tournamentState.structure.eliminatorias.final);
 
@@ -102,6 +103,13 @@ export async function distributeTournamentElo(tournamentState) {
                 }
             }
         );
+        
+        eloSummary.push({ 
+            name: team.name || team.nombre || `Team ${capitanId.substring(0,4)}`, 
+            delta: eloDelta, 
+            newElo: finalElo, 
+            newLeague 
+        });
         modified++;
     }
 
@@ -110,6 +118,43 @@ export async function distributeTournamentElo(tournamentState) {
         { _id: tournamentState._id },
         { $set: { eloDistributed: true } }
     );
+
+    // Enviar notificación a Discord con la tabla de cambios
+    if (modified > 0 && client) {
+        try {
+            const { EmbedBuilder } = await import('discord.js');
+            const { CHANNELS } = await import('../../config.js');
+            
+            // Ordenar de mayor ganancia a mayor pérdida
+            eloSummary.sort((a, b) => b.delta - a.delta);
+
+            const embed = new EmbedBuilder()
+                .setTitle(`📊 Reparto ELO: ${tournamentState.nombre || 'Torneo'}`)
+                .setColor('#00f6ff')
+                .setFooter({ text: 'El ELO global ha sido actualizado.' })
+                .setTimestamp();
+
+            let tableString = '```\nEQUIPO                | PUNTOS  | NUEVA LIGA\n';
+            tableString += '----------------------|---------|-----------\n';
+            
+            for (const t of eloSummary) {
+                const deltaStr = t.delta > 0 ? `+${t.delta}` : `${t.delta}`;
+                const namePad = t.name.padEnd(21).substring(0, 21);
+                const deltaPad = deltaStr.padStart(7);
+                tableString += `${namePad} | ${deltaPad} | ${t.newLeague}\n`;
+            }
+            tableString += '```';
+            
+            embed.setDescription(`Al finalizar este evento, el sistema ha repartido los puntos según el rendimiento de cada equipo:\n\n${tableString}`);
+
+            const channel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS).catch(() => null);
+            if (channel) {
+                await channel.send({ embeds: [embed] });
+            }
+        } catch (e) {
+            console.error('[ELO] Error al enviar notificación pública de ELO:', e.message);
+        }
+    }
 
     console.log(`[ELO] Se actualizó el ELO de ${modified} equipos para el torneo ${tournamentState.shortId}.`);
     return { success: true, teamsUpdated: modified };
