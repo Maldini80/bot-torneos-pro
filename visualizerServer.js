@@ -422,9 +422,19 @@ app.post('/api/admin/run-backfill', async (req, res) => {
             console.log('[BACKFILL] Actualizando equipos...');
             const result = await testDb.collection('teams').bulkWrite(bulkOps, { ordered: false });
             console.log('[BACKFILL] Modificados ' + result.modifiedCount + ' equipos exitosamente.');
-            res.json({ success: true, message: `Backfill completado. ${result.modifiedCount} equipos actualizados historialmente.` });
+            
+            // Check if we actually found them using an extra debug count
+            const foundTeamsStr = Object.keys(statsMap);
+            const debugQuery = { _id: { $in: foundTeamsStr.map(id => { try { return new ObjectId(id); } catch(e){ return id; } }) } };
+            const actualTeamsInDb = await testDb.collection('teams').countDocuments(debugQuery);
+            const actualTeamsInTournDb = await tournamentDb.collection('teams').countDocuments(debugQuery);
+            
+            res.json({ 
+                success: true, 
+                message: `Backfill completado. Modificados: ${result.modifiedCount}. Encontrados en memoria: ${foundTeamsStr.length}. Equipos reales en DB 'test': ${actualTeamsInDb}. Equipos reales en DB 'tournamentBotDb': ${actualTeamsInTournDb}. Ids extraidos: ${foundTeamsStr.slice(0, 5).join(', ')}...`
+            });
         } else {
-             res.json({ success: true, message: 'Backfill completado pero no hubo equipos que actualizar (quizá no hay torneos finalizados).' });
+             res.json({ success: true, message: 'Backfill completado pero no hubo torneos ni partidos que procesar.' });
         }
 
     } catch (e) {
@@ -438,8 +448,8 @@ function processMatchForBackfill(m, statsMap, teamsInTournament) {
     const [ga, gb] = m.resultado.split('-').map(Number);
     if (isNaN(ga) || isNaN(gb)) return;
 
-    const idA = m.equipoA.id || m.equipoA._id;
-    const idB = m.equipoB.id || m.equipoB._id;
+    const idA = (m.equipoA.id || m.equipoA._id) ? (m.equipoA.id || m.equipoA._id).toString() : null;
+    const idB = (m.equipoB.id || m.equipoB._id) ? (m.equipoB.id || m.equipoB._id).toString() : null;
     if (!idA || !idB) return;
 
     if (!statsMap[idA]) statsMap[idA] = { matches: 0, wins: 0, draws: 0, losses: 0, goalsScored: 0, goalsConceded: 0, titles: 0, tournamentsPlayed: 0, tournamentsWon: 0 };
