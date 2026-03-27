@@ -66,6 +66,10 @@ const commands = [
                 .setDescription('Selecciona qué capitán o equipo quieres que gane.')
                 .setRequired(true)
                 .setAutocomplete(true)),
+    new SlashCommandBuilder()
+        .setName('migrar-elo')
+        .setDescription('Ejecuta la migración manual de campos ELO en todos los equipos.')
+        .setDefaultMemberPermissions(0),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);

@@ -52,7 +52,11 @@ async function sendPaginatedTeamMenu(interaction, teams, baseCustomId, paginatio
     const endIndex = startIndex + ITEMS_PER_PAGE;
     const currentTeams = teams.slice(startIndex, endIndex);
     if (currentTeams.length === 0) { return interaction.editReply({ content: t('paginationNoTeamsOnPage', interaction.member), components: [] }); }
-    const teamOptions = currentTeams.map(t => ({ label: `${t.name} (${t.abbreviation})`.substring(0, 100), value: t._id.toString() }));
+    const teamOptions = currentTeams.map(t => ({ 
+        label: `${t.name} (${t.abbreviation})`.substring(0, 100), 
+        description: `ELO: ${t.elo || 1000}`,
+        value: t._id.toString() 
+    }));
     const placeholder = t('paginationSelectTeamPlaceholder', interaction.member).replace('{currentPage}', page + 1).replace('{totalPages}', totalPages);
     const selectMenu = new StringSelectMenuBuilder().setCustomId(baseCustomId).setPlaceholder(placeholder).addOptions(teamOptions);
     const navigationRow = new ActionRowBuilder().addComponents(
@@ -915,6 +919,24 @@ const handler = async (client, interaction) => {
             new ActionRowBuilder().addComponents(newLogoInput),
             new ActionRowBuilder().addComponents(newTwitterInput)
         );
+        return interaction.showModal(modal);
+    }
+
+    if (customId.startsWith('admin_edit_elo_')) {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        const teamId = customId.split('_')[3];
+        const team = await Team.findById(teamId).lean();
+        if (!team) return interaction.reply({ content: 'No se encontró el equipo.', ephemeral: true });
+
+        const modal = new ModalBuilder().setCustomId(`admin_edit_elo_modal_${team._id}`).setTitle(`Editar ELO de ${team.name}`);
+        const eloInput = new TextInputBuilder()
+            .setCustomId('newElo')
+            .setLabel("Nuevo ELO (número)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue(String(team.elo || 1000));
+
+        modal.addComponents(new ActionRowBuilder().addComponents(eloInput));
         return interaction.showModal(modal);
     }
 

@@ -19,6 +19,8 @@ export async function connectDb() {
         await getBotSettings();
         // NUEVO: Crear índices para optimizar queries del dashboard
         await ensureIndexes();
+        // ELO: Migración automática de campos ELO en equipos
+        await migrateEloFields();
     } catch (err) { // --- CORRECCIÓN CRÍTICA --- Se añadieron las llaves {}
         console.error('[DATABASE] ERROR FATAL AL CONECTAR CON MONGODB:', err);
         process.exit(1);
@@ -60,6 +62,56 @@ export async function ensureIndexes() {
         if (error.code !== 11000 && error.code !== 85) {
             console.warn('[DATABASE] Advertencia al crear índices:', error.message);
         }
+    }
+}
+
+/**
+ * Migración idempotente: inyecta campos ELO en equipos que no los tengan.
+ * Se ejecuta en cada arranque. Si el equipo ya tiene los campos, no hace nada.
+ * @returns {Promise<number>} Número de equipos migrados
+ */
+export async function migrateEloFields() {
+    try {
+        const testDb = client.db('test');
+        const teamsCol = testDb.collection('teams');
+
+        // Solo actualizar equipos que NO tengan el campo 'elo'
+        const result = await teamsCol.updateMany(
+            { elo: { $exists: false } },
+            {
+                $set: {
+                    elo: 1000,
+                    eloHistory: [],
+                    historicalStats: {
+                        tournamentsPlayed: 0,
+                        tournamentsWon: 0,
+                        tournamentsRunnerUp: 0,
+                        totalMatchesPlayed: 0,
+                        totalWins: 0,
+                        totalDraws: 0,
+                        totalLosses: 0,
+                        currentWinStreak: 0,
+                        bestWinStreak: 0,
+                        currentLossStreak: 0,
+                        worstLossStreak: 0
+                    }
+                }
+            }
+        );
+
+        // Crear índice para ranking por ELO
+        await teamsCol.createIndex({ elo: -1 }).catch(() => {});
+
+        if (result.modifiedCount > 0) {
+            console.log(`[ELO MIGRATION] ${result.modifiedCount} equipos migrados con campos ELO iniciales (1000 pts).`);
+        } else {
+            console.log('[ELO MIGRATION] Todos los equipos ya tienen campos ELO. Sin cambios.');
+        }
+
+        return result.modifiedCount;
+    } catch (error) {
+        console.error('[ELO MIGRATION] Error durante la migración:', error.message);
+        return 0;
     }
 }
 

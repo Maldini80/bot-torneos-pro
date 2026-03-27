@@ -1,6 +1,6 @@
 // src/handlers/commandHandler.js
 import { EmbedBuilder, PermissionsBitField, MessageFlags, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
-import { getDb } from '../../database.js';
+import { getDb, migrateEloFields } from '../../database.js';
 import { createGlobalAdminPanel } from '../utils/embeds.js';
 import { languageRoles, CHANNELS } from '../../config.js';
 import { updateAdminPanel } from '../utils/panelManager.js';
@@ -278,6 +278,22 @@ export async function handleCommand(interaction) {
                 console.error('[RULETA] Error forzando resultado:', error);
                 await interaction.reply({ content: '❌ Hubo un error al forzar la ruleta.', flags: [MessageFlags.Ephemeral] });
             }
+        }
+    }
+
+    if (commandName === 'migrar-elo') {
+        const ownerId = process.env.OWNER_DISCORD_ID;
+        if (interaction.user.id !== ownerId) {
+            return interaction.reply({ content: '❌ Solo el propietario del bot puede ejecutar este comando.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        try {
+            const count = await migrateEloFields();
+            await interaction.editReply(`✅ Migración completada. Se añadieron campos ELO a **${count}** equipos.`);
+        } catch (error) {
+            console.error('[COMMAND] Error en migrar-elo:', error);
+            await interaction.editReply('❌ Ocurrió un error en la migración. Revisa los logs.');
         }
     }
 }

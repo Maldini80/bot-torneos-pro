@@ -216,6 +216,97 @@ app.get('/api/user', (req, res) => {
 });
 
 // ===============================================
+// === ENDPOINTS ELO ===
+// ===============================================
+app.get('/ranking.html', (req, res) => res.sendFile('ranking.html', { root: 'public' }));
+
+app.get('/api/elo/ranking', async (req, res) => {
+    try {
+        const testDb = getDb('test');
+        const teams = await testDb.collection('teams')
+            .find({}, { projection: {
+                name: 1, abbreviation: 1, logoUrl: 1, elo: 1, managerId: 1,
+                'historicalStats.totalMatchesPlayed': 1,
+                'historicalStats.totalWins': 1,
+                'historicalStats.totalDraws': 1,
+                'historicalStats.totalLosses': 1,
+                'historicalStats.currentWinStreak': 1,
+                'historicalStats.bestWinStreak': 1,
+                'historicalStats.currentLossStreak': 1,
+                'historicalStats.worstLossStreak': 1,
+                'historicalStats.tournamentsWon': 1,
+                'historicalStats.tournamentsRunnerUp': 1
+            }})
+            .sort({ elo: -1 })
+            .toArray();
+        res.json(teams);
+    } catch (e) {
+        console.error('Error cargando ranking:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+app.get('/api/elo/hall-of-fame', async (req, res) => {
+    try {
+        // Excluimos torneos de pago y drafts del hall of fame de ELO
+        const db = getDb();
+        const tournaments = await db.collection('tournaments')
+            .find(
+                { status: 'finalizado', 'config.isPaid': { $ne: true }, shortId: { $not: /^draft-/ } }, 
+                { projection: { nombre: 1, shortId: 1, structure: 1, createdAt: 1 } }
+            )
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .toArray();
+            
+        // Extraer campeón/subcampeón de structure.eliminatorias.final
+        const hallOfFame = tournaments.map(t => {
+            let finalMatch = t.structure?.eliminatorias?.final;
+            if (!finalMatch) return null;
+            if (Array.isArray(finalMatch)) finalMatch = finalMatch[0];
+            if (!finalMatch || !finalMatch.resultado) return null;
+
+            const [gA, gB] = finalMatch.resultado.split('-').map(Number);
+            return {
+                tournament: t.nombre,
+                shortId: t.shortId,
+                champion: gA > gB ? finalMatch.equipoA : finalMatch.equipoB,
+                runnerUp: gA > gB ? finalMatch.equipoB : finalMatch.equipoA,
+                result: finalMatch.resultado
+            };
+        }).filter(Boolean);
+        res.json(hallOfFame);
+    } catch (e) {
+        console.error('Error obteniendo hall of fame:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+app.post('/api/elo/update', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+    try {
+        const { teamId, newElo } = req.body;
+        if (!teamId || typeof newElo !== 'number' || newElo < 0) {
+            return res.status(400).json({ error: 'Datos inválidos' });
+        }
+        const testDb = getDb('test');
+        await testDb.collection('teams').updateOne(
+            { _id: new ObjectId(teamId) },
+            { 
+                $set: { elo: newElo },
+                $push: { eloHistory: { $each: [{ date: new Date(), oldElo: 0, newElo, delta: 0, reason: 'web_admin_edit' }], $slice: -100 } }
+            }
+        );
+        res.json({ success: true, newElo });
+    } catch (e) {
+        console.error('Error actualizando ELO:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// ===============================================
 // === ENDPOINTS PARA LA RULETA TRUCADA ===
 // ===============================================
 

@@ -320,6 +320,48 @@ if (customId.startsWith('manager_request_modal_')) {
         await interaction.editReply({ content: t('requestSentCustomLogo', member), components: [] });
     }
 
+    // --- ELO: Manejador del modal de edición de ELO ---
+    if (customId.startsWith('admin_edit_elo_modal_')) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        const teamId = customId.split('_')[4]; // "admin_edit_elo_modal_ID" -> parts: 0, 1, 2, 3, 4
+        const team = await Team.findById(teamId);
+        if (!team) return interaction.editReply({ content: 'El equipo ya no existe.' });
+
+        const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator) || user.id === process.env.OWNER_DISCORD_ID;
+        if (!isAdmin) return interaction.editReply({ content: 'Acción restringida.' });
+
+        const rawElo = fields.getTextInputValue('newElo');
+        const newElo = parseInt(rawElo, 10);
+
+        if (isNaN(newElo) || newElo < 0) {
+            return interaction.editReply({ content: '❌ El ELO debe ser un número entero válido mayor o igual a 0.' });
+        }
+
+        const oldElo = team.elo || 1000;
+        
+        // Registrar en historial e incidir ELO actual
+        const historyEntry = {
+            date: new Date(),
+            oldElo: oldElo,
+            newElo: newElo,
+            delta: newElo - oldElo,
+            reason: 'manual_admin_edit'
+        };
+
+        // En Mongoose o driver nativo 'test', usamos updateOne directo para mantener el esquema mixto
+        const testDb = mongoose.connection.client.db('test');
+        await testDb.collection('teams').updateOne(
+            { _id: team._id },
+            { 
+                $set: { elo: newElo },
+                $push: { eloHistory: { $each: [historyEntry], $slice: -100 } }
+            }
+        );
+
+        return interaction.editReply({ content: `✅ ELO del equipo **${team.name}** actualizado exitosamente: \`${oldElo} ➡️  ${newElo}\`.` });
+    }
+
     if (customId.startsWith('edit_data_modal_')) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 

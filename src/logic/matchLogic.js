@@ -41,6 +41,7 @@ export async function processMatchResult(client, guild, tournament, matchId, res
 
     // Si ya había un resultado, primero lo revertimos.
     if (partido.resultado) {
+        partido.previousResultado = partido.resultado; // ELO: guardar para poder revertir
         await revertStats(currentTournament, partido);
     }
 
@@ -69,6 +70,31 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     await updatePublicMessages(client, finalTournamentState);
     await updateTournamentManagementThread(client, finalTournamentState);
     await notifyTournamentVisualizer(finalTournamentState);
+
+    // --- ELO: Actualización desacoplada ---
+    // Solo aplica a torneos GRATUITOS y que NO sean de draft
+    try {
+        const isFreeTournament = !finalTournamentState.config?.isPaid;
+        const isDraftTournament = finalTournamentState.shortId?.startsWith('draft-');
+
+        if (isFreeTournament && !isDraftTournament) {
+            const { updateEloAfterMatch, revertEloAfterMatch } = await import('./eloLogic.js');
+
+            // Si había un resultado previo, revertir el ELO anterior primero
+            if (partido.previousResultado) {
+                await revertEloAfterMatch(matchId);
+            }
+
+            const [gA, gB] = resultString.split('-').map(Number);
+            await updateEloAfterMatch(
+                partido.equipoA.id, partido.equipoB.id,
+                gA, gB, matchId, finalTournamentState.shortId
+            );
+        }
+    } catch (eloError) {
+        console.error(`[ELO] Error al actualizar ELO para partido ${matchId}:`, eloError.message);
+    }
+    // --- FIN ELO ---
 
     return partido;
 }

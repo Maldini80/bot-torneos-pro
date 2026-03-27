@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BLITZ | Ranking ELO y Hall Of Fame</title>
+    <meta name="description" content="Ranking ELO oficial y Hall of Fame de competiciones THE BLITZ.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700;900&family=Rajdhani:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00f6ff;
+            --primary-dark: #0066ff;
+            --bg-dark: #050510;
+            --text-light: #ffffff;
+            --glow: rgba(0, 246, 255, 0.8);
+            --card-bg: rgba(10, 10, 20, 0.8);
+            --card-border: rgba(0, 246, 255, 0.3);
+            --gold: #FFD700;
+            --silver: #C0C0C0;
+            --bronze: #CD7F32;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg-dark);
+            background-image: url('https://i.imgur.com/b6P7Ed3.jpeg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: var(--text-light);
+            min-height: 100vh;
+        }
+
+        .animated-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background: linear-gradient(135deg, rgba(10, 10, 10, 0.7) 0%, rgba(0, 26, 41, 0.7) 25%, rgba(26, 0, 26, 0.7) 50%, rgba(0, 10, 26, 0.7) 75%, rgba(10, 10, 10, 0.7) 100%);
+            background-size: 400% 400%;
+            animation: gradientFlow 15s ease infinite;
+        }
+
+        @keyframes gradientFlow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .logo {
+            width: 150px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 10px var(--glow));
+        }
+
+        h1 {
+            font-family: 'Exo 2', sans-serif;
+            font-weight: 900;
+            font-style: italic;
+            font-size: 3.5rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px var(--glow), 0 0 20px var(--glow), 4px 4px 0px var(--primary-dark);
+            margin-bottom: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .tab-btn {
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--primary-dark);
+            color: var(--text-light);
+            padding: 12px 30px;
+            font-family: 'Exo 2', sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .tab-btn:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--glow);
+        }
+
+        .tab-btn.active {
+            background: var(--primary-dark);
+            border-color: var(--primary);
+            box-shadow: 0 0 20px var(--glow);
+            text-shadow: 0 0 5px white;
+        }
+
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Tabla de Ranking */
+        .ranking-container {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        th {
+            background: rgba(0, 246, 255, 0.1);
+            font-family: 'Exo 2', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .rank-number {
+            font-family: 'Bebas Neue', display;
+            font-size: 1.5rem;
+            color: var(--primary);
+            text-align: center;
+            width: 50px;
+        }
+
+        .rank-1 .rank-number { color: var(--gold); text-shadow: 0 0 10px var(--gold); }
+        .rank-2 .rank-number { color: var(--silver); text-shadow: 0 0 10px var(--silver); }
+        .rank-3 .rank-number { color: var(--bronze); text-shadow: 0 0 10px var(--bronze); }
+
+        .team-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .team-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--card-border);
+            background: #111;
+        }
+
+        .team-name {
+            font-weight: 700;
+            font-size: 1.2rem;
+            letter-spacing: 0.5px;
+        }
+
+        .team-abbr {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .elo-score {
+            font-family: 'Bebas Neue', display;
+            font-size: 1.8rem;
+            color: var(--primary);
+            text-shadow: 0 0 5px var(--glow);
+        }
+
+        .stats-cell {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .streak-fire { color: #ff4500; font-weight: bold; }
+        .streak-ice { color: #87ceeb; }
+
+        /* Hall Of Fame Grid */
+        .hof-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+        }
+
+        .hof-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hof-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 5px;
+            background: linear-gradient(90deg, var(--gold), #fff8b0, var(--gold));
+        }
+
+        .hof-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(255, 215, 0, 0.2), 0 0 15px var(--glow);
+        }
+
+        .hof-tournament-title {
+            font-family: 'Exo 2', sans-serif;
+            font-weight: 900;
+            font-size: 1.4rem;
+            color: var(--primary);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        .hof-teams {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .hof-team {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 40%;
+        }
+
+        .hof-team-logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid var(--gold);
+            object-fit: cover;
+            background: #111;
+        }
+
+        .hof-runnerup .hof-team-logo {
+            border-color: var(--silver);
+            width: 50px;
+            height: 50px;
+        }
+
+        .hof-team-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .hof-result {
+            font-family: 'Bebas Neue', display;
+            font-size: 2.5rem;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .badge-winner {
+            background: var(--gold);
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.5rem;
+            color: var(--primary);
+            font-family: 'Exo 2', sans-serif;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .tabs { flex-direction: column; width: 100%; }
+            .hof-grid { grid-template-columns: 1fr; }
+            .stats-hide-mobile { display: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="animated-background"></div>
+    <div class="container">
+        <header>
+            <a href="/home.html">
+                <img src="logo-the-blitz.png" alt="THE BLITZ" class="logo">
+            </a>
+            <h1>THE BLITZ ELO</h1>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('ranking')">🏆 Ranking Global</button>
+            <button class="tab-btn" onclick="switchTab('hof')">⭐ Hall Of Fame</button>
+        </div>
+
+        <div id="ranking" class="content-section active">
+            <div class="ranking-container">
+                <table id="rankingTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Equipo</th>
+                            <th>ELO</th>
+                            <th class="stats-hide-mobile">V-E-D</th>
+                            <th class="stats-hide-mobile">Racha</th>
+                            <th class="stats-hide-mobile">Títulos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rankingBody">
+                        <tr><td colspan="6" class="loading">Cargando Ranking...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="hof" class="content-section">
+            <div id="hofGrid" class="hof-grid">
+                <div class="loading">Cargando Hall Of Fame...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        async function loadRanking() {
+            try {
+                const response = await fetch('/api/elo/ranking');
+                const teams = await response.json();
+                const tbody = document.getElementById('rankingBody');
+                tbody.innerHTML = '';
+
+                if (teams.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay equipos registrados</td></tr>';
+                    return;
+                }
+
+                teams.forEach((team, index) => {
+                    const rank = index + 1;
+                    const stats = team.historicalStats || {};
+                    const wins = stats.totalWins || 0;
+                    const draws = stats.totalDraws || 0;
+                    const losses = stats.totalLosses || 0;
+                    const titles = stats.tournamentsWon || 0;
+                    
+                    let streakHtml = '-';
+                    if (stats.currentWinStreak > 0) {
+                        streakHtml = `<span class="streak-fire"><i class="fas fa-fire"></i> W${stats.currentWinStreak}</span>`;
+                    } else if (stats.currentLossStreak > 0) {
+                        streakHtml = `<span class="streak-ice"><i class="fas fa-snowflake"></i> L${stats.currentLossStreak}</span>`;
+                    }
+
+                    const row = document.createElement('tr');
+                    if (rank <= 3) row.classList.add(`rank-${rank}`);
+
+                    row.innerHTML = `
+                        <td class="rank-number">${rank}</td>
+                        <td>
+                            <div class="team-info">
+                                <img src="${team.logoUrl || 'https://i.imgur.com/X2YIZh4.png'}" class="team-logo" alt="logo" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
+                                <div>
+                                    <div class="team-name">${team.name}</div>
+                                    <div class="team-abbr">${team.abbreviation}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="elo-score">${team.elo || 1000}</td>
+                        <td class="stats-cell stats-hide-mobile">${wins} - ${draws} - ${losses}</td>
+                        <td class="stats-cell stats-hide-mobile">${streakHtml}</td>
+                        <td class="stats-cell stats-hide-mobile"><i class="fas fa-trophy" style="color:var(--gold)"></i> ${titles}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error("Error loading ranking:", error);
+                document.getElementById('rankingBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:red;">Error cargando datos</td></tr>';
+            }
+        }
+
+        async function loadHallOfFame() {
+            try {
+                const response = await fetch('/api/elo/hall-of-fame');
+                const tournaments = await response.json();
+                const grid = document.getElementById('hofGrid');
+                grid.innerHTML = '';
+
+                if (tournaments.length === 0) {
+                    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center;">Aún no hay torneos finalizados registrados en el Hall of Fame.</div>';
+                    return;
+                }
+
+                tournaments.forEach(t => {
+                    if (!t.champion || !t.runnerUp) return;
+                    
+                    const card = document.createElement('div');
+                    card.className = 'hof-card';
+                    card.innerHTML = `
+                        <div class="hof-tournament-title">${t.tournament}</div>
+                        <div class="hof-teams">
+                            <div class="hof-team">
+                                <img src="${t.champion.logo || 'https://i.imgur.com/X2YIZh4.png'}" class="hof-team-logo" alt="Champion" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
+                                <div class="hof-team-name">${t.champion.nombre}</div>
+                                <div class="badge-winner"><i class="fas fa-crown"></i> Campeón</div>
+                            </div>
+                            <div class="hof-result">${t.result}</div>
+                            <div class="hof-team hof-runnerup">
+                                <img src="${t.runnerUp.logo || 'https://i.imgur.com/X2YIZh4.png'}" class="hof-team-logo" alt="Runner-Up" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
+                                <div class="hof-team-name">${t.runnerUp.nombre}</div>
+                            </div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            } catch (error) {
+                console.error("Error loading HOF:", error);
+                document.getElementById('hofGrid').innerHTML = '<div style="color:red;">Error cargando datos</div>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRanking();
+            loadHallOfFame();
+        });
+    </script>
+</body>
+</html>
