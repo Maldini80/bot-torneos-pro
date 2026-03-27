@@ -2142,6 +2142,15 @@ export async function endTournament(client, tournament) {
         await notifyTournamentVisualizer(finalTournamentState);
         await updateTournamentManagementThread(client, finalTournamentState);
 
+        // --- ELO: Distribución por clasificación final de torneo (Ligas o manual) ---
+        try {
+            const { distributeTournamentElo } = await import('./eloLogic.js');
+            await distributeTournamentElo(finalTournamentState);
+        } catch (eloError) {
+            console.error(`[ELO] Error al aplicar ELO de torneo en endTournament ${tournament.shortId}:`, eloError.message);
+        }
+        // --- FIN ELO ---
+
         // --- INICIO DE LA NUEVA LÓGICA DE RECOMPENSAS ---
         if (finalTournamentState.shortId.startsWith('draft-')) {
             console.log(`[STRIKE REDUCTION] Torneo de draft finalizado. Revisando jugadores para recompensa...`);
@@ -4111,19 +4120,12 @@ export async function handleFinalResult(client, guild, tournament) {
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado.`);
 
-    // --- ELO: Bonificación por campeonato (solo torneos gratuitos, no drafts) ---
+    // --- ELO: Distribución por clasificación final de torneo ---
     try {
-        const isFreeTournament = !tournament.config?.isPaid;
-        const isDraftTournament = tournament.shortId?.startsWith('draft-');
-
-        if (isFreeTournament && !isDraftTournament) {
-            const { applyTournamentBonus } = await import('./eloLogic.js');
-            await applyTournamentBonus(campeon.capitanId, 'champion', tournament.shortId);
-            await applyTournamentBonus(finalista.capitanId, 'runner_up', tournament.shortId);
-            console.log(`[ELO] Bonificaciones aplicadas: Campeón=${campeon.nombre} (+50), Sub=${finalista.nombre} (+25)`);
-        }
+        const { distributeTournamentElo } = await import('./eloLogic.js');
+        await distributeTournamentElo(updatedTournament);
     } catch (eloError) {
-        console.error(`[ELO] Error al aplicar bonificaciones de torneo ${tournament.shortId}:`, eloError.message);
+        console.error(`[ELO] Error al aplicar ELO de torneo ${tournament.shortId}:`, eloError.message);
     }
     // --- FIN ELO ---
 }

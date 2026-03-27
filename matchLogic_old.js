@@ -70,7 +70,6 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     await updateTournamentManagementThread(client, finalTournamentState);
     await notifyTournamentVisualizer(finalTournamentState);
 
-
     return partido;
 }
 

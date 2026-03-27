@@ -577,7 +577,10 @@
                                 <img src="${team.logoUrl || 'https://i.imgur.com/X2YIZh4.png'}" class="team-logo" alt="logo" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
                                 <div>
                                     <div class="team-name">${team.name}</div>
-                                    <div class="team-abbr">${team.abbreviation} ${leagueBadge}</div>
+                                    <div class="team-abbr" style="display: flex; align-items: center;">
+                                        <span style="width: 50px; display: inline-block; text-transform: uppercase;">${team.abbreviation}</span>
+                                        ${leagueBadge}
+                                    </div>
                                 </div>
                             </div>
                         </td>

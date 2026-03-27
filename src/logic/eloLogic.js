@@ -1,414 +1,235 @@
 // src/logic/eloLogic.js
-// Módulo independiente de cálculo y gestión de ELO para torneos gratuitos.
-// Todas las operaciones son atómicas ($inc) y desacopladas del flujo principal.
+// Módulo de cálculo y gestión de ELO masivo al finalizar torneos.
 
 import { getDb } from '../../database.js';
 
-// --- CONSTANTES DE ELO ---
-const BASE_ELO = 1000;
 const ELO_MIN = 0;
-const DIFF_THRESHOLD = 100; // Diferencia para considerar favorito/underdog
 
-// Tabla de puntos ELO
-const ELO_TABLE = {
-    balanced: { win: 25, lose: -25, draw: 2 },
-    favorite_wins: { win: 15, lose: -15, draw: 2 },
-    underdog_wins: { win: 35, lose: -35, draw: 2 }
+// Recompensas para Playoffs
+const ELO_PLAYOFF_VALS = {
+    champion: 150,
+    runner_up: 80,
+    semifinalist: 40,
+    quarterfinalist: 15,
+    round_of_16: -20, // octavos
+    groups_or_earlier: -40 
 };
 
-// Bonificaciones por torneo
-const TOURNAMENT_BONUS = {
-    champion: 50,
-    runner_up: 25
+// Recompensas para Liga (Sin eliminatorias)
+const ELO_LEAGUE_VALS = {
+    first: 120,
+    second: 75,
+    third: 40,
+    top_half: 15, // 4º hasta la mitad
+    bottom_half: -35, // Desde la mitad hasta el penúltimo
+    last: -60
 };
 
 /**
- * Calcula el delta de ELO basado en la diferencia entre los dos equipos y el resultado.
- * @param {number} eloA - ELO del equipo A
- * @param {number} eloB - ELO del equipo B
- * @param {number} golesA - Goles del equipo A
- * @param {number} golesB - Goles del equipo B
- * @returns {{ deltaA: number, deltaB: number, scenario: string }}
+ * Recalcula masivamente la liga de un equipo según su ELO actual
  */
-function calculateEloDelta(eloA, eloB, golesA, golesB) {
-    const diff = Math.abs(eloA - eloB);
-    const isDraw = golesA === golesB;
-
-    if (isDraw) {
-        return { deltaA: ELO_TABLE.balanced.draw, deltaB: ELO_TABLE.balanced.draw, scenario: 'draw' };
-    }
-
-    const aWins = golesA > golesB;
-
-    if (diff < DIFF_THRESHOLD) {
-        // Partido equilibrado
-        return {
-            deltaA: aWins ? ELO_TABLE.balanced.win : ELO_TABLE.balanced.lose,
-            deltaB: aWins ? ELO_TABLE.balanced.lose : ELO_TABLE.balanced.win,
-            scenario: 'balanced'
-        };
-    }
-
-    // Hay favorito (el que tiene más ELO)
-    const aIsFavorite = eloA > eloB;
-
-    if (aWins) {
-        // ¿Ganó el favorito o el underdog?
-        if (aIsFavorite) {
-            // Favorito gana → menos puntos
-            return {
-                deltaA: ELO_TABLE.favorite_wins.win,
-                deltaB: ELO_TABLE.favorite_wins.lose,
-                scenario: 'favorite_wins'
-            };
-        } else {
-            // Underdog gana → más puntos
-            return {
-                deltaA: ELO_TABLE.underdog_wins.win,
-                deltaB: ELO_TABLE.underdog_wins.lose,
-                scenario: 'underdog_wins'
-            };
-        }
-    } else {
-        // B gana
-        if (!aIsFavorite) {
-            // B es favorito y gana
-            return {
-                deltaA: ELO_TABLE.favorite_wins.lose,
-                deltaB: ELO_TABLE.favorite_wins.win,
-                scenario: 'favorite_wins'
-            };
-        } else {
-            // B es underdog y gana
-            return {
-                deltaA: ELO_TABLE.underdog_wins.lose,
-                deltaB: ELO_TABLE.underdog_wins.win,
-                scenario: 'underdog_wins'
-            };
-        }
-    }
+function getLeagueByElo(elo) {
+    if (elo >= 1550) return 'DIAMOND';
+    if (elo >= 1300) return 'GOLD';
+    if (elo >= 1000) return 'SILVER';
+    return 'BRONZE';
 }
 
 /**
- * Busca un equipo en test.teams por su managerId (capitanId del torneo).
- * @param {string} capitanId - El ID del capitán/manager
- * @returns {Promise<object|null>} El documento del equipo o null
+ * Función principal que se llama cuando un torneo finaliza
  */
-async function findTeamByCapitanId(capitanId) {
+export async function distributeTournamentElo(tournamentState) {
+    if (tournamentState.config?.isPaid) {
+        console.log(`[ELO] Torneo de pago ${tournamentState.shortId} omitido para ELO.`);
+        return { success: true, message: 'Torneo de pago omitido' };
+    }
+    if (tournamentState.shortId?.startsWith('draft-')) {
+        console.log(`[ELO] Torneo Draft ${tournamentState.shortId} omitido para ELO.`);
+        return { success: true, message: 'Torneo draft omitido' };
+    }
+    if (tournamentState.eloDistributed) {
+        console.log(`[ELO] ELO ya fue distribuido previamente para ${tournamentState.shortId}`);
+        return { success: true, message: 'ELO ya distribuido' };
+    }
+
     const testDb = getDb('test');
-    return testDb.collection('teams').findOne({ managerId: capitanId });
-}
+    console.log(`[ELO] Calculando recompensas de final de torneo: ${tournamentState.shortId}...`);
 
-/**
- * Actualiza el ELO y las rachas de un equipo tras un partido de torneo.
- * Solo aplica a torneos GRATUITOS (no de pago, no drafts, no amistosos).
- *
- * @param {string} teamAId - capitanId del equipo A
- * @param {string} teamBId - capitanId del equipo B
- * @param {number} golesA - Goles del equipo A
- * @param {number} golesB - Goles del equipo B
- * @param {string} matchId - ID único del partido
- * @param {string} tournamentShortId - shortId del torneo
- */
-export async function updateEloAfterMatch(teamAId, teamBId, golesA, golesB, matchId, tournamentShortId) {
-    const testDb = getDb('test');
-    const teamsCol = testDb.collection('teams');
+    let eloUpdates = {};
 
-    // Buscar ambos equipos
-    const teamA = await findTeamByCapitanId(teamAId);
-    const teamB = await findTeamByCapitanId(teamBId);
+    const hasPlayoffs = !!(tournamentState.structure?.eliminatorias && Object.keys(tournamentState.structure.eliminatorias).length > 0 && tournamentState.structure.eliminatorias.final);
 
-    if (!teamA || !teamB) {
-        console.warn(`[ELO] No se encontraron ambos equipos para el partido ${matchId}. A=${teamAId}(${!!teamA}), B=${teamBId}(${!!teamB})`);
-        return;
-    }
-
-    const eloA = teamA.elo ?? BASE_ELO;
-    const eloB = teamB.elo ?? BASE_ELO;
-    const { deltaA, deltaB, scenario } = calculateEloDelta(eloA, eloB, golesA, golesB);
-
-    const isDraw = golesA === golesB;
-    const aWins = golesA > golesB;
-    const now = new Date();
-
-    // --- Registro de historial para trazabilidad y reversión ---
-    const historyEntryA = {
-        date: now,
-        oldElo: eloA,
-        newElo: Math.max(ELO_MIN, eloA + deltaA),
-        delta: deltaA,
-        reason: `match`,
-        matchId,
-        tournamentShortId,
-        scenario,
-        resultado: `${golesA}-${golesB}`,
-        rivalTeamId: teamB._id.toString()
-    };
-
-    const historyEntryB = {
-        date: now,
-        oldElo: eloB,
-        newElo: Math.max(ELO_MIN, eloB + deltaB),
-        delta: deltaB,
-        reason: `match`,
-        matchId,
-        tournamentShortId,
-        scenario,
-        resultado: `${golesB}-${golesA}`,
-        rivalTeamId: teamA._id.toString()
-    };
-
-    // --- Actualización atómica del equipo A ---
-    const updateA = {
-        $inc: {
-            elo: deltaA,
-            'historicalStats.totalMatchesPlayed': 1
-        },
-        $push: { eloHistory: { $each: [historyEntryA], $slice: -100 } } // Limitar historial a 100 entradas
-    };
-
-    if (isDraw) {
-        updateA.$inc['historicalStats.totalDraws'] = 1;
-        updateA.$set = {
-            'historicalStats.currentWinStreak': 0,
-            'historicalStats.currentLossStreak': 0
-        };
-    } else if (aWins) {
-        updateA.$inc['historicalStats.totalWins'] = 1;
-        updateA.$inc['historicalStats.currentWinStreak'] = 1;
-        updateA.$set = { 'historicalStats.currentLossStreak': 0 };
+    if (hasPlayoffs) {
+        eloUpdates = calculatePlayoffElo(tournamentState);
     } else {
-        updateA.$inc['historicalStats.totalLosses'] = 1;
-        updateA.$inc['historicalStats.currentLossStreak'] = 1;
-        updateA.$set = { 'historicalStats.currentWinStreak': 0 };
+        eloUpdates = calculateLeagueElo(tournamentState);
     }
 
-    // Aplicar y luego actualizar récords de rachas (requiere leer el valor actual)
-    await teamsCol.updateOne({ _id: teamA._id }, updateA);
-
-    // Proteger ELO mínimo
-    await teamsCol.updateOne({ _id: teamA._id, elo: { $lt: ELO_MIN } }, { $set: { elo: ELO_MIN } });
-
-    // Actualizar récords de rachas del equipo A
-    const updatedTeamA = await teamsCol.findOne({ _id: teamA._id });
-    if (updatedTeamA) {
-        const streakUpdates = {};
-        if ((updatedTeamA.historicalStats?.currentWinStreak || 0) > (updatedTeamA.historicalStats?.bestWinStreak || 0)) {
-            streakUpdates['historicalStats.bestWinStreak'] = updatedTeamA.historicalStats.currentWinStreak;
-        }
-        if ((updatedTeamA.historicalStats?.currentLossStreak || 0) > (updatedTeamA.historicalStats?.worstLossStreak || 0)) {
-            streakUpdates['historicalStats.worstLossStreak'] = updatedTeamA.historicalStats.currentLossStreak;
-        }
-        if (Object.keys(streakUpdates).length > 0) {
-            await teamsCol.updateOne({ _id: teamA._id }, { $set: streakUpdates });
-        }
+    if (Object.keys(eloUpdates).length === 0) {
+        console.log(`[ELO] Sin equipos válidos para actualizar en ${tournamentState.shortId}.`);
+        return { success: false, message: 'Sin equipos válidos' };
     }
 
-    // --- Actualización atómica del equipo B ---
-    const updateB = {
-        $inc: {
-            elo: deltaB,
-            'historicalStats.totalMatchesPlayed': 1
-        },
-        $push: { eloHistory: { $each: [historyEntryB], $slice: -100 } }
-    };
+    // Aplicar los cambios a la DB de forma masiva
+    let modified = 0;
+    for (const [capitanId, eloDelta] of Object.entries(eloUpdates)) {
+        if (!capitanId || capitanId === 'ghost') continue;
 
-    if (isDraw) {
-        updateB.$inc['historicalStats.totalDraws'] = 1;
-        updateB.$set = {
-            'historicalStats.currentWinStreak': 0,
-            'historicalStats.currentLossStreak': 0
-        };
-    } else if (!aWins) {
-        // B gana
-        updateB.$inc['historicalStats.totalWins'] = 1;
-        updateB.$inc['historicalStats.currentWinStreak'] = 1;
-        updateB.$set = { 'historicalStats.currentLossStreak': 0 };
-    } else {
-        // B pierde
-        updateB.$inc['historicalStats.totalLosses'] = 1;
-        updateB.$inc['historicalStats.currentLossStreak'] = 1;
-        updateB.$set = { 'historicalStats.currentWinStreak': 0 };
-    }
+        const team = await testDb.collection('teams').findOne({ managerId: capitanId });
+        if (!team) continue;
 
-    await teamsCol.updateOne({ _id: teamB._id }, updateB);
-    await teamsCol.updateOne({ _id: teamB._id, elo: { $lt: ELO_MIN } }, { $set: { elo: ELO_MIN } });
+        const oldElo = team.elo || 1000;
+        const newEloRaw = oldElo + eloDelta;
+        const finalElo = Math.max(ELO_MIN, newEloRaw);
+        const newLeague = getLeagueByElo(finalElo);
 
-    // Actualizar récords de rachas del equipo B
-    const updatedTeamB = await teamsCol.findOne({ _id: teamB._id });
-    if (updatedTeamB) {
-        const streakUpdates = {};
-        if ((updatedTeamB.historicalStats?.currentWinStreak || 0) > (updatedTeamB.historicalStats?.bestWinStreak || 0)) {
-            streakUpdates['historicalStats.bestWinStreak'] = updatedTeamB.historicalStats.currentWinStreak;
-        }
-        if ((updatedTeamB.historicalStats?.currentLossStreak || 0) > (updatedTeamB.historicalStats?.worstLossStreak || 0)) {
-            streakUpdates['historicalStats.worstLossStreak'] = updatedTeamB.historicalStats.currentLossStreak;
-        }
-        if (Object.keys(streakUpdates).length > 0) {
-            await teamsCol.updateOne({ _id: teamB._id }, { $set: streakUpdates });
-        }
-    }
-
-    console.log(`[ELO] Partido ${matchId} (${tournamentShortId}): ${teamA.name} ${eloA}→${Math.max(ELO_MIN, eloA + deltaA)} (${deltaA > 0 ? '+' : ''}${deltaA}) | ${teamB.name} ${eloB}→${Math.max(ELO_MIN, eloB + deltaB)} (${deltaB > 0 ? '+' : ''}${deltaB}) [${scenario}]`);
-}
-
-/**
- * Revierte los cambios de ELO y rachas de un partido específico.
- * Busca en eloHistory el registro con el matchId y deshace el cambio.
- *
- * @param {string} matchId - ID del partido a revertir
- */
-export async function revertEloAfterMatch(matchId) {
-    const testDb = getDb('test');
-    const teamsCol = testDb.collection('teams');
-
-    // Buscar todos los equipos que tengan un registro con este matchId en su historial
-    const affectedTeams = await teamsCol.find({
-        'eloHistory.matchId': matchId
-    }).toArray();
-
-    if (affectedTeams.length === 0) {
-        console.warn(`[ELO REVERT] No se encontraron registros para el partido ${matchId}`);
-        return;
-    }
-
-    for (const team of affectedTeams) {
-        const historyEntry = team.eloHistory.find(h => h.matchId === matchId);
-        if (!historyEntry) continue;
-
-        const revertDelta = -historyEntry.delta;
-
-        // Determinar qué stat revertir basándose en el resultado original
-        const [golesEquipo, golesRival] = historyEntry.resultado.split('-').map(Number);
-        const wasWin = golesEquipo > golesRival;
-        const wasDraw = golesEquipo === golesRival;
-        const wasLoss = golesEquipo < golesRival;
-
-        const revertUpdate = {
-            $inc: {
-                elo: revertDelta,
-                'historicalStats.totalMatchesPlayed': -1
-            },
-            $pull: { eloHistory: { matchId: matchId } }
-        };
-
-        if (wasWin) revertUpdate.$inc['historicalStats.totalWins'] = -1;
-        else if (wasDraw) revertUpdate.$inc['historicalStats.totalDraws'] = -1;
-        else if (wasLoss) revertUpdate.$inc['historicalStats.totalLosses'] = -1;
-
-        await teamsCol.updateOne({ _id: team._id }, revertUpdate);
-
-        // Proteger ELO mínimo
-        await teamsCol.updateOne({ _id: team._id, elo: { $lt: ELO_MIN } }, { $set: { elo: ELO_MIN } });
-
-        // Recalcular rachas tras reversión (no se puede hacer incrementalmente, hay que recalcular)
-        await recalculateStreaks(teamsCol, team._id);
-
-        console.log(`[ELO REVERT] ${team.name}: ELO revertido ${historyEntry.delta > 0 ? '+' : ''}${historyEntry.delta} → ${revertDelta > 0 ? '+' : ''}${revertDelta} para partido ${matchId}`);
-    }
-}
-
-/**
- * Recalcula las rachas de un equipo basándose en su eloHistory actual.
- * Se usa tras una reversión cuando no podemos determinar la racha incrementalmente.
- */
-async function recalculateStreaks(teamsCol, teamId) {
-    const team = await teamsCol.findOne({ _id: teamId });
-    if (!team || !team.eloHistory || team.eloHistory.length === 0) {
-        await teamsCol.updateOne({ _id: teamId }, {
-            $set: {
-                'historicalStats.currentWinStreak': 0,
-                'historicalStats.currentLossStreak': 0,
-                'historicalStats.bestWinStreak': 0,
-                'historicalStats.worstLossStreak': 0
+        await testDb.collection('teams').updateOne(
+            { _id: team._id },
+            { 
+                $set: { elo: finalElo, league: newLeague },
+                $push: { 
+                    eloHistory: { 
+                        $each: [{
+                            date: new Date(),
+                            oldElo,
+                            newElo: finalElo,
+                            delta: eloDelta,
+                            reason: 'tournament_end',
+                            tournamentShortId: tournamentState.shortId
+                        }], 
+                        $slice: -100 
+                    } 
+                }
             }
-        });
-        return;
+        );
+        modified++;
     }
 
-    // Recorrer todo el historial de partidos cronológicamente para recalcular
-    const matchHistory = team.eloHistory
-        .filter(h => h.reason === 'match')
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Marcar el torneo para no repetir el pago
+    await testDb.collection('tournaments').updateOne(
+        { _id: tournamentState._id },
+        { $set: { eloDistributed: true } }
+    );
 
-    let currentWinStreak = 0;
-    let bestWinStreak = 0;
-    let currentLossStreak = 0;
-    let worstLossStreak = 0;
-
-    for (const entry of matchHistory) {
-        const [gf, ga] = entry.resultado.split('-').map(Number);
-        if (gf > ga) {
-            // Victoria
-            currentWinStreak++;
-            currentLossStreak = 0;
-            bestWinStreak = Math.max(bestWinStreak, currentWinStreak);
-        } else if (gf < ga) {
-            // Derrota
-            currentLossStreak++;
-            currentWinStreak = 0;
-            worstLossStreak = Math.max(worstLossStreak, currentLossStreak);
-        } else {
-            // Empate
-            currentWinStreak = 0;
-            currentLossStreak = 0;
-        }
-    }
-
-    await teamsCol.updateOne({ _id: teamId }, {
-        $set: {
-            'historicalStats.currentWinStreak': currentWinStreak,
-            'historicalStats.bestWinStreak': bestWinStreak,
-            'historicalStats.currentLossStreak': currentLossStreak,
-            'historicalStats.worstLossStreak': worstLossStreak
-        }
-    });
+    console.log(`[ELO] Se actualizó el ELO de ${modified} equipos para el torneo ${tournamentState.shortId}.`);
+    return { success: true, teamsUpdated: modified };
 }
 
 /**
- * Aplica bonificación de ELO por resultado final de torneo.
- * Solo para torneos gratuitos.
- *
- * @param {string} capitanId - El managerId/capitanId del equipo
- * @param {'champion'|'runner_up'} bonusType - Tipo de bonificación
- * @param {string} tournamentShortId - shortId del torneo
+ * Calcula puntos ELO según la ronda máxima alcanzada.
  */
-export async function applyTournamentBonus(capitanId, bonusType, tournamentShortId) {
-    const testDb = getDb('test');
-    const teamsCol = testDb.collection('teams');
+function calculatePlayoffElo(tournamentState) {
+    let teamsRounds = {}; // { capitanId: 'final' | 'semifinales' | ... }
+    
+    // Rondas en orden de importancia (de menor a mayor)
+    const rondas = ['dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
 
-    const team = await findTeamByCapitanId(capitanId);
-    if (!team) {
-        console.warn(`[ELO BONUS] No se encontró equipo para capitanId=${capitanId}`);
-        return;
+    // 1. Recolectar todos los equipos de la fase de grupos (si existe)
+    if (tournamentState.structure?.grupos) {
+        for (const gName in tournamentState.structure.grupos) {
+            const equipos = tournamentState.structure.grupos[gName].equipos || [];
+            for (const eq of equipos) {
+                if (eq.id && eq.id !== 'ghost') {
+                    teamsRounds[eq.id] = 'grupos'; // Nivel base
+                }
+            }
+        }
     }
 
-    const bonus = TOURNAMENT_BONUS[bonusType] || 0;
-    const currentElo = team.elo ?? BASE_ELO;
+    // 2. Escanear las eliminatorias para ver hasta donde llegó cada uno
+    const elims = tournamentState.structure.eliminatorias;
+    for (const ronda of rondas) {
+        if (!elims[ronda]) continue;
+        const matches = Array.isArray(elims[ronda]) ? elims[ronda] : [elims[ronda]];
+        for (const m of matches) {
+            if (!m || !m.equipoA || !m.equipoB) continue;
+            
+            const idA = m.equipoA.id || m.equipoA._id;
+            const idB = m.equipoB.id || m.equipoB._id;
+            
+            if (idA && idA !== 'ghost') teamsRounds[idA] = ronda;
+            if (idB && idB !== 'ghost') teamsRounds[idB] = ronda;
 
-    const historyEntry = {
-        date: new Date(),
-        oldElo: currentElo,
-        newElo: currentElo + bonus,
-        delta: bonus,
-        reason: `tournament_${bonusType}`,
-        tournamentShortId
-    };
-
-    const statsInc = {
-        'historicalStats.tournamentsPlayed': 1
-    };
-
-    if (bonusType === 'champion') {
-        statsInc['historicalStats.tournamentsWon'] = 1;
-    } else if (bonusType === 'runner_up') {
-        statsInc['historicalStats.tournamentsRunnerUp'] = 1;
+            // Extraer campeón si es la final
+            if (ronda === 'final' && m.resultado) {
+                const [gA, gB] = m.resultado.split('-').map(Number);
+                if (!isNaN(gA) && !isNaN(gB)) {
+                    if (gA > gB) {
+                        teamsRounds[idA] = 'campeon';
+                    } else if (gB > gA) {
+                        teamsRounds[idB] = 'campeon';
+                    }
+                }
+            }
+        }
     }
 
-    await teamsCol.updateOne({ _id: team._id }, {
-        $inc: { elo: bonus, ...statsInc },
-        $push: { eloHistory: { $each: [historyEntry], $slice: -100 } }
+    // 3. Traducir rondas a puntos ELO
+    let eloUpdates = {};
+    for (const [id, maxRonda] of Object.entries(teamsRounds)) {
+        let delta = 0;
+        switch (maxRonda) {
+            case 'campeon': delta = ELO_PLAYOFF_VALS.champion; break;
+            case 'final': delta = ELO_PLAYOFF_VALS.runner_up; break;
+            case 'semifinales': delta = ELO_PLAYOFF_VALS.semifinalist; break;
+            case 'cuartos': delta = ELO_PLAYOFF_VALS.quarterfinalist; break;
+            case 'octavos': delta = ELO_PLAYOFF_VALS.round_of_16; break;
+            case 'dieciseisavos': 
+            case 'grupos':
+            default:
+                delta = ELO_PLAYOFF_VALS.groups_or_earlier; break;
+        }
+        eloUpdates[id] = delta;
+    }
+    
+    return eloUpdates;
+}
+
+/**
+ * Calcula puntos ELO según la posición final en Liga Pura.
+ */
+function calculateLeagueElo(tournamentState) {
+    let eloUpdates = {};
+
+    let allTeams = [];
+    if (tournamentState.structure?.grupos) {
+        for (const gName in tournamentState.structure.grupos) {
+            allTeams = allTeams.concat(tournamentState.structure.grupos[gName].equipos || []);
+        }
+    }
+    
+    allTeams = allTeams.filter(t => t.id !== 'ghost');
+    if (allTeams.length === 0) return eloUpdates;
+
+    // Ordenar por puntos (desc), dif goles (desc), goles favor (desc)
+    allTeams.sort((a, b) => {
+        if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
+        if (b.stats.dg !== a.stats.dg) return b.stats.dg - a.stats.dg;
+        return b.stats.gf - a.stats.gf;
     });
 
-    console.log(`[ELO BONUS] ${team.name}: +${bonus} ELO por ${bonusType} en torneo ${tournamentShortId} (${currentElo}→${currentElo + bonus})`);
+    const total = allTeams.length;
+    allTeams.forEach((team, index) => {
+        const id = team.id;
+        const rank = index + 1;
+        let delta = 0;
+
+        if (rank === 1) {
+            delta = ELO_LEAGUE_VALS.first;
+        } else if (rank === 2) {
+            delta = ELO_LEAGUE_VALS.second;
+        } else if (rank === 3) {
+            delta = ELO_LEAGUE_VALS.third;
+        } else if (rank === total && total > 3) {
+            delta = ELO_LEAGUE_VALS.last;
+        } else if (rank <= Math.ceil(total / 2)) {
+            delta = ELO_LEAGUE_VALS.top_half; // Mitad superior
+        } else {
+            delta = ELO_LEAGUE_VALS.bottom_half; // Mitad inferior
+        }
+
+        eloUpdates[id] = delta;
+    });
+
+    return eloUpdates;
 }
