@@ -401,7 +401,7 @@ app.post('/api/admin/run-backfill', async (req, res) => {
 
             bulkOps.push({
                 updateOne: {
-                    filter: { $or: [{ _id: queryId }, { id: teamId }] },
+                    filter: { $or: [{ _id: queryId }, { id: teamId }, { managerId: teamId }] },
                     update: {
                         $set: {
                             'historicalStats.tournamentsPlayed': stats.tournamentsPlayed,
@@ -425,7 +425,13 @@ app.post('/api/admin/run-backfill', async (req, res) => {
             
             // Check if we actually found them using an extra debug count
             const foundTeamsStr = Object.keys(statsMap);
-            const debugQuery = { _id: { $in: foundTeamsStr.map(id => { try { return new ObjectId(id); } catch(e){ return id; } }) } };
+            const debugQuery = { 
+                $or: [
+                    { _id: { $in: foundTeamsStr.map(id => { try { return new ObjectId(id); } catch(e){ return id; } }) } },
+                    { id: { $in: foundTeamsStr } },
+                    { managerId: { $in: foundTeamsStr } }
+                ]
+            };
             const actualTeamsInDb = await testDb.collection('teams').countDocuments(debugQuery);
             const actualTeamsInTournDb = await tournamentDb.collection('teams').countDocuments(debugQuery);
             
