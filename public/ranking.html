@@ -246,59 +246,85 @@
         .streak-fire { color: #ff4500; font-weight: bold; }
         .streak-ice { color: #87ceeb; }
 
-        /* Hall Of Fame Grid */
-        .hof-grid {
+        /* Secondary Leaderboards */
+        .hof-lists {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 25px;
+            margin-top: 20px;
         }
 
-        .hof-card {
+        .hof-list-card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: 10px;
             padding: 20px;
-            text-align: center;
             backdrop-filter: blur(10px);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            position: relative;
-            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
         }
 
-        .hof-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 5px;
-            background: linear-gradient(90deg, var(--gold), #fff8b0, var(--gold));
-        }
-
-        .hof-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(255, 215, 0, 0.2), 0 0 15px var(--glow);
-        }
-
-        .hof-tournament-title {
+        .hof-list-title {
             font-family: 'Exo 2', sans-serif;
-            font-weight: 900;
             font-size: 1.4rem;
             color: var(--primary);
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+            text-align: center;
+            border-bottom: 1px solid rgba(0, 246, 255, 0.2);
+            padding-bottom: 10px;
             text-transform: uppercase;
         }
 
-        .hof-teams {
+        .hof-item {
             display: flex;
-            justify-content: space-around;
             align-items: center;
-            margin-bottom: 15px;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        .hof-team {
+        .hof-item:last-child {
+            border-bottom: none;
+        }
+
+        .hof-item-left {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            gap: 10px;
-            width: 40%;
+            gap: 12px;
+        }
+
+        .hof-item-rank {
+            font-family: 'Bebas Neue', display;
+            font-size: 1.3rem;
+            color: var(--primary);
+            width: 25px;
+            text-align: center;
+        }
+        
+        .hof-item-rank.rank-1 { color: var(--gold); text-shadow: 0 0 5px var(--gold); }
+        .hof-item-rank.rank-2 { color: var(--silver); text-shadow: 0 0 5px var(--silver); }
+        .hof-item-rank.rank-3 { color: var(--bronze); text-shadow: 0 0 5px var(--bronze); }
+
+        .hof-item-logo {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .hof-item-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
+        }
+
+        .hof-item-value {
+            font-family: 'Bebas Neue', display;
+            font-size: 1.3rem;
+            color: #fff;
         }
 
         .hof-team-logo {
@@ -375,6 +401,7 @@
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('ranking')">🏆 Ranking Global</button>
             <button class="tab-btn" onclick="switchTab('hof')">⭐ Hall Of Fame</button>
+            <button class="tab-btn" id="adminBackfillBtn" style="display: none; border-color: #ff0055;" onclick="triggerBackfill()">🛠️ Recalcular Stats (Admin)</button>
         </div>
 
         <div id="ranking" class="content-section active">
@@ -398,8 +425,8 @@
         </div>
 
         <div id="hof" class="content-section">
-            <div id="hofGrid" class="hof-grid">
-                <div class="loading">Cargando Hall Of Fame...</div>
+            <div id="hofLists" class="hof-lists">
+                <div class="loading">Cargando Récords Históricos...</div>
             </div>
         </div>
     </div>
@@ -413,8 +440,34 @@
                 const user = await response.json();
                 if (user && user.isAdmin) {
                     isAdminVisitor = true;
+                    document.getElementById('adminBackfillBtn').style.display = 'inline-block';
                 }
             } catch (e) { console.error(e); }
+        }
+
+        async function triggerBackfill() {
+            if (!confirm("⚠️ ¿Estás seguro de recalcular todas las estadísticas en base a los torneos finalizados (Backfill)? Esto procesará todos los partidos y podría tardar un momento.")) return;
+            const btn = document.getElementById('adminBackfillBtn');
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ Procesando...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/admin/run-backfill', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ Éxito: ' + data.message);
+                    loadRanking();
+                    loadHallOfFame();
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            } catch (e) {
+                alert('❌ Error de red al intentar ejecutar.');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
 
         function switchTab(tabId) {
@@ -509,40 +562,40 @@
         async function loadHallOfFame() {
             try {
                 const response = await fetch('/api/elo/hall-of-fame');
-                const tournaments = await response.json();
-                const grid = document.getElementById('hofGrid');
-                grid.innerHTML = '';
-
-                if (tournaments.length === 0) {
-                    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center;">Aún no hay torneos finalizados registrados en el Hall of Fame.</div>';
-                    return;
-                }
-
-                tournaments.forEach(t => {
-                    if (!t.champion || !t.runnerUp) return;
-                    
-                    const card = document.createElement('div');
-                    card.className = 'hof-card';
-                    card.innerHTML = `
-                        <div class="hof-tournament-title">${t.tournament}</div>
-                        <div class="hof-teams">
-                            <div class="hof-team">
-                                <img src="${t.champion.logo || 'https://i.imgur.com/X2YIZh4.png'}" class="hof-team-logo" alt="Champion" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
-                                <div class="hof-team-name">${t.champion.nombre}</div>
-                                <div class="badge-winner"><i class="fas fa-crown"></i> Campeón</div>
+                const statsMap = await response.json();
+                
+                const renderList = (title, items, valueFunc, icon) => {
+                    if (!items || items.length === 0) return '';
+                    let html = `<div class="hof-list-card">
+                                  <div class="hof-list-title"><i class="fas ${icon}"></i> ${title}</div>`;
+                    items.forEach((team, idx) => {
+                        const rankClass = idx < 3 ? `rank-${idx + 1}` : '';
+                        html += `
+                            <div class="hof-item">
+                                <div class="hof-item-left">
+                                    <div class="hof-item-rank ${rankClass}">#${idx + 1}</div>
+                                    <img src="${team.logoUrl || team.logo || 'https://i.imgur.com/X2YIZh4.png'}" class="hof-item-logo" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
+                                    <div class="hof-item-name">${team.name || team.nombre}</div>
+                                </div>
+                                <div class="hof-item-value">${valueFunc(team)}</div>
                             </div>
-                            <div class="hof-result">${t.result}</div>
-                            <div class="hof-team hof-runnerup">
-                                <img src="${t.runnerUp.logo || 'https://i.imgur.com/X2YIZh4.png'}" class="hof-team-logo" alt="Runner-Up" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
-                                <div class="hof-team-name">${t.runnerUp.nombre}</div>
-                            </div>
-                        </div>
-                    `;
-                    grid.appendChild(card);
-                });
+                        `;
+                    });
+                    html += `</div>`;
+                    return html;
+                };
+
+                const container = document.getElementById('hofLists');
+                container.innerHTML = 
+                    renderList('Top Campeones', statsMap.topCampeones, t => t.historicalStats.tournamentsWon + ' 🏆', 'fa-crown') +
+                    renderList('Máximos Goleadores', statsMap.topGoleadores, t => t.historicalStats.totalGoalsScored + ' ⚽', 'fa-futbol') +
+                    renderList('Top Victorias', statsMap.topVictorias, t => t.historicalStats.totalWins + ' 🟢', 'fa-check-circle') +
+                    renderList('Muro Defensivo', statsMap.topDefensas, t => t.historicalStats.totalGoalsConceded + ' 🛡️', 'fa-shield-alt') +
+                    renderList('Más Veteranos', statsMap.topVeteranos, t => t.historicalStats.tournamentsPlayed + ' 🏟️', 'fa-history');
+
             } catch (error) {
                 console.error("Error loading HOF:", error);
-                document.getElementById('hofGrid').innerHTML = '<div style="color:red;">Error cargando datos</div>';
+                document.getElementById('hofLists').innerHTML = '<div style="color:red; text-align:center;">Error cargando estadísticas.</div>';
             }
         }
 

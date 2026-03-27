@@ -253,52 +253,52 @@ app.get('/api/elo/ranking', async (req, res) => {
 
 app.get('/api/elo/hall-of-fame', async (req, res) => {
     try {
-        const db = getDb();
-        const tournaments = await db.collection('tournaments')
-            .find(
-                { status: 'finalizado' },
-                { projection: { nombre: 1, shortId: 1, structure: 1, config: 1, createdAt: 1 } }
-            )
-            .sort({ createdAt: -1 })
-            .limit(100) // Fetcheamos hasta 100 para filtrar memoria
+        const testDb = getDb('test');
+        // Extraemos todos los equipos que tengan stats
+        const teams = await testDb.collection('teams')
+            .find({ 'historicalStats.tournamentsPlayed': { $gt: 0 } })
+            .project({ name: 1, abbreviation: 1, logoUrl: 1, logo: 1, historicalStats: 1 })
             .toArray();
-            
-        // Extraer campeón/subcampeón de structure.eliminatorias.final
-        const hallOfFame = tournaments.map(t => {
-            // Saltamos drafts y torneos pagos
-            if (t.config && t.config.isPaid) return null;
-            if (t.shortId && typeof t.shortId === 'string' && t.shortId.startsWith('draft-')) return null;
 
-            let finalMatch = t.structure?.eliminatorias?.final;
-            if (!finalMatch) return null;
-            if (Array.isArray(finalMatch)) finalMatch = finalMatch[0];
-            if (!finalMatch || !finalMatch.resultado) return null;
+        // 1. Top Campeones
+        const topCampeones = [...teams]
+            .filter(t => t.historicalStats.tournamentsWon > 0)
+            .sort((a, b) => b.historicalStats.tournamentsWon - a.historicalStats.tournamentsWon)
+            .slice(0, 10);
 
-            const [gA, gB] = finalMatch.resultado.split('-').map(Number);
-            // Evitamos un bug si resultado no era numérico (ej: "W-L")
-            if (isNaN(gA) || isNaN(gB)) return null;
+        // 2. Top Goleadores
+        const topGoleadores = [...teams]
+            .filter(t => t.historicalStats.totalGoalsScored > 0)
+            .sort((a, b) => b.historicalStats.totalGoalsScored - a.historicalStats.totalGoalsScored)
+            .slice(0, 10);
 
-            const champ = gA > gB ? finalMatch.equipoA : finalMatch.equipoB;
-            const runner = gA > gB ? finalMatch.equipoB : finalMatch.equipoA;
+        // 3. Top Victorias
+        const topVictorias = [...teams]
+            .filter(t => t.historicalStats.totalWins > 0)
+            .sort((a, b) => b.historicalStats.totalWins - a.historicalStats.totalWins)
+            .slice(0, 10);
 
-            return {
-                tournament: t.nombre,
-                shortId: t.shortId,
-                champion: {
-                    nombre: champ.nombre,
-                    logo: champ.logoUrl || champ.logo // SOPORTAMOS AMBOS
-                },
-                runnerUp: {
-                    nombre: runner.nombre,
-                    logo: runner.logoUrl || runner.logo
-                },
-                result: finalMatch.resultado
-            };
-        }).filter(Boolean).slice(0, 20); // Devolvemos los 20 más recientes ya filtrados
-        
-        res.json(hallOfFame);
+        // 4. Muro Defensivo (Mínimo 10 partidos jugados para ser justo)
+        const topDefensas = [...teams]
+            .filter(t => t.historicalStats.totalMatchesPlayed >= 10)
+            .sort((a, b) => a.historicalStats.totalGoalsConceded - b.historicalStats.totalGoalsConceded)
+            .slice(0, 10);
+
+        // 5. Más Veteranos (torneos disputados)
+        const topVeteranos = [...teams]
+            .filter(t => t.historicalStats.tournamentsPlayed > 0)
+            .sort((a, b) => b.historicalStats.tournamentsPlayed - a.historicalStats.tournamentsPlayed)
+            .slice(0, 10);
+
+        res.json({
+            topCampeones,
+            topGoleadores,
+            topVictorias,
+            topDefensas,
+            topVeteranos
+        });
     } catch (e) {
-        console.error('Error obteniendo hall of fame:', e);
+        console.error('Error obteniendo hall of fame stats:', e);
         res.status(500).json({ error: 'Error del servidor' });
     }
 });
@@ -326,6 +326,146 @@ app.post('/api/elo/update', async (req, res) => {
         res.status(500).json({ error: 'Error del servidor' });
     }
 });
+
+app.post('/api/admin/run-backfill', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    try {
+        const tournamentDb = getDb(); // tournamentBotDb
+        const testDb = getDb('test'); // test
+        
+        console.log('[BACKFILL] Analizando torneos finalizados...');
+        const tournaments = await tournamentDb.collection('tournaments').find({ status: 'finalizado' }).toArray();
+        let statsMap = {}; 
+
+        for (const t of tournaments) {
+            if (t.shortId && typeof t.shortId === 'string' && t.shortId.startsWith('draft-')) continue;
+
+            let teamsInTournament = new Set();
+            let championId = null;
+
+            const finalMatch = t.structure?.eliminatorias?.final;
+            if (finalMatch) {
+               const fm = Array.isArray(finalMatch) ? finalMatch[0] : finalMatch;
+               if (fm && fm.resultado) {
+                   const [gA, gB] = fm.resultado.split('-').map(Number);
+                   if (!isNaN(gA) && !isNaN(gB)) {
+                        championId = gA > gB ? (fm.equipoA?.id || fm.equipoA?._id) : (fm.equipoB?.id || fm.equipoB?._id);
+                   }
+               }
+            }
+
+            const rondas = ['dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
+            for (const r of rondas) {
+                if (t.structure?.eliminatorias?.[r]) {
+                    const matches = Array.isArray(t.structure.eliminatorias[r]) ? t.structure.eliminatorias[r] : [t.structure.eliminatorias[r]];
+                    for (const m of matches) {
+                        processMatchForBackfill(m, statsMap, teamsInTournament);
+                    }
+                }
+            }
+
+            if (t.structure?.faseGrupos) {
+                for (const g of t.structure.faseGrupos) {
+                    if (g.jornadas) {
+                        for (const jorn of g.jornadas) {
+                            if (jorn.partidos) {
+                                for (const m of jorn.partidos) {
+                                     processMatchForBackfill(m, statsMap, teamsInTournament);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (const teamId of teamsInTournament) {
+                if (statsMap[teamId]) {
+                    statsMap[teamId].tournamentsPlayed++;
+                }
+            }
+
+            if (championId && statsMap[championId]) {
+                statsMap[championId].tournamentsWon++;
+            }
+        }
+
+        const bulkOps = [];
+        for (const [teamId, stats] of Object.entries(statsMap)) {
+            let queryId;
+            try {
+                queryId = new ObjectId(teamId);
+            } catch(e) { queryId = teamId; }
+
+            bulkOps.push({
+                updateOne: {
+                    filter: { $or: [{ _id: queryId }, { id: teamId }] },
+                    update: {
+                        $set: {
+                            'historicalStats.tournamentsPlayed': stats.tournamentsPlayed,
+                            'historicalStats.tournamentsWon': stats.tournamentsWon,
+                            'historicalStats.totalMatchesPlayed': stats.matches,
+                            'historicalStats.totalWins': stats.wins,
+                            'historicalStats.totalDraws': stats.draws,
+                            'historicalStats.totalLosses': stats.losses,
+                            'historicalStats.totalGoalsScored': stats.goalsScored,
+                            'historicalStats.totalGoalsConceded': stats.goalsConceded
+                        }
+                    }
+                }
+            });
+        }
+
+        if (bulkOps.length > 0) {
+            console.log('[BACKFILL] Actualizando equipos...');
+            const result = await testDb.collection('teams').bulkWrite(bulkOps, { ordered: false });
+            console.log('[BACKFILL] Modificados ' + result.modifiedCount + ' equipos exitosamente.');
+            res.json({ success: true, message: `Backfill completado. ${result.modifiedCount} equipos actualizados historialmente.` });
+        } else {
+             res.json({ success: true, message: 'Backfill completado pero no hubo equipos que actualizar (quizá no hay torneos finalizados).' });
+        }
+
+    } catch (e) {
+        console.error('Error ejecutando backfill:', e);
+        res.status(500).json({ error: 'Error ejecutando backfill: ' + e.message });
+    }
+});
+
+function processMatchForBackfill(m, statsMap, teamsInTournament) {
+    if (!m || !m.resultado || !m.equipoA || !m.equipoB) return;
+    const [ga, gb] = m.resultado.split('-').map(Number);
+    if (isNaN(ga) || isNaN(gb)) return;
+
+    const idA = m.equipoA.id || m.equipoA._id;
+    const idB = m.equipoB.id || m.equipoB._id;
+    if (!idA || !idB) return;
+
+    if (!statsMap[idA]) statsMap[idA] = { matches: 0, wins: 0, draws: 0, losses: 0, goalsScored: 0, goalsConceded: 0, titles: 0, tournamentsPlayed: 0, tournamentsWon: 0 };
+    if (!statsMap[idB]) statsMap[idB] = { matches: 0, wins: 0, draws: 0, losses: 0, goalsScored: 0, goalsConceded: 0, titles: 0, tournamentsPlayed: 0, tournamentsWon: 0 };
+
+    teamsInTournament.add(idA);
+    teamsInTournament.add(idB);
+
+    statsMap[idA].matches++;
+    statsMap[idB].matches++;
+    statsMap[idA].goalsScored += ga;
+    statsMap[idB].goalsScored += gb;
+    statsMap[idA].goalsConceded += gb;
+    statsMap[idB].goalsConceded += ga;
+
+    if (ga > gb) {
+        statsMap[idA].wins++;
+        statsMap[idB].losses++;
+    } else if (gb > ga) {
+        statsMap[idB].wins++;
+        statsMap[idA].losses++;
+    } else {
+        statsMap[idA].draws++;
+        statsMap[idB].draws++;
+    }
+}
 
 // ===============================================
 // === ENDPOINTS PARA LA RULETA TRUCADA ===
