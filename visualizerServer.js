@@ -248,33 +248,49 @@ app.get('/api/elo/ranking', async (req, res) => {
 
 app.get('/api/elo/hall-of-fame', async (req, res) => {
     try {
-        // Excluimos torneos de pago y drafts del hall of fame de ELO
         const db = getDb();
         const tournaments = await db.collection('tournaments')
             .find(
-                { status: 'finalizado', 'config.isPaid': { $ne: true }, shortId: { $not: /^draft-/ } }, 
-                { projection: { nombre: 1, shortId: 1, structure: 1, createdAt: 1 } }
+                { status: 'finalizado' },
+                { projection: { nombre: 1, shortId: 1, structure: 1, config: 1, createdAt: 1 } }
             )
             .sort({ createdAt: -1 })
-            .limit(20)
+            .limit(100) // Fetcheamos hasta 100 para filtrar memoria
             .toArray();
             
         // Extraer campeón/subcampeón de structure.eliminatorias.final
         const hallOfFame = tournaments.map(t => {
+            // Saltamos drafts y torneos pagos
+            if (t.config && t.config.isPaid) return null;
+            if (t.shortId && typeof t.shortId === 'string' && t.shortId.startsWith('draft-')) return null;
+
             let finalMatch = t.structure?.eliminatorias?.final;
             if (!finalMatch) return null;
             if (Array.isArray(finalMatch)) finalMatch = finalMatch[0];
             if (!finalMatch || !finalMatch.resultado) return null;
 
             const [gA, gB] = finalMatch.resultado.split('-').map(Number);
+            // Evitamos un bug si resultado no era numérico (ej: "W-L")
+            if (isNaN(gA) || isNaN(gB)) return null;
+
+            const champ = gA > gB ? finalMatch.equipoA : finalMatch.equipoB;
+            const runner = gA > gB ? finalMatch.equipoB : finalMatch.equipoA;
+
             return {
                 tournament: t.nombre,
                 shortId: t.shortId,
-                champion: gA > gB ? finalMatch.equipoA : finalMatch.equipoB,
-                runnerUp: gA > gB ? finalMatch.equipoB : finalMatch.equipoA,
+                champion: {
+                    nombre: champ.nombre,
+                    logo: champ.logoUrl || champ.logo // SOPORTAMOS AMBOS
+                },
+                runnerUp: {
+                    nombre: runner.nombre,
+                    logo: runner.logoUrl || runner.logo
+                },
                 result: finalMatch.resultado
             };
-        }).filter(Boolean);
+        }).filter(Boolean).slice(0, 20); // Devolvemos los 20 más recientes ya filtrados
+        
         res.json(hallOfFame);
     } catch (e) {
         console.error('Error obteniendo hall of fame:', e);
