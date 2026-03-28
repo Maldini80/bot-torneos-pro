@@ -3359,28 +3359,44 @@ export async function startKnockoutOnlyDraw(client, guild, tournament, mode = 'r
     const teamsObj = tournament.teams?.aprobados || {};
     let teams = Object.values(teamsObj).filter(t => t && t.id);
     
-    // Si viene del menú manual, tomamos todos los manualPairs e ignoramos la validación matemática estricta
+    const { stage: calculatedStage, size } = getInitialKnockoutStage(teams.length);
+    let stage = calculatedStage;
     let matches = [];
-    let stage = 'octavos'; // default
 
-    if (mode === 'manual' && manualPairs) {
-        // Obtenemos los equipos únicos en los pares manuales
-        let usedTeams = 0;
-        for (const pair of manualPairs) {
-            if (pair.equipoA.id !== 'ghost') usedTeams++;
-            if (pair.equipoB.id !== 'ghost') usedTeams++;
-        }
-        const { stage: calculatedStage } = getInitialKnockoutStage(usedTeams);
-        stage = calculatedStage;
-
+    if (mode === 'manual' && manualPairs && manualPairs.length > 0) {
+        // 1. Añadimos los partidos manuales
         for (const pair of manualPairs) {
             matches.push(createMatchObject(null, stage, pair.equipoA, pair.equipoB));
         }
+
+        // 2. Encontramos los equipos que NO han sido emparejados
+        const pairedTeamsIds = new Set();
+        let manualGhostsUsed = 0;
+        for (const pair of manualPairs) {
+            if (pair.equipoA.id === 'ghost') manualGhostsUsed++;
+            else pairedTeamsIds.add(pair.equipoA.id);
+            
+            if (pair.equipoB.id === 'ghost') manualGhostsUsed++;
+            else pairedTeamsIds.add(pair.equipoB.id);
+        }
+
+        const remainingTeams = teams.filter(t => !pairedTeamsIds.has(t.id));
+
+        // 3. Calculamos los ghosts restantes necesarios
+        const totalGhostsNeeded = size - teams.length;
+        const remainingGhosts = Math.max(0, totalGhostsNeeded - manualGhostsUsed);
+
+        for (let i = 0; i < remainingGhosts; i++) {
+            remainingTeams.push({ id: `ghost_r_${i}`, nombre: 'Descanso (Bye)', logoUrl: 'https://i.imgur.com/X2YIZh4.png', capitanId: 'ghost', esGhost: true });
+        }
+
+        // 4. Mezclamos y emparejamos aleatoriamente el resto
+        remainingTeams.sort(() => Math.random() - 0.5);
+        const randomMatches = crearPartidosEliminatoria(remainingTeams, stage);
+        matches = matches.concat(randomMatches);
+
     } else {
-        const { stage: calculatedStage, size } = getInitialKnockoutStage(teams.length);
-        stage = calculatedStage;
         const ghostsNeeded = size - teams.length;
-        
         for (let i = 0; i < ghostsNeeded; i++) {
             teams.push({ id: `ghost_${i}`, nombre: 'Descanso (Bye)', logoUrl: 'https://i.imgur.com/X2YIZh4.png', capitanId: 'ghost', esGhost: true });
         }
