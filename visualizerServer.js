@@ -471,6 +471,24 @@ app.post('/api/admin/run-backfill', async (req, res) => {
                }
             }
 
+            // Si es un formato de Solo Liga (Liguilla Flexible) sin eliminatorias, el campeón es el primero por puntos
+            if (!championId && t.structure?.grupos && (!t.structure?.eliminatorias || Object.keys(t.structure.eliminatorias).length === 0)) {
+                let allLeagueTeams = [];
+                for (const gName in t.structure.grupos) {
+                    allLeagueTeams = allLeagueTeams.concat(t.structure.grupos[gName].equipos || []);
+                }
+                allLeagueTeams = allLeagueTeams.filter(team => team.id && team.id !== 'ghost');
+                
+                if (allLeagueTeams.length > 0) {
+                    allLeagueTeams.sort((a, b) => {
+                        if (b.stats?.pts !== a.stats?.pts) return (b.stats?.pts || 0) - (a.stats?.pts || 0);
+                        if (b.stats?.dg !== a.stats?.dg) return (b.stats?.dg || 0) - (a.stats?.dg || 0);
+                        return (b.stats?.gf || 0) - (a.stats?.gf || 0);
+                    });
+                    championId = allLeagueTeams[0].id || allLeagueTeams[0]._id;
+                }
+            }
+
             const rondas = ['dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
             for (const r of rondas) {
                 if (t.structure?.eliminatorias?.[r]) {
