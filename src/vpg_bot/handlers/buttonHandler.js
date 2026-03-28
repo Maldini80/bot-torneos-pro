@@ -895,14 +895,19 @@ const handler = async (client, interaction) => {
         const team = await Team.findById(teamId);
         if (!team) return interaction.editReply({ content: 'Equipo no encontrado.' });
 
+        const addButtonsRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_add_captains_${teamId}`).setLabel('Añadir Capitán').setStyle(ButtonStyle.Success).setEmoji('➕'),
+            new ButtonBuilder().setCustomId(`admin_add_players_${teamId}`).setLabel('Añadir Jugador').setStyle(ButtonStyle.Success).setEmoji('➕')
+        );
+
         const memberIds = [team.managerId, ...team.captains, ...team.players].filter(Boolean);
         if (memberIds.length === 0) {
-            return interaction.editReply({ content: 'Este equipo no tiene miembros.' });
+            return interaction.editReply({ content: 'Este equipo no tiene miembros actuales. Puedes añadir nuevos utilizando los botones inferiores.', components: [addButtonsRow] });
         }
 
         const memberObjects = await guild.members.fetch({ user: memberIds }).catch(() => []);
         if (!memberObjects || memberObjects.size === 0) {
-            return interaction.editReply({ content: 'No se pudo encontrar a ningún miembro de este equipo en el servidor.' });
+            return interaction.editReply({ content: 'No se pudo encontrar a ningún miembro de este equipo en el servidor.', components: [addButtonsRow] });
         }
 
         const memberOptions = memberObjects.map(m => ({
@@ -913,10 +918,13 @@ const handler = async (client, interaction) => {
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`roster_management_menu`)
-            .setPlaceholder('Selecciona un miembro para gestionar')
+            .setPlaceholder('Selecciona un miembro existente para gestionar')
             .addOptions(memberOptions);
 
-        await interaction.editReply({ content: `Gestionando miembros de **${team.name}**. Selecciona uno:`, components: [new ActionRowBuilder().addComponents(selectMenu)] });
+        await interaction.editReply({ 
+            content: `Gestionando miembros de **${team.name}**. Selecciona uno de la lista o usa los botones para añadir nuevos miembros:`, 
+            components: [new ActionRowBuilder().addComponents(selectMenu), addButtonsRow] 
+        });
         return;
     }
 

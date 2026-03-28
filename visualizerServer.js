@@ -327,6 +327,38 @@ app.post('/api/elo/update', async (req, res) => {
     }
 });
 
+app.put('/api/admin/teams/:id/info', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+    try {
+        const teamId = req.params.id;
+        const { name, logoUrl } = req.body;
+        
+        if (!teamId || !name || !logoUrl) {
+            return res.status(400).json({ error: 'Datos incompletos.' });
+        }
+        
+        const testDb = getDb('test');
+        let queryId;
+        try { queryId = new ObjectId(teamId); } catch(e) { queryId = teamId; }
+        
+        const result = await testDb.collection('teams').updateOne(
+            { _id: queryId },
+            { $set: { name: name.substring(0, 50), logoUrl: logoUrl.substring(0, 255) } }
+        );
+        
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: 'Equipo no encontrado' });
+        }
+        
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error actualizando info del equipo:', e);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
 app.delete('/api/admin/teams/:id', async (req, res) => {
     if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
         return res.status(403).json({ error: 'No autorizado' });

@@ -528,6 +528,34 @@
             }
         }
 
+        async function openEditInfo(teamId, currentName, currentLogo) {
+            const newName = prompt(`Nuevo Nombre para el Equipo:`, currentName);
+            if (newName === null) return;
+            if (newName.trim() === '') {
+                alert("❌ El nombre no puede estar vacío.");
+                return;
+            }
+
+            const newLogoUrl = prompt(`Nuevo Logo URL (dejalo igual si no quieres cambiarlo):`, currentLogo);
+            if (newLogoUrl === null) return;
+
+            try {
+                const res = await fetch(`/api/admin/teams/${teamId}/info`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName.trim(), logoUrl: newLogoUrl.trim() || currentLogo })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadRanking(); 
+                } else {
+                    alert("❌ Error: " + data.error);
+                }
+            } catch (e) {
+                alert("❌ Error de red.");
+            }
+        }
+
         async function confirmDissolveTeam(teamId, teamName) {
             const confirmed = confirm(`⚠️ ESTÁS A PUNTO DE DISOLVER EL EQUIPO: ${teamName}\nEsto eliminará permanentemente su registro y quitará los roles a sus jugadores.\n\n¿Deseas continuar?`);
             if (!confirmed) return;
@@ -605,8 +633,9 @@
                         <td class="elo-score">
                             ${currentElo}
                             ${isAdminVisitor ? `
-                                <button class="edit-btn" onclick="openEditElo('${team._id}', ${currentElo}, '${team.name}')" title="Editar ELO"><i class="fas fa-pencil-alt"></i></button>
-                                <button class="edit-btn" onclick="confirmDissolveTeam('${team._id}', '${team.name}')" title="Disolver Equipo" style="border-color: #ff0055; color: #ff0055; margin-left: 5px;"><i class="fas fa-trash"></i></button>
+                                <button class="edit-btn" onclick="openEditInfo('${team._id}', '${team.name.replace(/'/g, "\\'")}', '${team.logoUrl ? team.logoUrl.replace(/'/g, "\\'") : 'https://i.imgur.com/X2YIZh4.png'}')" title="Editar Info (Nombre y Logo)" style="border-color: #f39c12; color: #f39c12; margin-right: 5px;"><i class="fas fa-id-card"></i></button>
+                                <button class="edit-btn" onclick="openEditElo('${team._id}', ${currentElo}, '${team.name.replace(/'/g, "\\'")}')" title="Editar ELO"><i class="fas fa-pencil-alt"></i></button>
+                                <button class="edit-btn" onclick="confirmDissolveTeam('${team._id}', '${team.name.replace(/'/g, "\\'")}')" title="Disolver Equipo" style="border-color: #ff0055; color: #ff0055; margin-left: 5px;"><i class="fas fa-trash"></i></button>
                             ` : ''}
                         </td>
                         <td class="stats-cell stats-hide-mobile">${wins} - ${draws} - ${losses}</td>

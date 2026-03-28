@@ -1,7 +1,7 @@
 // --- INICIO DEL ARCHIVO modalHandler.js (VERSIÓN FINAL, COMPLETA Y CORREGIDA) ---
 
 import { ObjectId } from 'mongodb';
-import { getDb, updateBotSettings } from '../../database.js';
+import { getDb, updateBotSettings, getBotSettings } from '../../database.js';
 // --- CÓDIGO MODIFICADO Y CORRECTO ---
 import { createNewTournament, updateTournamentConfig, updatePublicMessages, forceResetAllTournaments, addTeamToWaitlist, notifyCastersOfNewTeam, createNewDraft, approveDraftCaptain, updateDraftMainInterface, requestStrike, requestPlayerKick, notifyTournamentVisualizer, notifyVisualizer, createTournamentFromDraft, handleImportedPlayers, addSinglePlayerToDraft, sendPaymentApprovalRequest, adminAddPlayerToDraft } from '../logic/tournamentLogic.js';
 import { processVerification, processProfileUpdate } from '../logic/verificationLogic.js';
@@ -1542,7 +1542,6 @@ export async function handleModal(interaction) {
         }
 
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const { getBotSettings, updateBotSettings } = require('../../database.js');
         const settings = await getBotSettings();
         
         const basePlayoff = { champion: 150, runner_up: 80, semifinalist: 40, quarterfinalist: 15, round_of_16: -20, groups_top_half: -30, groups_bottom_half: -50 };
@@ -1600,7 +1599,7 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
 
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-        const db = require('../../database.js').getDb();
+        const db = getDb();
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
         if (!tournament || !tournament.structure || !tournament.structure.calendario || !tournament.structure.calendario['Liga']) {
