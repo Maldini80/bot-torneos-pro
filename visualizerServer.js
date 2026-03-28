@@ -471,8 +471,8 @@ app.post('/api/admin/run-backfill', async (req, res) => {
                }
             }
 
-            // Si es un formato de Solo Liga (Liguilla Flexible) sin eliminatorias, el campeón es el primero por puntos
-            if (!championId && t.structure?.grupos && (!t.structure?.eliminatorias || Object.keys(t.structure.eliminatorias).length === 0)) {
+            // Si no hay campeón de la Final (porque es Liguilla o terminó por puntos), el campeón es el primero de la tabla general
+            if (!championId && t.structure?.grupos) {
                 let allLeagueTeams = [];
                 for (const gName in t.structure.grupos) {
                     allLeagueTeams = allLeagueTeams.concat(t.structure.grupos[gName].equipos || []);
@@ -485,7 +485,11 @@ app.post('/api/admin/run-backfill', async (req, res) => {
                         if (b.stats?.dg !== a.stats?.dg) return (b.stats?.dg || 0) - (a.stats?.dg || 0);
                         return (b.stats?.gf || 0) - (a.stats?.gf || 0);
                     });
-                    championId = allLeagueTeams[0].id || allLeagueTeams[0]._id;
+                    
+                    // Asegurarnos de que el primero de la liga haya jugado al menos 1 partido para que no sea un título regalado en torneos vacíos
+                    if (allLeagueTeams[0].stats && allLeagueTeams[0].stats.pj > 0) {
+                        championId = allLeagueTeams[0].id || allLeagueTeams[0]._id;
+                    }
                 }
             }
 
