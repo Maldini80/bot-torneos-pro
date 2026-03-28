@@ -1875,7 +1875,6 @@ export async function handleButton(interaction) {
 
     if (action === 'admin_manage_elo') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const { getBotSettings } = require('../../database.js');
         const settings = await getBotSettings();
         
         const configPlayoff = settings?.eloConfig?.playoff || { champion: 150, runner_up: 80, semifinalist: 40, quarterfinalist: 15, round_of_16: -20, groups_top_half: -30, groups_bottom_half: -50 };
@@ -2112,9 +2111,9 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
     if (action === 'admin_create_tournament_start') {
         // --- INICIO DE LA LÓGICA CORREGIDA ---
-        // Filtramos la lista para mostrar solo los formatos de grupos (con tamaño fijo > 0)
+        // Filtramos la lista para mostrar los formatos de grupos y el de solo eliminatorias
         const groupFormats = Object.entries(TOURNAMENT_FORMATS)
-            .filter(([, format]) => format.size > 0)
+            .filter(([key, format]) => format.size > 0 || key === 'knockout_only')
             .map(([key, format]) => ({
                 label: format.label,
                 value: key
