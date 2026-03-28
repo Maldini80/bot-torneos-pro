@@ -77,7 +77,11 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
             break;
 
         case 'settings':
-            embed.setTitle('Ajustes Globales del Bot');
+            embed.setTitle('Ajustes Globales del Bot')
+                 .setDescription(isBusy
+                    ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
+                    : `✅ **ESTADO: LISTO**\nTraducción: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}** | Twitter: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**`
+                 );
             const globalSettingsRow1 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_toggle_translation').setLabel(translationEnabled ? 'Desactivar Traducción' : 'Activar Traducción').setStyle(ButtonStyle.Primary).setEmoji(translationEnabled ? '🔇' : '🔊').setDisabled(isBusy),
                 new ButtonBuilder().setCustomId('admin_toggle_twitter').setLabel(twitterEnabled ? 'Desactivar Twitter' : 'Activar Twitter').setStyle(ButtonStyle.Primary).setEmoji('🐦').setDisabled(isBusy),
