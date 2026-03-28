@@ -512,6 +512,17 @@ app.post('/api/admin/run-backfill', async (req, res) => {
                     }
                 }
             }
+            
+            if (t.structure?.calendario) {
+                for (const groupName in t.structure.calendario) {
+                    const matches = t.structure.calendario[groupName];
+                    if (Array.isArray(matches)) {
+                        for (const m of matches) {
+                            processMatchForBackfill(m, statsMap, teamsInTournament);
+                        }
+                    }
+                }
+            }
 
             for (const teamId of teamsInTournament) {
                 if (statsMap[teamId]) {
