@@ -3417,8 +3417,124 @@ export async function startKnockoutOnlyDraw(client, guild, tournament, mode = 'r
 
     await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
     
-    // Ahora delegamos en startNextKnockoutRound que ya procesa los threads
-    await startNextKnockoutRound(client, guild, tournament);
+    // Crear hilos directamente (NO delegar a startNextKnockoutRound, ya que esa función
+    // intenta determinar ganadores de la ronda anterior cuando rondaActual está seteada)
+    const siguienteRondaNombre = stage.charAt(0).toUpperCase() + stage.slice(1);
+    const infoChannel = await client.channels.fetch(tournament.discordChannelIds.infoChannelId).catch(() => null);
+    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRondaNombre}! 🔥`).setFooter({ text: '¡Mucha suerte!' });
+
+    postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches, stage, tournament }).catch(console.error);
+
+    for (const p of matches) {
+        let lockQuery;
+        let updatePath;
+
+        if (stage === 'final') {
+            lockQuery = {
+                _id: tournament._id,
+                'structure.eliminatorias.final.matchId': p.matchId,
+                'structure.eliminatorias.final.threadId': null
+            };
+            updatePath = 'structure.eliminatorias.final';
+        } else {
+            lockQuery = {
+                _id: tournament._id,
+                [`structure.eliminatorias.${stage}`]: {
+                    $elemMatch: {
+                        matchId: p.matchId,
+                        threadId: null
+                    }
+                }
+            };
+            updatePath = `structure.eliminatorias.${stage}.$`;
+        }
+
+        const result = await db.collection('tournaments').findOneAndUpdate(
+            lockQuery,
+            { $set: { [`${updatePath}.status`]: 'creando_hilo', [`${updatePath}.lockedAt`]: new Date() } },
+            { returnDocument: 'after' }
+        );
+
+        if (!result) {
+            console.log(`[KNOCKOUT-DRAW] Hilo para ${p.matchId} ya gestionado por otro proceso.`);
+            continue;
+        }
+
+        try {
+            if (p.equipoA.id.startsWith('ghost') || p.equipoB.id.startsWith('ghost')) {
+                const threadId = 'ghost_' + Date.now();
+                p.threadId = threadId;
+                p.status = 'finalizado';
+                p.resultado = p.equipoA.id.startsWith('ghost') ? '0-1' : '1-0';
+
+                if (stage === 'final') {
+                    await db.collection('tournaments').updateOne(
+                        { _id: tournament._id, 'structure.eliminatorias.final.matchId': p.matchId },
+                        { $set: { 'structure.eliminatorias.final.threadId': threadId, 'structure.eliminatorias.final.status': 'finalizado', 'structure.eliminatorias.final.resultado': p.resultado } }
+                    );
+                } else {
+                    await db.collection('tournaments').updateOne(
+                        { _id: tournament._id, [`structure.eliminatorias.${stage}.matchId`]: p.matchId },
+                        { $set: { [`structure.eliminatorias.${stage}.$.threadId`]: threadId, [`structure.eliminatorias.${stage}.$.status`]: 'finalizado', [`structure.eliminatorias.${stage}.$.resultado`]: p.resultado } }
+                    );
+                }
+                embedAnuncio.addFields({ name: `Enfrentamiento Autofinalizado`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre} (Pase Directo)` });
+                continue;
+            }
+
+            const threadId = await createMatchThread(client, guild, p, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+
+            if (threadId) {
+                p.threadId = threadId;
+                p.status = 'en_curso';
+
+                if (stage === 'final') {
+                    await db.collection('tournaments').updateOne(
+                        { _id: tournament._id, 'structure.eliminatorias.final.matchId': p.matchId },
+                        { $set: { 'structure.eliminatorias.final.threadId': threadId, 'structure.eliminatorias.final.status': 'en_curso' } }
+                    );
+                } else {
+                    await db.collection('tournaments').updateOne(
+                        { _id: tournament._id, [`structure.eliminatorias.${stage}.matchId`]: p.matchId },
+                        { $set: { [`structure.eliminatorias.${stage}.$.threadId`]: threadId, [`structure.eliminatorias.${stage}.$.status`]: 'en_curso' } }
+                    );
+                }
+            } else {
+                const revertPath = stage === 'final'
+                    ? 'structure.eliminatorias.final'
+                    : `structure.eliminatorias.${stage}.$`;
+
+                await db.collection('tournaments').updateOne(
+                    stage === 'final'
+                        ? { _id: tournament._id, 'structure.eliminatorias.final.matchId': p.matchId }
+                        : { _id: tournament._id, [`structure.eliminatorias.${stage}.matchId`]: p.matchId },
+                    { $set: { [`${revertPath}.status`]: 'pendiente' } }
+                );
+            }
+        } catch (error) {
+            console.error(`[ERROR] Fallo al crear hilo knockout-draw para ${p.matchId}:`, error);
+
+            const revertPath = stage === 'final'
+                ? 'structure.eliminatorias.final'
+                : `structure.eliminatorias.${stage}.$`;
+
+            await db.collection('tournaments').updateOne(
+                stage === 'final'
+                    ? { _id: tournament._id, 'structure.eliminatorias.final.matchId': p.matchId }
+                    : { _id: tournament._id, [`structure.eliminatorias.${stage}.matchId`]: p.matchId },
+                { $set: { [`${revertPath}.status`]: 'pendiente' } }
+            ).catch(e => console.error(`[ERROR] Fallo al revertir estado:`, e));
+        }
+
+        embedAnuncio.addFields({ name: `Enfrentamiento`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
+        await new Promise(r => setTimeout(r, 1500));
+    }
+
+    if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
+    const finalTournamentState = await db.collection('tournaments').findOne({ _id: tournament._id });
+    await notifyTournamentVisualizer(finalTournamentState);
+    await updatePublicMessages(client, finalTournamentState);
+    await updateTournamentManagementThread(client, finalTournamentState);
 }
 
 
