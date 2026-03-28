@@ -2390,8 +2390,8 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         // SI ES SOLO ELIMINATORIAS, SE OFRECE FORMATO MANUAL/ALEATORIO
         if (tournament.config.formatId === 'knockout_only') {
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`admin_knockout_random_${tournament.shortId}`).setLabel('Sorteo Rápido / Aleatorio').setStyle(ButtonStyle.Primary).setEmoji('🎲'),
-                new ButtonBuilder().setCustomId(`admin_knockout_manual_${tournament.shortId}`).setLabel('Emparejamiento Manual').setStyle(ButtonStyle.Success).setEmoji('🛠️')
+                new ButtonBuilder().setCustomId(`admin_knockout_random:${tournament.shortId}`).setLabel('Sorteo Rápido / Aleatorio').setStyle(ButtonStyle.Primary).setEmoji('🎲'),
+                new ButtonBuilder().setCustomId(`admin_knockout_manual:${tournament.shortId}`).setLabel('Emparejamiento Manual').setStyle(ButtonStyle.Success).setEmoji('🛠️')
             );
             return interaction.editReply({
                 content: `🏆 **Formato Detectado: Solo Eliminatorias**\n\nEquipos inscritos: **${Object.keys(tournament.teams.aprobados).length}**.\nSi el número no es simétrico, el bot asignará Pases Directos (Byes) automáticamente para encajar el cuadro.\n\n¿Cómo deseas emparejar los equipos de la primera ronda?`,
@@ -2438,8 +2438,8 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setColor('#2ECC71');
 
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`setup_knockout_pair_${tournament.shortId}`).setLabel('Añadir Enfrentamiento').setStyle(ButtonStyle.Primary).setEmoji('➕'),
-            new ButtonBuilder().setCustomId(`confirm_knockout_manual_${tournament.shortId}`).setLabel('Finalizar Sorteo').setStyle(ButtonStyle.Success).setEmoji('✅')
+            new ButtonBuilder().setCustomId(`setup_knockout_pair:${tournament.shortId}`).setLabel('Añadir Enfrentamiento').setStyle(ButtonStyle.Primary).setEmoji('➕'),
+            new ButtonBuilder().setCustomId(`confirm_knockout_manual:${tournament.shortId}`).setLabel('Finalizar Sorteo').setStyle(ButtonStyle.Success).setEmoji('✅')
         );
 
         // Guardamos el estado del constructor temporal en la BD
@@ -2475,19 +2475,19 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         teamOptions.push({ label: 'Pase Directo (Bye / Ghost)', value: 'ghost' });
 
         const selectA = new StringSelectMenuBuilder()
-            .setCustomId(`select_manual_teamA_${tournamentShortId}`)
+            .setCustomId(`select_manual_teamA:${tournamentShortId}`)
             .setPlaceholder('Elige Equipo A')
             .addOptions(teamOptions);
 
         const selectB = new StringSelectMenuBuilder()
-            .setCustomId(`select_manual_teamB_${tournamentShortId}`)
+            .setCustomId(`select_manual_teamB:${tournamentShortId}`)
             .setPlaceholder('Elige Equipo B')
             .addOptions(teamOptions);
 
         const rowA = new ActionRowBuilder().addComponents(selectA);
         const rowB = new ActionRowBuilder().addComponents(selectB);
         const rowConfirm = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`save_manual_pair_${tournamentShortId}`).setLabel('Guardar Partido').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId(`save_manual_pair:${tournamentShortId}`).setLabel('Guardar Partido').setStyle(ButtonStyle.Success)
         );
 
         await interaction.editReply({ content: 'Selecciona los integrantes de este partido:', components: [rowA, rowB, rowConfirm] });
