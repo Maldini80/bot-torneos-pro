@@ -108,6 +108,16 @@ export const TOURNAMENT_FORMATS = {
         qualifiersPerGroup: 0, // 0 indica que es variable
         knockoutStages: ['octavos', 'cuartos', 'semifinales', 'final'],
         isDraftCompatible: true // Es compatible con drafts
+    },
+    'knockout_only': {
+        label: 'Solo Eliminatorias',
+        description: 'Torneo directo a eliminatorias (Dieciseisavos de Final, Octavos, Cuartos...). Sin fase de grupos.',
+        description_en: 'Direct knockout tournament (Round of 32, Round of 16, Quarterfinals...). No group stage.',
+        size: 0, // flexible
+        groups: 0,
+        qualifiersPerGroup: 0,
+        knockoutStages: ['treintaidosavos', 'dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'],
+        isDraftCompatible: true
     }
 };
 

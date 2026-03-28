@@ -327,6 +327,53 @@ app.post('/api/elo/update', async (req, res) => {
     }
 });
 
+app.delete('/api/admin/teams/:id', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+    try {
+        const teamId = req.params.id;
+        if (!teamId) return res.status(400).json({ error: 'Falta ID del equipo' });
+        
+        const testDb = getDb('test');
+        let queryId;
+        try { queryId = new ObjectId(teamId); } catch(e) { queryId = teamId; }
+        
+        const team = await testDb.collection('teams').findOne({ _id: queryId });
+        if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
+
+        // Intentar limpiar roles de Discord vía API HTTP directa (por si client no está disponible)
+        if (process.env.GUILD_ID && process.env.DISCORD_TOKEN) {
+            const memberIds = [team.managerId, ...(team.captains || []), ...(team.players || [])].filter(Boolean);
+            const rolesToRemove = [process.env.MANAGER_ROLE_ID, process.env.CAPTAIN_ROLE_ID, process.env.PLAYER_ROLE_ID, process.env.MUTED_ROLE_ID].filter(Boolean);
+            
+            for (const memberId of memberIds) {
+                for (const roleId of rolesToRemove) {
+                    try {
+                        await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${memberId}/roles/${roleId}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+                        });
+                    } catch (e) { /* Ignorar si no tiene el rol */ }
+                }
+            }
+        }
+
+        // Borrados en DB
+        await testDb.collection('teams').deleteOne({ _id: queryId });
+        await testDb.collection('playerapplications').deleteMany({ teamId: teamId });
+        await testDb.collection('users').updateMany(
+            { teamName: team.name }, 
+            { $set: { teamName: null, teamLogoUrl: null, isManager: false } }
+        );
+
+        res.json({ success: true, message: `Equipo ${team.name} disuelto correctamente.` });
+    } catch (e) {
+        console.error('Error eliminando equipo:', e);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
 app.post('/api/admin/recalculate-leagues', async (req, res) => {
     if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
         return res.status(403).json({ error: 'No autorizado' });

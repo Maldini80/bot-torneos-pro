@@ -3345,6 +3345,67 @@ async function generateFlexibleLeagueSchedule(tournament, preserveGroups = false
 // === LÓGICA DE PROGRESIÓN DEL TORNEO (Copiar al final del archivo) ===
 // =====================================================================
 
+export function getInitialKnockoutStage(teamCount) {
+    if (teamCount <= 2) return { stage: 'final', size: 2 };
+    if (teamCount <= 4) return { stage: 'semifinales', size: 4 };
+    if (teamCount <= 8) return { stage: 'cuartos', size: 8 };
+    if (teamCount <= 16) return { stage: 'octavos', size: 16 };
+    if (teamCount <= 32) return { stage: 'dieciseisavos', size: 32 };
+    return { stage: 'treintaidosavos', size: 64 };
+}
+
+export async function startKnockoutOnlyDraw(client, guild, tournament, mode = 'random', manualPairs = null) {
+    const db = getDb();
+    const teamsObj = tournament.teams?.aprobados || {};
+    let teams = Object.values(teamsObj).filter(t => t && t.id);
+    
+    // Si viene del menú manual, tomamos todos los manualPairs e ignoramos la validación matemática estricta
+    let matches = [];
+    let stage = 'octavos'; // default
+
+    if (mode === 'manual' && manualPairs) {
+        // Obtenemos los equipos únicos en los pares manuales
+        let usedTeams = 0;
+        for (const pair of manualPairs) {
+            if (pair.equipoA.id !== 'ghost') usedTeams++;
+            if (pair.equipoB.id !== 'ghost') usedTeams++;
+        }
+        const { stage: calculatedStage } = getInitialKnockoutStage(usedTeams);
+        stage = calculatedStage;
+
+        for (const pair of manualPairs) {
+            matches.push(createMatchObject(null, stage, pair.equipoA, pair.equipoB));
+        }
+    } else {
+        const { stage: calculatedStage, size } = getInitialKnockoutStage(teams.length);
+        stage = calculatedStage;
+        const ghostsNeeded = size - teams.length;
+        
+        for (let i = 0; i < ghostsNeeded; i++) {
+            teams.push({ id: `ghost_${i}`, nombre: 'Descanso (Bye)', logoUrl: 'https://i.imgur.com/X2YIZh4.png', capitanId: 'ghost', esGhost: true });
+        }
+        teams.sort(() => Math.random() - 0.5);
+        
+        matches = crearPartidosEliminatoria(teams, stage);
+    }
+
+    tournament.status = stage;
+    if (!tournament.structure.eliminatorias) tournament.structure.eliminatorias = {};
+    tournament.structure.eliminatorias.rondaActual = stage;
+    
+    if (stage === 'final') {
+        tournament.structure.eliminatorias.final = matches[0];
+    } else {
+        tournament.structure.eliminatorias[stage] = matches;
+    }
+
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: tournament });
+    
+    // Ahora delegamos en startNextKnockoutRound que ya procesa los threads
+    await startNextKnockoutRound(client, guild, tournament);
+}
+
+
 export async function checkForGroupStageAdvancement(client, guild, tournament) {
     const allGroupMatches = Object.values(tournament.structure.calendario).flat();
 
@@ -4013,6 +4074,27 @@ export async function startNextKnockoutRound(client, guild, tournament) {
         }
 
         try {
+            if (p.equipoA.id.startsWith('ghost') || p.equipoB.id.startsWith('ghost')) {
+                const threadId = 'ghost_' + Date.now();
+                p.threadId = threadId;
+                p.status = 'finalizado';
+                p.resultado = p.equipoA.id.startsWith('ghost') ? '0-1' : '1-0';
+                
+                if (siguienteRondaKey === 'final') {
+                    await db.collection('tournaments').updateOne(
+                        { _id: currentTournament._id, 'structure.eliminatorias.final.matchId': p.matchId },
+                        { $set: { 'structure.eliminatorias.final.threadId': threadId, 'structure.eliminatorias.final.status': 'finalizado', 'structure.eliminatorias.final.resultado': p.resultado } }
+                    );
+                } else {
+                    await db.collection('tournaments').updateOne(
+                        { _id: currentTournament._id, [`structure.eliminatorias.${siguienteRondaKey}.matchId`]: p.matchId },
+                        { $set: { [`structure.eliminatorias.${siguienteRondaKey}.$.threadId`]: threadId, [`structure.eliminatorias.${siguienteRondaKey}.$.status`]: 'finalizado', [`structure.eliminatorias.${siguienteRondaKey}.$.resultado`]: p.resultado } }
+                    );
+                }
+                embedAnuncio.addFields({ name: `Enfrentamiento Autofinalizado`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre} (Pase Directo)` });
+                continue;
+            }
+
             const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
 
             if (threadId) {
@@ -4022,29 +4104,13 @@ export async function startNextKnockoutRound(client, guild, tournament) {
                 // Actualizar usando matchId para encontrar el partido específico
                 if (siguienteRondaKey === 'final') {
                     await db.collection('tournaments').updateOne(
-                        {
-                            _id: currentTournament._id,
-                            'structure.eliminatorias.final.matchId': p.matchId
-                        },
-                        {
-                            $set: {
-                                'structure.eliminatorias.final.threadId': threadId,
-                                'structure.eliminatorias.final.status': 'en_curso'
-                            }
-                        }
+                        { _id: currentTournament._id, 'structure.eliminatorias.final.matchId': p.matchId },
+                        { $set: { 'structure.eliminatorias.final.threadId': threadId, 'structure.eliminatorias.final.status': 'en_curso' } }
                     );
                 } else {
                     await db.collection('tournaments').updateOne(
-                        {
-                            _id: currentTournament._id,
-                            [`structure.eliminatorias.${siguienteRondaKey}.matchId`]: p.matchId
-                        },
-                        {
-                            $set: {
-                                [`structure.eliminatorias.${siguienteRondaKey}.$.threadId`]: threadId,
-                                [`structure.eliminatorias.${siguienteRondaKey}.$.status`]: 'en_curso'
-                            }
-                        }
+                        { _id: currentTournament._id, [`structure.eliminatorias.${siguienteRondaKey}.matchId`]: p.matchId },
+                        { $set: { [`structure.eliminatorias.${siguienteRondaKey}.$.threadId`]: threadId, [`structure.eliminatorias.${siguienteRondaKey}.$.status`]: 'en_curso' } }
                     );
                 }
             } else {

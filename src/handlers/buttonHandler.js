@@ -10,7 +10,7 @@ import {
     approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft,
     approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
     forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement, prepareRouletteDraw, kickPlayerFromDraft, createNewTournament,
-    handleImportedPlayers, sendPaymentApprovalRequest, updateTournamentConfig, updateDraftMainInterface
+    handleImportedPlayers, sendPaymentApprovalRequest, updateTournamentConfig, updateDraftMainInterface, startKnockoutOnlyDraw
 } from '../logic/tournamentLogic.js';
 import {
     checkVerification, startVerificationWizard, showVerificationModal, startProfileUpdateWizard, approveProfileUpdate, rejectProfileUpdate, openProfileUpdateThread
@@ -2388,11 +2388,134 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         }
         // --- FIN ELIMINAR CANAL A ---
 
+        // SI ES SOLO ELIMINATORIAS, SE OFRECE FORMATO MANUAL/ALEATORIO
+        if (tournament.config.formatId === 'knockout_only') {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`admin_knockout_random_${tournament.shortId}`).setLabel('Sorteo Rápido / Aleatorio').setStyle(ButtonStyle.Primary).setEmoji('🎲'),
+                new ButtonBuilder().setCustomId(`admin_knockout_manual_${tournament.shortId}`).setLabel('Emparejamiento Manual').setStyle(ButtonStyle.Success).setEmoji('🛠️')
+            );
+            return interaction.editReply({
+                content: `🏆 **Formato Detectado: Solo Eliminatorias**\n\nEquipos inscritos: **${Object.keys(tournament.teams.aprobados).length}**.\nSi el número no es simétrico, el bot asignará Pases Directos (Byes) automáticamente para encajar el cuadro.\n\n¿Cómo deseas emparejar los equipos de la primera ronda?`,
+                components: [row]
+            });
+        }
+
         await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Esto puede tardar varios minutos.` });
 
         startGroupStage(client, guild, tournament)
             .then(() => { if (interaction.channel) { interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`); } })
             .catch(error => { console.error("Error durante el sorteo en segundo plano:", error); if (interaction.channel) { interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo para **${tournament.nombre}**. Revisa los logs.`); } });
+        return;
+    }
+
+    if (action === 'admin_knockout_random') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+        if (Object.keys(tournament.teams.aprobados).length < 2) return interaction.editReply({ content: 'Se necesitan al menos 2 equipos para forzar el sorteo.' });
+
+        await interaction.editReply({ content: `✅ Orden recibida. El sorteo rápido para **${tournament.nombre}** ha comenzado en segundo plano.` });
+
+        startKnockoutOnlyDraw(client, guild, tournament, 'random')
+            .then(() => { if (interaction.channel) { interaction.channel.send(`🎲 ¡El sorteo de Eliminatorias para **${tournament.nombre}** ha finalizado y los encuentros han sido creados!`); } })
+            .catch(error => { console.error("Error en sorteo knockout:", error); if (interaction.channel) { interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo. Revisa los logs.`); } });
+        return;
+    }
+
+    if (action === 'admin_knockout_manual') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        // Generate Select Menus for manual matchups (max 25 teams per select menu, we can just use 1 select menu for Equipo A and 1 for Equipo B if we track state)
+        // For simplicity, we just trigger the command that creates a "Matchmaking Builder"
+        // Let's create an external interactive state in selectMenuHandler. We just send the initial message here.
+        
+        const builderEmbed = new EmbedBuilder()
+            .setTitle('🛠️ Constructor de Cuadro (Manual)')
+            .setDescription(`**Instrucciones:**\n1. Usa los botones abajo para elegir los dos equipos del siguiente emparejamiento.\n2. También puedes añadir 'Pases Directos' (Ghosts) manualmente.\n3. Una vez todos los equipos estén emparejados, confirma el sorteo.\n\n*Equipos pendientes de emparejar: ${Object.keys(tournament.teams.aprobados).length}*`)
+            .setColor('#2ECC71');
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`setup_knockout_pair_${tournament.shortId}`).setLabel('Añadir Enfrentamiento').setStyle(ButtonStyle.Primary).setEmoji('➕'),
+            new ButtonBuilder().setCustomId(`confirm_knockout_manual_${tournament.shortId}`).setLabel('Finalizar Sorteo').setStyle(ButtonStyle.Success).setEmoji('✅')
+        );
+
+        // Guardamos el estado del constructor temporal en la BD
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { "temp.manualDrawPairs": [] } } // Inicializamos vacío
+        );
+
+        await interaction.editReply({ embeds: [builderEmbed], components: [row] });
+        return;
+    }
+
+    if (action === 'setup_knockout_pair') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+        const pairedTeams = new Set();
+        (tournament.temp?.manualDrawPairs || []).forEach(p => {
+            if (p.equipoA.id !== 'ghost') pairedTeams.add(p.equipoA.id);
+            if (p.equipoB.id !== 'ghost') pairedTeams.add(p.equipoB.id);
+        });
+
+        const availableTeams = approvedTeams.filter(t => !pairedTeams.has(t.id));
+        if (availableTeams.length === 0) return interaction.editReply({ content: 'Todos los equipos ya han sido emparejados.' });
+
+        const teamOptions = availableTeams.slice(0, 24).map(t => ({
+            label: t.nombre.substring(0, 100),
+            value: t.id
+        }));
+        
+        teamOptions.push({ label: 'Pase Directo (Bye / Ghost)', value: 'ghost' });
+
+        const selectA = new StringSelectMenuBuilder()
+            .setCustomId(`select_manual_teamA_${tournamentShortId}`)
+            .setPlaceholder('Elige Equipo A')
+            .addOptions(teamOptions);
+
+        const selectB = new StringSelectMenuBuilder()
+            .setCustomId(`select_manual_teamB_${tournamentShortId}`)
+            .setPlaceholder('Elige Equipo B')
+            .addOptions(teamOptions);
+
+        const rowA = new ActionRowBuilder().addComponents(selectA);
+        const rowB = new ActionRowBuilder().addComponents(selectB);
+        const rowConfirm = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`save_manual_pair_${tournamentShortId}`).setLabel('Guardar Partido').setStyle(ButtonStyle.Success)
+        );
+
+        await interaction.editReply({ content: 'Selecciona los integrantes de este partido:', components: [rowA, rowB, rowConfirm] });
+        return;
+    }
+
+    if (action === 'save_manual_pair') {
+        // En un mundo ideal usaríamos selectMenu cache, pero para simplificar, en Discord.JS puedes obtener selecciones de Interaction si es un menú.
+        // Como este es un BOTÓN, necesitamos obtener los valores. Sin embargo, no hay formulario (Modal) para Select Menus.
+        // Lo resolvemos enviando al usuario a un estado interno que recogeremos en selectMenuHandler, PERO la mejor manera es guardar en DB.
+        // Dado el alcance, delego esta lógica a selectMenuHandler
+        await interaction.reply({ content: 'Por favor, utiliza los menús desplegables para emparejar equipos uno por uno. Una vez seleccionados, el bot los guardará automáticamente.', flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'confirm_knockout_manual') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const pairs = tournament.temp?.manualDrawPairs || [];
+        
+        if (pairs.length === 0) return interaction.reply({ content: 'No hay enfrentamientos guardados todavía.', flags: [MessageFlags.Ephemeral] });
+
+        await interaction.reply({ content: `✅ Finalizando el sorteo manual con ${pairs.length} partidos...` });
+
+        startKnockoutOnlyDraw(client, guild, tournament, 'manual', pairs)
+            .then(() => { if (interaction.channel) { interaction.channel.send(`🎲 ¡El sorteo Manual de Eliminatorias ha finalizado y los hilos han sido creados!`); } })
+            .catch(error => { console.error("Error en sorteo manual knockout:", error); });
         return;
     }
 

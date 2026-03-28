@@ -528,6 +528,24 @@
             }
         }
 
+        async function confirmDissolveTeam(teamId, teamName) {
+            const confirmed = confirm(`⚠️ ESTÁS A PUNTO DE DISOLVER EL EQUIPO: ${teamName}\nEsto eliminará permanentemente su registro y quitará los roles a sus jugadores.\n\n¿Deseas continuar?`);
+            if (!confirmed) return;
+            
+            try {
+                const res = await fetch(`/api/admin/teams/${teamId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    loadRanking(); // Recargar la tabla
+                } else {
+                    alert("❌ Error: " + data.error);
+                }
+            } catch (e) {
+                alert("❌ Error de red al intentar disolver.");
+            }
+        }
+
         async function loadRanking() {
             try {
                 const response = await fetch('/api/elo/ranking');
@@ -586,7 +604,10 @@
                         </td>
                         <td class="elo-score">
                             ${currentElo}
-                            ${isAdminVisitor ? `<button class="edit-btn" onclick="openEditElo('${team._id}', ${currentElo}, '${team.name}')" title="Editar ELO"><i class="fas fa-pencil-alt"></i></button>` : ''}
+                            ${isAdminVisitor ? `
+                                <button class="edit-btn" onclick="openEditElo('${team._id}', ${currentElo}, '${team.name}')" title="Editar ELO"><i class="fas fa-pencil-alt"></i></button>
+                                <button class="edit-btn" onclick="confirmDissolveTeam('${team._id}', '${team.name}')" title="Disolver Equipo" style="border-color: #ff0055; color: #ff0055; margin-left: 5px;"><i class="fas fa-trash"></i></button>
+                            ` : ''}
                         </td>
                         <td class="stats-cell stats-hide-mobile">${wins} - ${draws} - ${losses}</td>
                         <td class="stats-cell stats-hide-mobile">${streakHtml}</td>

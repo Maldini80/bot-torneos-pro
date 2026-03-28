@@ -241,6 +241,56 @@ export async function handleSelectMenu(interaction) {
     }
 
     // =======================================================
+    // --- LÓGICA SORTEO MANUAL (SOLO ELIMINATORIAS) ---
+    // =======================================================
+    if (action === 'select_manual_teamA' || action === 'select_manual_teamB') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const selectedId = interaction.values[0];
+        
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Torneo no encontrado.', components: [] });
+
+        const isTeamA = action === 'select_manual_teamA';
+        const updateField = isTeamA ? 'temp.currentPairA' : 'temp.currentPairB';
+        const otherField = isTeamA ? tournament.temp?.currentPairB : tournament.temp?.currentPairA;
+
+        // Si ya seleccionó el otro, completamos el par
+        if (otherField) {
+            const teamAId = isTeamA ? selectedId : otherField;
+            const teamBId = isTeamA ? otherField : selectedId;
+
+            if (teamAId === teamBId && teamAId !== 'ghost') {
+                return interaction.editReply({ content: '❌ No puedes emparejar a un equipo consigo mismo.', components: [] });
+            }
+
+            const getTeamObj = (id) => id === 'ghost' ? { id: 'ghost', nombre: 'Pase Directo (Bye)' } : tournament.teams.aprobados[id];
+            
+            const pair = { equipoA: getTeamObj(teamAId), equipoB: getTeamObj(teamBId) };
+            
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { 
+                    $push: { 'temp.manualDrawPairs': pair },
+                    $unset: { 'temp.currentPairA': '', 'temp.currentPairB': '' }
+                }
+            );
+
+            // Refrescar la vista enviándolo de vuelta a setup_knockout_pair (simulado)
+            // Se puede hacer emitiendo una respuesta con la misma data que setup_knockout_pair
+            return interaction.editReply({ content: `✅ Partido guardado: **${pair.equipoA.nombre}** vs **${pair.equipoB.nombre}**. Vuelve a pulsar 'Añadir Enfrentamiento' en el mensaje principal.`, components: [] });
+        } else {
+            // Guardamos el seleccionado actual y esperamos al otro
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { $set: { [updateField]: selectedId } }
+            );
+
+            return interaction.editReply({ content: `⏳ Equipo ${isTeamA ? 'A' : 'B'} seleccionado. Selecciona el otro para completar el partido.` });
+        }
+    }
+
+    // =======================================================
     // --- LÓGICA ADMINISTRADOR DRAFT EXTERNO ---
     // =======================================================
     if (action === 'ext_reg_admin_add_user_sel') {
