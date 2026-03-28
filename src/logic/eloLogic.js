@@ -1,22 +1,23 @@
 // src/logic/eloLogic.js
 // Módulo de cálculo y gestión de ELO masivo al finalizar torneos.
 
-import { getDb } from '../../database.js';
+import { getBotSettings, getDb } from '../../database.js';
 
 const ELO_MIN = 0;
 
-// Recompensas para Playoffs
-const ELO_PLAYOFF_VALS = {
+// Recompensas para Playoffs (Defaults)
+const DEFAULT_PLAYOFF_VALS = {
     champion: 150,
     runner_up: 80,
     semifinalist: 40,
     quarterfinalist: 15,
     round_of_16: -20, // octavos
-    groups_or_earlier: -40 
+    groups_top_half: -30, // eliminados en grupos, mitad alta
+    groups_bottom_half: -50 // eliminados en grupos, mitad baja
 };
 
-// Recompensas para Liga (Sin eliminatorias)
-const ELO_LEAGUE_VALS = {
+// Recompensas para Liga (Defaults)
+const DEFAULT_LEAGUE_VALS = {
     first: 120,
     second: 75,
     third: 40,
@@ -58,12 +59,16 @@ export async function distributeTournamentElo(client, tournamentState) {
     let eloUpdates = {};
     let eloSummary = []; // Array para la tabla de Discord
 
+    const settings = await getBotSettings();
+    const configPlayoff = settings?.eloConfig?.playoff || DEFAULT_PLAYOFF_VALS;
+    const configLeague = settings?.eloConfig?.league || DEFAULT_LEAGUE_VALS;
+
     const hasPlayoffs = !!(tournamentState.structure?.eliminatorias && Object.keys(tournamentState.structure.eliminatorias).length > 0 && tournamentState.structure.eliminatorias.final);
 
     if (hasPlayoffs) {
-        eloUpdates = calculatePlayoffElo(tournamentState);
+        eloUpdates = calculatePlayoffElo(tournamentState, configPlayoff);
     } else {
-        eloUpdates = calculateLeagueElo(tournamentState);
+        eloUpdates = calculateLeagueElo(tournamentState, configLeague);
     }
 
     if (Object.keys(eloUpdates).length === 0) {
@@ -163,7 +168,7 @@ export async function distributeTournamentElo(client, tournamentState) {
 /**
  * Calcula puntos ELO según la ronda máxima alcanzada.
  */
-function calculatePlayoffElo(tournamentState) {
+function calculatePlayoffElo(tournamentState, playoffVals) {
     let teamsRounds = {}; // { capitanId: 'final' | 'semifinales' | ... }
     
     // Rondas en orden de importancia (de menor a mayor)
@@ -209,20 +214,46 @@ function calculatePlayoffElo(tournamentState) {
         }
     }
 
+    // Obtener y clasificar a los equipos de grupos para ver quiénes están en el top half y bottom half de los eliminados
+    let gruposRanking = [];
+    if (tournamentState.structure?.grupos) {
+        for (const gName in tournamentState.structure.grupos) {
+            gruposRanking = gruposRanking.concat(tournamentState.structure.grupos[gName].equipos || []);
+        }
+        // Limpiar ghosts y ordenar de mejor a peor usando la misma lógica que la liga
+        gruposRanking = gruposRanking.filter(t => t.id && t.id !== 'ghost');
+        gruposRanking.sort((a, b) => {
+            if (b.stats?.pts !== a.stats?.pts) return (b.stats?.pts || 0) - (a.stats?.pts || 0);
+            if (b.stats?.dg !== a.stats?.dg) return (b.stats?.dg || 0) - (a.stats?.dg || 0);
+            return (b.stats?.gf || 0) - (a.stats?.gf || 0);
+        });
+    }
+
+    const totalEliminados = gruposRanking.filter(t => teamsRounds[t.id] === 'grupos');
+    const mitadEliminados = Math.ceil(totalEliminados.length / 2);
+
     // 3. Traducir rondas a puntos ELO
     let eloUpdates = {};
     for (const [id, maxRonda] of Object.entries(teamsRounds)) {
         let delta = 0;
         switch (maxRonda) {
-            case 'campeon': delta = ELO_PLAYOFF_VALS.champion; break;
-            case 'final': delta = ELO_PLAYOFF_VALS.runner_up; break;
-            case 'semifinales': delta = ELO_PLAYOFF_VALS.semifinalist; break;
-            case 'cuartos': delta = ELO_PLAYOFF_VALS.quarterfinalist; break;
-            case 'octavos': delta = ELO_PLAYOFF_VALS.round_of_16; break;
+            case 'campeon': delta = playoffVals.champion; break;
+            case 'final': delta = playoffVals.runner_up; break;
+            case 'semifinales': delta = playoffVals.semifinalist; break;
+            case 'cuartos': delta = playoffVals.quarterfinalist; break;
+            case 'octavos': delta = playoffVals.round_of_16; break;
             case 'dieciseisavos': 
             case 'grupos':
             default:
-                delta = ELO_PLAYOFF_VALS.groups_or_earlier; break;
+                // Buscar si están en la mitad alta o baja de los eliminados
+                const objTeam = totalEliminados.find(t => t.id === id);
+                if (objTeam) {
+                    const idx = totalEliminados.indexOf(objTeam);
+                    delta = (idx < mitadEliminados) ? playoffVals.groups_top_half : playoffVals.groups_bottom_half;
+                } else {
+                    delta = playoffVals.groups_bottom_half; // Default
+                }
+                break;
         }
         eloUpdates[id] = delta;
     }
@@ -233,7 +264,7 @@ function calculatePlayoffElo(tournamentState) {
 /**
  * Calcula puntos ELO según la posición final en Liga Pura.
  */
-function calculateLeagueElo(tournamentState) {
+function calculateLeagueElo(tournamentState, leagueVals) {
     let eloUpdates = {};
 
     let allTeams = [];
@@ -260,17 +291,17 @@ function calculateLeagueElo(tournamentState) {
         let delta = 0;
 
         if (rank === 1) {
-            delta = ELO_LEAGUE_VALS.first;
+            delta = leagueVals.first;
         } else if (rank === 2) {
-            delta = ELO_LEAGUE_VALS.second;
+            delta = leagueVals.second;
         } else if (rank === 3) {
-            delta = ELO_LEAGUE_VALS.third;
+            delta = leagueVals.third;
         } else if (rank === total && total > 3) {
-            delta = ELO_LEAGUE_VALS.last;
+            delta = leagueVals.last;
         } else if (rank <= Math.ceil(total / 2)) {
-            delta = ELO_LEAGUE_VALS.top_half; // Mitad superior
+            delta = leagueVals.top_half; // Mitad superior
         } else {
-            delta = ELO_LEAGUE_VALS.bottom_half; // Mitad inferior
+            delta = leagueVals.bottom_half; // Mitad inferior
         }
 
         eloUpdates[id] = delta;

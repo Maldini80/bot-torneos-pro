@@ -1526,6 +1526,139 @@ export async function handleModal(interaction) {
         return;
     }
 
+    if (action === 'admin_edit_rules_url_modal') {
+        const urlInput = interaction.fields.getTextInputValue('rules_url_input');
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await updateBotSettings({ rulesUrl: urlInput });
+        await interaction.editReply(`✅ El enlace de normativa global ha sido actualizado a: **${urlInput}**.\n\n_Nota: Los próximos menús que utilicen este enlace lo cargarán de manera dinámica._`);
+        return;
+    }
+
+    if (action === 'admin_modify_elo_percentage_modal') {
+        const percentageStr = interaction.fields.getTextInputValue('elo_percentage_input');
+        const percentage = parseFloat(percentageStr);
+        if (isNaN(percentage)) {
+            return interaction.reply({ content: '❌ El porcentaje debe ser un número válido (ej: -30 o 50).', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const { getBotSettings, updateBotSettings } = require('../../database.js');
+        const settings = await getBotSettings();
+        
+        const basePlayoff = { champion: 150, runner_up: 80, semifinalist: 40, quarterfinalist: 15, round_of_16: -20, groups_top_half: -30, groups_bottom_half: -50 };
+        const baseLeague = { first: 120, second: 75, third: 40, top_half: 15, bottom_half: -35, last: -60 };
+
+        const multiplier = 1 + (percentage / 100);
+
+        const newPlayoff = {};
+        for (const [k, v] of Object.entries(basePlayoff)) newPlayoff[k] = Math.round(v * multiplier);
+        
+        const newLeague = {};
+        for (const [k, v] of Object.entries(baseLeague)) newLeague[k] = Math.round(v * multiplier);
+
+        await updateBotSettings({ 
+            eloConfig: {
+                playoff: newPlayoff,
+                league: newLeague
+            }
+        });
+
+        const embed = new EmbedBuilder()
+            .setTitle(`✅ Configuración ELO Actualizada (${percentage > 0 ? '+'+percentage : percentage}%)`)
+            .setColor('Green')
+            .setDescription('La configuración del ELO ha sido modificada y guardada exitosamente. Así han quedado los nuevos premios y castigos:')
+            .addFields(
+                { name: '🏆 PLAYOFFS (Torneos con eliminatorias)', value: 
+`Campeón: **${newPlayoff.champion > 0 ? '+'+newPlayoff.champion : newPlayoff.champion}**
+Finalista: **${newPlayoff.runner_up > 0 ? '+'+newPlayoff.runner_up : newPlayoff.runner_up}**
+Semifinales: **${newPlayoff.semifinalist > 0 ? '+'+newPlayoff.semifinalist : newPlayoff.semifinalist}**
+Cuartos: **${newPlayoff.quarterfinalist > 0 ? '+'+newPlayoff.quarterfinalist : newPlayoff.quarterfinalist}**
+Octavos: **${newPlayoff.round_of_16 > 0 ? '+'+newPlayoff.round_of_16 : newPlayoff.round_of_16}**
+Grupos (Zona Alta): **${newPlayoff.groups_top_half > 0 ? '+'+newPlayoff.groups_top_half : newPlayoff.groups_top_half}**
+Grupos (Zona Baja): **${newPlayoff.groups_bottom_half > 0 ? '+'+newPlayoff.groups_bottom_half : newPlayoff.groups_bottom_half}**` },
+                { name: '📊 LIGA PURA (Sin Playoff)', value: 
+`1º Puesto: **${newLeague.first > 0 ? '+'+newLeague.first : newLeague.first}**
+2º Puesto: **${newLeague.second > 0 ? '+'+newLeague.second : newLeague.second}**
+3º Puesto: **${newLeague.third > 0 ? '+'+newLeague.third : newLeague.third}**
+Mitad Superior: **${newLeague.top_half > 0 ? '+'+newLeague.top_half : newLeague.top_half}**
+Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newLeague.bottom_half}**
+Último Puesto: **${newLeague.last > 0 ? '+'+newLeague.last : newLeague.last}**` }
+            );
+
+        await interaction.editReply({ embeds: [embed] });
+        return;
+    }
+
+    if (action === 'admin_recover_round_modal') {
+        const [tournamentShortId] = params;
+        const roundNumStr = interaction.fields.getTextInputValue('round_input');
+        const roundNum = parseInt(roundNumStr);
+        
+        if (isNaN(roundNum) || roundNum <= 0) {
+            return interaction.reply({ content: '❌ La jornada debe ser un número válido mayor a 0.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const db = require('../../database.js').getDb();
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        if (!tournament || !tournament.structure || !tournament.structure.calendario || !tournament.structure.calendario['Liga']) {
+            return interaction.editReply({ content: '❌ Torneo o calendario de Liga no encontrado.' });
+        }
+
+        const ligaMatches = tournament.structure.calendario['Liga'];
+        const badMatches = ligaMatches.filter(m => m.jornada >= roundNum);
+        
+        if (badMatches.length === 0) {
+            return interaction.editReply({ content: `❌ No se encontraron partidos guardados para la Jornada ${roundNum} o superiores.` });
+        }
+
+        let deletedThreads = 0;
+        for (const match of badMatches) {
+            if (match.threadId) {
+                try {
+                    const thread = await client.channels.fetch(match.threadId);
+                    if (thread) {
+                        await thread.delete('Regeneración forzada de jornada');
+                        deletedThreads++;
+                    }
+                } catch (e) {
+                    console.warn(`No se pudo borrar el hilo ${match.threadId}: ${e.message}`);
+                }
+            }
+        }
+
+        tournament.structure.calendario['Liga'] = ligaMatches.filter(m => m.jornada < roundNum);
+        tournament.currentRound = roundNum - 1;
+
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id }, 
+            { 
+               $set: { 
+                   "structure.calendario.Liga": tournament.structure.calendario['Liga'],
+                   "currentRound": tournament.currentRound 
+               },
+               $unset: {
+                   advancementLock: ""
+               }
+            }
+        );
+
+        const { generateNextSwissRound, updatePublicMessages } = await import('../logic/tournamentLogic.js');
+        const guild = await client.guilds.fetch(tournament.guildId).catch(() => null);
+        
+        if (guild) {
+            await generateNextSwissRound(client, guild, tournament);
+        }
+
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        await updatePublicMessages(client, updatedTournament);
+
+        await interaction.editReply({ content: `✅ **Jornada ${roundNum} regenerada con éxito.**\nSe eliminaron ${deletedThreads} hilos antiguos e inválidos.` });
+        return;
+    }
+
     if (action === 'admin_force_reset_modal') {
         const confirmation = interaction.fields.getTextInputValue('confirmation_text');
         if (confirmation !== 'CONFIRMAR RESET') {

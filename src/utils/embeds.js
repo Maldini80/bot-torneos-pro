@@ -84,7 +84,9 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
                 new ButtonBuilder().setCustomId('admin_update_channel_status').setLabel('Cambiar Icono Canal').setStyle(ButtonStyle.Secondary).setEmoji('🎨').setDisabled(isBusy)
             );
             const globalSettingsRow2 = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨')
+                new ButtonBuilder().setCustomId('admin_manage_elo').setLabel('Gestionar ELO').setStyle(ButtonStyle.Success).setEmoji('📈').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_edit_rules_url').setLabel('Editar Link Normativa').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨').setDisabled(isBusy)
             );
             components.push(globalSettingsRow1, globalSettingsRow2, backButtonRow);
             break;
@@ -167,6 +169,17 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setEmoji('🔧')
             .setDisabled(isBusy)
     );
+
+    if (isGroupStage && tournament.config.formatId === 'flexible_league') {
+        row2.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_recover_round_start:${tournament.shortId}`)
+                .setLabel('Regenerar Jornada')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('♻️')
+                .setDisabled(isBusy)
+        );
+    }
 
     if (hasCaptains) {
         row2.addComponents(
@@ -777,7 +790,7 @@ export function createRuleAcceptanceEmbed(step, totalSteps, originalAction, enti
     return { embeds: [ruleEmbed], components: [row], flags: [MessageFlags.Ephemeral] };
 }
 
-export function createTournamentStatusEmbed(tournament) {
+export function createTournamentStatusEmbed(tournament, rulesUrl = PDF_RULES_URL) {
     const format = tournament.config.format;
     const teamsCount = Object.keys(tournament.teams.aprobados).length;
     let statusIcon = TOURNAMENT_STATUS_ICONS[tournament.status] || '❓';
@@ -864,7 +877,7 @@ export function createTournamentStatusEmbed(tournament) {
 
     row2.addComponents(
         new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
-        new ButtonBuilder().setLabel('Normas').setStyle(ButtonStyle.Link).setURL(PDF_RULES_URL).setEmoji('📖')
+        new ButtonBuilder().setLabel('Normas').setStyle(ButtonStyle.Link).setURL(rulesUrl).setEmoji('📖')
     );
 
     if (tournament.status === 'finalizado') {

@@ -2326,6 +2326,9 @@ export async function updatePublicMessages(client, entity) {
     // --- INICIO DE LA MODIFICACIÓN CLAVE ---
     let statusChannelId;
     let statusEmbed;
+    const settings = await getBotSettings();
+    const config = await import('../../config.js');
+    const rulesUrl = settings?.rulesUrl || config.PDF_RULES_URL;
 
     if (isDraft) {
         // Si es un draft, usamos el canal de drafts
@@ -2334,7 +2337,7 @@ export async function updatePublicMessages(client, entity) {
     } else {
         // Si es un torneo, usamos el canal de torneos
         statusChannelId = CHANNELS.TOURNAMENTS_STATUS;
-        statusEmbed = createTournamentStatusEmbed(latestState);
+        statusEmbed = createTournamentStatusEmbed(latestState, rulesUrl);
     }
 
     // Actualizamos el mensaje de estado en el canal correcto
@@ -3414,7 +3417,7 @@ export async function checkForGroupStageAdvancement(client, guild, tournament) {
     }
 }
 
-async function generateNextSwissRound(client, guild, tournament) {
+export async function generateNextSwissRound(client, guild, tournament) {
     const db = getDb();
     const nextRound = (tournament.currentRound || 0) + 1;
     const teams = tournament.structure.grupos['Liga'].equipos;

@@ -1859,6 +1859,72 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_edit_rules_url') {
+        const modal = new ModalBuilder().setCustomId('admin_edit_rules_url_modal').setTitle('Editar Link Normativa');
+        const urlInput = new TextInputBuilder()
+            .setCustomId('rules_url_input')
+            .setLabel("Nuevo URL de Normativa")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('https://i.imgur.com/logo.png')
+            .setRequired(true);
+            
+        modal.addComponents(new ActionRowBuilder().addComponents(urlInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_manage_elo') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const { getBotSettings } = require('../../database.js');
+        const settings = await getBotSettings();
+        
+        const configPlayoff = settings?.eloConfig?.playoff || { champion: 150, runner_up: 80, semifinalist: 40, quarterfinalist: 15, round_of_16: -20, groups_top_half: -30, groups_bottom_half: -50 };
+        const configLeague = settings?.eloConfig?.league || { first: 120, second: 75, third: 40, top_half: 15, bottom_half: -35, last: -60 };
+
+        const embed = new EmbedBuilder()
+            .setTitle('📈 Configuración ELO Actual')
+            .setColor('Blue')
+            .setDescription('Aquí puedes ver y modificar la configuración base del ELO que se reparte al finalizar los torneos.')
+            .addFields(
+                { name: '🏆 PLAYOFFS (Torneos con eliminatorias)', value: 
+`Campeón: **${configPlayoff.champion > 0 ? '+'+configPlayoff.champion : configPlayoff.champion}**
+Finalista: **${configPlayoff.runner_up > 0 ? '+'+configPlayoff.runner_up : configPlayoff.runner_up}**
+Semifinales: **${configPlayoff.semifinalist > 0 ? '+'+configPlayoff.semifinalist : configPlayoff.semifinalist}**
+Cuartos: **${configPlayoff.quarterfinalist > 0 ? '+'+configPlayoff.quarterfinalist : configPlayoff.quarterfinalist}**
+Octavos: **${configPlayoff.round_of_16 > 0 ? '+'+configPlayoff.round_of_16 : configPlayoff.round_of_16}**
+Grupos (Zona Alta): **${configPlayoff.groups_top_half > 0 ? '+'+configPlayoff.groups_top_half : configPlayoff.groups_top_half}**
+Grupos (Zona Baja): **${configPlayoff.groups_bottom_half > 0 ? '+'+configPlayoff.groups_bottom_half : configPlayoff.groups_bottom_half}**` },
+                { name: '📊 LIGA PURA (Sin Playoff)', value: 
+`1º Puesto: **${configLeague.first > 0 ? '+'+configLeague.first : configLeague.first}**
+2º Puesto: **${configLeague.second > 0 ? '+'+configLeague.second : configLeague.second}**
+3º Puesto: **${configLeague.third > 0 ? '+'+configLeague.third : configLeague.third}**
+Mitad Superior: **${configLeague.top_half > 0 ? '+'+configLeague.top_half : configLeague.top_half}**
+Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half : configLeague.bottom_half}**
+Último Puesto: **${configLeague.last > 0 ? '+'+configLeague.last : configLeague.last}**` }
+            );
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('admin_modify_elo_percentage').setLabel('Modificar Porcentaje').setStyle(ButtonStyle.Primary).setEmoji('✏️')
+        );
+
+        await interaction.editReply({ embeds: [embed], components: [row] });
+        return;
+    }
+
+    if (action === 'admin_modify_elo_percentage') {
+        const modal = new ModalBuilder().setCustomId('admin_modify_elo_percentage_modal').setTitle('Modificar Valores ELO (%)');
+        const percentageInput = new TextInputBuilder()
+            .setCustomId('elo_percentage_input')
+            .setLabel("Porcentaje (Ej: -30 reducir, 50 aumentar)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('-30')
+            .setRequired(true);
+            
+        modal.addComponents(new ActionRowBuilder().addComponents(percentageInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
     if (action === 'admin_force_reset_bot') {
         const modal = new ModalBuilder().setCustomId('admin_force_reset_modal').setTitle('⚠️ CONFIRMAR RESET FORZOSO ⚠️');
         const warningText = new TextInputBuilder().setCustomId('confirmation_text').setLabel("Escribe 'CONFIRMAR RESET' para proceder").setStyle(TextInputStyle.Short).setPlaceholder('Esta acción es irreversible.').setRequired(true);
@@ -3983,6 +4049,24 @@ export async function handleButton(interaction) {
 
         await interaction.editReply({ content: `❌ Pago rechazado. La prehizo-inscripción ha sido eliminada.`, components: [] });
         return;
+    }
+
+    if (action === 'admin_recover_round_start') {
+        const [tournamentShortId] = params;
+        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_recover_round_modal:${tournamentShortId}`)
+            .setTitle('Regenerar Jornada');
+
+        const roundInput = new TextInputBuilder()
+            .setCustomId('round_input')
+            .setLabel('¿Qué número de jornada regenerar?')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: 3')
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(roundInput));
+        return interaction.showModal(modal);
     }
 
     // Handler para el botón de "Reparar Hilos Perdidos"
