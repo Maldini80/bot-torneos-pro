@@ -2930,7 +2930,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 
                 try {
-                    await approveTeam(interaction.client, interaction.guild, tournament, captainId);
+                    await approveTeam(interaction.client, tournament, teamData);
                     totalInscribed++;
                 } catch (e) {
                     console.error('Error aprobando equipo:', e);
