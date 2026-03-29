@@ -2934,7 +2934,8 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                     paypal: null,
                     streamChannel: null,
                     twitter: null,
-                    inscritoEn: new Date()
+                    inscritoEn: new Date(),
+                    extraCaptains: team.extraCaptains || []
                 };
 
                 // Meter en pendientes y aprobar

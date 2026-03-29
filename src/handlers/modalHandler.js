@@ -2877,7 +2877,7 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
                 timestamp: new Date(),
                 assignments: Array.from(assignments.entries()).map(([tId, tArr]) => ({
                     tournamentId: tId,
-                    teams: tArr.map(t => ({ managerId: t.dbTeam.managerId, name: t.dbTeam.name, elo: t.elo, league: t.league }))
+                    teams: tArr.map(t => ({ managerId: t.dbTeam.managerId, name: t.dbTeam.name, elo: t.elo, league: t.league, extraCaptains: (t.dbTeam.captains || []).filter(id => id !== t.dbTeam.managerId) }))
                 })),
                 unmatched: unmatched.map(u => u.parsed.teamName),
                 overflow: overflow.map(o => o.dbTeam.name)
