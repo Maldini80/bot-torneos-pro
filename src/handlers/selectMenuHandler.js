@@ -11,6 +11,7 @@ import { setChannelIcon } from '../utils/panelManager.js';
 import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
 import { createMatchThread } from '../utils/tournamentUtils.js';
 import { processMatchResult, findMatch, finalizeMatchThread, revertStats } from '../logic/matchLogic.js';
+import { LEAGUE_EMOJIS, LEAGUE_ORDER } from '../logic/eloLogic.js';
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
@@ -1773,28 +1774,24 @@ export async function handleSelectMenu(interaction) {
                 });
             }
 
-            // Flujo normal para liga flexible gratis
-            const modal = new ModalBuilder()
-                .setCustomId(`create_tournament:${formatId}:${type}:flexible`)
-                .setTitle('Crear Liguilla Flexible');
+            // Flujo gratuito para liga flexible: primero selector de ligas
+            const leagueMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_create_league_filter:${formatId}:${type}:flexible`)
+                .setPlaceholder('Paso 3: ¿Qué ligas pueden participar?')
+                .setMinValues(1)
+                .setMaxValues(4)
+                .addOptions([
+                    { label: 'Todas las ligas', description: 'Sin restricción de ELO', value: 'ALL', emoji: '🌐' },
+                    { label: 'Liga DIAMOND (1550+ ELO)', value: 'DIAMOND', emoji: '💎' },
+                    { label: 'Liga GOLD (1300-1549 ELO)', value: 'GOLD', emoji: '👑' },
+                    { label: 'Liga SILVER (1000-1299 ELO)', value: 'SILVER', emoji: '⚙️' },
+                    { label: 'Liga BRONZE (<1000 ELO)', value: 'BRONZE', emoji: '🥉' }
+                ]);
 
-            const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
-
-            const qualifiersInput = new TextInputBuilder()
-                .setCustomId('torneo_qualifiers')
-                .setLabel("Nº de Equipos que se Clasifican")
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder("Ej: 4 (semis), 8 (cuartos)...")
-                .setRequired(true);
-
-            modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
-            modal.addComponents(new ActionRowBuilder().addComponents(qualifiersInput));
-
-            const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
-            modal.addComponents(new ActionRowBuilder().addComponents(startTimeInput));
-
-            await interaction.showModal(modal);
-            return;
+            return interaction.update({
+                content: `Tipo seleccionado: **Gratuito**. Ahora, selecciona las ligas que pueden participar:`,
+                components: [new ActionRowBuilder().addComponents(leagueMenu)]
+            });
         }
         // --- FIN NUEVA LÓGICA ---
 
@@ -1814,26 +1811,23 @@ export async function handleSelectMenu(interaction) {
             });
         }
 
-        // Si es gratuito, pasamos directo al tipo de partido
-        const matchTypeMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_create_match_type:${formatId}:${type}`)
-            .setPlaceholder('Paso 3: Selecciona el tipo de partidos')
+        // Si es gratuito, mostrar selector de ligas ANTES del tipo de partido
+        const leagueMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_create_league_filter:${formatId}:${type}`)
+            .setPlaceholder('Paso 3: ¿Qué ligas pueden participar?')
+            .setMinValues(1)
+            .setMaxValues(4)
             .addOptions([
-                {
-                    label: 'Solo Ida (3 Jornadas)',
-                    description: 'Los equipos de cada grupo se enfrentan una vez.',
-                    value: 'ida'
-                },
-                {
-                    label: 'Ida y Vuelta (6 Jornadas)',
-                    description: 'Los equipos de cada grupo se enfrentan dos veces.',
-                    value: 'idavuelta'
-                }
+                { label: 'Todas las ligas', description: 'Sin restricción de ELO', value: 'ALL', emoji: '🌐' },
+                { label: 'Liga DIAMOND (1550+ ELO)', value: 'DIAMOND', emoji: '💎' },
+                { label: 'Liga GOLD (1300-1549 ELO)', value: 'GOLD', emoji: '👑' },
+                { label: 'Liga SILVER (1000-1299 ELO)', value: 'SILVER', emoji: '⚙️' },
+                { label: 'Liga BRONZE (<1000 ELO)', value: 'BRONZE', emoji: '🥉' }
             ]);
 
         await interaction.update({
-            content: `Tipo seleccionado: **Gratuito**. Ahora, define las rondas:`,
-            components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
+            content: `Tipo seleccionado: **Gratuito**. Ahora, selecciona las ligas que pueden participar:`,
+            components: [new ActionRowBuilder().addComponents(leagueMenu)]
         });
 
     } else if (action === 'admin_create_paid_flexible_subtype') {
@@ -2240,15 +2234,113 @@ export async function handleSelectMenu(interaction) {
         });
         return;
     }
-    else if (action === 'admin_create_match_type') {
-        const [formatId, type, paidSubType] = params;
+    else if (action === 'admin_create_league_filter') {
+        // Recibimos las ligas seleccionadas y procedemos al siguiente paso
+        const selectedLeagues = interaction.values;
+        // Si seleccionaron ALL junto con otras, solo consideramos ALL
+        const allowedLeagues = selectedLeagues.includes('ALL') ? [] : selectedLeagues;
+        const leaguesEncoded = allowedLeagues.length > 0 ? allowedLeagues.join('|') : 'ALL';
+        
+        // Mostrar las ligas seleccionadas con emojis
+        const leagueDisplay = allowedLeagues.length > 0
+            ? allowedLeagues.map(l => `${LEAGUE_EMOJIS[l] || ''} ${l}`).join(', ')
+            : '🌐 Todas las ligas';
+
+        // params contiene [formatId, type] o [formatId, type, 'flexible']
+        const formatId = params[0];
+        const type = params[1];
+        const isFlexible = params[2] === 'flexible';
+
+        if (isFlexible) {
+            // Para liguilla flexible: mostrar el modal directamente
+            const modal = new ModalBuilder()
+                .setCustomId(`create_tournament:${formatId}:${type}:flexible:none:${leaguesEncoded}`)
+                .setTitle('Crear Liguilla Flexible');
+
+            const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+
+            const qualifiersInput = new TextInputBuilder()
+                .setCustomId('torneo_qualifiers')
+                .setLabel("Nº de Equipos que se Clasifican")
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder("Ej: 4 (semis), 8 (cuartos)... 0 = liga pura")
+                .setRequired(true);
+
+            const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(nombreInput),
+                new ActionRowBuilder().addComponents(qualifiersInput),
+                new ActionRowBuilder().addComponents(startTimeInput)
+            );
+
+            await interaction.showModal(modal);
+        } else {
+            // Para torneos normales: siguiente paso es tipo de partidos
+            const matchTypeMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_create_match_type:${formatId}:${type}:none:${leaguesEncoded}`)
+                .setPlaceholder('Paso 4: Selecciona el tipo de partidos')
+                .addOptions([
+                    {
+                        label: 'Solo Ida (3 Jornadas)',
+                        description: 'Los equipos de cada grupo se enfrentan una vez.',
+                        value: 'ida'
+                    },
+                    {
+                        label: 'Ida y Vuelta (6 Jornadas)',
+                        description: 'Los equipos de cada grupo se enfrentan dos veces.',
+                        value: 'idavuelta'
+                    }
+                ]);
+
+            await interaction.update({
+                content: `Ligas: **${leagueDisplay}**. Ahora, define las rondas:`,
+                components: [new ActionRowBuilder().addComponents(matchTypeMenu)]
+            });
+        }
+        return;
+
+    } else if (action === 'admin_save_league_restrictions') {
+        // Editar ligas permitidas de un torneo existente
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const selectedLeagues = interaction.values;
+        const allowedLeagues = selectedLeagues.includes('ALL') ? [] : selectedLeagues;
+
+        await updateTournamentConfig(interaction.client, tournamentShortId, { allowedLeagues });
+        
+        const leagueDisplay = allowedLeagues.length > 0
+            ? allowedLeagues.map(l => `${LEAGUE_EMOJIS[l] || ''} ${l}`).join(', ')
+            : '🌐 Todas las ligas (sin restricción)';
+
+        await interaction.editReply({ content: `✅ Ligas permitidas actualizadas a: **${leagueDisplay}**.`, components: [] });
+
+        // Actualizar embeds públicos
+        const db = getDb();
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (tournament) {
+            await updatePublicMessages(interaction.client, tournament);
+        }
+        return;
+
+    } else if (action === 'admin_create_match_type') {
+        // params: [formatId, type, paidSubType, leaguesEncoded] or [formatId, type, paidSubType]
+        const [formatId, type, paidSubType, leaguesEncoded] = params;
         const matchType = interaction.values[0];
 
-        const customIdBase = `create_tournament:${formatId}:${type}:${matchType}`;
-        const finalCustomId = paidSubType ? `${customIdBase}:${paidSubType}` : customIdBase;
+        let customIdBase = `create_tournament:${formatId}:${type}:${matchType}`;
+        if (paidSubType && paidSubType !== 'none') {
+            customIdBase += `:${paidSubType}`;
+        }
+        // Append leagues if present
+        if (leaguesEncoded && leaguesEncoded !== 'none' && leaguesEncoded !== 'ALL') {
+            customIdBase += `:${leaguesEncoded}`;
+        } else if (leaguesEncoded === 'ALL') {
+            customIdBase += `:ALL`;
+        }
 
         const modal = new ModalBuilder()
-            .setCustomId(finalCustomId)
+            .setCustomId(customIdBase)
             .setTitle('Finalizar Creación de Torneo');
 
         const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);

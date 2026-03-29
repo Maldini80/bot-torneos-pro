@@ -2809,6 +2809,147 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
+    if (action === 'admin_edit_league_restrictions') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: "Error: Torneo no encontrado.", flags: [MessageFlags.Ephemeral] });
+
+        const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!isAdminOrRef) {
+            return interaction.reply({ content: '❌ No tienes permisos para usar este botón.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const currentLeagues = tournament.config.allowedLeagues || [];
+        
+        // Build the selector options
+        const options = [
+            { label: 'Todas las ligas', description: 'Sin restricción de ELO', value: 'ALL', emoji: '🌐', default: currentLeagues.length === 0 },
+            { label: 'Liga DIAMOND (1550+ ELO)', value: 'DIAMOND', emoji: '💎', default: currentLeagues.includes('DIAMOND') },
+            { label: 'Liga GOLD (1300-1549 ELO)', value: 'GOLD', emoji: '👑', default: currentLeagues.includes('GOLD') },
+            { label: 'Liga SILVER (1000-1299 ELO)', value: 'SILVER', emoji: '⚙️', default: currentLeagues.includes('SILVER') },
+            { label: 'Liga BRONZE (<1000 ELO)', value: 'BRONZE', emoji: '🥉', default: currentLeagues.includes('BRONZE') }
+        ];
+
+        const leagueMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_save_league_restrictions:${tournamentShortId}`)
+            .setPlaceholder('Selecciona las ligas permitidas')
+            .setMinValues(1)
+            .setMaxValues(4)
+            .addOptions(options);
+
+        await interaction.reply({
+            content: `**⚙️ Editar Restricciones de Liga** para \`${tournament.nombre}\`:\nSelecciona qué ligas pueden participar en este torneo.`,
+            components: [new ActionRowBuilder().addComponents(leagueMenu)],
+            flags: [MessageFlags.Ephemeral]
+        });
+        return;
+    }
+
+    if (action === 'admin_distribute_whatsapp_start') {
+        const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!isAdminOrRef) {
+            return interaction.reply({ content: '❌ No tienes permisos para usar este botón.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId('admin_distribute_whatsapp_modal')
+            .setTitle('Distribución desde WhatsApp');
+
+        const maxTeamsInput = new TextInputBuilder()
+            .setCustomId('max_teams_per_tournament')
+            .setLabel("Máximo de equipos por torneo")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: 10")
+            .setRequired(true);
+
+        const waListInput = new TextInputBuilder()
+            .setCustomId('whatsapp_list_input')
+            .setLabel("Lista de Equipos (WhatsApp)")
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder("Pega aquí la lista de WhatsApp. Ej:\n1. Equipo A - @user1...")
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(maxTeamsInput),
+            new ActionRowBuilder().addComponents(waListInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_confirm_whatsapp_distribution') {
+        const [tempId] = params;
+        const tempDistribution = await db.collection('tempData').findOne({ _id: new ObjectId(tempId) });
+        if (!tempDistribution) {
+            return interaction.reply({ content: '❌ Los datos de esta distribución ya no existen o han caducado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!isAdminOrRef) {
+            return interaction.reply({ content: '❌ No tienes permisos para usar esto.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply();
+
+        let totalInscribed = 0;
+        let errors = 0;
+        const { approveTeam, updatePublicMessages } = await import('../logic/tournamentLogic.js');
+
+        for (const assignment of tempDistribution.assignments) {
+            const tournamentShortId = assignment.tournamentId;
+            let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) continue;
+            
+            for (const team of assignment.teams) {
+                const captainId = team.managerId;
+                
+                // Construir "teamData"
+                const teamData = {
+                    id: captainId,
+                    nombre: team.name,
+                    eafcTeamName: "",
+                    capitanId: captainId,
+                    capitanTag: "WhatsApp_Inscripcion",
+                    coCaptainId: null,
+                    coCaptainTag: null,
+                    bandera: '🏳️',
+                    paypal: null,
+                    streamChannel: null,
+                    twitter: null,
+                    inscritoEn: new Date()
+                };
+
+                // Meter en pendientes y aprobar
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { [`teams.pendientes.${captainId}`]: teamData } }
+                );
+
+                // Recargar el torneo actualizado para approveTeam
+                tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+                
+                try {
+                    await approveTeam(interaction.client, interaction.guild, tournament, captainId);
+                    totalInscribed++;
+                } catch (e) {
+                    console.error('Error aprobando equipo:', e);
+                    errors++;
+                }
+            }
+            
+            // Actualizar public messages una vez por torneo
+            tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            await updatePublicMessages(interaction.client, tournament);
+        }
+
+        // Limpiar
+        await db.collection('tempData').deleteOne({ _id: new ObjectId(tempId) });
+
+        await interaction.editReply({ content: `✅ **Inscripción Masiva Completada**.\nSe inscribieron **${totalInscribed}** equipos correctamente. Errores: **${errors}**.` });
+        return;
+    }
+
     if (action === 'admin_kick_captain') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [captainId, tournamentShortId] = params;

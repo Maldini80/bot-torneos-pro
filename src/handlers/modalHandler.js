@@ -10,9 +10,11 @@ import { processMatchResult, findMatch, findMatchPath, finalizeMatchThread } fro
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField, TextInputBuilder, TextInputStyle, ModalBuilder, AttachmentBuilder } from 'discord.js';
 import * as xlsx from 'xlsx';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID, VERIFICATION_TICKET_CATEGORY_ID } from '../../config.js';
+import { getLeagueByElo, LEAGUE_EMOJIS } from '../logic/eloLogic.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { createDraftStatusEmbed } from '../utils/embeds.js';
 import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
+import { parseWhatsAppList, matchTeamsToDatabase, distributeByElo } from '../logic/whatsappDistributor.js';
 import { generateExcelImage } from '../utils/twitter.js';
 
 
@@ -1680,7 +1682,7 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             flags: [MessageFlags.Ephemeral]
         });
 
-        const [formatId, type, matchType, paidSubType] = params;
+        const [formatId, type, matchType, paidSubType, leaguesEncoded] = params;
         const nombre = interaction.fields.getTextInputValue('torneo_nombre');
         let shortId = nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
@@ -1692,9 +1694,17 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         }
 
         const config = { formatId, isPaid: type === 'pago', matchType: matchType };
-        if (paidSubType) {
+        if (paidSubType && paidSubType !== 'none') {
             config.paidSubType = paidSubType; // 'draft' o 'cash_cup'
         }
+
+        // --- PARSE ALLOWED LEAGUES ---
+        if (leaguesEncoded && leaguesEncoded !== 'ALL' && leaguesEncoded !== 'none') {
+            config.allowedLeagues = leaguesEncoded.split('|').filter(l => ['DIAMOND', 'GOLD', 'SILVER', 'BRONZE'].includes(l));
+        } else {
+            config.allowedLeagues = []; // Vacío = todas las ligas
+        }
+        // --- FIN PARSE ALLOWED LEAGUES ---
 
         // Safe read for start time (might be missing in paid flexible leagues)
         try {
@@ -1820,6 +1830,38 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         if (!tournament || tournament.status !== 'inscripcion_abierta') {
             return interaction.editReply('Las inscripciones para este torneo no están abiertas.');
         }
+
+        // --- VALIDACIÓN DE LIGA/ELO ---
+        if (!tournament.config.isPaid && tournament.config.allowedLeagues && tournament.config.allowedLeagues.length > 0) {
+            const testDb = getDb('test');
+            const teamName = interaction.fields.getTextInputValue('nombre_equipo_input');
+            const captainId = interaction.user.id;
+            
+            // Buscar equipo por managerId o por nombre (fuzzy)
+            let registeredTeam = await testDb.collection('teams').findOne({ managerId: captainId, guildId: tournament.guildId });
+            if (!registeredTeam) {
+                const safeTeamName = teamName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                registeredTeam = await testDb.collection('teams').findOne({ name: { $regex: new RegExp(`^${safeTeamName}$`, 'i') }, guildId: tournament.guildId });
+            }
+            
+            if (registeredTeam) {
+                const teamLeague = registeredTeam.league || getLeagueByElo(registeredTeam.elo || 1000);
+                if (!tournament.config.allowedLeagues.includes(teamLeague)) {
+                    const allowedEmojis = tournament.config.allowedLeagues.map(l => `${LEAGUE_EMOJIS[l] || ''} ${l}`).join(', ');
+                    const teamEmoji = LEAGUE_EMOJIS[teamLeague] || '';
+                    return interaction.editReply(
+                        `❌ Tu equipo está en liga **${teamEmoji} ${teamLeague}**.\n` +
+                        `Este torneo solo admite: **${allowedEmojis}**.\n\n` +
+                        `❌ Your team is in the **${teamEmoji} ${teamLeague}** league.\n` +
+                        `This tournament only allows: **${allowedEmojis}**.`
+                    );
+                }
+            } else {
+                // Equipo no encontrado en la BD → permitir inscripción con advertencia
+                console.warn(`[LEAGUE CHECK] Equipo "${teamName}" no encontrado en la BD para validación de liga. Se permite inscripción.`);
+            }
+        }
+        // --- FIN VALIDACIÓN DE LIGA/ELO ---
 
         const captainId = interaction.user.id;
         const isAlreadyInTournament = tournament.teams.aprobados[captainId] || tournament.teams.pendientes[captainId] || (tournament.teams.reserva && tournament.teams.reserva[captainId]);
@@ -2784,6 +2826,110 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         } catch (error) {
             console.error(error);
             await interaction.editReply('❌ Error crítico al crear el torneo.');
+        }
+        return;
+    }
+
+    // --- NUEVO HANDLER: DISTRIBUCIÓN DESDE WHATSAPP ---
+    if (action === 'admin_distribute_whatsapp_modal') {
+        const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!isAdminOrRef) {
+            return interaction.reply({ content: '❌ No tienes permisos para usar esto.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const maxTeamsStr = interaction.fields.getTextInputValue('max_teams_per_tournament');
+        const waListStr = interaction.fields.getTextInputValue('whatsapp_list_input');
+        const maxTeams = parseInt(maxTeamsStr);
+
+        if (isNaN(maxTeams) || maxTeams <= 0) {
+            return interaction.editReply({ content: '❌ El número máximo de equipos no es válido.' });
+        }
+
+        try {
+            // 1. Parsear texto
+            const parsedTeams = parseWhatsAppList(waListStr);
+            if (parsedTeams.length === 0) {
+                return interaction.editReply({ content: '❌ No se encontró ningún equipo en la lista proporcionada. Revisa el formato.' });
+            }
+
+            // 2. Obtener torneos activos (solo gratuitos y en inscripción)
+            const activeTournaments = await db.collection('tournaments').find({ 
+                guildId: interaction.guild.id,
+                status: 'inscripcion_abierta',
+                'config.isPaid': false
+            }).toArray();
+
+            if (activeTournaments.length === 0) {
+                return interaction.editReply({ content: '❌ No hay torneos gratuitos en fase de "inscripción abierta" en este momento.' });
+            }
+
+            // 3. Match con base de datos
+            const { matched, unmatched } = await matchTeamsToDatabase(parsedTeams, interaction.guild.id);
+
+            // 4. Distribuir
+            const { assignments, overflow } = distributeByElo(matched, activeTournaments, maxTeams);
+
+            // 5. Guardar estado temporal en base de datos para confirmación
+            const tempDistribution = {
+                _id: new ObjectId(),
+                adminId: interaction.user.id,
+                timestamp: new Date(),
+                assignments: Array.from(assignments.entries()).map(([tId, tArr]) => ({
+                    tournamentId: tId,
+                    teams: tArr.map(t => ({ managerId: t.dbTeam.managerId, name: t.dbTeam.name, elo: t.elo, league: t.league }))
+                })),
+                unmatched: unmatched.map(u => u.parsed.teamName),
+                overflow: overflow.map(o => o.dbTeam.name)
+            };
+            await db.collection('tempData').insertOne(tempDistribution);
+
+            // 6. Generar Embed de Previsualización
+            const embed = new EmbedBuilder()
+                .setTitle('Previsualización de Distribución')
+                .setColor('#3498db')
+                .setDescription(`Se encontraron **${parsedTeams.length}** equipos en la lista.\nEquipos matcheados con BD: **${matched.length}**`);
+
+            for (const tourney of activeTournaments) {
+                const tourneyAssignments = assignments.get(tourney.shortId) || [];
+                const maxSpaces = maxTeams - tourneyAssignments.length;
+                let text = `Asignados: **${tourneyAssignments.length}** / Max (${maxTeams})\n`;
+                if (tourneyAssignments.length > 0) {
+                    text += tourneyAssignments.map(t => `- ${t.dbTeam.name} (${LEAGUE_EMOJIS[t.league]} ${t.elo})`).join('\n').substring(0, 900); // Truncar si es muy largo
+                } else {
+                    text += "Ninguno.";
+                }
+                embed.addFields({ name: `🏆 ${tourney.nombre}`, value: text });
+            }
+
+            if (unmatched.length > 0) {
+                embed.addFields({ 
+                    name: `❌ No Encontrados en BD (${unmatched.length})`, 
+                    value: unmatched.map(u => u.parsed.teamName).slice(0, 20).join(', ') + (unmatched.length > 20 ? '...' : '') 
+                });
+            }
+
+            if (overflow.length > 0) {
+                embed.addFields({ 
+                    name: `⚠️ Sin Hueco/Liga (${overflow.length})`, 
+                    value: overflow.map(o => o.dbTeam.name).slice(0, 20).join(', ') + (overflow.length > 20 ? '...' : '') 
+                });
+            }
+
+            const confirmBtn = new ButtonBuilder()
+                .setCustomId(`admin_confirm_whatsapp_distribution:${tempDistribution._id.toString()}`)
+                .setLabel('Confirmar Inscripción Masiva')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('✅');
+
+            await interaction.editReply({
+                embeds: [embed],
+                components: [new ActionRowBuilder().addComponents(confirmBtn)]
+            });
+
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({ content: `❌ Error al procesar la lista: ${error.message}` });
         }
         return;
     }

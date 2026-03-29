@@ -5,6 +5,16 @@ import { getBotSettings, getDb } from '../../database.js';
 
 const ELO_MIN = 0;
 
+// Emojis y orden de las ligas
+export const LEAGUE_EMOJIS = {
+    DIAMOND: '💎',
+    GOLD: '👑',
+    SILVER: '⚙️',
+    BRONZE: '🥉'
+};
+
+export const LEAGUE_ORDER = ['DIAMOND', 'GOLD', 'SILVER', 'BRONZE'];
+
 // Recompensas para Playoffs (Defaults)
 const DEFAULT_PLAYOFF_VALS = {
     champion: 150,
@@ -29,7 +39,7 @@ const DEFAULT_LEAGUE_VALS = {
 /**
  * Recalcula masivamente la liga de un equipo según su ELO actual
  */
-function getLeagueByElo(elo) {
+export function getLeagueByElo(elo) {
     if (elo >= 1550) return 'DIAMOND';
     if (elo >= 1300) return 'GOLD';
     if (elo >= 1000) return 'SILVER';

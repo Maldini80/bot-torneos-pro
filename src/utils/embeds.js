@@ -2,6 +2,7 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } from 'discord.js';
 import { TOURNAMENT_STATUS_ICONS, TOURNAMENT_FORMATS, PDF_RULES_URL, DRAFT_POSITION_ORDER, DRAFT_POSITIONS } from '../../config.js';
 import { getBotSettings, getDb } from '../../database.js';
+import { LEAGUE_EMOJIS } from '../logic/eloLogic.js';
 
 const ruleEmbeds = [
     new EmbedBuilder()
@@ -57,7 +58,8 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
             embed.setTitle('Gestión de Torneos');
             const tournamentActionsRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_create_tournament_start').setLabel('Crear Torneo (Grupos)').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy),
-                new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear Liguilla Flexible').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy)
+                new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear Liguilla Flexible').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_distribute_whatsapp_start').setLabel('Distribuir WA').setStyle(ButtonStyle.Secondary).setEmoji('📋').setDisabled(isBusy)
             );
             components.push(tournamentActionsRow, backButtonRow);
             break;
@@ -239,6 +241,18 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setEmoji('👥')
             .setDisabled(isBusy || !hasCaptains)
     );
+
+    // Botón para editar restricciones de liga (solo para torneos gratuitos)
+    if (!tournament.config.isPaid && isBeforeDraw) {
+        row3.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_edit_league_restrictions:${tournament.shortId}`)
+                .setLabel('Editar Ligas')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('⚙️')
+                .setDisabled(isBusy)
+        );
+    }
 
     if (hasCaptains) {
         row3.addComponents(
@@ -865,6 +879,13 @@ export function createTournamentStatusEmbed(tournament, rulesUrl = PDF_RULES_URL
     if (tournament.config.startTime) {
         embed.addFields({ name: 'Inicio Programado', value: tournament.config.startTime, inline: false });
     }
+
+    // --- MOSTRAR LIGAS PERMITIDAS ---
+    if (tournament.config.allowedLeagues && tournament.config.allowedLeagues.length > 0) {
+        const leagueDisplay = tournament.config.allowedLeagues.map(l => `${LEAGUE_EMOJIS[l] || ''} ${l}`).join('  |  ');
+        embed.addFields({ name: 'Ligas Permitidas / Allowed Leagues', value: leagueDisplay, inline: false });
+    }
+    // --- FIN LIGAS PERMITIDAS ---
 
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
