@@ -271,6 +271,23 @@ export async function handleButton(interaction) {
         }
         // --- FIN DE LA MODIFICACIÓN ---
 
+        // --- VALIDACIÓN DE LIGAS/ELO ---
+        if (tournament.config.allowedLeagues && tournament.config.allowedLeagues.length > 0) {
+            const { getLeagueByElo } = await import('../logic/eloLogic.js');
+            const teamLeague = getLeagueByElo(team.elo || 1000);
+            
+            if (!tournament.config.allowedLeagues.includes(teamLeague)) {
+                const embedError = new EmbedBuilder()
+                    .setColor('#e74c3c')
+                    .setTitle('❌ Inscripción Rechazada')
+                    .setDescription(`Tu equipo (**${team.name}**) pertenece a la liga **${teamLeague}** (ELO: \`${team.elo || 1000}\`), que no está permitida en este torneo.`)
+                    .addFields({ name: 'Ligas Permitidas', value: tournament.config.allowedLeagues.join(', ') });
+                
+                return interaction.editReply({ embeds: [embedError] });
+            }
+        }
+        // --- FIN VALIDACIÓN ---
+
         const embed = new EmbedBuilder()
             .setTitle('Confirmación de Inscripción Automática')
             .setDescription(`Hemos detectado que eres un líder del equipo **${team.name}**. ¿Deseas inscribirlo en el torneo **${tournament.nombre}** usando sus datos guardados?`)
@@ -4316,7 +4333,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
     if (action === 'admin_recover_round_start') {
         const [tournamentShortId] = params;
-        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+        // ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder already imported at top of file (ES modules)
         const modal = new ModalBuilder()
             .setCustomId(`admin_recover_round_modal:${tournamentShortId}`)
             .setTitle('Regenerar Jornada');
