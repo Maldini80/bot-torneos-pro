@@ -13,33 +13,42 @@ export function parseWhatsAppList(rawText) {
     const parsedTeams = [];
     let index = 1;
 
-    for (let line of lines) {
-        line = line.trim();
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
         if (!line) continue;
 
-        // Intentar parsear líneas como "1. Nombre del Equipo - @usuario"
-        // o "1- Nombre del Equipo (premier)"
-        // Quitamos números y puntos/guiones iniciales
-        let cleanLine = line.replace(/^\d+[\.\-\)]\s*/, '').trim();
-
-        // Buscar si hay un usuario de twitter/discord o notas adicionales al final
-        let teamName = cleanLine;
-        let extrainfo = "";
+        // Detectar si la línea empieza con un número para saltar encabezados sueltos
+        const numberMatch = line.match(/^(\d+)[\.\-\)]\s*(.*)$/);
         
-        // Separador común '-' o '('
-        const splitMatch = cleanLine.match(/^(.*?)([\-\(].*)$/);
-        if (splitMatch) {
-            teamName = splitMatch[1].trim();
-            extrainfo = splitMatch[2].trim();
-        }
+        if (numberMatch) {
+            let teamName = numberMatch[2].trim();
+            let extraInfo = "";
 
-        if (teamName) {
-            parsedTeams.push({
-                index: index++,
-                teamName: teamName,
-                extraInfo: extrainfo,
-                rawLine: line
-            });
+            // Separador común '-' o '(' en la misma línea (opcional)
+            const splitMatch = teamName.match(/^(.*?)([\-\(].*)$/);
+            if (splitMatch) {
+                teamName = splitMatch[1].trim();
+                extraInfo = splitMatch[2].trim();
+            }
+
+            // Buscar si la SIGUIENTE línea es el usuario/info extra (ej: 📲 guaristiki11)
+            // Si la siguiente línea existe, no está vacía y no empieza por un número...
+            if (i + 1 < lines.length) {
+                let nextLine = lines[i + 1].trim();
+                if (nextLine && !nextLine.match(/^\d+[\.\-\)]/)) {
+                    extraInfo += " | Usuario BD: " + nextLine.replace(/^[📲📱]\s*/, '').trim();
+                    i++; // Saltamos la línea del usuario para no procesarla como equipo principal
+                }
+            }
+
+            if (teamName) {
+                parsedTeams.push({
+                    index: index++,
+                    teamName: teamName,
+                    extraInfo: extraInfo.trim(),
+                    rawLine: line
+                });
+            }
         }
     }
 
