@@ -507,7 +507,12 @@ function initializeTournamentView(tournamentId) {
 
             sortedTeams.forEach((team, index) => {
                 const dg = team.stats.dg > 0 ? `+${team.stats.dg}` : team.stats.dg;
-                const logoHtml = team.logoUrl ? `<img src="${team.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
+                
+                // Buscar el logo actualizado en el diccionario principal de equipos usando el ID del equipo
+                const actualTeam = tournament.teams.aprobados[team.id];
+                const finalLogoUrl = (actualTeam && actualTeam.logoUrl) ? actualTeam.logoUrl : team.logoUrl;
+                
+                const logoHtml = finalLogoUrl ? `<img src="${finalLogoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
 
                 groupHTML += `
                     <div class="team-stat-card">
