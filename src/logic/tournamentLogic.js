@@ -1478,9 +1478,16 @@ export async function approveTeam(client, tournament, teamData) {
         try {
             const safeTeamName = teamData.nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const registeredTeam = await getDb('test').collection('teams').findOne({ name: { $regex: new RegExp(`^${safeTeamName}$`, 'i') }, guildId: tournament.guildId });
-            if (registeredTeam && registeredTeam.managerId) {
-                console.log(`[MANAGER SYNC] Linking manager ${registeredTeam.managerId} to tournament team ${teamData.nombre}`);
-                teamData.managerId = registeredTeam.managerId;
+            if (registeredTeam) {
+                if (registeredTeam.managerId) {
+                    console.log(`[MANAGER SYNC] Linking manager ${registeredTeam.managerId} to tournament team ${teamData.nombre}`);
+                    teamData.managerId = registeredTeam.managerId;
+                }
+                
+                // --- FIX: Sync missing data from test.teams ---
+                if (!teamData.logoUrl && registeredTeam.logoUrl) teamData.logoUrl = registeredTeam.logoUrl;
+                if (!teamData.twitter && registeredTeam.twitterHandle) teamData.twitter = registeredTeam.twitterHandle;
+                if (!teamData.eafcTeamName) teamData.eafcTeamName = registeredTeam.name;
             }
         } catch (err) {
             console.warn(`[MANAGER SYNC] Failed to lookup manager for team ${teamData.nombre}:`, err);
