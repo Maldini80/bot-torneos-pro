@@ -312,20 +312,58 @@ export async function handleButton(interaction) {
 
     if (action === 'confirm_team_registration') {
         const [tournamentShortId, teamId] = params;
+        await interaction.deferUpdate();
 
-        // CORRECCIÓN: Pasamos 'register_team_from_db' como una palabra clave
-        // y el teamId como un parámetro separado para evitar errores de 'split'.
-        const originalAction = 'register_team_from_db';
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const team = await getDb('test').collection('teams').findOne({ _id: new ObjectId(teamId) });
 
-        const platformButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`select_stream_platform:twitch:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('Twitch').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`select_stream_platform:youtube:${originalAction}:${tournamentShortId}:${teamId}`).setLabel('YouTube').setStyle(ButtonStyle.Secondary)
-        );
+        if (!tournament || !team) {
+            return interaction.followUp({ content: '❌ El torneo o el equipo ya no existen.', flags: [MessageFlags.Ephemeral] });
+        }
 
-        await interaction.update({
-            content: '✅ Equipo confirmado. Por favor, selecciona ahora tu plataforma de transmisión principal para los partidos del torneo.',
-            embeds: [],
-            components: [platformButtons]
+        const teamData = {
+            id: team.managerId,
+            nombre: team.name,
+            eafcTeamName: team.name,
+            capitanId: team.managerId,
+            capitanTag: interaction.user.tag,
+            coCaptainId: team.captains && team.captains.length > 0 ? team.captains[0] : null,
+            coCaptainTag: null,
+            logoUrl: team.logoUrl,
+            twitter: team.twitterHandle || '',
+            streamChannel: 'No requerido',
+            paypal: null,
+            inscritoEn: new Date(),
+            extraCaptains: team.captains || []
+        };
+
+        if (!tournament.teams) tournament.teams = { pendientes: {} };
+        if (!tournament.teams.pendientes) tournament.teams.pendientes = {};
+
+        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`teams.pendientes.${teamData.capitanId}`]: teamData } });
+
+        const notificationsThread = await client.channels.fetch(tournament.discordMessageIds.notificationsThreadId).catch(() => null);
+
+        if (notificationsThread) {
+            const adminEmbed = new EmbedBuilder()
+                .setColor('#3498DB')
+                .setTitle(`🔔 Nueva Inscripción`)
+                .setThumbnail(teamData.logoUrl)
+                .addFields(
+                    { name: 'Equipo', value: teamData.nombre, inline: true },
+                    { name: 'Mánager', value: interaction.user.tag, inline: true }
+                );
+            const adminButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`admin_approve:${teamData.capitanId}:${tournament.shortId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`admin_reject:${teamData.capitanId}:${tournament.shortId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+            );
+            await notificationsThread.send({ embeds: [adminEmbed], components: [adminButtons] });
+        }
+
+        await interaction.editReply({ 
+            content: `✅ ¡Tu inscripción para **${team.name}** ha sido recibida!\n\nHemos notificado a los administradores. Recibirás un aviso cuando sea revisada.`, 
+            embeds: [], 
+            components: [] 
         });
         return;
     }
