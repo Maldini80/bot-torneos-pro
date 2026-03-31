@@ -10,7 +10,7 @@ import {
     approveDraftCaptain, endDraft, simulateDraftPicks, handlePlayerSelection, requestUnregisterFromDraft,
     approveUnregisterFromDraft, updateCaptainControlPanel, requestPlayerKick, handleKickApproval,
     forceKickPlayer, removeStrike, pardonPlayer, acceptReplacement, prepareRouletteDraw, kickPlayerFromDraft, createNewTournament,
-    handleImportedPlayers, sendPaymentApprovalRequest, updateTournamentConfig, updateDraftMainInterface, startKnockoutOnlyDraw
+    handleImportedPlayers, sendPaymentApprovalRequest, updateTournamentConfig, updateDraftMainInterface, startKnockoutOnlyDraw, applyManualLeagueCalendar
 } from '../logic/tournamentLogic.js';
 import {
     checkVerification, startVerificationWizard, showVerificationModal, startProfileUpdateWizard, approveProfileUpdate, rejectProfileUpdate, openProfileUpdateThread
@@ -2480,6 +2480,19 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             });
         }
 
+        // SI ES LIGUILLA FLEXIBLE, SE OFRECE CONSTRUCTOR MANUAL / ALEATORIO
+        if (tournament.config.formatId === 'flexible_league') {
+            const teamCount = Object.keys(tournament.teams.aprobados).length;
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`admin_league_random:${tournament.shortId}`).setLabel('Sorteo Aleatorio').setStyle(ButtonStyle.Primary).setEmoji('🎲'),
+                new ButtonBuilder().setCustomId(`admin_league_manual:${tournament.shortId}`).setLabel('Constructor Manual').setStyle(ButtonStyle.Success).setEmoji('🛠️')
+            );
+            return interaction.editReply({
+                content: `📅 **Formato Detectado: Liguilla Flexible**\n\nEquipos inscritos: **${teamCount}**.\n\n¿Cómo deseas generar el calendario?\n• **Sorteo Aleatorio**: El bot genera automáticamente todas las jornadas.\n• **Constructor Manual**: Tú eliges quién juega contra quién en cada jornada.`,
+                components: [row]
+            });
+        }
+
         await interaction.editReply({ content: `✅ Orden recibida. El sorteo para **${tournament.nombre}** ha comenzado en segundo plano. Esto puede tardar varios minutos.` });
 
         startGroupStage(client, guild, tournament)
@@ -2596,6 +2609,225 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         startKnockoutOnlyDraw(client, guild, tournament, 'manual', pairs)
             .then(() => { if (interaction.channel) { interaction.channel.send(`🎲 ¡El sorteo Manual de Eliminatorias ha finalizado y los hilos han sido creados!`); } })
             .catch(error => { console.error("Error en sorteo manual knockout:", error); });
+        return;
+    }
+
+    // =======================================================
+    // --- CONSTRUCTOR DE JORNADAS MANUAL (LIGUILLA) ---
+    // =======================================================
+
+    if (action === 'admin_league_random') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        await interaction.editReply({ content: `✅ Orden recibida. El sorteo aleatorio para **${tournament.nombre}** ha comenzado en segundo plano.` });
+
+        startGroupStage(client, guild, tournament)
+            .then(() => { if (interaction.channel) { interaction.channel.send(`🎲 ¡El sorteo para **${tournament.nombre}** ha finalizado y la Jornada 1 ha sido creada!`); } })
+            .catch(error => { console.error("Error durante el sorteo en segundo plano:", error); if (interaction.channel) { interaction.channel.send(`❌ Ocurrió un error crítico durante el sorteo. Revisa los logs.`); } });
+        return;
+    }
+
+    if (action === 'admin_league_manual') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        const teams = Object.values(tournament.teams.aprobados).filter(t => t && t.id);
+        const numTeams = teams.length;
+
+        // Calcular total de jornadas
+        let totalJornadas;
+        if (tournament.config.leagueMode === 'round_robin_custom' && tournament.config.customRounds) {
+            totalJornadas = parseInt(tournament.config.customRounds);
+        } else if (tournament.config.leagueMode === 'custom_rounds') {
+            totalJornadas = parseInt(tournament.config.customRounds) || 3;
+        } else {
+            // All vs all: N-1 jornadas (o (N-1)*2 para ida y vuelta)
+            const base = numTeams % 2 === 0 ? numTeams - 1 : numTeams;
+            totalJornadas = tournament.config.matchType === 'idavuelta' ? base * 2 : base;
+        }
+
+        // Inicializar el builder
+        const jornadas = {};
+        for (let i = 1; i <= totalJornadas; i++) {
+            jornadas[i] = [];
+        }
+
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            {
+                $set: {
+                    'temp.leagueBuilder': {
+                        currentJornada: 1,
+                        totalJornadas,
+                        pendingTeamA: null,
+                        byeMode: false,
+                        page: 0,
+                        jornadas
+                    }
+                }
+            }
+        );
+
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const message = buildLeagueConstructorMessage(updatedTournament);
+        await interaction.editReply(message);
+        return;
+    }
+
+    if (action === 'league_builder_undo') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament?.temp?.leagueBuilder) return;
+
+        const builder = tournament.temp.leagueBuilder;
+        const currentJornada = builder.currentJornada;
+
+        // Si hay un pendingTeamA, cancelar esa selección
+        if (builder.pendingTeamA || builder.byeMode) {
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { $set: { 'temp.leagueBuilder.pendingTeamA': null, 'temp.leagueBuilder.byeMode': false } }
+            );
+        } else {
+            // Si no, deshacer el último par de la jornada actual
+            const jornada = builder.jornadas[currentJornada] || [];
+            if (jornada.length > 0) {
+                jornada.pop();
+                await db.collection('tournaments').updateOne(
+                    { shortId: tournamentShortId },
+                    { $set: { [`temp.leagueBuilder.jornadas.${currentJornada}`]: jornada } }
+                );
+            }
+        }
+
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const message = buildLeagueConstructorMessage(updatedTournament);
+        await interaction.editReply(message);
+        return;
+    }
+
+    if (action === 'league_builder_bye') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+
+        // Activar modo descanso: la siguiente selección del select menu será el equipo que descansa
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'temp.leagueBuilder.byeMode': true, 'temp.leagueBuilder.pendingTeamA': null } }
+        );
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const message = buildLeagueConstructorMessage(tournament);
+        await interaction.editReply(message);
+        return;
+    }
+
+    if (action === 'league_builder_prev') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament?.temp?.leagueBuilder) return;
+
+        const newJornada = Math.max(1, tournament.temp.leagueBuilder.currentJornada - 1);
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'temp.leagueBuilder.currentJornada': newJornada, 'temp.leagueBuilder.pendingTeamA': null, 'temp.leagueBuilder.byeMode': false, 'temp.leagueBuilder.page': 0 } }
+        );
+
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const message = buildLeagueConstructorMessage(updatedTournament);
+        await interaction.editReply(message);
+        return;
+    }
+
+    if (action === 'league_builder_next') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament?.temp?.leagueBuilder) return;
+
+        const newJornada = Math.min(tournament.temp.leagueBuilder.totalJornadas, tournament.temp.leagueBuilder.currentJornada + 1);
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'temp.leagueBuilder.currentJornada': newJornada, 'temp.leagueBuilder.pendingTeamA': null, 'temp.leagueBuilder.byeMode': false, 'temp.leagueBuilder.page': 0 } }
+        );
+
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const message = buildLeagueConstructorMessage(updatedTournament);
+        await interaction.editReply(message);
+        return;
+    }
+
+    if (action === 'league_builder_page_prev' || action === 'league_builder_page_next') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament?.temp?.leagueBuilder) return;
+
+        const currentPage = tournament.temp.leagueBuilder.page || 0;
+        const newPage = action === 'league_builder_page_next' ? currentPage + 1 : Math.max(0, currentPage - 1);
+
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'temp.leagueBuilder.page': newPage } }
+        );
+
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const message = buildLeagueConstructorMessage(updatedTournament);
+        await interaction.editReply(message);
+        return;
+    }
+
+    if (action === 'league_builder_confirm') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament?.temp?.leagueBuilder) return interaction.editReply({ content: 'Error: No hay constructor activo.' });
+
+        const builder = tournament.temp.leagueBuilder;
+        const allTeams = Object.values(tournament.teams.aprobados).filter(t => t && t.id);
+        const expectedMatchesPerJornada = Math.floor(allTeams.length / 2);
+
+        // Validar que haya al menos 1 jornada con partidos
+        let totalMatches = 0;
+        const emptyJornadas = [];
+        for (let j = 1; j <= builder.totalJornadas; j++) {
+            const jornadaPairs = builder.jornadas[j] || [];
+            totalMatches += jornadaPairs.length;
+            if (jornadaPairs.length === 0) emptyJornadas.push(j);
+        }
+
+        if (totalMatches === 0) {
+            return interaction.editReply({ content: '❌ No hay ningún enfrentamiento creado. Construye al menos una jornada antes de confirmar.' });
+        }
+
+        if (emptyJornadas.length > 0) {
+            return interaction.editReply({
+                content: `⚠️ Las siguientes jornadas están vacías: **${emptyJornadas.join(', ')}**. ¿Seguro que quieres continuar?\nSi sí, pulsa de nuevo "✅ Confirmar Todo".`,
+                components: buildLeagueConstructorMessage(tournament).components
+            });
+        }
+
+        // Confirmar: aplicar el calendario manual
+        await interaction.editReply({ content: `⏳ Aplicando calendario manual con **${totalMatches}** partidos en **${builder.totalJornadas}** jornadas...`, components: [] });
+
+        try {
+            await applyManualLeagueCalendar(client, guild, tournament);
+            if (interaction.channel) {
+                interaction.channel.send(`🎲 ¡El calendario manual para **${tournament.nombre}** ha sido aplicado y la Jornada 1 ha sido creada!`);
+            }
+        } catch (error) {
+            console.error('Error aplicando calendario manual:', error);
+            if (interaction.channel) {
+                interaction.channel.send(`❌ Error al aplicar el calendario manual: ${error.message}`);
+            }
+        }
         return;
     }
 
@@ -4940,4 +5172,178 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             files: [{ attachment: Buffer.from(excelBuffer), name: `inscritos_${tournamentShortId}.xlsx` }]
         });
     }
+}
+
+// =======================================================
+// --- FUNCIÓN AUXILIAR: CONSTRUCTOR DE JORNADAS ---
+// =======================================================
+
+export function buildLeagueConstructorMessage(tournament) {
+    const builder = tournament.temp.leagueBuilder;
+    const currentJornada = builder.currentJornada;
+    const totalJornadas = builder.totalJornadas;
+    const jornada = builder.jornadas[currentJornada] || [];
+    const allTeams = Object.values(tournament.teams.aprobados).filter(t => t && t.id);
+
+    // Equipos ya emparejados en esta jornada
+    const pairedTeamIds = new Set();
+    jornada.forEach(pair => {
+        if (pair.equipoA && pair.equipoA.id !== 'ghost') pairedTeamIds.add(pair.equipoA.id);
+        if (pair.equipoB && pair.equipoB.id !== 'ghost') pairedTeamIds.add(pair.equipoB.id);
+    });
+
+    const availableTeams = allTeams.filter(t => !pairedTeamIds.has(t.id));
+
+    // --- Construir descripción del embed ---
+    let description = '';
+
+    // Estado del modo actual
+    if (builder.byeMode) {
+        description += '💤 **MODO DESCANSO**: Selecciona el equipo que descansará en esta jornada.\n\n';
+    } else if (builder.pendingTeamA) {
+        const pendingTeam = allTeams.find(t => t.id === builder.pendingTeamA);
+        description += `🏠 **Local seleccionado:** ${pendingTeam?.nombre || '?'}\n*Selecciona el equipo visitante...*\n\n`;
+    }
+
+    // Enfrentamientos creados en esta jornada
+    if (jornada.length > 0) {
+        description += '📋 **Enfrentamientos:**\n';
+        jornada.forEach((pair, i) => {
+            if (pair.equipoB && pair.equipoB.id === 'ghost') {
+                description += `${i + 1}. 💤 ${pair.equipoA?.nombre || '?'} — **DESCANSO**\n`;
+            } else if (pair.equipoA && pair.equipoA.id === 'ghost') {
+                description += `${i + 1}. 💤 ${pair.equipoB?.nombre || '?'} — **DESCANSO**\n`;
+            } else {
+                description += `${i + 1}. ⚔️ ${pair.equipoA?.nombre || '?'} vs ${pair.equipoB?.nombre || '?'}\n`;
+            }
+        });
+    } else {
+        description += '*No hay enfrentamientos en esta jornada.*\n';
+    }
+
+    // Equipos sin emparejar
+    if (availableTeams.length > 0 && !builder.pendingTeamA && !builder.byeMode) {
+        const teamNames = availableTeams.map(t => t.nombre).join(', ');
+        if (teamNames.length > 800) {
+            description += `\n⏳ **Sin emparejar (${availableTeams.length}):** _Demasiados para listar_`;
+        } else {
+            description += `\n⏳ **Sin emparejar (${availableTeams.length}):** ${teamNames}`;
+        }
+    }
+
+    // Progreso global
+    const expectedMatches = Math.floor(allTeams.length / 2);
+    let completedJornadas = 0;
+    for (let j = 1; j <= totalJornadas; j++) {
+        const jp = builder.jornadas[j] || [];
+        if (jp.length >= expectedMatches) completedJornadas++;
+    }
+    description += `\n\n📊 **Progreso:** ${completedJornadas}/${totalJornadas} jornadas completas`;
+
+    const embed = new EmbedBuilder()
+        .setTitle('🛠️ Constructor de Jornadas (Manual)')
+        .setDescription(description)
+        .setColor(builder.byeMode ? '#e67e22' : builder.pendingTeamA ? '#f1c40f' : '#2ECC71')
+        .setFooter({ text: `📅 Jornada ${currentJornada} de ${totalJornadas} | ${availableTeams.length} equipos disponibles | ${allTeams.length} total` });
+
+    // --- Construir componentes ---
+    const components = [];
+
+    // Row 1: Select menu (si hay equipos disponibles)
+    if (availableTeams.length > 0) {
+        const page = builder.page || 0;
+        const pageSize = 24;
+        const startIdx = page * pageSize;
+        const pageTeams = availableTeams.slice(startIdx, startIdx + pageSize);
+
+        if (pageTeams.length > 0) {
+            let placeholder;
+            if (builder.byeMode) {
+                placeholder = '💤 Elige equipo que descansa';
+            } else if (builder.pendingTeamA) {
+                placeholder = '👉 Elige Equipo Visitante';
+            } else {
+                placeholder = '👉 Elige Equipo Local';
+            }
+
+            const options = pageTeams.map(t => ({
+                label: t.nombre.substring(0, 100),
+                value: t.id
+            }));
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`league_builder_select:${tournament.shortId}`)
+                .setPlaceholder(placeholder)
+                .addOptions(options);
+
+            components.push(new ActionRowBuilder().addComponents(selectMenu));
+
+            // Row 2: Paginación (si hay más de pageSize equipos)
+            const totalPages = Math.ceil(availableTeams.length / pageSize);
+            if (totalPages > 1) {
+                const pageRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`league_builder_page_prev:${tournament.shortId}`)
+                        .setLabel('◀️')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(page === 0),
+                    new ButtonBuilder()
+                        .setCustomId(`league_builder_page_info:${tournament.shortId}`)
+                        .setLabel(`Pág ${page + 1}/${totalPages}`)
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId(`league_builder_page_next:${tournament.shortId}`)
+                        .setLabel('▶️')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(page >= totalPages - 1)
+                );
+                components.push(pageRow);
+            }
+        }
+    }
+
+    // Row 3: Acciones (Deshacer + Descanso)
+    const isOddTeams = allTeams.length % 2 !== 0;
+    const byeAlreadyAssigned = jornada.some(p => (p.equipoA?.id === 'ghost' || p.equipoB?.id === 'ghost'));
+
+    const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`league_builder_undo:${tournament.shortId}`)
+            .setLabel('🗑️ Deshacer')
+            .setStyle(ButtonStyle.Danger)
+            .setDisabled(jornada.length === 0 && !builder.pendingTeamA && !builder.byeMode),
+        new ButtonBuilder()
+            .setCustomId(`league_builder_bye:${tournament.shortId}`)
+            .setLabel('💤 Descanso')
+            .setStyle(builder.byeMode ? ButtonStyle.Primary : ButtonStyle.Secondary)
+            .setDisabled(!isOddTeams || byeAlreadyAssigned || builder.pendingTeamA !== null || availableTeams.length === 0)
+    );
+    components.push(actionRow);
+
+    // Row 4: Navegación + Confirmar
+    const navRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`league_builder_prev:${tournament.shortId}`)
+            .setLabel('⏮️ Anterior')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(currentJornada <= 1),
+        new ButtonBuilder()
+            .setCustomId(`league_builder_info:${tournament.shortId}`)
+            .setLabel(`📍 Jornada ${currentJornada}/${totalJornadas}`)
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true),
+        new ButtonBuilder()
+            .setCustomId(`league_builder_next:${tournament.shortId}`)
+            .setLabel('⏭️ Siguiente')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(currentJornada >= totalJornadas),
+        new ButtonBuilder()
+            .setCustomId(`league_builder_confirm:${tournament.shortId}`)
+            .setLabel('✅ Confirmar Todo')
+            .setStyle(ButtonStyle.Success)
+    );
+    components.push(navRow);
+
+    return { embeds: [embed], components };
 }

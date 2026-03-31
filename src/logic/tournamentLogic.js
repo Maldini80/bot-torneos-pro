@@ -3349,6 +3349,164 @@ async function generateFlexibleLeagueSchedule(tournament, preserveGroups = false
 }
 
 // =====================================================================
+// === CONSTRUCTOR MANUAL DE JORNADAS (LIGUILLA) ===
+// =====================================================================
+
+export async function applyManualLeagueCalendar(client, guild, tournament) {
+    await setBotBusy(true);
+    try {
+        const db = getDb();
+        const builder = tournament.temp.leagueBuilder;
+        if (!builder) throw new Error('No hay constructor de jornadas activo.');
+
+        const allTeams = Object.values(tournament.teams.aprobados).filter(t => t && t.id);
+
+        // 1. Inicializar stats de todos los equipos
+        const teamsWithStats = allTeams.map(team => ({
+            ...JSON.parse(JSON.stringify(team)),
+            stats: { pj: 0, pg: 0, pe: 0, pp: 0, pts: 0, gf: 0, gc: 0, dg: 0, buchholz: 0 }
+        }));
+
+        // 2. Guardar estructura de grupos
+        const grupos = { Liga: { equipos: teamsWithStats } };
+
+        // 3. Convertir jornadas del builder a calendario con createMatchObject
+        const calendario = { Liga: [] };
+
+        for (let j = 1; j <= builder.totalJornadas; j++) {
+            const jornadaPairs = builder.jornadas[j] || [];
+            for (const pair of jornadaPairs) {
+                const equipoA = pair.equipoA.id === 'ghost'
+                    ? { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost' }
+                    : teamsWithStats.find(t => t.id === pair.equipoA.id) || pair.equipoA;
+                const equipoB = pair.equipoB.id === 'ghost'
+                    ? { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost' }
+                    : teamsWithStats.find(t => t.id === pair.equipoB.id) || pair.equipoB;
+
+                const match = createMatchObject('Liga', j, equipoA, equipoB);
+
+                // Si es un partido contra ghost (descanso), marcarlo como finalizado
+                if (equipoA.id === 'ghost' || equipoB.id === 'ghost') {
+                    match.status = 'finalizado';
+                    match.matchId = 'ghost';
+                    const realTeamIsA = equipoA.id !== 'ghost';
+                    match.resultado = realTeamIsA ? '1-0' : '0-1';
+
+                    const realTeamId = realTeamIsA ? equipoA.id : equipoB.id;
+                    const groupTeam = teamsWithStats.find(t => t.id === realTeamId);
+                    if (groupTeam) {
+                        groupTeam.stats.pj += 1;
+                        groupTeam.stats.pts += 3;
+                        groupTeam.stats.gf += 1;
+                        groupTeam.stats.dg += 1;
+                    }
+                }
+
+                calendario['Liga'].push(match);
+            }
+        }
+
+        // 4. Actualizar el torneo en la BD
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            {
+                $set: {
+                    status: 'en_curso',
+                    'structure.grupos': grupos,
+                    'structure.calendario': calendario,
+                    'config.customRounds': builder.totalJornadas
+                },
+                $unset: { 'temp.leagueBuilder': '' }
+            }
+        );
+
+        console.log(`[MANUAL CALENDAR] Calendario manual guardado para ${tournament.shortId}: ${calendario['Liga'].length} partidos en ${builder.totalJornadas} jornadas.`);
+
+        // 5. Crear hilos de Jornada 1
+        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+        const allMatches = updatedTournament.structure.calendario['Liga'] || [];
+
+        for (const match of allMatches) {
+            if (match.jornada === 1 && !match.threadId && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
+                const groupKey = match.nombreGrupo;
+
+                const result = await db.collection('tournaments').findOneAndUpdate(
+                    {
+                        _id: updatedTournament._id,
+                        [`structure.calendario.${groupKey}`]: {
+                            $elemMatch: { matchId: match.matchId, threadId: null }
+                        }
+                    },
+                    {
+                        $set: {
+                            [`structure.calendario.${groupKey}.$.status`]: 'creando_hilo',
+                            [`structure.calendario.${groupKey}.$.lockedAt`]: new Date()
+                        }
+                    },
+                    { returnDocument: 'after' }
+                );
+
+                if (!result) {
+                    console.log(`[MANUAL CALENDAR] Hilo para ${match.matchId} ya gestionado.`);
+                    continue;
+                }
+
+                try {
+                    const threadId = await createMatchThread(client, guild, match, updatedTournament.discordChannelIds.matchesChannelId, updatedTournament.shortId);
+
+                    if (threadId) {
+                        await db.collection('tournaments').updateOne(
+                            {
+                                _id: updatedTournament._id,
+                                [`structure.calendario.${groupKey}.matchId`]: match.matchId
+                            },
+                            {
+                                $set: {
+                                    [`structure.calendario.${groupKey}.$.threadId`]: threadId,
+                                    [`structure.calendario.${groupKey}.$.status`]: 'en_curso'
+                                }
+                            }
+                        );
+                    } else {
+                        await db.collection('tournaments').updateOne(
+                            {
+                                _id: updatedTournament._id,
+                                [`structure.calendario.${groupKey}.matchId`]: match.matchId
+                            },
+                            { $set: { [`structure.calendario.${groupKey}.$.status`]: 'pendiente' } }
+                        );
+                    }
+                } catch (error) {
+                    console.error(`[ERROR] Fallo al crear hilo manual para ${match.matchId}:`, error);
+                    await db.collection('tournaments').updateOne(
+                        {
+                            _id: updatedTournament._id,
+                            [`structure.calendario.${groupKey}.matchId`]: match.matchId
+                        },
+                        { $set: { [`structure.calendario.${groupKey}.$.status`]: 'pendiente' } }
+                    );
+                }
+
+                await new Promise(r => setTimeout(r, 1500));
+            }
+        }
+
+        // 6. Actualizar interfaces públicas
+        const finalTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await updatePublicMessages(client, finalTournament);
+        await notifyTournamentVisualizer(finalTournament);
+
+        console.log(`[MANUAL CALENDAR] Proceso completado para ${tournament.shortId}.`);
+
+    } catch (error) {
+        console.error(`[MANUAL CALENDAR] Error al aplicar calendario manual para ${tournament.shortId}:`, error);
+        throw error;
+    } finally {
+        await setBotBusy(false);
+    }
+}
+
+// =====================================================================
 // === LÓGICA DE PROGRESIÓN DEL TORNEO (Copiar al final del archivo) ===
 // =====================================================================
 

@@ -292,6 +292,86 @@ export async function handleSelectMenu(interaction) {
     }
 
     // =======================================================
+    // --- CONSTRUCTOR DE JORNADAS MANUAL (LIGUILLA) ---
+    // =======================================================
+    if (action === 'league_builder_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const selectedId = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament?.temp?.leagueBuilder) return;
+
+        const builder = tournament.temp.leagueBuilder;
+        const currentJornada = builder.currentJornada;
+        const allTeams = Object.values(tournament.teams.aprobados).filter(t => t && t.id);
+        const selectedTeam = allTeams.find(t => t.id === selectedId);
+        if (!selectedTeam) return;
+
+        if (builder.byeMode) {
+            // MODO DESCANSO: el equipo seleccionado descansa
+            const pair = {
+                equipoA: { id: selectedTeam.id, nombre: selectedTeam.nombre, capitanId: selectedTeam.capitanId },
+                equipoB: { id: 'ghost', nombre: 'DESCANSO', capitanId: 'ghost' }
+            };
+
+            const jornada = builder.jornadas[currentJornada] || [];
+            jornada.push(pair);
+
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                {
+                    $set: {
+                        [`temp.leagueBuilder.jornadas.${currentJornada}`]: jornada,
+                        'temp.leagueBuilder.byeMode': false,
+                        'temp.leagueBuilder.page': 0
+                    }
+                }
+            );
+        } else if (builder.pendingTeamA) {
+            // SEGUNDO PICK: emparejar con el pendiente
+            if (selectedId === builder.pendingTeamA) {
+                // No puede enfrentarse a sí mismo
+                const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+                const { buildLeagueConstructorMessage } = await import('./buttonHandler.js');
+                const message = buildLeagueConstructorMessage(updatedTournament);
+                return interaction.editReply(message);
+            }
+
+            const teamA = allTeams.find(t => t.id === builder.pendingTeamA);
+            const pair = {
+                equipoA: { id: teamA.id, nombre: teamA.nombre, capitanId: teamA.capitanId, eafcTeamName: teamA.eafcTeamName, coCaptainId: teamA.coCaptainId, extraCaptains: teamA.extraCaptains },
+                equipoB: { id: selectedTeam.id, nombre: selectedTeam.nombre, capitanId: selectedTeam.capitanId, eafcTeamName: selectedTeam.eafcTeamName, coCaptainId: selectedTeam.coCaptainId, extraCaptains: selectedTeam.extraCaptains }
+            };
+
+            const jornada = builder.jornadas[currentJornada] || [];
+            jornada.push(pair);
+
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                {
+                    $set: {
+                        [`temp.leagueBuilder.jornadas.${currentJornada}`]: jornada,
+                        'temp.leagueBuilder.pendingTeamA': null,
+                        'temp.leagueBuilder.page': 0
+                    }
+                }
+            );
+        } else {
+            // PRIMER PICK: guardar como Local
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { $set: { 'temp.leagueBuilder.pendingTeamA': selectedId } }
+            );
+        }
+
+        const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const { buildLeagueConstructorMessage } = await import('./buttonHandler.js');
+        const message = buildLeagueConstructorMessage(updatedTournament);
+        await interaction.editReply(message);
+        return;
+    }
+
+    // =======================================================
     // --- LÓGICA ADMINISTRADOR DRAFT EXTERNO ---
     // =======================================================
     if (action === 'ext_reg_admin_add_user_sel') {
