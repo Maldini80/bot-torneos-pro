@@ -442,21 +442,47 @@ export async function handleButton(interaction) {
             return interaction.editReply({ content: 'No hay equipos aprobados para editar.' });
         }
 
-        const teamOptions = approvedTeams.map(team => ({
-            label: team.nombre,
-            description: `Capitán: ${team.capitanTag}`,
-            value: team.capitanId
-        }));
+        const PAGE_SIZE = 25;
 
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_edit_team_select:${tournamentShortId}`)
-            .setPlaceholder('Selecciona el equipo que deseas editar')
-            .addOptions(teamOptions);
+        if (approvedTeams.length > PAGE_SIZE) {
+            // Paginación: mostrar selector de página primero
+            const pageCount = Math.ceil(approvedTeams.length / PAGE_SIZE);
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const start = i * PAGE_SIZE + 1;
+                const end = Math.min((i + 1) * PAGE_SIZE, approvedTeams.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (Equipos ${start}-${end})`,
+                    value: `page_${i}`,
+                });
+            }
 
-        await interaction.editReply({
-            content: 'Por favor, selecciona un equipo de la lista para modificar sus datos:',
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
-        });
+            const pageMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_edit_team_page_select:${tournamentShortId}`)
+                .setPlaceholder('Selecciona una página de equipos')
+                .addOptions(pageOptions);
+
+            await interaction.editReply({
+                content: `Hay **${approvedTeams.length}** equipos. Selecciona una página para ver los equipos:`,
+                components: [new ActionRowBuilder().addComponents(pageMenu)]
+            });
+        } else {
+            const teamOptions = approvedTeams.map(team => ({
+                label: team.nombre,
+                description: `Capitán: ${team.capitanTag}`,
+                value: team.capitanId
+            }));
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_edit_team_select:${tournamentShortId}`)
+                .setPlaceholder('Selecciona el equipo que deseas editar')
+                .addOptions(teamOptions);
+
+            await interaction.editReply({
+                content: 'Por favor, selecciona un equipo de la lista para modificar sus datos:',
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+        }
         return;
     }
 

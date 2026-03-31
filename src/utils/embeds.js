@@ -1104,7 +1104,8 @@ export function createCalendarEmbed(tournament) {
             const hiddenRoundsCount = roundNumbers.length - roundsToShow.length;
 
             for (const jornadaNum of roundsToShow) {
-                let roundText = `Jornada / Round ${jornadaNum}\n`; // Backticks aqui
+                const roundHeader = `Jornada / Round ${jornadaNum}\n`;
+                const matchLines = [];
 
                 for (const partido of partidosPorJornada[jornadaNum]) {
                     const centerText = partido.resultado ? partido.resultado : 'vs';
@@ -1114,20 +1115,38 @@ export function createCalendarEmbed(tournament) {
                     const paddedCenter = ' '.repeat(paddingInicio) + centerText + ' '.repeat(paddingFin);
                     const equipoA = partido.equipoA.nombre.slice(0, nameWidth).padEnd(nameWidth);
                     const equipoB = partido.equipoB.nombre.slice(0, nameWidth).padStart(nameWidth);
-                    roundText += `${equipoA}${paddedCenter}${equipoB}\n`; // Backticks aqui
+                    matchLines.push(`${equipoA}${paddedCenter}${equipoB}`);
                 }
 
-                // 3. LÓGICA DE PAGINACIÓN: Si añadir esta jornada supera los 1000 caracteres (margen de seguridad),
-                // cerramos el campo actual y abrimos uno nuevo.
-                if (currentFieldText.length + roundText.length > 1000) {
-                    embed.addFields({
-                        name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`, // Backticks aqui
-                        value: `\`\`\`\n${currentFieldText.trim()}\n\`\`\`` // Backticks aqui
-                    });
-                    currentFieldText = roundText;
-                    part++;
-                } else {
-                    currentFieldText += roundText;
+                // 3. PAGINACIÓN INTRA-JORNADA: Añadimos partido a partido,
+                // y si se excede el límite, cortamos el campo y abrimos otro.
+                // Esto maneja jornadas con 36+ partidos que exceden 1024 chars por sí solas.
+                const MAX_FIELD_CHARS = 900; // margen de seguridad vs límite real de 1024
+                let isFirstChunkOfRound = true;
+
+                for (const line of matchLines) {
+                    const lineWithNewline = line + '\n';
+                    const headerToAdd = isFirstChunkOfRound ? roundHeader : '';
+                    const textToAdd = headerToAdd + lineWithNewline;
+
+                    // Si añadir esta línea excede el límite, cerramos el campo actual
+                    if (currentFieldText.length > 0 && currentFieldText.length + textToAdd.length > MAX_FIELD_CHARS) {
+                        embed.addFields({
+                            name: part === 1 ? `**${groupName}**` : `**${groupName} (Parte ${part})**`,
+                            value: `\`\`\`\n${currentFieldText.trim()}\n\`\`\``
+                        });
+                        currentFieldText = '';
+                        part++;
+                        // Si cortamos a mitad de jornada, añadimos continuación del header
+                        if (!isFirstChunkOfRound) {
+                            currentFieldText = `Jornada / Round ${jornadaNum} (cont.)\n` + lineWithNewline;
+                        } else {
+                            currentFieldText = textToAdd;
+                        }
+                    } else {
+                        currentFieldText += textToAdd;
+                    }
+                    isFirstChunkOfRound = false;
                 }
             }
 

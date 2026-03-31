@@ -490,15 +490,66 @@ export async function handleSelectMenu(interaction) {
         // Sort teams alphabetically
         approvedTeams.sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-        // Pagination logic if needed, but for now let's assume < 25 or just show first 25
-        // If we have more than 25 teams, we might need pagination, but let's start simple as requested
-        // or just slice 25.
-        const teamsToShow = approvedTeams.slice(0, 25);
+        const PAGE_SIZE = 25;
 
-        const teamOptions = teamsToShow.map(t => ({
+        if (approvedTeams.length > PAGE_SIZE) {
+            const pageCount = Math.ceil(approvedTeams.length / PAGE_SIZE);
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const start = i * PAGE_SIZE + 1;
+                const end = Math.min((i + 1) * PAGE_SIZE, approvedTeams.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (Equipos ${start}-${end})`,
+                    value: `page_${i}`,
+                });
+            }
+
+            const pageMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_manual_results_team_page:${tournamentShortId}`)
+                .setPlaceholder('Selecciona una página de equipos')
+                .addOptions(pageOptions);
+
+            await interaction.editReply({
+                content: `Hay **${approvedTeams.length}** equipos en **${tournament.nombre}**. Selecciona una página:`,
+                components: [new ActionRowBuilder().addComponents(pageMenu)]
+            });
+        } else {
+            const teamOptions = approvedTeams.map(t => ({
+                label: t.nombre,
+                description: `Manager: ${t.capitanTag}`,
+                value: t.id
+            }));
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_select_team_manual_results:${tournamentShortId}`)
+                .setPlaceholder('Selecciona el EQUIPO para ver sus partidos')
+                .addOptions(teamOptions);
+
+            await interaction.editReply({
+                content: `Selecciona un **Equipo** del torneo **${tournament.nombre}** para ver su lista de partidos (jugados y pendientes):`,
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+        }
+        return;
+    }
+
+    // --- PAGINACIÓN PARA RESULTADOS MANUALES (>25 equipos) ---
+    if (action === 'admin_manual_results_team_page') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const pageIndex = parseInt(interaction.values[0].replace('page_', ''));
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+        approvedTeams.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        const PAGE_SIZE = 25;
+        const startIdx = pageIndex * PAGE_SIZE;
+        const pageTeams = approvedTeams.slice(startIdx, startIdx + PAGE_SIZE);
+
+        const teamOptions = pageTeams.map(t => ({
             label: t.nombre,
             description: `Manager: ${t.capitanTag}`,
-            value: t.id // This is usually the managerId/captainId
+            value: t.id
         }));
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -507,7 +558,7 @@ export async function handleSelectMenu(interaction) {
             .addOptions(teamOptions);
 
         await interaction.editReply({
-            content: `Selecciona un **Equipo** del torneo **${tournament.nombre}** para ver su lista de partidos (jugados y pendientes):`,
+            content: `Página ${pageIndex + 1} — Selecciona un equipo para ver sus partidos:`,
             components: [new ActionRowBuilder().addComponents(selectMenu)]
         });
         return;
@@ -653,6 +704,36 @@ export async function handleSelectMenu(interaction) {
         );
 
         await interaction.showModal(modal);
+        return;
+    }
+
+    // --- PAGINACIÓN PARA EDICIÓN DE EQUIPOS (>25 equipos) ---
+    if (action === 'admin_edit_team_page_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const pageIndex = parseInt(interaction.values[0].replace('page_', ''));
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+
+        const PAGE_SIZE = 25;
+        const startIdx = pageIndex * PAGE_SIZE;
+        const pageTeams = approvedTeams.slice(startIdx, startIdx + PAGE_SIZE);
+
+        const teamOptions = pageTeams.map(team => ({
+            label: team.nombre,
+            description: `Capitán: ${team.capitanTag}`,
+            value: team.capitanId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_edit_team_select:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el equipo que deseas editar')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: `Página ${pageIndex + 1} — Selecciona un equipo para editar:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
         return;
     }
 
