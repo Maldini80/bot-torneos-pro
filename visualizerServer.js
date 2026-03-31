@@ -1144,6 +1144,10 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
             return res.status(400).json({ error: 'Las inscripciones no están abiertas para este torneo' });
         }
 
+        if (tournament.config?.registrationClosed) {
+            return res.status(400).json({ error: 'Las inscripciones están temporalmente cerradas por la administración.' });
+        }
+
         const isAlreadyRegistered =
             tournament.teams?.aprobados?.[userId] ||
             tournament.teams?.pendientes?.[userId] ||
