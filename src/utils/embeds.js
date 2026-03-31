@@ -309,8 +309,35 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    // ROW 5: External Draft - Single button for registration management
+    // ROW 5: Configuración y utilidades adicionales
     const row5 = new ActionRowBuilder();
+    
+    row5.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`admin_set_promo_image:${tournament.shortId}`)
+            .setLabel('Imagen Promo')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🌄')
+            .setDisabled(isBusy)
+    );
+
+    // Botón de Ignorar ELO (solo si es gratuito y la inscripción está abierta)
+    if (!tournament.config.isPaid && isBeforeDraw) {
+        const isIgnoreElo = tournament.config.requireElo === false;
+        const eloBtnLabel = isIgnoreElo ? 'Requerir ELO' : 'Ignorar ELO';
+        const eloBtnStyle = isIgnoreElo ? ButtonStyle.Success : ButtonStyle.Secondary;
+        const eloEmoji = isIgnoreElo ? '🔒' : '🔓';
+
+        row5.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_toggle_elo:${tournament.shortId}`)
+                .setLabel(eloBtnLabel)
+                .setStyle(eloBtnStyle)
+                .setEmoji(eloEmoji)
+                .setDisabled(isBusy)
+        );
+    }
+
     if (tournament.config.paidSubType === 'draft') {
         row5.addComponents(
             new ButtonBuilder()
@@ -845,6 +872,10 @@ export function createTournamentStatusEmbed(tournament, rulesUrl = PDF_RULES_URL
 
     embed.setDescription(formatDescription);
     // --------------------------------------
+
+    if (tournament.config.promoImage) {
+        embed.setImage(tournament.config.promoImage);
+    }
 
     embed.addFields(
         { name: 'Formato', value: format.label, inline: true },

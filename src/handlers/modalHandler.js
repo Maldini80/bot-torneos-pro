@@ -118,6 +118,40 @@ export async function handleModal(interaction) {
         return;
     }
 
+    if (action === 'promo_image_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const imageUrl = interaction.fields.getTextInputValue('promo_image_url').trim();
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: '❌ Torneo no encontrado.' });
+
+        if (imageUrl !== '' && !/^https?:\/\/.+/.test(imageUrl)) {
+             return interaction.editReply({ content: '❌ La URL debe empezar por http:// o https://' });
+        }
+
+        const finalUrl = imageUrl === '' ? null : imageUrl;
+
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $set: { 'config.promoImage': finalUrl } }
+        );
+
+        tournament.config.promoImage = finalUrl;
+
+        try {
+            const { updatePublicMessages } = await import('../logic/tournamentLogic.js');
+            const { notifyTournamentVisualizer } = await import('../logic/tournamentLogic.js');
+            await updatePublicMessages(client, tournament);
+            await notifyTournamentVisualizer(tournament);
+        } catch (e) {
+            console.error("Error al actualizar la imagen en los mensajes públicos:", e);
+        }
+
+        await interaction.editReply({ content: `✅ Imagen promocional actualizada correctamente.` });
+        return;
+    }
+
     // =======================================================
     // --- LÓGICA DE INSCRIPCIÓN MANUAL (ADMIN) ---
     // =======================================================
@@ -2853,11 +2887,12 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
                 return interaction.editReply({ content: '❌ No se encontró ningún equipo en la lista proporcionada. Revisa el formato.' });
             }
 
-            // 2. Obtener torneos activos (solo gratuitos y en inscripción)
+            // 2. Obtener torneos activos (solo gratuitos, en inscripción y que requieran ELO)
             const activeTournaments = await db.collection('tournaments').find({ 
                 guildId: interaction.guild.id,
                 status: 'inscripcion_abierta',
-                'config.isPaid': false
+                'config.isPaid': false,
+                'config.requireElo': { $ne: false }
             }).toArray();
 
             if (activeTournaments.length === 0) {

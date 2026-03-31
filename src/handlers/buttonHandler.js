@@ -276,7 +276,7 @@ export async function handleButton(interaction) {
             const { getLeagueByElo } = await import('../logic/eloLogic.js');
             const teamLeague = getLeagueByElo(team.elo || 1000);
             
-            if (!tournament.config.allowedLeagues.includes(teamLeague)) {
+            if (!tournament.config.allowedLeagues.includes(teamLeague) && tournament.config.requireElo !== false) {
                 const embedError = new EmbedBuilder()
                     .setColor('#e74c3c')
                     .setTitle('❌ Inscripción Rechazada')
@@ -2849,6 +2849,50 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         await interaction.message.edit({ embeds, components });
 
         await interaction.editReply({ content: `✅ Inscripciones **${newState ? 'CERRADAS' : 'ABIERTAS'}** para el torneo.` });
+        return;
+    }
+
+    if (action === 'admin_set_promo_image') {
+        const [tournamentShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`promo_image_modal:${tournamentShortId}`)
+            .setTitle('Imagen Promocional');
+
+        const imageUrlInput = new TextInputBuilder()
+            .setCustomId('promo_image_url')
+            .setLabel('URL de la Imagen (vacío para borrar)')
+            .setPlaceholder('https://imgur.com/...png')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(imageUrlInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_toggle_elo') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
+
+        const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!isAdminOrRef) return interaction.editReply({ content: '❌ No tienes permisos.' });
+
+        const currentRequireElo = tournament.config.requireElo !== false; // por defecto es true
+        const newRequireElo = !currentRequireElo;
+
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $set: { 'config.requireElo': newRequireElo } }
+        );
+
+        tournament.config.requireElo = newRequireElo;
+        const { createTournamentManagementPanel } = await import('../utils/embeds.js');
+        const { embeds, components } = createTournamentManagementPanel(tournament);
+        await interaction.message.edit({ embeds, components });
+
+        await interaction.editReply({ content: `✅ Validación de ELO **${newRequireElo ? 'ACTIVADA' : 'DESACTIVADA'}** para este torneo.` });
         return;
     }
 
