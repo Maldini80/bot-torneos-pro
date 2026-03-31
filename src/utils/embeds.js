@@ -318,6 +318,12 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setLabel('Imagen Promo')
             .setStyle(ButtonStyle.Secondary)
             .setEmoji('🌄')
+            .setDisabled(isBusy),
+        new ButtonBuilder()
+            .setCustomId(`admin_set_rules_link:${tournament.shortId}`)
+            .setLabel('Link Normas')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🔗')
             .setDisabled(isBusy)
     );
 
@@ -931,9 +937,10 @@ export function createTournamentStatusEmbed(tournament, rulesUrl = PDF_RULES_URL
         row1.addComponents(new ButtonBuilder().setCustomId(`darse_baja_start:${tournament.shortId}`).setLabel('Darse de Baja').setStyle(ButtonStyle.Danger).setEmoji('👋'));
     }
 
+    const finalRulesUrl = tournament.config.customRulesUrl || rulesUrl;
     row2.addComponents(
         new ButtonBuilder().setCustomId(`user_view_participants:${tournament.shortId}`).setLabel('Ver Participantes').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
-        new ButtonBuilder().setLabel('Normas').setStyle(ButtonStyle.Link).setURL(rulesUrl).setEmoji('📖')
+        new ButtonBuilder().setLabel('Normas').setStyle(ButtonStyle.Link).setURL(finalRulesUrl).setEmoji('📖')
     );
 
     if (tournament.status === 'finalizado') {

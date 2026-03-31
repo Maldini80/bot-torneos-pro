@@ -2870,6 +2870,31 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
+    if (action === 'admin_set_rules_link') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: "Error: Torneo no encontrado.", flags: [MessageFlags.Ephemeral] });
+
+        const modal = new ModalBuilder()
+            .setCustomId(`rules_link_modal:${tournamentShortId}`)
+            .setTitle('Link de Normativas (Opcional)');
+
+        const rulesUrlInput = new TextInputBuilder()
+            .setCustomId('rules_url')
+            .setLabel('URL de Normas (vacío usa el genérico)')
+            .setPlaceholder('https://...')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+            
+        if (tournament.config.customRulesUrl) {
+            rulesUrlInput.setValue(tournament.config.customRulesUrl);
+        }
+
+        modal.addComponents(new ActionRowBuilder().addComponents(rulesUrlInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
     if (action === 'admin_toggle_elo') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;

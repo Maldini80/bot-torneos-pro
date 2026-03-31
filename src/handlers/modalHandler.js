@@ -152,6 +152,38 @@ export async function handleModal(interaction) {
         return;
     }
 
+    if (action === 'rules_link_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const rulesUrl = interaction.fields.getTextInputValue('rules_url').trim();
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: '❌ Torneo no encontrado.' });
+
+        if (rulesUrl !== '' && !/^https?:\/\/.+/.test(rulesUrl)) {
+             return interaction.editReply({ content: '❌ La URL debe empezar por http:// o https://' });
+        }
+
+        const finalUrl = rulesUrl === '' ? null : rulesUrl;
+
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $set: { 'config.customRulesUrl': finalUrl } }
+        );
+
+        tournament.config.customRulesUrl = finalUrl;
+
+        try {
+            const { updatePublicMessages } = await import('../logic/tournamentLogic.js');
+            await updatePublicMessages(client, tournament);
+        } catch (e) {
+            console.error("Error al actualizar la URL local de normas:", e);
+        }
+
+        await interaction.editReply({ content: `✅ URL de normativas ${finalUrl ? 'personalizada' : 'borrada, ahora usa la global'} correctamente.` });
+        return;
+    }
+
     // =======================================================
     // --- LÓGICA DE INSCRIPCIÓN MANUAL (ADMIN) ---
     // =======================================================
