@@ -61,7 +61,11 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
                 new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear Liguilla Flexible').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy),
                 new ButtonBuilder().setCustomId('admin_distribute_whatsapp_start').setLabel('Distribuir WA').setStyle(ButtonStyle.Secondary).setEmoji('📋').setDisabled(isBusy)
             );
-            components.push(tournamentActionsRow, backButtonRow);
+            const poolActionsRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('admin_create_pool_start').setLabel('Crear Bolsa').setStyle(ButtonStyle.Primary).setEmoji('📦').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_list_pools').setLabel('Gestionar Bolsas').setStyle(ButtonStyle.Secondary).setEmoji('🗂️').setDisabled(isBusy)
+            );
+            components.push(tournamentActionsRow, poolActionsRow, backButtonRow);
             break;
 
         case 'drafts':
@@ -91,6 +95,7 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
             );
             const globalSettingsRow2 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_manage_elo').setLabel('Gestionar ELO').setStyle(ButtonStyle.Success).setEmoji('📈').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_manage_team_strikes').setLabel('Gestionar Strikes').setStyle(ButtonStyle.Danger).setEmoji('⚠️').setDisabled(isBusy),
                 new ButtonBuilder().setCustomId('admin_edit_rules_url').setLabel('Editar Link Normativa').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy),
                 new ButtonBuilder().setCustomId('admin_force_reset_bot').setLabel('Reset Forzado').setStyle(ButtonStyle.Danger).setEmoji('🚨').setDisabled(isBusy)
             );
@@ -1283,4 +1288,69 @@ export function createStreamerWarningEmbed(platform, originalAction, entityId, t
     );
 
     return { embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] };
+}
+
+// =======================================================
+// --- SISTEMA DE BOLSA DE EQUIPOS ---
+// =======================================================
+
+export function createPoolEmbed(pool) {
+    const teams = Object.values(pool.teams || {});
+    const counts = { DIAMOND: 0, GOLD: 0, SILVER: 0, BRONZE: 0 };
+    teams.forEach(t => {
+        if (counts.hasOwnProperty(t.league)) counts[t.league]++;
+        else counts['BRONZE']++;
+    });
+    const total = teams.length;
+
+    let statusText, embedColor;
+    switch (pool.status) {
+        case 'paused':
+            statusText = '🔒 INSCRIPCIÓN PAUSADA';
+            embedColor = '#e74c3c';
+            break;
+        case 'closed':
+            statusText = '🛑 BOLSA CERRADA';
+            embedColor = '#95a5a6';
+            break;
+        default:
+            statusText = '🟢 INSCRIPCIÓN ABIERTA';
+            embedColor = '#00e5ff';
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor(embedColor)
+        .setTitle(`📦 ${pool.name}`)
+        .setDescription(
+            `${statusText}\n\n` +
+            `**${total}** equipos inscritos\n` +
+            `💎 ${counts.DIAMOND} Diamond · 👑 ${counts.GOLD} Gold · ⚙️ ${counts.SILVER} Silver · 🥉 ${counts.BRONZE} Bronze`
+        )
+        .setFooter({ text: `ID: ${pool.shortId}` })
+        .setTimestamp();
+
+    if (pool.imageUrl) embed.setImage(pool.imageUrl);
+
+    const isOpen = pool.status === 'open';
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`pool_register:${pool.shortId}`)
+            .setLabel('Inscribirse')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('✅')
+            .setDisabled(!isOpen),
+        new ButtonBuilder()
+            .setCustomId(`pool_participants:${pool.shortId}`)
+            .setLabel('Ver Participantes')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('👥'),
+        new ButtonBuilder()
+            .setCustomId(`pool_unregister:${pool.shortId}`)
+            .setLabel('Darse de Baja')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('❌')
+            .setDisabled(!isOpen)
+    );
+
+    return { embeds: [embed], components: [row] };
 }

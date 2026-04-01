@@ -17,8 +17,9 @@ import {
 } from '../logic/verificationLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel, updateTournamentManagementThread } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel, createPoolEmbed } from '../utils/embeds.js';
 import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
+import { getLeagueByElo, LEAGUE_EMOJIS } from '../logic/eloLogic.js';
 import { generateExcelImage } from '../utils/twitter.js';
 import ExcelJS from 'exceljs';
 import { setBotBusy } from '../../index.js';
@@ -5171,6 +5172,631 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             content: `📊 Excel con ${registrations.length} inscritos (columnas por posición):`,
             files: [{ attachment: Buffer.from(excelBuffer), name: `inscritos_${tournamentShortId}.xlsx` }]
         });
+    }
+
+    // =======================================================
+    // --- SISTEMA DE BOLSA DE EQUIPOS ---
+    // =======================================================
+
+    // Helper: actualizar embed público de la bolsa
+    async function updatePoolPublicEmbed(pool) {
+        try {
+            const channel = await client.channels.fetch(pool.discordChannelId).catch(() => null);
+            if (!channel) return;
+            const message = await channel.messages.fetch(pool.discordMessageId).catch(() => null);
+            if (!message) return;
+            const updatedPool = await db.collection('team_pools').findOne({ _id: pool._id });
+            const embedContent = createPoolEmbed(updatedPool);
+            await message.edit(embedContent);
+        } catch (e) {
+            console.warn('[POOL] Error actualizando embed público:', e.message);
+        }
+    }
+
+    // Helper: enviar log al hilo de la bolsa
+    async function sendPoolLog(pool, message) {
+        try {
+            if (!pool.logThreadId) return;
+            const thread = await client.channels.fetch(pool.logThreadId).catch(() => null);
+            if (thread) await thread.send(message);
+        } catch (e) {
+            console.warn('[POOL LOG] Error enviando log:', e.message);
+        }
+    }
+
+    // Helper: generar resumen de equipos por liga
+    function poolSummaryLine(pool) {
+        const teams = Object.values(pool.teams || {});
+        const counts = { DIAMOND: 0, GOLD: 0, SILVER: 0, BRONZE: 0 };
+        teams.forEach(t => {
+            if (counts.hasOwnProperty(t.league)) counts[t.league]++;
+            else counts['BRONZE']++;
+        });
+        const total = teams.length;
+        return `📊 Resumen: ${counts.DIAMOND} 💎 Diamond · ${counts.GOLD} 👑 Gold · ${counts.SILVER} ⚙️ Silver · ${counts.BRONZE} 🥉 Bronze = **${total} total**`;
+    }
+
+    // --- CREAR BOLSA: Abrir modal ---
+    if (action === 'admin_create_pool_start') {
+        const modal = new ModalBuilder()
+            .setCustomId('admin_create_pool_modal')
+            .setTitle('Crear Nueva Bolsa de Equipos');
+
+        const nameInput = new TextInputBuilder()
+            .setCustomId('pool_name')
+            .setLabel('Nombre de la Bolsa')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Bolsa Torneos Abril')
+            .setRequired(true);
+
+        const imageInput = new TextInputBuilder()
+            .setCustomId('pool_image')
+            .setLabel('URL de Imagen (opcional)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('https://i.imgur.com/ejemplo.png')
+            .setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(nameInput),
+            new ActionRowBuilder().addComponents(imageInput)
+        );
+        await interaction.showModal(modal);
+        return;
+    }
+
+    // --- GESTIONAR BOLSAS: Listar bolsas activas ---
+    if (action === 'admin_list_pools') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const pools = await db.collection('team_pools').find({
+            guildId: guild.id,
+            status: { $ne: 'closed' }
+        }).sort({ createdAt: -1 }).toArray();
+
+        if (pools.length === 0) {
+            return interaction.editReply('No hay bolsas activas. Crea una desde "Crear Bolsa".');
+        }
+
+        const poolOptions = pools.map(p => {
+            const teamCount = Object.keys(p.teams || {}).length;
+            return {
+                label: p.name,
+                description: `${teamCount} equipos | Estado: ${p.status} | ID: ${p.shortId}`,
+                value: p.shortId
+            };
+        });
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('admin_select_pool:manage')
+            .setPlaceholder('Selecciona una bolsa para gestionar')
+            .addOptions(poolOptions.slice(0, 25));
+
+        await interaction.editReply({
+            content: `📦 **${pools.length} bolsa(s) activa(s).** Selecciona una para gestionar:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    // --- INSCRIBIRSE EN LA BOLSA ---
+    if (action === 'pool_register') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [poolShortId] = params;
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+
+        if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
+        if (pool.status !== 'open') return interaction.editReply('🔒 La inscripción de esta bolsa está pausada o cerrada.');
+
+        const userId = interaction.user.id;
+        const testDb = getDb('test');
+
+        // Buscar equipo del usuario (como manager o como capitán)
+        const userTeam = await testDb.collection('teams').findOne({
+            guildId: guild.id,
+            $or: [
+                { managerId: userId },
+                { captains: userId }
+            ]
+        });
+
+        if (!userTeam) {
+            return interaction.editReply('❌ No tienes un equipo registrado en este servidor. Debes tener un equipo para inscribirte.');
+        }
+
+        // Verificar strikes
+        if ((userTeam.strikes || 0) >= 3) {
+            return interaction.editReply(`🚫 Tu equipo **${userTeam.name}** tiene **${userTeam.strikes} strikes**. Los equipos con 3 o más strikes no pueden inscribirse.`);
+        }
+
+        // Verificar si está baneado de esta bolsa
+        if (pool.bannedTeams && pool.bannedTeams.includes(userTeam._id.toString())) {
+            return interaction.editReply(`🚫 Tu equipo **${userTeam.name}** está **baneado** de esta bolsa.`);
+        }
+
+        // Verificar si el equipo ya está inscrito por cualquier persona
+        const existingEntry = Object.values(pool.teams || {}).find(t => t.teamDbId === userTeam._id.toString());
+        if (existingEntry) {
+            return interaction.editReply(`⚠️ Tu equipo **${userTeam.name}** ya está inscrito en esta bolsa (inscrito por <@${existingEntry.inscritoPor}>).`);
+        }
+
+        // Inscribir al equipo
+        const teamElo = userTeam.elo || 1000;
+        const teamLeague = getLeagueByElo(teamElo);
+        const teamEntry = {
+            teamDbId: userTeam._id.toString(),
+            teamName: userTeam.name,
+            managerId: userTeam.managerId || userId,
+            captains: userTeam.captains || [],
+            elo: teamElo,
+            league: teamLeague,
+            logoUrl: userTeam.logoUrl || null,
+            inscritoEn: new Date(),
+            inscritoPor: userId,
+            inscritoVia: 'discord'
+        };
+
+        // Usamos managerId como key para evitar duplicados
+        const entryKey = userTeam.managerId || userTeam._id.toString();
+        await db.collection('team_pools').updateOne(
+            { _id: pool._id },
+            { $set: { [`teams.${entryKey}`]: teamEntry } }
+        );
+
+        const updatedPool = await db.collection('team_pools').findOne({ _id: pool._id });
+        const leagueEmoji = LEAGUE_EMOJIS[teamLeague] || '🥉';
+
+        // Actualizar embed público
+        await updatePoolPublicEmbed(updatedPool);
+
+        // Enviar log
+        await sendPoolLog(updatedPool, `✅ Se ha inscrito **${userTeam.name}** (ELO: ${teamElo} — ${leagueEmoji} ${teamLeague}) — inscrito por <@${userId}>\n${poolSummaryLine(updatedPool)}`);
+
+        await interaction.editReply(`✅ ¡Tu equipo **${userTeam.name}** (${leagueEmoji} ${teamLeague} — ELO: ${teamElo}) ha sido inscrito en la bolsa **${pool.name}**!`);
+        return;
+    }
+
+    // --- VER PARTICIPANTES ---
+    if (action === 'pool_participants') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [poolShortId] = params;
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+
+        if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
+
+        const teams = Object.values(pool.teams || {});
+
+        if (teams.length === 0) {
+            return interaction.editReply(`📦 **${pool.name}** — No hay equipos inscritos todavía.`);
+        }
+
+        // Ordenar por ELO descendente
+        teams.sort((a, b) => b.elo - a.elo);
+
+        // Agrupar por liga
+        const grouped = { DIAMOND: [], GOLD: [], SILVER: [], BRONZE: [] };
+        teams.forEach(t => {
+            const league = grouped[t.league] ? t.league : 'BRONZE';
+            grouped[league].push(t);
+        });
+
+        const leagueLabels = {
+            DIAMOND: '💎 Diamond',
+            GOLD: '👑 Gold',
+            SILVER: '⚙️ Silver',
+            BRONZE: '🥉 Bronze'
+        };
+
+        let description = '';
+        for (const league of ['DIAMOND', 'GOLD', 'SILVER', 'BRONZE']) {
+            if (grouped[league].length > 0) {
+                description += `\n**${leagueLabels[league]}** (${grouped[league].length})\n`;
+                grouped[league].forEach((t, i) => {
+                    description += `${i + 1}. ${t.teamName} — ELO: ${t.elo}\n`;
+                });
+            }
+        }
+
+        // Truncar si es muy largo
+        if (description.length > 4000) {
+            description = description.substring(0, 3950) + '\n... (lista truncada)';
+        }
+
+        const embed = new EmbedBuilder()
+            .setColor('#00e5ff')
+            .setTitle(`👥 Participantes: ${pool.name}`)
+            .setDescription(`**${teams.length}** equipos inscritos\n${description}`)
+            .setFooter({ text: `ID: ${pool.shortId}` });
+
+        await interaction.editReply({ embeds: [embed] });
+        return;
+    }
+
+    // --- DARSE DE BAJA ---
+    if (action === 'pool_unregister') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [poolShortId] = params;
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+
+        if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
+
+        const userId = interaction.user.id;
+        const testDb = getDb('test');
+
+        const userTeam = await testDb.collection('teams').findOne({
+            guildId: guild.id,
+            $or: [{ managerId: userId }, { captains: userId }]
+        });
+
+        if (!userTeam) return interaction.editReply('❌ No tienes un equipo registrado.');
+
+        // Buscar la entrada del equipo en la bolsa
+        let entryKey = null;
+        for (const [key, entry] of Object.entries(pool.teams || {})) {
+            if (entry.teamDbId === userTeam._id.toString()) {
+                entryKey = key;
+                break;
+            }
+        }
+
+        if (!entryKey) {
+            return interaction.editReply('❌ Tu equipo no está inscrito en esta bolsa.');
+        }
+
+        const confirmRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`pool_unregister_confirm:${poolShortId}`)
+                .setLabel('Sí, darme de baja')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('✅'),
+            new ButtonBuilder()
+                .setCustomId('pool_unregister_cancel')
+                .setLabel('Cancelar')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        await interaction.editReply({
+            content: `⚠️ ¿Estás seguro de que quieres **dar de baja** a tu equipo **${userTeam.name}** de la bolsa **${pool.name}**?`,
+            components: [confirmRow]
+        });
+        return;
+    }
+
+    if (action === 'pool_unregister_confirm') {
+        await interaction.deferUpdate();
+        const [poolShortId] = params;
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply({ content: '❌ Bolsa no encontrada.', components: [] });
+
+        const userId = interaction.user.id;
+        const testDb = getDb('test');
+        const userTeam = await testDb.collection('teams').findOne({
+            guildId: guild.id,
+            $or: [{ managerId: userId }, { captains: userId }]
+        });
+        if (!userTeam) return interaction.editReply({ content: '❌ Error.', components: [] });
+
+        let entryKey = null;
+        for (const [key, entry] of Object.entries(pool.teams || {})) {
+            if (entry.teamDbId === userTeam._id.toString()) {
+                entryKey = key;
+                break;
+            }
+        }
+        if (!entryKey) return interaction.editReply({ content: '❌ Tu equipo ya no está en la bolsa.', components: [] });
+
+        await db.collection('team_pools').updateOne(
+            { _id: pool._id },
+            { $unset: { [`teams.${entryKey}`]: '' } }
+        );
+
+        const updatedPool = await db.collection('team_pools').findOne({ _id: pool._id });
+        await updatePoolPublicEmbed(updatedPool);
+        await sendPoolLog(updatedPool, `❌ **${userTeam.name}** se ha dado de baja — solicitado por <@${userId}>\n${poolSummaryLine(updatedPool)}`);
+
+        await interaction.editReply({ content: `✅ Tu equipo **${userTeam.name}** ha sido dado de baja de la bolsa **${pool.name}**.`, components: [] });
+        return;
+    }
+
+    if (action === 'pool_unregister_cancel') {
+        await interaction.update({ content: '❌ Operación cancelada.', components: [] });
+        return;
+    }
+
+    // --- PANEL ADMIN DE LA BOLSA ---
+    if (action === 'pool_admin_panel') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [poolShortId] = params;
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
+
+        const teamCount = Object.keys(pool.teams || {}).length;
+        const statusLabel = pool.status === 'open' ? '🟢 Abierta' : pool.status === 'paused' ? '🔒 Pausada' : '🛑 Cerrada';
+
+        const embed = new EmbedBuilder()
+            .setColor('#e67e22')
+            .setTitle(`⚙️ Gestión: ${pool.name}`)
+            .setDescription(`**Estado:** ${statusLabel}\n**Equipos:** ${teamCount}\n${poolSummaryLine(pool)}`)
+            .setFooter({ text: `ID: ${pool.shortId}` });
+
+        const row1 = new ActionRowBuilder().addComponents(
+            pool.status === 'open'
+                ? new ButtonBuilder().setCustomId(`pool_admin_pause:${poolShortId}`).setLabel('Pausar Inscripción').setStyle(ButtonStyle.Danger).setEmoji('⏸️')
+                : new ButtonBuilder().setCustomId(`pool_admin_resume:${poolShortId}`).setLabel('Abrir Inscripción').setStyle(ButtonStyle.Success).setEmoji('▶️'),
+            new ButtonBuilder().setCustomId(`pool_admin_edit:${poolShortId}`).setLabel('Editar Nombre/Imagen').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+            new ButtonBuilder().setCustomId(`pool_admin_add_manual:${poolShortId}`).setLabel('Añadir Equipo').setStyle(ButtonStyle.Success).setEmoji('➕')
+        );
+
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`pool_admin_kick:${poolShortId}`).setLabel('Expulsar Equipo').setStyle(ButtonStyle.Danger).setEmoji('👢').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_ban:${poolShortId}`).setLabel('Banear Equipo').setStyle(ButtonStyle.Danger).setEmoji('🚫').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_clear:${poolShortId}`).setLabel('Limpiar Bolsa').setStyle(ButtonStyle.Danger).setEmoji('🧹').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_delete:${poolShortId}`).setLabel('Borrar Bolsa').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+        );
+
+        await interaction.editReply({ embeds: [embed], components: [row1, row2] });
+        return;
+    }
+
+    // --- PAUSAR / ABRIR INSCRIPCIÓN ---
+    if (action === 'pool_admin_pause') {
+        await interaction.deferUpdate();
+        const [poolShortId] = params;
+        await db.collection('team_pools').updateOne({ shortId: poolShortId }, { $set: { status: 'paused' } });
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        await updatePoolPublicEmbed(pool);
+        await sendPoolLog(pool, `⏸️ La inscripción ha sido **pausada** por <@${interaction.user.id}>.`);
+        // Re-render admin panel
+        const teamCount = Object.keys(pool.teams || {}).length;
+        const embed = new EmbedBuilder().setColor('#e67e22').setTitle(`⚙️ Gestión: ${pool.name}`).setDescription(`**Estado:** 🔒 Pausada\n**Equipos:** ${teamCount}\n${poolSummaryLine(pool)}`).setFooter({ text: `ID: ${pool.shortId}` });
+        const row1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`pool_admin_resume:${poolShortId}`).setLabel('Abrir Inscripción').setStyle(ButtonStyle.Success).setEmoji('▶️'),
+            new ButtonBuilder().setCustomId(`pool_admin_edit:${poolShortId}`).setLabel('Editar Nombre/Imagen').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+            new ButtonBuilder().setCustomId(`pool_admin_add_manual:${poolShortId}`).setLabel('Añadir Equipo').setStyle(ButtonStyle.Success).setEmoji('➕')
+        );
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`pool_admin_kick:${poolShortId}`).setLabel('Expulsar Equipo').setStyle(ButtonStyle.Danger).setEmoji('👢').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_ban:${poolShortId}`).setLabel('Banear Equipo').setStyle(ButtonStyle.Danger).setEmoji('🚫').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_clear:${poolShortId}`).setLabel('Limpiar Bolsa').setStyle(ButtonStyle.Danger).setEmoji('🧹').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_delete:${poolShortId}`).setLabel('Borrar Bolsa').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+        );
+        await interaction.editReply({ embeds: [embed], components: [row1, row2] });
+        return;
+    }
+
+    if (action === 'pool_admin_resume') {
+        await interaction.deferUpdate();
+        const [poolShortId] = params;
+        await db.collection('team_pools').updateOne({ shortId: poolShortId }, { $set: { status: 'open' } });
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        await updatePoolPublicEmbed(pool);
+        await sendPoolLog(pool, `▶️ La inscripción ha sido **reabierta** por <@${interaction.user.id}>.`);
+        const teamCount = Object.keys(pool.teams || {}).length;
+        const embed = new EmbedBuilder().setColor('#e67e22').setTitle(`⚙️ Gestión: ${pool.name}`).setDescription(`**Estado:** 🟢 Abierta\n**Equipos:** ${teamCount}\n${poolSummaryLine(pool)}`).setFooter({ text: `ID: ${pool.shortId}` });
+        const row1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`pool_admin_pause:${poolShortId}`).setLabel('Pausar Inscripción').setStyle(ButtonStyle.Danger).setEmoji('⏸️'),
+            new ButtonBuilder().setCustomId(`pool_admin_edit:${poolShortId}`).setLabel('Editar Nombre/Imagen').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+            new ButtonBuilder().setCustomId(`pool_admin_add_manual:${poolShortId}`).setLabel('Añadir Equipo').setStyle(ButtonStyle.Success).setEmoji('➕')
+        );
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`pool_admin_kick:${poolShortId}`).setLabel('Expulsar Equipo').setStyle(ButtonStyle.Danger).setEmoji('👢').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_ban:${poolShortId}`).setLabel('Banear Equipo').setStyle(ButtonStyle.Danger).setEmoji('🚫').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_clear:${poolShortId}`).setLabel('Limpiar Bolsa').setStyle(ButtonStyle.Danger).setEmoji('🧹').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_delete:${poolShortId}`).setLabel('Borrar Bolsa').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+        );
+        await interaction.editReply({ embeds: [embed], components: [row1, row2] });
+        return;
+    }
+
+    // --- LIMPIAR BOLSA ---
+    if (action === 'pool_admin_clear') {
+        const [poolShortId] = params;
+        const confirmRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`pool_admin_clear_confirm:${poolShortId}`).setLabel('Sí, limpiar toda la bolsa').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId('pool_admin_cancel').setLabel('Cancelar').setStyle(ButtonStyle.Secondary)
+        );
+        await interaction.reply({ content: '⚠️ **¿Estás seguro?** Esto eliminará TODOS los equipos de esta bolsa.', components: [confirmRow], flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'pool_admin_clear_confirm') {
+        await interaction.deferUpdate();
+        const [poolShortId] = params;
+        await db.collection('team_pools').updateOne({ shortId: poolShortId }, { $set: { teams: {} } });
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        await updatePoolPublicEmbed(pool);
+        await sendPoolLog(pool, `🧹 La bolsa ha sido **limpiada** por <@${interaction.user.id}>. Todos los equipos han sido removidos.`);
+        await interaction.editReply({ content: '✅ Bolsa limpiada. Todos los equipos han sido eliminados.', components: [] });
+        return;
+    }
+
+    // --- BORRAR BOLSA ---
+    if (action === 'pool_admin_delete') {
+        const [poolShortId] = params;
+        const confirmRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`pool_admin_delete_confirm:${poolShortId}`).setLabel('Sí, BORRAR la bolsa').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId('pool_admin_cancel').setLabel('Cancelar').setStyle(ButtonStyle.Secondary)
+        );
+        await interaction.reply({ content: '🗑️ **¿Estás seguro?** Esto borrará la bolsa, su embed público y cerrará el hilo de log. Esta acción es **irreversible**.', components: [confirmRow], flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'pool_admin_delete_confirm') {
+        await interaction.deferUpdate();
+        const [poolShortId] = params;
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply({ content: '❌ Bolsa no encontrada.', components: [] });
+
+        // Borrar embed público
+        try {
+            const channel = await client.channels.fetch(pool.discordChannelId).catch(() => null);
+            if (channel) {
+                const msg = await channel.messages.fetch(pool.discordMessageId).catch(() => null);
+                if (msg) await msg.delete().catch(() => {});
+            }
+        } catch (e) { /* ignore */ }
+
+        // Archivar hilo
+        try {
+            const thread = await client.channels.fetch(pool.logThreadId).catch(() => null);
+            if (thread) await thread.setArchived(true).catch(() => {});
+        } catch (e) { /* ignore */ }
+
+        await db.collection('team_pools').deleteOne({ _id: pool._id });
+        await interaction.editReply({ content: `✅ La bolsa **${pool.name}** ha sido completamente borrada.`, components: [] });
+        return;
+    }
+
+    if (action === 'pool_admin_cancel') {
+        await interaction.update({ content: '❌ Operación cancelada.', components: [] });
+        return;
+    }
+
+    // --- EDITAR BOLSA: Modal ---
+    if (action === 'pool_admin_edit') {
+        const [poolShortId] = params;
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.reply({ content: '❌ Bolsa no encontrada.', flags: [MessageFlags.Ephemeral] });
+
+        const modal = new ModalBuilder()
+            .setCustomId(`pool_admin_edit_modal:${poolShortId}`)
+            .setTitle('Editar Bolsa');
+
+        const nameInput = new TextInputBuilder()
+            .setCustomId('pool_name')
+            .setLabel('Nombre de la Bolsa')
+            .setStyle(TextInputStyle.Short)
+            .setValue(pool.name)
+            .setRequired(true);
+
+        const imageInput = new TextInputBuilder()
+            .setCustomId('pool_image')
+            .setLabel('URL de Imagen (vacío para quitar)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(pool.imageUrl || '')
+            .setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(nameInput),
+            new ActionRowBuilder().addComponents(imageInput)
+        );
+        await interaction.showModal(modal);
+        return;
+    }
+
+    // --- AÑADIR EQUIPO MANUAL ---
+    if (action === 'pool_admin_add_manual') {
+        const [poolShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`pool_admin_add_manual_modal:${poolShortId}`)
+            .setTitle('Añadir Equipo a la Bolsa');
+
+        const searchInput = new TextInputBuilder()
+            .setCustomId('team_search')
+            .setLabel('Nombre del equipo (o parte)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Real, City, United...')
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(searchInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
+    // --- EXPULSAR EQUIPO ---
+    if (action === 'pool_admin_kick') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [poolShortId] = params;
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
+
+        const teams = Object.entries(pool.teams || {});
+        if (teams.length === 0) return interaction.editReply('❌ No hay equipos en la bolsa.');
+
+        const teamOptions = teams.map(([key, t]) => ({
+            label: t.teamName,
+            description: `ELO: ${t.elo} | ${t.league}`,
+            value: key
+        })).slice(0, 25);
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`pool_admin_kick_select:${poolShortId}`)
+            .setPlaceholder('Selecciona un equipo para expulsar')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: '👢 Selecciona el equipo que deseas **expulsar** de la bolsa:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    // --- BANEAR EQUIPO ---
+    if (action === 'pool_admin_ban') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [poolShortId] = params;
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
+
+        const teams = Object.entries(pool.teams || {});
+        if (teams.length === 0) return interaction.editReply('❌ No hay equipos en la bolsa.');
+
+        const teamOptions = teams.map(([key, t]) => ({
+            label: t.teamName,
+            description: `ELO: ${t.elo} | ${t.league}`,
+            value: key
+        })).slice(0, 25);
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`pool_admin_ban_select:${poolShortId}`)
+            .setPlaceholder('Selecciona un equipo para BANEAR de la bolsa')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: '🚫 Selecciona el equipo que deseas **banear** de esta bolsa (será expulsado y no podrá volver a inscribirse):',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    // --- STRIKES: Editar strikes de equipo ---
+    if (action === 'admin_edit_team_strikes_start') {
+        const [teamDbId] = params;
+        const testDb = getDb('test');
+        const team = await testDb.collection('teams').findOne({ _id: new ObjectId(teamDbId) });
+        if (!team) return interaction.reply({ content: '❌ Equipo no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_edit_team_strikes_modal:${teamDbId}`)
+            .setTitle(`Strikes: ${team.name}`);
+
+        const strikesInput = new TextInputBuilder()
+            .setCustomId('strikes_value')
+            .setLabel(`Strikes actuales: ${team.strikes || 0}. Nuevo valor:`)
+            .setStyle(TextInputStyle.Short)
+            .setValue(String(team.strikes || 0))
+            .setPlaceholder('0-10')
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(strikesInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
+    // --- GESTIONAR STRIKES: Buscar equipo ---
+    if (action === 'admin_manage_team_strikes') {
+        const modal = new ModalBuilder()
+            .setCustomId('admin_search_team_strikes_modal')
+            .setTitle('Buscar Equipo para Strikes');
+
+        const searchInput = new TextInputBuilder()
+            .setCustomId('team_search')
+            .setLabel('Nombre del equipo (o parte)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Real, City, United...')
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(searchInput));
+        await interaction.showModal(modal);
+        return;
     }
 }
 

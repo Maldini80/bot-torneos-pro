@@ -108,6 +108,20 @@ export async function migrateEloFields() {
             console.log('[ELO MIGRATION] Todos los equipos ya tienen campos ELO. Sin cambios.');
         }
 
+        // Migración de strikes para equipos
+        const strikesResult = await teamsCol.updateMany(
+            { strikes: { $exists: false } },
+            { $set: { strikes: 0 } }
+        );
+        if (strikesResult.modifiedCount > 0) {
+            console.log(`[STRIKES MIGRATION] ${strikesResult.modifiedCount} equipos migrados con campo strikes (0).`);
+        }
+
+        // Índice para team_pools
+        const tournamentDb = client.db(process.env.DB_NAME || 'tournamentBotDb');
+        await tournamentDb.collection('team_pools').createIndex({ shortId: 1 }, { unique: true }).catch(() => {});
+        await tournamentDb.collection('team_pools').createIndex({ guildId: 1, status: 1 }).catch(() => {});
+
         return result.modifiedCount;
     } catch (error) {
         console.error('[ELO MIGRATION] Error durante la migración:', error.message);

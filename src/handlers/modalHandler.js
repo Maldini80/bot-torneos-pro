@@ -12,7 +12,7 @@ import * as xlsx from 'xlsx';
 import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID, VERIFICATION_TICKET_CATEGORY_ID } from '../../config.js';
 import { getLeagueByElo, LEAGUE_EMOJIS } from '../logic/eloLogic.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
-import { createDraftStatusEmbed } from '../utils/embeds.js';
+import { createDraftStatusEmbed, createPoolEmbed } from '../utils/embeds.js';
 import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
 import { parseWhatsAppList, matchTeamsToDatabase, distributeByElo } from '../logic/whatsappDistributor.js';
 import { generateExcelImage } from '../utils/twitter.js';
@@ -2998,6 +2998,203 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             console.error(error);
             await interaction.editReply({ content: `❌ Error al procesar la lista: ${error.message}` });
         }
+        return;
+    }
+
+    // =======================================================
+    // --- SISTEMA DE BOLSA DE EQUIPOS: MODALS ---
+    // =======================================================
+
+    if (action === 'admin_create_pool_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const poolName = interaction.fields.getTextInputValue('pool_name').trim();
+        const poolImage = interaction.fields.getTextInputValue('pool_image')?.trim() || null;
+
+        // Generar shortId único
+        const shortId = `pool-${Date.now().toString(36)}`;
+
+        const poolDoc = {
+            shortId,
+            guildId: interaction.guildId,
+            name: poolName,
+            imageUrl: poolImage,
+            status: 'open',
+            createdBy: interaction.user.id,
+            createdAt: new Date(),
+            teams: {},
+            bannedTeams: [],
+            usedInTournaments: {},
+            discordMessageId: null,
+            discordChannelId: null,
+            logThreadId: null
+        };
+
+        // Insertar en BD primero
+        await db.collection('team_pools').insertOne(poolDoc);
+
+        // Enviar embed público en canal de inscripciones
+        try {
+            const inscriptionChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS).catch(() => null);
+            if (!inscriptionChannel) {
+                return interaction.editReply('❌ No se pudo encontrar el canal de inscripciones.');
+            }
+
+            const embedContent = createPoolEmbed(poolDoc);
+            const publicMsg = await inscriptionChannel.send(embedContent);
+
+            // Crear hilo de log en canal de aprobaciones
+            const approvalsChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_APPROVALS_PARENT).catch(() => null);
+            let logThreadId = null;
+            if (approvalsChannel) {
+                const thread = await approvalsChannel.threads.create({
+                    name: `📦 Bolsa — ${poolName}`.substring(0, 100),
+                    autoArchiveDuration: 10080, // 7 días
+                    reason: `Hilo de log para la bolsa ${poolName}`
+                });
+                logThreadId = thread.id;
+                await thread.send(`📦 **Bolsa creada:** ${poolName}\nID: \`${shortId}\`\nCreada por: <@${interaction.user.id}>\n\nTodos los movimientos de inscripción se registrarán aquí.`);
+            }
+
+            // Actualizar documento con IDs de Discord
+            await db.collection('team_pools').updateOne(
+                { shortId },
+                { $set: {
+                    discordMessageId: publicMsg.id,
+                    discordChannelId: inscriptionChannel.id,
+                    logThreadId: logThreadId
+                }}
+            );
+
+            await interaction.editReply(`✅ **Bolsa "${poolName}" creada con éxito.**\n📢 Embed publicado en <#${inscriptionChannel.id}>\n📝 Hilo de log: ${logThreadId ? `<#${logThreadId}>` : 'No se pudo crear'}\nID: \`${shortId}\``);
+        } catch (error) {
+            console.error('[POOL CREATE] Error:', error);
+            await interaction.editReply(`⚠️ La bolsa fue creada en la BD (ID: ${shortId}), pero hubo un error al publicar el embed: ${error.message}`);
+        }
+        return;
+    }
+
+    if (customId.startsWith('pool_admin_edit_modal:')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const poolShortId = customId.split(':')[1];
+        const newName = interaction.fields.getTextInputValue('pool_name').trim();
+        const newImage = interaction.fields.getTextInputValue('pool_image')?.trim() || null;
+
+        await db.collection('team_pools').updateOne(
+            { shortId: poolShortId },
+            { $set: { name: newName, imageUrl: newImage } }
+        );
+
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+
+        // Actualizar embed público
+        try {
+            const channel = await client.channels.fetch(pool.discordChannelId).catch(() => null);
+            if (channel) {
+                const msg = await channel.messages.fetch(pool.discordMessageId).catch(() => null);
+                if (msg) {
+                    const embedContent = createPoolEmbed(pool);
+                    await msg.edit(embedContent);
+                }
+            }
+        } catch (e) { /* ignore */ }
+
+        // Log
+        if (pool.logThreadId) {
+            const thread = await client.channels.fetch(pool.logThreadId).catch(() => null);
+            if (thread) await thread.send(`✏️ Bolsa editada por <@${interaction.user.id}>. Nuevo nombre: **${newName}**`);
+        }
+
+        await interaction.editReply(`✅ Bolsa actualizada: **${newName}**`);
+        return;
+    }
+
+    if (customId.startsWith('pool_admin_add_manual_modal:')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const poolShortId = customId.split(':')[1];
+        const searchQuery = interaction.fields.getTextInputValue('team_search').toLowerCase().trim();
+
+        const testDb = getDb('test');
+        const allTeams = await testDb.collection('teams').find({ guildId: interaction.guildId }).toArray();
+        const filteredTeams = allTeams.filter(t => t.name.toLowerCase().includes(searchQuery));
+
+        if (filteredTeams.length === 0) {
+            return interaction.editReply(`❌ No se encontraron equipos que contengan "**${searchQuery}**".`);
+        }
+
+        filteredTeams.sort((a, b) => a.name.localeCompare(b.name));
+        const teamsToShow = filteredTeams.slice(0, 25);
+
+        const teamOptions = teamsToShow.map(team => ({
+            label: team.name,
+            description: `ELO: ${team.elo || 1000} | Manager: ${team.managerId}`,
+            value: team._id.toString()
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`pool_admin_add_manual_select:${poolShortId}`)
+            .setPlaceholder('Selecciona el equipo a añadir')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: `✅ Encontrados **${filteredTeams.length}** equipos. Selecciona el que quieres añadir a la bolsa:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (customId.startsWith('admin_edit_team_strikes_modal:')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const teamDbId = customId.split(':')[1];
+        const newStrikesStr = interaction.fields.getTextInputValue('strikes_value').trim();
+        const newStrikes = parseInt(newStrikesStr);
+
+        if (isNaN(newStrikes) || newStrikes < 0 || newStrikes > 10) {
+            return interaction.editReply('❌ El valor debe ser un número entre 0 y 10.');
+        }
+
+        const testDb = getDb('test');
+        await testDb.collection('teams').updateOne(
+            { _id: new ObjectId(teamDbId) },
+            { $set: { strikes: newStrikes } }
+        );
+
+        const team = await testDb.collection('teams').findOne({ _id: new ObjectId(teamDbId) });
+        
+        const strikesEmoji = newStrikes >= 3 ? '🚫' : '⚠️';
+        await interaction.editReply(`${strikesEmoji} Strikes de **${team.name}** actualizados a **${newStrikes}**.${newStrikes >= 3 ? '\n🚫 Este equipo **no podrá inscribirse** en torneos ni bolsas.' : ''}`);
+        return;
+    }
+
+    if (action === 'admin_search_team_strikes_modal') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const searchQuery = interaction.fields.getTextInputValue('team_search').toLowerCase().trim();
+
+        const testDb = getDb('test');
+        const allTeams = await testDb.collection('teams').find({ guildId: interaction.guildId }).toArray();
+        const filteredTeams = allTeams.filter(t => t.name.toLowerCase().includes(searchQuery));
+
+        if (filteredTeams.length === 0) {
+            return interaction.editReply(`❌ No se encontraron equipos que contengan "**${searchQuery}**".`);
+        }
+
+        filteredTeams.sort((a, b) => a.name.localeCompare(b.name));
+        const teamsToShow = filteredTeams.slice(0, 25);
+
+        const teamOptions = teamsToShow.map(team => ({
+            label: `${team.name} — ${team.strikes || 0} strikes`,
+            description: `ELO: ${team.elo || 1000} | ${(team.strikes || 0) >= 3 ? '🚫 BANEADO' : '✅ OK'}`,
+            value: team._id.toString()
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('admin_select_team_for_strikes')
+            .setPlaceholder('Selecciona un equipo para editar sus strikes')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: `✅ Encontrados **${filteredTeams.length}** equipos. Selecciona uno para editar sus strikes:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
         return;
     }
 }

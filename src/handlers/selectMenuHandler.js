@@ -8,10 +8,10 @@ import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuild
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam, updateDraftMainInterface, updatePublicMessages, notifyVisualizer, kickTeam, notifyTournamentVisualizer } from '../logic/tournamentLogic.js';
 import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection, checkVerification } from '../logic/verificationLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
-import { createTeamRosterManagementEmbed, createPlayerManagementEmbed } from '../utils/embeds.js';
+import { createTeamRosterManagementEmbed, createPlayerManagementEmbed, createPoolEmbed } from '../utils/embeds.js';
 import { createMatchThread } from '../utils/tournamentUtils.js';
 import { processMatchResult, findMatch, finalizeMatchThread, revertStats } from '../logic/matchLogic.js';
-import { LEAGUE_EMOJIS, LEAGUE_ORDER } from '../logic/eloLogic.js';
+import { LEAGUE_EMOJIS, LEAGUE_ORDER, getLeagueByElo } from '../logic/eloLogic.js';
 
 export async function handleSelectMenu(interaction) {
     const customId = interaction.customId;
@@ -3065,6 +3065,218 @@ export async function handleSelectMenu(interaction) {
             new ActionRowBuilder().addComponents(streamInput)
         );
 
+        await interaction.showModal(modal);
+        return;
+    }
+
+    // =======================================================
+    // --- SISTEMA DE BOLSA DE EQUIPOS: SELECT MENUS ---
+    // =======================================================
+
+    // Seleccionar bolsa para gestionar
+    if (action === 'admin_select_pool') {
+        await interaction.deferUpdate();
+        const poolShortId = interaction.values[0];
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply({ content: '❌ Bolsa no encontrada.', components: [] });
+
+        const teamCount = Object.keys(pool.teams || {}).length;
+        const statusLabel = pool.status === 'open' ? '🟢 Abierta' : pool.status === 'paused' ? '🔒 Pausada' : '🛑 Cerrada';
+
+        // Pool summary helper
+        const teams = Object.values(pool.teams || {});
+        const counts = { DIAMOND: 0, GOLD: 0, SILVER: 0, BRONZE: 0 };
+        teams.forEach(t => {
+            if (counts.hasOwnProperty(t.league)) counts[t.league]++;
+            else counts['BRONZE']++;
+        });
+        const summaryLine = `📊 ${counts.DIAMOND} 💎 Diamond · ${counts.GOLD} 👑 Gold · ${counts.SILVER} ⚙️ Silver · ${counts.BRONZE} 🥉 Bronze = **${teamCount} total**`;
+
+        const embed = new EmbedBuilder()
+            .setColor('#e67e22')
+            .setTitle(`⚙️ Gestión: ${pool.name}`)
+            .setDescription(`**Estado:** ${statusLabel}\n**Equipos:** ${teamCount}\n${summaryLine}`)
+            .setFooter({ text: `ID: ${pool.shortId}` });
+
+        const row1 = new ActionRowBuilder().addComponents(
+            pool.status === 'open'
+                ? new ButtonBuilder().setCustomId(`pool_admin_pause:${poolShortId}`).setLabel('Pausar Inscripción').setStyle(ButtonStyle.Danger).setEmoji('⏸️')
+                : new ButtonBuilder().setCustomId(`pool_admin_resume:${poolShortId}`).setLabel('Abrir Inscripción').setStyle(ButtonStyle.Success).setEmoji('▶️'),
+            new ButtonBuilder().setCustomId(`pool_admin_edit:${poolShortId}`).setLabel('Editar Nombre/Imagen').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+            new ButtonBuilder().setCustomId(`pool_admin_add_manual:${poolShortId}`).setLabel('Añadir Equipo').setStyle(ButtonStyle.Success).setEmoji('➕')
+        );
+
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`pool_admin_kick:${poolShortId}`).setLabel('Expulsar Equipo').setStyle(ButtonStyle.Danger).setEmoji('👢').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_ban:${poolShortId}`).setLabel('Banear Equipo').setStyle(ButtonStyle.Danger).setEmoji('🚫').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_clear:${poolShortId}`).setLabel('Limpiar Bolsa').setStyle(ButtonStyle.Danger).setEmoji('🧹').setDisabled(teamCount === 0),
+            new ButtonBuilder().setCustomId(`pool_admin_delete:${poolShortId}`).setLabel('Borrar Bolsa').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+        );
+
+        await interaction.editReply({ embeds: [embed], components: [row1, row2] });
+        return;
+    }
+
+    // Expulsar equipo de la bolsa
+    if (action === 'pool_admin_kick_select') {
+        await interaction.deferUpdate();
+        const [poolShortId] = params;
+        const entryKey = interaction.values[0];
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply({ content: '❌ Bolsa no encontrada.', components: [] });
+
+        const teamEntry = pool.teams[entryKey];
+        if (!teamEntry) return interaction.editReply({ content: '❌ Equipo no encontrado en la bolsa.', components: [] });
+
+        await db.collection('team_pools').updateOne(
+            { _id: pool._id },
+            { $unset: { [`teams.${entryKey}`]: '' } }
+        );
+
+        const updatedPool = await db.collection('team_pools').findOne({ _id: pool._id });
+
+        // Actualizar embed público
+        try {
+            const channel = await client.channels.fetch(updatedPool.discordChannelId).catch(() => null);
+            if (channel) {
+                const msg = await channel.messages.fetch(updatedPool.discordMessageId).catch(() => null);
+                if (msg) await msg.edit(createPoolEmbed(updatedPool));
+            }
+        } catch (e) { /* ignore */ }
+
+        // Log
+        if (updatedPool.logThreadId) {
+            const thread = await client.channels.fetch(updatedPool.logThreadId).catch(() => null);
+            if (thread) await thread.send(`👢 **${teamEntry.teamName}** ha sido **expulsado** de la bolsa por <@${interaction.user.id}>.`);
+        }
+
+        await interaction.editReply({ content: `✅ Equipo **${teamEntry.teamName}** expulsado de la bolsa.`, components: [] });
+        return;
+    }
+
+    // Banear equipo de la bolsa
+    if (action === 'pool_admin_ban_select') {
+        await interaction.deferUpdate();
+        const [poolShortId] = params;
+        const entryKey = interaction.values[0];
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply({ content: '❌ Bolsa no encontrada.', components: [] });
+
+        const teamEntry = pool.teams[entryKey];
+        if (!teamEntry) return interaction.editReply({ content: '❌ Equipo no encontrado en la bolsa.', components: [] });
+
+        await db.collection('team_pools').updateOne(
+            { _id: pool._id },
+            {
+                $unset: { [`teams.${entryKey}`]: '' },
+                $addToSet: { bannedTeams: teamEntry.teamDbId }
+            }
+        );
+
+        const updatedPool = await db.collection('team_pools').findOne({ _id: pool._id });
+
+        // Actualizar embed público
+        try {
+            const channel = await client.channels.fetch(updatedPool.discordChannelId).catch(() => null);
+            if (channel) {
+                const msg = await channel.messages.fetch(updatedPool.discordMessageId).catch(() => null);
+                if (msg) await msg.edit(createPoolEmbed(updatedPool));
+            }
+        } catch (e) { /* ignore */ }
+
+        // Log
+        if (updatedPool.logThreadId) {
+            const thread = await client.channels.fetch(updatedPool.logThreadId).catch(() => null);
+            if (thread) await thread.send(`🚫 **${teamEntry.teamName}** ha sido **baneado** de la bolsa por <@${interaction.user.id}>. No podrá volver a inscribirse.`);
+        }
+
+        await interaction.editReply({ content: `🚫 Equipo **${teamEntry.teamName}** baneado de la bolsa.`, components: [] });
+        return;
+    }
+
+    // Añadir equipo manual a la bolsa (select tras búsqueda)
+    if (action === 'pool_admin_add_manual_select') {
+        await interaction.deferUpdate();
+        const [poolShortId] = params;
+        const teamDbId = interaction.values[0];
+
+        const testDb = getDb('test');
+        const team = await testDb.collection('teams').findOne({ _id: new ObjectId(teamDbId) });
+        if (!team) return interaction.editReply({ content: '❌ Equipo no encontrado en la BD.', components: [] });
+
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply({ content: '❌ Bolsa no encontrada.', components: [] });
+
+        // Verificar si ya está inscrito
+        const existing = Object.values(pool.teams || {}).find(t => t.teamDbId === teamDbId);
+        if (existing) {
+            return interaction.editReply({ content: `⚠️ El equipo **${team.name}** ya está inscrito en esta bolsa.`, components: [] });
+        }
+
+        const teamElo = team.elo || 1000;
+        const teamLeague = getLeagueByElo(teamElo);
+        const entryKey = team.managerId || teamDbId;
+
+        const teamEntry = {
+            teamDbId: teamDbId,
+            teamName: team.name,
+            managerId: team.managerId || null,
+            captains: team.captains || [],
+            elo: teamElo,
+            league: teamLeague,
+            logoUrl: team.logoUrl || null,
+            inscritoEn: new Date(),
+            inscritoPor: interaction.user.id,
+            inscritoVia: 'admin_manual'
+        };
+
+        await db.collection('team_pools').updateOne(
+            { _id: pool._id },
+            { $set: { [`teams.${entryKey}`]: teamEntry } }
+        );
+
+        const updatedPool = await db.collection('team_pools').findOne({ _id: pool._id });
+        const leagueEmoji = LEAGUE_EMOJIS[teamLeague] || '🥉';
+
+        // Actualizar embed público
+        try {
+            const channel = await client.channels.fetch(updatedPool.discordChannelId).catch(() => null);
+            if (channel) {
+                const msg = await channel.messages.fetch(updatedPool.discordMessageId).catch(() => null);
+                if (msg) await msg.edit(createPoolEmbed(updatedPool));
+            }
+        } catch (e) { /* ignore */ }
+
+        // Log
+        if (updatedPool.logThreadId) {
+            const thread = await client.channels.fetch(updatedPool.logThreadId).catch(() => null);
+            if (thread) await thread.send(`➕ **${team.name}** (ELO: ${teamElo} — ${leagueEmoji} ${teamLeague}) añadido manualmente por <@${interaction.user.id}>.`);
+        }
+
+        await interaction.editReply({ content: `✅ Equipo **${team.name}** (${leagueEmoji} ${teamLeague}) añadido a la bolsa **${pool.name}**.`, components: [] });
+        return;
+    }
+
+    // Seleccionar equipo para editar strikes
+    if (action === 'admin_select_team_for_strikes') {
+        const teamDbId = interaction.values[0];
+        const testDb = getDb('test');
+        const team = await testDb.collection('teams').findOne({ _id: new ObjectId(teamDbId) });
+        if (!team) return interaction.reply({ content: '❌ Equipo no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_edit_team_strikes_modal:${teamDbId}`)
+            .setTitle(`Strikes: ${team.name}`.substring(0, 45));
+
+        const strikesInput = new TextInputBuilder()
+            .setCustomId('strikes_value')
+            .setLabel(`Strikes actuales: ${team.strikes || 0}. Nuevo valor:`)
+            .setStyle(TextInputStyle.Short)
+            .setValue(String(team.strikes || 0))
+            .setPlaceholder('0-10')
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(strikesInput));
         await interaction.showModal(modal);
         return;
     }
