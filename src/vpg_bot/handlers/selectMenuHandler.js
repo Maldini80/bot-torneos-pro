@@ -1,6 +1,7 @@
 // src/handlers/selectMenuHandler.js
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const Team = require('../models/team.js');
+const mongoose = require('mongoose');
 const VPGUser = require('../models/user.js');
 const League = require('../models/league.js');
 const AvailabilityPanel = require('../models/availabilityPanel.js');
