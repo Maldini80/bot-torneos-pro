@@ -719,10 +719,11 @@ const handler = async (client, interaction) => {
             if (team.managerId === targetId) return interaction.editReply({ content: 'No puedes expulsar al mánager del equipo.', components: [] });
 
             // FORZAMOS LA ESCRITURA EN DB (Evitar fallo Mongoose de reasignación)
-            await mongoose.connection.client.db('test').collection('teams').updateOne(
+            const pullResult = await mongoose.connection.client.db('test').collection('teams').updateOne(
                 { _id: team._id },
                 { $pull: { players: targetId, captains: targetId } }
             );
+            console.log(`[VPG KICK] $pull ejecutado para ${targetId} en equipo ${team.name} (_id: ${team._id}). matchedCount: ${pullResult.matchedCount}, modifiedCount: ${pullResult.modifiedCount}`);
 
             await targetMember.roles.remove([process.env.PLAYER_ROLE_ID, process.env.CAPTAIN_ROLE_ID, process.env.MUTED_ROLE_ID]).catch(() => { });
             if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(targetMember.user.username).catch(() => { });
