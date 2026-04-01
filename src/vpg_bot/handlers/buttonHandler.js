@@ -694,11 +694,7 @@ const handler = async (client, interaction) => {
 
         const targetId = customId.substring(customId.lastIndexOf('_') + 1);
 
-        let team = await Team.findOne({ guildId: interaction.guildId, $or: [{ managerId: user.id }, { captains: user.id }] });
-
-        if (!team) {
-            team = await Team.findOne({ guildId: interaction.guildId, $or: [{ managerId: targetId }, { captains: targetId }, { players: targetId }] });
-        }
+        let team = await Team.findOne({ guildId: interaction.guildId, $or: [{ managerId: targetId }, { captains: targetId }, { players: targetId }] });
 
         if (!team) return interaction.editReply({ content: 'No se pudo encontrar el equipo del jugador seleccionado.', components: [] });
 
