@@ -4545,16 +4545,16 @@ function crearPartidosEvitandoMismoGrupo(bombo1_data, bombo2_data, ronda) {
 }
 
 function sortTeams(a, b, tournament, groupName) {
-    if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
+    if ((a.stats.pts || 0) !== (b.stats.pts || 0)) return (b.stats.pts || 0) - (a.stats.pts || 0);
 
     // --- TIE-BREAKS PARA SISTEMA SUIZO ---
     if (tournament.config.formatId === 'flexible_league' && tournament.config.leagueMode === 'custom_rounds') {
-        if (a.stats.buchholz !== b.stats.buchholz) return b.stats.buchholz - a.stats.buchholz;
+        if ((a.stats.buchholz || 0) !== (b.stats.buchholz || 0)) return (b.stats.buchholz || 0) - (a.stats.buchholz || 0);
     }
     // -------------------------------------
 
-    if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
-    if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
+    if ((a.stats.dg || 0) !== (b.stats.dg || 0)) return (b.stats.dg || 0) - (a.stats.dg || 0);
+    if ((a.stats.gf || 0) !== (b.stats.gf || 0)) return (b.stats.gf || 0) - (a.stats.gf || 0);
 
     const enfrentamiento = tournament.structure.calendario[groupName]?.find(p =>
         p.resultado &&

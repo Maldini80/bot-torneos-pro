@@ -141,9 +141,9 @@ function generateGroupEndHtml(tournament) {
     let allGroupsHtml = '';
     const sortedGroupNames = Object.keys(tournament.structure.grupos).sort();
     const sortTeams = (a, b) => {
-        if (a.stats.pts !== b.stats.pts) return b.stats.pts - a.stats.pts;
-        if (a.stats.dg !== b.stats.dg) return b.stats.dg - a.stats.dg;
-        if (a.stats.gf !== b.stats.gf) return b.stats.gf - a.stats.gf;
+        if ((a.stats.pts || 0) !== (b.stats.pts || 0)) return (b.stats.pts || 0) - (a.stats.pts || 0);
+        if ((a.stats.dg || 0) !== (b.stats.dg || 0)) return (b.stats.dg || 0) - (a.stats.dg || 0);
+        if ((a.stats.gf || 0) !== (b.stats.gf || 0)) return (b.stats.gf || 0) - (a.stats.gf || 0);
         return 0;
     };
     for (const groupName of sortedGroupNames) {
