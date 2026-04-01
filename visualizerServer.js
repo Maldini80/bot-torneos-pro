@@ -481,9 +481,32 @@ app.post('/api/admin/run-backfill', async (req, res) => {
                 
                 if (allLeagueTeams.length > 0) {
                     allLeagueTeams.sort((a, b) => {
-                        if (b.stats?.pts !== a.stats?.pts) return (b.stats?.pts || 0) - (a.stats?.pts || 0);
-                        if (b.stats?.dg !== a.stats?.dg) return (b.stats?.dg || 0) - (a.stats?.dg || 0);
-                        return (b.stats?.gf || 0) - (a.stats?.gf || 0);
+                        if ((a.stats?.pts || 0) !== (b.stats?.pts || 0)) return (b.stats?.pts || 0) - (a.stats?.pts || 0);
+
+                        // Buchholz para sistema suizo
+                        if (t.config?.formatId === 'flexible_league' && t.config?.leagueMode === 'custom_rounds') {
+                            if ((a.stats?.buchholz || 0) !== (b.stats?.buchholz || 0)) return (b.stats?.buchholz || 0) - (a.stats?.buchholz || 0);
+                        }
+
+                        if ((a.stats?.dg || 0) !== (b.stats?.dg || 0)) return (b.stats?.dg || 0) - (a.stats?.dg || 0);
+                        if ((a.stats?.gf || 0) !== (b.stats?.gf || 0)) return (b.stats?.gf || 0) - (a.stats?.gf || 0);
+
+                        // Enfrentamiento directo (H2H)
+                        if (t.structure?.calendario) {
+                            for (const gn in t.structure.calendario) {
+                                const enfrentamiento = t.structure.calendario[gn]?.find(p => p.resultado && ((p.equipoA?.id === a.id && p.equipoB?.id === b.id) || (p.equipoA?.id === b.id && p.equipoB?.id === a.id)));
+                                if (enfrentamiento) {
+                                    const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
+                                    if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
+                                    else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
+                                    break;
+                                }
+                            }
+                        }
+
+                        if ((a.stats?.pg || 0) !== (b.stats?.pg || 0)) return (b.stats?.pg || 0) - (a.stats?.pg || 0);
+
+                        return (a.nombre || '').localeCompare(b.nombre || '');
                     });
                     
                     // Asegurarnos de que el primero de la liga haya jugado al menos 1 partido para que no sea un título regalado en torneos vacíos
