@@ -13,6 +13,8 @@ import { getDb } from './database.js';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
 import { processMatchResult, finalizeMatchThread, findMatch } from './src/logic/matchLogic.js';
+import { getLeagueByElo, LEAGUE_EMOJIS } from './src/logic/eloLogic.js';
+import { createPoolEmbed } from './src/utils/embeds.js';
 
 // FIX: Mutex por draft para evitar race conditions en picks concurrentes
 const draftLocks = new Map();
@@ -90,6 +92,11 @@ app.get('/', (req, res) => {
 // Registration form page
 app.get('/inscripcion/:tournamentId', (req, res) => {
     res.sendFile('inscripcion.html', { root: 'public' });
+});
+
+// Pool registration page (shareable via WhatsApp)
+app.get('/bolsa/:poolId', (req, res) => {
+    res.sendFile('bolsa.html', { root: 'public' });
 });
 
 app.use(express.static('public'));
@@ -3539,6 +3546,250 @@ export async function startVisualizerServer(discordClient) {
             res.json({ success: true, message });
 
         } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+    });
+
+    // =======================================================
+    // --- SISTEMA DE BOLSA DE EQUIPOS: API WEB ---
+    // =======================================================
+
+    // GET: Pool info (public, no auth required)
+    app.get('/api/pool/:poolId', async (req, res) => {
+        try {
+            const { poolId } = req.params;
+            const db = getDb();
+            const pool = await db.collection('team_pools').findOne({ shortId: poolId });
+            if (!pool) return res.status(404).json({ error: 'Bolsa no encontrada.' });
+
+            // Return safe pool data (no internal IDs)
+            res.json({
+                pool: {
+                    shortId: pool.shortId,
+                    name: pool.name,
+                    imageUrl: pool.imageUrl,
+                    status: pool.status,
+                    teams: pool.teams || {},
+                    createdAt: pool.createdAt
+                }
+            });
+        } catch (e) {
+            console.error('[API Pool] Error:', e);
+            res.status(500).json({ error: 'Error interno.' });
+        }
+    });
+
+    // GET: User's team status for a pool (auth required)
+    app.get('/api/pool/:poolId/my-status', async (req, res) => {
+        try {
+            if (!req.user) return res.status(401).json({ error: 'No autenticado.' });
+            const { poolId } = req.params;
+            const userId = req.user.id;
+            const db = getDb();
+            const testDb = getDb('test');
+
+            const pool = await db.collection('team_pools').findOne({ shortId: poolId });
+            if (!pool) return res.status(404).json({ error: 'Bolsa no encontrada.' });
+
+            // Find user's team
+            const userTeam = await testDb.collection('teams').findOne({
+                guildId: process.env.GUILD_ID,
+                $or: [{ managerId: userId }, { captains: userId }]
+            });
+
+            if (!userTeam) {
+                return res.json({ hasTeam: false });
+            }
+
+            const teamElo = userTeam.elo || 1000;
+            const teamLeague = getLeagueByElo(teamElo);
+
+            // Check if already registered
+            const existingEntry = Object.values(pool.teams || {}).find(t => t.teamDbId === userTeam._id.toString());
+
+            // Check blocks
+            let blocked = false;
+            let blockReason = '';
+            if ((userTeam.strikes || 0) >= 3) {
+                blocked = true;
+                blockReason = `Tu equipo tiene ${userTeam.strikes} strikes. No puede inscribirse.`;
+            } else if (pool.bannedTeams && pool.bannedTeams.includes(userTeam._id.toString())) {
+                blocked = true;
+                blockReason = 'Tu equipo está baneado de esta bolsa.';
+            }
+
+            res.json({
+                hasTeam: true,
+                team: {
+                    id: userTeam._id.toString(),
+                    name: userTeam.name,
+                    elo: teamElo,
+                    league: teamLeague,
+                    logoUrl: userTeam.logoUrl || null
+                },
+                isRegistered: !!existingEntry,
+                blocked,
+                blockReason
+            });
+        } catch (e) {
+            console.error('[API Pool Status] Error:', e);
+            res.status(500).json({ error: 'Error interno.' });
+        }
+    });
+
+    // POST: Register team in pool (auth required)
+    app.post('/api/pool/:poolId/register', async (req, res) => {
+        try {
+            if (!req.user) return res.status(401).json({ error: 'No autenticado.' });
+
+            // Verify Discord membership
+            let isMember = req.user.isMember;
+            if (isMember === undefined) {
+                try {
+                    const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${req.user.id}`, {
+                        headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+                    });
+                    isMember = response.ok;
+                } catch (e) { isMember = false; }
+            }
+            if (!isMember) return res.status(403).json({ error: 'Debes ser miembro del servidor Discord.' });
+
+            const { poolId } = req.params;
+            const userId = req.user.id;
+            const db = getDb();
+            const testDb = getDb('test');
+
+            const pool = await db.collection('team_pools').findOne({ shortId: poolId });
+            if (!pool) return res.status(404).json({ error: 'Bolsa no encontrada.' });
+            if (pool.status !== 'open') return res.status(400).json({ error: 'La inscripción está cerrada o pausada.' });
+
+            const userTeam = await testDb.collection('teams').findOne({
+                guildId: process.env.GUILD_ID,
+                $or: [{ managerId: userId }, { captains: userId }]
+            });
+            if (!userTeam) return res.status(400).json({ error: 'No tienes un equipo registrado.' });
+
+            // Validate
+            if ((userTeam.strikes || 0) >= 3) {
+                return res.status(403).json({ error: `Tu equipo tiene ${userTeam.strikes} strikes. No puede inscribirse.` });
+            }
+            if (pool.bannedTeams && pool.bannedTeams.includes(userTeam._id.toString())) {
+                return res.status(403).json({ error: 'Tu equipo está baneado de esta bolsa.' });
+            }
+            const existingEntry = Object.values(pool.teams || {}).find(t => t.teamDbId === userTeam._id.toString());
+            if (existingEntry) {
+                return res.status(400).json({ error: 'Tu equipo ya está inscrito en esta bolsa.' });
+            }
+
+            const teamElo = userTeam.elo || 1000;
+            const teamLeague = getLeagueByElo(teamElo);
+            const entryKey = userTeam.managerId || userTeam._id.toString();
+
+            const teamEntry = {
+                teamDbId: userTeam._id.toString(),
+                teamName: userTeam.name,
+                managerId: userTeam.managerId || userId,
+                captains: userTeam.captains || [],
+                elo: teamElo,
+                league: teamLeague,
+                logoUrl: userTeam.logoUrl || null,
+                inscritoEn: new Date(),
+                inscritoPor: userId,
+                inscritoVia: 'web'
+            };
+
+            await db.collection('team_pools').updateOne(
+                { _id: pool._id },
+                { $set: { [`teams.${entryKey}`]: teamEntry } }
+            );
+
+            // Update Discord embed
+            const updatedPool = await db.collection('team_pools').findOne({ _id: pool._id });
+            try {
+                const channel = await client.channels.fetch(updatedPool.discordChannelId).catch(() => null);
+                if (channel) {
+                    const msg = await channel.messages.fetch(updatedPool.discordMessageId).catch(() => null);
+                    if (msg) await msg.edit(createPoolEmbed(updatedPool));
+                }
+            } catch (e) { console.warn('[API Pool Register] Error updating embed:', e.message); }
+
+            // Send log
+            const leagueEmoji = LEAGUE_EMOJIS[teamLeague] || '🥉';
+            try {
+                if (updatedPool.logThreadId) {
+                    const thread = await client.channels.fetch(updatedPool.logThreadId).catch(() => null);
+                    if (thread) {
+                        const teams = Object.values(updatedPool.teams || {});
+                        const counts = { DIAMOND: 0, GOLD: 0, SILVER: 0, BRONZE: 0 };
+                        teams.forEach(t => { if (counts.hasOwnProperty(t.league)) counts[t.league]++; else counts['BRONZE']++; });
+                        await thread.send(`✅ Se ha inscrito **${userTeam.name}** (ELO: ${teamElo} — ${leagueEmoji} ${teamLeague}) — inscrito vía **WEB** por <@${userId}>\n📊 Resumen: ${counts.DIAMOND} 💎 · ${counts.GOLD} 👑 · ${counts.SILVER} ⚙️ · ${counts.BRONZE} 🥉 = **${teams.length} total**`);
+                    }
+                }
+            } catch (e) { /* ignore */ }
+
+            res.json({ success: true });
+        } catch (e) {
+            console.error('[API Pool Register] Error:', e);
+            res.status(500).json({ error: 'Error interno.' });
+        }
+    });
+
+    // DELETE: Unregister from pool (auth required)
+    app.delete('/api/pool/:poolId/register', async (req, res) => {
+        try {
+            if (!req.user) return res.status(401).json({ error: 'No autenticado.' });
+            const { poolId } = req.params;
+            const userId = req.user.id;
+            const db = getDb();
+            const testDb = getDb('test');
+
+            const pool = await db.collection('team_pools').findOne({ shortId: poolId });
+            if (!pool) return res.status(404).json({ error: 'Bolsa no encontrada.' });
+
+            const userTeam = await testDb.collection('teams').findOne({
+                guildId: process.env.GUILD_ID,
+                $or: [{ managerId: userId }, { captains: userId }]
+            });
+            if (!userTeam) return res.status(400).json({ error: 'No tienes equipo.' });
+
+            let entryKey = null;
+            for (const [key, entry] of Object.entries(pool.teams || {})) {
+                if (entry.teamDbId === userTeam._id.toString()) {
+                    entryKey = key;
+                    break;
+                }
+            }
+            if (!entryKey) return res.status(400).json({ error: 'Tu equipo no está inscrito.' });
+
+            await db.collection('team_pools').updateOne(
+                { _id: pool._id },
+                { $unset: { [`teams.${entryKey}`]: '' } }
+            );
+
+            // Update Discord embed
+            const updatedPool = await db.collection('team_pools').findOne({ _id: pool._id });
+            try {
+                const channel = await client.channels.fetch(updatedPool.discordChannelId).catch(() => null);
+                if (channel) {
+                    const msg = await channel.messages.fetch(updatedPool.discordMessageId).catch(() => null);
+                    if (msg) await msg.edit(createPoolEmbed(updatedPool));
+                }
+            } catch (e) { /* ignore */ }
+
+            // Log
+            try {
+                if (updatedPool.logThreadId) {
+                    const thread = await client.channels.fetch(updatedPool.logThreadId).catch(() => null);
+                    if (thread) {
+                        const teams = Object.values(updatedPool.teams || {});
+                        await thread.send(`❌ **${userTeam.name}** se ha dado de baja vía **WEB** — solicitado por <@${userId}>\n📊 Total: **${teams.length}** equipos`);
+                    }
+                }
+            } catch (e) { /* ignore */ }
+
+            res.json({ success: true });
+        } catch (e) {
+            console.error('[API Pool Unregister] Error:', e);
+            res.status(500).json({ error: 'Error interno.' });
+        }
     });
 
     server.on('upgrade', (request, socket, head) => {

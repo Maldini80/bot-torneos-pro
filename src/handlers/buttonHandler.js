@@ -5798,6 +5798,152 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         await interaction.showModal(modal);
         return;
     }
+
+    // --- USAR BOLSA EN TORNEO: Paso 1 - Seleccionar bolsa ---
+    if (action === 'admin_pool_to_tournament') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const pools = await db.collection('team_pools').find({
+            guildId: interaction.guildId,
+            status: { $in: ['open', 'paused'] }
+        }).toArray();
+
+        if (pools.length === 0) {
+            return interaction.editReply('❌ No hay bolsas activas. Crea una primero.');
+        }
+
+        const poolOptions = pools.filter(p => Object.keys(p.teams || {}).length > 0).map(p => ({
+            label: `${p.name} (${Object.keys(p.teams || {}).length} equipos)`,
+            description: `ID: ${p.shortId}`,
+            value: p.shortId
+        }));
+
+        if (poolOptions.length === 0) {
+            return interaction.editReply('❌ Todas las bolsas están vacías. Necesitas equipos inscritos.');
+        }
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('admin_select_pool_for_tournament')
+            .setPlaceholder('Selecciona la bolsa de origen')
+            .addOptions(poolOptions.slice(0, 25));
+
+        await interaction.editReply({
+            content: '🎯 **Paso 1/3:** Selecciona la bolsa de la que quieres sacar equipos:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    // --- USAR BOLSA EN TORNEO: Paso 3 - Confirmar asignación ---
+    if (action === 'admin_pool_assign_confirm') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [poolShortId, tournamentShortId, countStr] = params;
+        const count = parseInt(countStr);
+
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+
+        // Get top N teams by ELO
+        const poolTeams = Object.values(pool.teams || {});
+        poolTeams.sort((a, b) => b.elo - a.elo);
+        const teamsToAssign = poolTeams.slice(0, count);
+
+        if (teamsToAssign.length === 0) {
+            return interaction.editReply('❌ No hay equipos disponibles en la bolsa.');
+        }
+
+        const { approveTeam, updatePublicMessages } = await import('../logic/tournamentLogic.js');
+
+        let totalInscribed = 0;
+        let errors = 0;
+        let errorDetails = [];
+
+        for (const poolTeam of teamsToAssign) {
+            const captainId = poolTeam.managerId;
+
+            // Check if already in tournament
+            const alreadyIn =
+                tournament.teams?.aprobados?.[captainId] ||
+                tournament.teams?.pendientes?.[captainId];
+            if (alreadyIn) {
+                errorDetails.push(`${poolTeam.teamName}: ya está en el torneo`);
+                errors++;
+                continue;
+            }
+
+            const teamData = {
+                id: captainId,
+                nombre: poolTeam.teamName,
+                eafcTeamName: '',
+                capitanId: captainId,
+                capitanTag: 'Bolsa_Inscripcion',
+                coCaptainId: poolTeam.captains?.[0] || null,
+                coCaptainTag: null,
+                bandera: '🏳️',
+                paypal: null,
+                streamChannel: null,
+                twitter: null,
+                inscritoEn: new Date(),
+                extraCaptains: (poolTeam.captains || []).filter(c => c !== captainId)
+            };
+
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { [`teams.pendientes.${captainId}`]: teamData } }
+            );
+
+            let updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+            try {
+                await approveTeam(client, updatedTournament, teamData);
+                totalInscribed++;
+            } catch (e) {
+                console.error(`[Pool→Tournament] Error aprobando ${poolTeam.teamName}:`, e.message);
+                errorDetails.push(`${poolTeam.teamName}: ${e.message}`);
+                errors++;
+            }
+        }
+
+        // Update tournament public messages
+        const finalTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        await updatePublicMessages(client, finalTournament);
+
+        // Track usage in pool
+        const assignedManagers = teamsToAssign.filter((_, i) => i < totalInscribed).map(t => t.managerId);
+        await db.collection('team_pools').updateOne(
+            { shortId: poolShortId },
+            { $set: { [`usedInTournaments.${tournamentShortId}`]: assignedManagers } }
+        );
+
+        // Log to pool thread
+        if (pool.logThreadId) {
+            try {
+                const thread = await client.channels.fetch(pool.logThreadId).catch(() => null);
+                if (thread) {
+                    await thread.send(
+                        `🎯 **Asignación a torneo:** ${tournament.nombre}\n` +
+                        `📊 Se asignaron **${totalInscribed}** de **${teamsToAssign.length}** equipos (top ELO)\n` +
+                        `${errors > 0 ? `⚠️ Errores: ${errors}\n${errorDetails.join('\n')}` : ''}` +
+                        `\nSolicitado por <@${interaction.user.id}>`
+                    );
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        let response = `✅ **Asignación completada**\n` +
+            `📦 Bolsa: **${pool.name}**\n` +
+            `🏆 Torneo: **${tournament.nombre}**\n` +
+            `✅ Inscritos: **${totalInscribed}**\n` +
+            `❌ Errores: **${errors}**`;
+        if (errorDetails.length > 0) {
+            response += `\n\n**Detalle errores:**\n${errorDetails.join('\n')}`;
+        }
+
+        await interaction.editReply(response);
+        return;
+    }
 }
 
 // =======================================================

@@ -63,7 +63,8 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
             );
             const poolActionsRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_create_pool_start').setLabel('Crear Bolsa').setStyle(ButtonStyle.Primary).setEmoji('📦').setDisabled(isBusy),
-                new ButtonBuilder().setCustomId('admin_list_pools').setLabel('Gestionar Bolsas').setStyle(ButtonStyle.Secondary).setEmoji('🗂️').setDisabled(isBusy)
+                new ButtonBuilder().setCustomId('admin_list_pools').setLabel('Gestionar Bolsas').setStyle(ButtonStyle.Secondary).setEmoji('🗂️').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_pool_to_tournament').setLabel('Usar Bolsa en Torneo').setStyle(ButtonStyle.Success).setEmoji('🎯').setDisabled(isBusy)
             );
             components.push(tournamentActionsRow, poolActionsRow, backButtonRow);
             break;
@@ -1324,7 +1325,8 @@ export function createPoolEmbed(pool) {
         .setDescription(
             `${statusText}\n\n` +
             `**${total}** equipos inscritos\n` +
-            `💎 ${counts.DIAMOND} Diamond · 👑 ${counts.GOLD} Gold · ⚙️ ${counts.SILVER} Silver · 🥉 ${counts.BRONZE} Bronze`
+            `💎 ${counts.DIAMOND} Diamond · 👑 ${counts.GOLD} Gold · ⚙️ ${counts.SILVER} Silver · 🥉 ${counts.BRONZE} Bronze\n\n` +
+            `🌐 **Inscripción Web:** ${process.env.BASE_URL || 'https://theblitz.es'}/bolsa/${pool.shortId}`
         )
         .setFooter({ text: `ID: ${pool.shortId}` })
         .setTimestamp();
@@ -1332,7 +1334,7 @@ export function createPoolEmbed(pool) {
     if (pool.imageUrl) embed.setImage(pool.imageUrl);
 
     const isOpen = pool.status === 'open';
-    const row = new ActionRowBuilder().addComponents(
+    const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`pool_register:${pool.shortId}`)
             .setLabel('Inscribirse')
@@ -1349,8 +1351,13 @@ export function createPoolEmbed(pool) {
             .setLabel('Darse de Baja')
             .setStyle(ButtonStyle.Danger)
             .setEmoji('❌')
-            .setDisabled(!isOpen)
+            .setDisabled(!isOpen),
+        new ButtonBuilder()
+            .setLabel('Inscripción Web')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`${process.env.BASE_URL || 'https://theblitz.es'}/bolsa/${pool.shortId}`)
+            .setEmoji('🌐')
     );
 
-    return { embeds: [embed], components: [row] };
+    return { embeds: [embed], components: [row1] };
 }

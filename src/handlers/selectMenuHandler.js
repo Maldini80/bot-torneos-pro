@@ -3275,10 +3275,144 @@ export async function handleSelectMenu(interaction) {
             .setValue(String(team.strikes || 0))
             .setPlaceholder('0-10')
             .setRequired(true);
-
         modal.addComponents(new ActionRowBuilder().addComponents(strikesInput));
         await interaction.showModal(modal);
         return;
     }
-}
 
+    // Paso 2: Seleccionar bolsa → mostrar torneos disponibles
+    if (action === 'admin_select_pool_for_tournament') {
+        await interaction.deferUpdate();
+        const poolShortId = interaction.values[0];
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        if (!pool) return interaction.editReply({ content: '❌ Bolsa no encontrada.', components: [] });
+
+        const teamCount = Object.keys(pool.teams || {}).length;
+
+        // Find tournaments with open inscription
+        const tournaments = await db.collection('tournaments').find({
+            guildId: interaction.guildId,
+            status: 'inscripcion_abierta'
+        }).toArray();
+
+        if (tournaments.length === 0) {
+            return interaction.editReply({
+                content: '❌ No hay torneos con inscripción abierta. Crea o abre uno primero.',
+                components: []
+            });
+        }
+
+        const tournamentOptions = tournaments.map(t => {
+            const approvedCount = Object.keys(t.teams?.aprobados || {}).length;
+            return {
+                label: `${t.nombre} (${approvedCount} inscritos)`,
+                description: `ID: ${t.shortId}`,
+                value: t.shortId
+            };
+        });
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_tournament_for_pool:${poolShortId}`)
+            .setPlaceholder('Selecciona el torneo de destino')
+            .addOptions(tournamentOptions.slice(0, 25));
+
+        await interaction.editReply({
+            content: `🎯 **Paso 2/3:** Bolsa seleccionada: **${pool.name}** (${teamCount} equipos).\nSelecciona el torneo donde quieres inscribir equipos:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    // Paso 3: Seleccionar torneo → pedir cuántos equipos
+    if (action === 'admin_select_tournament_for_pool') {
+        await interaction.deferUpdate();
+        const [poolShortId] = params;
+        const tournamentShortId = interaction.values[0];
+
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!pool || !tournament) return interaction.editReply({ content: '❌ Error cargando datos.', components: [] });
+
+        const teamCount = Object.keys(pool.teams || {}).length;
+        const approvedCount = Object.keys(tournament.teams?.aprobados || {}).length;
+
+        // Build count options (5, 10, 15, 20, or all)
+        const countOptions = [];
+        const presets = [5, 10, 12, 15, 20, 25, 30];
+        for (const n of presets) {
+            if (n <= teamCount) {
+                countOptions.push({ label: `${n} equipos (top ELO)`, value: String(n) });
+            }
+        }
+        if (!countOptions.find(o => o.value === String(teamCount))) {
+            countOptions.push({ label: `Todos (${teamCount} equipos)`, value: String(teamCount) });
+        }
+
+        const embed = new EmbedBuilder()
+            .setColor('#2ecc71')
+            .setTitle('🎯 Asignación: Bolsa → Torneo')
+            .setDescription(
+                `📦 **Bolsa:** ${pool.name} (${teamCount} equipos)\n` +
+                `🏆 **Torneo:** ${tournament.nombre} (${approvedCount} ya inscritos)\n\n` +
+                `Selecciona cuántos equipos quieres mover al torneo.\nSe asignarán los de **mayor ELO** primero.`
+            );
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_pool_count_select:${poolShortId}:${tournamentShortId}`)
+            .setPlaceholder('¿Cuántos equipos?')
+            .addOptions(countOptions);
+
+        await interaction.editReply({
+            embeds: [embed],
+            content: '',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    // Paso 4: Confirmar cantidad → lanzar asignación con botón
+    if (action === 'admin_pool_count_select') {
+        await interaction.deferUpdate();
+        const [poolShortId, tournamentShortId] = params;
+        const count = interaction.values[0];
+
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        // Preview: show top N teams
+        const poolTeams = Object.values(pool.teams || {});
+        poolTeams.sort((a, b) => b.elo - a.elo);
+        const preview = poolTeams.slice(0, parseInt(count));
+        const previewText = preview.map((t, i) => {
+            const leagueEmoji = LEAGUE_EMOJIS[t.league] || '🥉';
+            return `${i + 1}. ${leagueEmoji} **${t.teamName}** — ELO: ${t.elo}`;
+        }).join('\n');
+
+        const confirmEmbed = new EmbedBuilder()
+            .setColor('#e67e22')
+            .setTitle('⚠️ Confirmar Asignación')
+            .setDescription(
+                `Se van a inscribir **${count}** equipos de la bolsa **${pool.name}** en el torneo **${tournament.nombre}**:\n\n${previewText}\n\n` +
+                `⚠️ Esta acción inscribirá automáticamente estos equipos. ¿Confirmar?`
+            );
+
+        const confirmRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_pool_assign_confirm:${poolShortId}:${tournamentShortId}:${count}`)
+                .setLabel(`Confirmar (${count} equipos)`)
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('✅'),
+            new ButtonBuilder()
+                .setCustomId('pool_admin_cancel')
+                .setLabel('Cancelar')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        await interaction.editReply({
+            embeds: [confirmEmbed],
+            content: '',
+            components: [confirmRow]
+        });
+        return;
+    }
+}

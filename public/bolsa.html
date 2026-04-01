@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BLITZ - Inscripción en Bolsa de Equipos</title>
+    <meta name="description" content="Inscribe tu equipo en la Bolsa de Torneos de THE BLITZ.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="📦 THE BLITZ — Bolsa de Equipos">
+    <meta property="og:description" content="Inscribe tu equipo con tu cuenta de Discord. ¡Entrada automática a los próximos torneos!">
+    <meta property="og:image" content="https://bot-torneos-web.onrender.com/og-inscripcion.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="theme-color" content="#00ffff">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700;900&family=Rajdhani:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: #050510;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+        .bg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(ellipse at 50% 0%, rgba(0,255,255,0.08) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 100%, rgba(138,43,226,0.06) 0%, transparent 50%),
+                        #050510;
+            z-index: 0;
+        }
+        .container {
+            position: relative; z-index: 1;
+            width: 100%; max-width: 500px;
+            padding: 2rem 1.5rem; margin: 1rem;
+        }
+        .logo { text-align: center; margin-bottom: 1.5rem; }
+        .logo h1 {
+            font-family: 'Exo 2', sans-serif; font-size: 2rem;
+            background: linear-gradient(135deg, #00ffff, #0080ff, #8b5cf6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+        }
+        .pool-name {
+            text-align: center; font-size: 1.4rem; font-weight: 700;
+            color: #00e5ff; margin-bottom: 0.5rem;
+        }
+        .pool-status {
+            text-align: center; font-size: 0.95rem;
+            color: rgba(255,255,255,0.6); margin-bottom: 1.5rem;
+        }
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px; padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            margin-bottom: 1rem;
+        }
+        .hidden { display: none !important; }
+        /* Login */
+        .login-btn {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 14px 20px;
+            background: #5865F2; color: #fff;
+            border: none; border-radius: 12px;
+            font-family: 'Rajdhani', sans-serif; font-size: 1.1rem; font-weight: 600;
+            cursor: pointer; text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .login-btn:hover { background: #4752c4; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(88,101,242,0.4); }
+        .login-btn svg { width: 24px; height: 24px; fill: #fff; }
+        /* User info */
+        .user-info {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 1.2rem; padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .user-avatar { width: 44px; height: 44px; border-radius: 50%; border: 2px solid #00e5ff; }
+        .user-name { font-size: 1.05rem; font-weight: 600; flex: 1; }
+        .user-check { color: #2ecc71; font-size: 1.2rem; }
+        /* Team info */
+        .team-info {
+            background: rgba(0,229,255,0.06);
+            border: 1px solid rgba(0,229,255,0.15);
+            border-radius: 12px; padding: 1rem;
+            margin-bottom: 1.2rem;
+        }
+        .team-name { font-size: 1.2rem; font-weight: 700; color: #00e5ff; margin-bottom: 0.3rem; }
+        .team-meta { font-size: 0.9rem; color: rgba(255,255,255,0.6); }
+        .team-logo { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; margin-right: 12px; float: left; }
+        /* Buttons */
+        .btn-register {
+            width: 100%; padding: 14px; border: none; border-radius: 12px;
+            font-family: 'Rajdhani', sans-serif; font-size: 1.1rem; font-weight: 700;
+            cursor: pointer; transition: all 0.3s ease;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn-register.primary {
+            background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff;
+        }
+        .btn-register.primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(46,204,113,0.4); }
+        .btn-register.danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff;
+            margin-top: 0.8rem;
+        }
+        .btn-register.danger:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(231,76,60,0.4); }
+        .btn-register:disabled {
+            opacity: 0.5; cursor: not-allowed; transform: none !important;
+            box-shadow: none !important;
+        }
+        /* Status message */
+        .status-msg {
+            margin-top: 1rem; padding: 10px 14px;
+            border-radius: 8px; font-size: 0.95rem;
+            font-weight: 600; text-align: center;
+            display: none;
+        }
+        .status-msg.success { display: block; background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+        .status-msg.error { display: block; background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        /* Counter */
+        .counter {
+            text-align: center; font-size: 0.95rem;
+            color: rgba(255,255,255,0.5); padding: 1rem 0;
+        }
+        .counter strong { color: #00e5ff; font-size: 1.3rem; }
+        /* Participants */
+        .participants-section {
+            margin-top: 1rem;
+        }
+        .participants-toggle {
+            width: 100%; padding: 10px; border: none; border-radius: 10px;
+            background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7);
+            font-family: 'Rajdhani', sans-serif; font-size: 1rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .participants-toggle:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .participants-list {
+            margin-top: 0.8rem; max-height: 300px; overflow-y: auto;
+        }
+        .league-group { margin-bottom: 0.8rem; }
+        .league-label { font-size: 0.85rem; font-weight: 700; color: rgba(255,255,255,0.5); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 1px; }
+        .league-team { font-size: 0.9rem; padding: 4px 0; color: rgba(255,255,255,0.7); }
+        /* Loading */
+        .spinner {
+            width: 40px; height: 40px; margin: 2rem auto;
+            border: 3px solid rgba(0,229,255,0.2);
+            border-top-color: #00e5ff; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .footer { text-align: center; font-size: 0.8rem; color: rgba(255,255,255,0.25); margin-top: 1.5rem; }
+        /* Confirm modal */
+        .confirm-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 100;
+            justify-content: center; align-items: center;
+        }
+        .confirm-overlay.visible { display: flex; }
+        .confirm-box {
+            background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;
+            padding: 2rem; max-width: 360px; text-align: center;
+        }
+        .confirm-box h3 { margin-bottom: 0.8rem; }
+        .confirm-box p { color: rgba(255,255,255,0.6); margin-bottom: 1.2rem; font-size: 0.95rem; }
+        .confirm-btns { display: flex; gap: 10px; }
+        .confirm-yes {
+            flex: 1; padding: 10px; border: none; border-radius: 10px;
+            background: #e74c3c; color: #fff; font-family: 'Rajdhani', sans-serif;
+            font-weight: 700; cursor: pointer;
+        }
+        .confirm-no {
+            flex: 1; padding: 10px; border: none; border-radius: 10px;
+            background: rgba(255,255,255,0.1); color: #fff; font-family: 'Rajdhani', sans-serif;
+            font-weight: 700; cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg"></div>
+    <div class="container">
+        <div class="logo">
+            <h1>⚡ THE BLITZ</h1>
+        </div>
+        <div class="pool-name" id="pool-name">Cargando...</div>
+        <div class="pool-status" id="pool-status"></div>
+
+        <!-- Loading -->
+        <div class="card" id="state-loading">
+            <div class="spinner"></div>
+            <p style="text-align:center;color:rgba(255,255,255,0.5)">Cargando bolsa...</p>
+        </div>
+
+        <!-- Login required -->
+        <div class="card hidden" id="state-login">
+            <p style="text-align:center;margin-bottom:1.2rem;color:rgba(255,255,255,0.6)">
+                Para inscribir tu equipo, inicia sesión con Discord
+            </p>
+            <a class="login-btn" id="login-btn" href="/login">
+                <svg viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/></svg>
+                Iniciar sesión con Discord
+            </a>
+        </div>
+
+        <!-- Not a server member -->
+        <div class="card hidden" id="state-not-member">
+            <p style="text-align:center;color:#e74c3c;font-weight:600;margin-bottom:0.8rem">⚠️ No eres miembro del servidor</p>
+            <p style="text-align:center;color:rgba(255,255,255,0.6);margin-bottom:1rem">Debes unirte al servidor de Discord para inscribir tu equipo.</p>
+            <a class="login-btn" href="https://discord.gg/zEy9ztp8QM" target="_blank" style="background:#2ecc71">
+                Unirse al Servidor
+            </a>
+        </div>
+
+        <!-- Pool closed -->
+        <div class="card hidden" id="state-closed">
+            <p style="text-align:center;color:#e74c3c;font-weight:700;font-size:1.2rem">🔒 Inscripción Cerrada</p>
+            <p style="text-align:center;color:rgba(255,255,255,0.5);margin-top:0.5rem">Esta bolsa no acepta inscripciones en este momento.</p>
+        </div>
+
+        <!-- Error state -->
+        <div class="card hidden" id="state-error">
+            <p style="text-align:center;color:#e74c3c;font-weight:600" id="error-message">Error desconocido</p>
+        </div>
+
+        <!-- No team -->
+        <div class="card hidden" id="state-no-team">
+            <p style="text-align:center;color:#e74c3c;font-weight:600;margin-bottom:0.8rem">❌ No tienes equipo</p>
+            <p style="text-align:center;color:rgba(255,255,255,0.6)">Necesitas ser Manager o Capitán de un equipo para inscribirte. Crea uno desde tu perfil o desde Discord.</p>
+        </div>
+
+        <!-- Registration form (team found, not registered) -->
+        <div class="card hidden" id="state-form">
+            <div class="user-info">
+                <img class="user-avatar" id="user-avatar" src="" alt="">
+                <span class="user-name" id="user-name"></span>
+                <span class="user-check">✅</span>
+            </div>
+            <div class="team-info" id="team-info">
+                <img class="team-logo hidden" id="team-logo" src="" alt="">
+                <div class="team-name" id="team-name"></div>
+                <div class="team-meta" id="team-meta"></div>
+                <div style="clear:both"></div>
+            </div>
+            <button class="btn-register primary" id="register-btn">✅ INSCRIBIR MI EQUIPO</button>
+            <div class="status-msg" id="form-status"></div>
+        </div>
+
+        <!-- Already registered -->
+        <div class="card hidden" id="state-registered">
+            <div class="user-info">
+                <img class="user-avatar" id="reg-user-avatar" src="" alt="">
+                <span class="user-name" id="reg-user-name"></span>
+                <span class="user-check">✅</span>
+            </div>
+            <div class="team-info">
+                <div class="team-name" id="reg-team-name"></div>
+                <div class="team-meta" id="reg-team-meta"></div>
+            </div>
+            <p style="text-align:center;color:#2ecc71;font-weight:700;font-size:1.1rem;margin-bottom:0.8rem">✅ Tu equipo ya está inscrito</p>
+            <button class="btn-register danger" id="unregister-btn">❌ DARME DE BAJA</button>
+            <div class="status-msg" id="reg-status"></div>
+        </div>
+
+        <!-- Counter -->
+        <div class="counter hidden" id="counter">
+            <strong id="counter-total">0</strong> equipos inscritos —
+            <span id="counter-breakdown"></span>
+        </div>
+
+        <!-- Participants toggle -->
+        <div class="participants-section hidden" id="participants-section">
+            <button class="participants-toggle" id="participants-toggle">👥 Ver Participantes</button>
+            <div class="participants-list hidden" id="participants-list"></div>
+        </div>
+    </div>
+
+    <!-- Confirm unregister modal -->
+    <div class="confirm-overlay" id="confirm-overlay">
+        <div class="confirm-box">
+            <h3>⚠️ Confirmar baja</h3>
+            <p>¿Estás seguro de que quieres dar de baja a tu equipo de esta bolsa?</p>
+            <div class="confirm-btns">
+                <button class="confirm-yes" id="confirm-yes">SÍ, DARME DE BAJA</button>
+                <button class="confirm-no" id="confirm-no">CANCELAR</button>
+            </div>
+        </div>
+    </div>
+
+    <p class="footer">Powered by THE BLITZ © 2026</p>
+
+    <script>
+        const pathParts = window.location.pathname.split('/');
+        const poolId = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
+        let currentUser = null;
+        let currentTeam = null;
+
+        const LEAGUE_LABELS = { DIAMOND: '💎 Diamond', GOLD: '👑 Gold', SILVER: '⚙️ Silver', BRONZE: '🥉 Bronze' };
+
+        function showState(stateId) {
+            ['state-loading', 'state-login', 'state-not-member', 'state-closed',
+             'state-error', 'state-form', 'state-registered', 'state-no-team'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(stateId).classList.remove('hidden');
+        }
+
+        function updateCounter(pool) {
+            const teams = Object.values(pool.teams || {});
+            const counts = { DIAMOND: 0, GOLD: 0, SILVER: 0, BRONZE: 0 };
+            teams.forEach(t => { counts[t.league] = (counts[t.league] || 0) + 1; });
+            const total = teams.length;
+
+            document.getElementById('counter-total').textContent = total;
+            document.getElementById('counter-breakdown').textContent =
+                `💎 ${counts.DIAMOND} · 👑 ${counts.GOLD} · ⚙️ ${counts.SILVER} · 🥉 ${counts.BRONZE}`;
+            document.getElementById('counter').classList.remove('hidden');
+        }
+
+        function showParticipants(pool) {
+            const teams = Object.values(pool.teams || {});
+            if (teams.length === 0) return;
+
+            document.getElementById('participants-section').classList.remove('hidden');
+
+            const grouped = { DIAMOND: [], GOLD: [], SILVER: [], BRONZE: [] };
+            teams.sort((a, b) => b.elo - a.elo);
+            teams.forEach(t => {
+                const league = grouped[t.league] ? t.league : 'BRONZE';
+                grouped[league].push(t);
+            });
+
+            const listEl = document.getElementById('participants-list');
+            let html = '';
+            for (const league of ['DIAMOND', 'GOLD', 'SILVER', 'BRONZE']) {
+                if (grouped[league].length > 0) {
+                    html += `<div class="league-group">`;
+                    html += `<div class="league-label">${LEAGUE_LABELS[league]} (${grouped[league].length})</div>`;
+                    grouped[league].forEach((t, i) => {
+                        html += `<div class="league-team">${i + 1}. ${t.teamName} — ELO: ${t.elo}</div>`;
+                    });
+                    html += `</div>`;
+                }
+            }
+            listEl.innerHTML = html;
+        }
+
+        function showUserInfo(user, prefix = '') {
+            const avatarHash = user.avatar;
+            const avatarUrl = avatarHash
+                ? `https://cdn.discordapp.com/avatars/${user.id}/${avatarHash}.png`
+                : 'https://cdn.discordapp.com/embed/avatars/0.png';
+            const name = user.global_name || user.username;
+            document.getElementById(prefix + 'user-avatar').src = avatarUrl;
+            document.getElementById(prefix + 'user-name').textContent = name;
+        }
+
+        async function init() {
+            if (!poolId) {
+                showState('state-error');
+                document.getElementById('error-message').textContent = 'URL inválida.';
+                return;
+            }
+
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+
+            try {
+                // Check auth
+                const authRes = await fetch('/api/check-membership');
+                const authData = await authRes.json();
+
+                // Load pool info (public)
+                const poolRes = await fetch(`/api/pool/${poolId}`);
+                const poolData = await poolRes.json();
+
+                if (poolRes.status === 404) {
+                    showState('state-error');
+                    document.getElementById('error-message').textContent = poolData.error || 'Bolsa no encontrada.';
+                    return;
+                }
+
+                const pool = poolData.pool;
+                document.getElementById('pool-name').textContent = `📦 ${pool.name}`;
+
+                const statusMap = { open: '🟢 Inscripción Abierta', paused: '🔒 Inscripción Pausada', closed: '🛑 Cerrada' };
+                document.getElementById('pool-status').textContent = statusMap[pool.status] || pool.status;
+
+                updateCounter(pool);
+                showParticipants(pool);
+
+                if (!authData.authenticated) {
+                    showState('state-login');
+                    return;
+                }
+
+                currentUser = authData.user;
+
+                if (!authData.isMember) {
+                    showState('state-not-member');
+                    return;
+                }
+
+                if (pool.status !== 'open') {
+                    showState('state-closed');
+                    return;
+                }
+
+                // Get user's team status
+                const teamRes = await fetch(`/api/pool/${poolId}/my-status`);
+                const teamData = await teamRes.json();
+
+                if (!teamData.hasTeam) {
+                    showState('state-no-team');
+                    return;
+                }
+
+                currentTeam = teamData.team;
+
+                if (teamData.isRegistered) {
+                    // Already registered
+                    showUserInfo(currentUser, 'reg-');
+                    document.getElementById('reg-team-name').textContent = currentTeam.name;
+                    document.getElementById('reg-team-meta').textContent = `ELO: ${currentTeam.elo} — ${currentTeam.league}`;
+                    showState('state-registered');
+                } else {
+                    // Show registration form
+                    showUserInfo(currentUser);
+                    document.getElementById('team-name').textContent = currentTeam.name;
+                    document.getElementById('team-meta').textContent = `ELO: ${currentTeam.elo} — ${currentTeam.league}`;
+                    if (currentTeam.logoUrl) {
+                        const logoEl = document.getElementById('team-logo');
+                        logoEl.src = currentTeam.logoUrl;
+                        logoEl.classList.remove('hidden');
+                    }
+
+                    if (teamData.blocked) {
+                        document.getElementById('register-btn').disabled = true;
+                        const statusEl = document.getElementById('form-status');
+                        statusEl.textContent = `🚫 ${teamData.blockReason}`;
+                        statusEl.className = 'status-msg error';
+                    }
+
+                    showState('state-form');
+                }
+
+            } catch (err) {
+                console.error('Init error:', err);
+                showState('state-error');
+                document.getElementById('error-message').textContent = 'Error de conexión. Intenta de nuevo.';
+            }
+        }
+
+        // Register
+        document.getElementById('register-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('register-btn');
+            const statusEl = document.getElementById('form-status');
+            btn.disabled = true;
+            btn.textContent = 'INSCRIBIENDO...';
+            statusEl.className = 'status-msg';
+            statusEl.style.display = 'none';
+
+            try {
+                const res = await fetch(`/api/pool/${poolId}/register`, { method: 'POST' });
+                const data = await res.json();
+
+                if (res.ok) {
+                    statusEl.textContent = '✅ ¡Equipo inscrito correctamente!';
+                    statusEl.className = 'status-msg success';
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    statusEl.textContent = '❌ ' + (data.error || 'Error al inscribirse');
+                    statusEl.className = 'status-msg error';
+                    btn.disabled = false;
+                    btn.textContent = '✅ INSCRIBIR MI EQUIPO';
+                }
+            } catch (err) {
+                statusEl.textContent = '❌ Error de conexión. Intenta de nuevo.';
+                statusEl.className = 'status-msg error';
+                btn.disabled = false;
+                btn.textContent = '✅ INSCRIBIR MI EQUIPO';
+            }
+        });
+
+        // Unregister
+        document.getElementById('unregister-btn').addEventListener('click', () => {
+            document.getElementById('confirm-overlay').classList.add('visible');
+        });
+
+        document.getElementById('confirm-no').addEventListener('click', () => {
+            document.getElementById('confirm-overlay').classList.remove('visible');
+        });
+
+        document.getElementById('confirm-yes').addEventListener('click', async () => {
+            const btn = document.getElementById('confirm-yes');
+            btn.disabled = true;
+            btn.textContent = 'PROCESANDO...';
+
+            try {
+                const res = await fetch(`/api/pool/${poolId}/register`, { method: 'DELETE' });
+                const data = await res.json();
+
+                if (res.ok) {
+                    document.getElementById('confirm-overlay').classList.remove('visible');
+                    location.reload();
+                } else {
+                    alert(data.error || 'Error al darse de baja');
+                }
+            } catch (err) {
+                alert('Error de conexión');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'SÍ, DARME DE BAJA';
+        });
+
+        // Toggle participants
+        document.getElementById('participants-toggle').addEventListener('click', () => {
+            const list = document.getElementById('participants-list');
+            const btn = document.getElementById('participants-toggle');
+            if (list.classList.contains('hidden')) {
+                list.classList.remove('hidden');
+                btn.textContent = '👥 Ocultar Participantes';
+            } else {
+                list.classList.add('hidden');
+                btn.textContent = '👥 Ver Participantes';
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>
