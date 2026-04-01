@@ -1326,7 +1326,7 @@ export function createPoolEmbed(pool) {
             `${statusText}\n\n` +
             `**${total}** equipos inscritos\n` +
             `💎 ${counts.DIAMOND} Diamond · 👑 ${counts.GOLD} Gold · ⚙️ ${counts.SILVER} Silver · 🥉 ${counts.BRONZE} Bronze\n\n` +
-            `🌐 **Inscripción Web:** ${process.env.BASE_URL || 'https://theblitz.es'}/bolsa/${pool.shortId}`
+            `🌐 **Inscripción Web:** ${process.env.BASE_URL || 'https://bot-torneos-web.onrender.com'}/bolsa/${pool.shortId}`
         )
         .setFooter({ text: `ID: ${pool.shortId}` })
         .setTimestamp();
@@ -1355,7 +1355,7 @@ export function createPoolEmbed(pool) {
         new ButtonBuilder()
             .setLabel('Inscripción Web')
             .setStyle(ButtonStyle.Link)
-            .setURL(`${process.env.BASE_URL || 'https://theblitz.es'}/bolsa/${pool.shortId}`)
+            .setURL(`${process.env.BASE_URL || 'https://bot-torneos-web.onrender.com'}/bolsa/${pool.shortId}`)
             .setEmoji('🌐')
     );
 
