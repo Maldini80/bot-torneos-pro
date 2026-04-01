@@ -232,11 +232,7 @@ function calculatePlayoffElo(tournamentState, playoffVals) {
         }
         // Limpiar ghosts y ordenar de mejor a peor usando la misma lógica que la liga
         gruposRanking = gruposRanking.filter(t => t.id && t.id !== 'ghost');
-        gruposRanking.sort((a, b) => {
-            if (b.stats?.pts !== a.stats?.pts) return (b.stats?.pts || 0) - (a.stats?.pts || 0);
-            if (b.stats?.dg !== a.stats?.dg) return (b.stats?.dg || 0) - (a.stats?.dg || 0);
-            return (b.stats?.gf || 0) - (a.stats?.gf || 0);
-        });
+        gruposRanking.sort((a, b) => sortTeamsForRanking(a, b, tournamentState));
     }
 
     const totalEliminados = gruposRanking.filter(t => teamsRounds[t.id] === 'grupos');
@@ -288,11 +284,7 @@ function calculateLeagueElo(tournamentState, leagueVals) {
     if (allTeams.length === 0) return eloUpdates;
 
     // Ordenar por puntos (desc), dif goles (desc), goles favor (desc)
-    allTeams.sort((a, b) => {
-        if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
-        if (b.stats.dg !== a.stats.dg) return b.stats.dg - a.stats.dg;
-        return b.stats.gf - a.stats.gf;
-    });
+    allTeams.sort((a, b) => sortTeamsForRanking(a, b, tournamentState));
 
     const total = allTeams.length;
     allTeams.forEach((team, index) => {
@@ -318,4 +310,41 @@ function calculateLeagueElo(tournamentState, leagueVals) {
     });
 
     return eloUpdates;
+}
+
+/**
+ * Función auxiliar para ordenar equipos con todos los criterios de desempate
+ */
+function sortTeamsForRanking(a, b, tournamentState) {
+    if ((b.stats?.pts || 0) !== (a.stats?.pts || 0)) return (b.stats?.pts || 0) - (a.stats?.pts || 0);
+
+    // --- TIE-BREAKS PARA SISTEMA SUIZO ---
+    if (tournamentState.config?.formatId === 'flexible_league' && tournamentState.config?.leagueMode === 'custom_rounds') {
+        if ((b.stats?.buchholz || 0) !== (a.stats?.buchholz || 0)) return (b.stats?.buchholz || 0) - (a.stats?.buchholz || 0);
+    }
+    // -------------------------------------
+
+    if ((b.stats?.dg || 0) !== (a.stats?.dg || 0)) return (b.stats?.dg || 0) - (a.stats?.dg || 0);
+    if ((b.stats?.gf || 0) !== (a.stats?.gf || 0)) return (b.stats?.gf || 0) - (a.stats?.gf || 0);
+
+    // --- ENFRENTAMIENTO DIRECTO ---
+    let enfrentamiento = null;
+    if (tournamentState.structure?.calendario) {
+        for (const groupName in tournamentState.structure.calendario) {
+            enfrentamiento = tournamentState.structure.calendario[groupName]?.find(p => p.resultado && ((p.equipoA?.id === a.id && p.equipoB?.id === b.id) || (p.equipoA?.id === b.id && p.equipoB?.id === a.id)));
+            if (enfrentamiento) break;
+        }
+    }
+    if (enfrentamiento) {
+        const [golesA, golesB] = enfrentamiento.resultado.split('-').map(Number);
+        if (enfrentamiento.equipoA.id === a.id) { if (golesA > golesB) return -1; if (golesB > golesA) return 1; }
+        else { if (golesB > golesA) return -1; if (golesA > golesB) return 1; }
+    }
+
+    if ((b.stats?.pg || 0) !== (a.stats?.pg || 0)) return (b.stats?.pg || 0) - (a.stats?.pg || 0);
+
+    if (!a.nombre || !b.nombre) {
+        return (!a.nombre ? 1 : -1);
+    }
+    return a.nombre.localeCompare(b.nombre);
 }

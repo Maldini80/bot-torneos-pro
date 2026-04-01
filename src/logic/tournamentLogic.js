@@ -4571,6 +4571,12 @@ function sortTeams(a, b, tournament, groupName) {
             if (golesA > golesB) return 1;
         }
     }
+
+    if ((a.stats.pg || 0) !== (b.stats.pg || 0)) return (b.stats.pg || 0) - (a.stats.pg || 0);
+
+    if (!a.nombre || !b.nombre) {
+        return (!a.nombre ? 1 : -1);
+    }
     return a.nombre.localeCompare(b.nombre);
 }
 
