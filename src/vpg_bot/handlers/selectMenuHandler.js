@@ -167,22 +167,24 @@ module.exports = async (client, interaction) => {
         }
 
         team.managerId = newManagerId;
-        team.captains = team.captains.filter(id => id !== newManagerId);
-        team.players = team.players.filter(id => id !== newManagerId);
-
+        
+        let idsToPull = [newManagerId];
         if (action === 'kick') {
-            team.captains = team.captains.filter(id => id !== oldManagerId);
-            team.players = team.players.filter(id => id !== oldManagerId);
+            idsToPull.push(oldManagerId);
         }
-
-        team.markModified('captains');
-        team.markModified('players');
+        
+        await mongoose.connection.client.db('test').collection('teams').updateOne(
+            { _id: team._id },
+            { 
+                $set: { managerId: newManagerId },
+                $pull: { captains: { $in: idsToPull }, players: { $in: idsToPull } }
+            }
+        );
 
         await newManagerMember.roles.add([process.env.MANAGER_ROLE_ID, process.env.PLAYER_ROLE_ID]);
         await newManagerMember.roles.remove(process.env.CAPTAIN_ROLE_ID).catch(() => { });
         await newManagerMember.setNickname(`|MG| ${team.abbreviation} ${newManagerMember.user.username}`).catch(() => { });
 
-        await team.save();
         await newManagerMember.send(`¡Enhorabuena! Un administrador te ha asignado como nuevo Mánager de **${team.name}**.`).catch(() => { });
 
         await interaction.editReply({

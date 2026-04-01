@@ -717,8 +717,12 @@ const handler = async (client, interaction) => {
             if (isTargetCaptain && !canManage) return interaction.editReply({ content: 'Un capitán no puede expulsar a otro capitán.', components: [] });
             if (team.managerId === targetId) return interaction.editReply({ content: 'No puedes expulsar al mánager del equipo.', components: [] });
 
-            team.players = team.players.filter(p => p !== targetId);
-            team.captains = team.captains.filter(c => c !== targetId);
+            // FORZAMOS LA ESCRITURA EN DB (Evitar fallo Mongoose de reasignación)
+            await mongoose.connection.client.db('test').collection('teams').updateOne(
+                { _id: team._id },
+                { $pull: { players: targetId, captains: targetId } }
+            );
+
             await targetMember.roles.remove([process.env.PLAYER_ROLE_ID, process.env.CAPTAIN_ROLE_ID, process.env.MUTED_ROLE_ID]).catch(() => { });
             if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(targetMember.user.username).catch(() => { });
 
@@ -727,8 +731,11 @@ const handler = async (client, interaction) => {
 
         } else if (customId.startsWith('promote_player_')) {
             if (!canManage) return interaction.editReply({ content: 'Solo el Mánager o un Administrador pueden ascender jugadores.', components: [] });
-            team.players = team.players.filter(p => p !== targetId);
-            team.captains.push(targetId);
+            await mongoose.connection.client.db('test').collection('teams').updateOne(
+                { _id: team._id },
+                { $pull: { players: targetId }, $push: { captains: targetId } }
+            );
+
             await targetMember.roles.remove(process.env.PLAYER_ROLE_ID).catch(() => { });
             await targetMember.roles.add(process.env.CAPTAIN_ROLE_ID).catch(() => { });
             if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(`|C| ${team.abbreviation} ${targetMember.user.username}`).catch(() => { });
@@ -752,8 +759,10 @@ const handler = async (client, interaction) => {
 
         } else if (customId.startsWith('demote_captain_')) {
             if (!canManage) return interaction.editReply({ content: 'Solo el Mánager o un Administrador pueden degradar capitanes.', components: [] });
-            team.captains = team.captains.filter(c => c !== targetId);
-            team.players.push(targetId);
+            await mongoose.connection.client.db('test').collection('teams').updateOne(
+                { _id: team._id },
+                { $pull: { captains: targetId }, $push: { players: targetId } }
+            );
             await targetMember.roles.remove(process.env.CAPTAIN_ROLE_ID).catch(() => { });
             await targetMember.roles.add(process.env.PLAYER_ROLE_ID).catch(() => { });
             if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(`${team.abbreviation} ${targetMember.user.username}`).catch(() => { });
@@ -774,9 +783,6 @@ const handler = async (client, interaction) => {
                 await interaction.editReply({ content: successMessage, components: [] });
             }
         }
-        team.markModified('captains');
-        team.markModified('players');
-        await team.save();
         return;
     }
 
