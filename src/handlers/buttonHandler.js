@@ -5356,8 +5356,9 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
     // --- VER PARTICIPANTES ---
     if (action === 'pool_participants') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [poolShortId] = params;
+        const [poolShortId, pageStr] = params;
+        const page = parseInt(pageStr) || 0;
+        if (page > 0) { await interaction.deferUpdate(); } else { await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }); }
         const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
 
         if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
@@ -5385,28 +5386,49 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             BRONZE: '🥉 Bronze'
         };
 
-        let description = '';
+        // Construir lista plana con encabezados de liga
+        const allLines = [];
         for (const league of ['DIAMOND', 'GOLD', 'SILVER', 'BRONZE']) {
             if (grouped[league].length > 0) {
-                description += `\n**${leagueLabels[league]}** (${grouped[league].length})\n`;
+                allLines.push(`\n**${leagueLabels[league]}** (${grouped[league].length})`);
                 grouped[league].forEach((t, i) => {
-                    description += `${i + 1}. ${t.teamName} — ELO: ${t.elo}\n`;
+                    allLines.push(`${i + 1}. ${t.teamName} — ELO: ${t.elo}`);
                 });
             }
         }
 
-        // Truncar si es muy largo
-        if (description.length > 4000) {
-            description = description.substring(0, 3950) + '\n... (lista truncada)';
-        }
+        const ITEMS_PER_PAGE = 20;
+        const totalPages = Math.ceil(allLines.length / ITEMS_PER_PAGE);
+        const currentPage = Math.min(page, totalPages - 1);
+        const startIdx = currentPage * ITEMS_PER_PAGE;
+        const pageLines = allLines.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+        const description = pageLines.join('\n');
 
         const embed = new EmbedBuilder()
             .setColor('#00e5ff')
             .setTitle(`👥 Participantes: ${pool.name}`)
             .setDescription(`**${teams.length}** equipos inscritos\n${description}`)
-            .setFooter({ text: `ID: ${pool.shortId}` });
+            .setFooter({ text: `Página ${currentPage + 1}/${totalPages} · ID: ${pool.shortId}` });
 
-        await interaction.editReply({ embeds: [embed] });
+        const components = [];
+        if (totalPages > 1) {
+            const navRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`pool_participants:${poolShortId}:${currentPage - 1}`)
+                    .setLabel('◀ Anterior')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(currentPage === 0),
+                new ButtonBuilder()
+                    .setCustomId(`pool_participants:${poolShortId}:${currentPage + 1}`)
+                    .setLabel('Siguiente ▶')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(currentPage >= totalPages - 1)
+            );
+            components.push(navRow);
+        }
+
+        await interaction.editReply({ embeds: [embed], components });
         return;
     }
 
@@ -5704,27 +5726,52 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     // --- EXPULSAR EQUIPO ---
     if (action === 'pool_admin_kick') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [poolShortId] = params;
+        const [poolShortId, pageStr] = params;
+        const page = parseInt(pageStr) || 0;
         const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
         if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
 
         const teams = Object.entries(pool.teams || {});
         if (teams.length === 0) return interaction.editReply('❌ No hay equipos en la bolsa.');
 
-        const teamOptions = teams.map(([key, t]) => ({
+        // Paginar si >25
+        const ITEMS_PER_PAGE = 25;
+        const totalPages = Math.ceil(teams.length / ITEMS_PER_PAGE);
+        const currentPage = Math.min(page, totalPages - 1);
+        const pageTeams = teams.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
+
+        const teamOptions = pageTeams.map(([key, t]) => ({
             label: t.teamName,
             description: `ELO: ${t.elo} | ${t.league}`,
             value: key
-        })).slice(0, 25);
+        }));
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`pool_admin_kick_select:${poolShortId}`)
             .setPlaceholder('Selecciona un equipo para expulsar')
             .addOptions(teamOptions);
 
+        const components = [new ActionRowBuilder().addComponents(selectMenu)];
+
+        if (totalPages > 1) {
+            const navRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`pool_admin_kick:${poolShortId}:${currentPage - 1}`)
+                    .setLabel('◀ Anterior')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(currentPage === 0),
+                new ButtonBuilder()
+                    .setCustomId(`pool_admin_kick:${poolShortId}:${currentPage + 1}`)
+                    .setLabel('Siguiente ▶')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(currentPage >= totalPages - 1)
+            );
+            components.push(navRow);
+        }
+
         await interaction.editReply({
-            content: '👢 Selecciona el equipo que deseas **expulsar** de la bolsa:',
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
+            content: `👢 Selecciona el equipo que deseas **expulsar** (${teams.length} equipos${totalPages > 1 ? ` · Pág ${currentPage + 1}/${totalPages}` : ''}):`,
+            components
         });
         return;
     }
@@ -5732,27 +5779,52 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     // --- BANEAR EQUIPO ---
     if (action === 'pool_admin_ban') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [poolShortId] = params;
+        const [poolShortId, pageStr] = params;
+        const page = parseInt(pageStr) || 0;
         const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
         if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
 
         const teams = Object.entries(pool.teams || {});
         if (teams.length === 0) return interaction.editReply('❌ No hay equipos en la bolsa.');
 
-        const teamOptions = teams.map(([key, t]) => ({
+        // Paginar si >25
+        const ITEMS_PER_PAGE = 25;
+        const totalPages = Math.ceil(teams.length / ITEMS_PER_PAGE);
+        const currentPage = Math.min(page, totalPages - 1);
+        const pageTeams = teams.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
+
+        const teamOptions = pageTeams.map(([key, t]) => ({
             label: t.teamName,
             description: `ELO: ${t.elo} | ${t.league}`,
             value: key
-        })).slice(0, 25);
+        }));
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`pool_admin_ban_select:${poolShortId}`)
             .setPlaceholder('Selecciona un equipo para BANEAR de la bolsa')
             .addOptions(teamOptions);
 
+        const components = [new ActionRowBuilder().addComponents(selectMenu)];
+
+        if (totalPages > 1) {
+            const navRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`pool_admin_ban:${poolShortId}:${currentPage - 1}`)
+                    .setLabel('◀ Anterior')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(currentPage === 0),
+                new ButtonBuilder()
+                    .setCustomId(`pool_admin_ban:${poolShortId}:${currentPage + 1}`)
+                    .setLabel('Siguiente ▶')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(currentPage >= totalPages - 1)
+            );
+            components.push(navRow);
+        }
+
         await interaction.editReply({
-            content: '🚫 Selecciona el equipo que deseas **banear** de esta bolsa (será expulsado y no podrá volver a inscribirse):',
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
+            content: `🚫 Selecciona el equipo que deseas **banear** (${teams.length} equipos${totalPages > 1 ? ` · Pág ${currentPage + 1}/${totalPages}` : ''}):`,
+            components
         });
         return;
     }
