@@ -3354,6 +3354,72 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const { kickTeam } = await import('../logic/tournamentLogic.js');
         await kickTeam(client, tournament, captainId);
 
+        // Si vino de una bolsa, devolverlo automáticamente
+        let returnedToPool = false;
+        if (teamData.capitanTag === 'Bolsa_Inscripcion') {
+            try {
+                // Buscar la bolsa que lo envió a este torneo
+                const originPool = await db.collection('team_pools').findOne({
+                    [`usedInTournaments.${tournamentShortId}`]: captainId
+                });
+
+                if (originPool) {
+                    // Recuperar datos del equipo de la BD
+                    const testDb = getDb('test');
+                    const { getLeagueByElo } = await import('../logic/eloLogic.js');
+                    const teamRecord = await testDb.collection('teams').findOne({
+                        guildId: interaction.guildId,
+                        managerId: captainId
+                    });
+
+                    if (teamRecord) {
+                        const teamElo = teamRecord.elo || 1000;
+                        const teamLeague = getLeagueByElo(teamElo);
+                        const teamEntry = {
+                            teamDbId: teamRecord._id.toString(),
+                            teamName: teamRecord.name,
+                            managerId: captainId,
+                            captains: teamRecord.captains || [],
+                            elo: teamElo,
+                            league: teamLeague,
+                            logoUrl: teamRecord.logoUrl || null,
+                            inscritoEn: new Date(),
+                            inscritoPor: 'system_return',
+                            inscritoVia: 'devuelto_torneo'
+                        };
+
+                        // Re-añadir a la bolsa
+                        await db.collection('team_pools').updateOne(
+                            { _id: originPool._id },
+                            {
+                                $set: { [`teams.${captainId}`]: teamEntry },
+                                $pull: { [`usedInTournaments.${tournamentShortId}`]: captainId }
+                            }
+                        );
+
+                        // Actualizar embed de la bolsa
+                        const { createPoolEmbed } = await import('../utils/embeds.js');
+                        const updatedPool = await db.collection('team_pools').findOne({ _id: originPool._id });
+                        const ch = await client.channels.fetch(updatedPool.discordChannelId).catch(() => null);
+                        if (ch) {
+                            const msg = await ch.messages.fetch(updatedPool.discordMessageId).catch(() => null);
+                            if (msg) await msg.edit(createPoolEmbed(updatedPool));
+                        }
+
+                        // Log en hilo de la bolsa
+                        if (updatedPool.logThreadId) {
+                            const thread = await client.channels.fetch(updatedPool.logThreadId).catch(() => null);
+                            if (thread) await thread.send(`🔄 **${teamRecord.name}** devuelto a la bolsa tras ser expulsado del torneo **${tournament.nombre}**.`);
+                        }
+
+                        returnedToPool = true;
+                    }
+                }
+            } catch (e) {
+                console.error('[Pool Return] Error:', e.message);
+            }
+        }
+
         // Edit the message to show it was kicked and remove buttons
         const updatedRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -3364,7 +3430,9 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         );
         await interaction.message.edit({ components: [updatedRow] });
 
-        await interaction.editReply({ content: `✅ **${teamData.nombre}** ha sido expulsado del torneo.` });
+        let replyMsg = `✅ **${teamData.nombre}** ha sido expulsado del torneo.`;
+        if (returnedToPool) replyMsg += `\n🔄 El equipo ha sido **devuelto a su bolsa de origen** automáticamente.`;
+        await interaction.editReply({ content: replyMsg });
         return;
     }
 
