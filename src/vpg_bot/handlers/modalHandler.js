@@ -324,7 +324,44 @@ if (customId.startsWith('manager_request_modal_')) {
             return interaction.editReply({ content: t('errorRequestExpired', member), components: [] });
         }
         
-        const logoUrl = fields.getTextInputValue('teamLogoUrlInput');
+        const logoUrl = fields.getTextInputValue('teamLogoUrlInput').trim();
+
+        // Validar que la URL sea una imagen accesible
+        let isValid = false;
+        try {
+            if (!logoUrl.startsWith('http://') && !logoUrl.startsWith('https://')) throw new Error('No es URL');
+            const response = await fetch(logoUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+            const contentType = response.headers.get('content-type') || '';
+            isValid = response.ok && contentType.startsWith('image/');
+        } catch (e) {
+            isValid = false;
+        }
+
+        if (!isValid) {
+            const retryRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`ask_logo_yes_${pendingTeamId}`)
+                    .setLabel('Intentar de nuevo')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🔄'),
+                new ButtonBuilder()
+                    .setCustomId(`ask_logo_no_${pendingTeamId}`)
+                    .setLabel('Usar logo por defecto')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🛡️')
+            );
+
+            return interaction.editReply({
+                content: '❌ **La URL que has pegado no es válida o no es una imagen.**\n\n' +
+                    '📌 **¿Cómo obtener la URL correcta?**\n' +
+                    '1. Sube tu logo a un servicio como [Imgur](https://imgur.com/) o [Postimages](https://postimages.org/)\n' +
+                    '2. Haz **click derecho** sobre la imagen subida\n' +
+                    '3. Selecciona **"Copiar dirección de imagen"** (o "Copy image address")\n' +
+                    '4. La URL debe terminar en `.png`, `.jpg`, `.gif` o similar\n\n' +
+                    '⚠️ No pegues el enlace de la página, sino el **enlace directo de la imagen**.',
+                components: [retryRow]
+            });
+        }
 
         await sendApprovalRequest(interaction, client, { ...pendingTeam.toObject(), logoUrl });
         await PendingTeam.findByIdAndDelete(pendingTeamId);
