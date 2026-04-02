@@ -18,8 +18,6 @@ async function sendApprovalRequest(interaction, client, { vpgUsername, teamName,
     const approvalChannel = await client.channels.fetch(approvalChannelId).catch(() => null);
     if (!approvalChannel) return;
 
-    const safeLeagueName = leagueName.replace(/\s/g, '_');
-
     const embed = new EmbedBuilder()
         .setTitle('📝 Nueva Solicitud de Registro')
         .setColor('Orange')
@@ -30,16 +28,30 @@ async function sendApprovalRequest(interaction, client, { vpgUsername, teamName,
             { name: 'Nombre del Equipo', value: teamName },
             { name: 'Abreviatura', value: teamAbbr },
             { name: 'Twitter del Equipo', value: teamTwitter || 'No especificado' },
-            { name: 'URL del Logo', value: `[Ver Logo](${logoUrl})` },
-            { name: 'Liga Seleccionada', value: leagueName }
+            { name: 'URL del Logo', value: `[Ver Logo](${logoUrl})` }
         )
         .setTimestamp();
 
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`approve_request_${interaction.user.id}_${safeLeagueName}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`reject_request_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+    const selectRow = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`approve_team_select_${interaction.user.id}`)
+            .setPlaceholder('Elige la liga para APROBAR este equipo')
+            .addOptions([
+                { label: '💎 Liga DIAMOND (1550+ ELO)', value: '1550_DIAMOND', description: 'Empieza con 1550 Puntos' },
+                { label: '👑 Liga GOLD (1300-1549 ELO)', value: '1300_GOLD', description: 'Empieza con 1300 Puntos' },
+                { label: '⚙️ Liga SILVER (1000-1299 ELO)', value: '1000_SILVER', description: 'Empieza con 1000 Puntos' },
+                { label: '🥉 Liga BRONZE (<1000 ELO)', value: '700_BRONZE', description: 'Empieza con 700 Puntos' }
+            ])
     );
-    await approvalChannel.send({ content: `**Solicitante:** <@${interaction.user.id}>`, embeds: [embed], components: [row] });
+
+    const buttonRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`reject_request_${interaction.user.id}`)
+            .setLabel('Rechazar')
+            .setStyle(ButtonStyle.Danger)
+    );
+
+    await approvalChannel.send({ content: `**Solicitante:** <@${interaction.user.id}>`, embeds: [embed], components: [selectRow, buttonRow] });
 }
 
 
