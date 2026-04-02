@@ -397,7 +397,7 @@ const handler = async (client, interaction) => {
     // =================== LÓGICA DE INTERACCIONES EN GUILD ======================
     // ===========================================================================
     const { member, guild } = interaction;
-    const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
+    const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator) || member.roles.cache.has('1393505777443930183') || member.roles.cache.has(process.env.APPROVER_ROLE_ID);
 
     if (customId === 'admin_create_team_button') {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
