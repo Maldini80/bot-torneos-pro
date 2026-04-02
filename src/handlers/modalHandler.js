@@ -3221,4 +3221,76 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         });
         return;
     }
+
+    // Modal: ¿Cuántos equipos meter de bolsa a torneo?
+    if (customId.startsWith('admin_pool_count_modal:')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const parts = customId.split(':');
+        const poolShortId = parts[1];
+        const tournamentShortId = parts[2];
+        const countRaw = interaction.fields.getTextInputValue('pool_team_count').trim();
+        const count = parseInt(countRaw);
+
+        if (isNaN(count) || count <= 0) {
+            return interaction.editReply('❌ Debes introducir un número válido mayor que 0.');
+        }
+
+        const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!pool) return interaction.editReply('❌ Bolsa no encontrada.');
+        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+
+        const teamCount = Object.keys(pool.teams || {}).length;
+        const finalCount = Math.min(count, teamCount);
+
+        if (finalCount === 0) {
+            return interaction.editReply('❌ No hay equipos en la bolsa.');
+        }
+
+        // Preview: show top N teams
+        const poolTeams = Object.values(pool.teams || {});
+        poolTeams.sort((a, b) => b.elo - a.elo);
+        const preview = poolTeams.slice(0, finalCount);
+
+        const { LEAGUE_EMOJIS } = await import('../logic/eloLogic.js');
+        const previewText = preview.map((t, i) => {
+            const leagueEmoji = LEAGUE_EMOJIS[t.league] || '🥉';
+            return `${i + 1}. ${leagueEmoji} **${t.teamName}** — ELO: ${t.elo}`;
+        }).join('\n');
+
+        // Truncate preview if too long
+        const displayPreview = previewText.length > 3500
+            ? previewText.substring(0, 3450) + '\n... (lista truncada)'
+            : previewText;
+
+        const approvedCount = Object.keys(tournament.teams?.aprobados || {}).length;
+
+        const confirmEmbed = new EmbedBuilder()
+            .setColor('#e67e22')
+            .setTitle('⚠️ Confirmar Asignación')
+            .setDescription(
+                `📦 **Bolsa:** ${pool.name} (${teamCount} equipos)\n` +
+                `🏆 **Torneo:** ${tournament.nombre} (${approvedCount} ya inscritos)\n\n` +
+                `Se van a inscribir **${finalCount}** equipos (top ELO):\n\n${displayPreview}\n\n` +
+                `⚠️ Esta acción inscribirá automáticamente estos equipos. ¿Confirmar?`
+            );
+
+        const confirmRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_pool_assign_confirm:${poolShortId}:${tournamentShortId}:${finalCount}`)
+                .setLabel(`Confirmar (${finalCount} equipos)`)
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('✅'),
+            new ButtonBuilder()
+                .setCustomId('pool_admin_cancel')
+                .setLabel('Cancelar')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        await interaction.editReply({
+            embeds: [confirmEmbed],
+            components: [confirmRow]
+        });
+        return;
+    }
 }
