@@ -6025,12 +6025,38 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const finalTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         await updatePublicMessages(client, finalTournament);
 
-        // Track usage in pool
-        const assignedManagers = teamsToAssign.filter((_, i) => i < totalInscribed).map(t => t.managerId);
-        await db.collection('team_pools').updateOne(
-            { shortId: poolShortId },
-            { $set: { [`usedInTournaments.${tournamentShortId}`]: assignedManagers } }
-        );
+        // Remove assigned teams from pool + track usage
+        const assignedManagers = [];
+        const unsetFields = {};
+        for (const poolTeam of teamsToAssign) {
+            // Only remove if successfully inscribed (not errored)
+            const wasError = errorDetails.some(e => e.startsWith(poolTeam.teamName));
+            if (!wasError) {
+                assignedManagers.push(poolTeam.managerId);
+                unsetFields[`teams.${poolTeam.managerId}`] = '';
+            }
+        }
+
+        if (assignedManagers.length > 0) {
+            await db.collection('team_pools').updateOne(
+                { shortId: poolShortId },
+                {
+                    $unset: unsetFields,
+                    $set: { [`usedInTournaments.${tournamentShortId}`]: assignedManagers }
+                }
+            );
+        }
+
+        // Update pool embed
+        const { createPoolEmbed } = await import('../utils/embeds.js');
+        const updatedPool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+        try {
+            const channel = await client.channels.fetch(updatedPool.discordChannelId).catch(() => null);
+            if (channel) {
+                const msg = await channel.messages.fetch(updatedPool.discordMessageId).catch(() => null);
+                if (msg) await msg.edit(createPoolEmbed(updatedPool));
+            }
+        } catch (e) { /* ignore */ }
 
         // Log to pool thread
         if (pool.logThreadId) {
