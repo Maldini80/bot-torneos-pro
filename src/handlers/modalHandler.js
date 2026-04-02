@@ -3009,6 +3009,17 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const poolName = interaction.fields.getTextInputValue('pool_name').trim();
         const poolImage = interaction.fields.getTextInputValue('pool_image')?.trim() || null;
+        const minEloRaw = interaction.fields.getTextInputValue('pool_min_elo')?.trim();
+        const maxEloRaw = interaction.fields.getTextInputValue('pool_max_elo')?.trim();
+        const minElo = minEloRaw ? parseInt(minEloRaw) : null;
+        const maxElo = maxEloRaw ? parseInt(maxEloRaw) : null;
+
+        if ((minEloRaw && isNaN(minElo)) || (maxEloRaw && isNaN(maxElo))) {
+            return interaction.editReply('❌ Los valores de ELO deben ser números válidos.');
+        }
+        if (minElo && maxElo && minElo > maxElo) {
+            return interaction.editReply('❌ El ELO mínimo no puede ser mayor que el máximo.');
+        }
 
         // Generar shortId único
         const shortId = `pool-${Date.now().toString(36)}`;
@@ -3018,6 +3029,8 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             guildId: interaction.guildId,
             name: poolName,
             imageUrl: poolImage,
+            minElo: minElo,
+            maxElo: maxElo,
             status: 'open',
             createdBy: interaction.user.id,
             createdAt: new Date(),
@@ -3078,10 +3091,21 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         const poolShortId = customId.split(':')[1];
         const newName = interaction.fields.getTextInputValue('pool_name').trim();
         const newImage = interaction.fields.getTextInputValue('pool_image')?.trim() || null;
+        const minEloRaw = interaction.fields.getTextInputValue('pool_min_elo')?.trim();
+        const maxEloRaw = interaction.fields.getTextInputValue('pool_max_elo')?.trim();
+        const minElo = minEloRaw ? parseInt(minEloRaw) : null;
+        const maxElo = maxEloRaw ? parseInt(maxEloRaw) : null;
+
+        if ((minEloRaw && isNaN(minElo)) || (maxEloRaw && isNaN(maxElo))) {
+            return interaction.editReply('❌ Los valores de ELO deben ser números válidos.');
+        }
+        if (minElo && maxElo && minElo > maxElo) {
+            return interaction.editReply('❌ El ELO mínimo no puede ser mayor que el máximo.');
+        }
 
         await db.collection('team_pools').updateOne(
             { shortId: poolShortId },
-            { $set: { name: newName, imageUrl: newImage } }
+            { $set: { name: newName, imageUrl: newImage, minElo: minElo, maxElo: maxElo } }
         );
 
         const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });

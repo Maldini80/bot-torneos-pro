@@ -1319,13 +1319,23 @@ export function createPoolEmbed(pool) {
             embedColor = '#00e5ff';
     }
 
+    // Build ELO filter text
+    let eloFilterText = '';
+    if (pool.minElo || pool.maxElo) {
+        const parts = [];
+        if (pool.minElo) parts.push(`Mínimo: ${pool.minElo}`);
+        if (pool.maxElo) parts.push(`Máximo: ${pool.maxElo}`);
+        eloFilterText = `\n🎯 **Filtro ELO:** ${parts.join(' · ')}\n`;
+    }
+
     const embed = new EmbedBuilder()
         .setColor(embedColor)
         .setTitle(`📦 ${pool.name}`)
         .setDescription(
             `${statusText}\n\n` +
             `**${total}** equipos inscritos\n` +
-            `💎 ${counts.DIAMOND} Diamond · 👑 ${counts.GOLD} Gold · ⚙️ ${counts.SILVER} Silver · 🥉 ${counts.BRONZE} Bronze\n\n` +
+            `💎 ${counts.DIAMOND} Diamond · 👑 ${counts.GOLD} Gold · ⚙️ ${counts.SILVER} Silver · 🥉 ${counts.BRONZE} Bronze\n` +
+            eloFilterText + `\n` +
             `🌐 **Inscripción Web:** ${process.env.BASE_URL || 'https://bot-torneos-web.onrender.com'}/bolsa/${pool.shortId}`
         )
         .setFooter({ text: `ID: ${pool.shortId}` })

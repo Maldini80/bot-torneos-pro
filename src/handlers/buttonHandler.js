@@ -5236,9 +5236,25 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setPlaceholder('https://i.imgur.com/ejemplo.png')
             .setRequired(false);
 
+        const minEloInput = new TextInputBuilder()
+            .setCustomId('pool_min_elo')
+            .setLabel('ELO Mínimo (vacío = sin mínimo)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: 1000 (Silver+), 1300 (Gold+), 1550 (Diamond)')
+            .setRequired(false);
+
+        const maxEloInput = new TextInputBuilder()
+            .setCustomId('pool_max_elo')
+            .setLabel('ELO Máximo (vacío = sin máximo)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: 1299 (solo Silver/Bronze), 1549 (hasta Gold)')
+            .setRequired(false);
+
         modal.addComponents(
             new ActionRowBuilder().addComponents(nameInput),
-            new ActionRowBuilder().addComponents(imageInput)
+            new ActionRowBuilder().addComponents(imageInput),
+            new ActionRowBuilder().addComponents(minEloInput),
+            new ActionRowBuilder().addComponents(maxEloInput)
         );
         await interaction.showModal(modal);
         return;
@@ -5318,9 +5334,18 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             return interaction.editReply(`⚠️ Tu equipo **${userTeam.name}** ya está inscrito en esta bolsa (inscrito por <@${existingEntry.inscritoPor}>).`);
         }
 
-        // Inscribir al equipo
+        // Verificar filtro de ELO
         const teamElo = userTeam.elo || 1000;
         const teamLeague = getLeagueByElo(teamElo);
+
+        if (pool.minElo && teamElo < pool.minElo) {
+            return interaction.editReply(`🚫 Tu equipo **${userTeam.name}** tiene **${teamElo} ELO**, pero esta bolsa requiere mínimo **${pool.minElo} ELO**.`);
+        }
+        if (pool.maxElo && teamElo > pool.maxElo) {
+            return interaction.editReply(`🚫 Tu equipo **${userTeam.name}** tiene **${teamElo} ELO**, pero esta bolsa permite máximo **${pool.maxElo} ELO**.`);
+        }
+
+        // Inscribir al equipo
         const teamEntry = {
             teamDbId: userTeam._id.toString(),
             teamName: userTeam.name,
@@ -5696,9 +5721,27 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setValue(pool.imageUrl || '')
             .setRequired(false);
 
+        const minEloInput = new TextInputBuilder()
+            .setCustomId('pool_min_elo')
+            .setLabel('ELO Mínimo (vacío = sin mínimo)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(pool.minElo ? String(pool.minElo) : '')
+            .setPlaceholder('Ej: 1000 (Silver+), 1300 (Gold+)')
+            .setRequired(false);
+
+        const maxEloInput = new TextInputBuilder()
+            .setCustomId('pool_max_elo')
+            .setLabel('ELO Máximo (vacío = sin máximo)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(pool.maxElo ? String(pool.maxElo) : '')
+            .setPlaceholder('Ej: 1299 (solo Silver/Bronze)')
+            .setRequired(false);
+
         modal.addComponents(
             new ActionRowBuilder().addComponents(nameInput),
-            new ActionRowBuilder().addComponents(imageInput)
+            new ActionRowBuilder().addComponents(imageInput),
+            new ActionRowBuilder().addComponents(minEloInput),
+            new ActionRowBuilder().addComponents(maxEloInput)
         );
         await interaction.showModal(modal);
         return;

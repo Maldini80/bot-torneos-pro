@@ -3614,6 +3614,12 @@ export async function startVisualizerServer(discordClient) {
             } else if (pool.bannedTeams && pool.bannedTeams.includes(userTeam._id.toString())) {
                 blocked = true;
                 blockReason = 'Tu equipo está baneado de esta bolsa.';
+            } else if (pool.minElo && teamElo < pool.minElo) {
+                blocked = true;
+                blockReason = `Tu equipo tiene ${teamElo} ELO, pero esta bolsa requiere mínimo ${pool.minElo} ELO.`;
+            } else if (pool.maxElo && teamElo > pool.maxElo) {
+                blocked = true;
+                blockReason = `Tu equipo tiene ${teamElo} ELO, pero esta bolsa permite máximo ${pool.maxElo} ELO.`;
             }
 
             res.json({
@@ -3681,6 +3687,15 @@ export async function startVisualizerServer(discordClient) {
 
             const teamElo = userTeam.elo || 1000;
             const teamLeague = getLeagueByElo(teamElo);
+
+            // Verificar filtro de ELO
+            if (pool.minElo && teamElo < pool.minElo) {
+                return res.status(403).json({ error: `Tu equipo tiene ${teamElo} ELO, pero esta bolsa requiere mínimo ${pool.minElo} ELO.` });
+            }
+            if (pool.maxElo && teamElo > pool.maxElo) {
+                return res.status(403).json({ error: `Tu equipo tiene ${teamElo} ELO, pero esta bolsa permite máximo ${pool.maxElo} ELO.` });
+            }
+
             const entryKey = userTeam.managerId || userTeam._id.toString();
 
             const teamEntry = {
