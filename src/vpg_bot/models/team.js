@@ -11,6 +11,7 @@ const teamSchema = new mongoose.Schema({
     managerId: { type: String, unique: true, sparse: true },
     captains: [{ type: String }],
     players: [{ type: String }],
+    elo: { type: Number },
     // AÑADE LA SIGUIENTE LÍNEA AQUÍ
     recruitmentOpen: { type: Boolean, default: true }
 });
