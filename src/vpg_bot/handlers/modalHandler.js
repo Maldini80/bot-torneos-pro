@@ -431,8 +431,35 @@ if (customId.startsWith('manager_request_modal_')) {
 
         const newName = fields.getTextInputValue('newName') || oldData.name;
         const newAbbr = fields.getTextInputValue('newAbbr')?.toUpperCase() || oldData.abbreviation;
-        const newLogo = fields.getTextInputValue('newLogo') || oldData.logoUrl;
+        const newLogoRaw = fields.getTextInputValue('newLogo')?.trim();
         const newTwitter = fields.getTextInputValue('newTwitter') || oldData.twitterHandle;
+
+        // Si puso una URL nueva de logo, validarla
+        let newLogo = oldData.logoUrl;
+        if (newLogoRaw && newLogoRaw !== oldData.logoUrl) {
+            let isValid = false;
+            try {
+                if (!newLogoRaw.startsWith('http://') && !newLogoRaw.startsWith('https://')) throw new Error('No es URL');
+                const response = await fetch(newLogoRaw, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+                const contentType = response.headers.get('content-type') || '';
+                isValid = response.ok && contentType.startsWith('image/');
+            } catch (e) {
+                isValid = false;
+            }
+
+            if (!isValid) {
+                return interaction.editReply({
+                    content: '❌ **La URL del logo no es válida o no es una imagen.**\n\n' +
+                        'El resto de datos NO se han guardado. Vuelve a intentarlo con una URL correcta.\n\n' +
+                        '📌 **¿Cómo obtener la URL correcta?**\n' +
+                        '1. Sube tu logo a [Imgur](https://imgur.com/) o [Postimages](https://postimages.org/)\n' +
+                        '2. Haz **click derecho** sobre la imagen subida\n' +
+                        '3. Selecciona **"Copiar dirección de imagen"**\n' +
+                        '4. La URL debe terminar en `.png`, `.jpg`, `.gif` o similar'
+                });
+            }
+            newLogo = newLogoRaw;
+        }
 
         team.name = newName;
         team.abbreviation = newAbbr;
