@@ -3351,76 +3351,36 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             return interaction.editReply({ content: "Error: El capitán no está en la lista de aprobados." });
         }
 
-        const { kickTeam } = await import('../logic/tournamentLogic.js');
-        await kickTeam(client, tournament, captainId);
-
-        // Si vino de una bolsa, devolverlo automáticamente
-        let returnedToPool = false;
+        // Si vino de una bolsa, preguntar qué hacer
         if (teamData.capitanTag === 'Bolsa_Inscripcion') {
-            try {
-                // Buscar la bolsa que lo envió a este torneo
-                const originPool = await db.collection('team_pools').findOne({
-                    [`usedInTournaments.${tournamentShortId}`]: captainId
+            const originPool = await db.collection('team_pools').findOne({
+                [`usedInTournaments.${tournamentShortId}`]: captainId
+            });
+
+            if (originPool) {
+                const choiceRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`admin_kick_return_pool:${captainId}:${tournamentShortId}:${originPool.shortId}`)
+                        .setLabel('🔄 Devolver a la Bolsa')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId(`admin_kick_permanent:${captainId}:${tournamentShortId}`)
+                        .setLabel('🗑️ Expulsar Definitivamente')
+                        .setStyle(ButtonStyle.Danger)
+                );
+
+                await interaction.editReply({
+                    content: `⚠️ **${teamData.nombre}** vino de la bolsa **${originPool.name}**.\n¿Quieres devolverlo a la bolsa o expulsarlo definitivamente?`,
+                    components: [choiceRow]
                 });
-
-                if (originPool) {
-                    // Recuperar datos del equipo de la BD
-                    const testDb = getDb('test');
-                    const { getLeagueByElo } = await import('../logic/eloLogic.js');
-                    const teamRecord = await testDb.collection('teams').findOne({
-                        guildId: interaction.guildId,
-                        managerId: captainId
-                    });
-
-                    if (teamRecord) {
-                        const teamElo = teamRecord.elo || 1000;
-                        const teamLeague = getLeagueByElo(teamElo);
-                        const teamEntry = {
-                            teamDbId: teamRecord._id.toString(),
-                            teamName: teamRecord.name,
-                            managerId: captainId,
-                            captains: teamRecord.captains || [],
-                            elo: teamElo,
-                            league: teamLeague,
-                            logoUrl: teamRecord.logoUrl || null,
-                            inscritoEn: new Date(),
-                            inscritoPor: 'system_return',
-                            inscritoVia: 'devuelto_torneo'
-                        };
-
-                        // Re-añadir a la bolsa
-                        await db.collection('team_pools').updateOne(
-                            { _id: originPool._id },
-                            {
-                                $set: { [`teams.${captainId}`]: teamEntry },
-                                $pull: { [`usedInTournaments.${tournamentShortId}`]: captainId }
-                            }
-                        );
-
-                        // Actualizar embed de la bolsa
-                        const { createPoolEmbed } = await import('../utils/embeds.js');
-                        const updatedPool = await db.collection('team_pools').findOne({ _id: originPool._id });
-                        const ch = await client.channels.fetch(updatedPool.discordChannelId).catch(() => null);
-                        if (ch) {
-                            const msg = await ch.messages.fetch(updatedPool.discordMessageId).catch(() => null);
-                            if (msg) await msg.edit(createPoolEmbed(updatedPool));
-                        }
-
-                        // Log en hilo de la bolsa
-                        if (updatedPool.logThreadId) {
-                            const thread = await client.channels.fetch(updatedPool.logThreadId).catch(() => null);
-                            if (thread) await thread.send(`🔄 **${teamRecord.name}** devuelto a la bolsa tras ser expulsado del torneo **${tournament.nombre}**.`);
-                        }
-
-                        returnedToPool = true;
-                    }
-                }
-            } catch (e) {
-                console.error('[Pool Return] Error:', e.message);
+                return;
             }
         }
 
-        // Edit the message to show it was kicked and remove buttons
+        // Si no vino de bolsa, expulsar directamente
+        const { kickTeam } = await import('../logic/tournamentLogic.js');
+        await kickTeam(client, tournament, captainId);
+
         const updatedRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('disabled_kicked_btn')
@@ -3429,10 +3389,96 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 .setDisabled(true)
         );
         await interaction.message.edit({ components: [updatedRow] });
+        await interaction.editReply({ content: `✅ **${teamData.nombre}** ha sido expulsado del torneo.` });
+        return;
+    }
 
-        let replyMsg = `✅ **${teamData.nombre}** ha sido expulsado del torneo.`;
-        if (returnedToPool) replyMsg += `\n🔄 El equipo ha sido **devuelto a su bolsa de origen** automáticamente.`;
-        await interaction.editReply({ content: replyMsg });
+    // --- KICK + DEVOLVER A BOLSA ---
+    if (action === 'admin_kick_return_pool') {
+        await interaction.deferUpdate();
+        const [captainId, tournamentShortId, poolShortId] = params;
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: '❌ Torneo no encontrado.', components: [] });
+
+        const teamData = tournament.teams?.aprobados?.[captainId];
+        if (!teamData) return interaction.editReply({ content: '❌ Equipo ya no está en el torneo.', components: [] });
+
+        const { kickTeam } = await import('../logic/tournamentLogic.js');
+        await kickTeam(client, tournament, captainId);
+
+        // Devolver a la bolsa
+        let returnedOk = false;
+        try {
+            const testDb = getDb('test');
+            const { getLeagueByElo } = await import('../logic/eloLogic.js');
+            const teamRecord = await testDb.collection('teams').findOne({ guildId: interaction.guildId, managerId: captainId });
+
+            if (teamRecord) {
+                const teamElo = teamRecord.elo || 1000;
+                const teamEntry = {
+                    teamDbId: teamRecord._id.toString(),
+                    teamName: teamRecord.name,
+                    managerId: captainId,
+                    captains: teamRecord.captains || [],
+                    elo: teamElo,
+                    league: getLeagueByElo(teamElo),
+                    logoUrl: teamRecord.logoUrl || null,
+                    inscritoEn: new Date(),
+                    inscritoPor: 'system_return',
+                    inscritoVia: 'devuelto_torneo'
+                };
+
+                await db.collection('team_pools').updateOne(
+                    { shortId: poolShortId },
+                    {
+                        $set: { [`teams.${captainId}`]: teamEntry },
+                        $pull: { [`usedInTournaments.${tournamentShortId}`]: captainId }
+                    }
+                );
+
+                const { createPoolEmbed } = await import('../utils/embeds.js');
+                const updatedPool = await db.collection('team_pools').findOne({ shortId: poolShortId });
+                const ch = await client.channels.fetch(updatedPool.discordChannelId).catch(() => null);
+                if (ch) {
+                    const msg = await ch.messages.fetch(updatedPool.discordMessageId).catch(() => null);
+                    if (msg) await msg.edit(createPoolEmbed(updatedPool));
+                }
+                if (updatedPool.logThreadId) {
+                    const thread = await client.channels.fetch(updatedPool.logThreadId).catch(() => null);
+                    if (thread) await thread.send(`🔄 **${teamRecord.name}** devuelto a la bolsa tras ser expulsado del torneo **${tournament.nombre}** por <@${interaction.user.id}>.`);
+                }
+                returnedOk = true;
+            }
+        } catch (e) { console.error('[Pool Return] Error:', e.message); }
+
+        await interaction.editReply({
+            content: returnedOk
+                ? `✅ **${teamData.nombre}** expulsado del torneo y **devuelto a la bolsa**.`
+                : `✅ **${teamData.nombre}** expulsado, pero hubo un error al devolverlo a la bolsa.`,
+            components: []
+        });
+        return;
+    }
+
+    // --- KICK DEFINITIVO (sin devolver a bolsa) ---
+    if (action === 'admin_kick_permanent') {
+        await interaction.deferUpdate();
+        const [captainId, tournamentShortId] = params;
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: '❌ Torneo no encontrado.', components: [] });
+
+        const teamData = tournament.teams?.aprobados?.[captainId];
+        if (!teamData) return interaction.editReply({ content: '❌ Equipo ya no está en el torneo.', components: [] });
+
+        const { kickTeam } = await import('../logic/tournamentLogic.js');
+        await kickTeam(client, tournament, captainId);
+
+        await interaction.editReply({
+            content: `✅ **${teamData.nombre}** ha sido expulsado **definitivamente** del torneo (no vuelve a la bolsa).`,
+            components: []
+        });
         return;
     }
 
