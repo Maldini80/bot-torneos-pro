@@ -2436,6 +2436,22 @@ export async function handleSelectMenu(interaction) {
             );
 
             await interaction.showModal(modal);
+        } else if (formatId === 'knockout_only') {
+            // Para solo eliminatorias: selector de ronda final
+            const finalRoundMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_create_knockout_final_round:${formatId}:${type}:none:${leaguesEncoded}`)
+                .setPlaceholder('Paso 4: ¿Hasta qué ronda se juega?')
+                .addOptions([
+                    { label: '🏆 Hasta la Final', description: 'Se juega hasta que un equipo gane la final', value: 'final', emoji: '🏆' },
+                    { label: '⚔️ Hasta Semifinales', description: 'El torneo termina en semifinales (4 ganadores)', value: 'semifinales', emoji: '⚔️' },
+                    { label: '🎯 Hasta Cuartos', description: 'El torneo termina en cuartos de final (8 ganadores)', value: 'cuartos', emoji: '🎯' },
+                    { label: '🔥 Hasta Octavos', description: 'El torneo termina en octavos (16 ganadores)', value: 'octavos', emoji: '🔥' }
+                ]);
+
+            await interaction.update({
+                content: `Ligas: **${leagueDisplay}**. Ahora, elige **hasta qué ronda** se juega el torneo:`,
+                components: [new ActionRowBuilder().addComponents(finalRoundMenu)]
+            });
         } else {
             // Para torneos normales: siguiente paso es tipo de partidos
             const matchTypeMenu = new StringSelectMenuBuilder()
@@ -2482,6 +2498,37 @@ export async function handleSelectMenu(interaction) {
         if (tournament) {
             await updatePublicMessages(interaction.client, tournament);
         }
+        return;
+
+    } else if (action === 'admin_create_knockout_final_round') {
+        // params: [formatId, type, paidSubType, leaguesEncoded]
+        const [formatId, type, paidSubType, leaguesEncoded] = params;
+        const knockoutFinalRound = interaction.values[0]; // 'final', 'semifinales', 'cuartos', 'octavos'
+
+        const roundLabels = { final: 'Final', semifinales: 'Semifinales', cuartos: 'Cuartos de Final', octavos: 'Octavos de Final' };
+
+        let customIdBase = `create_tournament:${formatId}:${type}:ida`; // eliminatorias no necesitan ida/vuelta, ponemos 'ida' como placeholder
+        // Append knockout final round info
+        customIdBase += `:KO_${knockoutFinalRound}`;
+        if (leaguesEncoded && leaguesEncoded !== 'none' && leaguesEncoded !== 'ALL') {
+            customIdBase += `:${leaguesEncoded}`;
+        } else if (leaguesEncoded === 'ALL') {
+            customIdBase += `:ALL`;
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId(customIdBase)
+            .setTitle('Crear Torneo Eliminatorias');
+
+        const nombreInput = new TextInputBuilder().setCustomId('torneo_nombre').setLabel("Nombre del Torneo").setStyle(TextInputStyle.Short).setRequired(true);
+        const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(nombreInput),
+            new ActionRowBuilder().addComponents(startTimeInput)
+        );
+
+        await interaction.showModal(modal);
         return;
 
     } else if (action === 'admin_create_match_type') {

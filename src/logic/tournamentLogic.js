@@ -1199,12 +1199,23 @@ export async function createNewTournament(client, guild, name, shortId, config) 
             config.registrationClosed = true;  // Capitanes (Discord)
         }
 
+        // Si hay una ronda final personalizada para eliminatorias, recortar knockoutStages
+        let effectiveFormat = { ...format };
+        if (config.knockoutFinalRound && effectiveFormat.knockoutStages) {
+            const allStages = effectiveFormat.knockoutStages;
+            const finalRoundIndex = allStages.indexOf(config.knockoutFinalRound);
+            if (finalRoundIndex !== -1) {
+                effectiveFormat.knockoutStages = allStages.slice(0, finalRoundIndex + 1);
+                console.log(`[CREATE] Knockout stages recortados: ${effectiveFormat.knockoutStages.join(' → ')}`);
+            }
+        }
+
         const newTournament = {
             _id: new ObjectId(), shortId, guildId: guild.id, nombre: name, status: 'inscripcion_abierta', createdAt: new Date(),
             registrationsClosed: initialRegistrationsClosed,
             config: {
                 ...config, // Copia TODA la configuración que llega (incl. qualifiers y totalRounds)
-                format: format, // Añade el objeto de formato completo
+                format: effectiveFormat, // Añade el objeto de formato (posiblemente recortado)
                 matchType: config.matchType || 'ida',
             },
             teams: { pendientes: {}, aprobados: {}, reserva: {}, coCapitanes: {}, rechazados: {} },
@@ -4201,7 +4212,53 @@ export async function startNextKnockoutRound(client, guild, tournament) {
     }
 
     if (!siguienteRondaKey) {
-        console.log(`[ADVANCEMENT] No hay más rondas eliminatorias.`);
+        console.log(`[ADVANCEMENT] No hay más rondas eliminatorias para ${currentTournament.shortId}.`);
+
+        // Si se configuró una ronda final en eliminatorias (ej: terminar en cuartos), finalizar el torneo
+        if (rondaActual && rondaActual !== 'final') {
+            const partidosUltimaRonda = currentTournament.structure.eliminatorias[rondaActual];
+            if (partidosUltimaRonda && Array.isArray(partidosUltimaRonda)) {
+                // Determinar ganadores de la última ronda
+                const ganadores = [];
+                for (const p of partidosUltimaRonda) {
+                    if (!p.resultado) continue;
+                    const [gA, gB] = p.resultado.split('-').map(Number);
+                    if (isNaN(gA) || isNaN(gB)) continue;
+                    const ganador = gA > gB ? p.equipoA : p.equipoB;
+                    ganadores.push(ganador);
+                }
+
+                const roundLabels = { dieciseisavos: 'Dieciseisavos', octavos: 'Octavos de Final', cuartos: 'Cuartos de Final', semifinales: 'Semifinales' };
+                const roundLabel = roundLabels[rondaActual] || rondaActual;
+
+                const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
+                if (infoChannel) {
+                    const ganadoresText = ganadores.map((g, i) => `**${i + 1}.** ${g.nombre} (<@${g.capitanId}>)`).join('\n');
+                    const embedFin = new EmbedBuilder()
+                        .setColor('#ffd700')
+                        .setTitle(`🏆 ¡Torneo Finalizado! 🏆`)
+                        .setDescription(`El torneo **${currentTournament.nombre}** ha llegado a su fin tras la ronda de **${roundLabel}**.\n\n🎉 **Ganadores clasificados:**\n${ganadoresText}`)
+                        .setThumbnail('https://i.imgur.com/C5mJg1s.png')
+                        .setTimestamp();
+                    await infoChannel.send({ content: '|| @everyone ||', embeds: [embedFin] });
+                }
+
+                await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { status: 'finalizado' } });
+                const updatedTournament = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+
+                postTournamentUpdate('FINALIZADO', updatedTournament).catch(console.error);
+                await updateTournamentManagementThread(client, updatedTournament);
+                console.log(`[FINISH] El torneo ${currentTournament.shortId} ha finalizado (última ronda: ${rondaActual}).`);
+
+                // Distribución de ELO
+                try {
+                    const { distributeTournamentElo } = await import('./eloLogic.js');
+                    await distributeTournamentElo(client, updatedTournament);
+                } catch (eloError) {
+                    console.error(`[ELO] Error al aplicar ELO de torneo ${currentTournament.shortId}:`, eloError.message);
+                }
+            }
+        }
         return;
     }
 

@@ -1760,7 +1760,10 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         }
 
         const config = { formatId, isPaid: type === 'pago', matchType: matchType };
-        if (paidSubType && paidSubType !== 'none') {
+        if (paidSubType && paidSubType.startsWith('KO_')) {
+            // Knockout final round selection (e.g. KO_semifinales)
+            config.knockoutFinalRound = paidSubType.replace('KO_', '');
+        } else if (paidSubType && paidSubType !== 'none') {
             config.paidSubType = paidSubType; // 'draft' o 'cash_cup'
         }
 
