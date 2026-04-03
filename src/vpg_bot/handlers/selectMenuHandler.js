@@ -262,7 +262,7 @@ module.exports = async (client, interaction) => {
             const isAlreadyInTeam = await Team.findOne({ guildId: interaction.guild.id, $or: [{ managerId: userId }, { captains: userId }, { players: userId }] });
             if (isAlreadyInTeam) {
                 const member = await guild.members.fetch(userId).catch(() => ({ user: { username: 'Usuario Desconocido' } }));
-                failedUsernames.push(member.user.username);
+                failedUsernames.push(`${member.user.username} (en ${isAlreadyInTeam.name})`);
                 continue;
             }
 
@@ -307,9 +307,9 @@ module.exports = async (client, interaction) => {
             return interaction.editReply({ content: 'El miembro seleccionado ya no se encuentra en el servidor.', components: [] });
         }
 
-        const isManager = await Team.findOne({ managerId: targetMember.id });
-        if (isManager) {
-            return interaction.editReply({ content: `❌ No puedes invitar a **${targetMember.user.tag}** porque ya es Mánager del equipo **${isManager.name}**.`, components: [] });
+        const isAlreadyInTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: targetMember.id }, { captains: targetMember.id }, { players: targetMember.id }] });
+        if (isAlreadyInTeam) {
+            return interaction.editReply({ content: `❌ No puedes invitar a **${targetMember.user.tag}** porque ya está en el equipo **${isAlreadyInTeam.name}**.`, components: [] });
         }
 
         // El MD al jugador se envía bilingüe, ya que no sabemos su idioma.

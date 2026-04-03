@@ -1000,18 +1000,16 @@ const handler = async (client, interaction) => {
             return interaction.editReply({ content: t('errorOnlyManagersCanInvite', member) });
         }
 
-        const allMembers = await guild.members.fetch();
-        const teams = await Team.find({ guildId: guild.id }).select('managerId captains players').lean();
-        const playersInTeams = new Set(teams.flatMap(t => [t.managerId, ...t.captains, ...t.players]));
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId('invite_player_select')
+            .setPlaceholder('Busca y selecciona un jugador')
+            .setMinValues(1)
+            .setMaxValues(1);
 
-        const eligibleMembers = allMembers.filter(m => !m.user.bot && !playersInTeams.has(m.id));
-
-        if (eligibleMembers.size === 0) {
-            return interaction.editReply({ content: t('errorNoEligibleMembers', member) });
-        }
-
-        const sortedMembers = Array.from(eligibleMembers.values()).sort((a, b) => a.user.username.localeCompare(b.user.username));
-        await sendPaginatedPlayerMenu(interaction, sortedMembers, 0);
+        await interaction.editReply({
+            content: t('invitePlayerMenuHeader', member),
+            components: [new ActionRowBuilder().addComponents(userSelectMenu)]
+        });
         return;
     }
 
