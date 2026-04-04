@@ -4434,7 +4434,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`admin_reopen_match_start:${tournamentShortId}`)
-                .setLabel('Reabrir Partido Cerrado')
+                .setLabel('Solucionar Hilos')
                 .setStyle(ButtonStyle.Secondary)
                 .setEmoji('⏪'),
             new ButtonBuilder()

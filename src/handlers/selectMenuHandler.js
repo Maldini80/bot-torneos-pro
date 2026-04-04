@@ -2896,24 +2896,37 @@ export async function handleSelectMenu(interaction) {
             ...Object.values(tournament.structure.eliminatorias || {}).flat()
         ];
 
-        const teamCompletedMatches = allMatches.filter(match =>
-            match &&
-            match.status === 'finalizado' &&
-            (match.equipoA.id === selectedTeamId || match.equipoB.id === selectedTeamId)
-        );
+        const isSwiss = tournament.format === 'suizo';
+        const teamCompletedMatches = allMatches.filter(match => {
+            if (!match) return false;
+            // Solo partidos de este equipo
+            if (match.equipoA?.id !== selectedTeamId && match.equipoB?.id !== selectedTeamId) return false;
+            
+            // Si es finalizado, se puede reabrir
+            if (match.status === 'finalizado') return true;
+            // Si está en_curso (hilo existe o dice existir), se puede reiniciar el hilo
+            if (match.status === 'en_curso') return true;
+            // Si está pendiente, se puede adelantar, siempre y cuando no sea suizo y tenga ambos equipos definidos
+            if (match.status === 'pendiente' && !isSwiss && match.equipoA?.id && match.equipoB?.id) return true;
+
+            return false;
+        });
 
         if (teamCompletedMatches.length === 0) {
             return interaction.editReply({
-                content: 'Este equipo no tiene partidos finalizados que reabrir.',
+                content: 'Este equipo no tiene partidos disponibles para solucionar o reabrir.',
                 components: []
             });
         }
 
         const matchOptions = teamCompletedMatches.map(match => {
             const stage = match.nombreGrupo ? `${match.nombreGrupo} - J${match.jornada}` : match.jornada;
+            const statusLabel = match.status === 'finalizado' ? 'Finalizado' : (match.status === 'en_curso' ? 'En Curso' : 'Pendiente');
+            let desc = `Estado: ${statusLabel}`;
+            if (match.status === 'finalizado') desc += ` | Resultado: ${match.resultado}`;
             return {
                 label: `${stage}: ${match.equipoA.nombre} vs ${match.equipoB.nombre}`,
-                description: `Resultado: ${match.resultado}`,
+                description: desc,
                 value: match.matchId,
             };
         }).slice(0, 25);
@@ -2924,7 +2937,7 @@ export async function handleSelectMenu(interaction) {
             .addOptions(matchOptions);
 
         await interaction.editReply({
-            content: `Selecciona el partido que deseas reabrir (${teamCompletedMatches.length} partidos finalizados encontrados):`,
+            content: `Selecciona el partido que deseas gestionar (${teamCompletedMatches.length} opciones encontradas):`,
             components: [new ActionRowBuilder().addComponents(selectMenu)]
         });
         return;
@@ -2943,13 +2956,31 @@ export async function handleSelectMenu(interaction) {
             return interaction.editReply({ content: '❌ Error: El partido seleccionado ya no existe.' });
         }
 
-        await revertStats(tournament, partido);
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+        const guildObj = interaction.guild;
+
+        if (partido.status === 'finalizado' || Object.keys(partido.reportedScores || {}).length > 0) {
+            await revertStats(tournament, partido);
+        }
+
+        if (partido.threadId) {
+            try {
+                const matchesChannelId = tournament.discordChannelIds?.matchesChannelId;
+                if (matchesChannelId) {
+                     const channel = await guildObj.channels.fetch(matchesChannelId);
+                     const thread = await channel.threads.fetch(partido.threadId).catch(() => null);
+                     if (thread) await thread.delete('Hilo reiniciado por administrador.');
+                }
+            } catch (err) {
+                console.warn(`No se pudo borrar el hilo previo ${partido.threadId}`, err);
+            }
+        }
 
         partido.resultado = null;
         partido.status = 'pendiente';
         partido.reportedScores = {};
 
-        const newThreadId = await createMatchThread(client, guild, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+        const newThreadId = await createMatchThread(client, guildObj, partido, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
         partido.threadId = newThreadId;
         partido.status = 'en_curso';
 
