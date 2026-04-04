@@ -2882,11 +2882,72 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
-    // NUEVO: Paso intermedio para seleccionar partidos del equipo elegido
-    if (action === 'admin_reopen_select_team') {
+    // Manejador para el cambio de página en la selección de equipos
+    if (action === 'admin_reopen_select_team_page') {
         await interaction.deferUpdate();
         const [tournamentShortId] = params;
-        const selectedTeamId = interaction.values[0];
+        const selectedPage = parseInt(interaction.values[0].replace('page_', ''));
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+        
+        approvedTeams.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        const pageSize = 25;
+        const pageCount = Math.ceil(approvedTeams.length / pageSize);
+
+        const startIndex = selectedPage * pageSize;
+        const teamsOnPage = approvedTeams.slice(startIndex, startIndex + pageSize);
+
+        const teamOptions = teamsOnPage.map(team => ({
+            label: team.nombre,
+            description: `Capitán: ${team.capitanTag}`,
+            value: team.id
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_reopen_select_team:${tournamentShortId}`)
+            .setPlaceholder(`Paso 1: Selecciona equipo (Pág. ${selectedPage + 1})`)
+            .addOptions(teamOptions);
+
+        const pageOptions = [];
+        for (let i = 0; i < pageCount; i++) {
+            const startNum = i * pageSize + 1;
+            const endNum = Math.min((i + 1) * pageSize, approvedTeams.length);
+            pageOptions.push({
+                label: `Página ${i + 1} (${startNum}-${endNum})`,
+                value: `page_${i}`
+            });
+        }
+        
+        const pageSelectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_reopen_select_team_page:${tournamentShortId}`)
+            .setPlaceholder('Paso 1.5: Cambiar de página (Equipos)')
+            .addOptions(pageOptions);
+
+        await interaction.editReply({
+            content: `Selecciona el equipo cuyo partido quieres reabrir (Mostrando ${teamsOnPage.length} de ${approvedTeams.length}):`,
+            components: [
+                new ActionRowBuilder().addComponents(selectMenu),
+                new ActionRowBuilder().addComponents(pageSelectMenu)
+            ]
+        });
+        return;
+    }
+
+    // NUEVO: Paso intermedio para seleccionar partidos del equipo elegido
+    if (action === 'admin_reopen_select_team' || action === 'admin_reopen_match_select_page') {
+        const isPageAction = action === 'admin_reopen_match_select_page';
+        // Only defer update, because in both cases it's a select menu interaction
+        await interaction.deferUpdate();
+        
+        // params will be [tournamentShortId] for select_team, or [tournamentShortId, selectedTeamId] for select_page
+        const tournamentShortId = params[0];
+        
+        // if this was a page selection, the value contains the page logic and the params contains the teamId
+        // wait, StringSelectMenu action="admin_reopen_match_select_page", customId=`${action}:${tournamentShortId}:${selectedTeamId}`
+        const selectedTeamId = isPageAction ? params[1] : interaction.values[0];
+        const selectedPage = isPageAction ? parseInt(interaction.values[0].replace('page_', '')) : 0;
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
 
@@ -2918,27 +2979,53 @@ export async function handleSelectMenu(interaction) {
                 components: []
             });
         }
+        
+        const pageSize = 25;
+        const pageCount = Math.ceil(teamCompletedMatches.length / pageSize);
+        
+        const startIndex = selectedPage * pageSize;
+        const matchesOnPage = teamCompletedMatches.slice(startIndex, startIndex + pageSize);
 
-        const matchOptions = teamCompletedMatches.map(match => {
+        const matchOptions = matchesOnPage.map(match => {
             const stage = match.nombreGrupo ? `${match.nombreGrupo} - J${match.jornada}` : match.jornada;
             const statusLabel = match.status === 'finalizado' ? 'Finalizado' : (match.status === 'en_curso' ? 'En Curso' : 'Pendiente');
             let desc = `Estado: ${statusLabel}`;
             if (match.status === 'finalizado') desc += ` | Resultado: ${match.resultado}`;
             return {
-                label: `${stage}: ${match.equipoA.nombre} vs ${match.equipoB.nombre}`,
+                label: `${stage} - ${match.equipoA.nombre.substring(0,25)} vs ${match.equipoB.nombre.substring(0,25)}`,
                 description: desc,
                 value: match.matchId,
             };
-        }).slice(0, 25);
+        });
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`admin_reopen_match_select:${tournamentShortId}`)
-            .setPlaceholder('Paso 2: Selecciona el partido')
+            .setPlaceholder(`Paso 2: Selecciona el partido (Pág. ${selectedPage + 1})`)
             .addOptions(matchOptions);
 
+        const components = [new ActionRowBuilder().addComponents(selectMenu)];
+
+        if (pageCount > 1) {
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const startNum = i * pageSize + 1;
+                const endNum = Math.min((i + 1) * pageSize, teamCompletedMatches.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (${startNum}-${endNum})`,
+                    value: `page_${i}`
+                });
+            }
+            const pageSelectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_reopen_match_select_page:${tournamentShortId}:${selectedTeamId}`)
+                .setPlaceholder('Paso 2.5: Cambiar de página (Partidos)')
+                .addOptions(pageOptions);
+
+            components.push(new ActionRowBuilder().addComponents(pageSelectMenu));
+        }
+
         await interaction.editReply({
-            content: `Selecciona el partido que deseas gestionar (${teamCompletedMatches.length} opciones encontradas):`,
-            components: [new ActionRowBuilder().addComponents(selectMenu)]
+            content: `Selecciona el partido que deseas gestionar (Mostrando ${matchesOnPage.length} de ${teamCompletedMatches.length}):`,
+            components: components
         });
         return;
     }

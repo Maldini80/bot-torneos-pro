@@ -4549,20 +4549,49 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 return interaction.editReply({ content: 'No hay equipos aprobados en este torneo.' });
             }
 
-            const teamOptions = approvedTeams.map(team => ({
+            approvedTeams.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+            const pageSize = 25;
+            const pageCount = Math.ceil(approvedTeams.length / pageSize);
+            const page = 0;
+
+            const startIndex = page * pageSize;
+            const teamsOnPage = approvedTeams.slice(startIndex, startIndex + pageSize);
+
+            const teamOptions = teamsOnPage.map(team => ({
                 label: team.nombre,
                 description: `Capitán: ${team.capitanTag}`,
                 value: team.id
-            })).slice(0, 25);
+            }));
 
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId(`admin_reopen_select_team:${tournamentShortId}`)
-                .setPlaceholder('Paso 1: Selecciona el equipo')
+                .setPlaceholder(`Paso 1: Selecciona equipo (Pág. 1)`)
                 .addOptions(teamOptions);
 
+            const components = [new ActionRowBuilder().addComponents(selectMenu)];
+
+            if (pageCount > 1) {
+                const pageOptions = [];
+                for (let i = 0; i < pageCount; i++) {
+                    const startNum = i * pageSize + 1;
+                    const endNum = Math.min((i + 1) * pageSize, approvedTeams.length);
+                    pageOptions.push({
+                        label: `Página ${i + 1} (${startNum}-${endNum})`,
+                        value: `page_${i}`
+                    });
+                }
+                const pageSelectMenu = new StringSelectMenuBuilder()
+                    .setCustomId(`admin_reopen_select_team_page:${tournamentShortId}`)
+                    .setPlaceholder('Paso 1.5: Cambiar de página (Equipos)')
+                    .addOptions(pageOptions);
+
+                components.push(new ActionRowBuilder().addComponents(pageSelectMenu));
+            }
+
             await interaction.editReply({
-                content: 'Selecciona el equipo cuyo partido quieres reabrir:',
-                components: [new ActionRowBuilder().addComponents(selectMenu)]
+                content: `Selecciona el equipo cuyo partido quieres reabrir (Mostrando ${teamsOnPage.length} de ${approvedTeams.length}):`,
+                components: components
             });
             return;
         }
