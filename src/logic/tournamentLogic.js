@@ -3422,7 +3422,7 @@ export async function applyManualLeagueCalendar(client, guild, tournament) {
             { _id: tournament._id },
             {
                 $set: {
-                    status: 'en_curso',
+                    status: 'fase_de_grupos',
                     'structure.grupos': grupos,
                     'structure.calendario': calendario,
                     'config.customRounds': builder.totalJornadas
