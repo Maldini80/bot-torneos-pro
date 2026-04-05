@@ -3513,4 +3513,86 @@ export async function handleSelectMenu(interaction) {
         await interaction.showModal(modal);
         return;
     }
+
+    // Herramienta Escoba de Jornadas: Abre todos los hilos pendientes de una jornada específica
+    if (action === 'admin_open_pending_jornada_select') {
+        const tournamentShortId = params[0];
+        const selectedJornada = parseInt(interaction.values[0]);
+
+        await interaction.update({ content: `⏳ Procesando la apertura de hilos para la Jornada ${selectedJornada}... por favor espera. Esta operación será lenta por seguridad de Discord.`, embeds: [], components: [] });
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament || !tournament.structure || !tournament.structure.calendario) {
+            return interaction.followUp({ content: `❌ Error: No se encontraron datos para la Jornada ${selectedJornada}.`, flags: [MessageFlags.Ephemeral] });
+        }
+
+        let openedCount = 0;
+        let failedCount = 0;
+
+        for (const [groupName, matches] of Object.entries(tournament.structure.calendario)) {
+            for (let i = 0; i < matches.length; i++) {
+                const match = matches[i];
+                // Solo filtrará estrictamente partidos con estado 'pendiente' y que no son descansos
+                if (match.jornada === selectedJornada && match.status === 'pendiente' && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
+                    
+                    // Asegurar bloqueo atómico
+                    const fieldPath = `structure.calendario.${groupName}.${i}`;
+                    const result = await db.collection('tournaments').findOneAndUpdate(
+                        {
+                            _id: tournament._id,
+                            [`${fieldPath}.status`]: 'pendiente',
+                            [`${fieldPath}.matchId`]: match.matchId
+                        },
+                        {
+                            $set: {
+                                [`${fieldPath}.status`]: 'creando_hilo',
+                                [`${fieldPath}.lockedAt`]: new Date()
+                            }
+                        },
+                        { returnDocument: 'after' }
+                    );
+
+                    if (!result) continue; // Si otro proceso le puso candado primero, lo salta
+
+                    try {
+                        const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+                        
+                        if (threadId) {
+                            await db.collection('tournaments').updateOne(
+                                { _id: tournament._id },
+                                {
+                                    $set: {
+                                        [`${fieldPath}.threadId`]: threadId,
+                                        [`${fieldPath}.status`]: 'en_curso'
+                                    }
+                                }
+                            );
+                            openedCount++;
+                        } else {
+                            await db.collection('tournaments').updateOne(
+                                { _id: tournament._id },
+                                { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                            );
+                            failedCount++;
+                        }
+                    } catch (error) {
+                        await db.collection('tournaments').updateOne(
+                            { _id: tournament._id },
+                            { $set: { [`${fieldPath}.status`]: 'pendiente' } }
+                        );
+                        failedCount++;
+                    }
+
+                    // Pausa quirúrgica para garantizar conexión
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+        }
+
+        let finalMessage = `✅ **Jornada ${selectedJornada} procesada exitosamente.**\n- Hilos abiertos y rescatados hoy: **${openedCount}**`;
+        if (failedCount > 0) finalMessage += `\n- Hilos fallidos (Rate Limit de Discord): **${failedCount}** (Recomendable reintentar desde el menú).`;
+
+        await interaction.followUp({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
 }

@@ -4438,6 +4438,11 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 .setStyle(ButtonStyle.Secondary)
                 .setEmoji('⏪'),
             new ButtonBuilder()
+                .setCustomId(`admin_open_pending_jornada_start:${tournamentShortId}`)
+                .setLabel('Abrir Hilos Jornada')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🧹'),
+            new ButtonBuilder()
                 .setCustomId(`admin_modify_final_result_start:${tournamentShortId}`)
                 .setLabel('Modificar Resultado Final')
                 .setStyle(ButtonStyle.Danger)
@@ -4456,6 +4461,69 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         await interaction.editReply({ embeds: [embed], components: [row] });
         return;
     }
+
+    if (action === 'admin_open_pending_jornada_start') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        if (!tournament || !tournament.structure || !tournament.structure.calendario) {
+            return interaction.editReply({ content: '❌ No se encontró el calendario del torneo.', embeds: [], components: [] });
+        }
+
+        const allMatches = Object.values(tournament.structure.calendario).flat();
+        
+        // Filtrar partidos que están 'pendiente' y NO son contra ghost
+        const pendingMatches = allMatches.filter(m => 
+            m.status === 'pendiente' && 
+            m.equipoA.id !== 'ghost' && 
+            m.equipoB.id !== 'ghost'
+        );
+
+        if (pendingMatches.length === 0) {
+            return interaction.followUp({ content: '✅ No se encontraron hilos pendientes en ninguna jornada válida.', ephemeral: true });
+        }
+
+        // Agrupar por jornada
+        const pendingByJornada = {};
+        for (const m of pendingMatches) {
+            if (!pendingByJornada[m.jornada]) pendingByJornada[m.jornada] = 0;
+            pendingByJornada[m.jornada]++;
+        }
+
+        const options = Object.keys(pendingByJornada).map(jornadaNum => {
+            return {
+                label: `Jornada ${jornadaNum}`,
+                description: `Contiene ${pendingByJornada[jornadaNum]} hilos pendientes por abrir.`,
+                value: jornadaNum.toString()
+            };
+        });
+
+        // Discord permite hasta 25 opciones en un select menu. Si hay más de 25 jornadas con pendientes, lo cortamos
+        const safeOptions = options.slice(0, 25);
+
+        const selectMenuRow = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`admin_open_pending_jornada_select:${tournamentShortId}`)
+                .setPlaceholder('Selecciona la Jornada que quieres abrir')
+                .addOptions(safeOptions)
+        );
+
+        const backRow = new ActionRowBuilder().addComponents(
+             new ButtonBuilder()
+                .setCustomId(`admin_manage_results_start:${tournamentShortId}`)
+                .setLabel('<< Volver')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        const embedDisplay = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle(`🧹 Herramienta: Escoba de Jornadas`)
+            .setDescription('Selecciona una jornada del menú desplegable. El bot buscará **únicamente** los partidos en estado `pendiente` de esa jornada específica y los abrirá de golpe con una pequeña pausa de seguridad de 2 segundos entre cada hilo para no saturar a Discord. Dejará intactos a todos los demás.');
+
+        return interaction.editReply({ embeds: [embedDisplay], components: [selectMenuRow, backRow] });
+    }
+
 
     // Devuelve al usuario al panel de gestión principal del torneo
     if (action === 'admin_return_to_main_panel') {
