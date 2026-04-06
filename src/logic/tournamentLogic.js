@@ -5761,6 +5761,12 @@ export async function replaceTournamentManager(client, guild, tournamentShortId,
     const team = tournament.teams.aprobados[oldCaptainId];
     if (!team) throw new Error("El antiguo capitán no tiene un equipo asignado en este torneo.");
 
+    if (tournament.teams.aprobados[newCaptainId] || 
+        (tournament.teams.pendientes && tournament.teams.pendientes[newCaptainId]) || 
+        (tournament.teams.reserva && tournament.teams.reserva[newCaptainId])) {
+        throw new Error("El usuario seleccionado ya es mánager titular de otro equipo en este mismo torneo.");
+    }
+
     const newCaptainUser = await client.users.fetch(newCaptainId).catch(() => null);
     if (!newCaptainUser) throw new Error("Usuario no encontrado en Discord.");
 
