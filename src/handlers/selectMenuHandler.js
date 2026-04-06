@@ -843,7 +843,7 @@ export async function handleSelectMenu(interaction) {
                 .setStyle(ButtonStyle.Danger)
         );
 
-        await interaction.editReply({ content: '', embeds: [embed], components: [row] });
+        await interaction.update({ content: '', embeds: [embed], components: [row] });
         return;
     }
 
