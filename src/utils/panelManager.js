@@ -38,11 +38,11 @@ export async function updateTournamentManagementThread(client, tournament, busyS
     try {
         const thread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId);
         const messages = await thread.messages.fetch({ limit: 20 });
-        const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Gestión del Torneo:'));
+        const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.startsWith('Gestión del Torneo:'));
         const latestTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
         if (!latestTournamentState) return;
+        const panelContent = createTournamentManagementPanel(latestTournamentState, busyState);
         if (panelMessage) {
-            const panelContent = createTournamentManagementPanel(latestTournamentState, busyState);
             try {
                 await panelMessage.edit(panelContent);
             } catch (error) {
@@ -50,10 +50,13 @@ export async function updateTournamentManagementThread(client, tournament, busyS
                 if (error.code === 50035 && error.message && error.message.includes('MAX_EMBED_SIZE')) {
                     console.error(`[EMBED SIZE] ⚠️ El panel de gestión del torneo "${latestTournamentState.nombre}" (ID: ${latestTournamentState.shortId}) excede el límite de 6000 caracteres de Discord. El panel no puede actualizarse hasta que el torneo tenga menos equipos o se simplifique el embed.`);
                 } else {
-                    // Re-throw other errors to maintain existing error handling
                     throw error;
                 }
             }
+        } else {
+            // Auto-regenerar: si el panel fue destruido o corrompido, enviar uno nuevo
+            console.log(`[PANEL RECOVERY] ⚠️ Panel de gestión no encontrado para "${latestTournamentState.nombre}" (${latestTournamentState.shortId}). Regenerando...`);
+            await thread.send(panelContent);
         }
     } catch (e) {
         if (e.code !== 10003 && e.code !== 10008) {
