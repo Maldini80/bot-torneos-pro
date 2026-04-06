@@ -3177,7 +3177,34 @@ export async function handleSelectMenu(interaction) {
         await interaction.showModal(modal);
         return;
     }
+    if (action === 'admin_assign_cocaptain_page_select') {
+        const [tournamentShortId] = params;
+        const pageIndex = parseInt(interaction.values[0].split('_')[1], 10);
+        
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const approvedTeams = Object.values(tournament.teams.aprobados);
 
+        const PAGE_SIZE = 25;
+        const startIdx = pageIndex * PAGE_SIZE;
+        const pageTeams = approvedTeams.slice(startIdx, startIdx + PAGE_SIZE);
+
+        const teamOptions = pageTeams.map(team => ({
+            label: team.nombre,
+            description: `Capitán: ${team.capitanTag}${team.coCaptainTag ? ` | Co-cap actual: ${team.coCaptainTag.split('#')[0]}` : ''}`,
+            value: team.capitanId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_assign_cocaptain_team_select:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el equipo al que quieres asignar un co-capitán')
+            .addOptions(teamOptions);
+
+        await interaction.update({
+            content: `Página ${pageIndex + 1} — Selecciona el equipo para asignar el co-capitán:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
 
     if (action === 'admin_assign_cocaptain_team_select') {
         const [tournamentShortId] = params;

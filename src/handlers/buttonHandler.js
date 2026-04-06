@@ -3947,9 +3947,35 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             return interaction.editReply({ content: 'No hay equipos aprobados en este torneo.' });
         }
 
+        const PAGE_SIZE = 25;
+
+        if (approvedTeams.length > PAGE_SIZE) {
+            const pageCount = Math.ceil(approvedTeams.length / PAGE_SIZE);
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const start = i * PAGE_SIZE + 1;
+                const end = Math.min((i + 1) * PAGE_SIZE, approvedTeams.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (Equipos ${start}-${end})`,
+                    value: `page_${i}`,
+                });
+            }
+
+            const pageMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_assign_cocaptain_page_select:${tournamentShortId}`)
+                .setPlaceholder('Selecciona la página de equipos')
+                .addOptions(pageOptions);
+
+            await interaction.editReply({
+                content: `Hay ${approvedTeams.length} equipos. Selecciona una página para ver los equipos y asignar co-capitanes:`,
+                components: [new ActionRowBuilder().addComponents(pageMenu)]
+            });
+            return;
+        }
+
         const teamOptions = approvedTeams.map(team => ({
             label: team.nombre,
-            description: `Capitán: ${team.capitanTag}`,
+            description: `Capitán: ${team.capitanTag}${team.coCaptainTag ? ` | Co-cap actual: ${team.coCaptainTag.split('#')[0]}` : ''}`,
             value: team.capitanId
         })).slice(0, 25);
 
