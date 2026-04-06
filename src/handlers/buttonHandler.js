@@ -4431,7 +4431,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setDescription('Selecciona una acción para corregir un partido que ya ha finalizado.')
             .setFooter({ text: `ID del Torneo: ${tournament.shortId}` });
 
-        const row = new ActionRowBuilder().addComponents(
+        const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`admin_reopen_match_start:${tournamentShortId}`)
                 .setLabel('Solucionar Hilos')
@@ -4439,12 +4439,20 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 .setEmoji('⏪'),
             new ButtonBuilder()
                 .setCustomId(`admin_open_pending_jornada_start:${tournamentShortId}`)
-                .setLabel('Abrir Hilos Jornada')
+                .setLabel('Abrir Hilos')
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji('🧹'),
             new ButtonBuilder()
+                .setCustomId(`admin_frenar_jornada_start:${tournamentShortId}`)
+                .setLabel('Frenar Jornada')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🛑')
+        );
+
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
                 .setCustomId(`admin_modify_final_result_start:${tournamentShortId}`)
-                .setLabel('Modificar Resultado Final')
+                .setLabel('Modificar Resultado')
                 .setStyle(ButtonStyle.Danger)
                 .setEmoji('✍️'),
             new ButtonBuilder()
@@ -4458,8 +4466,70 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 .setStyle(ButtonStyle.Secondary)
         );
 
-        await interaction.editReply({ embeds: [embed], components: [row] });
+        await interaction.editReply({ embeds: [embed], components: [row1, row2] });
         return;
+    }
+
+    if (action === 'admin_frenar_jornada_start') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        if (!tournament || !tournament.structure || !tournament.structure.calendario) {
+            return interaction.editReply({ content: '❌ No se encontró el calendario del torneo.', embeds: [], components: [] });
+        }
+
+        const allMatches = Object.values(tournament.structure.calendario).flat();
+        
+        // Filtrar partidos que Tienen Hilo para ser frenados (ni ghost, ni finalizados)
+        const stoppableMatches = allMatches.filter(m => 
+            m.threadId && 
+            m.status !== 'finalizado' && 
+            m.equipoA.id !== 'ghost' && 
+            m.equipoB.id !== 'ghost'
+        );
+
+        if (stoppableMatches.length === 0) {
+            return interaction.followUp({ content: '✅ No se encontraron hilos creados activos en ninguna jornada para frenar.', ephemeral: true });
+        }
+
+        // Agrupar por jornada
+        const stoppableByJornada = {};
+        for (const m of stoppableMatches) {
+            if (!stoppableByJornada[m.jornada]) stoppableByJornada[m.jornada] = 0;
+            stoppableByJornada[m.jornada]++;
+        }
+
+        const options = Object.keys(stoppableByJornada).map(jornadaNum => {
+            return {
+                label: `Jornada ${jornadaNum}`,
+                description: `Contiene ${stoppableByJornada[jornadaNum]} hilos activos por frenar.`,
+                value: jornadaNum.toString()
+            };
+        });
+
+        const safeOptions = options.slice(0, 25);
+
+        const selectMenuRow = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`admin_frenar_jornada_select:${tournamentShortId}`)
+                .setPlaceholder('Selecciona la Jornada que quieres Frenar/Pausar')
+                .addOptions(safeOptions)
+        );
+
+        const backRow = new ActionRowBuilder().addComponents(
+             new ButtonBuilder()
+                .setCustomId(`admin_manage_results_start:${tournamentShortId}`)
+                .setLabel('<< Volver')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        const embedDisplay = new EmbedBuilder()
+            .setColor('#e74c3c')
+            .setTitle(`🛑 Herramienta: Freno de Jornadas`)
+            .setDescription('Selecciona una jornada del menú desplegable. El bot buscará **únicamente** los partidos de esa jornada que ya tienen un hilo creado y que aún **no han finalizado**. Borrará sus hilos de Discord con una pausa de seguridad, y los devolverá al estado `pendiente` a la espera de que decidas volver a abrir la jornada.');
+
+        return interaction.editReply({ embeds: [embedDisplay], components: [selectMenuRow, backRow] });
     }
 
     if (action === 'admin_open_pending_jornada_start') {

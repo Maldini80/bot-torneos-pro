@@ -3595,4 +3595,72 @@ export async function handleSelectMenu(interaction) {
         await interaction.followUp({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
         return;
     }
+
+    // Herramienta Frenar Jornadas: Borra los hilos activos de una jornada y los devuelve a pendientes
+    if (action === 'admin_frenar_jornada_select') {
+        const tournamentShortId = params[0];
+        const selectedJornada = parseInt(interaction.values[0]);
+
+        await interaction.update({ content: `🛑 Frenando y eliminando los hilos en Discord de la Jornada ${selectedJornada}... por favor espera. Al igual que al crearlos, esto tardará un poco por seguridad de Discord.`, embeds: [], components: [] });
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament || !tournament.structure || !tournament.structure.calendario) {
+            return interaction.followUp({ content: `❌ Error: No se encontraron datos para la Jornada ${selectedJornada}.`, flags: [MessageFlags.Ephemeral] });
+        }
+
+        let stoppedCount = 0;
+        let failedCount = 0;
+
+        for (const [groupName, matches] of Object.entries(tournament.structure.calendario)) {
+            for (let i = 0; i < matches.length; i++) {
+                const match = matches[i];
+                // Frena partidos activos (tienen hilo y no están finalizados)
+                if (match.jornada === selectedJornada && match.threadId && match.status !== 'finalizado' && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
+                    
+                    const fieldPath = `structure.calendario.${groupName}.${i}`;
+                    const targetThreadId = match.threadId;
+
+                    try {
+                        const thread = await client.channels.fetch(targetThreadId);
+                        if (thread) {
+                            await thread.delete('Jornada frenada por el Administrador');
+                        }
+                    } catch (error) {
+                        // Si el canal ya fue borrado a mano o no existe, lo ignoramos y procedemos a resetear la DB
+                        if (error.code !== 10003) {
+                            console.log(`[Frenar Jornada] Error menor borrando hilo ${targetThreadId}: ${error.message}`);
+                        }
+                    }
+
+                    // Resetear el partido a pendiente
+                    try {
+                        await db.collection('tournaments').updateOne(
+                            { _id: tournament._id, [`${fieldPath}.matchId`]: match.matchId },
+                            {
+                                $set: {
+                                    [`${fieldPath}.status`]: 'pendiente'
+                                },
+                                $unset: {
+                                    [`${fieldPath}.threadId`]: "",
+                                    [`${fieldPath}.lockedAt`]: ""
+                                }
+                            }
+                        );
+                        stoppedCount++;
+                    } catch (dbError) {
+                        failedCount++;
+                    }
+
+                    // Pausa quirúrgica para garantizar conexión y evitar límite
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+        }
+
+        let finalMessage = `🛑 **Jornada ${selectedJornada} frenada con éxito.**\n- Se han eliminado **${stoppedCount}** hilos de Discord y los partidos vuelven a estar "pendientes".`;
+        if (failedCount > 0) finalMessage += `\n- Advertencia: Hubo problemas actualizando **${failedCount}** partidos en la base de datos.`;
+
+        await interaction.followUp({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
 }
