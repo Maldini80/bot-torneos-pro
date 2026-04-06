@@ -3517,7 +3517,8 @@ export async function handleSelectMenu(interaction) {
     // Herramienta Escoba de Jornadas: Abre todos los hilos pendientes de una jornada específica
     if (action === 'admin_open_pending_jornada_select') {
         const tournamentShortId = params[0];
-        const selectedJornada = parseInt(interaction.values[0]);
+        const isAll = interaction.values[0] === 'all';
+        const selectedJornada = isAll ? 'TODAS' : parseInt(interaction.values[0]);
 
         // Devolvemos respuesta efímera para no borrar el panel original
         await interaction.reply({ content: `⏳ Procesando la apertura de hilos para la Jornada ${selectedJornada}... por favor espera. Esta operación será lenta por seguridad de Discord.`, flags: [MessageFlags.Ephemeral] });
@@ -3534,7 +3535,7 @@ export async function handleSelectMenu(interaction) {
             for (let i = 0; i < matches.length; i++) {
                 const match = matches[i];
                 // Solo filtrará estrictamente partidos con estado 'pendiente' y que no son descansos
-                if (match.jornada === selectedJornada && match.status === 'pendiente' && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
+                if ((isAll || match.jornada === selectedJornada) && match.status === 'pendiente' && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
                     
                     // Asegurar bloqueo atómico
                     const fieldPath = `structure.calendario.${groupName}.${i}`;
@@ -3609,7 +3610,8 @@ export async function handleSelectMenu(interaction) {
     // Herramienta Frenar Jornadas: Borra los hilos activos de una jornada y los devuelve a pendientes
     if (action === 'admin_frenar_jornada_select') {
         const tournamentShortId = params[0];
-        const selectedJornada = parseInt(interaction.values[0]);
+        const isAll = interaction.values[0] === 'all';
+        const selectedJornada = isAll ? 'TODAS' : parseInt(interaction.values[0]);
 
         await interaction.reply({ content: `🛑 Frenando y eliminando los hilos en Discord de la Jornada ${selectedJornada}... por favor espera. Al igual que al crearlos, esto tardará un poco por seguridad de Discord.`, flags: [MessageFlags.Ephemeral] });
 
@@ -3625,7 +3627,7 @@ export async function handleSelectMenu(interaction) {
             for (let i = 0; i < matches.length; i++) {
                 const match = matches[i];
                 // Frena partidos activos (tienen hilo y no están finalizados)
-                if (match.jornada === selectedJornada && match.threadId && match.status !== 'finalizado' && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
+                if ((isAll || match.jornada === selectedJornada) && match.threadId && match.status !== 'finalizado' && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
                     
                     const fieldPath = `structure.calendario.${groupName}.${i}`;
                     const targetThreadId = match.threadId;

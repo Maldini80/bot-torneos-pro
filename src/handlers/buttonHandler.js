@@ -4508,7 +4508,15 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             };
         });
 
-        const safeOptions = options.slice(0, 25);
+        // Evitamos sobrepasar el límite de 25 de Discord y agregamos la opción "Todas"
+        const safeOptions = options.slice(0, 24);
+        if (options.length > 1) {
+            safeOptions.unshift({
+                label: `✨ TODAS LAS JORNADAS`,
+                description: `Peligro: Frena TODO. Puede tardar MUCHÍSIMO tiempo.`,
+                value: 'all'
+            });
+        }
 
         const selectMenuRow = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
@@ -4569,8 +4577,15 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             };
         });
 
-        // Discord permite hasta 25 opciones en un select menu. Si hay más de 25 jornadas con pendientes, lo cortamos
-        const safeOptions = options.slice(0, 25);
+        // Evitamos sobrepasar el límite de 25 de Discord y agregamos la opción "Todas"
+        const safeOptions = options.slice(0, 24);
+        if (options.length > 1) {
+            safeOptions.unshift({
+                label: `✨ TODAS LAS JORNADAS`,
+                description: `Abre TODO. Puede tardar MUCHÍSIMO tiempo.`,
+                value: 'all'
+            });
+        }
 
         const selectMenuRow = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
