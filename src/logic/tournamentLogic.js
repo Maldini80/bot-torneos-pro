@@ -5752,3 +5752,93 @@ export async function approveExternalDraftCaptain(client, tournamentShortId, win
 
     return { success: true };
 }
+
+export async function replaceTournamentManager(client, guild, tournamentShortId, oldCaptainId, newCaptainId) {
+    const db = (await import('../../database.js')).getDb();
+    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+    if (!tournament) throw new Error("Torneo no encontrado");
+
+    const team = tournament.teams.aprobados[oldCaptainId];
+    if (!team) throw new Error("El antiguo capitán no tiene un equipo asignado en este torneo.");
+
+    const newCaptainUser = await client.users.fetch(newCaptainId).catch(() => null);
+    if (!newCaptainUser) throw new Error("Usuario no encontrado en Discord.");
+
+    // Intentar buscar el PSN ID del usuario nuevo desde la BD de verificados (opcional, pero útil)
+    let newId = newCaptainId;
+    try {
+        const verifiedData = await db.collection('verified_users').findOne({ discordId: newCaptainId });
+        if (verifiedData && (verifiedData.psnId || verifiedData.gameId)) {
+            newId = verifiedData.psnId || verifiedData.gameId;
+        }
+    } catch(e) {}
+
+    const updatedTeam = {
+        ...team,
+        capitanId: newCaptainId,
+        capitanTag: newCaptainUser.tag,
+        id: newId
+    };
+
+    // Prepare update operations
+    const updateOps = {
+        $set: { [`teams.aprobados.${newCaptainId}`]: updatedTeam },
+        $unset: { [`teams.aprobados.${oldCaptainId}`]: "" }
+    };
+
+    // Update keys in pending approval roles / channels
+    try {
+        const captainRole = tournament.discordRoleIds?.capitanesId;
+        if (captainRole) {
+            const oldM = await guild.members.fetch(oldCaptainId).catch(()=>null);
+            if (oldM) await oldM.roles.remove(captainRole).catch(()=>null);
+            const newM = await guild.members.fetch(newCaptainId).catch(()=>null);
+            if (newM) await newM.roles.add(captainRole).catch(()=>null);
+        }
+    } catch(e) {}
+
+    // Update inside structure (calendario and eliminatorias)
+    if (tournament.structure && tournament.structure.calendario) {
+        for (const [groupName, matches] of Object.entries(tournament.structure.calendario)) {
+            matches.forEach((match, index) => {
+                if (match.equipoA && match.equipoA.capitanId === oldCaptainId) {
+                    updateOps.$set[`structure.calendario.${groupName}.${index}.equipoA.capitanId`] = newCaptainId;
+                    updateOps.$set[`structure.calendario.${groupName}.${index}.equipoA.capitanTag`] = newCaptainUser.tag;
+                    updateOps.$set[`structure.calendario.${groupName}.${index}.equipoA.id`] = newId;
+                }
+                if (match.equipoB && match.equipoB.capitanId === oldCaptainId) {
+                    updateOps.$set[`structure.calendario.${groupName}.${index}.equipoB.capitanId`] = newCaptainId;
+                    updateOps.$set[`structure.calendario.${groupName}.${index}.equipoB.capitanTag`] = newCaptainUser.tag;
+                    updateOps.$set[`structure.calendario.${groupName}.${index}.equipoB.id`] = newId;
+                }
+            });
+        }
+    }
+
+    if (tournament.structure && tournament.structure.eliminatorias && tournament.structure.eliminatorias.rondaActual) {
+        Object.keys(tournament.structure.eliminatorias).forEach(curRound => {
+            if (curRound !== 'rondaActual' && Array.isArray(tournament.structure.eliminatorias[curRound])) {
+                tournament.structure.eliminatorias[curRound].forEach((match, index) => {
+                    if (match.equipoA && match.equipoA.capitanId === oldCaptainId) {
+                        updateOps.$set[`structure.eliminatorias.${curRound}.${index}.equipoA.capitanId`] = newCaptainId;
+                        updateOps.$set[`structure.eliminatorias.${curRound}.${index}.equipoA.capitanTag`] = newCaptainUser.tag;
+                        updateOps.$set[`structure.eliminatorias.${curRound}.${index}.equipoA.id`] = newId;
+                    }
+                    if (match.equipoB && match.equipoB.capitanId === oldCaptainId) {
+                        updateOps.$set[`structure.eliminatorias.${curRound}.${index}.equipoB.capitanId`] = newCaptainId;
+                        updateOps.$set[`structure.eliminatorias.${curRound}.${index}.equipoB.capitanTag`] = newCaptainUser.tag;
+                        updateOps.$set[`structure.eliminatorias.${curRound}.${index}.equipoB.id`] = newId;
+                    }
+                });
+            }
+        });
+    }
+
+    await db.collection('tournaments').updateOne({ _id: tournament._id }, updateOps);
+    
+    // Now replace manager in active threads
+    const { replaceManagerInThreads } = await import('../utils/tournamentUtils.js');
+    await replaceManagerInThreads(client, guild, tournament, oldCaptainId, newCaptainId);
+
+    return true;
+}

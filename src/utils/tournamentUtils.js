@@ -245,3 +245,28 @@ export async function checkAndCreateNextRoundThreads(client, guild, tournament, 
         }
     }
 }
+
+export async function replaceManagerInThreads(client, guild, tournament, oldCaptainId, newCaptainId) {
+    if (!tournament.discordChannelIds || !tournament.discordChannelIds.matchesChannelId) return;
+    const matchesChannel = guild.channels.cache.get(tournament.discordChannelIds.matchesChannelId) || await guild.channels.fetch(tournament.discordChannelIds.matchesChannelId).catch(() => null);
+    if (!matchesChannel) return;
+
+    let totalAf = 0;
+    try {
+        const activeThreads = await matchesChannel.threads.fetchActive();
+        for (const [threadId, thread] of activeThreads.threads) {
+            // Check if oldCaptain is in the thread
+            const oldMember = await thread.members.fetch(oldCaptainId).catch(() => null);
+            if (oldMember) {
+                // Remove old, add new
+                await thread.members.remove(oldCaptainId).catch(() => {});
+                await thread.members.add(newCaptainId).catch(() => {});
+                await thread.send({ content: `👋 ¡Hola! <@${newCaptainId}> ha sido asignado como el **Nuevo Mánager / Capitán** de este equipo y asume los mandos del partido.` });
+                totalAf++;
+            }
+        }
+    } catch (e) {
+        console.error('Error in replaceManagerInThreads:', e);
+    }
+    console.log(`[Manager Swap] Replaced manager in ${totalAf} threads.`);
+}

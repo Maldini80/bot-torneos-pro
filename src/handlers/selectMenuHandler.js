@@ -827,25 +827,48 @@ export async function handleSelectMenu(interaction) {
             return interaction.reply({ content: 'Error: No se pudo encontrar el equipo seleccionado.', flags: [MessageFlags.Ephemeral] });
         }
 
-        const modal = new ModalBuilder()
-            .setCustomId(`admin_edit_team_modal:${tournamentShortId}:${captainId}`)
-            .setTitle(`Editando: ${team.nombre}`);
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle(`Gestión de Equipo: ${team.nombre}`)
+            .setDescription(`Selecciona qué acción deseas realizar sobre este equipo (Mánager actual: <@${team.capitanId}>).`);
 
-        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre del Equipo").setStyle(TextInputStyle.Short).setValue(team.nombre).setRequired(true);
-        const eafcNameInput = new TextInputBuilder().setCustomId('eafc_name_input').setLabel("Nombre en EAFC").setStyle(TextInputStyle.Short).setValue(team.eafcTeamName).setRequired(true);
-        const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Twitter (sin @)").setStyle(TextInputStyle.Short).setValue(team.twitter || '').setRequired(false);
-        const streamInput = new TextInputBuilder().setCustomId('stream_url_input').setLabel("URL Completa del Stream").setStyle(TextInputStyle.Short).setValue(team.streamChannel || '').setRequired(false).setPlaceholder('Ej: https://www.twitch.tv/nombre');
-        const logoUrlInput = new TextInputBuilder().setCustomId('logo_url_input').setLabel("URL del Logo (completa)").setStyle(TextInputStyle.Short).setValue(team.logoUrl || '').setRequired(false).setPlaceholder('Ej: https://i.imgur.com/logo.png');
-
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(teamNameInput),
-            new ActionRowBuilder().addComponents(eafcNameInput),
-            new ActionRowBuilder().addComponents(twitterInput),
-            new ActionRowBuilder().addComponents(streamInput),
-            new ActionRowBuilder().addComponents(logoUrlInput)
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`adm_edit_tm_dt:${tournamentShortId}:${captainId}`)
+                .setLabel('✏️ Editar Datos')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(`adm_replace_mgr_start:${tournamentShortId}:${captainId}`)
+                .setLabel('🔄 Reemplazar Mánager/Capitán')
+                .setStyle(ButtonStyle.Danger)
         );
 
-        await interaction.showModal(modal);
+        await interaction.editReply({ content: '', embeds: [embed], components: [row] });
+        return;
+    }
+
+    if (action === 'adm_replace_mgr_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, oldCaptainId] = params;
+        const newCaptainId = interaction.values[0];
+
+        try {
+            const { replaceTournamentManager } = await import('../logic/tournamentLogic.js');
+            await replaceTournamentManager(client, interaction.guild, tournamentShortId, oldCaptainId, newCaptainId);
+            
+            await interaction.editReply({
+                content: `✅ ¡Mánager reemplazado con éxito!\n<@${newCaptainId}> es ahora el mánager/capitán del equipo.\nSe han actualizado los calendarios y se ha notificado en todos los hilos de partido activos.`,
+                embeds: [],
+                components: []
+            });
+        } catch (error) {
+            console.error('Error replacing manager:', error);
+            await interaction.editReply({
+                content: `❌ Hubo un error al reemplazar al mánager: ${error.message}`,
+                embeds: [],
+                components: []
+            });
+        }
         return;
     }
 

@@ -471,6 +471,63 @@ export async function handleButton(interaction) {
         await interaction.showModal(modal);
         return;
     }
+
+    if (action === 'adm_edit_tm_dt') {
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const team = tournament.teams.aprobados[captainId];
+
+        if (!team) {
+            return interaction.reply({ content: 'Error: No se pudo encontrar el equipo seleccionado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_edit_team_modal:${tournamentShortId}:${captainId}`)
+            .setTitle(`Editando: ${team.nombre}`);
+
+        const teamNameInput = new TextInputBuilder().setCustomId('team_name_input').setLabel("Nombre del Equipo").setStyle(TextInputStyle.Short).setValue(team.nombre).setRequired(true);
+        const eafcNameInput = new TextInputBuilder().setCustomId('eafc_name_input').setLabel("Nombre en EAFC").setStyle(TextInputStyle.Short).setValue(team.eafcTeamName).setRequired(true);
+        const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Twitter (sin @)").setStyle(TextInputStyle.Short).setValue(team.twitter || '').setRequired(false);
+        const streamInput = new TextInputBuilder().setCustomId('stream_url_input').setLabel("URL Completa del Stream").setStyle(TextInputStyle.Short).setValue(team.streamChannel || '').setRequired(false).setPlaceholder('Ej: https://www.twitch.tv/nombre');
+        const logoUrlInput = new TextInputBuilder().setCustomId('logo_url_input').setLabel("URL del Logo (completa)").setStyle(TextInputStyle.Short).setValue(team.logoUrl || '').setRequired(false).setPlaceholder('Ej: https://i.imgur.com/logo.png');
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(teamNameInput),
+            new ActionRowBuilder().addComponents(eafcNameInput),
+            new ActionRowBuilder().addComponents(twitterInput),
+            new ActionRowBuilder().addComponents(streamInput),
+            new ActionRowBuilder().addComponents(logoUrlInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'adm_replace_mgr_start') {
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const team = tournament.teams.aprobados[captainId];
+
+        if (!team) {
+            return interaction.reply({ content: 'Error: Equipo no encontrado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId(`adm_replace_mgr_select:${tournamentShortId}:${captainId}`)
+            .setPlaceholder('Busca y selecciona al Nuevo Mánager...')
+            .setMinValues(1)
+            .setMaxValues(1);
+
+        const row = new ActionRowBuilder().addComponents(userSelectMenu);
+
+        await interaction.update({
+            content: `⚠️ **VAS A REEMPLAZAR AL MANAGER/CAPITÁN DE __${team.nombre}__**\nEl usuario actual <@${team.capitanId}> será expulsado del equipo y de todos los hilos activos del torneo.\n\nPor favor, **selecciona al nuevo usuario** de Discord:`,
+            embeds: [],
+            components: [row]
+        });
+        return;
+    }
+
     if (action === 'admin_edit_team_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
