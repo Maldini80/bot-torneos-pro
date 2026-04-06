@@ -3519,7 +3519,8 @@ export async function handleSelectMenu(interaction) {
         const tournamentShortId = params[0];
         const selectedJornada = parseInt(interaction.values[0]);
 
-        await interaction.update({ content: `⏳ Procesando la apertura de hilos para la Jornada ${selectedJornada}... por favor espera. Esta operación será lenta por seguridad de Discord.`, embeds: [], components: [] });
+        // Devolvemos respuesta efímera para no borrar el panel original
+        await interaction.reply({ content: `⏳ Procesando la apertura de hilos para la Jornada ${selectedJornada}... por favor espera. Esta operación será lenta por seguridad de Discord.`, flags: [MessageFlags.Ephemeral] });
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || !tournament.structure || !tournament.structure.calendario) {
@@ -3592,12 +3593,16 @@ export async function handleSelectMenu(interaction) {
         let finalMessage = `✅ **Jornada ${selectedJornada} procesada exitosamente.**\n- Hilos abiertos y rescatados hoy: **${openedCount}**`;
         if (failedCount > 0) finalMessage += `\n- Hilos fallidos (Rate Limit de Discord): **${failedCount}** (Recomendable reintentar desde el menú).`;
 
-        await interaction.followUp({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
+        await interaction.editReply({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
 
-        // Restaurar el panel de gestión del torneo
-        const updatedTournamentEscoba = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const panelContentEscoba = createTournamentManagementPanel(updatedTournamentEscoba);
-        await interaction.editReply(panelContentEscoba);
+        // Restaurar/Actualizar el panel de gestión del torneo
+        try {
+            const updatedTournamentEscoba = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            const panelContentEscoba = createTournamentManagementPanel(updatedTournamentEscoba);
+            await interaction.message.edit(panelContentEscoba).catch(() => {});
+        } catch (e) {
+            console.error('Error al restaurar panel en Escoba:', e);
+        }
         return;
     }
 
@@ -3606,7 +3611,7 @@ export async function handleSelectMenu(interaction) {
         const tournamentShortId = params[0];
         const selectedJornada = parseInt(interaction.values[0]);
 
-        await interaction.update({ content: `🛑 Frenando y eliminando los hilos en Discord de la Jornada ${selectedJornada}... por favor espera. Al igual que al crearlos, esto tardará un poco por seguridad de Discord.`, embeds: [], components: [] });
+        await interaction.reply({ content: `🛑 Frenando y eliminando los hilos en Discord de la Jornada ${selectedJornada}... por favor espera. Al igual que al crearlos, esto tardará un poco por seguridad de Discord.`, flags: [MessageFlags.Ephemeral] });
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament || !tournament.structure || !tournament.structure.calendario) {
@@ -3665,12 +3670,16 @@ export async function handleSelectMenu(interaction) {
         let finalMessage = `🛑 **Jornada ${selectedJornada} frenada con éxito.**\n- Se han eliminado **${stoppedCount}** hilos de Discord y los partidos vuelven a estar "pendientes".`;
         if (failedCount > 0) finalMessage += `\n- Advertencia: Hubo problemas actualizando **${failedCount}** partidos en la base de datos.`;
 
-        await interaction.followUp({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
+        await interaction.editReply({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
 
-        // Restaurar el panel de gestión del torneo
-        const updatedTournamentFrenar = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        const panelContentFrenar = createTournamentManagementPanel(updatedTournamentFrenar);
-        await interaction.editReply(panelContentFrenar);
+        // Restaurar/Actualizar el panel de gestión del torneo
+        try {
+            const updatedTournamentFrenar = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            const panelContentFrenar = createTournamentManagementPanel(updatedTournamentFrenar);
+            await interaction.message.edit(panelContentFrenar).catch(() => {});
+        } catch (e) {
+            console.error('Error al restaurar panel en Frenar:', e);
+        }
         return;
     }
 }
