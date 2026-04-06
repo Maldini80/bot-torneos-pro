@@ -8,7 +8,7 @@ import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuild
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam, updateDraftMainInterface, updatePublicMessages, notifyVisualizer, kickTeam, notifyTournamentVisualizer } from '../logic/tournamentLogic.js';
 import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection, checkVerification } from '../logic/verificationLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
-import { createTeamRosterManagementEmbed, createPlayerManagementEmbed, createPoolEmbed } from '../utils/embeds.js';
+import { createTeamRosterManagementEmbed, createPlayerManagementEmbed, createPoolEmbed, createTournamentManagementPanel } from '../utils/embeds.js';
 import { createMatchThread } from '../utils/tournamentUtils.js';
 import { processMatchResult, findMatch, finalizeMatchThread, revertStats } from '../logic/matchLogic.js';
 import { LEAGUE_EMOJIS, LEAGUE_ORDER, getLeagueByElo } from '../logic/eloLogic.js';
@@ -3593,6 +3593,11 @@ export async function handleSelectMenu(interaction) {
         if (failedCount > 0) finalMessage += `\n- Hilos fallidos (Rate Limit de Discord): **${failedCount}** (Recomendable reintentar desde el menú).`;
 
         await interaction.followUp({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
+
+        // Restaurar el panel de gestión del torneo
+        const updatedTournamentEscoba = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const panelContentEscoba = createTournamentManagementPanel(updatedTournamentEscoba);
+        await interaction.editReply(panelContentEscoba);
         return;
     }
 
@@ -3661,6 +3666,11 @@ export async function handleSelectMenu(interaction) {
         if (failedCount > 0) finalMessage += `\n- Advertencia: Hubo problemas actualizando **${failedCount}** partidos en la base de datos.`;
 
         await interaction.followUp({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
+
+        // Restaurar el panel de gestión del torneo
+        const updatedTournamentFrenar = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const panelContentFrenar = createTournamentManagementPanel(updatedTournamentFrenar);
+        await interaction.editReply(panelContentFrenar);
         return;
     }
 }
