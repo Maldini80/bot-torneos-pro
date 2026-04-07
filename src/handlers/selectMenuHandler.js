@@ -2906,7 +2906,7 @@ export async function handleSelectMenu(interaction) {
     }
 
     // Manejador para el cambio de página en la selección de equipos
-    if (action === 'admin_reopen_select_team_page') {
+    if (action === 'admin_reopen_select_team_page' || action === 'admin_modify_select_team_page') {
         await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const selectedPage = parseInt(interaction.values[0].replace('page_', ''));
@@ -2928,8 +2928,11 @@ export async function handleSelectMenu(interaction) {
             value: team.id
         }));
 
+        const isModify = action === 'admin_modify_select_team_page';
+        const baseAction = isModify ? 'admin_modify' : 'admin_reopen';
+
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_reopen_select_team:${tournamentShortId}`)
+            .setCustomId(`${baseAction}_select_team:${tournamentShortId}`)
             .setPlaceholder(`Paso 1: Selecciona equipo (Pág. ${selectedPage + 1})`)
             .addOptions(teamOptions);
 
@@ -2944,12 +2947,12 @@ export async function handleSelectMenu(interaction) {
         }
         
         const pageSelectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_reopen_select_team_page:${tournamentShortId}`)
+            .setCustomId(`${baseAction}_select_team_page:${tournamentShortId}`)
             .setPlaceholder('Paso 1.5: Cambiar de página (Equipos)')
             .addOptions(pageOptions);
 
         await interaction.editReply({
-            content: `Selecciona el equipo cuyo partido quieres reabrir (Mostrando ${teamsOnPage.length} de ${approvedTeams.length}):`,
+            content: `Selecciona el equipo cuyo partido quieres ${isModify ? 'modificar' : 'reabrir'} (Mostrando ${teamsOnPage.length} de ${approvedTeams.length}):`,
             components: [
                 new ActionRowBuilder().addComponents(selectMenu),
                 new ActionRowBuilder().addComponents(pageSelectMenu)
@@ -2959,22 +2962,20 @@ export async function handleSelectMenu(interaction) {
     }
 
     // NUEVO: Paso intermedio para seleccionar partidos del equipo elegido
-    if (action === 'admin_reopen_select_team' || action === 'admin_reopen_match_select_page') {
-        const isPageAction = action === 'admin_reopen_match_select_page';
+    if (action === 'admin_reopen_select_team' || action === 'admin_reopen_match_select_page' || action === 'admin_modify_select_team' || action === 'admin_modify_match_select_page') {
+        const isPageAction = action.endsWith('_page');
+        const isModify = action.startsWith('admin_modify');
+        const baseAction = isModify ? 'admin_modify' : 'admin_reopen';
+
         // Only defer update, because in both cases it's a select menu interaction
         await interaction.deferUpdate();
         
-        // params will be [tournamentShortId] for select_team, or [tournamentShortId, selectedTeamId] for select_page
         const tournamentShortId = params[0];
-        
-        // if this was a page selection, the value contains the page logic and the params contains the teamId
-        // wait, StringSelectMenu action="admin_reopen_match_select_page", customId=`${action}:${tournamentShortId}:${selectedTeamId}`
         const selectedTeamId = isPageAction ? params[1] : interaction.values[0];
         const selectedPage = isPageAction ? parseInt(interaction.values[0].replace('page_', '')) : 0;
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
 
-        // Filtrar partidos finalizados donde participa este equipo
         const allMatches = [
             ...Object.values(tournament.structure.calendario || {}).flat(),
             ...Object.values(tournament.structure.eliminatorias || {}).flat()
@@ -2986,19 +2987,19 @@ export async function handleSelectMenu(interaction) {
             // Solo partidos de este equipo
             if (match.equipoA?.id !== selectedTeamId && match.equipoB?.id !== selectedTeamId) return false;
             
-            // Si es finalizado, se puede reabrir
-            if (match.status === 'finalizado') return true;
-            // Si está en_curso (hilo existe o dice existir), se puede reiniciar el hilo
-            if (match.status === 'en_curso') return true;
-            // Si está pendiente, se puede adelantar, siempre y cuando no sea suizo y tenga ambos equipos definidos
-            if (match.status === 'pendiente' && !isSwiss && match.equipoA?.id && match.equipoB?.id) return true;
-
-            return false;
+            if (isModify) {
+                return match.status === 'finalizado';
+            } else {
+                if (match.status === 'finalizado') return true;
+                if (match.status === 'en_curso') return true;
+                if (match.status === 'pendiente' && !isSwiss && match.equipoA?.id && match.equipoB?.id) return true;
+                return false;
+            }
         });
 
         if (teamCompletedMatches.length === 0) {
             return interaction.editReply({
-                content: 'Este equipo no tiene partidos disponibles para solucionar o reabrir.',
+                content: `Este equipo no tiene partidos disponibles para ${isModify ? 'modificar' : 'solucionar o reabrir'}.`,
                 components: []
             });
         }
@@ -3022,7 +3023,7 @@ export async function handleSelectMenu(interaction) {
         });
 
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`admin_reopen_match_select:${tournamentShortId}`)
+            .setCustomId(isModify ? `admin_modify_final_result_select:${tournamentShortId}` : `admin_reopen_match_select:${tournamentShortId}`)
             .setPlaceholder(`Paso 2: Selecciona el partido (Pág. ${selectedPage + 1})`)
             .addOptions(matchOptions);
 
@@ -3039,7 +3040,7 @@ export async function handleSelectMenu(interaction) {
                 });
             }
             const pageSelectMenu = new StringSelectMenuBuilder()
-                .setCustomId(`admin_reopen_match_select_page:${tournamentShortId}:${selectedTeamId}`)
+                .setCustomId(`${baseAction}_match_select_page:${tournamentShortId}:${selectedTeamId}`)
                 .setPlaceholder('Paso 2.5: Cambiar de página (Partidos)')
                 .addOptions(pageOptions);
 

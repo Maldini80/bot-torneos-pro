@@ -4777,99 +4777,58 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
 
-        // --- MEJORA: Para "Reabrir", mostramos primero los equipos ---
-        if (action === 'admin_reopen_match_start') {
-            const approvedTeams = Object.values(tournament.teams.aprobados);
+        const approvedTeams = Object.values(tournament.teams.aprobados);
 
-            if (approvedTeams.length === 0) {
-                return interaction.editReply({ content: 'No hay equipos aprobados en este torneo.' });
-            }
-
-            approvedTeams.sort((a, b) => a.nombre.localeCompare(b.nombre));
-
-            const pageSize = 25;
-            const pageCount = Math.ceil(approvedTeams.length / pageSize);
-            const page = 0;
-
-            const startIndex = page * pageSize;
-            const teamsOnPage = approvedTeams.slice(startIndex, startIndex + pageSize);
-
-            const teamOptions = teamsOnPage.map(team => ({
-                label: team.nombre,
-                description: `Capitán: ${team.capitanTag}`,
-                value: team.id
-            }));
-
-            const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId(`admin_reopen_select_team:${tournamentShortId}`)
-                .setPlaceholder(`Paso 1: Selecciona equipo (Pág. 1)`)
-                .addOptions(teamOptions);
-
-            const components = [new ActionRowBuilder().addComponents(selectMenu)];
-
-            if (pageCount > 1) {
-                const pageOptions = [];
-                for (let i = 0; i < pageCount; i++) {
-                    const startNum = i * pageSize + 1;
-                    const endNum = Math.min((i + 1) * pageSize, approvedTeams.length);
-                    pageOptions.push({
-                        label: `Página ${i + 1} (${startNum}-${endNum})`,
-                        value: `page_${i}`
-                    });
-                }
-                const pageSelectMenu = new StringSelectMenuBuilder()
-                    .setCustomId(`admin_reopen_select_team_page:${tournamentShortId}`)
-                    .setPlaceholder('Paso 1.5: Cambiar de página (Equipos)')
-                    .addOptions(pageOptions);
-
-                components.push(new ActionRowBuilder().addComponents(pageSelectMenu));
-            }
-
-            await interaction.editReply({
-                content: `Selecciona el equipo cuyo partido quieres reabrir (Mostrando ${teamsOnPage.length} de ${approvedTeams.length}):`,
-                components: components
-            });
-            return;
+        if (approvedTeams.length === 0) {
+            return interaction.editReply({ content: 'No hay equipos aprobados en este torneo.' });
         }
 
-        // --- Para "Modificar Resultado", mantenemos el flujo antiguo (por ahora) ---
-        const allMatches = [
-            ...Object.values(tournament.structure.calendario || {}).flat(),
-            ...Object.values(tournament.structure.eliminatorias || {}).flat()
-        ];
+        approvedTeams.sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-        const completedMatches = allMatches.filter(match => match && match.status === 'finalizado' && match.id !== 'ghost');
+        const pageSize = 25;
+        const pageCount = Math.ceil(approvedTeams.length / pageSize);
+        const page = 0;
 
-        if (completedMatches.length === 0) {
-            return interaction.editReply({ content: 'No hay partidos finalizados para gestionar en este torneo.' });
-        }
+        const startIndex = page * pageSize;
+        const teamsOnPage = approvedTeams.slice(startIndex, startIndex + pageSize);
 
-        // Creamos las opciones para el menú desplegable
-        const matchOptions = completedMatches.map(match => {
-            const stage = match.nombreGrupo ? `${match.nombreGrupo} - J${match.jornada}` : match.jornada;
-            return {
-                label: `${stage}: ${match.equipoA.nombre} vs ${match.equipoB.nombre}`,
-                description: `Resultado actual: ${match.resultado}`,
-                value: match.matchId,
-            };
-        }).slice(0, 25); // Discord solo permite 25 opciones por menú
+        const teamOptions = teamsOnPage.map(team => ({
+            label: team.nombre,
+            description: `Capitán: ${team.capitanTag}`,
+            value: team.id
+        }));
 
-        const selectMenuId = `admin_modify_final_result_select:${tournamentShortId}`;
+        const isModify = action === 'admin_modify_final_result_start';
+        const baseAction = isModify ? 'admin_modify' : 'admin_reopen';
 
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(selectMenuId)
-            .setPlaceholder('Selecciona el partido que quieres gestionar...')
-            .addOptions(matchOptions);
+            .setCustomId(`${baseAction}_select_team:${tournamentShortId}`)
+            .setPlaceholder(`Paso 1: Selecciona equipo (Pág. 1)`)
+            .addOptions(teamOptions);
 
-        let content = 'Selecciona el partido cuyo resultado final deseas modificar directamente.';
+        const components = [new ActionRowBuilder().addComponents(selectMenu)];
 
-        if (completedMatches.length > 25) {
-            content += '\n\n⚠️ **Atención:** Solo se muestran los primeros 25 partidos finalizados.';
+        if (pageCount > 1) {
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const startNum = i * pageSize + 1;
+                const endNum = Math.min((i + 1) * pageSize, approvedTeams.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (${startNum}-${endNum})`,
+                    value: `page_${i}`
+                });
+            }
+            const pageSelectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`${baseAction}_select_team_page:${tournamentShortId}`)
+                .setPlaceholder('Paso 1.5: Cambiar de página (Equipos)')
+                .addOptions(pageOptions);
+
+            components.push(new ActionRowBuilder().addComponents(pageSelectMenu));
         }
 
         await interaction.editReply({
-            content: content,
-            components: [new ActionRowBuilder().addComponents(selectMenu)],
+            content: `Selecciona el equipo cuyo partido quieres ${isModify ? 'modificar' : 'reabrir'} (Mostrando ${teamsOnPage.length} de ${approvedTeams.length}):`,
+            components: components
         });
         return;
     }
