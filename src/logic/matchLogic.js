@@ -49,9 +49,20 @@ export async function processMatchResult(client, guild, tournament, matchId, res
 
     await updateMatchThreadName(client, partido);
 
+    // Encontramos la ruta exacta del partido para escrituras atómicas
+    const matchPath = findMatchPath(currentTournament, matchId);
+    if (!matchPath) throw new Error(`Ruta del partido ${matchId} no encontrada en la estructura del torneo.`);
+
     if (fase === 'grupos') {
         await updateGroupStageStats(currentTournament, partido);
-        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
+        // ATÓMICO: Solo escribimos el resultado del partido específico + las stats del grupo afectado
+        // Esto evita que dos partidos concurrentes se sobrescriban mutuamente
+        const atomicUpdate = {
+            [`${matchPath}.resultado`]: resultString,
+            [`${matchPath}.status`]: 'finalizado',
+            [`structure.grupos.${partido.nombreGrupo}.equipos`]: currentTournament.structure.grupos[partido.nombreGrupo].equipos
+        };
+        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: atomicUpdate });
 
         let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
         await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
@@ -60,7 +71,12 @@ export async function processMatchResult(client, guild, tournament, matchId, res
         await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats);
 
     } else {
-        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: { "structure": currentTournament.structure } });
+        // ATÓMICO: Solo escribimos el resultado del partido específico de eliminatorias
+        const atomicUpdate = {
+            [`${matchPath}.resultado`]: resultString,
+            [`${matchPath}.status`]: 'finalizado'
+        };
+        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: atomicUpdate });
         let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
         await checkForKnockoutAdvancement(client, guild, updatedTournamentAfterStats);
     }

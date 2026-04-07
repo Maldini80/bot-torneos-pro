@@ -83,13 +83,13 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
 
         // Recopilamos TODOS los IDs de capitanes de ambos equipos
         const getTeamIds = (team) => {
-            const ids = [];
-            if (team.capitanId) ids.push(team.capitanId);
-            if (team.coCaptainId) ids.push(team.coCaptainId);
+            const ids = new Set();
+            if (team.capitanId) ids.add(team.capitanId);
+            if (team.coCaptainId) ids.add(team.coCaptainId);
             if (team.extraCaptains && Array.isArray(team.extraCaptains)) {
-                ids.push(...team.extraCaptains);
+                team.extraCaptains.forEach(id => ids.add(id));
             }
-            return ids;
+            return [...ids];
         };
 
         const teamAIds = getTeamIds(partido.equipoA);

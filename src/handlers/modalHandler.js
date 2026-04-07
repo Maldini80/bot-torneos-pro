@@ -2318,6 +2318,9 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             await finalizeMatchThread(client, processedMatch, resultString);
         } catch (error) {
             console.error(`[FORCE RESULT] Error al procesar resultado forzado para ${matchId}:`, error);
+            try {
+                await interaction.followUp({ content: `⚠️ Hubo un error al procesar el resultado forzado para el partido \`${matchId}\`. El resultado probablemente se guardó en la DB pero alguna operación secundaria falló. Revisa el panel de gestión.`, flags: [MessageFlags.Ephemeral] });
+            } catch (e) { /* La interacción pudo haber expirado */ }
         }
 
         return;

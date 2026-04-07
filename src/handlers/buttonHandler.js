@@ -335,7 +335,7 @@ export async function handleButton(interaction) {
             streamChannel: 'No requerido',
             paypal: null,
             inscritoEn: new Date(),
-            extraCaptains: team.captains || []
+            extraCaptains: (team.captains || []).filter(id => id !== team.managerId)
         };
 
         if (!tournament.teams) tournament.teams = { pendientes: {} };
