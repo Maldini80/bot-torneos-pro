@@ -162,9 +162,18 @@ client.on(Events.MessageDelete, async message => {
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { startVpgBot, setVpgClient } = require('./src/vpg_bot/index.js');
+import { recalculateStats } from './fix_stats.js';
 
 async function startBot() {
     await connectDb();
+    
+    try {
+        console.log('[MIGRATION] Recalculando stats para solventar el bug de reemplazo de capitan...');
+        await recalculateStats();
+    } catch(err) {
+        console.error('[MIGRATION] Error al recalcular stats:', err);
+    }
+    
     await startVisualizerServer(client, advanceDraftTurn, handlePlayerSelectionFromWeb);
     client.login(process.env.DISCORD_TOKEN);
 

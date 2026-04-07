@@ -5840,6 +5840,20 @@ export async function replaceTournamentManager(client, guild, tournamentShortId,
         });
     }
 
+    if (tournament.structure && tournament.structure.grupos) {
+        for (const [groupName, groupData] of Object.entries(tournament.structure.grupos)) {
+            if (groupData && Array.isArray(groupData.equipos)) {
+                groupData.equipos.forEach((eq, index) => {
+                    if (eq.capitanId === oldCaptainId) {
+                        updateOps.$set[`structure.grupos.${groupName}.equipos.${index}.capitanId`] = newCaptainId;
+                        updateOps.$set[`structure.grupos.${groupName}.equipos.${index}.capitanTag`] = newCaptainUser.tag;
+                        updateOps.$set[`structure.grupos.${groupName}.equipos.${index}.id`] = newId;
+                    }
+                });
+            }
+        }
+    }
+
     await db.collection('tournaments').updateOne({ _id: tournament._id }, updateOps);
     
     // Now replace manager in active threads
