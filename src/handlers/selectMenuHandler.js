@@ -3568,81 +3568,95 @@ export async function handleSelectMenu(interaction) {
     // Herramienta Escoba de Jornadas: Abre todos los hilos pendientes de una jornada específica
     if (action === 'admin_open_pending_jornada_select') {
         const tournamentShortId = params[0];
-        const isAll = interaction.values[0] === 'all';
-        const selectedJornada = isAll ? 'TODAS' : parseInt(interaction.values[0]);
+        const selectedValue = interaction.values[0];
+        const isAll = selectedValue === 'all';
+        const isElim = !isAll && selectedValue.startsWith('elim_');
+        const selectedElimStage = isElim ? selectedValue.replace('elim_', '') : null;
+        const selectedJornada = (!isAll && !isElim) ? parseInt(selectedValue) : null;
+        const STAGE_LABELS = { 'octavos': 'Octavos de Final', 'cuartos': 'Cuartos de Final', 'semis': 'Semifinales', 'final': 'Final', 'tercerPuesto': 'Tercer Puesto' };
+        const displayLabel = isAll ? 'TODAS' : (isElim ? (STAGE_LABELS[selectedElimStage] || selectedElimStage) : `Jornada ${selectedJornada}`);
 
         // Devolvemos respuesta efímera para no borrar el panel original
-        await interaction.reply({ content: `⏳ Procesando la apertura de hilos para la Jornada ${selectedJornada}... por favor espera. Esta operación será lenta por seguridad de Discord.`, flags: [MessageFlags.Ephemeral] });
+        await interaction.reply({ content: `⏳ Procesando la apertura de hilos para ${displayLabel}... por favor espera. Esta operación será lenta por seguridad de Discord.`, flags: [MessageFlags.Ephemeral] });
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament || !tournament.structure || !tournament.structure.calendario) {
-            return interaction.followUp({ content: `❌ Error: No se encontraron datos para la Jornada ${selectedJornada}.`, flags: [MessageFlags.Ephemeral] });
+        if (!tournament || !tournament.structure) {
+            return interaction.followUp({ content: `❌ Error: No se encontraron datos del torneo.`, flags: [MessageFlags.Ephemeral] });
         }
 
         let openedCount = 0;
         let failedCount = 0;
 
-        for (const [groupName, matches] of Object.entries(tournament.structure.calendario)) {
-            for (let i = 0; i < matches.length; i++) {
-                const match = matches[i];
-                // Solo filtrará estrictamente partidos con estado 'pendiente' y que no son descansos
-                if ((isAll || match.jornada === selectedJornada) && match.status === 'pendiente' && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
-                    
-                    // Asegurar bloqueo atómico
-                    const fieldPath = `structure.calendario.${groupName}.${i}`;
-                    const result = await db.collection('tournaments').findOneAndUpdate(
-                        {
-                            _id: tournament._id,
-                            [`${fieldPath}.status`]: 'pendiente',
-                            [`${fieldPath}.matchId`]: match.matchId
-                        },
-                        {
-                            $set: {
-                                [`${fieldPath}.status`]: 'creando_hilo',
-                                [`${fieldPath}.lockedAt`]: new Date()
+        // --- Procesar CALENDARIO ---
+        if (tournament.structure.calendario && (isAll || !isElim)) {
+            for (const [groupName, matches] of Object.entries(tournament.structure.calendario)) {
+                for (let i = 0; i < matches.length; i++) {
+                    const match = matches[i];
+                    if ((isAll || match.jornada === selectedJornada) && match.status === 'pendiente' && match.equipoA?.id !== 'ghost' && match.equipoB?.id !== 'ghost') {
+                        const fieldPath = `structure.calendario.${groupName}.${i}`;
+                        const result = await db.collection('tournaments').findOneAndUpdate(
+                            { _id: tournament._id, [`${fieldPath}.status`]: 'pendiente', [`${fieldPath}.matchId`]: match.matchId },
+                            { $set: { [`${fieldPath}.status`]: 'creando_hilo', [`${fieldPath}.lockedAt`]: new Date() } },
+                            { returnDocument: 'after' }
+                        );
+                        if (!result) continue;
+                        try {
+                            const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
+                            if (threadId) {
+                                await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`${fieldPath}.threadId`]: threadId, [`${fieldPath}.status`]: 'en_curso' } });
+                                openedCount++;
+                            } else {
+                                await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`${fieldPath}.status`]: 'pendiente' } });
+                                failedCount++;
                             }
-                        },
+                        } catch (error) {
+                            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`${fieldPath}.status`]: 'pendiente' } });
+                            failedCount++;
+                        }
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                }
+            }
+        }
+
+        // --- Procesar ELIMINATORIAS ---
+        if (tournament.structure.eliminatorias && (isAll || isElim)) {
+            for (const stageKey of Object.keys(tournament.structure.eliminatorias)) {
+                if (stageKey === 'rondaActual') continue;
+                if (!isAll && stageKey !== selectedElimStage) continue;
+                const stageData = tournament.structure.eliminatorias[stageKey];
+                const isArray = Array.isArray(stageData);
+                const matchesArray = isArray ? stageData : (stageData ? [stageData] : []);
+                for (let i = 0; i < matchesArray.length; i++) {
+                    const match = matchesArray[i];
+                    if (!match || match.status !== 'pendiente') continue;
+                    if (!match.equipoA?.id || !match.equipoB?.id || match.equipoA.id === 'ghost' || match.equipoB.id === 'ghost') continue;
+                    const fieldPath = isArray ? `structure.eliminatorias.${stageKey}.${i}` : `structure.eliminatorias.${stageKey}`;
+                    const result = await db.collection('tournaments').findOneAndUpdate(
+                        { _id: tournament._id, [`${fieldPath}.status`]: 'pendiente' },
+                        { $set: { [`${fieldPath}.status`]: 'creando_hilo', [`${fieldPath}.lockedAt`]: new Date() } },
                         { returnDocument: 'after' }
                     );
-
-                    if (!result) continue; // Si otro proceso le puso candado primero, lo salta
-
+                    if (!result) continue;
                     try {
                         const threadId = await createMatchThread(client, guild, match, tournament.discordChannelIds.matchesChannelId, tournament.shortId);
-                        
                         if (threadId) {
-                            await db.collection('tournaments').updateOne(
-                                { _id: tournament._id },
-                                {
-                                    $set: {
-                                        [`${fieldPath}.threadId`]: threadId,
-                                        [`${fieldPath}.status`]: 'en_curso'
-                                    }
-                                }
-                            );
+                            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`${fieldPath}.threadId`]: threadId, [`${fieldPath}.status`]: 'en_curso' } });
                             openedCount++;
                         } else {
-                            await db.collection('tournaments').updateOne(
-                                { _id: tournament._id },
-                                { $set: { [`${fieldPath}.status`]: 'pendiente' } }
-                            );
+                            await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`${fieldPath}.status`]: 'pendiente' } });
                             failedCount++;
                         }
                     } catch (error) {
-                        await db.collection('tournaments').updateOne(
-                            { _id: tournament._id },
-                            { $set: { [`${fieldPath}.status`]: 'pendiente' } }
-                        );
+                        await db.collection('tournaments').updateOne({ _id: tournament._id }, { $set: { [`${fieldPath}.status`]: 'pendiente' } });
                         failedCount++;
                     }
-
-                    // Pausa quirúrgica para garantizar conexión
                     await new Promise(r => setTimeout(r, 2000));
                 }
             }
         }
 
-        let finalMessage = `✅ **Jornada ${selectedJornada} procesada exitosamente.**\n- Hilos abiertos y rescatados hoy: **${openedCount}**`;
+        let finalMessage = `✅ **${displayLabel} procesada exitosamente.**\n- Hilos abiertos y rescatados hoy: **${openedCount}**`;
         if (failedCount > 0) finalMessage += `\n- Hilos fallidos (Rate Limit de Discord): **${failedCount}** (Recomendable reintentar desde el menú).`;
 
         await interaction.editReply({ content: finalMessage, flags: [MessageFlags.Ephemeral] });
@@ -3661,66 +3675,82 @@ export async function handleSelectMenu(interaction) {
     // Herramienta Frenar Jornadas: Borra los hilos activos de una jornada y los devuelve a pendientes
     if (action === 'admin_frenar_jornada_select') {
         const tournamentShortId = params[0];
-        const isAll = interaction.values[0] === 'all';
-        const selectedJornada = isAll ? 'TODAS' : parseInt(interaction.values[0]);
+        const selectedValue = interaction.values[0];
+        const isAll = selectedValue === 'all';
+        const isElim = !isAll && selectedValue.startsWith('elim_');
+        const selectedElimStage = isElim ? selectedValue.replace('elim_', '') : null;
+        const selectedJornada = (!isAll && !isElim) ? parseInt(selectedValue) : null;
+        const STAGE_LABELS = { 'octavos': 'Octavos de Final', 'cuartos': 'Cuartos de Final', 'semis': 'Semifinales', 'final': 'Final', 'tercerPuesto': 'Tercer Puesto' };
+        const displayLabel = isAll ? 'TODAS' : (isElim ? (STAGE_LABELS[selectedElimStage] || selectedElimStage) : `Jornada ${selectedJornada}`);
 
-        await interaction.reply({ content: `🛑 Frenando y eliminando los hilos en Discord de la Jornada ${selectedJornada}... por favor espera. Al igual que al crearlos, esto tardará un poco por seguridad de Discord.`, flags: [MessageFlags.Ephemeral] });
+        await interaction.reply({ content: `🛑 Frenando y eliminando los hilos en Discord de ${displayLabel}... por favor espera. Al igual que al crearlos, esto tardará un poco por seguridad de Discord.`, flags: [MessageFlags.Ephemeral] });
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament || !tournament.structure || !tournament.structure.calendario) {
-            return interaction.followUp({ content: `❌ Error: No se encontraron datos para la Jornada ${selectedJornada}.`, flags: [MessageFlags.Ephemeral] });
+        if (!tournament || !tournament.structure) {
+            return interaction.followUp({ content: `❌ Error: No se encontraron datos del torneo.`, flags: [MessageFlags.Ephemeral] });
         }
 
         let stoppedCount = 0;
         let failedCount = 0;
 
-        for (const [groupName, matches] of Object.entries(tournament.structure.calendario)) {
-            for (let i = 0; i < matches.length; i++) {
-                const match = matches[i];
-                // Frena partidos activos (tienen hilo y no están finalizados)
-                if ((isAll || match.jornada === selectedJornada) && match.threadId && match.status !== 'finalizado' && match.equipoA.id !== 'ghost' && match.equipoB.id !== 'ghost') {
-                    
-                    const fieldPath = `structure.calendario.${groupName}.${i}`;
-                    const targetThreadId = match.threadId;
-
-                    try {
-                        const thread = await client.channels.fetch(targetThreadId);
-                        if (thread) {
-                            await thread.delete('Jornada frenada por el Administrador');
+        // --- Procesar CALENDARIO ---
+        if (tournament.structure.calendario && (isAll || !isElim)) {
+            for (const [groupName, matches] of Object.entries(tournament.structure.calendario)) {
+                for (let i = 0; i < matches.length; i++) {
+                    const match = matches[i];
+                    if ((isAll || match.jornada === selectedJornada) && match.threadId && match.status !== 'finalizado' && match.equipoA?.id !== 'ghost' && match.equipoB?.id !== 'ghost') {
+                        const fieldPath = `structure.calendario.${groupName}.${i}`;
+                        try {
+                            const thread = await client.channels.fetch(match.threadId);
+                            if (thread) await thread.delete('Jornada frenada por el Administrador');
+                        } catch (error) {
+                            if (error.code !== 10003) console.log(`[Frenar] Error borrando hilo ${match.threadId}: ${error.message}`);
                         }
-                    } catch (error) {
-                        // Si el canal ya fue borrado a mano o no existe, lo ignoramos y procedemos a resetear la DB
-                        if (error.code !== 10003) {
-                            console.log(`[Frenar Jornada] Error menor borrando hilo ${targetThreadId}: ${error.message}`);
-                        }
+                        try {
+                            await db.collection('tournaments').updateOne(
+                                { _id: tournament._id, [`${fieldPath}.matchId`]: match.matchId },
+                                { $set: { [`${fieldPath}.status`]: 'pendiente' }, $unset: { [`${fieldPath}.threadId`]: "", [`${fieldPath}.lockedAt`]: "" } }
+                            );
+                            stoppedCount++;
+                        } catch (dbError) { failedCount++; }
+                        await new Promise(r => setTimeout(r, 2000));
                     }
+                }
+            }
+        }
 
-                    // Resetear el partido a pendiente
+        // --- Procesar ELIMINATORIAS ---
+        if (tournament.structure.eliminatorias && (isAll || isElim)) {
+            for (const stageKey of Object.keys(tournament.structure.eliminatorias)) {
+                if (stageKey === 'rondaActual') continue;
+                if (!isAll && stageKey !== selectedElimStage) continue;
+                const stageData = tournament.structure.eliminatorias[stageKey];
+                const isArray = Array.isArray(stageData);
+                const matchesArray = isArray ? stageData : (stageData ? [stageData] : []);
+                for (let i = 0; i < matchesArray.length; i++) {
+                    const match = matchesArray[i];
+                    if (!match || !match.threadId || match.status === 'finalizado') continue;
+                    if (match.equipoA?.id === 'ghost' || match.equipoB?.id === 'ghost') continue;
+                    const fieldPath = isArray ? `structure.eliminatorias.${stageKey}.${i}` : `structure.eliminatorias.${stageKey}`;
+                    try {
+                        const thread = await client.channels.fetch(match.threadId);
+                        if (thread) await thread.delete('Eliminatoria frenada por el Administrador');
+                    } catch (error) {
+                        if (error.code !== 10003) console.log(`[Frenar Elim] Error borrando hilo ${match.threadId}: ${error.message}`);
+                    }
                     try {
                         await db.collection('tournaments').updateOne(
-                            { _id: tournament._id, [`${fieldPath}.matchId`]: match.matchId },
-                            {
-                                $set: {
-                                    [`${fieldPath}.status`]: 'pendiente'
-                                },
-                                $unset: {
-                                    [`${fieldPath}.threadId`]: "",
-                                    [`${fieldPath}.lockedAt`]: ""
-                                }
-                            }
+                            { _id: tournament._id },
+                            { $set: { [`${fieldPath}.status`]: 'pendiente' }, $unset: { [`${fieldPath}.threadId`]: "", [`${fieldPath}.lockedAt`]: "" } }
                         );
                         stoppedCount++;
-                    } catch (dbError) {
-                        failedCount++;
-                    }
-
-                    // Pausa quirúrgica para garantizar conexión y evitar límite
+                    } catch (dbError) { failedCount++; }
                     await new Promise(r => setTimeout(r, 2000));
                 }
             }
         }
 
-        let finalMessage = `🛑 **Jornada ${selectedJornada} frenada con éxito.**\n- Se han eliminado **${stoppedCount}** hilos de Discord y los partidos vuelven a estar "pendientes".`;
+        let finalMessage = `🛑 **${displayLabel} frenada con éxito.**\n- Se han eliminado **${stoppedCount}** hilos de Discord y los partidos vuelven a estar "pendientes".`;
         if (failedCount > 0) finalMessage += `\n- Advertencia: Hubo problemas actualizando **${failedCount}** partidos en la base de datos.`;
 
         await interaction.editReply({ content: finalMessage, flags: [MessageFlags.Ephemeral] });

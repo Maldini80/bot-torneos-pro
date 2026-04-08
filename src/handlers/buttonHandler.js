@@ -4558,44 +4558,74 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
 
-        if (!tournament || !tournament.structure || !tournament.structure.calendario) {
-            return interaction.editReply({ content: '❌ No se encontró el calendario del torneo.', embeds: [], components: [] });
+        if (!tournament || !tournament.structure) {
+            return interaction.editReply({ content: '❌ No se encontró la estructura del torneo.', embeds: [], components: [] });
         }
 
-        const allMatches = Object.values(tournament.structure.calendario).flat();
+        // Recopilar partidos del calendario
+        const calendarMatches = tournament.structure.calendario ? Object.values(tournament.structure.calendario).flat() : [];
+        
+        // Recopilar partidos de eliminatorias (taggeados con _elimStage)
+        const elimMatchesTagged = [];
+        if (tournament.structure.eliminatorias) {
+            for (const stageKey of Object.keys(tournament.structure.eliminatorias)) {
+                if (stageKey === 'rondaActual') continue;
+                const stageData = tournament.structure.eliminatorias[stageKey];
+                const matchesArray = Array.isArray(stageData) ? stageData : (stageData ? [stageData] : []);
+                for (const m of matchesArray) {
+                    if (m) elimMatchesTagged.push({ ...m, _elimStage: stageKey });
+                }
+            }
+        }
+
+        const allMatches = [...calendarMatches, ...elimMatchesTagged];
         
         // Filtrar partidos que Tienen Hilo para ser frenados (ni ghost, ni finalizados)
         const stoppableMatches = allMatches.filter(m => 
             m.threadId && 
             m.status !== 'finalizado' && 
-            m.equipoA.id !== 'ghost' && 
-            m.equipoB.id !== 'ghost'
+            m.equipoA?.id !== 'ghost' && 
+            m.equipoB?.id !== 'ghost'
         );
 
         if (stoppableMatches.length === 0) {
-            return interaction.followUp({ content: '✅ No se encontraron hilos creados activos en ninguna jornada para frenar.', ephemeral: true });
+            return interaction.followUp({ content: '✅ No se encontraron hilos creados activos en ninguna jornada/eliminatoria para frenar.', ephemeral: true });
         }
 
-        // Agrupar por jornada
+        // Agrupar por jornada (calendario) y por stage (eliminatorias)
         const stoppableByJornada = {};
+        const stoppableByElimStage = {};
         for (const m of stoppableMatches) {
-            if (!stoppableByJornada[m.jornada]) stoppableByJornada[m.jornada] = 0;
-            stoppableByJornada[m.jornada]++;
+            if (m._elimStage) {
+                if (!stoppableByElimStage[m._elimStage]) stoppableByElimStage[m._elimStage] = 0;
+                stoppableByElimStage[m._elimStage]++;
+            } else {
+                if (!stoppableByJornada[m.jornada]) stoppableByJornada[m.jornada] = 0;
+                stoppableByJornada[m.jornada]++;
+            }
         }
 
-        const options = Object.keys(stoppableByJornada).map(jornadaNum => {
-            return {
-                label: `Jornada ${jornadaNum}`,
-                description: `Contiene ${stoppableByJornada[jornadaNum]} hilos activos por frenar.`,
-                value: jornadaNum.toString()
-            };
-        });
+        const STAGE_LABELS_F = { 'octavos': 'Octavos de Final', 'cuartos': 'Cuartos de Final', 'semis': 'Semifinales', 'final': 'Final', 'tercerPuesto': 'Tercer Puesto' };
+        const options = Object.keys(stoppableByJornada).map(jornadaNum => ({
+            label: `Jornada ${jornadaNum}`,
+            description: `Contiene ${stoppableByJornada[jornadaNum]} hilos activos por frenar.`,
+            value: jornadaNum.toString()
+        }));
+
+        // Añadir opciones de eliminatorias
+        for (const stageKey of Object.keys(stoppableByElimStage)) {
+            options.push({
+                label: `🏆 ${STAGE_LABELS_F[stageKey] || stageKey}`,
+                description: `Eliminatoria: ${stoppableByElimStage[stageKey]} hilos activos.`,
+                value: `elim_${stageKey}`
+            });
+        }
 
         // Evitamos sobrepasar el límite de 25 de Discord y agregamos la opción "Todas"
         const safeOptions = options.slice(0, 24);
         if (options.length > 1) {
             safeOptions.unshift({
-                label: `✨ TODAS LAS JORNADAS`,
+                label: `✨ TODAS (Liga + Eliminatorias)`,
                 description: `Peligro: Frena TODO. Puede tardar MUCHÍSIMO tiempo.`,
                 value: 'all'
             });
@@ -4628,43 +4658,73 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
 
-        if (!tournament || !tournament.structure || !tournament.structure.calendario) {
-            return interaction.editReply({ content: '❌ No se encontró el calendario del torneo.', embeds: [], components: [] });
+        if (!tournament || !tournament.structure) {
+            return interaction.editReply({ content: '❌ No se encontró la estructura del torneo.', embeds: [], components: [] });
         }
 
-        const allMatches = Object.values(tournament.structure.calendario).flat();
+        // Recopilar partidos del calendario
+        const calendarMatches = tournament.structure.calendario ? Object.values(tournament.structure.calendario).flat() : [];
+        
+        // Recopilar partidos de eliminatorias
+        const elimMatchesTagged = [];
+        if (tournament.structure.eliminatorias) {
+            for (const stageKey of Object.keys(tournament.structure.eliminatorias)) {
+                if (stageKey === 'rondaActual') continue;
+                const stageData = tournament.structure.eliminatorias[stageKey];
+                const matchesArray = Array.isArray(stageData) ? stageData : (stageData ? [stageData] : []);
+                for (const m of matchesArray) {
+                    if (m && m.equipoA?.id && m.equipoB?.id) elimMatchesTagged.push({ ...m, _elimStage: stageKey });
+                }
+            }
+        }
+
+        const allMatches = [...calendarMatches, ...elimMatchesTagged];
         
         // Filtrar partidos que están 'pendiente' y NO son contra ghost
         const pendingMatches = allMatches.filter(m => 
             m.status === 'pendiente' && 
-            m.equipoA.id !== 'ghost' && 
-            m.equipoB.id !== 'ghost'
+            m.equipoA?.id && m.equipoA.id !== 'ghost' && 
+            m.equipoB?.id && m.equipoB.id !== 'ghost'
         );
 
         if (pendingMatches.length === 0) {
-            return interaction.followUp({ content: '✅ No se encontraron hilos pendientes en ninguna jornada válida.', ephemeral: true });
+            return interaction.followUp({ content: '✅ No se encontraron hilos pendientes en ninguna jornada/eliminatoria válida.', ephemeral: true });
         }
 
-        // Agrupar por jornada
+        // Agrupar por jornada (calendario) y por stage (eliminatorias)
         const pendingByJornada = {};
+        const pendingByElimStage = {};
         for (const m of pendingMatches) {
-            if (!pendingByJornada[m.jornada]) pendingByJornada[m.jornada] = 0;
-            pendingByJornada[m.jornada]++;
+            if (m._elimStage) {
+                if (!pendingByElimStage[m._elimStage]) pendingByElimStage[m._elimStage] = 0;
+                pendingByElimStage[m._elimStage]++;
+            } else {
+                if (!pendingByJornada[m.jornada]) pendingByJornada[m.jornada] = 0;
+                pendingByJornada[m.jornada]++;
+            }
         }
 
-        const options = Object.keys(pendingByJornada).map(jornadaNum => {
-            return {
-                label: `Jornada ${jornadaNum}`,
-                description: `Contiene ${pendingByJornada[jornadaNum]} hilos pendientes por abrir.`,
-                value: jornadaNum.toString()
-            };
-        });
+        const STAGE_LABELS_O = { 'octavos': 'Octavos de Final', 'cuartos': 'Cuartos de Final', 'semis': 'Semifinales', 'final': 'Final', 'tercerPuesto': 'Tercer Puesto' };
+        const options = Object.keys(pendingByJornada).map(jornadaNum => ({
+            label: `Jornada ${jornadaNum}`,
+            description: `Contiene ${pendingByJornada[jornadaNum]} hilos pendientes por abrir.`,
+            value: jornadaNum.toString()
+        }));
+
+        // Añadir opciones de eliminatorias
+        for (const stageKey of Object.keys(pendingByElimStage)) {
+            options.push({
+                label: `🏆 ${STAGE_LABELS_O[stageKey] || stageKey}`,
+                description: `Eliminatoria: ${pendingByElimStage[stageKey]} hilos pendientes.`,
+                value: `elim_${stageKey}`
+            });
+        }
 
         // Evitamos sobrepasar el límite de 25 de Discord y agregamos la opción "Todas"
         const safeOptions = options.slice(0, 24);
         if (options.length > 1) {
             safeOptions.unshift({
-                label: `✨ TODAS LAS JORNADAS`,
+                label: `✨ TODAS (Liga + Eliminatorias)`,
                 description: `Abre TODO. Puede tardar MUCHÍSIMO tiempo.`,
                 value: 'all'
             });
