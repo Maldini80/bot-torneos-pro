@@ -2836,6 +2836,41 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         return;
     }
 
+    if (customId.startsWith('admin_replace_team_search_modal')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const parts = customId.split(':');
+        const tournamentShortId = parts[1];
+        const oldCaptainId = parts[2];
+        const searchQuery = interaction.fields.getTextInputValue('replace_search_query').toLowerCase();
+
+        const allTeams = await getDb('test').collection('teams').find({ guildId: interaction.guildId }).toArray();
+        const filteredTeams = allTeams.filter(t => t.name.toLowerCase().includes(searchQuery));
+
+        if (filteredTeams.length === 0) {
+            return interaction.editReply({ content: `❌ No se encontraron equipos que contengan "**${searchQuery}**". Intenta con otra búsqueda.` });
+        }
+
+        filteredTeams.sort((a, b) => a.name.localeCompare(b.name));
+        const teamsOnPage = filteredTeams.slice(0, 25);
+
+        const teamOptions = teamsOnPage.map(team => ({
+            label: team.name,
+            description: `Manager: ${team.managerId}`,
+            value: team._id.toString()
+        }));
+
+        const teamSelectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_replace_team_new_select:${tournamentShortId}:${oldCaptainId}`)
+            .setPlaceholder('Selecciona el equipo de reemplazo')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: `✅ Encontrados **${filteredTeams.length}** equipos para "**${searchQuery}**".\nSelecciona el equipo que **ENTRA** al torneo:`,
+            components: [new ActionRowBuilder().addComponents(teamSelectMenu)]
+        });
+        return;
+    }
+
     if (action === 'create_flexible_league_swiss_rounds') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [pendingId] = params;

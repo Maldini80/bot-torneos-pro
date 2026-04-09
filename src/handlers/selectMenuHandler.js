@@ -864,6 +864,60 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
+    if (action === 'admin_replace_team_old_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const oldCaptainId = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const oldTeam = tournament.teams.aprobados[oldCaptainId];
+
+        if (!oldTeam) {
+            return interaction.editReply({ content: 'Error: Equipo no encontrado.', components: [] });
+        }
+
+        const searchButton = new ButtonBuilder()
+            .setCustomId(`admin_replace_team_search:${tournamentShortId}:${oldCaptainId}`)
+            .setLabel('🔍 Buscar equipo de reemplazo')
+            .setStyle(ButtonStyle.Primary);
+
+        await interaction.editReply({
+            content: `**Paso 2/3:** Equipo seleccionado para salir: **${oldTeam.nombre}**\n\nAhora busca el equipo que lo va a reemplazar:`,
+            components: [new ActionRowBuilder().addComponents(searchButton)]
+        });
+        return;
+    }
+
+    if (action === 'admin_replace_team_new_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, oldCaptainId] = params;
+        const newTeamDbId = interaction.values[0];
+
+        const { ObjectId } = await import('mongodb');
+        const newTeamDoc = await db.collection('teams').findOne({ _id: new ObjectId(newTeamDbId) });
+        if (!newTeamDoc) {
+            return interaction.editReply({ content: 'Error: Equipo no encontrado.', components: [] });
+        }
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const oldTeam = tournament.teams.aprobados[oldCaptainId];
+
+        const confirmButton = new ButtonBuilder()
+            .setCustomId(`admin_replace_team_execute:${tournamentShortId}:${oldCaptainId}:${newTeamDbId}`)
+            .setLabel('✅ Confirmar Sustitución')
+            .setStyle(ButtonStyle.Success);
+
+        const cancelButton = new ButtonBuilder()
+            .setCustomId(`admin_replace_team_start:${tournamentShortId}`)
+            .setLabel('❌ Cancelar')
+            .setStyle(ButtonStyle.Danger);
+
+        await interaction.editReply({
+            content: `**Paso 3/3: Confirmar sustitución**\n\n🔴 **Sale:** ${oldTeam?.nombre || 'Desconocido'} (<@${oldCaptainId}>)\n🟢 **Entra:** ${newTeamDoc.name} (Manager: <@${newTeamDoc.managerId}>)\n\n¿Estás seguro?`,
+            components: [new ActionRowBuilder().addComponents(confirmButton, cancelButton)]
+        });
+        return;
+    }
+
     if (action === 'admin_edit_team_select') {
         const [tournamentShortId] = params;
         const captainId = interaction.values[0]; // El ID del capitán del equipo seleccionado

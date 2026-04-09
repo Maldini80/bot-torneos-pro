@@ -275,6 +275,12 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
                 .setLabel('Expulsar Equipo')
                 .setStyle(ButtonStyle.Danger)
                 .setEmoji('👢')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
+                .setCustomId(`admin_replace_team_start:${tournament.shortId}`)
+                .setLabel('Sustituir Equipo')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🔄')
                 .setDisabled(isBusy)
         );
     }

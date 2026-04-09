@@ -582,6 +582,183 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_replace_team_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const approvedTeams = Object.values(tournament.teams.aprobados).filter(t => t && t.id);
+
+        if (approvedTeams.length === 0) {
+            return interaction.editReply({ content: 'No hay equipos aprobados para sustituir.' });
+        }
+
+        const teamsToShow = approvedTeams.slice(0, 25);
+        const teamOptions = teamsToShow.map(team => ({
+            label: team.nombre.substring(0, 100),
+            description: `Capitán: ${team.capitanTag || 'N/A'}`,
+            value: team.capitanId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_replace_team_old_select:${tournamentShortId}`)
+            .setPlaceholder('¿Qué equipo sale del torneo?')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: '**Paso 1/3:** Selecciona el equipo que **SALE** del torneo:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
+    if (action === 'admin_replace_team_search') {
+        const [tournamentShortId, oldCaptainId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`admin_replace_team_search_modal:${tournamentShortId}:${oldCaptainId}`)
+            .setTitle('Buscar Equipo de Reemplazo');
+
+        const searchInput = new TextInputBuilder()
+            .setCustomId('replace_search_query')
+            .setLabel("Nombre del equipo nuevo (o parte)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: Real, City, United...")
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(searchInput));
+        await interaction.showModal(modal);
+        return;
+    }
+
+    if (action === 'admin_replace_team_execute') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId, oldCaptainId, newTeamDbId] = params;
+
+        try {
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) throw new Error('Torneo no encontrado.');
+
+            const oldTeam = tournament.teams.aprobados[oldCaptainId];
+            if (!oldTeam) throw new Error('El equipo a sustituir ya no está en el torneo.');
+
+            const { ObjectId } = await import('mongodb');
+            const newTeamDoc = await db.collection('teams').findOne({ _id: new ObjectId(newTeamDbId) });
+            if (!newTeamDoc) throw new Error('Equipo de reemplazo no encontrado en la base de datos.');
+
+            const newCaptainId = newTeamDoc.managerId;
+            const newCaptainUser = await client.users.fetch(newCaptainId).catch(() => null);
+            if (!newCaptainUser) throw new Error('El mánager del equipo de reemplazo no se encontró en Discord.');
+
+            if (tournament.teams.aprobados[newCaptainId]) {
+                throw new Error('El equipo de reemplazo ya está inscrito en este torneo.');
+            }
+
+            const newTeam = {
+                ...oldTeam,
+                id: newCaptainId,
+                nombre: newTeamDoc.name,
+                capitanId: newCaptainId,
+                capitanTag: newCaptainUser.tag
+            };
+
+            const updateOps = {
+                $set: { [`teams.aprobados.${newCaptainId}`]: newTeam },
+                $unset: { [`teams.aprobados.${oldCaptainId}`]: "" }
+            };
+
+            // Roles
+            try {
+                const captainRole = tournament.discordRoleIds?.capitanesId;
+                if (captainRole) {
+                    const oldM = await interaction.guild.members.fetch(oldCaptainId).catch(() => null);
+                    if (oldM) await oldM.roles.remove(captainRole).catch(() => null);
+                    const newM = await interaction.guild.members.fetch(newCaptainId).catch(() => null);
+                    if (newM) await newM.roles.add(captainRole).catch(() => null);
+                }
+            } catch(e) {}
+
+            // Actualizar calendario (grupos)
+            if (tournament.structure?.calendario) {
+                for (const [gn, matches] of Object.entries(tournament.structure.calendario)) {
+                    matches.forEach((m, i) => {
+                        if (m.equipoA?.capitanId === oldCaptainId) {
+                            updateOps.$set[`structure.calendario.${gn}.${i}.equipoA.capitanId`] = newCaptainId;
+                            updateOps.$set[`structure.calendario.${gn}.${i}.equipoA.capitanTag`] = newCaptainUser.tag;
+                            updateOps.$set[`structure.calendario.${gn}.${i}.equipoA.id`] = newCaptainId;
+                            updateOps.$set[`structure.calendario.${gn}.${i}.equipoA.nombre`] = newTeamDoc.name;
+                        }
+                        if (m.equipoB?.capitanId === oldCaptainId) {
+                            updateOps.$set[`structure.calendario.${gn}.${i}.equipoB.capitanId`] = newCaptainId;
+                            updateOps.$set[`structure.calendario.${gn}.${i}.equipoB.capitanTag`] = newCaptainUser.tag;
+                            updateOps.$set[`structure.calendario.${gn}.${i}.equipoB.id`] = newCaptainId;
+                            updateOps.$set[`structure.calendario.${gn}.${i}.equipoB.nombre`] = newTeamDoc.name;
+                        }
+                    });
+                }
+            }
+
+            // Actualizar eliminatorias
+            if (tournament.structure?.eliminatorias?.rondaActual) {
+                Object.keys(tournament.structure.eliminatorias).forEach(rd => {
+                    if (rd === 'rondaActual') return;
+                    const rData = tournament.structure.eliminatorias[rd];
+                    const mList = Array.isArray(rData) ? rData : [rData];
+                    const isArr = Array.isArray(rData);
+                    mList.forEach((m, i) => {
+                        const bp = isArr ? `structure.eliminatorias.${rd}.${i}` : `structure.eliminatorias.${rd}`;
+                        if (m.equipoA?.capitanId === oldCaptainId) {
+                            updateOps.$set[`${bp}.equipoA.capitanId`] = newCaptainId;
+                            updateOps.$set[`${bp}.equipoA.capitanTag`] = newCaptainUser.tag;
+                            updateOps.$set[`${bp}.equipoA.id`] = newCaptainId;
+                            updateOps.$set[`${bp}.equipoA.nombre`] = newTeamDoc.name;
+                        }
+                        if (m.equipoB?.capitanId === oldCaptainId) {
+                            updateOps.$set[`${bp}.equipoB.capitanId`] = newCaptainId;
+                            updateOps.$set[`${bp}.equipoB.capitanTag`] = newCaptainUser.tag;
+                            updateOps.$set[`${bp}.equipoB.id`] = newCaptainId;
+                            updateOps.$set[`${bp}.equipoB.nombre`] = newTeamDoc.name;
+                        }
+                    });
+                });
+            }
+
+            // Actualizar grupos (clasificación)
+            if (tournament.structure?.grupos) {
+                for (const [gn, gd] of Object.entries(tournament.structure.grupos)) {
+                    if (gd?.equipos) {
+                        gd.equipos.forEach((eq, i) => {
+                            if (eq.capitanId === oldCaptainId) {
+                                updateOps.$set[`structure.grupos.${gn}.equipos.${i}.capitanId`] = newCaptainId;
+                                updateOps.$set[`structure.grupos.${gn}.equipos.${i}.capitanTag`] = newCaptainUser.tag;
+                                updateOps.$set[`structure.grupos.${gn}.equipos.${i}.id`] = newCaptainId;
+                                updateOps.$set[`structure.grupos.${gn}.equipos.${i}.nombre`] = newTeamDoc.name;
+                            }
+                        });
+                    }
+                }
+            }
+
+            await db.collection('tournaments').updateOne({ _id: tournament._id }, updateOps);
+
+            const { replaceManagerInThreads } = await import('../utils/tournamentUtils.js');
+            await replaceManagerInThreads(client, interaction.guild, tournament, oldCaptainId, newCaptainId);
+
+            const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+            const { updateTournamentManagementThread } = await import('../utils/panelManager.js');
+            const { updatePublicMessages, notifyTournamentVisualizer } = await import('../logic/tournamentLogic.js');
+            await updateTournamentManagementThread(client, updatedTournament);
+            await updatePublicMessages(client, updatedTournament);
+            await notifyTournamentVisualizer(updatedTournament);
+
+            await interaction.editReply({
+                content: `✅ **Equipo sustituido con éxito!**\n🔴 Sale: **${oldTeam.nombre}** (<@${oldCaptainId}>)\n🟢 Entra: **${newTeamDoc.name}** (<@${newCaptainId}>)\n\nTodas las referencias han sido actualizadas.`
+            });
+        } catch (error) {
+            console.error('[REPLACE TEAM] Error:', error);
+            await interaction.editReply({ content: `❌ Error al sustituir equipo: ${error.message}` });
+        }
+        return;
+    }
+
     if (action === 'admin_manual_regenerate') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
