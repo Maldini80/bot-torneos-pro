@@ -2611,14 +2611,24 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
         const approvedTeams = Object.values(tournament.teams.aprobados);
+        const currentPairs = tournament.temp?.manualDrawPairs || [];
         const pairedTeams = new Set();
-        (tournament.temp?.manualDrawPairs || []).forEach(p => {
+        currentPairs.forEach(p => {
             if (p.equipoA.id !== 'ghost') pairedTeams.add(p.equipoA.id);
             if (p.equipoB.id !== 'ghost') pairedTeams.add(p.equipoB.id);
         });
 
         const availableTeams = approvedTeams.filter(t => !pairedTeams.has(t.id));
-        if (availableTeams.length === 0) return interaction.editReply({ content: 'Todos los equipos ya han sido emparejados.' });
+        if (availableTeams.length === 0) return interaction.editReply({ content: 'Todos los equipos ya han sido emparejados. Pulsa "Finalizar Sorteo" en el mensaje principal.' });
+
+        // Construir resumen visual
+        let summary = '';
+        if (currentPairs.length > 0) {
+            summary = '**Emparejamientos actuales:**\n' + currentPairs.map((p, i) => `${i + 1}. ${p.equipoA.nombre} vs ${p.equipoB.nombre}`).join('\n');
+            summary += `\n\n**Equipos restantes (${availableTeams.length}):**\n` + availableTeams.map(t => `• ${t.nombre}`).join('\n');
+        } else {
+            summary = `**No hay emparejamientos todavía.**\nEquipos disponibles: ${availableTeams.length}`;
+        }
 
         const teamOptions = availableTeams.slice(0, 24).map(t => ({
             label: t.nombre.substring(0, 100),
@@ -2639,11 +2649,12 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
         const rowA = new ActionRowBuilder().addComponents(selectA);
         const rowB = new ActionRowBuilder().addComponents(selectB);
-        const rowConfirm = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`save_manual_pair:${tournamentShortId}`).setLabel('Guardar Partido').setStyle(ButtonStyle.Success)
+        const rowActions = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`save_manual_pair:${tournamentShortId}`).setLabel('Guardar Partido').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`undo_knockout_pair:${tournamentShortId}`).setLabel('Deshacer Último').setStyle(ButtonStyle.Danger).setEmoji('↩️').setDisabled(currentPairs.length === 0)
         );
 
-        await interaction.editReply({ content: 'Selecciona los integrantes de este partido:', components: [rowA, rowB, rowConfirm] });
+        await interaction.editReply({ content: summary, components: [rowA, rowB, rowActions] });
         return;
     }
 
@@ -2659,7 +2670,22 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             { shortId: tournamentShortId },
             { $set: { 'temp.manualDrawPairs': [] }, $unset: { 'temp.currentPairA': '', 'temp.currentPairB': '' } }
         );
-        await interaction.editReply({ content: '🔄 Emparejamientos reseteados. Puedes empezar de nuevo pulsando "Añadir Enfrentamiento".' });
+        await interaction.editReply({ content: '🔄 Todos los emparejamientos reseteados. Pulsa "Añadir Enfrentamiento" para empezar de nuevo.' });
+        return;
+    }
+
+    if (action === 'undo_knockout_pair') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const pairs = tournament.temp?.manualDrawPairs || [];
+        if (pairs.length === 0) return interaction.editReply({ content: 'No hay emparejamientos que deshacer.' });
+        const removed = pairs.pop();
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'temp.manualDrawPairs': pairs } }
+        );
+        await interaction.editReply({ content: `↩️ Deshecho: **${removed.equipoA.nombre}** vs **${removed.equipoB.nombre}**. Pulsa "Añadir Enfrentamiento" para continuar.` });
         return;
     }
 
@@ -2765,14 +2791,24 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
 
         const winners = tournament.temp?.knockoutAdvanceWinners || [];
+        const currentPairs = tournament.temp?.manualAdvancePairs || [];
         const pairedTeams = new Set();
-        (tournament.temp?.manualAdvancePairs || []).forEach(p => {
+        currentPairs.forEach(p => {
             pairedTeams.add(p.equipoA.id);
             pairedTeams.add(p.equipoB.id);
         });
 
         const availableTeams = winners.filter(t => !pairedTeams.has(t.id));
-        if (availableTeams.length < 2) return interaction.editReply({ content: 'No quedan suficientes equipos por emparejar.' });
+        if (availableTeams.length < 2) return interaction.editReply({ content: 'No quedan suficientes equipos por emparejar. Pulsa "Confirmar Emparejamiento" en el mensaje principal.' });
+
+        // Construir resumen visual
+        let summary = '';
+        if (currentPairs.length > 0) {
+            summary = '**Emparejamientos actuales:**\n' + currentPairs.map((p, i) => `${i + 1}. ${p.equipoA.nombre} vs ${p.equipoB.nombre}`).join('\n');
+            summary += `\n\n**Equipos restantes (${availableTeams.length}):**\n` + availableTeams.map(t => `• ${t.nombre}`).join('\n');
+        } else {
+            summary = `**No hay emparejamientos todavía.**\nEquipos disponibles: ${availableTeams.length}`;
+        }
 
         const teamOptions = availableTeams.slice(0, 25).map(t => ({
             label: t.nombre.substring(0, 100),
@@ -2791,11 +2827,12 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
         const rowA = new ActionRowBuilder().addComponents(selectA);
         const rowB = new ActionRowBuilder().addComponents(selectB);
-        const rowConfirm = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`save_advance_pair:${tournamentShortId}`).setLabel('Guardar Partido').setStyle(ButtonStyle.Success)
+        const rowActions = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`save_advance_pair:${tournamentShortId}`).setLabel('Guardar Partido').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`undo_advance_pair:${tournamentShortId}`).setLabel('Deshacer Último').setStyle(ButtonStyle.Danger).setEmoji('↩️').setDisabled(currentPairs.length === 0)
         );
 
-        await interaction.editReply({ content: 'Selecciona los equipos de este enfrentamiento:', components: [rowA, rowB, rowConfirm] });
+        await interaction.editReply({ content: summary, components: [rowA, rowB, rowActions] });
         return;
     }
 
@@ -2811,7 +2848,22 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             { shortId: tournamentShortId },
             { $set: { 'temp.manualAdvancePairs': [] }, $unset: { 'temp.currentAdvancePairA': '', 'temp.currentAdvancePairB': '' } }
         );
-        await interaction.editReply({ content: '🔄 Emparejamientos reseteados. Puedes empezar de nuevo pulsando "Añadir Enfrentamiento".' });
+        await interaction.editReply({ content: '🔄 Todos los emparejamientos reseteados. Pulsa "Añadir Enfrentamiento" para empezar de nuevo.' });
+        return;
+    }
+
+    if (action === 'undo_advance_pair') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const pairs = tournament.temp?.manualAdvancePairs || [];
+        if (pairs.length === 0) return interaction.editReply({ content: 'No hay emparejamientos que deshacer.' });
+        const removed = pairs.pop();
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'temp.manualAdvancePairs': pairs } }
+        );
+        await interaction.editReply({ content: `↩️ Deshecho: **${removed.equipoA.nombre}** vs **${removed.equipoB.nombre}**. Pulsa "Añadir Enfrentamiento" para continuar.` });
         return;
     }
 
