@@ -353,8 +353,8 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setDisabled(isBusy)
     );
 
-    // Botón de Ignorar ELO (solo si es gratuito y la inscripción está abierta)
-    if (!tournament.config.isPaid && isBeforeDraw) {
+    // Botón de Ignorar ELO (solo si es gratuito)
+    if (!tournament.config.isPaid) {
         const isIgnoreElo = tournament.config.requireElo === false;
         const eloBtnLabel = isIgnoreElo ? 'Requerir ELO' : 'Ignorar ELO';
         const eloBtnStyle = isIgnoreElo ? ButtonStyle.Success : ButtonStyle.Secondary;
