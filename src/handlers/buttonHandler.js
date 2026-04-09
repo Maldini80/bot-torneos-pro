@@ -2671,6 +2671,161 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     }
 
     // =======================================================
+    // --- TOGGLE + AVANCE MANUAL ENTRE RONDAS KNOCKOUT ---
+    // =======================================================
+
+    if (action === 'admin_toggle_manual_knockout') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        const newValue = !tournament.config.manualKnockoutPairing;
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $set: { 'config.manualKnockoutPairing': newValue } }
+        );
+
+        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+        const { updateTournamentManagementThread } = await import('../logic/tournamentLogic.js');
+        await updateTournamentManagementThread(client, updatedTournament);
+
+        await interaction.editReply({
+            content: newValue
+                ? '✅ **Emparejamiento Manual activado.** Cuando una ronda termine, se te pedirá elegir los emparejamientos de la siguiente.'
+                : '✅ **Emparejamiento Automático activado.** Las siguientes rondas se emparejarán al azar automáticamente.'
+        });
+        return;
+    }
+
+    if (action === 'admin_knockout_advance_auto') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        // Limpiar ganadores temporales y avanzar automáticamente
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $unset: { 'temp.knockoutAdvanceWinners': '' } }
+        );
+
+        await interaction.editReply({ content: '✅ Avanzando automáticamente a la siguiente ronda...' });
+
+        const { startNextKnockoutRound } = await import('../logic/tournamentLogic.js');
+        startNextKnockoutRound(client, guild, tournament)
+            .then(() => { if (interaction.channel) interaction.channel.send('🎲 ¡La siguiente ronda se ha generado automáticamente!'); })
+            .catch(error => { console.error('Error en avance auto knockout:', error); if (interaction.channel) interaction.channel.send('❌ Error al generar la siguiente ronda. Revisa los logs.'); });
+        return;
+    }
+
+    if (action === 'admin_knockout_advance_manual') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
+        const winners = tournament.temp?.knockoutAdvanceWinners || [];
+        if (winners.length < 2) {
+            return interaction.editReply({ content: '❌ No hay suficientes equipos clasificados para emparejar.' });
+        }
+
+        const builderEmbed = new EmbedBuilder()
+            .setTitle('🛠️ Constructor de Cuadro — Siguiente Ronda')
+            .setDescription(`**Instrucciones:**\n1. Usa el botón "Añadir Enfrentamiento" para crear parejas.\n2. Confirma cuando termines.\n\n*Equipos disponibles: ${winners.length}*\n\n**Clasificados:**\n${winners.map((g, i) => `${i + 1}. ${g.nombre}`).join('\n')}`)
+            .setColor('#2ECC71');
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`setup_advance_pair:${tournament.shortId}`).setLabel('Añadir Enfrentamiento').setStyle(ButtonStyle.Primary).setEmoji('➕'),
+            new ButtonBuilder().setCustomId(`confirm_advance_manual:${tournament.shortId}`).setLabel('Confirmar Emparejamiento').setStyle(ButtonStyle.Success).setEmoji('✅')
+        );
+
+        // Inicializar estado temporal para pares de avance
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'temp.manualAdvancePairs': [] } }
+        );
+
+        await interaction.editReply({ embeds: [builderEmbed], components: [row] });
+        return;
+    }
+
+    if (action === 'setup_advance_pair') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        const winners = tournament.temp?.knockoutAdvanceWinners || [];
+        const pairedTeams = new Set();
+        (tournament.temp?.manualAdvancePairs || []).forEach(p => {
+            pairedTeams.add(p.equipoA.id);
+            pairedTeams.add(p.equipoB.id);
+        });
+
+        const availableTeams = winners.filter(t => !pairedTeams.has(t.id));
+        if (availableTeams.length < 2) return interaction.editReply({ content: 'No quedan suficientes equipos por emparejar.' });
+
+        const teamOptions = availableTeams.slice(0, 25).map(t => ({
+            label: t.nombre.substring(0, 100),
+            value: t.id
+        }));
+
+        const selectA = new StringSelectMenuBuilder()
+            .setCustomId(`select_advance_teamA:${tournamentShortId}`)
+            .setPlaceholder('Elige Equipo A')
+            .addOptions(teamOptions);
+
+        const selectB = new StringSelectMenuBuilder()
+            .setCustomId(`select_advance_teamB:${tournamentShortId}`)
+            .setPlaceholder('Elige Equipo B')
+            .addOptions(teamOptions);
+
+        const rowA = new ActionRowBuilder().addComponents(selectA);
+        const rowB = new ActionRowBuilder().addComponents(selectB);
+        const rowConfirm = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`save_advance_pair:${tournamentShortId}`).setLabel('Guardar Partido').setStyle(ButtonStyle.Success)
+        );
+
+        await interaction.editReply({ content: 'Selecciona los equipos de este enfrentamiento:', components: [rowA, rowB, rowConfirm] });
+        return;
+    }
+
+    if (action === 'save_advance_pair') {
+        await interaction.reply({ content: 'Por favor, utiliza los menús desplegables para emparejar equipos. Selecciona primero Equipo A, luego Equipo B.', flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'confirm_advance_manual') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const pairs = tournament.temp?.manualAdvancePairs || [];
+        const winners = tournament.temp?.knockoutAdvanceWinners || [];
+
+        if (pairs.length === 0) return interaction.reply({ content: 'No hay enfrentamientos guardados todavía.', flags: [MessageFlags.Ephemeral] });
+
+        // Verificar que todos los equipos estén emparejados
+        const pairedIds = new Set();
+        pairs.forEach(p => { pairedIds.add(p.equipoA.id); pairedIds.add(p.equipoB.id); });
+        const unpairedWinners = winners.filter(w => !pairedIds.has(w.id));
+
+        if (unpairedWinners.length > 0) {
+            return interaction.reply({
+                content: `⚠️ Hay **${unpairedWinners.length} equipos** sin emparejar:\n${unpairedWinners.map(w => `• ${w.nombre}`).join('\n')}\n\nAñade más enfrentamientos o usa el avance automático.`,
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
+        await interaction.reply({ content: `✅ Finalizando emparejamiento manual con **${pairs.length}** partidos...` });
+
+        // Llamar a startNextKnockoutRound con los pares manuales
+        const { startNextKnockoutRoundManual } = await import('../logic/tournamentLogic.js');
+        startNextKnockoutRoundManual(client, guild, tournament, pairs)
+            .then(() => { if (interaction.channel) interaction.channel.send('🛠️ ¡La siguiente ronda con emparejamiento manual ha sido creada!'); })
+            .catch(error => { console.error('Error en avance manual knockout:', error); if (interaction.channel) interaction.channel.send('❌ Error al crear la siguiente ronda manual. Revisa los logs.'); });
+        return;
+    }
+
+    // =======================================================
     // --- CONSTRUCTOR DE JORNADAS MANUAL (LIGUILLA) ---
     // =======================================================
 

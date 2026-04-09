@@ -292,6 +292,53 @@ export async function handleSelectMenu(interaction) {
     }
 
     // =======================================================
+    // --- LÓGICA EMPAREJAMIENTO MANUAL ENTRE RONDAS KNOCKOUT ---
+    // =======================================================
+    if (action === 'select_advance_teamA' || action === 'select_advance_teamB') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const selectedId = interaction.values[0];
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Torneo no encontrado.', components: [] });
+
+        const isTeamA = action === 'select_advance_teamA';
+        const updateField = isTeamA ? 'temp.currentAdvancePairA' : 'temp.currentAdvancePairB';
+        const otherField = isTeamA ? tournament.temp?.currentAdvancePairB : tournament.temp?.currentAdvancePairA;
+
+        if (otherField) {
+            const teamAId = isTeamA ? selectedId : otherField;
+            const teamBId = isTeamA ? otherField : selectedId;
+
+            if (teamAId === teamBId) {
+                return interaction.editReply({ content: '❌ No puedes emparejar a un equipo consigo mismo.', components: [] });
+            }
+
+            const winners = tournament.temp?.knockoutAdvanceWinners || [];
+            const getTeamObj = (id) => winners.find(w => w.id === id) || { id, nombre: 'Desconocido' };
+
+            const pair = { equipoA: getTeamObj(teamAId), equipoB: getTeamObj(teamBId) };
+
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                {
+                    $push: { 'temp.manualAdvancePairs': pair },
+                    $unset: { 'temp.currentAdvancePairA': '', 'temp.currentAdvancePairB': '' }
+                }
+            );
+
+            return interaction.editReply({ content: `✅ Partido guardado: **${pair.equipoA.nombre}** vs **${pair.equipoB.nombre}**. Pulsa 'Añadir Enfrentamiento' para el siguiente o 'Confirmar' cuando termines.`, components: [] });
+        } else {
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { $set: { [updateField]: selectedId } }
+            );
+
+            return interaction.editReply({ content: `⏳ Equipo ${isTeamA ? 'A' : 'B'} seleccionado. Selecciona el otro para completar el partido.` });
+        }
+    }
+
+    // =======================================================
     // --- CONSTRUCTOR DE JORNADAS MANUAL (LIGUILLA) ---
     // =======================================================
     if (action === 'league_builder_select') {

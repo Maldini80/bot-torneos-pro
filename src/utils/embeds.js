@@ -361,6 +361,19 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
+    // Botón de Emparejamiento Manual (solo para knockout_only gratuito)
+    if (tournament.config.formatId === 'knockout_only' && !tournament.config.isPaid) {
+        const isManualPairing = tournament.config.manualKnockoutPairing === true;
+        row5.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_toggle_manual_knockout:${tournament.shortId}`)
+                .setLabel(isManualPairing ? 'Pairing: Manual' : 'Pairing: Auto')
+                .setStyle(isManualPairing ? ButtonStyle.Success : ButtonStyle.Secondary)
+                .setEmoji(isManualPairing ? '🛠️' : '🎲')
+                .setDisabled(isBusy)
+        );
+    }
+
     const components = [];
     if (row1.components.length > 0) components.push(row1);
     if (row2.components.length > 0) components.push(row2);

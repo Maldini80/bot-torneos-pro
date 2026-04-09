@@ -3537,6 +3537,16 @@ export async function startKnockoutOnlyDraw(client, guild, tournament, mode = 'r
     
     const { stage: calculatedStage, size } = getInitialKnockoutStage(teams.length);
     let stage = calculatedStage;
+
+    // FIX: Validar que la ronda calculada exista en los knockoutStages del formato (podrían estar recortados por knockoutFinalRound)
+    const formatStages = tournament.config.format.knockoutStages;
+    if (formatStages && !formatStages.includes(stage)) {
+        // Si la ronda calculada no está en los stages válidos, usar la última ronda del formato
+        const lastValidStage = formatStages[formatStages.length - 1];
+        console.warn(`[KNOCKOUT-DRAW] Ronda calculada '${stage}' no está en los stages del formato [${formatStages.join(', ')}]. Usando '${lastValidStage}' como ronda inicial.`);
+        stage = lastValidStage;
+    }
+
     let matches = [];
 
     if (mode === 'manual' && manualPairs && manualPairs.length > 0) {
@@ -4086,6 +4096,59 @@ export async function checkForKnockoutAdvancement(client, guild, tournament) {
         try {
             console.log(`[ADVANCEMENT] Ronda eliminatoria '${rondaActual}' finalizada para ${tournament.shortId}.`);
             postTournamentUpdate('KNOCKOUT_ROUND_COMPLETE', { matches: partidosRonda, stage: rondaActual, tournament }).catch(console.error);
+
+            // --- FEATURE: EMPAREJAMIENTO MANUAL ENTRE RONDAS ---
+            if (tournament.config.manualKnockoutPairing) {
+                // Calcular ganadores de esta ronda
+                const ganadores = partidosRonda.map(p => {
+                    const [golesA, golesB] = p.resultado.split('-').map(Number);
+                    return golesA > golesB ? p.equipoA : p.equipoB;
+                });
+
+                // Guardar ganadores en estado temporal para el constructor manual
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { 'temp.knockoutAdvanceWinners': ganadores, advancementLock: false } }
+                );
+
+                // Notificar al admin en el hilo de gestión
+                try {
+                    const managementThread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId).catch(() => null);
+                    if (managementThread) {
+                        const roundLabels = { treintaidosavos: 'Treintaidosavos', dieciseisavos: 'Dieciseisavos', octavos: 'Octavos de Final', cuartos: 'Cuartos de Final', semifinales: 'Semifinales' };
+                        const roundLabel = roundLabels[rondaActual] || rondaActual;
+
+                        const embed = new EmbedBuilder()
+                            .setColor('#f1c40f')
+                            .setTitle('⏸️ Ronda Finalizada — Emparejamiento Manual Pendiente')
+                            .setDescription(`La ronda de **${roundLabel}** ha terminado. Tienes **${ganadores.length} equipos clasificados** esperando ser emparejados para la siguiente ronda.\n\n**Equipos clasificados:**\n${ganadores.map((g, i) => `${i + 1}. ${g.nombre}`).join('\n')}\n\n¿Cómo quieres emparejar la siguiente ronda?`)
+                            .setTimestamp();
+
+                        const row = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`admin_knockout_advance_manual:${tournament.shortId}`)
+                                .setLabel('Emparejamiento Manual')
+                                .setStyle(ButtonStyle.Success)
+                                .setEmoji('🛠️'),
+                            new ButtonBuilder()
+                                .setCustomId(`admin_knockout_advance_auto:${tournament.shortId}`)
+                                .setLabel('Avance Automático')
+                                .setStyle(ButtonStyle.Primary)
+                                .setEmoji('🎲')
+                        );
+
+                        await managementThread.send({ embeds: [embed], components: [row] });
+                    }
+                } catch (notifError) {
+                    console.error(`[MANUAL PAIRING] Error al notificar al admin:`, notifError);
+                }
+
+                // Liberar bloqueo y NO avanzar automáticamente
+                await db.collection('tournaments').updateOne({ _id: tournament._id }, { $unset: { advancementLock: "" } });
+                return;
+            }
+            // --- FIN FEATURE ---
+
             await startNextKnockoutRound(client, guild, tournament);
 
             // Liberar bloqueo al final
@@ -4109,7 +4172,13 @@ export async function startNextKnockoutRound(client, guild, tournament) {
 
     if (rondaActual) {
         const indiceRondaActual = format.knockoutStages.indexOf(rondaActual);
-        siguienteRondaKey = format.knockoutStages[indiceRondaActual + 1];
+        // FIX: Guard contra indexOf === -1 (rondaActual no encontrada en los stages)
+        if (indiceRondaActual === -1) {
+            console.warn(`[ADVANCEMENT] rondaActual '${rondaActual}' no encontrada en knockoutStages [${format.knockoutStages.join(', ')}]. Finalizando torneo.`);
+            siguienteRondaKey = undefined;
+        } else {
+            siguienteRondaKey = format.knockoutStages[indiceRondaActual + 1];
+        }
     } else {
         if (currentTournament.config.formatId === 'flexible_league') {
             const numQualifiers = currentTournament.config.qualifiers;
@@ -4496,6 +4565,141 @@ export async function startNextKnockoutRound(client, guild, tournament) {
 
         embedAnuncio.addFields({ name: `Enfrentamiento`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
     }
+    if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
+    const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
+    await notifyTournamentVisualizer(finalTournamentState);
+    await updatePublicMessages(client, finalTournamentState);
+    await updateTournamentManagementThread(client, finalTournamentState);
+}
+
+export async function startNextKnockoutRoundManual(client, guild, tournament, manualPairs) {
+    const db = getDb();
+    let currentTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+
+    const format = currentTournament.config.format;
+    const rondaActual = currentTournament.structure.eliminatorias.rondaActual;
+
+    let siguienteRondaKey;
+    if (rondaActual) {
+        const indiceRondaActual = format.knockoutStages.indexOf(rondaActual);
+        if (indiceRondaActual === -1) {
+            console.warn(`[MANUAL ADVANCE] rondaActual '${rondaActual}' no encontrada en knockoutStages. Abortando.`);
+            return;
+        }
+        siguienteRondaKey = format.knockoutStages[indiceRondaActual + 1];
+    }
+
+    if (!siguienteRondaKey) {
+        console.log(`[MANUAL ADVANCE] No hay más rondas para ${currentTournament.shortId}.`);
+        return;
+    }
+
+    console.log(`[MANUAL ADVANCE] Avanzando ${currentTournament.shortId} de '${rondaActual}' a '${siguienteRondaKey}' con ${manualPairs.length} pares manuales.`);
+
+    // Crear partidos con los pares manuales
+    const partidos = manualPairs.map(pair => createMatchObject(null, siguienteRondaKey, pair.equipoA, pair.equipoB));
+
+    const siguienteRondaNombre = siguienteRondaKey.charAt(0).toUpperCase() + siguienteRondaKey.slice(1);
+    currentTournament.status = siguienteRondaKey;
+    currentTournament.structure.eliminatorias.rondaActual = siguienteRondaKey;
+
+    if (siguienteRondaKey === 'final') {
+        currentTournament.structure.eliminatorias.final = partidos[0];
+    } else {
+        currentTournament.structure.eliminatorias[siguienteRondaKey] = partidos;
+    }
+
+    postTournamentUpdate('KNOCKOUT_MATCHUPS_CREATED', { matches: partidos, stage: siguienteRondaKey, tournament: currentTournament }).catch(console.error);
+
+    const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
+    const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRondaNombre}! 🔥`).setDescription('Emparejamiento realizado manualmente por el admin.').setFooter({ text: '¡Mucha suerte!' });
+
+    // Limpiar estado temporal
+    await db.collection('tournaments').updateOne(
+        { _id: currentTournament._id },
+        {
+            $set: currentTournament,
+            $unset: { 'temp.knockoutAdvanceWinners': '', 'temp.manualAdvancePairs': '' }
+        }
+    );
+
+    // Crear hilos para cada partido (misma lógica que startNextKnockoutRound)
+    for (const p of partidos) {
+        let lockQuery;
+        let updatePath;
+
+        if (siguienteRondaKey === 'final') {
+            lockQuery = {
+                _id: currentTournament._id,
+                'structure.eliminatorias.final.matchId': p.matchId,
+                'structure.eliminatorias.final.threadId': null
+            };
+            updatePath = 'structure.eliminatorias.final';
+        } else {
+            lockQuery = {
+                _id: currentTournament._id,
+                [`structure.eliminatorias.${siguienteRondaKey}`]: {
+                    $elemMatch: {
+                        matchId: p.matchId,
+                        threadId: null
+                    }
+                }
+            };
+            updatePath = `structure.eliminatorias.${siguienteRondaKey}.$`;
+        }
+
+        const result = await db.collection('tournaments').findOneAndUpdate(
+            lockQuery,
+            { $set: { [`${updatePath}.status`]: 'creando_hilo', [`${updatePath}.lockedAt`]: new Date() } },
+            { returnDocument: 'after' }
+        );
+
+        if (!result) {
+            console.log(`[MANUAL ADVANCE] Hilo para ${p.matchId} ya gestionado.`);
+            continue;
+        }
+
+        try {
+            const threadId = await createMatchThread(client, guild, p, currentTournament.discordChannelIds.matchesChannelId, currentTournament.shortId);
+
+            if (threadId) {
+                p.threadId = threadId;
+                p.status = 'en_curso';
+
+                if (siguienteRondaKey === 'final') {
+                    await db.collection('tournaments').updateOne(
+                        { _id: currentTournament._id, 'structure.eliminatorias.final.matchId': p.matchId },
+                        { $set: { 'structure.eliminatorias.final.threadId': threadId, 'structure.eliminatorias.final.status': 'en_curso' } }
+                    );
+                } else {
+                    await db.collection('tournaments').updateOne(
+                        { _id: currentTournament._id, [`structure.eliminatorias.${siguienteRondaKey}.matchId`]: p.matchId },
+                        { $set: { [`structure.eliminatorias.${siguienteRondaKey}.$.threadId`]: threadId, [`structure.eliminatorias.${siguienteRondaKey}.$.status`]: 'en_curso' } }
+                    );
+                }
+            } else {
+                const revertPath = siguienteRondaKey === 'final' ? 'structure.eliminatorias.final' : `structure.eliminatorias.${siguienteRondaKey}.$`;
+                await db.collection('tournaments').updateOne(
+                    siguienteRondaKey === 'final'
+                        ? { _id: currentTournament._id, 'structure.eliminatorias.final.matchId': p.matchId }
+                        : { _id: currentTournament._id, [`structure.eliminatorias.${siguienteRondaKey}.matchId`]: p.matchId },
+                    { $set: { [`${revertPath}.status`]: 'pendiente' } }
+                );
+            }
+        } catch (error) {
+            console.error(`[ERROR] Fallo al crear hilo manual advance para ${p.matchId}:`, error);
+            const revertPath = siguienteRondaKey === 'final' ? 'structure.eliminatorias.final' : `structure.eliminatorias.${siguienteRondaKey}.$`;
+            await db.collection('tournaments').updateOne(
+                siguienteRondaKey === 'final'
+                    ? { _id: currentTournament._id, 'structure.eliminatorias.final.matchId': p.matchId }
+                    : { _id: currentTournament._id, [`structure.eliminatorias.${siguienteRondaKey}.matchId`]: p.matchId },
+                { $set: { [`${revertPath}.status`]: 'pendiente' } }
+            );
+        }
+
+        embedAnuncio.addFields({ name: `Enfrentamiento`, value: `> ${p.equipoA.nombre} vs ${p.equipoB.nombre}` });
+    }
+
     if (infoChannel) await infoChannel.send({ embeds: [embedAnuncio] });
     const finalTournamentState = await db.collection('tournaments').findOne({ _id: currentTournament._id });
     await notifyTournamentVisualizer(finalTournamentState);
