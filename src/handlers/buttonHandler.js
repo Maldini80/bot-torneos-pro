@@ -2276,9 +2276,18 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     if (action === 'admin_undo_draw') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+
         await interaction.editReply({ content: '⏳ **Recibido.** Iniciando el proceso para revertir el sorteo. Esto puede tardar unos segundos...' });
         try {
-            await undoGroupStageDraw(client, tournamentShortId);
+            const knockoutStageNames = ['treintaidosavos', 'dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
+            if (knockoutStageNames.includes(tournament.status)) {
+                const { undoKnockoutDraw } = await import('../logic/tournamentLogic.js');
+                await undoKnockoutDraw(client, tournamentShortId);
+            } else {
+                await undoGroupStageDraw(client, tournamentShortId);
+            }
             await interaction.followUp({ content: '✅ **Sorteo revertido con éxito!** El torneo está de nuevo en fase de inscripción.', flags: [MessageFlags.Ephemeral] });
         } catch (error) {
             console.error(`Error al revertir el sorteo para ${tournamentShortId}:`, error);

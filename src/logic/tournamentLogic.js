@@ -2137,6 +2137,79 @@ export async function undoGroupStageDraw(client, tournamentShortId) {
     }
 }
 
+export async function undoKnockoutDraw(client, tournamentShortId) {
+    await setBotBusy(true);
+    const db = getDb();
+
+    try {
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const knockoutStageNames = ['treintaidosavos', 'dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
+        if (!tournament || !knockoutStageNames.includes(tournament.status)) {
+            throw new Error('El torneo no está en fase eliminatoria o no existe.');
+        }
+
+        console.log(`[UNDO KNOCKOUT] Revirtiendo sorteo eliminatorio para ${tournamentShortId}...`);
+
+        // Borrar hilos de TODAS las rondas eliminatorias
+        const eliminatorias = tournament.structure.eliminatorias || {};
+        for (const stage of knockoutStageNames) {
+            const matches = eliminatorias[stage];
+            if (!matches) continue;
+
+            // La final es un solo objeto, no un array
+            const matchList = Array.isArray(matches) ? matches : [matches];
+            for (const match of matchList) {
+                if (match.threadId && !match.threadId.startsWith('ghost')) {
+                    const thread = await client.channels.fetch(match.threadId).catch(() => null);
+                    if (thread) {
+                        await thread.delete('Sorteo eliminatorio revertido por admin.').catch(e =>
+                            console.warn(`No se pudo borrar el hilo ${thread.id}: ${e.message}`)
+                        );
+                    }
+                }
+            }
+        }
+
+        // Limpiar equipos null/undefined
+        const cleanApproved = {};
+        if (tournament.teams && tournament.teams.aprobados) {
+            Object.entries(tournament.teams.aprobados).forEach(([key, value]) => {
+                if (value && value.id) cleanApproved[key] = value;
+            });
+        }
+
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            {
+                $set: {
+                    status: 'inscripcion_abierta',
+                    'structure.eliminatorias': { rondaActual: null },
+                    'structure.grupos': {},
+                    'structure.calendario': {},
+                    'teams.aprobados': cleanApproved
+                },
+                $unset: {
+                    'temp.knockoutAdvanceWinners': '',
+                    'temp.manualAdvancePairs': '',
+                    'temp.manualDrawPairs': ''
+                }
+            }
+        );
+
+        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await updatePublicMessages(client, updatedTournament);
+        await updateTournamentManagementThread(client, updatedTournament);
+        await notifyTournamentVisualizer(updatedTournament);
+
+        console.log(`[UNDO KNOCKOUT] Sorteo eliminatorio revertido para ${tournamentShortId}.`);
+    } catch (error) {
+        console.error(`Error crítico al revertir sorteo knockout para ${tournamentShortId}:`, error);
+        throw error;
+    } finally {
+        await setBotBusy(false);
+    }
+}
+
 export async function notifyCastersOfNewTeam(client, tournament, teamData) {
     if (!tournament.discordMessageIds.casterThreadId) return;
 

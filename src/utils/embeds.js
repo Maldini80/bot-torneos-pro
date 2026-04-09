@@ -221,15 +221,23 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    // ROW 3: Group stage specific actions and co-captain assignment
-    if (isGroupStage) {
+    // ROW 3: Undo draw + group/knockout stage specific actions
+    const knockoutStageNames = ['treintaidosavos', 'dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
+    const isKnockoutStage = knockoutStageNames.includes(tournament.status);
+
+    if (isGroupStage || isKnockoutStage) {
         row3.addComponents(
             new ButtonBuilder()
                 .setCustomId(`admin_undo_draw:${tournament.shortId}`)
                 .setLabel('Eliminar Sorteo')
                 .setStyle(ButtonStyle.Danger)
                 .setEmoji('⏪')
-                .setDisabled(isBusy),
+                .setDisabled(isBusy)
+        );
+    }
+
+    if (isGroupStage) {
+        row3.addComponents(
             new ButtonBuilder()
                 .setCustomId(`admin_manual_swap_start:${tournament.shortId}`)
                 .setLabel('Cambio Manual')
