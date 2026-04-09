@@ -2687,7 +2687,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         );
 
         const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-        const { updateTournamentManagementThread } = await import('../logic/tournamentLogic.js');
+        const { updateTournamentManagementThread } = await import('../utils/panelManager.js');
         await updateTournamentManagementThread(client, updatedTournament);
 
         await interaction.editReply({
