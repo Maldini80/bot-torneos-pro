@@ -1895,7 +1895,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'report_result_start'];
+    const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'admin_rename_tournament', 'report_result_start'];
     if (modalActions.includes(action)) {
         if (action === 'admin_modify_result_start') {
             const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
