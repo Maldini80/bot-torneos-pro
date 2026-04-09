@@ -2591,6 +2591,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`setup_knockout_pair:${tournament.shortId}`).setLabel('Añadir Enfrentamiento').setStyle(ButtonStyle.Primary).setEmoji('➕'),
+            new ButtonBuilder().setCustomId(`reset_knockout_pairs:${tournament.shortId}`).setLabel('Resetear').setStyle(ButtonStyle.Danger).setEmoji('🔄'),
             new ButtonBuilder().setCustomId(`confirm_knockout_manual:${tournament.shortId}`).setLabel('Finalizar Sorteo').setStyle(ButtonStyle.Success).setEmoji('✅')
         );
 
@@ -2647,11 +2648,18 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     }
 
     if (action === 'save_manual_pair') {
-        // En un mundo ideal usaríamos selectMenu cache, pero para simplificar, en Discord.JS puedes obtener selecciones de Interaction si es un menú.
-        // Como este es un BOTÓN, necesitamos obtener los valores. Sin embargo, no hay formulario (Modal) para Select Menus.
-        // Lo resolvemos enviando al usuario a un estado interno que recogeremos en selectMenuHandler, PERO la mejor manera es guardar en DB.
-        // Dado el alcance, delego esta lógica a selectMenuHandler
         await interaction.reply({ content: 'Por favor, utiliza los menús desplegables para emparejar equipos uno por uno. Una vez seleccionados, el bot los guardará automáticamente.', flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'reset_knockout_pairs') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'temp.manualDrawPairs': [] }, $unset: { 'temp.currentPairA': '', 'temp.currentPairB': '' } }
+        );
+        await interaction.editReply({ content: '🔄 Emparejamientos reseteados. Puedes empezar de nuevo pulsando "Añadir Enfrentamiento".' });
         return;
     }
 
@@ -2737,6 +2745,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`setup_advance_pair:${tournament.shortId}`).setLabel('Añadir Enfrentamiento').setStyle(ButtonStyle.Primary).setEmoji('➕'),
+            new ButtonBuilder().setCustomId(`reset_advance_pairs:${tournament.shortId}`).setLabel('Resetear').setStyle(ButtonStyle.Danger).setEmoji('🔄'),
             new ButtonBuilder().setCustomId(`confirm_advance_manual:${tournament.shortId}`).setLabel('Confirmar Emparejamiento').setStyle(ButtonStyle.Success).setEmoji('✅')
         );
 
@@ -2792,6 +2801,17 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
     if (action === 'save_advance_pair') {
         await interaction.reply({ content: 'Por favor, utiliza los menús desplegables para emparejar equipos. Selecciona primero Equipo A, luego Equipo B.', flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'reset_advance_pairs') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: { 'temp.manualAdvancePairs': [] }, $unset: { 'temp.currentAdvancePairA': '', 'temp.currentAdvancePairB': '' } }
+        );
+        await interaction.editReply({ content: '🔄 Emparejamientos reseteados. Puedes empezar de nuevo pulsando "Añadir Enfrentamiento".' });
         return;
     }
 

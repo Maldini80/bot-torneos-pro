@@ -4614,13 +4614,16 @@ export async function startNextKnockoutRoundManual(client, guild, tournament, ma
     const infoChannel = await client.channels.fetch(currentTournament.discordChannelIds.infoChannelId).catch(() => null);
     const embedAnuncio = new EmbedBuilder().setColor('#e67e22').setTitle(`🔥 ¡Comienza la Fase de ${siguienteRondaNombre}! 🔥`).setDescription('Emparejamiento realizado manualmente por el admin.').setFooter({ text: '¡Mucha suerte!' });
 
-    // Limpiar estado temporal
+    // Limpiar estado temporal antes de guardar (evitar conflicto $set + $unset en mismo path)
+    if (currentTournament.temp) {
+        delete currentTournament.temp.knockoutAdvanceWinners;
+        delete currentTournament.temp.manualAdvancePairs;
+        delete currentTournament.temp.currentAdvancePairA;
+        delete currentTournament.temp.currentAdvancePairB;
+    }
     await db.collection('tournaments').updateOne(
         { _id: currentTournament._id },
-        {
-            $set: currentTournament,
-            $unset: { 'temp.knockoutAdvanceWinners': '', 'temp.manualAdvancePairs': '' }
-        }
+        { $set: currentTournament }
     );
 
     // Crear hilos para cada partido (misma lógica que startNextKnockoutRound)
