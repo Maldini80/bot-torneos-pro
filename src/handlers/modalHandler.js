@@ -1857,6 +1857,32 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         return;
     }
 
+    if (action === 'rename_tournament_modal') {
+        await interaction.reply({ content: '⏳ Renombrando torneo...', flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const newName = interaction.fields.getTextInputValue('new_tournament_name').trim();
+        if (!newName || newName.length < 2) {
+            return interaction.editReply({ content: '❌ El nombre debe tener al menos 2 caracteres.' });
+        }
+        try {
+            await db.collection('tournaments').updateOne(
+                { shortId: tournamentShortId },
+                { $set: { nombre: newName } }
+            );
+            const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            const { updateTournamentManagementThread } = await import('../utils/panelManager.js');
+            const { updatePublicMessages, notifyTournamentVisualizer } = await import('../logic/tournamentLogic.js');
+            await updateTournamentManagementThread(client, updatedTournament);
+            await updatePublicMessages(client, updatedTournament);
+            await notifyTournamentVisualizer(updatedTournament);
+            await interaction.editReply({ content: `✅ Torneo renombrado a **${newName}**.` });
+        } catch (error) {
+            console.error('Error al renombrar torneo:', error);
+            await interaction.editReply({ content: `❌ Error al renombrar: ${error.message}` });
+        }
+        return;
+    }
+
     if (action === 'edit_tournament_modal') {
         await interaction.reply({ content: '⏳ Actualizando configuración...', flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;

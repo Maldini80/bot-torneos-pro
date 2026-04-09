@@ -290,8 +290,14 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    // ROW 4: Destructive actions + External Draft tools (roulette, import)
+    // ROW 4: Destructive actions + rename + External Draft tools (roulette, import)
     row4.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`admin_rename_tournament:${tournament.shortId}`)
+            .setLabel('Renombrar')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('✏️')
+            .setDisabled(isBusy),
         new ButtonBuilder()
             .setCustomId(`admin_end_tournament:${tournament.shortId}`)
             .setLabel('Finalizar Torneo')

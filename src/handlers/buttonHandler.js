@@ -1946,6 +1946,10 @@ export async function handleButton(interaction) {
             const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
             const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.startTime || '');
             modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(startTimeInput));
+        } else if (action === 'admin_rename_tournament') {
+            modal = new ModalBuilder().setCustomId(`rename_tournament_modal:${tournamentShortId}`).setTitle('Renombrar Torneo');
+            const nameInput = new TextInputBuilder().setCustomId('new_tournament_name').setLabel("Nuevo nombre del torneo").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.nombre).setMaxLength(100);
+            modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
         } else if (action === 'payment_confirm_start') {
             modal = new ModalBuilder().setCustomId(`payment_confirm_modal:${tournamentShortId}`).setTitle('Confirmar Pago / Confirm Payment');
             const paypalInput = new TextInputBuilder().setCustomId('user_paypal_input').setLabel("Tu PayPal (para recibir premios)").setStyle(TextInputStyle.Short).setPlaceholder('tu.email@ejemplo.com').setRequired(true);
