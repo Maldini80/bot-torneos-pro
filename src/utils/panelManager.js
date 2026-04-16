@@ -37,6 +37,13 @@ export async function updateTournamentManagementThread(client, tournament, busyS
     if (!tournament || !tournament.discordMessageIds.managementThreadId) return;
     try {
         const thread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId);
+
+        // FIX: Desarchivar el hilo si está archivado para poder enviar/editar mensajes
+        if (thread.archived) {
+            console.log(`[PANEL RECOVERY] ⚠️ Hilo de gestión de "${tournament.shortId}" estaba archivado. Desarchivando...`);
+            await thread.setArchived(false);
+        }
+
         const messages = await thread.messages.fetch({ limit: 20 });
         const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.startsWith('Gestión del Torneo:'));
         const latestTournamentState = await getDb().collection('tournaments').findOne({ _id: tournament._id });
@@ -83,6 +90,13 @@ export async function updateDraftManagementPanel(client, draft, busyState = isBo
     if (!draft || !draft.discordMessageIds.managementThreadId) return;
     try {
         const thread = await client.channels.fetch(draft.discordMessageIds.managementThreadId);
+
+        // FIX: Desarchivar el hilo si está archivado
+        if (thread.archived) {
+            console.log(`[PANEL RECOVERY] ⚠️ Hilo de gestión del draft "${draft.shortId}" estaba archivado. Desarchivando...`);
+            await thread.setArchived(false);
+        }
+
         const messages = await thread.messages.fetch({ limit: 20 });
         const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title.startsWith('Gestión del Draft:'));
         const latestDraftState = await getDb().collection('drafts').findOne({ _id: draft._id });
