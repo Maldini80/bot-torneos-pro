@@ -861,7 +861,7 @@ export async function handleButton(interaction) {
 
     if (action === 'admin_regenerate_panel_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const activeTournaments = await db.collection('tournaments').find({ status: { $nin: ['finalizado', 'archivado'] } }).toArray();
+        const activeTournaments = await db.collection('tournaments').find({}).sort({ _id: -1 }).limit(25).toArray();
 
         if (activeTournaments.length === 0) {
             return interaction.editReply({ content: '❌ No hay torneos activos para regenerar.' });
