@@ -142,4 +142,4 @@ export const TOURNAMENT_STATUS_ICONS = {
 };
 
 // Enlace al PDF de las normas del torneo
-export const PDF_RULES_URL = 'https://i.imgur.com/rwOMSTE.png';
+export const PDF_RULES_URL = 'https://i.imgur.com/B72xwaB.jpeg';
