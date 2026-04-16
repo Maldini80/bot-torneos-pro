@@ -859,6 +859,32 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_regenerate_panel_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const activeTournaments = await db.collection('tournaments').find({ status: { $nin: ['finalizado', 'archivado'] } }).toArray();
+
+        if (activeTournaments.length === 0) {
+            return interaction.editReply({ content: '❌ No hay torneos activos para regenerar.' });
+        }
+
+        const tournamentOptions = activeTournaments.map(t => ({
+            label: t.nombre,
+            description: `Estado: ${t.status} | ID: ${t.shortId}`,
+            value: t.shortId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('admin_regenerate_panel_select')
+            .setPlaceholder('Selecciona el torneo cuyo panel quieres regenerar')
+            .addOptions(tournamentOptions);
+
+        await interaction.editReply({
+            content: '🔄 **Regenerar Panel de Gestión**\nSelecciona el torneo cuyo panel quieres forzar a regenerar:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
     if (action.startsWith('admin_panel_')) {
         try {
             const view = action.replace('admin_panel_', '');

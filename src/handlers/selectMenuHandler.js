@@ -598,6 +598,48 @@ export async function handleSelectMenu(interaction) {
     // --- LÓGICA ORIGINAL DEL BOT ---
     // =======================================================
 
+    // --- REGENERAR PANEL DE GESTIÓN ---
+    if (action === 'admin_regenerate_panel_select') {
+        await interaction.deferUpdate();
+        const tournamentShortId = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+
+        if (!tournament) {
+            return interaction.editReply({ content: '❌ Torneo no encontrado.', components: [] });
+        }
+
+        if (!tournament.discordMessageIds?.managementThreadId) {
+            return interaction.editReply({ content: '❌ Este torneo no tiene un hilo de gestión asociado.', components: [] });
+        }
+
+        try {
+            const thread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId);
+
+            // Desarchivar si es necesario
+            if (thread.archived) {
+                await thread.setArchived(false);
+            }
+
+            // Buscar panel existente
+            const messages = await thread.messages.fetch({ limit: 50 });
+            const panelMessage = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.startsWith('Gestión del Torneo:'));
+
+            const panelContent = createTournamentManagementPanel(tournament, false);
+
+            if (panelMessage) {
+                await panelMessage.edit(panelContent);
+            } else {
+                await thread.send(panelContent);
+            }
+
+            await interaction.editReply({ content: `✅ Panel de gestión de **${tournament.nombre}** regenerado correctamente en el hilo de gestión.`, components: [] });
+        } catch (error) {
+            console.error(`[REGENERATE] Error al regenerar panel de ${tournamentShortId}:`, error);
+            await interaction.editReply({ content: `❌ Error al regenerar el panel: ${error.message}`, components: [] });
+        }
+        return;
+    }
+
     // --- MANUAL RESULT MANAGEMENT LOGIC ---
     if (action === 'admin_select_tournament_manual_results') {
         await interaction.deferUpdate();

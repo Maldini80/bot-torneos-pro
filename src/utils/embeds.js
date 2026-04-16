@@ -66,7 +66,10 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
                 new ButtonBuilder().setCustomId('admin_list_pools').setLabel('Gestionar Bolsas').setStyle(ButtonStyle.Secondary).setEmoji('🗂️').setDisabled(isBusy),
                 new ButtonBuilder().setCustomId('admin_pool_to_tournament').setLabel('Usar Bolsa en Torneo').setStyle(ButtonStyle.Success).setEmoji('🎯').setDisabled(isBusy)
             );
-            components.push(tournamentActionsRow, poolActionsRow, backButtonRow);
+            const tournamentToolsRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('admin_regenerate_panel_start').setLabel('Regenerar Panel').setStyle(ButtonStyle.Danger).setEmoji('🔄').setDisabled(isBusy)
+            );
+            components.push(tournamentActionsRow, poolActionsRow, tournamentToolsRow, backButtonRow);
             break;
 
         case 'drafts':
