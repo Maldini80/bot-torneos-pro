@@ -2276,14 +2276,42 @@ export async function handleSelectMenu(interaction) {
         if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
 
         const captainId = interaction.user.id;
-        const team = tournament.teams.aprobados[captainId];
+        
+        let team = tournament.teams.aprobados?.[captainId];
+        let isPending = false;
+        
+        if (!team) {
+            team = tournament.teams.pendingPayments?.[captainId] || tournament.teams.pendingApproval?.[captainId] || tournament.teams.pendientes?.[captainId];
+            if (team) {
+                isPending = true;
+            }
+        }
+        
         if (!team) return interaction.editReply({ content: 'Error: No eres el capitán de un equipo en este torneo.' });
-        // if (team.coCaptainId) return interaction.editReply({ content: 'Ya tienes un co-capitán.' }); // REMOVED to allow replacement
 
         const coCaptainId = interaction.values[0];
         const coCaptainUser = await client.users.fetch(coCaptainId);
 
-        const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados).flatMap(t => [t.capitanId, t.coCaptainId]).filter(Boolean);
+        // Validate player registration for External Drafts
+        if (tournament.config && tournament.config.paidSubType === 'draft') {
+            const playerReg = await db.collection('external_draft_registrations').findOne({
+                tournamentId: tournamentShortId,
+                $or: [{ userId: coCaptainId }, { discordId: coCaptainId }]
+            });
+
+            if (!playerReg) {
+                return interaction.editReply({ 
+                    content: '❌ **La persona que has intentado invitar no está inscrita como jugador.**\nDile que primero se inscriba mediante el botón verde de "Inscribirme" o en la página web.' 
+                });
+            }
+        }
+
+        const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados || {})
+            .concat(Object.values(tournament.teams.pendingPayments || {}))
+            .concat(Object.values(tournament.teams.pendingApproval || {}))
+            .concat(Object.values(tournament.teams.pendientes || {}))
+            .flatMap(t => [t?.capitanId, t?.coCaptainId]).filter(Boolean);
+            
         if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
             return interaction.editReply({ content: '❌ Esta persona ya participa en el torneo como capitán o co-capitán.' });
         }

@@ -145,6 +145,66 @@ export async function handleButton(interaction) {
     // --- LÓGICA ORIGINAL DEL BOT ---
     // =======================================================
 
+    // --- INSCRIPCIÓN EXCLUSIVA DE CAPITÁN (DRAFT EXTERNO) ---
+    if (action === 'inscribir_capitan_start') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.reply({ content: 'Error: No se encontró este torneo.', flags: [MessageFlags.Ephemeral] });
+        }
+        
+        if (tournament.config?.registrationClosed) {
+            return interaction.reply({ content: '❌ Las inscripciones de capitanes están cerradas.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const managerId = interaction.user.id;
+        const isAlreadyRegistered = tournament.teams.aprobados?.[managerId] || tournament.teams.pendientes?.[managerId] || tournament.teams.pendingPayments?.[managerId] || tournament.teams.pendingApproval?.[managerId] || tournament.teams.reserva?.[managerId];
+
+        if (isAlreadyRegistered) {
+            return interaction.reply({ content: '❌ Ya estás inscrito como capitán o mánager de un equipo en este torneo.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        // Validate player registration
+        if (tournament.config && tournament.config.paidSubType === 'draft') {
+            const playerReg = await db.collection('external_draft_registrations').findOne({
+                tournamentId: tournamentShortId,
+                $or: [{ userId: interaction.user.id }, { discordId: interaction.user.id }]
+            });
+
+            if (!playerReg) {
+                return interaction.reply({ 
+                    content: '❌ **Debes inscribirte primero como jugador** pulsando el botón verde de "Inscribirme" o desde la página web antes de presentarte como capitán.', 
+                    flags: [MessageFlags.Ephemeral] 
+                });
+            }
+        }
+
+        if (tournament.teams.rechazados && tournament.teams.rechazados[managerId]) {
+            return interaction.reply({
+                content: '❌ Has sido rechazado de este torneo. Solo un administrador puede desbloquearte para volver a inscribirte.',
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
+        // Show the WhatsApp input modal, same as the regular paid tournament flow
+        import('discord.js').then(({ ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder }) => { });
+        const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
+        const modal = new ModalBuilder()
+            .setCustomId(`register_paid_team_modal:${tournamentShortId}`)
+            .setTitle('Inscripción Draft Externo (Capitán)');
+
+        const whatsappInput = new TextInputBuilder()
+            .setCustomId('whatsapp_input')
+            .setLabel('Tu número de WhatsApp')
+            .setPlaceholder('Ej: +34 600123456 (obligatorio)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(whatsappInput));
+        return interaction.showModal(modal);
+    }
+    // --- FIN INSCRIPCIÓN EXCLUSIVA CAPITÁN ---
+
     if (action === 'inscribir_equipo_start' || action === 'inscribir_reserva_start') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });

@@ -119,7 +119,7 @@ export async function createRegistrationListChannel(client, guild, tournament) {
         });
 
         // Build initial embeds from current DB state
-        const { positionEmbeds, headerEmbed, captainsPendingEmbed, captainsApprovedEmbed } =
+        const { positionEmbeds, headerEmbed, captainsPendingEmbed, captainsApprovedEmbed, captainsRow } =
             await _buildAllEmbeds(tournament.shortId, tournament);
 
         // Send messages in order and save IDs
@@ -148,7 +148,10 @@ export async function createRegistrationListChannel(client, guild, tournament) {
         await sleep(700);
 
         // 4. Captains Approved
-        const capApprMsg = await channel.send({ embeds: [captainsApprovedEmbed] });
+        const capApprMsg = await channel.send({ 
+            embeds: [captainsApprovedEmbed], 
+            components: captainsRow ? [captainsRow] : [] 
+        });
         messages.captainsApproved = capApprMsg.id;
 
         // Save to DB
@@ -201,7 +204,7 @@ export async function updateRegistrationListChannel(client, tournamentShortId) {
     }
 
     // Build new embeds
-    const { positionEmbeds, headerEmbed, captainsPendingEmbed, captainsApprovedEmbed } =
+    const { positionEmbeds, headerEmbed, captainsPendingEmbed, captainsApprovedEmbed, captainsRow } =
         await _buildAllEmbeds(tournamentShortId, tournament);
 
     // Check if structure changed (different number of messages per position)
@@ -261,7 +264,10 @@ export async function updateRegistrationListChannel(client, tournamentShortId) {
             newMessages.captainsPending = capPendMsg.id;
             await sleep(700);
 
-            const capApprMsg = await channel.send({ embeds: [captainsApprovedEmbed] });
+            const capApprMsg = await channel.send({ 
+                embeds: [captainsApprovedEmbed],
+                components: captainsRow ? [captainsRow] : []
+            });
             newMessages.captainsApproved = capApprMsg.id;
 
             // Update DB with new message IDs
@@ -305,7 +311,10 @@ export async function updateRegistrationListChannel(client, tournamentShortId) {
 
             if (messages.captainsApproved) {
                 const msg = await channel.messages.fetch(messages.captainsApproved).catch(() => null);
-                if (msg) await msg.edit({ embeds: [captainsApprovedEmbed] });
+                if (msg) await msg.edit({ 
+                    embeds: [captainsApprovedEmbed],
+                    components: captainsRow ? [captainsRow] : []
+                });
             }
 
         } catch (error) {
@@ -479,7 +488,25 @@ async function _buildAllEmbeds(tournamentShortId, tournament) {
         .setTitle(`✅ Capitanes Aprobados (${approvedCaptains.length})`)
         .setDescription(approvedDesc);
 
-    return { positionEmbeds, headerEmbed, captainsPendingEmbed, captainsApprovedEmbed };
+    // --- Build Dynamic Button ---
+    let captainsRow = null;
+    if (!regCaptainsClosed) {
+        import('discord.js').then(({ ActionRowBuilder, ButtonBuilder, ButtonStyle }) => {
+            // Se hace un import dinámico de los builders solo si es necesario, 
+            // pero ya están importados arriba, así que podemos usarlos.
+        });
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+        
+        captainsRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`inscribir_capitan_start:${tournamentShortId}`)
+                .setLabel('Inscribirme como Capitán')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('👑')
+        );
+    }
+
+    return { positionEmbeds, headerEmbed, captainsPendingEmbed, captainsApprovedEmbed, captainsRow };
 }
 
 /**

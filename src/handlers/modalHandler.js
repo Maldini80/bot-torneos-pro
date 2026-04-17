@@ -546,6 +546,28 @@ export async function handleModal(interaction) {
                 await interaction.editReply({
                     content: `✅ Solicitud enviada.\nUn administrador revisará la inscripción y te contactará.\nMientras tanto, puedes acceder a ${canalMention} para hablar con otros capitanes pendientes y ver el stream de selección.`
                 });
+
+                // Send DM with Co-Captain invite button
+                try {
+                    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+                    
+                    const dmEmbed = new EmbedBuilder()
+                        .setColor('#f39c12')
+                        .setTitle(`⏳ Pendiente de Aprobación: ${tournament.nombre}`)
+                        .setDescription(`Tu solicitud como capitán ha sido recibida y está pendiente de aprobación por administración.\n\nSi lo deseas, puedes invitar **ahora mismo** a tu Co-Capitán usando el botón inferior. (Recuerda que el co-capitán debe haberse inscrito previamente como jugador).`);
+                        
+                    const dmRow = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`invite_cocaptain_start:${tournamentShortId}`)
+                            .setLabel('Invitar Co-Capitán')
+                            .setStyle(ButtonStyle.Primary)
+                            .setEmoji('🤝')
+                    );
+                    
+                    await interaction.user.send({ embeds: [dmEmbed], components: [dmRow] });
+                } catch (e) {
+                    console.warn(`[PAID REG] No se pudo enviar MD al capitán pendiente ${managerId} con botón de co-capitán.`);
+                }
             } else {
                 // Mensaje simplificado para Cash Cups
                 await interaction.editReply({

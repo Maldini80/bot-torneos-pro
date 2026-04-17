@@ -1744,10 +1744,29 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
 
     // Obtenemos el torneo más actualizado para evitar conflictos
     const latestTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-    const team = latestTournament.teams.aprobados[captainId];
+    
+    let team = latestTournament.teams.aprobados?.[captainId];
+    let listName = 'aprobados';
+    let isPending = false;
 
     if (!team) {
-        console.error(`[ERROR] No se encontró el equipo aprobado para el capitán ${captainId} en el torneo ${latestTournament.shortId}`);
+        if (latestTournament.teams.pendingPayments?.[captainId]) {
+            team = latestTournament.teams.pendingPayments[captainId];
+            listName = 'pendingPayments';
+            isPending = true;
+        } else if (latestTournament.teams.pendingApproval?.[captainId]) {
+            team = latestTournament.teams.pendingApproval[captainId];
+            listName = 'pendingApproval';
+            isPending = true;
+        } else if (latestTournament.teams.pendientes?.[captainId]) {
+            team = latestTournament.teams.pendientes[captainId];
+            listName = 'pendientes';
+            isPending = true;
+        }
+    }
+
+    if (!team) {
+        console.error(`[ERROR] No se encontró el equipo para el capitán ${captainId} en el torneo ${latestTournament.shortId}`);
         return;
     }
 
@@ -1768,7 +1787,7 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
             console.warn(`No se pudo notificar al antiguo co-capitán ${oldCoCaptainId} de su expulsión.`);
         }
 
-        // 2. Quitar permisos de canales (Chat y Partidos)
+        // 2. Quitar permisos de canales (Chat y Partidos y Voz Draft)
         if (latestTournament.discordChannelIds) {
             const { matchesChannelId, chatChannelId } = latestTournament.discordChannelIds;
             try {
@@ -1785,6 +1804,20 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
             }
         }
 
+        if (latestTournament.config?.isPaid && latestTournament.discordMessageIds) {
+            try {
+                const isOldPending = listName !== 'aprobados'; // already determined above
+                const voiceChannelId = isOldPending 
+                    ? latestTournament.discordMessageIds.seleccionCapitanesVoiceId 
+                    : latestTournament.discordMessageIds.capitanesAprobadosVoiceId;
+                
+                if (voiceChannelId) {
+                    const voiceChannel = await guild.channels.fetch(voiceChannelId).catch(() => null);
+                    if (voiceChannel) await voiceChannel.permissionOverwrites.delete(oldCoCaptainId).catch(() => { });
+                }
+            } catch (error) {}
+        }
+
         // 3. Limpiar base de datos (se hace en el $set/$unset de abajo, pero es bueno tenerlo en cuenta)
         // La actualización de MongoDB más abajo sobrescribirá 'coCaptainId' y 'coCaptainTag', así que eso es automático.
     }
@@ -1795,8 +1828,8 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
         { _id: latestTournament._id },
         {
             $set: {
-                [`teams.aprobados.${captainId}.coCaptainId`]: coCaptainId,
-                [`teams.aprobados.${captainId}.coCaptainTag`]: coCaptainUser.tag
+                [`teams.${listName}.${captainId}.coCaptainId`]: coCaptainId,
+                [`teams.${listName}.${captainId}.coCaptainTag`]: coCaptainUser.tag
             },
             $unset: {
                 [`teams.coCapitanes.${captainId}`]: ""
@@ -1831,6 +1864,26 @@ export async function addCoCaptain(client, tournament, captainId, coCaptainId) {
             }
         } catch (error) {
             console.error(`[ERROR] No se pudieron actualizar los permisos de canales para el co-capitán ${coCaptainId}:`, error);
+        }
+    }
+
+    // 1.6. CRÍTICO: Permisos al canal de voz general de capitanes (Draft Externo)
+    if (latestTournament.config?.isPaid && latestTournament.discordMessageIds) {
+        try {
+            // Si está pendiente, va al canal de selección (Canal A). Si está aprobado, va al canal de aprobados (Canal B).
+            const voiceChannelId = isPending 
+                ? latestTournament.discordMessageIds.seleccionCapitanesVoiceId 
+                : latestTournament.discordMessageIds.capitanesAprobadosVoiceId;
+
+            if (voiceChannelId) {
+                const voiceChannel = await guild.channels.fetch(voiceChannelId).catch(() => null);
+                if (voiceChannel) {
+                    await voiceChannel.permissionOverwrites.create(coCaptainId, { ViewChannel: true, Connect: true, Speak: true });
+                    console.log(`[DEBUG] Permisos de Voz otorgados a ${coCaptainUser.tag} en ${voiceChannel.name} (isPending: ${isPending})`);
+                }
+            }
+        } catch (error) {
+            console.error(`[ERROR] No se pudo otorgar permisos de voz al co-capitán ${coCaptainId}:`, error);
         }
     }
 
