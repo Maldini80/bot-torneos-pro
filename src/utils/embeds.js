@@ -213,22 +213,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    if (!tournament.config.isPaid && isBeforeDraw) {
-        row2.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`admin_add_registered_team_start:${tournament.shortId}`)
-                .setLabel('Añadir Equipo Registrado')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('➕')
-                .setDisabled(isBusy)
-        );
-    }
-
-    if (isBeforeDraw) {
-        row2.addComponents(
-            new ButtonBuilder().setCustomId(`admin_add_test_teams:${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
-        );
-    }
+    // Botones de añadir equipos movidos a row3 para evitar más de 5 botones en row2
 
     // ROW 3: Undo draw + group/knockout stage specific actions
     const knockoutStageNames = ['treintaidosavos', 'dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
@@ -256,15 +241,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
-    row3.addComponents(
-        new ButtonBuilder()
-            .setCustomId(`admin_assign_cocaptain_start:${tournament.shortId}`)
-            .setLabel('Asignar Co-Capitán')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('👥')
-            .setDisabled(isBusy || !hasCaptains)
-    );
-
     // Botón para editar restricciones de liga (solo para torneos gratuitos)
     if (!tournament.config.isPaid && isBeforeDraw) {
         row3.addComponents(
@@ -273,7 +249,19 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
                 .setLabel('Editar Ligas')
                 .setStyle(ButtonStyle.Secondary)
                 .setEmoji('⚙️')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
+                .setCustomId(`admin_add_registered_team_start:${tournament.shortId}`)
+                .setLabel('Añadir Equipo Registrado')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('➕')
                 .setDisabled(isBusy)
+        );
+    }
+
+    if (isBeforeDraw) {
+        row3.addComponents(
+            new ButtonBuilder().setCustomId(`admin_add_test_teams:${tournament.shortId}`).setLabel('Añadir Equipos Test').setStyle(ButtonStyle.Secondary).setEmoji('🧪').setDisabled(isBusy)
         );
     }
 
@@ -290,17 +278,6 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
                 .setLabel('Sustituir Equipo')
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji('🔄')
-                .setDisabled(isBusy)
-        );
-    }
-
-    if (tournament.config.isPaid) {
-        row3.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`admin_manual_register_start:${tournament.shortId}`)
-                .setLabel('Inscripción Manual (Pago)')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('💵')
                 .setDisabled(isBusy)
         );
     }
