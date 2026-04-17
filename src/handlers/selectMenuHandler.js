@@ -2320,28 +2320,21 @@ export async function handleSelectMenu(interaction) {
         }
 
         try {
-            await db.collection('tournaments').updateOne(
-                { _id: tournament._id },
-                { $set: { [`teams.coCapitanes.${captainId}`]: { inviterId: captainId, invitedId: coCaptainId, invitedAt: new Date() } } }
-            );
+            const { addCoCaptain } = await import('../logic/tournamentLogic.js');
+            await addCoCaptain(interaction.client, tournament, captainId, coCaptainId);
 
             const embed = new EmbedBuilder()
-                .setColor('#3498db')
-                .setTitle(`🤝 Invitación de Co-Capitán / Co-Captain Invitation`)
-                .setDescription(`🇪🇸 Has sido invitado por **${interaction.user.tag}** para ser co-capitán de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n*Si aceptas, reemplazarás al co-capitán actual si lo hay.*\n\n` +
-                    `🇬🇧 You have been invited by **${interaction.user.tag}** to be the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.\n*If you accept, you will replace the current co-captain if there is one.*`);
+                .setColor('#2ecc71')
+                .setTitle(`✅ Añadido como Co-Capitán`)
+                .setDescription(`🇪🇸 Has sido añadido automáticamente por **${interaction.user.tag}** como co-capitán (ayudante) de su equipo **${team.nombre}** en el torneo **${tournament.nombre}**.\n\n` +
+                    `🇬🇧 You have been automatically added by **${interaction.user.tag}** as the co-captain of their team **${team.nombre}** in the **${tournament.nombre}** tournament.`);
 
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`cocaptain_accept:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Aceptar / Accept').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`cocaptain_reject:${tournament.shortId}:${captainId}:${coCaptainId}`).setLabel('Rechazar / Reject').setStyle(ButtonStyle.Danger)
-            );
-
-            await coCaptainUser.send({ embeds: [embed], components: [row] });
-            await interaction.editReply({ content: `✅ 🇪🇸 Invitación enviada a **${coCaptainUser.tag}**. Recibirá un MD para aceptar o rechazar.\n🇬🇧 Invitation sent to **${coCaptainUser.tag}**. They will receive a DM to accept or reject.`, components: [] });
+            await coCaptainUser.send({ embeds: [embed] }).catch(() => {});
+            await interaction.editReply({ content: `✅ 🇪🇸 **${coCaptainUser.tag}** ha sido añadido automáticamente como tu ayudante (co-capitán) con éxito.\n🇬🇧 **${coCaptainUser.tag}** has been automatically added as your co-captain.`, components: [] });
 
         } catch (error) {
-            console.error(error);
-            await interaction.editReply({ content: '❌ No se pudo enviar el MD de invitación. Es posible que el usuario tenga los mensajes directos bloqueados.', components: [] });
+            console.error('Error auto-adding co-captain:', error);
+            await interaction.editReply({ content: '❌ Hubo un error al añadir al co-capitán automáticamente.', components: [] });
         }
     }
     if (action === 'admin_promote_from_waitlist') {
