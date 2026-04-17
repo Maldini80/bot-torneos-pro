@@ -324,6 +324,17 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     // ROW 5: Configuración y utilidades adicionales
     const row5 = new ActionRowBuilder();
     
+    if (hasCaptains) {
+        row5.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`admin_assign_cocaptain_start:${tournament.shortId}`)
+                .setLabel('Asignar Co-Capitán')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('👥')
+                .setDisabled(isBusy)
+        );
+    }
+
     row5.addComponents(
         new ButtonBuilder()
             .setCustomId(`admin_set_promo_image:${tournament.shortId}`)
