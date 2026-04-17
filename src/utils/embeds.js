@@ -966,6 +966,19 @@ export function createTournamentStatusEmbed(tournament, rulesUrl = PDF_RULES_URL
     }
     // --- FIN LIGAS PERMITIDAS ---
 
+    // --- ESTADO INSCRIPCIONES (DRAFT EXTERNO) ---
+    if (tournament.config && tournament.config.paidSubType === 'draft') {
+        const playersStatus = tournament.registrationsClosed === true ? '🔴 Cerradas' : '🟢 Abiertas';
+        const captainsStatus = tournament.config.registrationClosed === true ? '🔴 Cerradas' : '🟢 Abiertas';
+        
+        embed.addFields({
+            name: 'Estado de Inscripciones',
+            value: `**Jugadores (Web):** ${playersStatus}\n**Capitanes (Discord):** ${captainsStatus}`,
+            inline: false
+        });
+    }
+    // --- FIN ESTADO INSCRIPCIONES ---
+
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
     const isFull = format.size > 0 && teamsCount >= format.size;
