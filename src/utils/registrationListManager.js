@@ -81,8 +81,10 @@ async function _executeUpdate(client, tournamentShortId) {
     }
 
     updateLocks.set(tournamentShortId, true);
+    console.log(`[REG LIST] >>> Ejecutando actualización para ${tournamentShortId}...`);
     try {
         await updateRegistrationListChannel(client, tournamentShortId);
+        console.log(`[REG LIST] <<< Actualización completada para ${tournamentShortId}.`);
     } catch (error) {
         console.error(`[REG LIST] Error updating registration list for ${tournamentShortId}:`, error);
     } finally {
@@ -491,10 +493,6 @@ async function _buildAllEmbeds(tournamentShortId, tournament) {
     // --- Build Dynamic Button ---
     let captainsRow = null;
     if (!regCaptainsClosed) {
-        import('discord.js').then(({ ActionRowBuilder, ButtonBuilder, ButtonStyle }) => {
-            // Se hace un import dinámico de los builders solo si es necesario, 
-            // pero ya están importados arriba, así que podemos usarlos.
-        });
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
         
         captainsRow = new ActionRowBuilder().addComponents(

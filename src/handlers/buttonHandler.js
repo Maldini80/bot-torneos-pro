@@ -210,7 +210,6 @@ export async function handleButton(interaction) {
         }
 
         // Show the WhatsApp input modal, same as the regular paid tournament flow
-        import('discord.js').then(({ ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder }) => { });
         const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
         const modal = new ModalBuilder()
             .setCustomId(`register_paid_team_modal:${tournamentShortId}`)
