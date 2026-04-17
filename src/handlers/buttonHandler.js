@@ -161,7 +161,30 @@ export async function handleButton(interaction) {
         const isAlreadyRegistered = tournament.teams.aprobados?.[managerId] || tournament.teams.pendientes?.[managerId] || tournament.teams.pendingPayments?.[managerId] || tournament.teams.pendingApproval?.[managerId] || tournament.teams.reserva?.[managerId];
 
         if (isAlreadyRegistered) {
-            return interaction.reply({ content: '❌ Ya estás inscrito como capitán o mánager de un equipo en este torneo.', flags: [MessageFlags.Ephemeral] });
+            const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`invite_cocaptain_start:${tournamentShortId}`)
+                    .setLabel(isAlreadyRegistered.coCaptainId ? 'Reemplazar Ayudante' : 'Elegir Ayudante (Co-Capitán)')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🤝')
+            );
+            
+            if (isAlreadyRegistered.coCaptainId) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`remove_cocaptain:${tournamentShortId}`)
+                        .setLabel('Expulsar Ayudante')
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji('🗑️')
+                );
+            }
+
+            return interaction.reply({ 
+                content: `✅ **Ya estás inscrito como capitán** (Estado: ${tournament.teams.aprobados?.[managerId] ? 'Aprobado' : 'Pendiente'}).\n\n👇 Usa los botones abajo para gestionar a tu co-capitán (ayudante):`, 
+                components: [row],
+                flags: [MessageFlags.Ephemeral] 
+            });
         }
 
         // Validate player registration
@@ -2263,6 +2286,26 @@ export async function handleButton(interaction) {
             components: [row],
             flags: [MessageFlags.Ephemeral]
         });
+        return;
+    }
+
+    if (action === 'remove_cocaptain') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+
+        try {
+            const { removeCoCaptain } = await import('../logic/tournamentLogic.js');
+            const result = await removeCoCaptain(interaction.client, tournament, interaction.user.id);
+            if (result.success) {
+                await interaction.reply({ content: '✅ Co-capitán expulsado correctamente. Sus permisos han sido retirados.', flags: [MessageFlags.Ephemeral] });
+            } else {
+                await interaction.reply({ content: `❌ No se pudo expulsar: ${result.error}`, flags: [MessageFlags.Ephemeral] });
+            }
+        } catch (err) {
+            console.error('Error expulsando co-capitán:', err);
+            await interaction.reply({ content: '❌ Hubo un error al intentar expulsar al co-capitán.', flags: [MessageFlags.Ephemeral] });
+        }
         return;
     }
 

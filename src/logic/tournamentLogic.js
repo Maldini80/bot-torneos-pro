@@ -6212,3 +6212,160 @@ export async function replaceTournamentManager(client, guild, tournamentShortId,
 
     return true;
 }
+export async function removeCoCaptain(client, tournament, captainId) {
+    const db = getDb();
+    const guild = await client.guilds.fetch(tournament.guildId);
+    
+    const latestTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+    
+    let team = latestTournament.teams.aprobados?.[captainId];
+    let listName = 'aprobados';
+    let isPending = false;
+
+    if (!team) {
+        if (latestTournament.teams.pendingPayments?.[captainId]) {
+            team = latestTournament.teams.pendingPayments[captainId];
+            listName = 'pendingPayments';
+            isPending = true;
+        } else if (latestTournament.teams.pendingApproval?.[captainId]) {
+            team = latestTournament.teams.pendingApproval[captainId];
+            listName = 'pendingApproval';
+            isPending = true;
+        } else if (latestTournament.teams.pendientes?.[captainId]) {
+            team = latestTournament.teams.pendientes[captainId];
+            listName = 'pendientes';
+            isPending = true;
+        }
+    }
+
+    if (!team || !team.coCaptainId) {
+        return { success: false, error: 'No se encontró co-capitán para este equipo.' };
+    }
+
+    const oldCoCaptainId = team.coCaptainId;
+
+    try {
+        const oldCoCaptainUser = await client.users.fetch(oldCoCaptainId);
+        const { EmbedBuilder } = await import('discord.js');
+        const kickEmbed = new EmbedBuilder()
+            .setColor('#e74c3c')
+            .setTitle('⚠️ Expulsión de Co-Capitanía')
+            .setDescription('🇪🇸 Has sido expulsado como co-capitán del equipo **' + team.nombre + '** en el torneo **' + latestTournament.nombre + '**. Ya no tienes acceso a los canales del equipo.');
+        await oldCoCaptainUser.send({ embeds: [kickEmbed] });
+    } catch (e) {
+        console.warn('No se pudo notificar al antiguo co-capitán ' + oldCoCaptainId);
+    }
+
+    if (latestTournament.discordChannelIds) {
+        const { matchesChannelId, chatChannelId } = latestTournament.discordChannelIds;
+        try {
+            if (matchesChannelId) {
+                const matchesChannel = await guild.channels.fetch(matchesChannelId).catch(() => null);
+                if (matchesChannel) await matchesChannel.permissionOverwrites.delete(oldCoCaptainId).catch(() => { });
+            }
+            if (chatChannelId) {
+                const chatChannel = await guild.channels.fetch(chatChannelId).catch(() => null);
+                if (chatChannel) await chatChannel.permissionOverwrites.delete(oldCoCaptainId).catch(() => { });
+            }
+        } catch (error) {}
+    }
+
+    if (latestTournament.config?.isPaid && latestTournament.discordMessageIds) {
+        try {
+            const voiceChannelId = isPending 
+                ? latestTournament.discordMessageIds.seleccionCapitanesVoiceId 
+                : latestTournament.discordMessageIds.capitanesAprobadosVoiceId;
+            
+            if (voiceChannelId) {
+                const voiceChannel = await guild.channels.fetch(voiceChannelId).catch(() => null);
+                if (voiceChannel) await voiceChannel.permissionOverwrites.delete(oldCoCaptainId).catch(() => { });
+            }
+        } catch (error) {}
+    }
+
+    await db.collection('tournaments').updateOne(
+        { _id: latestTournament._id },
+        {
+            $unset: {
+                [`teams.${listName}.${captainId}.coCaptainId`]: '',
+                [`teams.${listName}.${captainId}.coCaptainTag`]: ''
+            }
+        }
+    );
+    
+    // Si hay calendario, quitarlo de los partidos
+    if (latestTournament.structure) {
+        let needsUpdate = false;
+        const updates = {};
+
+        if (latestTournament.structure.calendario) {
+            const updatedCalendario = { ...latestTournament.structure.calendario };
+            let calendarUpdated = false;
+
+            for (const groupName in updatedCalendario) {
+                updatedCalendario[groupName] = updatedCalendario[groupName].map(match => {
+                    let matchUpdated = false;
+                    if (match.equipoA.capitanId === captainId) {
+                        match.equipoA.coCaptainId = null;
+                        match.equipoA.coCaptainTag = null;
+                        matchUpdated = true;
+                    }
+                    if (match.equipoB.capitanId === captainId) {
+                        match.equipoB.coCaptainId = null;
+                        match.equipoB.coCaptainTag = null;
+                        matchUpdated = true;
+                    }
+                    if (matchUpdated) calendarUpdated = true;
+                    return match;
+                });
+            }
+            if (calendarUpdated) {
+                updates['structure.calendario'] = updatedCalendario;
+                needsUpdate = true;
+            }
+        }
+
+        if (latestTournament.structure.eliminatorias) {
+            const updatedEliminatorias = { ...latestTournament.structure.eliminatorias };
+            let eliminatoriasUpdated = false;
+
+            for (const key in updatedEliminatorias) {
+                if (Array.isArray(updatedEliminatorias[key])) {
+                    const matches = Array.isArray(updatedEliminatorias[key]) ? updatedEliminatorias[key] : [updatedEliminatorias[key]];
+                    const updatedMatches = matches.map(match => {
+                        if (!match) return match;
+                        let matchUpdated = false;
+                        if (match.equipoA && match.equipoA.capitanId === captainId) {
+                            match.equipoA.coCaptainId = null;
+                            match.equipoA.coCaptainTag = null;
+                            matchUpdated = true;
+                        }
+                        if (match.equipoB && match.equipoB.capitanId === captainId) {
+                            match.equipoB.coCaptainId = null;
+                            match.equipoB.coCaptainTag = null;
+                            matchUpdated = true;
+                        }
+                        if (matchUpdated) eliminatoriasUpdated = true;
+                        return match;
+                    });
+                    if (eliminatoriasUpdated) {
+                        updatedEliminatorias[key] = Array.isArray(updatedEliminatorias[key]) ? updatedMatches : updatedMatches[0];
+                    }
+                }
+            }
+            if (eliminatoriasUpdated) {
+                updates['structure.eliminatorias'] = updatedEliminatorias;
+                needsUpdate = true;
+            }
+        }
+
+        if (needsUpdate) {
+            await db.collection('tournaments').updateOne(
+                { _id: latestTournament._id },
+                { $set: updates }
+            );
+        }
+    }
+
+    return { success: true };
+}
