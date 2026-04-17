@@ -16,6 +16,7 @@ import { createDraftStatusEmbed, createPoolEmbed } from '../utils/embeds.js';
 import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
 import { parseWhatsAppList, matchTeamsToDatabase, distributeByElo } from '../logic/whatsappDistributor.js';
 import { generateExcelImage } from '../utils/twitter.js';
+import { scheduleRegistrationListUpdate } from '../utils/registrationListManager.js';
 
 
 export async function handleModal(interaction) {
@@ -384,6 +385,9 @@ export async function handleModal(interaction) {
             ? `✅ **Inscripción actualizada.** Tu posición ahora es **${position}** y tu ID es **${gameId}**.`
             : `✅ **¡Inscripción completada!** Te has registrado como **${position}** en el draft.\n\nPuedes volver a pulsar el botón de Inscribirme si necesitas modificar tus datos o darte de baja.`;
 
+        // Hook: actualizar canal de lista de inscritos
+        scheduleRegistrationListUpdate(client, tournamentShortId);
+
         return interaction.editReply(replyMsg);
     }
 
@@ -464,6 +468,10 @@ export async function handleModal(interaction) {
         }
 
         await interaction.editReply(`✅ **Inscripción completada.** <@${targetUserId}> ahora es **${position}**.`);
+
+        // Hook: actualizar canal de lista de inscritos
+        scheduleRegistrationListUpdate(client, tournamentShortId);
+
         return;
     }
 

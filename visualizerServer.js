@@ -15,6 +15,7 @@ import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
 import { processMatchResult, finalizeMatchThread, findMatch } from './src/logic/matchLogic.js';
 import { getLeagueByElo, LEAGUE_EMOJIS } from './src/logic/eloLogic.js';
 import { createPoolEmbed } from './src/utils/embeds.js';
+import { scheduleRegistrationListUpdate } from './src/utils/registrationListManager.js';
 
 // FIX: Mutex por draft para evitar race conditions en picks concurrentes
 const draftLocks = new Map();
@@ -3071,6 +3072,11 @@ export async function startVisualizerServer(discordClient) {
 
             const stats = await getRegistrationStats(db, tournamentId);
 
+            // Hook: Update list channel
+            if (client) {
+                scheduleRegistrationListUpdate(client, tournamentId);
+            }
+
             // Log
             const statsLine = `📊 Total: ${Object.values(stats).reduce((a, b) => a + b, 0)} inscritos (${stats.GK} POR · ${stats.DFC} DFC · ${stats.CARR} CARR · ${stats.MC} MC · ${stats.DC} DC)`;
             await sendRegistrationLog(db, tournamentId, `✅ **${req.user.global_name || req.user.username}** se ha inscrito como **${POSITION_LABELS[position]}** — ID: \`${sanitizeInput(gameId, 50)}\`\n${statsLine}`);
@@ -3102,6 +3108,12 @@ export async function startVisualizerServer(discordClient) {
             await db.collection('external_draft_registrations').deleteOne({ _id: registration._id });
 
             const stats = await getRegistrationStats(db, tournamentId);
+
+            // Hook: Update list channel
+            if (client) {
+                scheduleRegistrationListUpdate(client, tournamentId);
+            }
+
             const statsLine = `📊 Total: ${Object.values(stats).reduce((a, b) => a + b, 0)} inscritos (${stats.GK} POR · ${stats.DFC} DFC · ${stats.CARR} CARR · ${stats.MC} MC · ${stats.DC} DC)`;
             await sendRegistrationLog(db, tournamentId, `❌ **${req.user.global_name || req.user.username}** se ha dado de baja (era ${POSITION_LABELS[registration.position]})\n${statsLine}`);
 
@@ -3140,6 +3152,12 @@ export async function startVisualizerServer(discordClient) {
             });
             if (result.deletedCount === 0) return res.status(404).json({ error: 'No encontrado.' });
             const stats = await getRegistrationStats(db, tournamentId);
+
+            // Hook: Update list channel
+            if (client) {
+                scheduleRegistrationListUpdate(client, tournamentId);
+            }
+
             res.json({ success: true, stats });
         } catch (error) {
             res.status(500).json({ error: 'Error interno.' });
@@ -3170,6 +3188,12 @@ export async function startVisualizerServer(discordClient) {
             };
             await db.collection('external_draft_registrations').insertOne(registration);
             const stats = await getRegistrationStats(db, tournamentId);
+
+            // Hook: Update list channel
+            if (client) {
+                scheduleRegistrationListUpdate(client, tournamentId);
+            }
+
             res.json({ success: true, stats });
         } catch (error) {
             res.status(500).json({ error: 'Error interno.' });

@@ -24,6 +24,7 @@ import { generateExcelImage } from '../utils/twitter.js';
 import ExcelJS from 'exceljs';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
+import { createRegistrationListChannel, deleteRegistrationListChannel, scheduleRegistrationListUpdate, forceRefreshRegistrationList } from '../utils/registrationListManager.js';
 
 export async function handleButton(interaction) {
     const customId = interaction.customId;
@@ -3541,6 +3542,12 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         }
         // --- FIN ELIMINAR CANAL B ---
 
+        // --- ELIMINAR CANAL LISTA INSCRITOS ---
+        if (tournament.registrationListData?.channelId) {
+            await deleteRegistrationListChannel(client, tournament).catch(e => console.error('[REG LIST] Error eliminando canal lista:', e));
+        }
+        // --- FIN ELIMINAR CANAL LISTA INSCRITOS ---
+
         await interaction.editReply({ content: `⏳ Recibido. Finalizando el torneo **${tournament.nombre}**. Los canales se borrarán en breve.` });
         await endTournament(client, tournament);
         return;
@@ -5666,9 +5673,24 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             new ButtonBuilder().setCustomId(`ext_reg_export_excel:${tournamentShortId}`).setLabel('Exportar Excel').setStyle(ButtonStyle.Secondary).setEmoji('📊').setDisabled(menuTotal === 0)
         );
 
+        const hasListChannel = !!trn.registrationListData?.channelId;
+        const row5 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_gen_list_channel:${tournamentShortId}`)
+                .setLabel(hasListChannel ? 'Borrar Canal Lista' : 'Generar Canal Lista')
+                .setStyle(hasListChannel ? ButtonStyle.Danger : ButtonStyle.Success)
+                .setEmoji(hasListChannel ? '🗑️' : '📋'),
+            new ButtonBuilder()
+                .setCustomId(`ext_reg_refresh_list:${tournamentShortId}`)
+                .setLabel('Actualizar Listado')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🔄')
+                .setDisabled(!hasListChannel)
+        );
+
         return {
             content: `📋 **Gestión de Inscripciones — ${trn.nombre}**\n\n**Jugadores (Web):** ${playersStatus}\n**Capitanes (Discord):** ${captainsStatus}\n🔗 Link: ${menuLink}\n\n📊 **${menuTotal} inscritos** — 🥅 ${menuStats.GK} POR · 🧱 ${menuStats.DFC} DFC · ⚡ ${menuStats.CARR} CARR · 🎩 ${menuStats.MC} MC · 🏟️ ${menuStats.DC} DC`,
-            components: [row1, row2, row3, row4]
+            components: [row1, row2, row3, row4, row5]
         };
     }
 
@@ -5737,6 +5759,9 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                     if (sourceMsg) await sourceMsg.edit(menu);
                 } catch (e) { }
             }
+
+            // Hook: actualizar canal de lista de inscritos
+            scheduleRegistrationListUpdate(client, tournamentShortId);
         } else {
             await interaction.editReply({ content: '❌ El jugador ya había sido eliminado o no se encontró.', components: [] });
         }
@@ -5792,6 +5817,8 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         }
 
         const menu = await getExtRegManageMenu(tournamentShortId, db);
+        // Hook: actualizar canal de lista (header con nuevo estado)
+        scheduleRegistrationListUpdate(client, tournamentShortId);
         return interaction.editReply(menu);
     }
 
@@ -5822,6 +5849,8 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         }
 
         const menu = await getExtRegManageMenu(tournamentShortId, db);
+        // Hook: actualizar canal de lista (header con nuevo estado)
+        scheduleRegistrationListUpdate(client, tournamentShortId);
         return interaction.editReply(menu);
     }
 
@@ -5834,6 +5863,8 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             { $set: { 'config.registrationClosed': false } }
         );
         const menu = await getExtRegManageMenu(tournamentShortId, db);
+        // Hook: actualizar canal de lista (header)
+        scheduleRegistrationListUpdate(client, tournamentShortId);
         return interaction.editReply(menu);
     }
 
@@ -5845,6 +5876,42 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             { shortId: tournamentShortId },
             { $set: { 'config.registrationClosed': true } }
         );
+        const menu = await getExtRegManageMenu(tournamentShortId, db);
+        // Hook: actualizar canal de lista (header)
+        scheduleRegistrationListUpdate(client, tournamentShortId);
+        return interaction.editReply(menu);
+    }
+
+    // Generar Canal Lista / Borrar Canal Lista
+    if (action === 'ext_reg_gen_list_channel') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return;
+
+        if (tournament.registrationListData?.channelId) {
+            // Ya existe → borrar
+            await deleteRegistrationListChannel(client, tournament);
+            const menu = await getExtRegManageMenu(tournamentShortId, db);
+            return interaction.editReply(menu);
+        } else {
+            // No existe → crear
+            const guild = interaction.guild;
+            const result = await createRegistrationListChannel(client, guild, tournament);
+            if (result) {
+                const menu = await getExtRegManageMenu(tournamentShortId, db);
+                return interaction.editReply(menu);
+            } else {
+                return interaction.followUp({ content: '❌ Error al crear el canal de lista.', flags: [MessageFlags.Ephemeral] });
+            }
+        }
+    }
+
+    // Actualizar Listado (forzar refresh manual)
+    if (action === 'ext_reg_refresh_list') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        await forceRefreshRegistrationList(client, tournamentShortId);
         const menu = await getExtRegManageMenu(tournamentShortId, db);
         return interaction.editReply(menu);
     }
@@ -5903,6 +5970,9 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 }
             }
         }
+
+        // Hook: actualizar canal de lista de inscritos
+        scheduleRegistrationListUpdate(client, tournamentShortId);
 
         return interaction.update({
             content: `✅ **Baja completada.** Te has dado de baja de este Draft correctamente. Ya no ocupas plaza.`,

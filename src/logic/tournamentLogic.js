@@ -11,6 +11,7 @@ import { EmbedBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, Butto
 import { postTournamentUpdate } from '../utils/twitter.js';
 import { visualizerStateHandler } from '../../visualizerServer.js';
 import { parsePlayerList } from '../utils/textParser.js';
+import { scheduleRegistrationListUpdate } from '../utils/registrationListManager.js';
 
 
 // Midfielder constants removed
@@ -1731,6 +1732,9 @@ export async function approveTeam(client, tournament, teamData) {
     await updatePublicMessages(client, updatedTournament);
     await updateTournamentManagementThread(client, updatedTournament);
     await notifyTournamentVisualizer(updatedTournament);
+
+    // Hook: Update list channel
+    scheduleRegistrationListUpdate(client, updatedTournament.shortId);
 }
 
 export async function addCoCaptain(client, tournament, captainId, coCaptainId) {

@@ -48,6 +48,12 @@ export async function ensureIndexes() {
         await db.collection('drafts').createIndex({ shortId: 1 }, { unique: true });
         await db.collection('drafts').createIndex({ draftName: 'text' }); // Para búsqueda
 
+        // Prevención de duplicados en Draft Externo (Discord ID por Torneo)
+        await db.collection('external_draft_registrations').createIndex(
+            { tournamentId: 1, discordId: 1 }, 
+            { unique: true }
+        );
+
         // Índice TTL para pendingteams (auto-delete después de 15 minutos)
         // Accedemos a la BD 'test' donde VPG Bot guarda los pendingteams
         const testDb = client.db('test');
