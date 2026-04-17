@@ -500,7 +500,9 @@ function _buildPositionEmbeds(position, players) {
     // Format player entries
     const entries = players.map((player, index) => {
         const num = index + 1;
-        return `**${num}.** ${player.gameId}\n📲 ${player.whatsapp}`;
+        // Escapar caracteres especiales de markdown de Discord (_, *, ~, `, |) para que se vean tal cual
+        const safeGameId = player.gameId ? player.gameId.replace(/([_*~`|])/g, '\\$1') : 'Sin ID';
+        return `**${num}.** ${safeGameId}\n📲 ${player.whatsapp}`;
     });
 
     // Split into chunks if needed
