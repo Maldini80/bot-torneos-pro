@@ -203,6 +203,12 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
                 .setLabel('Editar Equipo')
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji('🔧')
+                .setDisabled(isBusy),
+            new ButtonBuilder()
+                .setCustomId(`admin_manage_cocaptains_start:${tournament.shortId}`)
+                .setLabel('Gestionar Ayudantes')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🤝')
                 .setDisabled(isBusy)
         );
     }

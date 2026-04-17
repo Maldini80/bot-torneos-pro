@@ -960,6 +960,51 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
+    if (action === 'admin_select_team_cocaptains') {
+        const [tournamentShortId] = params;
+        const captainId = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        // Find team
+        const team = tournament.teams.aprobados?.[captainId] || 
+                     tournament.teams.pendientes?.[captainId] || 
+                     tournament.teams.pendingApproval?.[captainId] || 
+                     tournament.teams.pendingPayments?.[captainId];
+
+        if (!team) {
+            return interaction.reply({ content: 'Error: No se pudo encontrar el equipo seleccionado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        // Row 1: The UserSelectMenu to pick a new co-captain
+        const userSelectMenu = new UserSelectMenuBuilder()
+            .setCustomId(`admin_assign_cocaptain_user:${tournamentShortId}:${captainId}`)
+            .setPlaceholder('Buscar miembro para asignar como ayudante...')
+            .setMinValues(1)
+            .setMaxValues(1);
+        const row1 = new ActionRowBuilder().addComponents(userSelectMenu);
+
+        // Row 2: Kick current co-captain if exists
+        const row2 = new ActionRowBuilder();
+        if (team.coCaptainId) {
+            row2.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`admin_kick_cocaptain:${tournamentShortId}:${captainId}`)
+                    .setLabel('Expulsar Ayudante Actual')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('🗑️')
+            );
+        }
+
+        const components = [row1];
+        if (team.coCaptainId) components.push(row2);
+
+        await interaction.update({
+            content: `🤝 **Gestión de Ayudante para ${team.nombre}**\n\n👤 Capitán: <@${captainId}>\n🤝 Ayudante actual: ${team.coCaptainId ? `<@${team.coCaptainId}>` : '*Ninguno*'}\n\nSelecciona un usuario del menú para asignarlo como ayudante (reemplazará al actual si lo hay), o usa el botón rojo para quitar al ayudante actual.`,
+            components: components
+        });
+        return;
+    }
+
     if (action === 'admin_edit_team_select') {
         const [tournamentShortId] = params;
         const captainId = interaction.values[0]; // El ID del capitán del equipo seleccionado
@@ -2252,6 +2297,62 @@ export async function handleSelectMenu(interaction) {
         await interaction.deferUpdate();
         await updateTournamentConfig(interaction.client, tournamentShortId, { formatId: newFormatId });
         await interaction.editReply({ content: `✅ Formato actualizado a: **${TOURNAMENT_FORMATS[newFormatId].label}**.`, components: [] });
+
+    } else if (action === 'admin_assign_cocaptain_user') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.', components: [] });
+
+        const coCaptainId = interaction.values[0];
+        const coCaptainUser = await client.users.fetch(coCaptainId);
+
+        // Validate player registration for External Drafts
+        if (tournament.config && tournament.config.paidSubType === 'draft') {
+            const playerReg = await db.collection('external_draft_registrations').findOne({
+                tournamentId: tournamentShortId,
+                $or: [{ userId: coCaptainId }, { discordId: coCaptainId }]
+            });
+
+            if (!playerReg) {
+                return interaction.editReply({ 
+                    content: '❌ **El usuario seleccionado no está inscrito como jugador en el draft.**',
+                    components: []
+                });
+            }
+        }
+
+        const allCaptainsAndCoCaptains = Object.values(tournament.teams.aprobados || {})
+            .concat(Object.values(tournament.teams.pendingPayments || {}))
+            .concat(Object.values(tournament.teams.pendingApproval || {}))
+            .concat(Object.values(tournament.teams.pendientes || {}))
+            .flatMap(t => [t?.capitanId, t?.coCaptainId]).filter(Boolean);
+            
+        if (allCaptainsAndCoCaptains.includes(coCaptainId)) {
+            return interaction.editReply({ content: '❌ Este usuario ya participa en el torneo como capitán o ayudante.', components: [] });
+        }
+        if (coCaptainUser.bot) {
+            return interaction.editReply({ content: '❌ No puedes asignar a un bot como ayudante.', components: [] });
+        }
+
+        try {
+            const { addCoCaptain } = await import('../logic/tournamentLogic.js');
+            await addCoCaptain(interaction.client, tournament, captainId, coCaptainId);
+
+            await interaction.editReply({ 
+                content: `✅ **Ayudante Asignado (Vía Admin)**\n<@${coCaptainId}> es ahora el ayudante del equipo. Se le han asignado todos los permisos correspondientes.`,
+                components: []
+            });
+            
+            try {
+                await coCaptainUser.send(`Has sido asignado manualmente por la administración como **Co-Capitán / Ayudante** en el torneo **${tournament.nombre}**.`);
+            } catch (err) {
+                // Ignore DM errors
+            }
+        } catch (error) {
+            console.error('[ADMIN CO-CAPTAIN ASSIGN] Error:', error);
+            await interaction.editReply({ content: '❌ Error al asignar el ayudante.', components: [] });
+        }
 
     } else if (action === 'admin_change_type_select') {
         const [tournamentShortId] = params;

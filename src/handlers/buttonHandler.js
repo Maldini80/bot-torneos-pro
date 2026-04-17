@@ -180,8 +180,19 @@ export async function handleButton(interaction) {
                 );
             }
 
+            // If not approved yet, allow them to cancel their captain registration
+            if (!tournament.teams.aprobados?.[managerId]) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`cancel_captain_registration:${tournamentShortId}`)
+                        .setLabel('Cancelar Inscripción de Capitán')
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji('🧨')
+                );
+            }
+
             return interaction.reply({ 
-                content: `✅ **Ya estás inscrito como capitán** (Estado: ${tournament.teams.aprobados?.[managerId] ? 'Aprobado' : 'Pendiente'}).\n\n👇 Usa los botones abajo para gestionar a tu co-capitán (ayudante):`, 
+                content: `✅ **Ya estás inscrito como capitán** (Estado: ${tournament.teams.aprobados?.[managerId] ? 'Aprobado' : 'Pendiente'}).\n\n👇 Usa los botones abajo para gestionar a tu co-capitán (ayudante)${!tournament.teams.aprobados?.[managerId] ? ' o cancelar tu inscripción' : ''}:`, 
                 components: [row],
                 flags: [MessageFlags.Ephemeral] 
             });
@@ -662,6 +673,48 @@ export async function handleButton(interaction) {
                 components: [new ActionRowBuilder().addComponents(selectMenu)]
             });
         }
+        return;
+    }
+
+    if (action === 'admin_manage_cocaptains_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        // Collect all teams (approved + all pending lists)
+        const allTeams = [];
+        const addTeams = (list, type) => {
+            if (!list) return;
+            Object.values(list).forEach(t => {
+                if (t && t.id) allTeams.push({ ...t, listType: type });
+            });
+        };
+        addTeams(tournament.teams.aprobados, 'Aprobado');
+        addTeams(tournament.teams.pendientes, 'Pendiente');
+        addTeams(tournament.teams.pendingApproval, 'Pendiente Appr');
+        addTeams(tournament.teams.pendingPayments, 'Pago Pend');
+
+        if (allTeams.length === 0) {
+            return interaction.editReply({ content: '❌ No hay equipos registrados en el torneo todavía.' });
+        }
+
+        const teamsToShow = allTeams.slice(0, 25);
+        const teamOptions = teamsToShow.map(team => ({
+            label: team.nombre.substring(0, 100),
+            description: `Capitán: ${team.capitanTag || 'N/A'} - ${team.listType}`,
+            value: team.capitanId, // We use capitanId as the identifier since co-captains are tied to the captain
+            emoji: team.coCaptainId ? '🤝' : '👤'
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_select_team_cocaptains:${tournamentShortId}`)
+            .setPlaceholder('Selecciona un equipo...')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: '🤝 **Gestión de Co-Capitanes / Ayudantes**\n\nSelecciona el equipo del que quieres gestionar su ayudante (máximo 25 equipos mostrados):',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
         return;
     }
 
@@ -2304,6 +2357,84 @@ export async function handleButton(interaction) {
         } catch (err) {
             console.error('Error expulsando co-capitán:', err);
             await interaction.reply({ content: '❌ Hubo un error al intentar expulsar al co-capitán.', flags: [MessageFlags.Ephemeral] });
+        }
+        return;
+    }
+
+    if (action === 'cancel_captain_registration') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const managerId = interaction.user.id;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Torneo no encontrado.' });
+
+        // Ensure they are not approved
+        if (tournament.teams.aprobados?.[managerId]) {
+            return interaction.editReply({ content: '❌ Tu equipo ya ha sido aprobado en el torneo. No puedes cancelar la inscripción automáticamente. Por favor, contacta con un administrador.' });
+        }
+
+        const isPending = tournament.teams.pendientes?.[managerId] || tournament.teams.pendingApproval?.[managerId] || tournament.teams.pendingPayments?.[managerId];
+        
+        if (!isPending) {
+            return interaction.editReply({ content: '❌ No se encontró tu inscripción como capitán pendiente.' });
+        }
+
+        try {
+            // Remove co-captain if exists (removes roles/permissions automatically)
+            if (isPending.coCaptainId) {
+                const { removeCoCaptain } = await import('../logic/tournamentLogic.js');
+                await removeCoCaptain(interaction.client, tournament, managerId);
+            }
+
+            // Remove team from all possible pending lists
+            const unsetObj = {};
+            if (tournament.teams.pendientes?.[managerId]) unsetObj[`teams.pendientes.${managerId}`] = '';
+            if (tournament.teams.pendingApproval?.[managerId]) unsetObj[`teams.pendingApproval.${managerId}`] = '';
+            if (tournament.teams.pendingPayments?.[managerId]) unsetObj[`teams.pendingPayments.${managerId}`] = '';
+
+            if (Object.keys(unsetObj).length > 0) {
+                await db.collection('tournaments').updateOne(
+                    { shortId: tournamentShortId },
+                    { $unset: unsetObj }
+                );
+            }
+
+            // Update registration list if needed
+            const { scheduleRegistrationListUpdate } = await import('../utils/registrationListManager.js');
+            scheduleRegistrationListUpdate(client, tournamentShortId);
+
+            await interaction.editReply({ content: '✅ **Inscripción cancelada con éxito.**\nTu equipo ha sido eliminado de la lista de capitanes pendientes.' });
+            
+            // Try to DM the user
+            try {
+                await interaction.user.send(`✅ Has cancelado con éxito tu postulación para capitán en el torneo **${tournament.nombre}**.`);
+            } catch (e) {
+                // Ignore DM errors
+            }
+        } catch (error) {
+            console.error('[CANCEL CAPTAIN] Error:', error);
+            await interaction.editReply({ content: '❌ Hubo un error al cancelar tu inscripción.' });
+        }
+        return;
+    }
+
+    if (action === 'admin_kick_cocaptain') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId, captainId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Torneo no encontrado.' });
+
+        try {
+            const { removeCoCaptain } = await import('../logic/tournamentLogic.js');
+            const result = await removeCoCaptain(interaction.client, tournament, captainId);
+            if (result.success) {
+                await interaction.editReply({ content: '✅ **Ayudante expulsado correctamente (Vía Admin).**\nSe le han retirado todos los permisos al antiguo ayudante.' });
+            } else {
+                await interaction.editReply({ content: `❌ No se pudo expulsar: ${result.error}` });
+            }
+        } catch (err) {
+            console.error('[ADMIN KICK COCAPTAIN] Error:', err);
+            await interaction.editReply({ content: '❌ Hubo un error al intentar expulsar al ayudante.' });
         }
         return;
     }

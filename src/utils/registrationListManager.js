@@ -498,7 +498,7 @@ async function _buildAllEmbeds(tournamentShortId, tournament) {
         captainsRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`inscribir_capitan_start:${tournamentShortId}`)
-                .setLabel('Inscribirme como Capitán')
+                .setLabel('Capitán: Inscribirse / Gestionar')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('👑')
         );
