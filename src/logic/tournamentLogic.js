@@ -1592,14 +1592,22 @@ export async function approveTeam(client, tournament, teamData) {
                 );
 
                 let welcomeContent = `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).`;
-                if (teamData.extraCaptains && teamData.extraCaptains.length > 0) {
+                
+                if (teamData.coCaptainId) {
+                    await chatChannel.permissionOverwrites.edit(teamData.coCaptainId, { ViewChannel: true, SendMessages: true });
+                    await matchesChannel.permissionOverwrites.edit(teamData.coCaptainId, { ViewChannel: true });
+                    welcomeContent = `👋 ¡Bienvenidos, <@${teamData.capitanId}> y <@${teamData.coCaptainId}>! (${teamData.nombre}).`;
+                } else if (teamData.extraCaptains && teamData.extraCaptains.length > 0) {
                     const extraPings = teamData.extraCaptains.map(id => `<@${id}>`).join(', ');
                     welcomeContent = `👋 ¡Bienvenidos, <@${teamData.capitanId}> y ${extraPings}! (${teamData.nombre}).`;
                 }
 
+                const componentsToSend = teamData.coCaptainId ? [] : [inviteButtonRow];
+                const msgSuffix = teamData.coCaptainId ? '' : `\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`;
+
                 await chatChannel.send({
-                    content: `${welcomeContent}\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`,
-                    components: [inviteButtonRow]
+                    content: `${welcomeContent}${msgSuffix}`,
+                    components: componentsToSend
                 });
 
             } catch (e) {
@@ -6083,7 +6091,12 @@ export async function approveExternalDraftCaptain(client, tournamentShortId, win
     // Permissions for voice channel (channel B)
     if (tournament.config?.isPaid && tournament.discordMessageIds?.capitanesAprobadosVoiceId) {
         client.channels.fetch(tournament.discordMessageIds.capitanesAprobadosVoiceId).then(vc => {
-            if (vc) vc.permissionOverwrites.create(winnerId, { ViewChannel: true, Connect: true, Speak: true }).catch(e => console.error('[VOZ] Error al dar permisos:', e));
+            if (vc) {
+                vc.permissionOverwrites.create(winnerId, { ViewChannel: true, Connect: true, Speak: true }).catch(e => console.error('[VOZ] Error al dar permisos:', e));
+                if (teamData.coCaptainId) {
+                    vc.permissionOverwrites.create(teamData.coCaptainId, { ViewChannel: true, Connect: true, Speak: true }).catch(e => console.error('[VOZ] Error al dar permisos co-cap:', e));
+                }
+            }
         }).catch(() => { });
     }
 
