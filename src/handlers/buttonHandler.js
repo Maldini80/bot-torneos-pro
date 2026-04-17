@@ -681,18 +681,22 @@ export async function handleButton(interaction) {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
-        // Collect all teams (approved + all pending lists)
-        const allTeams = [];
+        // Collect all teams (approved + all pending lists) without duplicates
+        const allTeamsMap = new Map();
         const addTeams = (list, type) => {
             if (!list) return;
             Object.values(list).forEach(t => {
-                if (t && t.id) allTeams.push({ ...t, listType: type });
+                if (t && t.id && t.capitanId && !allTeamsMap.has(t.capitanId)) {
+                    allTeamsMap.set(t.capitanId, { ...t, listType: type });
+                }
             });
         };
         addTeams(tournament.teams.aprobados, 'Aprobado');
         addTeams(tournament.teams.pendientes, 'Pendiente');
         addTeams(tournament.teams.pendingApproval, 'Pendiente Appr');
         addTeams(tournament.teams.pendingPayments, 'Pago Pend');
+
+        const allTeams = Array.from(allTeamsMap.values());
 
         if (allTeams.length === 0) {
             return interaction.editReply({ content: '❌ No hay equipos registrados en el torneo todavía.' });
