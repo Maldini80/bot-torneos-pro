@@ -4014,6 +4014,9 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                     }
                 }
 
+                // Hook: actualizar canal de lista de inscritos
+                scheduleRegistrationListUpdate(client, tournamentShortId);
+
                 return interaction.reply({ content: `✅ **Baja completada.** Te has dado de baja de este Draft correctamente. Ya no ocupas plaza.`, flags: [MessageFlags.Ephemeral] });
             }
         }
