@@ -1049,6 +1049,49 @@ export async function handleModal(interaction) {
             }
         );
 
+        // --- FIX PARA SINCRONIZAR TORNEO Y RULETA ---
+        const finalWhatsapp = existingPlayer?.whatsapp || (verifiedUser ? verifiedUser.whatsapp : '');
+        
+        // 1. Borrar de la ruleta (external_draft_registrations) usando discordId, whatsapp o psnId
+        const deleteConditions = [
+            { discordId: discordId },
+            { userId: discordId },
+            { gameId: { $regex: new RegExp(`^${psnId.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') } }
+        ];
+        if (finalWhatsapp) deleteConditions.push({ whatsapp: finalWhatsapp });
+
+        await db.collection('external_draft_registrations').deleteMany({
+            tournamentId: draft.shortId,
+            $or: deleteConditions
+        });
+
+        // 2. Sincronizar con el torneo (para que aparezca en el canal de inscritos y tenga hilo)
+        const tournament = await db.collection('tournaments').findOne({ shortId: draft.shortId });
+        if (tournament) {
+            const teamData = {
+                id: discordId,
+                nombre: teamName,
+                eafcTeamName: teamName,
+                capitanId: discordId,
+                capitanTag: userName,
+                coCaptainId: null,
+                bandera: '🇪🇸',
+                paypal: null,
+                streamChannel: '',
+                twitter: existingPlayer?.twitter || '',
+                whatsapp: finalWhatsapp,
+                adminMessageId: null,
+                inscritoEn: new Date()
+            };
+            try {
+                const { approveTeam } = await import('../logic/tournamentLogic.js');
+                await approveTeam(client, tournament, teamData);
+            } catch (err) {
+                console.error("Error al sincronizar approveTeam en manual submit:", err);
+            }
+        }
+        // ---------------------------------------------
+
         const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
         await updateDraftMainInterface(client, updatedDraft.shortId);
         await updatePublicMessages(client, updatedDraft);
