@@ -1910,6 +1910,16 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             entryFee: parseFloat(interaction.fields.getTextInputValue('torneo_entry_fee')),
             startTime: interaction.fields.getTextInputValue('torneo_start_time') || null,
         };
+        
+        try {
+            const qualifiersVal = interaction.fields.getTextInputValue('torneo_qualifiers');
+            if (qualifiersVal) {
+                newConfig.qualifiers = parseInt(qualifiersVal) || 0;
+            }
+        } catch (e) {
+            // Field not present (not a flexible league), ignore
+        }
+
         newConfig.isPaid = newConfig.entryFee > 0;
         try {
             await updateTournamentConfig(client, tournamentShortId, newConfig);

@@ -2289,6 +2289,16 @@ export async function handleButton(interaction) {
             const feeInput = new TextInputBuilder().setCustomId('torneo_entry_fee').setLabel("Cuota de Inscripción (€)").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.config.entryFee.toString());
             const startTimeInput = new TextInputBuilder().setCustomId('torneo_start_time').setLabel("Fecha/Hora de Inicio (ej: Sáb 20, 22:00 CET)").setStyle(TextInputStyle.Short).setRequired(false).setValue(tournament.config.startTime || '');
             modal.addComponents(new ActionRowBuilder().addComponents(prizeCInput), new ActionRowBuilder().addComponents(prizeFInput), new ActionRowBuilder().addComponents(feeInput), new ActionRowBuilder().addComponents(startTimeInput));
+
+            if (tournament.config.formatId === 'flexible_league') {
+                const qualifiersInput = new TextInputBuilder()
+                    .setCustomId('torneo_qualifiers')
+                    .setLabel("Nº de Equipos que se Clasifican")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+                    .setValue((tournament.config.qualifiers || 0).toString());
+                modal.addComponents(new ActionRowBuilder().addComponents(qualifiersInput));
+            }
         } else if (action === 'admin_rename_tournament') {
             modal = new ModalBuilder().setCustomId(`rename_tournament_modal:${tournamentShortId}`).setTitle('Renombrar Torneo');
             const nameInput = new TextInputBuilder().setCustomId('new_tournament_name').setLabel("Nuevo nombre del torneo").setStyle(TextInputStyle.Short).setRequired(true).setValue(tournament.nombre).setMaxLength(100);
