@@ -3276,24 +3276,21 @@ export async function startVisualizerServer(discordClient) {
     // --- MIDDLEWARE ADMIN ---
     async function isAdmin(req, res, next) {
         if (!req.user) return res.status(401).send({ error: 'No autenticado' });
-        // Aquí deberíamos verificar si el usuario tiene rol de admin en el servidor de Discord
-        // Por simplicidad y seguridad, verificamos contra la DB de settings o hardcoded IDs si es necesario
-        // O mejor, usamos la guild de Discord para verificar roles.
-        // Como no tenemos acceso fácil a la guild desde aquí sin hacer fetch,
-        // vamos a confiar en que el usuario tenga el rol de admin en la DB si lo tuviéramos guardado.
-        // ALTERNATIVA: Verificar si es el creador del bot o está en una lista de admins en config.js
-        // Por ahora, vamos a permitir a cualquiera que esté logueado y sea admin en la DB (si tuviéramos flag).
-        // VAMOS A HACERLO BIEN: Usar el cliente de Discord para verificar el miembro.
 
         try {
             const guild = await client.guilds.fetch(process.env.GUILD_ID);
             const member = await guild.members.fetch(req.user.id);
-            // Asumimos que el rol de admin está en process.env.ADMIN_ROLE_ID o similar, 
-            // pero como no lo tengo a mano, voy a usar permisos de administrador nativos.
-            if (member.permissions.has('Administrator')) {
+            const { ARBITRO_ROLE_ID } = await import('./config.js');
+            const adminRoleId = process.env.ADMIN_ROLE_ID;
+
+            if (
+                member.permissions.has('Administrator') ||
+                (adminRoleId && member.roles.cache.has(adminRoleId)) ||
+                (ARBITRO_ROLE_ID && member.roles.cache.has(ARBITRO_ROLE_ID))
+            ) {
                 next();
             } else {
-                res.status(403).send({ error: 'No tienes permisos de administrador.' });
+                res.status(403).send({ error: 'No tienes permisos de administrador o árbitro.' });
             }
         } catch (e) {
             console.error('Error verificando admin:', e);
