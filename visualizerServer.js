@@ -957,7 +957,7 @@ app.get('/api/leagues', async (req, res) => {
 app.post('/api/teams/request', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
-    const { teamName: rawTeamName, teamAbbr: rawTeamAbbr, teamTwitter, logoUrl } = req.body;
+    const { teamName: rawTeamName, teamAbbr: rawTeamAbbr, teamTwitter, logoUrl, league } = req.body;
     const teamName = sanitizeInput(rawTeamName, 40);
     const teamAbbr = sanitizeInput(rawTeamAbbr, 5);
 
