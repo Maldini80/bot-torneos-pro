@@ -1140,22 +1140,38 @@ const handler = async (client, interaction) => {
                 let ourGoals = ourStats ? parseInt(ourStats.goals || 0) : 0;
                 let oppGoals = opponentStats ? parseInt(opponentStats.goals || 0) : 0;
                 
+                let dnfText = '';
                 // --- FIX RESULTADOS FANTASMA (3-0 DNF de EA) ---
                 if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
                     let realOurGoals = 0;
                     let realOppGoals = 0;
+                    let maxSecondsPlayed = 0;
                     
                     if (match.players && match.players[String(team.eaClubId)]) {
                         const ourPlayers = Object.values(match.players[String(team.eaClubId)]);
                         realOurGoals = ourPlayers.reduce((sum, p) => sum + parseInt(p.goals || 0), 0);
+                        ourPlayers.forEach(p => {
+                            const secs = parseInt(p.secondsPlayed || 0);
+                            if (secs > maxSecondsPlayed) maxSecondsPlayed = secs;
+                        });
                     }
                     if (match.players && opponentId && match.players[opponentId]) {
                         const oppPlayers = Object.values(match.players[opponentId]);
                         realOppGoals = oppPlayers.reduce((sum, p) => sum + parseInt(p.goals || 0), 0);
+                        oppPlayers.forEach(p => {
+                            const secs = parseInt(p.secondsPlayed || 0);
+                            if (secs > maxSecondsPlayed) maxSecondsPlayed = secs;
+                        });
                     }
                     
                     ourGoals = realOurGoals;
                     oppGoals = realOppGoals;
+
+                    // Si el partido duró menos de 90 mins (aprox 5400 segs)
+                    if (maxSecondsPlayed > 0 && maxSecondsPlayed < 5200) {
+                        const dnfMin = Math.floor(maxSecondsPlayed / 60);
+                        dnfText = ` *(🔌 Desconexión Min ${dnfMin})*`;
+                    }
                 }
                 // ----------------------------------------------
                 
@@ -1169,7 +1185,7 @@ const handler = async (client, interaction) => {
                 
                 embed.addFields({
                     name: `${resultEmoji} vs ${opponentName}`,
-                    value: `**Resultado:** ${ourGoals} - ${oppGoals}\n🕒 *${matchDate}*`,
+                    value: `**Resultado:** ${ourGoals} - ${oppGoals}${dnfText}\n🕛 *${matchDate}*`,
                     inline: false
                 });
             }
