@@ -1137,8 +1137,27 @@ const handler = async (client, interaction) => {
                 const opponentId = clubIdsInMatch.find(id => id !== String(team.eaClubId));
                 const opponentStats = opponentId ? match.clubs[opponentId] : null;
                 
-                const ourGoals = ourStats ? parseInt(ourStats.goals || 0) : 0;
-                const oppGoals = opponentStats ? parseInt(opponentStats.goals || 0) : 0;
+                let ourGoals = ourStats ? parseInt(ourStats.goals || 0) : 0;
+                let oppGoals = opponentStats ? parseInt(opponentStats.goals || 0) : 0;
+                
+                // --- FIX RESULTADOS FANTASMA (3-0 DNF de EA) ---
+                if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
+                    let realOurGoals = 0;
+                    let realOppGoals = 0;
+                    
+                    if (match.players && match.players[String(team.eaClubId)]) {
+                        const ourPlayers = Object.values(match.players[String(team.eaClubId)]);
+                        realOurGoals = ourPlayers.reduce((sum, p) => sum + parseInt(p.goals || 0), 0);
+                    }
+                    if (match.players && opponentId && match.players[opponentId]) {
+                        const oppPlayers = Object.values(match.players[opponentId]);
+                        realOppGoals = oppPlayers.reduce((sum, p) => sum + parseInt(p.goals || 0), 0);
+                    }
+                    
+                    ourGoals = realOurGoals;
+                    oppGoals = realOppGoals;
+                }
+                // ----------------------------------------------
                 
                 const opponentName = opponentStats && opponentStats.details && opponentStats.details.name ? opponentStats.details.name : (opponentId ? `Club ID ${opponentId}` : 'Desconocido');
                 

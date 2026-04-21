@@ -145,8 +145,27 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
             const statsB = match.clubs[String(clubIdB)];
 
             if (statsA && statsB) {
-                const goalsA = parseInt(statsA.goals) || 0;
-                const goalsB = parseInt(statsB.goals) || 0;
+                let goalsA = parseInt(statsA.goals) || 0;
+                let goalsB = parseInt(statsB.goals) || 0;
+
+                // --- FIX RESULTADOS FANTASMA (3-0 DNF de EA) ---
+                if ((goalsA === 3 && goalsB === 0) || (goalsA === 0 && goalsB === 3)) {
+                    let realGoalsA = 0;
+                    let realGoalsB = 0;
+                    
+                    if (match.players && match.players[String(clubIdA)]) {
+                        const playersA = Object.values(match.players[String(clubIdA)]);
+                        realGoalsA = playersA.reduce((sum, p) => sum + parseInt(p.goals || 0), 0);
+                    }
+                    if (match.players && match.players[String(clubIdB)]) {
+                        const playersB = Object.values(match.players[String(clubIdB)]);
+                        realGoalsB = playersB.reduce((sum, p) => sum + parseInt(p.goals || 0), 0);
+                    }
+                    
+                    goalsA = realGoalsA;
+                    goalsB = realGoalsB;
+                }
+                // ----------------------------------------------
                 
                 aggregatedStats.clubA.goals += goalsA;
                 aggregatedStats.clubA.goalsAgainst += parseInt(statsA.goalsAgainst) || 0;
