@@ -506,7 +506,13 @@ if (customId.startsWith('manager_request_modal_')) {
         if (!team) return interaction.editReply({ content: 'El equipo ya no existe.' });
 
         const eaClubName = fields.getTextInputValue('ea_club_name');
-        const eaPlatform = fields.getTextInputValue('ea_platform');
+        const rawPlatform = fields.getTextInputValue('ea_platform').toLowerCase();
+        
+        // Traducir lenguaje humano al código técnico de la API de EA
+        let eaPlatform = 'common-gen5'; // Por defecto Nueva Generación (PS5/PC/SeriesX)
+        if (rawPlatform.includes('antigua') || rawPlatform.includes('ps4') || rawPlatform.includes('old') || rawPlatform.includes('xbox one')) {
+            eaPlatform = 'common-gen4';
+        }
 
         try {
             const eaRes = await fetch(`https://proclubs.ea.com/api/fc/clubs/search?clubName=${encodeURIComponent(eaClubName)}&platform=${eaPlatform}`, {

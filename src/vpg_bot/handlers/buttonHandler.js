@@ -1153,11 +1153,11 @@ const handler = async (client, interaction) => {
             
         const eaPlatformInput = new TextInputBuilder()
             .setCustomId('ea_platform')
-            .setLabel("Plataforma (gen5 o gen4)")
+            .setLabel("Consola (Nueva Gen o Antigua Gen)")
             .setStyle(TextInputStyle.Short)
             .setRequired(true)
-            .setValue("common-gen5")
-            .setPlaceholder("common-gen5 (PS5/Xbox/PC) o common-gen4 (PS4)");
+            .setValue("Nueva Gen")
+            .setPlaceholder("Escribe: Nueva Gen o Antigua Gen");
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(eaNameInput),
