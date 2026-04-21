@@ -86,22 +86,29 @@ export function generateBest11Embed(tournament, players) {
     // Categorizar jugadores por posición
     const gks = [];
     const defs = [];
-    const mids = [];
+    const centralMids = [];
+    const wideMids = [];
     const fwds = [];
 
     for (const p of players) {
         const pos = p.pos || '';
         if (pos.includes('goalkeeper') || pos.includes('gk') || pos === 'portero') {
             gks.push(p);
-        } else if (pos.includes('defender') || pos.includes('cdm') || pos.includes('lb') || pos.includes('rb') || pos.includes('cb')) {
+        } else if (pos.includes('defender') || pos.includes('cb') || pos.includes('lb') || pos.includes('rb')) {
+            // Laterales puros (LB/RB) suelen considerarse defensas en EA, a menos que jueguen LWB/RWB
             defs.push(p);
-        } else if (pos.includes('midfielder') || pos.includes('cm') || pos.includes('cam') || pos.includes('lm') || pos.includes('rm')) {
-            mids.push(p);
+        } else if (pos.includes('lwb') || pos.includes('rwb') || pos.includes('lm') || pos.includes('rm')) {
+            // Carrileros y bandas
+            wideMids.push(p);
+        } else if (pos.includes('midfielder') || pos.includes('cm') || pos.includes('cam') || pos.includes('cdm')) {
+            // Medios centros (Ofensivos o defensivos)
+            centralMids.push(p);
         } else if (pos.includes('forward') || pos.includes('st') || pos.includes('rw') || pos.includes('lw') || pos.includes('cf')) {
+            // Delanteros y extremos ofensivos
             fwds.push(p);
         } else {
-            // Default to mid if unknown
-            mids.push(p);
+            // Default
+            centralMids.push(p);
         }
     }
 
@@ -112,18 +119,21 @@ export function generateBest11Embed(tournament, players) {
 
     gks.sort((a, b) => getScore(b) - getScore(a));
     defs.sort((a, b) => getScore(b) - getScore(a));
-    mids.sort((a, b) => getScore(b) - getScore(a));
+    centralMids.sort((a, b) => getScore(b) - getScore(a));
+    wideMids.sort((a, b) => getScore(b) - getScore(a));
     fwds.sort((a, b) => getScore(b) - getScore(a));
 
-    // Formación 3-5-2
+    // Formación 3-5-2 (1 GK, 3 DEF, 2 Bandas, 3 Medios, 2 FWD)
     const bestGk = gks.slice(0, 1);
     const bestDefs = defs.slice(0, 3);
-    const bestMids = mids.slice(0, 5);
+    const bestWideMids = wideMids.slice(0, 2);
+    const bestCentralMids = centralMids.slice(0, 3);
     const bestFwds = fwds.slice(0, 2);
 
-    // Si faltan jugadores para la formación, rellenar
+    // Si faltan jugadores para la formación, rellenar (con fallbacks)
     while (bestDefs.length < 3 && defs.length > bestDefs.length) bestDefs.push(defs[bestDefs.length]);
-    while (bestMids.length < 5 && mids.length > bestMids.length) bestMids.push(mids[bestMids.length]);
+    while (bestWideMids.length < 2 && wideMids.length > bestWideMids.length) bestWideMids.push(wideMids[bestWideMids.length]);
+    while (bestCentralMids.length < 3 && centralMids.length > bestCentralMids.length) bestCentralMids.push(centralMids[bestCentralMids.length]);
     while (bestFwds.length < 2 && fwds.length > bestFwds.length) bestFwds.push(fwds[bestFwds.length]);
 
     // Calcular Premios Individuales
@@ -172,12 +182,17 @@ export function generateBest11Embed(tournament, players) {
             inline: false
         },
         { 
-            name: '🪄 Centrocampistas (MID)', 
-            value: bestMids.length > 0 ? bestMids.map(formatPlayer).join(' - ') : 'N/A',
+            name: '🪄 Medios Centros (CM/CAM/CDM)', 
+            value: bestCentralMids.length > 0 ? bestCentralMids.map(formatPlayer).join(' - ') : 'N/A',
             inline: false
         },
         { 
-            name: '🛡️ Defensas (DEF)', 
+            name: '🏃 Carrileros y Bandas (LM/RM/LWB/RWB)', 
+            value: bestWideMids.length > 0 ? bestWideMids.map(formatPlayer).join(' - ') : 'N/A',
+            inline: false
+        },
+        { 
+            name: '🛡️ Defensas Centrales y Laterales (CB/LB/RB)', 
             value: bestDefs.length > 0 ? bestDefs.map(formatPlayer).join(' - ') : 'N/A',
             inline: false
         },
