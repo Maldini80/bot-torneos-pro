@@ -1103,27 +1103,27 @@ const handler = async (client, interaction) => {
                 'Referer': 'https://www.ea.com/'
             };
 
-            const url9 = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=gameType9`;
-            const url13 = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=gameType13`;
-            const urlAll = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=all`;
+            const urlFriendly = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=friendlyMatch`;
+            const urlLeague = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=leagueMatch`;
+            const urlPlayoff = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=playoffMatch`;
 
-            const [res9, res13, resAll] = await Promise.all([
-                fetch(url9, { headers }).catch(() => null),
-                fetch(url13, { headers }).catch(() => null),
-                fetch(urlAll, { headers }).catch(() => null)
+            const [resFriendly, resLeague, resPlayoff] = await Promise.all([
+                fetch(urlFriendly, { headers }).catch(() => null),
+                fetch(urlLeague, { headers }).catch(() => null),
+                fetch(urlPlayoff, { headers }).catch(() => null)
             ]);
 
-            let data9 = [], data13 = [], dataAll = [];
-            if (res9 && res9.ok) data9 = await res9.json().catch(() => []);
-            if (res13 && res13.ok) data13 = await res13.json().catch(() => []);
-            if (resAll && resAll.ok) dataAll = await resAll.json().catch(() => []);
+            let dataFriendly = [], dataLeague = [], dataPlayoff = [];
+            if (resFriendly && resFriendly.ok) dataFriendly = await resFriendly.json().catch(() => []);
+            if (resLeague && resLeague.ok) dataLeague = await resLeague.json().catch(() => []);
+            if (resPlayoff && resPlayoff.ok) dataPlayoff = await resPlayoff.json().catch(() => []);
             
-            if (!Array.isArray(data9)) data9 = Object.values(data9 || {});
-            if (!Array.isArray(data13)) data13 = Object.values(data13 || {});
-            if (!Array.isArray(dataAll)) dataAll = Object.values(dataAll || {});
+            if (!Array.isArray(dataFriendly)) dataFriendly = Object.values(dataFriendly || {});
+            if (!Array.isArray(dataLeague)) dataLeague = Object.values(dataLeague || {});
+            if (!Array.isArray(dataPlayoff)) dataPlayoff = Object.values(dataPlayoff || {});
 
             // Combinar todos los resultados y quitar duplicados por matchId
-            let allMatches = [...data9, ...data13, ...dataAll];
+            let allMatches = [...dataFriendly, ...dataLeague, ...dataPlayoff];
             let uniqueMatches = {};
             for (const m of allMatches) {
                 if (m.matchId) uniqueMatches[m.matchId] = m;
