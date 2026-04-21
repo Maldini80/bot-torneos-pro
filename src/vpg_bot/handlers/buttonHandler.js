@@ -1104,32 +1104,17 @@ const handler = async (client, interaction) => {
             };
 
             const urlFriendly = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=friendlyMatch`;
-            const urlLeague = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=leagueMatch`;
-            const urlPlayoff = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=playoffMatch`;
 
-            const [resFriendly, resLeague, resPlayoff] = await Promise.all([
-                fetch(urlFriendly, { headers }).catch(() => null),
-                fetch(urlLeague, { headers }).catch(() => null),
-                fetch(urlPlayoff, { headers }).catch(() => null)
+            const [resFriendly] = await Promise.all([
+                fetch(urlFriendly, { headers }).catch(() => null)
             ]);
 
-            let dataFriendly = [], dataLeague = [], dataPlayoff = [];
+            let dataFriendly = [];
             if (resFriendly && resFriendly.ok) dataFriendly = await resFriendly.json().catch(() => []);
-            if (resLeague && resLeague.ok) dataLeague = await resLeague.json().catch(() => []);
-            if (resPlayoff && resPlayoff.ok) dataPlayoff = await resPlayoff.json().catch(() => []);
             
             if (!Array.isArray(dataFriendly)) dataFriendly = Object.values(dataFriendly || {});
-            if (!Array.isArray(dataLeague)) dataLeague = Object.values(dataLeague || {});
-            if (!Array.isArray(dataPlayoff)) dataPlayoff = Object.values(dataPlayoff || {});
 
-            // Combinar todos los resultados y quitar duplicados por matchId
-            let allMatches = [...dataFriendly, ...dataLeague, ...dataPlayoff];
-            let uniqueMatches = {};
-            for (const m of allMatches) {
-                if (m.matchId) uniqueMatches[m.matchId] = m;
-            }
-
-            let data = Object.values(uniqueMatches).sort((a, b) => b.timestamp - a.timestamp);
+            let data = [...dataFriendly].sort((a, b) => b.timestamp - a.timestamp);
 
             if (!Array.isArray(data) || data.length === 0) {
                 return interaction.editReply({ content: '❌ No se han encontrado partidos recientes para este club en los servidores de EA.' });

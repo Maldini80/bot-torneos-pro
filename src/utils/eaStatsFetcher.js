@@ -45,31 +45,18 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
 
     try {
         // Obtenemos los últimos partidos del Club A. EA devuelve los últimos 5-10 partidos del club.
-        // matchType = gameType9 (partidos de liga/divisiones), gameType13 (amistosos)
-        // Intentaremos traer el historial sin filtro restrictivo si es posible, o hacer dos peticiones.
-        // Primero intentaremos traer el historial global o de gameType9.
-        const urlLeague = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubIdA}&platform=${platform}&matchType=leagueMatch`;
         const urlFriendly = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubIdA}&platform=${platform}&matchType=friendlyMatch`;
         
-        const [resLeague, resFriendly] = await Promise.all([
-            fetch(urlLeague, { headers: EA_HEADERS }).catch(() => null),
+        const [resFriendly] = await Promise.all([
             fetch(urlFriendly, { headers: EA_HEADERS }).catch(() => null)
         ]);
 
-        let dataLeague = [], dataFriendly = [];
-        if (resLeague && resLeague.ok) dataLeague = await resLeague.json().catch(() => []);
+        let dataFriendly = [];
         if (resFriendly && resFriendly.ok) dataFriendly = await resFriendly.json().catch(() => []);
 
-        if (!Array.isArray(dataLeague)) dataLeague = Object.values(dataLeague || {});
         if (!Array.isArray(dataFriendly)) dataFriendly = Object.values(dataFriendly || {});
 
-        const allMatches = [...dataLeague, ...dataFriendly];
-        let uniqueMatches = {};
-        for (const m of allMatches) {
-            if (m.matchId) uniqueMatches[m.matchId] = m;
-        }
-
-        const data = Object.values(uniqueMatches).sort((a, b) => b.timestamp - a.timestamp);
+        const data = [...dataFriendly].sort((a, b) => b.timestamp - a.timestamp);
 
         if (data.length === 0) {
             return null;
