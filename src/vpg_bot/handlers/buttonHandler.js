@@ -406,11 +406,13 @@ const handler = async (client, interaction) => {
         const teamId = parts[2];
         const eaClubId = parts[3];
         const eaPlatform = parts[4];
+        const eaClubName = parts.slice(5).join('_') || 'Desconocido';
 
         const team = await Team.findById(teamId);
         if (!team) return interaction.reply({ content: 'El equipo ya no existe.', ephemeral: true });
 
         team.eaClubId = eaClubId;
+        team.eaClubName = eaClubName;
         team.eaPlatform = eaPlatform;
         await team.save();
 
@@ -1077,6 +1079,94 @@ const handler = async (client, interaction) => {
         await team.save();
 
         return interaction.editReply({ content: `✅ El equipo **${team.name}** ha sido desvinculado de EA Sports por un administrador.` });
+    }
+
+    if (customId.startsWith('admin_ea_matches_')) {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        const teamId = customId.replace('admin_ea_matches_', '');
+        const team = await Team.findById(teamId);
+        
+        if (!team || !team.eaClubId) {
+            return interaction.reply({ content: '❌ Este equipo no tiene ningún club de EA vinculado.', ephemeral: true });
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            // Intentamos traer el historial, primero gameType9 (Liga)
+            const url = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=gameType9`;
+            let response = await fetch(url, { 
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'application/json',
+                    'Origin': 'https://www.ea.com',
+                    'Referer': 'https://www.ea.com/'
+                } 
+            });
+
+            let data = await response.json().catch(() => null);
+
+            // Si falla o no hay datos, intentamos traer todo
+            if (!response.ok || !Array.isArray(data) || data.length === 0) {
+                 const fallbackUrl = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=all`;
+                 const fallbackRes = await fetch(fallbackUrl, {
+                     headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'application/json',
+                        'Origin': 'https://www.ea.com',
+                        'Referer': 'https://www.ea.com/'
+                    }
+                 });
+                 if (fallbackRes.ok) {
+                     data = await fallbackRes.json().catch(() => null);
+                 }
+            }
+
+            if (!Array.isArray(data) || data.length === 0) {
+                return interaction.editReply({ content: '❌ No se han encontrado partidos recientes para este club en los servidores de EA.' });
+            }
+
+            const recentMatches = data.slice(0, 5); // Últimos 5
+            
+            const embed = new EmbedBuilder()
+                .setTitle(`Últimos 5 Partidos de EA: ${team.eaClubName || team.name}`)
+                .setColor('Blue')
+                .setThumbnail(team.logoUrl)
+                .setDescription(`Resultados directamente desde la base de datos de EA Sports para el club ID \`${team.eaClubId}\`:`);
+
+            for (let i = 0; i < recentMatches.length; i++) {
+                const match = recentMatches[i];
+                const ourStats = match.clubs[String(team.eaClubId)];
+                
+                // Encontrar el rival
+                const clubIdsInMatch = Object.keys(match.clubs);
+                const opponentId = clubIdsInMatch.find(id => id !== String(team.eaClubId));
+                const opponentStats = opponentId ? match.clubs[opponentId] : null;
+                
+                const ourGoals = ourStats ? parseInt(ourStats.goals || 0) : 0;
+                const oppGoals = opponentStats ? parseInt(opponentStats.goals || 0) : 0;
+                
+                const opponentName = opponentStats && opponentStats.details && opponentStats.details.name ? opponentStats.details.name : (opponentId ? `Club ID ${opponentId}` : 'Desconocido');
+                
+                let resultEmoji = '⚪'; // Empate
+                if (ourGoals > oppGoals) resultEmoji = '🟢'; // Victoria
+                if (ourGoals < oppGoals) resultEmoji = '🔴'; // Derrota
+                
+                const matchDate = new Date(match.timestamp * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+                
+                embed.addFields({
+                    name: `${resultEmoji} vs ${opponentName}`,
+                    value: `**Resultado:** ${ourGoals} - ${oppGoals}\n🕒 *${matchDate}*`,
+                    inline: false
+                });
+            }
+
+            return interaction.editReply({ embeds: [embed] });
+
+        } catch (error) {
+            console.error('Error fetching EA matches for admin panel:', error);
+            return interaction.editReply({ content: '❌ Hubo un error de conexión con la API de EA.' });
+        }
     }
 
     if (customId === 'admin_view_pending_requests') {

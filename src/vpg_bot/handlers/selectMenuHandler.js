@@ -535,8 +535,9 @@ module.exports = async (client, interaction) => {
             )
             .setTimestamp();
 
+        const safeClubName = eaClubName.substring(0, 30);
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`approve_ealink_${teamId}_${eaClubId}_${eaPlatform}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`approve_ealink_${teamId}_${eaClubId}_${eaPlatform}_${safeClubName}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId(`reject_ealink_${teamId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
         );
 
@@ -587,7 +588,8 @@ module.exports = async (client, interaction) => {
             .addFields({ name: '📊 ELO', value: `${team.elo || 1000}`, inline: true });
             
         if (team.eaClubId) {
-            embed.addFields({ name: '🎮 Club de EA Vinculado', value: `ID: \`${team.eaClubId}\`\nConsola: \`${team.eaPlatform}\``, inline: false });
+            const clubNameStr = team.eaClubName ? `\nNombre: \`${team.eaClubName}\`` : '';
+            embed.addFields({ name: '🎮 Club de EA Vinculado', value: `ID: \`${team.eaClubId}\`${clubNameStr}\nConsola: \`${team.eaPlatform}\``, inline: false });
         } else {
             embed.addFields({ name: '🎮 Club de EA Vinculado', value: `❌ Sin vincular`, inline: false });
         }
@@ -602,9 +604,13 @@ module.exports = async (client, interaction) => {
         );
         const row2 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId(`admin_link_ea_${teamId}`).setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮'),
-            new ButtonBuilder().setCustomId(`admin_unlink_ea_${teamId}`).setLabel('Desvincular EA').setStyle(ButtonStyle.Danger).setEmoji('❌')
+            new ButtonBuilder().setCustomId(`admin_link_ea_${teamId}`).setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮')
         );
+        
+        if (team.eaClubId) {
+            row2.addComponents(new ButtonBuilder().setCustomId(`admin_unlink_ea_${teamId}`).setLabel('Desvincular EA').setStyle(ButtonStyle.Danger).setEmoji('❌'));
+            row2.addComponents(new ButtonBuilder().setCustomId(`admin_ea_matches_${teamId}`).setLabel('Últimos Partidos EA').setStyle(ButtonStyle.Primary).setEmoji('📊'));
+        }
         const row3 = new ActionRowBuilder().addComponents(leagueMenu);
 
         await interaction.editReply({ content: '', embeds: [embed], components: [row1, row2, row3] });

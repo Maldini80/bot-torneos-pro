@@ -4055,8 +4055,9 @@ export async function handleSelectMenu(interaction) {
             )
             .setTimestamp();
 
+        const safeClubName = eaClubName.substring(0, 30);
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`approve_paid_ealink_${tournamentShortId}_${interaction.user.id}_${eaClubId}_${eaPlatform}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`approve_paid_ealink_${tournamentShortId}_${interaction.user.id}_${eaClubId}_${eaPlatform}_${safeClubName}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId(`reject_paid_ealink_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
         );
 

@@ -7292,6 +7292,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
 
         const [tournamentShortId, userId, eaClubId, eaPlatform] = params;
+        const eaClubName = params.slice(4).join('_') || 'Desconocido';
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         
         if (!tournament) return interaction.reply({ content: 'El torneo ya no existe.', flags: [MessageFlags.Ephemeral] });
@@ -7300,9 +7301,11 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const updateQuery = {};
         if (tournament.teams?.pendingPayments?.[userId]) {
             updateQuery[`teams.pendingPayments.${userId}.eaClubId`] = eaClubId;
+            updateQuery[`teams.pendingPayments.${userId}.eaClubName`] = eaClubName;
             updateQuery[`teams.pendingPayments.${userId}.eaPlatform`] = eaPlatform;
         } else if (tournament.teams?.aprobados?.[userId]) {
             updateQuery[`teams.aprobados.${userId}.eaClubId`] = eaClubId;
+            updateQuery[`teams.aprobados.${userId}.eaClubName`] = eaClubName;
             updateQuery[`teams.aprobados.${userId}.eaPlatform`] = eaPlatform;
         } else {
             return interaction.reply({ content: 'El usuario ya no está inscrito en este torneo.', flags: [MessageFlags.Ephemeral] });
