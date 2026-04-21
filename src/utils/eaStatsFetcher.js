@@ -86,7 +86,8 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                 shots: 0,
                 passesMade: 0,
                 tacklesMade: 0,
-                possessionAvg: 0
+                possessionAvg: 0,
+                players: {}
             },
             clubB: {
                 goals: 0,
@@ -94,31 +95,80 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                 shots: 0,
                 passesMade: 0,
                 tacklesMade: 0,
-                possessionAvg: 0
+                possessionAvg: 0,
+                players: {}
             }
         };
 
         let possessionSumA = 0;
         let possessionSumB = 0;
 
+        const aggregatePlayers = (targetClubPlayers, sourcePlayersData, teamGoalsAgainst) => {
+            if (!sourcePlayersData) return;
+            for (const [playerId, pData] of Object.entries(sourcePlayersData)) {
+                const pName = pData.playername || playerId;
+                if (!targetClubPlayers[pName]) {
+                    targetClubPlayers[pName] = {
+                        name: pName,
+                        pos: pData.pos || 'unknown',
+                        goals: 0,
+                        assists: 0,
+                        ratingSum: 0,
+                        saves: 0,
+                        gamesPlayed: 0,
+                        cleanSheets: 0,
+                        goalsConceded: 0,
+                        mom: 0 // Man of the match
+                    };
+                }
+                
+                targetClubPlayers[pName].goals += parseInt(pData.goals) || 0;
+                targetClubPlayers[pName].assists += parseInt(pData.assists) || 0;
+                targetClubPlayers[pName].ratingSum += parseFloat(pData.rating) || 0;
+                targetClubPlayers[pName].saves += parseInt(pData.saves) || 0;
+                targetClubPlayers[pName].mom += parseInt(pData.mom) || 0;
+                targetClubPlayers[pName].gamesPlayed += 1;
+                
+                const posLower = (pData.pos || '').toLowerCase();
+                if (posLower.includes('goalkeeper') || posLower.includes('gk') || posLower === 'portero') {
+                     targetClubPlayers[pName].goalsConceded += teamGoalsAgainst;
+                     if (teamGoalsAgainst === 0) {
+                         targetClubPlayers[pName].cleanSheets += 1;
+                     }
+                }
+            }
+        };
+
         for (const match of headToHeadMatches) {
             const statsA = match.clubs[String(clubIdA)];
             const statsB = match.clubs[String(clubIdB)];
 
             if (statsA && statsB) {
-                aggregatedStats.clubA.goals += parseInt(statsA.goals) || 0;
+                const goalsA = parseInt(statsA.goals) || 0;
+                const goalsB = parseInt(statsB.goals) || 0;
+                
+                aggregatedStats.clubA.goals += goalsA;
                 aggregatedStats.clubA.goalsAgainst += parseInt(statsA.goalsAgainst) || 0;
                 aggregatedStats.clubA.shots += parseInt(statsA.shots) || 0;
                 aggregatedStats.clubA.passesMade += parseInt(statsA.passesMade) || 0;
                 aggregatedStats.clubA.tacklesMade += parseInt(statsA.tacklesMade) || 0;
                 possessionSumA += parseFloat(statsA.possession) || 50;
 
-                aggregatedStats.clubB.goals += parseInt(statsB.goals) || 0;
+                aggregatedStats.clubB.goals += goalsB;
                 aggregatedStats.clubB.goalsAgainst += parseInt(statsB.goalsAgainst) || 0;
                 aggregatedStats.clubB.shots += parseInt(statsB.shots) || 0;
                 aggregatedStats.clubB.passesMade += parseInt(statsB.passesMade) || 0;
                 aggregatedStats.clubB.tacklesMade += parseInt(statsB.tacklesMade) || 0;
                 possessionSumB += parseFloat(statsB.possession) || 50;
+                
+                // Extraer jugadores
+                if (match.players) {
+                    const playersA = match.players[String(clubIdA)];
+                    const playersB = match.players[String(clubIdB)];
+                    
+                    aggregatePlayers(aggregatedStats.clubA.players, playersA, goalsB);
+                    aggregatePlayers(aggregatedStats.clubB.players, playersB, goalsA);
+                }
             }
         }
 

@@ -7335,6 +7335,50 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
+    if (action === 'admin_generate_tournament_stats') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        try {
+            const { getTournamentPlayersStats, generateBest11Embed } = await import('../logic/statsLogic.js');
+            
+            const players = getTournamentPlayersStats(tournament);
+            const embed = generateBest11Embed(tournament, players);
+
+            // Intentar enviar al canal de logs (normalmente donde se anuncian partidos)
+            let sent = false;
+            if (tournament.discordMessageIds?.matchLogChannelId) {
+                const channel = await client.channels.fetch(tournament.discordMessageIds.matchLogChannelId).catch(() => null);
+                if (channel) {
+                    await channel.send({ embeds: [embed] });
+                    sent = true;
+                }
+            }
+
+            if (!sent && tournament.discordMessageIds?.updateChannelId) {
+                 const channel = await client.channels.fetch(tournament.discordMessageIds.updateChannelId).catch(() => null);
+                 if (channel) {
+                     await channel.send({ embeds: [embed] });
+                     sent = true;
+                 }
+            }
+
+            if (sent) {
+                return interaction.editReply({ content: '✅ El reporte estadístico y el Mejor 11 se han generado y enviado al canal correspondiente.' });
+            } else {
+                return interaction.editReply({ content: '⚠️ Reporte generado, pero no se encontró un canal válido de actualizaciones o logs para enviarlo. Revisa la configuración del torneo.', embeds: [embed] });
+            }
+
+        } catch (error) {
+            console.error('Error generando estadísticas de torneo:', error);
+            return interaction.editReply({ content: '❌ Hubo un error al generar las estadísticas.' });
+        }
+    }
+
     if (action === 'paid_link_ea_start') {
         const [tournamentShortId] = params;
         const modal = new ModalBuilder()

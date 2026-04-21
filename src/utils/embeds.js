@@ -369,6 +369,16 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
+    // Botón de Reporte EA / Mejor 11
+    row5.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`admin_generate_tournament_stats:${tournament.shortId}`)
+            .setLabel('Reporte EA (Mejor 11)')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('📊')
+            .setDisabled(isBusy)
+    );
+
     if (tournament.config.paidSubType === 'draft') {
         row5.addComponents(
             new ButtonBuilder()
