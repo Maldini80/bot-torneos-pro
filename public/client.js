@@ -610,10 +610,14 @@ function initializeTournamentView(tournamentId) {
                     const result = match.resultado ? `<div class="match-result">${match.resultado}</div>` : '<div class="match-vs">vs</div>';
                     const teamALogo = teamA.logoUrl ? `<img src="${teamA.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
                     const teamBLogo = teamB.logoUrl ? `<img src="${teamB.logoUrl}" class="team-logo-small" alt="">` : '<div class="team-logo-placeholder"></div>';
+                    const statsBtn = match.eaStats ? `<button onclick='openMatchStatsModal(${JSON.stringify(match).replace(/'/g, "&apos;")})' class="action-btn" style="padding: 4px 8px; font-size: 0.8rem; background: #8a2be2; border: none; color: white; border-radius: 4px; margin-top: 5px; cursor: pointer;">📊 Stats</button>` : '';
 
                     groupHTML += `<div class="calendar-match">
                                     <div class="team-info left"><span>${teamA.nombre}</span>${teamALogo}</div>
-                                    ${result}
+                                    <div style="display: flex; flex-direction: column; align-items: center;">
+                                        ${result}
+                                        ${statsBtn}
+                                    </div>
                                     <div class="team-info right">${teamBLogo}<span>${teamB.nombre}</span></div>
                                   </div>`;
                 });
@@ -643,8 +647,8 @@ function initializeTournamentView(tournamentId) {
                 const teamB = match.equipoB;
                 const teamAName = teamA?.nombre || 'Por definir';
                 const teamBName = teamB?.nombre || 'Por definir';
-                const teamALogo = teamA?.logoUrl ? `<img src="${teamA.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
-                const teamBLogo = teamB?.logoUrl ? `<img src="${teamB.logoUrl}" class="bracket-team-logo" alt="">` : '<div class="bracket-team-logo-placeholder"></div>';
+                const teamALogo = teamA?.logoUrl ? `<img src="${teamA.logoUrl}" class="bracket-team-logo" alt="">` : `<div class="bracket-team-logo-placeholder"></div>`;
+                const teamBLogo = teamB?.logoUrl ? `<img src="${teamB.logoUrl}" class="bracket-team-logo" alt="">` : `<div class="bracket-team-logo-placeholder"></div>`;
 
                 let scoreA = '', scoreB = '';
                 let classA = '', classB = '';
@@ -653,7 +657,9 @@ function initializeTournamentView(tournamentId) {
                     if (parseInt(scoreA) > parseInt(scoreB)) classA = 'winner-top';
                     else if (parseInt(scoreB) > parseInt(scoreA)) classB = 'winner-bottom';
                 }
-                roundHTML += `<div class="bracket-match ${classA} ${classB}">
+                const statsBtn = match.eaStats ? `<button onclick='openMatchStatsModal(${JSON.stringify(match).replace(/'/g, "&apos;")})' class="action-btn" style="padding: 2px 6px; font-size: 0.7rem; background: #8a2be2; border: none; color: white; border-radius: 4px; position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); z-index: 10; cursor: pointer;">📊 Stats</button>` : '';
+
+                roundHTML += `<div class="bracket-match ${classA} ${classB}" style="position: relative;">
                                 <div class="bracket-team">
                                     <div class="bracket-team-info">${teamALogo}<span>${teamAName}</span></div>
                                     <span class="score">${scoreA}</span>
@@ -662,6 +668,7 @@ function initializeTournamentView(tournamentId) {
                                     <div class="bracket-team-info">${teamBLogo}<span>${teamBName}</span></div>
                                     <span class="score">${scoreB}</span>
                                 </div>
+                                ${statsBtn}
                              </div>`;
             });
             roundHTML += '</div>';
@@ -807,8 +814,10 @@ function initializeTournamentView(tournamentId) {
                     actionsHTML += `<a href="${threadUrl}" target="_blank" class="action-btn" style="text-decoration:none; padding: 8px 15px; background: #5865F2; color: white; border-radius: 6px; display: inline-block; margin-right: 10px;">💬 ${t('chatMatch')}</a>`;
                 }
 
-                // Note: Report via Discord only
-
+                // EA Stats button
+                if (match.eaStats) {
+                    actionsHTML += `<button onclick='openMatchStatsModal(${JSON.stringify(match).replace(/'/g, "&apos;")})' class="action-btn" style="padding: 8px 15px; font-size: 0.9rem; background: #8a2be2; border: none; color: white; border-radius: 6px; cursor: pointer; margin-right: 10px;">📊 Stats EA</button>`;
+                }
 
                 const matchCard = document.createElement('div');
                 matchCard.className = 'calendar-match';
@@ -833,7 +842,7 @@ function initializeTournamentView(tournamentId) {
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span class="status-badge ${statusClass}" style="padding: 4px 12px; border-radius: 4px; font-size: 0.85rem;">${statusText}</span>
-                    <div>${actionsHTML}</div>
+                    <div style="display: flex; align-items: center;">${actionsHTML}</div>
                 </div>
             `;
 
@@ -2725,3 +2734,128 @@ function initializePickOrderRouletteView(tournamentId) {
     fetchCaptains();
     spinButton.addEventListener('click', spin);
 }
+
+window.openMatchStatsModal = function(match) {
+    if (!match || !match.eaStats) return;
+
+    const modal = document.getElementById('match-stats-modal');
+    
+    // Nombres y escudos (usando el formato de EA si está disponible)
+    const teamAObj = match.equipoA;
+    const teamBObj = match.equipoB;
+    const eaClubA = match.eaStats.clubA || {};
+    const eaClubB = match.eaStats.clubB || {};
+
+    const nameA = eaClubA.name || teamAObj.nombre || 'Equipo A';
+    const nameB = eaClubB.name || teamBObj.nombre || 'Equipo B';
+    const logoA = teamAObj.logoUrl ? `<img src="${teamAObj.logoUrl}" style="width: 50px; height: 50px; border-radius: 50%;">` : '';
+    const logoB = teamBObj.logoUrl ? `<img src="${teamBObj.logoUrl}" style="width: 50px; height: 50px; border-radius: 50%;">` : '';
+
+    document.getElementById('ms-team-a').innerHTML = `${logoA}<br><span style="font-weight:bold; color:white;">${nameA}</span>`;
+    document.getElementById('ms-team-b').innerHTML = `${logoB}<br><span style="font-weight:bold; color:white;">${nameB}</span>`;
+    document.getElementById('ms-score').textContent = match.resultado || 'vs';
+
+    // Global Stats (Comparativa de equipo)
+    const renderStatBar = (label, valA, valB) => {
+        const numA = parseFloat(valA) || 0;
+        const numB = parseFloat(valB) || 0;
+        const total = numA + numB;
+        let pctA = 50, pctB = 50;
+        if (total > 0) {
+            pctA = (numA / total) * 100;
+            pctB = (numB / total) * 100;
+        }
+        return `
+            <div class="stat-bar-container">
+                <div class="stat-bar-value" style="color: #00d4ff;">${valA}</div>
+                <div class="stat-bar-label">${label}</div>
+                <div class="stat-bar-value" style="color: #ff00e5;">${valB}</div>
+            </div>
+            <div style="display:flex; height: 6px; background: #222; border-radius: 3px; margin: 0 40px 15px 40px; overflow: hidden;">
+                <div style="width: ${pctA}%; background: #00d4ff;"></div>
+                <div style="width: ${pctB}%; background: #ff00e5;"></div>
+            </div>
+        `;
+    };
+
+    let globalStatsHTML = '';
+    if (eaClubA.goals !== undefined && eaClubB.goals !== undefined) {
+        globalStatsHTML += renderStatBar('Goles', eaClubA.goals, eaClubB.goals);
+    }
+    // Si EA nos pasase posesión/tiros a nivel club se podrían añadir aquí, de lo contrario lo omitimos o calculamos sumas.
+    // Por ahora, calculemos la nota media de la plantilla y tiros (si están)
+    
+    // Calcular stats agregadas de jugadores
+    const aggStats = (playersObj) => {
+        if (!playersObj) return { rating: 0, count: 0, goals: 0, assists: 0, saves: 0 };
+        const pList = Object.values(playersObj);
+        const sums = pList.reduce((acc, p) => {
+            acc.rating += p.ratingSum || p.rating || 0;
+            acc.goals += p.goals || 0;
+            acc.assists += p.assists || 0;
+            acc.saves += p.saves || 0;
+            return acc;
+        }, { rating: 0, count: pList.length, goals: 0, assists: 0, saves: 0 });
+        if (sums.count > 0) sums.rating = (sums.rating / sums.count).toFixed(1);
+        return sums;
+    };
+
+    const statsA = aggStats(eaClubA.players);
+    const statsB = aggStats(eaClubB.players);
+
+    globalStatsHTML += renderStatBar('Nota Media', statsA.rating, statsB.rating);
+    globalStatsHTML += renderStatBar('Tiros a Puerta (Goles)', statsA.goals, statsB.goals);
+    globalStatsHTML += renderStatBar('Paradas', statsA.saves, statsB.saves);
+
+    document.getElementById('ms-global-stats').innerHTML = globalStatsHTML;
+
+    // Alineaciones
+    document.getElementById('ms-title-a').textContent = nameA;
+    document.getElementById('ms-title-b').textContent = nameB;
+
+    const renderPlayers = (playersObj, tbodyId) => {
+        const tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = '';
+        if (!playersObj) {
+            tbody.innerHTML = '<tr><td colspan="5" class="placeholder">No hay datos de jugadores.</td></tr>';
+            return;
+        }
+
+        const players = Object.values(playersObj).map(p => ({
+            name: p.name,
+            pos: p.pos || 'UNK',
+            rating: p.ratingSum || p.rating || 0,
+            goals: p.goals || 0,
+            assists: p.assists || 0,
+            mom: p.mom || 0
+        }));
+
+        // Sort by position (GK -> DEF -> MID -> FWD) then rating
+        const posOrder = { 'gk':1, 'goalkeeper':1, 'cb':2, 'lb':2, 'rb':2, 'defender':2, 'cdm':3, 'cm':3, 'cam':3, 'lm':3, 'rm':3, 'lwb':3, 'rwb':3, 'midfielder':3, 'cf':4, 'st':4, 'rw':4, 'lw':4, 'forward':4 };
+        players.sort((a, b) => {
+            const pa = posOrder[a.pos.toLowerCase()] || 5;
+            const pb = posOrder[b.pos.toLowerCase()] || 5;
+            if (pa !== pb) return pa - pb;
+            return b.rating - a.rating;
+        });
+
+        players.forEach(p => {
+            const momIcon = p.mom ? ' 🎖️' : '';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.75rem;">${p.pos.toUpperCase()}</span></td>
+                <td style="font-weight:bold;">${p.name}${momIcon}</td>
+                <td style="text-align:center; color: #f1c40f;">${parseFloat(p.rating).toFixed(1)}</td>
+                <td style="text-align:center;">${p.goals > 0 ? p.goals : '-'}</td>
+                <td style="text-align:center;">${p.assists > 0 ? p.assists : '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    };
+
+    renderPlayers(eaClubA.players, 'ms-tbody-a');
+    renderPlayers(eaClubB.players, 'ms-tbody-b');
+
+    modal.classList.remove('hidden');
+};
+

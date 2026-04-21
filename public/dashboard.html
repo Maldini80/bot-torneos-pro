@@ -731,7 +731,69 @@
     <!-- === MODAL SUSTITUCIÓN AGENTE LIBRE === -->
     <!-- Modal de sustitución eliminado: ahora se redirige al tablero del draft -->
 
+    <!-- === MODAL ESTADÍSTICAS DE PARTIDO (EA) === -->
+    <div id="match-stats-modal" class="modal hidden" style="z-index: 2005;">
+        <div class="modal-content large-modal" style="background: rgba(15, 15, 26, 0.95); border: 1px solid #8a2be2; width: 95%; max-width: 900px;">
+            <span class="close-button" onclick="document.getElementById('match-stats-modal').classList.add('hidden')">&times;</span>
+            
+            <!-- Cabecera -->
+            <div id="ms-header" style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #00d4ff; font-size: 1.2rem; margin-bottom: 15px;">Estadísticas del Partido</h2>
+                <div style="display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.4); padding: 15px; border-radius: 12px;">
+                    <div id="ms-team-a" style="flex: 1; text-align: center;"></div>
+                    <div id="ms-score" style="font-size: 2.5rem; font-weight: bold; color: white; padding: 0 20px; font-family: 'Exo 2', sans-serif;"></div>
+                    <div id="ms-team-b" style="flex: 1; text-align: center;"></div>
+                </div>
+            </div>
+
+            <!-- Estadísticas Globales del Partido -->
+            <div id="ms-global-stats" style="margin-bottom: 25px;">
+                <!-- Barras inyectadas por JS -->
+            </div>
+
+            <!-- Tablas de Jugadores (Responsive) -->
+            <div id="ms-lineups-container" class="lineups-container">
+                <!-- Tabla Equipo A -->
+                <div class="lineup-box">
+                    <h3 id="ms-title-a" style="text-align:center; color: #fff; margin-bottom: 10px;">Equipo A</h3>
+                    <div class="table-responsive">
+                        <table class="history-table" style="font-size: 0.85rem;">
+                            <thead>
+                                <tr>
+                                    <th>Pos</th>
+                                    <th>Jugador</th>
+                                    <th style="text-align:center;">Nota</th>
+                                    <th style="text-align:center;">⚽</th>
+                                    <th style="text-align:center;">🎯</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ms-tbody-a"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tabla Equipo B -->
+                <div class="lineup-box">
+                    <h3 id="ms-title-b" style="text-align:center; color: #fff; margin-bottom: 10px;">Equipo B</h3>
+                    <div class="table-responsive">
+                        <table class="history-table" style="font-size: 0.85rem;">
+                            <thead>
+                                <tr>
+                                    <th>Pos</th>
+                                    <th>Jugador</th>
+                                    <th style="text-align:center;">Nota</th>
+                                    <th style="text-align:center;">⚽</th>
+                                    <th style="text-align:center;">🎯</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ms-tbody-b"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="dashboard.js?v=2.4.4"></script>
 </body>
-
 </html>

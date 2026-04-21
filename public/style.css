@@ -4556,3 +4556,20 @@ footer#common-footer {
 #dashboard-app {
     padding-bottom: 40px;
 }
+/* === MATCH STATS MODAL (EA) === */
+.lineups-container { display: flex; gap: 20px; flex-wrap: nowrap; }
+.lineup-box { flex: 1; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 15px; }
+.stat-bar-container { display: flex; align-items: center; margin-bottom: 10px; font-size: 0.9rem; }
+.stat-bar-label { flex: 0 0 100px; text-align: center; font-weight: bold; color: #aaa; }
+.stat-bar-value { flex: 0 0 40px; text-align: center; font-weight: bold; }
+.stat-bar-track { flex: 1; height: 8px; background: #333; border-radius: 4px; display: flex; overflow: hidden; margin: 0 10px; }
+.stat-bar-fill-a { background: #00d4ff; height: 100%; transition: width 0.5s ease; }
+.stat-bar-fill-b { background: #ff00e5; height: 100%; transition: width 0.5s ease; }
+.table-responsive { overflow-x: auto; }
+@media (max-width: 768px) {
+  .lineups-container { flex-direction: column; }
+  .stat-bar-label { flex: 0 0 80px; font-size: 0.8rem; }
+  .stat-bar-value { flex: 0 0 30px; font-size: 0.8rem; }
+  #ms-score { font-size: 1.8rem !important; padding: 0 10px !important; }
+}
+
