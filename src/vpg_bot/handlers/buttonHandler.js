@@ -1102,20 +1102,31 @@ const handler = async (client, interaction) => {
 
             const url9 = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=gameType9`;
             const url13 = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=gameType13`;
+            const urlAll = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=all`;
 
-            const [res9, res13] = await Promise.all([
+            const [res9, res13, resAll] = await Promise.all([
                 fetch(url9, { headers }).catch(() => null),
-                fetch(url13, { headers }).catch(() => null)
+                fetch(url13, { headers }).catch(() => null),
+                fetch(urlAll, { headers }).catch(() => null)
             ]);
 
-            let data9 = [], data13 = [];
+            let data9 = [], data13 = [], dataAll = [];
             if (res9 && res9.ok) data9 = await res9.json().catch(() => []);
             if (res13 && res13.ok) data13 = await res13.json().catch(() => []);
+            if (resAll && resAll.ok) dataAll = await resAll.json().catch(() => []);
             
             if (!Array.isArray(data9)) data9 = Object.values(data9 || {});
             if (!Array.isArray(data13)) data13 = Object.values(data13 || {});
+            if (!Array.isArray(dataAll)) dataAll = Object.values(dataAll || {});
 
-            let data = [...data9, ...data13].sort((a, b) => b.timestamp - a.timestamp);
+            // Combinar todos los resultados y quitar duplicados por matchId
+            let allMatches = [...data9, ...data13, ...dataAll];
+            let uniqueMatches = {};
+            for (const m of allMatches) {
+                if (m.matchId) uniqueMatches[m.matchId] = m;
+            }
+
+            let data = Object.values(uniqueMatches).sort((a, b) => b.timestamp - a.timestamp);
 
             if (!Array.isArray(data) || data.length === 0) {
                 return interaction.editReply({ content: '❌ No se han encontrado partidos recientes para este club en los servidores de EA.' });

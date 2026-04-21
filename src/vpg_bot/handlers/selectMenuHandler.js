@@ -518,6 +518,20 @@ module.exports = async (client, interaction) => {
         const [eaClubId, eaPlatform, ...nameParts] = values[0].split('|');
         const eaClubName = nameParts.join('|') || 'Desconocido';
 
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.REFEREE_ROLE_ID);
+
+        if (isAdmin) {
+            team.eaClubId = eaClubId;
+            team.eaClubName = eaClubName;
+            team.eaPlatform = eaPlatform;
+            await team.save();
+            
+            return interaction.followUp({ 
+                content: `✅ **¡Vinculación completada automáticamente!**\n\nEl equipo **${team.name}** se ha vinculado al club de EA **${eaClubName}** (ID: \`${eaClubId}\`) exitosamente por privilegios de administración.`,
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
         const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
         if (!approvalChannelId) return interaction.followUp({ content: '❌ El canal de aprobaciones no está configurado.', flags: MessageFlags.Ephemeral });
 
