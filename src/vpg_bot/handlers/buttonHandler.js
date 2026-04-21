@@ -985,6 +985,56 @@ const handler = async (client, interaction) => {
         return interaction.showModal(modal);
     }
 
+    if (customId.startsWith('admin_link_ea_')) {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        const teamId = customId.replace('admin_link_ea_', '');
+        const team = await Team.findById(teamId);
+        if (!team) return interaction.reply({ content: 'Equipo no encontrado.', ephemeral: true });
+
+        const modal = new ModalBuilder()
+            .setCustomId(`link_ea_modal_${team._id}`)
+            .setTitle(`Vincular EA: ${team.name.substring(0, 20)}`);
+
+        const eaNameInput = new TextInputBuilder()
+            .setCustomId('ea_club_name')
+            .setLabel("Nombre exacto del club en EA FC")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setPlaceholder("Ej: Los Galacticos");
+            
+        const eaPlatformInput = new TextInputBuilder()
+            .setCustomId('ea_platform')
+            .setLabel("Consola (Nueva Gen o Antigua Gen)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue("Nueva Gen")
+            .setPlaceholder("Escribe: Nueva Gen o Antigua Gen");
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(eaNameInput),
+            new ActionRowBuilder().addComponents(eaPlatformInput)
+        );
+
+        return interaction.showModal(modal);
+    }
+
+    if (customId.startsWith('admin_unlink_ea_')) {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        const teamId = customId.replace('admin_unlink_ea_', '');
+        const team = await Team.findById(teamId);
+        if (!team) return interaction.reply({ content: 'Equipo no encontrado.', ephemeral: true });
+
+        if (!team.eaClubId) return interaction.reply({ content: 'Este equipo no está vinculado a ningún club de EA Sports.', ephemeral: true });
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        team.eaClubId = null;
+        team.eaPlatform = null;
+        await team.save();
+
+        return interaction.editReply({ content: `✅ El equipo **${team.name}** ha sido desvinculado de EA Sports por un administrador.` });
+    }
+
     if (customId === 'admin_view_pending_requests') {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;

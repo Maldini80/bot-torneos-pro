@@ -573,7 +573,11 @@ module.exports = async (client, interaction) => {
             // --- BOTÓN ELO ---
             new ButtonBuilder().setCustomId(`admin_edit_elo_${teamId}`).setLabel('Editar ELO').setStyle(ButtonStyle.Secondary).setEmoji('📊')
         );
-        const row2 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger));
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId(`admin_link_ea_${teamId}`).setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮'),
+            new ButtonBuilder().setCustomId(`admin_unlink_ea_${teamId}`).setLabel('Desvincular EA').setStyle(ButtonStyle.Danger).setEmoji('❌')
+        );
         const row3 = new ActionRowBuilder().addComponents(leagueMenu);
 
         await interaction.editReply({ content: '', embeds: [embed], components: [row1, row2, row3] });
