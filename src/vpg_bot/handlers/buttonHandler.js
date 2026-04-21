@@ -1093,34 +1093,29 @@ const handler = async (client, interaction) => {
         await interaction.deferReply({ ephemeral: true });
 
         try {
-            // Intentamos traer el historial, primero gameType9 (Liga)
-            const url = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=gameType9`;
-            let response = await fetch(url, { 
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json',
-                    'Origin': 'https://www.ea.com',
-                    'Referer': 'https://www.ea.com/'
-                } 
-            });
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json',
+                'Origin': 'https://www.ea.com',
+                'Referer': 'https://www.ea.com/'
+            };
 
-            let data = await response.json().catch(() => null);
+            const url9 = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=gameType9`;
+            const url13 = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=gameType13`;
 
-            // Si falla o no hay datos, intentamos traer todo
-            if (!response.ok || !Array.isArray(data) || data.length === 0) {
-                 const fallbackUrl = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${team.eaClubId}&platform=${team.eaPlatform}&matchType=all`;
-                 const fallbackRes = await fetch(fallbackUrl, {
-                     headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'application/json',
-                        'Origin': 'https://www.ea.com',
-                        'Referer': 'https://www.ea.com/'
-                    }
-                 });
-                 if (fallbackRes.ok) {
-                     data = await fallbackRes.json().catch(() => null);
-                 }
-            }
+            const [res9, res13] = await Promise.all([
+                fetch(url9, { headers }).catch(() => null),
+                fetch(url13, { headers }).catch(() => null)
+            ]);
+
+            let data9 = [], data13 = [];
+            if (res9 && res9.ok) data9 = await res9.json().catch(() => []);
+            if (res13 && res13.ok) data13 = await res13.json().catch(() => []);
+            
+            if (!Array.isArray(data9)) data9 = Object.values(data9 || {});
+            if (!Array.isArray(data13)) data13 = Object.values(data13 || {});
+
+            let data = [...data9, ...data13].sort((a, b) => b.timestamp - a.timestamp);
 
             if (!Array.isArray(data) || data.length === 0) {
                 return interaction.editReply({ content: '❌ No se han encontrado partidos recientes para este club en los servidores de EA.' });

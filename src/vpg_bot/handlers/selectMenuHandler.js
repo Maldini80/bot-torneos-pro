@@ -603,13 +603,14 @@ module.exports = async (client, interaction) => {
             new ButtonBuilder().setCustomId(`admin_edit_elo_${teamId}`).setLabel('Editar ELO').setStyle(ButtonStyle.Secondary).setEmoji('📊')
         );
         const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId(`admin_link_ea_${teamId}`).setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮')
+            new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger)
         );
         
         if (team.eaClubId) {
             row2.addComponents(new ButtonBuilder().setCustomId(`admin_unlink_ea_${teamId}`).setLabel('Desvincular EA').setStyle(ButtonStyle.Danger).setEmoji('❌'));
             row2.addComponents(new ButtonBuilder().setCustomId(`admin_ea_matches_${teamId}`).setLabel('Últimos Partidos EA').setStyle(ButtonStyle.Primary).setEmoji('📊'));
+        } else {
+            row2.addComponents(new ButtonBuilder().setCustomId(`admin_link_ea_${teamId}`).setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮'));
         }
         const row3 = new ActionRowBuilder().addComponents(leagueMenu);
 
