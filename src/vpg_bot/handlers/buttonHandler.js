@@ -831,7 +831,8 @@ const handler = async (client, interaction) => {
                 row2 = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId('team_toggle_recruitment_button').setLabel(t('toggleRecruitmentButton', member)).setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('team_edit_data_button').setLabel(t('editTeamDataButton', member)).setStyle(ButtonStyle.Danger),
-                    new ButtonBuilder().setCustomId('team_link_ea_button').setLabel('Vincular EA Sports').setStyle(ButtonStyle.Success).setEmoji('🎮')
+                    new ButtonBuilder().setCustomId('team_link_ea_button').setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮'),
+                    new ButtonBuilder().setCustomId('team_unlink_ea_button').setLabel('Desvincular EA').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
                 await interaction.editReply({ embeds: [embed], components: [row1, row2] });
                 break;
@@ -1131,6 +1132,21 @@ const handler = async (client, interaction) => {
         );
 
         return interaction.showModal(modal);
+    }
+
+    if (customId === 'team_unlink_ea_button') {
+        const team = await Team.findOne({ guildId: guild.id, managerId: user.id });
+        if (!team) return interaction.reply({ content: 'No se encontró tu equipo o no eres el mánager del mismo.', flags: MessageFlags.Ephemeral });
+
+        if (!team.eaClubId) return interaction.reply({ content: 'Tu equipo no está vinculado a ningún club de EA Sports actualmente.', flags: MessageFlags.Ephemeral });
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        team.eaClubId = null;
+        team.eaPlatform = null;
+        await team.save();
+
+        return interaction.editReply({ content: '✅ El equipo ha sido **desvinculado** de EA Sports exitosamente.' });
     }
 
     if (customId === 'team_link_ea_button') {
