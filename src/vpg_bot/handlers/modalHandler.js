@@ -518,8 +518,12 @@ if (customId.startsWith('manager_request_modal_')) {
                 }
             });
 
+            if (eaRes.status === 404) {
+                return interaction.editReply({ content: '❌ EA Sports no encontró ningún club con ese nombre en esta plataforma (Error 404). Por favor, asegúrate de escribir el nombre **exacto**.' });
+            }
+
             if (!eaRes.ok) {
-                throw new Error(`EA API responded with status ${eaRes.status}`);
+                return interaction.editReply({ content: `❌ Error al contactar con los servidores de EA Sports (Código: ${eaRes.status}). La API de EA puede estar caída temporalmente.` });
             }
 
             const data = await eaRes.json();
