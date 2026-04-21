@@ -93,11 +93,12 @@ export async function processMatchResult(client, guild, tournament, matchId, res
         
         if (globalSettings.eaScannerEnabled) {
             // Buscamos los equipos actualizados en la BD de equipos central
-            const teamAId = partido.equipoA._id;
-            const teamBId = partido.equipoB._id;
+            // partido.equipoA.id contiene el ID de Discord del capitán del equipo.
+            const teamACaptainId = partido.equipoA.id;
+            const teamBCaptainId = partido.equipoB.id;
             
-            const teamA = await db.collection('teams').findOne({ _id: teamAId });
-            const teamB = await db.collection('teams').findOne({ _id: teamBId });
+            const teamA = await db.collection('teams').findOne({ $or: [{ managerId: teamACaptainId }, { captains: teamACaptainId }] });
+            const teamB = await db.collection('teams').findOne({ $or: [{ managerId: teamBCaptainId }, { captains: teamBCaptainId }] });
             
             if (teamA && teamA.eaClubId && teamB && teamB.eaClubId) {
                 const { addJob } = await import('../utils/eaStatsQueue.js');
