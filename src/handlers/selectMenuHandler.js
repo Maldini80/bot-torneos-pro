@@ -4030,4 +4030,40 @@ export async function handleSelectMenu(interaction) {
         }
         return;
     }
+    if (action === 'paid_link_ea_select') {
+        const [tournamentShortId] = params;
+        const [eaClubId, eaPlatform] = interaction.values[0].split('|');
+
+        const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
+        if (!approvalChannelId) return interaction.reply({ content: '❌ El canal de aprobaciones no está configurado.', flags: [MessageFlags.Ephemeral] });
+
+        const approvalChannel = await client.channels.fetch(approvalChannelId).catch(() => null);
+        if (!approvalChannel) return interaction.reply({ content: '❌ No se pudo encontrar el canal de aprobaciones.', flags: [MessageFlags.Ephemeral] });
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+
+        const embed = new EmbedBuilder()
+            .setTitle('Solicitud de Vinculación con EA Sports (Torneo de Pago)')
+            .setColor('Yellow')
+            .addFields(
+                { name: '👤 Solicitante', value: `<@${interaction.user.id}>`, inline: true },
+                { name: '🏆 Torneo', value: `${tournament.nombre}`, inline: true },
+                { name: '🎮 Club ID EA', value: `${eaClubId}`, inline: true },
+                { name: '🖥️ Plataforma EA', value: `${eaPlatform}`, inline: true }
+            )
+            .setTimestamp();
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`approve_paid_ealink_${tournamentShortId}_${interaction.user.id}_${eaClubId}_${eaPlatform}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`reject_paid_ealink_${interaction.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+        );
+
+        await approvalChannel.send({ embeds: [embed], components: [row] });
+
+        return interaction.reply({ 
+            content: `⏳ **¡Solicitud enviada!**\n\nTu petición para usar el Club ID de EA \`${eaClubId}\` en este evento de pago ha sido enviada a los administradores para su revisión y aprobación.`,
+            flags: [MessageFlags.Ephemeral]
+        });
+    }
 }

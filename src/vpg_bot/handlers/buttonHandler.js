@@ -1248,7 +1248,8 @@ const handler = async (client, interaction) => {
         if (!team) return interaction.reply({ content: 'No se encontró tu equipo o no tienes permisos.', ephemeral: true });
 
         const isManager = team.managerId === user.id;
-        if (!isManager) return interaction.reply({ content: 'Solo el mánager del equipo puede vincularlo con EA Sports.', ephemeral: true });
+        const isCaptain = team.captains && team.captains.includes(user.id);
+        if (!isManager && !isCaptain) return interaction.reply({ content: 'Solo el mánager o capitanes del equipo pueden vincularlo con EA Sports.', ephemeral: true });
 
         const modal = new ModalBuilder()
             .setCustomId(`link_ea_modal_${team._id}`)

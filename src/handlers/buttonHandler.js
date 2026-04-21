@@ -366,6 +366,21 @@ export async function handleButton(interaction) {
         }
         // --- FIN DE LA MODIFICACIÓN ---
 
+        const { getBotSettings } = await import('../../database.js');
+        const settings = await getBotSettings();
+        if (settings.eaScannerEnabled && !team.eaClubId) {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('team_link_ea_button')
+                    .setLabel('🎮 Vincular Club EA')
+                    .setStyle(ButtonStyle.Success)
+            );
+            return interaction.editReply({ 
+                content: '❌ **Inscripción bloqueada.**\n\nEl sistema de estadísticas de EA Sports está activado en este servidor. Debes vincular tu Club de EA y esperar a que sea aprobado por un administrador antes de poder inscribirte en torneos.',
+                components: [row]
+            });
+        }
+
         // --- VALIDACIÓN DE LIGAS/ELO ---
         if (tournament.config.allowedLeagues && tournament.config.allowedLeagues.length > 0) {
             const { getLeagueByElo } = await import('../logic/eloLogic.js');
@@ -6489,6 +6504,22 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             return interaction.editReply('❌ No tienes un equipo registrado en este servidor. Debes tener un equipo para inscribirte.');
         }
 
+        const { getBotSettings } = await import('../../database.js');
+        const settings = await getBotSettings();
+        if (settings.eaScannerEnabled && !userTeam.eaClubId) {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('team_link_ea_button')
+                    .setLabel('🎮 Vincular Club EA')
+                    .setStyle(ButtonStyle.Success)
+            );
+            return interaction.editReply({ 
+                content: '❌ **Inscripción bloqueada.**\n\nEl sistema de estadísticas de EA Sports está activado en este servidor. Debes vincular tu Club de EA y esperar a que sea aprobado por un administrador antes de poder inscribirte.',
+                components: [row]
+            });
+        }
+
+
         // Verificar strikes
         if ((userTeam.strikes || 0) >= 3) {
             return interaction.editReply(`🚫 Tu equipo **${userTeam.name}** tiene **${userTeam.strikes} strikes**. Los equipos con 3 o más strikes no pueden inscribirse.`);
@@ -7254,6 +7285,81 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         }
 
         await interaction.editReply(response);
+        return;
+    }
+    if (action === 'approve_paid_ealink') {
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
+
+        const [tournamentShortId, userId, eaClubId, eaPlatform] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        
+        if (!tournament) return interaction.reply({ content: 'El torneo ya no existe.', flags: [MessageFlags.Ephemeral] });
+
+        // Update the user's team in pendingPayments or aprobados
+        const updateQuery = {};
+        if (tournament.teams?.pendingPayments?.[userId]) {
+            updateQuery[`teams.pendingPayments.${userId}.eaClubId`] = eaClubId;
+            updateQuery[`teams.pendingPayments.${userId}.eaPlatform`] = eaPlatform;
+        } else if (tournament.teams?.aprobados?.[userId]) {
+            updateQuery[`teams.aprobados.${userId}.eaClubId`] = eaClubId;
+            updateQuery[`teams.aprobados.${userId}.eaPlatform`] = eaPlatform;
+        } else {
+            return interaction.reply({ content: 'El usuario ya no está inscrito en este torneo.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await db.collection('tournaments').updateOne(
+            { shortId: tournamentShortId },
+            { $set: updateQuery }
+        );
+
+        const embed = EmbedBuilder.from(interaction.message.embeds[0])
+            .setColor('Green')
+            .setTitle('✅ Vinculación con EA Aprobada (Torneo de Pago)');
+
+        await interaction.update({ content: `Aprobado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+        return;
+    }
+
+    if (action === 'reject_paid_ealink') {
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
+
+        const [userId] = params;
+
+        const embed = EmbedBuilder.from(interaction.message.embeds[0])
+            .setColor('Red')
+            .setTitle('❌ Vinculación con EA Rechazada (Torneo de Pago)');
+
+        await interaction.update({ content: `Rechazado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+        return;
+    }
+
+    if (action === 'paid_link_ea_start') {
+        const [tournamentShortId] = params;
+        const modal = new ModalBuilder()
+            .setCustomId(`paid_link_ea_modal_:${tournamentShortId}`)
+            .setTitle('Vincular con EA Sports (Evento)');
+
+        const eaNameInput = new TextInputBuilder()
+            .setCustomId('ea_club_name')
+            .setLabel("Nombre exacto de tu club en EA FC")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const eaPlatformInput = new TextInputBuilder()
+            .setCustomId('ea_platform')
+            .setLabel("Plataforma (Nueva Generación o Antigua)")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: Nueva Generacion, Antigua, PS4, PC")
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(eaNameInput),
+            new ActionRowBuilder().addComponents(eaPlatformInput)
+        );
+
+        await interaction.showModal(modal);
         return;
     }
 }

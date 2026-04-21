@@ -526,7 +526,11 @@ export async function handleModal(interaction) {
                 console.error('[PAID REG] Error enviando solicitud al admin:', err);
             });
 
+            const { getBotSettings } = await import('../../database.js');
+            const settings = await getBotSettings();
+            
             const isDraft = tournament.config.paidSubType === 'draft';
+            let components = [];
 
             // Mensaje confirmación
             if (isDraft) {
@@ -550,16 +554,38 @@ export async function handleModal(interaction) {
                         .setStyle(ButtonStyle.Primary)
                         .setEmoji('🤝')
                 );
+                
+                if (settings.eaScannerEnabled) {
+                    row.addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`paid_link_ea_start:${tournamentShortId}`)
+                            .setLabel('🎮 Vincular Club EA')
+                            .setStyle(ButtonStyle.Success)
+                    );
+                }
+                components.push(row);
 
                 const canalMention = seleccionVoiceId ? `<#${seleccionVoiceId}>` : 'el canal de selección';
                 await interaction.editReply({
-                    content: `✅ **Solicitud enviada.**\nUn administrador revisará la inscripción y te contactará.\nMientras tanto, puedes acceder a ${canalMention} para hablar con otros capitanes pendientes y ver el stream de selección.\n\n👇 **Si quieres elegir a tu ayudante (Co-Capitán) ahora mismo, pulsa el botón de abajo.** *(Debe estar inscrito como jugador)*`,
-                    components: [row]
+                    content: `✅ **Solicitud enviada.**\nUn administrador revisará la inscripción y te contactará.\nMientras tanto, puedes acceder a ${canalMention} para hablar con otros capitanes pendientes y ver el stream de selección.\n\n👇 **Si quieres elegir a tu ayudante (Co-Capitán) ahora mismo, pulsa el botón azul.** *(Debe estar inscrito como jugador)*${settings.eaScannerEnabled ? '\n\n**ESTADÍSTICAS:** Para tener stats de EA en este evento, usa el botón verde para buscar y asignar tu club de EA.' : ''}`,
+                    components: components
                 });
             } else {
+                const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+                if (settings.eaScannerEnabled) {
+                    const row = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`paid_link_ea_start:${tournamentShortId}`)
+                            .setLabel('🎮 Vincular Club EA')
+                            .setStyle(ButtonStyle.Success)
+                    );
+                    components.push(row);
+                }
+                
                 // Mensaje simplificado para Cash Cups
                 await interaction.editReply({
-                    content: `✅ Has mandado solicitud para participar en la modalidad de pago. Espera respuesta en tu DM sobre si Administración te aprueba o rechaza.`
+                    content: `✅ Has mandado solicitud para participar en la modalidad de pago. Espera respuesta en tu DM sobre si Administración te aprueba o rechaza.${settings.eaScannerEnabled ? '\n\n👇 **IMPORTANTE:** Para tener estadísticas de EA en este evento, pulsa el botón verde para buscar y asignar el club que vas a usar.' : ''}`,
+                    components: components
                 });
             }
 
@@ -3430,5 +3456,69 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             components: [confirmRow]
         });
         return;
+    }
+    if (customId.startsWith('paid_link_ea_modal_')) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const parts = customId.split(':');
+        const tournamentShortId = parts[1];
+        
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'El torneo no existe.' });
+
+        const eaClubName = fields.getTextInputValue('ea_club_name');
+        const rawPlatform = fields.getTextInputValue('ea_platform').toLowerCase();
+        
+        let eaPlatform = 'common-gen5';
+        if (rawPlatform.includes('antigua') || rawPlatform.includes('ps4') || rawPlatform.includes('old') || rawPlatform.includes('xbox one')) {
+            eaPlatform = 'common-gen4';
+        }
+
+        try {
+            const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(eaClubName)}&platform=${eaPlatform}`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'application/json',
+                    'Origin': 'https://www.ea.com',
+                    'Referer': 'https://www.ea.com/'
+                }
+            });
+
+            if (eaRes.status === 404) {
+                return interaction.editReply({ content: '❌ EA Sports no encontró ningún club con ese nombre en esta plataforma (Error 404). Asegúrate de escribir el nombre **exacto**.' });
+            }
+
+            if (!eaRes.ok) {
+                return interaction.editReply({ content: `❌ Error al contactar con los servidores de EA Sports (Código: ${eaRes.status}). La API de EA puede estar caída temporalmente.` });
+            }
+
+            const data = await eaRes.json();
+            
+            if (!data || Object.keys(data).length === 0) {
+                return interaction.editReply({ content: '❌ No se encontraron clubes con ese nombre en esa plataforma. Asegúrate de escribir el nombre exacto.' });
+            }
+
+            const clubs = Array.isArray(data) ? data : Object.values(data);
+            const options = clubs.slice(0, 25).map(c => {
+                const name = c.clubName || (c.clubInfo && c.clubInfo.name) || c.name || 'Club Desconocido';
+                return {
+                    label: name.substring(0, 100),
+                    description: `ID: ${c.clubId} | Plataforma: ${eaPlatform}`,
+                    value: `${c.clubId}|${eaPlatform}`
+                };
+            });
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`paid_link_ea_select:${tournamentShortId}`)
+                .setPlaceholder('Selecciona el club que vas a usar en EA...')
+                .addOptions(options);
+
+            return interaction.editReply({
+                content: `🔍 **Búsqueda completada.** Se encontraron varios clubes. Por favor, selecciona el que usarás para este torneo:\n\n*Nota: Al seleccionar el club, se enviará una notificación a la administración para que lo apruebe.*`,
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+        } catch (error) {
+            console.error('Error EA Search (Paid):', error);
+            return interaction.editReply({ content: '❌ Hubo un error al buscar el club en los servidores de EA.' });
+        }
     }
 }
