@@ -4032,7 +4032,8 @@ export async function handleSelectMenu(interaction) {
     }
     if (action === 'paid_link_ea_select') {
         const [tournamentShortId] = params;
-        const [eaClubId, eaPlatform] = interaction.values[0].split('|');
+        const [eaClubId, eaPlatform, ...nameParts] = interaction.values[0].split('|');
+        const eaClubName = nameParts.join('|') || 'Desconocido';
 
         const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
         if (!approvalChannelId) return interaction.reply({ content: '❌ El canal de aprobaciones no está configurado.', flags: [MessageFlags.Ephemeral] });
@@ -4049,7 +4050,7 @@ export async function handleSelectMenu(interaction) {
             .addFields(
                 { name: '👤 Solicitante', value: `<@${interaction.user.id}>`, inline: true },
                 { name: '🏆 Torneo', value: `${tournament.nombre}`, inline: true },
-                { name: '🎮 Club ID EA', value: `${eaClubId}`, inline: true },
+                { name: '⚽ Club EA', value: `${eaClubName} (ID: ${eaClubId})`, inline: false },
                 { name: '🖥️ Plataforma EA', value: `${eaPlatform}`, inline: true }
             )
             .setTimestamp();

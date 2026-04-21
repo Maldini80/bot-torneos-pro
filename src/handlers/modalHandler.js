@@ -3500,10 +3500,11 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             const clubs = Array.isArray(data) ? data : Object.values(data);
             const options = clubs.slice(0, 25).map(c => {
                 const name = c.clubName || (c.clubInfo && c.clubInfo.name) || c.name || 'Club Desconocido';
+                const safeName = name.substring(0, 50).replace(/\|/g, ''); // max 50 chars
                 return {
                     label: name.substring(0, 100),
                     description: `ID: ${c.clubId} | Plataforma: ${eaPlatform}`,
-                    value: `${c.clubId}|${eaPlatform}`
+                    value: `${c.clubId}|${eaPlatform}|${safeName}`
                 };
             });
 

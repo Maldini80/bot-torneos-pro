@@ -515,7 +515,8 @@ module.exports = async (client, interaction) => {
         
         if (!team) return interaction.followUp({ content: '❌ El equipo ya no existe.', flags: MessageFlags.Ephemeral });
 
-        const [eaClubId, eaPlatform] = values[0].split('|');
+        const [eaClubId, eaPlatform, ...nameParts] = values[0].split('|');
+        const eaClubName = nameParts.join('|') || 'Desconocido';
 
         const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
         if (!approvalChannelId) return interaction.followUp({ content: '❌ El canal de aprobaciones no está configurado.', flags: MessageFlags.Ephemeral });
@@ -529,7 +530,7 @@ module.exports = async (client, interaction) => {
             .addFields(
                 { name: '👤 Solicitante', value: `<@${interaction.user.id}>`, inline: true },
                 { name: '🛡️ Equipo VPG', value: `${team.name}`, inline: true },
-                { name: '🎮 Club ID EA', value: `${eaClubId}`, inline: true },
+                { name: '⚽ Club EA', value: `${eaClubName} (ID: ${eaClubId})`, inline: false },
                 { name: '🖥️ Plataforma EA', value: `${eaPlatform}`, inline: true }
             )
             .setTimestamp();
