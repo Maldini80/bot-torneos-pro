@@ -21,7 +21,7 @@ const EA_HEADERS = {
  */
 export async function searchClub(clubName, platform = 'common-gen5') {
     try {
-        const url = `https://proclubs.ea.com/api/fc/clubs/search?clubName=${encodeURIComponent(clubName)}&platform=${platform}`;
+        const url = `https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(clubName)}&platform=${platform}`;
         const response = await fetch(url, { headers: EA_HEADERS });
         if (!response.ok) throw new Error(`EA API responded with status ${response.status}`);
         return await response.json();

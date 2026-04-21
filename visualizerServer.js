@@ -962,7 +962,7 @@ app.get('/api/ea/search', async (req, res) => {
 
     try {
         const fetch = (await import('node-fetch')).default || global.fetch; // node 18+ has global fetch
-        const eaRes = await fetch(`https://proclubs.ea.com/api/fc/clubs/search?clubName=${encodeURIComponent(query)}&platform=${platform}`, {
+        const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(query)}&platform=${platform}`, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'application/json'
