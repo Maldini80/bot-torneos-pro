@@ -538,12 +538,16 @@ if (customId.startsWith('manager_request_modal_')) {
                 return interaction.editReply({ content: '❌ No se encontraron clubes con ese nombre en esa plataforma. Asegúrate de escribir el nombre exacto.' });
             }
 
-            const clubs = Object.values(data);
-            const options = clubs.slice(0, 25).map(c => ({
-                label: c.name.substring(0, 100),
-                description: `ID: ${c.clubId} | Plataforma: ${eaPlatform}`,
-                value: `${c.clubId}|${eaPlatform}`
-            }));
+            // EA API allTimeLeaderboard returns an array of objects
+            const clubs = Array.isArray(data) ? data : Object.values(data);
+            const options = clubs.slice(0, 25).map(c => {
+                const name = c.clubName || (c.clubInfo && c.clubInfo.name) || c.name || 'Club Desconocido';
+                return {
+                    label: name.substring(0, 100),
+                    description: `ID: ${c.clubId} | Plataforma: ${eaPlatform}`,
+                    value: `${c.clubId}|${eaPlatform}`
+                };
+            });
 
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId(`link_ea_select_${teamId}`)

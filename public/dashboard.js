@@ -721,17 +721,19 @@ class DashboardApp {
                     
                     if (!res.ok) throw new Error(data.error || 'Error buscando en EA');
                     
-                    if (!data || Object.keys(data).length === 0) {
+                    if (!data || data.length === 0 || Object.keys(data).length === 0) {
                         eaResults.innerHTML = '<div class="dropdown-item">No se encontraron clubes.</div>';
                     } else {
-                        // EA returns an object mapping clubId to clubInfo
-                        Object.entries(data).forEach(([id, club]) => {
+                        // EA API allTimeLeaderboard returns an array of objects
+                        const clubs = Array.isArray(data) ? data : Object.values(data);
+                        clubs.forEach(club => {
+                            const name = club.clubName || (club.clubInfo && club.clubInfo.name) || club.name || 'Club Desconocido';
                             const div = document.createElement('div');
                             div.className = 'dropdown-item';
-                            div.innerHTML = `<strong>${club.name}</strong> <span style="font-size:0.8em; color:#aaa;">(${club.clubId})</span>`;
+                            div.innerHTML = `<strong>${name}</strong> <span style="font-size:0.8em; color:#aaa;">(${club.clubId})</span>`;
                             div.onclick = () => {
                                 eaSelectedId.value = club.clubId;
-                                eaSelectedName.textContent = club.name;
+                                eaSelectedName.textContent = name;
                                 eaSelectedDiv.classList.remove('hidden');
                                 eaResults.classList.add('hidden');
                                 eaInput.value = '';
