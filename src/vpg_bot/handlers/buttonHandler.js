@@ -396,6 +396,45 @@ const handler = async (client, interaction) => {
     // ===========================================================================
     // =================== LÓGICA DE INTERACCIONES EN GUILD ======================
     // ===========================================================================
+    
+    // --- MANEJO DE APROBACIÓN / RECHAZO DE VINCULACIÓN EA ---
+    if (customId.startsWith('approve_ealink_')) {
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', ephemeral: true });
+
+        const parts = customId.split('_');
+        const teamId = parts[2];
+        const eaClubId = parts[3];
+        const eaPlatform = parts[4];
+
+        const team = await Team.findById(teamId);
+        if (!team) return interaction.reply({ content: 'El equipo ya no existe.', ephemeral: true });
+
+        team.eaClubId = eaClubId;
+        team.eaPlatform = eaPlatform;
+        await team.save();
+
+        const embed = EmbedBuilder.from(interaction.message.embeds[0])
+            .setColor('Green')
+            .setTitle('✅ Vinculación con EA Aprobada');
+
+        await interaction.update({ content: `Aprobado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+    }
+
+    if (customId.startsWith('reject_ealink_')) {
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', ephemeral: true });
+
+        const parts = customId.split('_');
+        const teamId = parts[2];
+
+        const embed = EmbedBuilder.from(interaction.message.embeds[0])
+            .setColor('Red')
+            .setTitle('❌ Vinculación con EA Rechazada');
+
+        await interaction.update({ content: `Rechazado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+    }
+
     const { member, guild } = interaction;
     const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator) || member.roles.cache.has('1393505777443930183') || member.roles.cache.has(process.env.APPROVER_ROLE_ID);
 
@@ -823,6 +862,11 @@ const handler = async (client, interaction) => {
         switch (customId) {
             case 'team_submenu_roster':
                 embed = new EmbedBuilder().setTitle(t('rosterSubmenuTitle', member)).setColor('Blue').setDescription(t('rosterSubmenuDescription', member));
+                if (team.eaClubId) {
+                    embed.addFields({ name: '🎮 EA Sports', value: `Vinculado a ID: \`${team.eaClubId}\` (${team.eaPlatform})`, inline: false });
+                } else {
+                    embed.addFields({ name: '🎮 EA Sports', value: `❌ Sin vincular`, inline: false });
+                }
                 row1 = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId('team_invite_player_button').setLabel(t('invitePlayerButton', member)).setStyle(ButtonStyle.Success),
                     new ButtonBuilder().setCustomId('team_manage_roster_button').setLabel(t('manageMembersButton', member)).setStyle(ButtonStyle.Primary),

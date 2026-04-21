@@ -517,12 +517,32 @@ module.exports = async (client, interaction) => {
 
         const [eaClubId, eaPlatform] = values[0].split('|');
 
-        team.eaClubId = eaClubId;
-        team.eaPlatform = eaPlatform;
-        await team.save();
+        const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
+        if (!approvalChannelId) return interaction.followUp({ content: '❌ El canal de aprobaciones no está configurado.', flags: MessageFlags.Ephemeral });
+
+        const approvalChannel = await interaction.client.channels.fetch(approvalChannelId).catch(() => null);
+        if (!approvalChannel) return interaction.followUp({ content: '❌ No se pudo encontrar el canal de aprobaciones.', flags: MessageFlags.Ephemeral });
+
+        const embed = new EmbedBuilder()
+            .setTitle('Solicitud de Vinculación con EA Sports')
+            .setColor('Yellow')
+            .addFields(
+                { name: '👤 Solicitante', value: `<@${interaction.user.id}>`, inline: true },
+                { name: '🛡️ Equipo VPG', value: `${team.name}`, inline: true },
+                { name: '🎮 Club ID EA', value: `${eaClubId}`, inline: true },
+                { name: '🖥️ Plataforma EA', value: `${eaPlatform}`, inline: true }
+            )
+            .setTimestamp();
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`approve_ealink_${teamId}_${eaClubId}_${eaPlatform}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`reject_ealink_${teamId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+        );
+
+        await approvalChannel.send({ embeds: [embed], components: [row] });
 
         return interaction.followUp({ 
-            content: `✅ **¡Club de EA vinculado con éxito!**\n\nTu equipo está ahora asociado al Club ID \`${eaClubId}\` en la plataforma \`${eaPlatform}\`. Las estadísticas de tus partidos se recopilarán automáticamente cuando se reporten los resultados.`,
+            content: `⏳ **¡Solicitud enviada!**\n\nTu petición para vincular el equipo al Club ID de EA \`${eaClubId}\` ha sido enviada a los administradores para su revisión y aprobación.`,
             flags: MessageFlags.Ephemeral
         });
     }
@@ -564,6 +584,12 @@ module.exports = async (client, interaction) => {
 
         const embed = new EmbedBuilder().setTitle(`Gestión: ${team.name}`).setColor('DarkRed').setThumbnail(team.logoUrl)
             .addFields({ name: '📊 ELO', value: `${team.elo || 1000}`, inline: true });
+            
+        if (team.eaClubId) {
+            embed.addFields({ name: '🎮 Club de EA Vinculado', value: `ID: \`${team.eaClubId}\`\nConsola: \`${team.eaPlatform}\``, inline: false });
+        } else {
+            embed.addFields({ name: '🎮 Club de EA Vinculado', value: `❌ Sin vincular`, inline: false });
+        }
             
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`admin_change_data_${teamId}`).setLabel('Cambiar Datos').setStyle(ButtonStyle.Secondary),
