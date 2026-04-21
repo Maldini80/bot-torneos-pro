@@ -499,6 +499,58 @@ if (customId.startsWith('manager_request_modal_')) {
         return interaction.editReply({ content: `✅ Los datos del equipo **${team.name}** han sido actualizados.` });
     }
 
+    if (customId.startsWith('link_ea_modal_')) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const teamId = customId.split('_')[3];
+        const team = await Team.findById(teamId);
+        if (!team) return interaction.editReply({ content: 'El equipo ya no existe.' });
+
+        const eaClubName = fields.getTextInputValue('ea_club_name');
+        const eaPlatform = fields.getTextInputValue('ea_platform');
+
+        try {
+            const eaRes = await fetch(`https://proclubs.ea.com/api/fc/clubs/search?clubName=${encodeURIComponent(eaClubName)}&platform=${eaPlatform}`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                    'Accept': 'application/json',
+                    'Origin': 'https://www.ea.com',
+                    'Referer': 'https://www.ea.com/'
+                }
+            });
+
+            if (!eaRes.ok) {
+                throw new Error(`EA API responded with status ${eaRes.status}`);
+            }
+
+            const data = await eaRes.json();
+            
+            if (!data || Object.keys(data).length === 0) {
+                return interaction.editReply({ content: '❌ No se encontraron clubes con ese nombre en esa plataforma. Asegúrate de escribir el nombre exacto.' });
+            }
+
+            const clubs = Object.values(data);
+            const options = clubs.slice(0, 25).map(c => ({
+                label: c.name.substring(0, 100),
+                description: `ID: ${c.clubId} | Plataforma: ${eaPlatform}`,
+                value: `${c.clubId}|${eaPlatform}`
+            }));
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId(`link_ea_select_${teamId}`)
+                .setPlaceholder('Selecciona tu club de EA FC...')
+                .addOptions(options);
+
+            return interaction.editReply({
+                content: `🔍 **Búsqueda completada.** Se encontraron varios clubes. Por favor, selecciona el tuyo de la lista a continuación:\n\n*Nota: Al seleccionar el club, tu equipo de VPG quedará vinculado automáticamente para la recolección de estadísticas.*`,
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
+
+        } catch (error) {
+            console.error('Error al buscar club de EA:', error);
+            return interaction.editReply({ content: '❌ Hubo un problema al buscar en los servidores de EA. Inténtalo de nuevo más tarde.' });
+        }
+    }
+
     if (customId === 'market_agent_modal' || customId.startsWith('market_agent_modal_edit')) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 

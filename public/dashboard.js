@@ -696,6 +696,71 @@ class DashboardApp {
             });
         }
 
+        // EA Search Logic
+        const eaSearchBtn = document.getElementById('search-ea-btn');
+        const eaInput = document.getElementById('team-ea-name');
+        const eaPlatform = document.getElementById('team-ea-platform');
+        const eaResults = document.getElementById('ea-search-results');
+        const eaSelectedId = document.getElementById('team-ea-id');
+        const eaSelectedDiv = document.getElementById('ea-selected-club');
+        const eaSelectedName = document.getElementById('ea-selected-name');
+        const eaRemoveBtn = document.getElementById('ea-remove-btn');
+
+        if (eaSearchBtn) {
+            eaSearchBtn.addEventListener('click', async () => {
+                const query = eaInput.value.trim();
+                if (query.length < 3) return alert('Introduce al menos 3 letras para buscar en EA.');
+                
+                eaSearchBtn.textContent = '⏳';
+                eaSearchBtn.disabled = true;
+                eaResults.innerHTML = '';
+                
+                try {
+                    const res = await fetch(`/api/ea/search?clubName=${encodeURIComponent(query)}&platform=${eaPlatform.value}`);
+                    const data = await res.json();
+                    
+                    if (!res.ok) throw new Error(data.error || 'Error buscando en EA');
+                    
+                    if (!data || Object.keys(data).length === 0) {
+                        eaResults.innerHTML = '<div class="dropdown-item">No se encontraron clubes.</div>';
+                    } else {
+                        // EA returns an object mapping clubId to clubInfo
+                        Object.entries(data).forEach(([id, club]) => {
+                            const div = document.createElement('div');
+                            div.className = 'dropdown-item';
+                            div.innerHTML = `<strong>${club.name}</strong> <span style="font-size:0.8em; color:#aaa;">(${club.clubId})</span>`;
+                            div.onclick = () => {
+                                eaSelectedId.value = club.clubId;
+                                eaSelectedName.textContent = club.name;
+                                eaSelectedDiv.classList.remove('hidden');
+                                eaResults.classList.add('hidden');
+                                eaInput.value = '';
+                            };
+                            eaResults.appendChild(div);
+                        });
+                    }
+                    eaResults.classList.remove('hidden');
+                } catch (e) {
+                    alert(e.message);
+                } finally {
+                    eaSearchBtn.textContent = '🔍 Buscar';
+                    eaSearchBtn.disabled = false;
+                }
+            });
+            
+            eaRemoveBtn.addEventListener('click', () => {
+                eaSelectedId.value = '';
+                eaSelectedDiv.classList.add('hidden');
+            });
+            
+            // Hide results if clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-container')) {
+                    if (eaResults) eaResults.classList.add('hidden');
+                }
+            });
+        }
+
         // Form Submit
         const form = document.getElementById('create-team-form');
         if (form) {
@@ -712,7 +777,9 @@ class DashboardApp {
                     teamName: document.getElementById('team-name').value,
                     teamAbbr: document.getElementById('team-abbr').value,
                     teamTwitter: document.getElementById('team-twitter').value,
-                    logoUrl: document.getElementById('team-logo').value
+                    logoUrl: document.getElementById('team-logo').value,
+                    eaClubId: document.getElementById('team-ea-id') ? document.getElementById('team-ea-id').value : null,
+                    eaPlatform: document.getElementById('team-ea-platform') ? document.getElementById('team-ea-platform').value : 'common-gen5'
                 };
 
                 try {

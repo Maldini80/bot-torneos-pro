@@ -43,6 +43,7 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
     const settings = await getBotSettings();
     const translationEnabled = settings.translationEnabled;
     const twitterEnabled = settings.twitterEnabled;
+    const eaScannerEnabled = settings.eaScannerEnabled || false;
 
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
@@ -90,12 +91,13 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
             embed.setTitle('Ajustes Globales del Bot')
                  .setDescription(isBusy
                     ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
-                    : `✅ **ESTADO: LISTO**\nTraducción: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}** | Twitter: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**`
+                    : `✅ **ESTADO: LISTO**\nTraducción: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}** | Twitter: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}** | EA Scanner: **${eaScannerEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**`
                  );
             const globalSettingsRow1 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_toggle_translation').setLabel(translationEnabled ? 'Desactivar Traducción' : 'Activar Traducción').setStyle(ButtonStyle.Primary).setEmoji(translationEnabled ? '🔇' : '🔊').setDisabled(isBusy),
                 new ButtonBuilder().setCustomId('admin_toggle_twitter').setLabel(twitterEnabled ? 'Desactivar Twitter' : 'Activar Twitter').setStyle(ButtonStyle.Primary).setEmoji('🐦').setDisabled(isBusy),
-                new ButtonBuilder().setCustomId('admin_update_channel_status').setLabel('Cambiar Icono Canal').setStyle(ButtonStyle.Secondary).setEmoji('🎨').setDisabled(isBusy)
+                new ButtonBuilder().setCustomId('admin_update_channel_status').setLabel('Cambiar Icono Canal').setStyle(ButtonStyle.Secondary).setEmoji('🎨').setDisabled(isBusy),
+                new ButtonBuilder().setCustomId('admin_toggle_ea_scanner').setLabel(eaScannerEnabled ? 'Desactivar EA Scanner' : 'Activar EA Scanner').setStyle(ButtonStyle.Primary).setEmoji('🎮').setDisabled(isBusy)
             );
             const globalSettingsRow2 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_manage_elo').setLabel('Gestionar ELO').setStyle(ButtonStyle.Success).setEmoji('📈').setDisabled(isBusy),

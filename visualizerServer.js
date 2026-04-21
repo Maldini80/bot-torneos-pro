@@ -953,11 +953,36 @@ app.get('/api/leagues', async (req, res) => {
     }
 });
 
+// Endpoint: Buscar Clubes en EA Sports (Proxy)
+app.get('/api/ea/search', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+    const query = req.query.clubName;
+    const platform = req.query.platform || 'common-gen5';
+    if (!query) return res.status(400).json({ error: 'Falta el nombre del club' });
+
+    try {
+        const fetch = (await import('node-fetch')).default || global.fetch; // node 18+ has global fetch
+        const eaRes = await fetch(`https://proclubs.ea.com/api/fc/clubs/search?clubName=${encodeURIComponent(query)}&platform=${platform}`, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!eaRes.ok) throw new Error(`EA API responded with status: ${eaRes.status}`);
+        const data = await eaRes.json();
+        res.json(data);
+    } catch (e) {
+        console.error('[EA Search Proxy] Error:', e.message);
+        res.status(500).json({ error: 'Error al contactar con EA Sports' });
+    }
+});
+
 // Endpoint: Solicitar creación de equipo (con aprobación admin)
 app.post('/api/teams/request', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
-    const { teamName: rawTeamName, teamAbbr: rawTeamAbbr, teamTwitter, logoUrl, league } = req.body;
+    const { teamName: rawTeamName, teamAbbr: rawTeamAbbr, teamTwitter, logoUrl, league, eaClubId, eaPlatform } = req.body;
     const teamName = sanitizeInput(rawTeamName, 40);
     const teamAbbr = sanitizeInput(rawTeamAbbr, 5);
 
@@ -1031,6 +1056,8 @@ app.post('/api/teams/request', async (req, res) => {
             teamTwitter: teamTwitter || null,
             leagueName: league,
             logoUrl: logoUrl || defaultLogo,
+            eaClubId: eaClubId || null,
+            eaPlatform: eaPlatform || 'common-gen5',
             createdAt: new Date()
         };
 

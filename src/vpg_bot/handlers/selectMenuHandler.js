@@ -508,6 +508,25 @@ module.exports = async (client, interaction) => {
         return;
     }
 
+    if (customId.startsWith('link_ea_select_')) {
+        await interaction.deferUpdate();
+        const teamId = customId.split('_')[3];
+        const team = await Team.findById(teamId);
+        
+        if (!team) return interaction.followUp({ content: '❌ El equipo ya no existe.', flags: MessageFlags.Ephemeral });
+
+        const [eaClubId, eaPlatform] = values[0].split('|');
+
+        team.eaClubId = eaClubId;
+        team.eaPlatform = eaPlatform;
+        await team.save();
+
+        return interaction.followUp({ 
+            content: `✅ **¡Club de EA vinculado con éxito!**\n\nTu equipo está ahora asociado al Club ID \`${eaClubId}\` en la plataforma \`${eaPlatform}\`. Las estadísticas de tus partidos se recopilarán automáticamente cuando se reporten los resultados.`,
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
     if (customId.startsWith('select_league_filter_')) {
         await interaction.deferUpdate();
         const panelType = customId.split('_')[3];

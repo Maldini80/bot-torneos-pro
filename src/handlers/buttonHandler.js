@@ -2181,6 +2181,16 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_toggle_ea_scanner') {
+        await interaction.deferUpdate();
+        const currentSettings = await getBotSettings();
+        const newState = !currentSettings.eaScannerEnabled;
+        await updateBotSettings({ eaScannerEnabled: newState });
+        await updateAdminPanel(client);
+        await interaction.followUp({ content: `✅ El Recolector de Estadísticas de EA Sports ha sido **${newState ? 'ACTIVADO' : 'DESACTIVADO'}**.`, flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
     if (action === 'rules_accept') {
         // --- INICIO DE LA SOLUCIÓN: Capturar el channelId y pasarlo correctamente ---
         const [currentStepStr, originalBaseAction, channelId, entityId] = params;

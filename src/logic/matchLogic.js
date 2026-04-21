@@ -86,6 +86,37 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     await updateTournamentManagementThread(client, finalTournamentState);
     await notifyTournamentVisualizer(finalTournamentState);
 
+    // [NUEVA LÓGICA] Cola Global de Estadísticas de EA Sports
+    try {
+        const { getBotSettings } = await import('../../database.js');
+        const globalSettings = await getBotSettings();
+        
+        if (globalSettings.eaScannerEnabled) {
+            // Buscamos los equipos actualizados en la BD de equipos central
+            const teamAId = partido.equipoA._id;
+            const teamBId = partido.equipoB._id;
+            
+            const teamA = await db.collection('teams').findOne({ _id: teamAId });
+            const teamB = await db.collection('teams').findOne({ _id: teamBId });
+            
+            if (teamA && teamA.eaClubId && teamB && teamB.eaClubId) {
+                const { addJob } = await import('../utils/eaStatsQueue.js');
+                addJob(
+                    matchId, 
+                    currentTournament.shortId, 
+                    matchPath, 
+                    teamA.eaClubId, 
+                    teamB.eaClubId, 
+                    teamA.eaPlatform, 
+                    teamB.eaPlatform
+                );
+            } else {
+                console.log(`[EA_QUEUE] Partido ${matchId} ignorado: Al menos uno de los equipos no tiene vinculado un Club de EA.`);
+            }
+        }
+    } catch (eaError) {
+        console.error(`[EA_QUEUE] Error al intentar añadir trabajo a la cola:`, eaError);
+    }
 
     return partido;
 }

@@ -12,6 +12,8 @@ const teamSchema = new mongoose.Schema({
     captains: [{ type: String }],
     players: [{ type: String }],
     elo: { type: Number },
+    eaClubId: { type: String, default: null },
+    eaPlatform: { type: String, default: 'common-gen5' },
     // AÑADE LA SIGUIENTE LÍNEA AQUÍ
     recruitmentOpen: { type: Boolean, default: true }
 });

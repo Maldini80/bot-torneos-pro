@@ -153,6 +153,7 @@ const defaultBotSettings = {
     _id: 'global_config', // Usamos un ID fijo para tener siempre un único documento de configuración
     translationEnabled: true,
     twitterEnabled: true,
+    eaScannerEnabled: false, // Interruptor global para el recolector de EA Sports
     // --- INICIO DE LAS NUEVAS REGLAS ---
     draftMinQuotas: 'GK:1,DFC:2,CARR:2,MC:4,DC:2', // Mínimo para iniciar selección
     draftMaxQuotas: 'GK:1,DFC:2,CARR:2,MC:4,DC:2'  // Máximo por equipo

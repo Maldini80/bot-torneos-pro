@@ -830,7 +830,8 @@ const handler = async (client, interaction) => {
                 );
                 row2 = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId('team_toggle_recruitment_button').setLabel(t('toggleRecruitmentButton', member)).setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId('team_edit_data_button').setLabel(t('editTeamDataButton', member)).setStyle(ButtonStyle.Danger)
+                    new ButtonBuilder().setCustomId('team_edit_data_button').setLabel(t('editTeamDataButton', member)).setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder().setCustomId('team_link_ea_button').setLabel('Vincular EA Sports').setStyle(ButtonStyle.Success).setEmoji('🎮')
                 );
                 await interaction.editReply({ embeds: [embed], components: [row1, row2] });
                 break;
@@ -1127,6 +1128,40 @@ const handler = async (client, interaction) => {
             new ActionRowBuilder().addComponents(newAbbrInput),
             new ActionRowBuilder().addComponents(newLogoInput),
             new ActionRowBuilder().addComponents(newTwitterInput)
+        );
+
+        return interaction.showModal(modal);
+    }
+
+    if (customId === 'team_link_ea_button') {
+        const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
+        if (!team) return interaction.reply({ content: 'No se encontró tu equipo o no tienes permisos.', ephemeral: true });
+
+        const isManager = team.managerId === user.id;
+        if (!isManager) return interaction.reply({ content: 'Solo el mánager del equipo puede vincularlo con EA Sports.', ephemeral: true });
+
+        const modal = new ModalBuilder()
+            .setCustomId(`link_ea_modal_${team._id}`)
+            .setTitle('Vincular con EA Sports');
+
+        const eaNameInput = new TextInputBuilder()
+            .setCustomId('ea_club_name')
+            .setLabel("Nombre exacto de tu club en EA FC")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setPlaceholder("Ej: Los Galacticos");
+            
+        const eaPlatformInput = new TextInputBuilder()
+            .setCustomId('ea_platform')
+            .setLabel("Plataforma (gen5 o gen4)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue("common-gen5")
+            .setPlaceholder("common-gen5 (PS5/Xbox/PC) o common-gen4 (PS4)");
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(eaNameInput),
+            new ActionRowBuilder().addComponents(eaPlatformInput)
         );
 
         return interaction.showModal(modal);
