@@ -4035,6 +4035,48 @@ export async function handleSelectMenu(interaction) {
         const [eaClubId, eaPlatform, ...nameParts] = interaction.values[0].split('|');
         const eaClubName = nameParts.join('|') || 'Desconocido';
 
+        // Flujo GLOBAL: Viene del botón genérico team_link_ea_button (no de un torneo específico)
+        if (tournamentShortId === 'global') {
+            await interaction.deferUpdate();
+            const testDb = getDb('test');
+            const userTeam = await testDb.collection('teams').findOne({
+                guildId: interaction.guildId,
+                $or: [{ managerId: interaction.user.id }, { captains: interaction.user.id }]
+            });
+            if (!userTeam) return interaction.editReply({ content: '❌ No se encontró tu equipo.', components: [] });
+
+            // Guardar directamente en el equipo
+            await testDb.collection('teams').updateOne(
+                { _id: userTeam._id },
+                { $set: { eaClubId: eaClubId, eaPlatform: eaPlatform, eaClubName: eaClubName } }
+            );
+
+            // Enviar notificación de aprobación a admins
+            const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
+            if (approvalChannelId) {
+                const approvalChannel = await client.channels.fetch(approvalChannelId).catch(() => null);
+                if (approvalChannel) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('✅ Vinculación EA Sports (Automática)')
+                        .setColor('Green')
+                        .addFields(
+                            { name: '👤 Solicitante', value: `<@${interaction.user.id}>`, inline: true },
+                            { name: '🏟️ Equipo', value: `${userTeam.name}`, inline: true },
+                            { name: '⚽ Club EA', value: `${eaClubName} (ID: ${eaClubId})`, inline: false },
+                            { name: '🖥️ Plataforma EA', value: `${eaPlatform}`, inline: true }
+                        )
+                        .setTimestamp();
+                    await approvalChannel.send({ embeds: [embed] });
+                }
+            }
+
+            return interaction.editReply({
+                content: `✅ **¡Club vinculado!**\n\nTu equipo **${userTeam.name}** ha sido vinculado al club de EA **${eaClubName}** (ID: \`${eaClubId}\`). Ya puedes inscribirte en torneos y bolsas.`,
+                components: []
+            });
+        }
+
+        // Flujo de TORNEO: El original
         const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
         if (!approvalChannelId) return interaction.reply({ content: '❌ El canal de aprobaciones no está configurado.', flags: [MessageFlags.Ephemeral] });
 

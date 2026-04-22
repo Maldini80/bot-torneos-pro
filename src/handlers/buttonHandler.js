@@ -7528,6 +7528,42 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         }
     }
 
+    if (action === 'team_link_ea_button') {
+        const testDb = getDb('test');
+        const userTeam = await testDb.collection('teams').findOne({
+            guildId: guild.id,
+            $or: [{ managerId: interaction.user.id }, { captains: interaction.user.id }]
+        });
+        if (!userTeam) return interaction.reply({ content: 'No se encontró tu equipo o no tienes permisos.', flags: [MessageFlags.Ephemeral] });
+
+        const modal = new ModalBuilder()
+            .setCustomId(`paid_link_ea_modal_:global`)
+            .setTitle('Vincular con EA Sports');
+
+        const eaNameInput = new TextInputBuilder()
+            .setCustomId('ea_club_name')
+            .setLabel("Nombre exacto de tu club en EA FC")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setPlaceholder("Ej: Los Galacticos");
+
+        const eaPlatformInput = new TextInputBuilder()
+            .setCustomId('ea_platform')
+            .setLabel("Consola (Nueva Gen o Antigua Gen)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue("Nueva Gen")
+            .setPlaceholder("Escribe: Nueva Gen o Antigua Gen");
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(eaNameInput),
+            new ActionRowBuilder().addComponents(eaPlatformInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
     if (action === 'paid_link_ea_start') {
         const [tournamentShortId] = params;
         const modal = new ModalBuilder()

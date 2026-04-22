@@ -3462,8 +3462,11 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         const parts = customId.split(':');
         const tournamentShortId = parts[1];
         
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply({ content: 'El torneo no existe.' });
+        // Si es 'global', no necesitamos buscar torneo (viene del botón genérico team_link_ea_button)
+        if (tournamentShortId !== 'global') {
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) return interaction.editReply({ content: 'El torneo no existe.' });
+        }
 
         const eaClubName = fields.getTextInputValue('ea_club_name');
         const rawPlatform = fields.getTextInputValue('ea_platform').toLowerCase();
