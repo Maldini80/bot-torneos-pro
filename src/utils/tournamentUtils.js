@@ -1,7 +1,7 @@
 // src/utils/tournamentUtils.js
 import { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { ARBITRO_ROLE_ID } from '../../config.js';
-import { getDb } from '../../database.js';
+import { getDb, getBotSettings } from '../../database.js';
 
 export function createMatchObject(nombreGrupo, jornada, equipoA, equipoB) {
     const cleanEquipoA = JSON.parse(JSON.stringify(equipoA));
@@ -131,6 +131,18 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️"),
             new ButtonBuilder().setCustomId(`invite_to_thread:${partido.matchId}:${tournamentShortId}`).setLabel("Invitar al Hilo").setStyle(ButtonStyle.Secondary).setEmoji("🤝")
         );
+
+        // Añadir botón de scouting de alturas si EA Scanner está activado
+        try {
+            const globalSettings = await getBotSettings();
+            if (globalSettings && globalSettings.eaScannerEnabled) {
+                row2.addComponents(
+                    new ButtonBuilder().setCustomId(`scout_heights:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Alturas").setStyle(ButtonStyle.Success).setEmoji("📏")
+                );
+            }
+        } catch (e) {
+            console.warn('[SCOUT] No se pudo verificar eaScannerEnabled:', e.message);
+        }
 
         await thread.send({ content: `<@&${ARBITRO_ROLE_ID}> ${mentionString}`, embeds: [embed], components: [row1, row2] });
 

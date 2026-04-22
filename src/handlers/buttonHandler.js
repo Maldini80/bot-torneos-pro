@@ -2263,6 +2263,152 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'scout_heights') {
+        const [matchId, tournamentShortId] = params;
+        
+        // Verificación de configuración global
+        const { getBotSettings } = await import('../../database.js');
+        const currentSettings = await getBotSettings();
+        if (!currentSettings || !currentSettings.eaScannerEnabled) {
+            return interaction.reply({ content: '❌ El escáner de EA Sports está desactivado globalmente.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: '❌ Torneo no encontrado.' });
+
+        const { partido } = findMatch(tournament, matchId);
+        if (!partido) return interaction.editReply({ content: '❌ Partido no encontrado.' });
+
+        // Identificar si pertenece al equipo A o B
+        const isTeamA = (partido.equipoA.id === interaction.user.id) || (tournament.teams?.aprobados?.[interaction.user.id]?.id === partido.equipoA.id) || (tournament.teams?.aprobados?.[partido.equipoA.id]?.coCaptainId === interaction.user.id) || (tournament.teams?.aprobados?.[partido.equipoA.id]?.extraCaptains?.includes(interaction.user.id));
+        const isTeamB = (partido.equipoB.id === interaction.user.id) || (tournament.teams?.aprobados?.[interaction.user.id]?.id === partido.equipoB.id) || (tournament.teams?.aprobados?.[partido.equipoB.id]?.coCaptainId === interaction.user.id) || (tournament.teams?.aprobados?.[partido.equipoB.id]?.extraCaptains?.includes(interaction.user.id));
+
+        if (!isTeamA && !isTeamB) {
+            return interaction.editReply({ content: '❌ No perteneces a ninguno de los dos equipos de este partido.' });
+        }
+
+        const userTeamLabel = isTeamA ? partido.equipoA.nombre : partido.equipoB.nombre;
+
+        // Comprobar si ya se pidió (usando historial de mensajes del hilo)
+        const messages = await interaction.channel.messages.fetch({ limit: 50 });
+        const alreadyScouted = messages.find(m => m.author.id === client.user.id && m.embeds.length > 0 && m.embeds[0].title === '📏 SCOUTING - Alturas y Posiciones' && m.embeds[0].footer?.text?.includes(`Solicitado por: ${userTeamLabel}`));
+
+        if (alreadyScouted) {
+            return interaction.editReply({ content: `❌ Tu equipo (${userTeamLabel}) ya ha utilizado su solicitud de Scouting para este partido.` });
+        }
+
+        // Buscar eaClubId de ambos equipos
+        const teamA_Data = await db.collection('teams').findOne({ $or: [{ managerId: partido.equipoA.id }, { captains: partido.equipoA.id }] });
+        const teamB_Data = await db.collection('teams').findOne({ $or: [{ managerId: partido.equipoB.id }, { captains: partido.equipoB.id }] });
+
+        if (!teamA_Data || !teamA_Data.eaClubId || !teamB_Data || !teamB_Data.eaClubId) {
+            return interaction.editReply({ content: '❌ Al menos uno de los dos equipos no tiene configurado su Club de EA Sports en el sistema.' });
+        }
+
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            'Accept': 'application/json',
+            'Origin': 'https://www.ea.com',
+            'Referer': 'https://www.ea.com/'
+        };
+
+        const fetchTeamScout = async (clubId, platform) => {
+            // 1. Fetch matches para saber quién jugó el último partido (así filtramos a los suplentes/gente offline)
+            const urlMatches = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`;
+            const resMatches = await fetch(urlMatches, { headers }).catch(() => null);
+            let playedNames = [];
+            if (resMatches && resMatches.ok) {
+                const dataM = await resMatches.json().catch(() => []);
+                const matches = Array.isArray(dataM) ? dataM : Object.values(dataM || {});
+                matches.sort((a, b) => b.timestamp - a.timestamp);
+                if (matches.length > 0) {
+                    const lastMatch = matches[0];
+                    if (lastMatch.players && lastMatch.players[String(clubId)]) {
+                        playedNames = Object.values(lastMatch.players[String(clubId)]).map(p => p.playername);
+                    }
+                }
+            }
+
+            // 2. Fetch stats para sacar las alturas
+            const urlStats = `https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`;
+            const resStats = await fetch(urlStats, { headers }).catch(() => null);
+            let members = [];
+            if (resStats && resStats.ok) {
+                const dataS = await resStats.json().catch(() => ({}));
+                if (dataS.members) members = dataS.members;
+            }
+
+            // Mapeo de posiciones
+            const posMap = {
+                0: 'POR', 1: 'DFD', 2: 'DFC', 3: 'DFI', 4: 'CAD', 5: 'CAI',
+                6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
+                11: 'EDD', 12: 'EDI', 13: 'SD', 14: 'DC'
+            };
+
+            const playersData = [];
+            for (const member of members) {
+                if (playedNames.length > 0 && !playedNames.includes(member.name)) continue;
+
+                const posId = member.proPos;
+                const posName = posMap[posId] || `POS ${posId}`;
+                const height = member.proHeight || '?';
+                
+                playersData.push({
+                    name: member.name,
+                    posName,
+                    posId: parseInt(posId) || 99,
+                    height
+                });
+            }
+
+            // Ordenar por ID de posición (0 = Portero, 14 = DC)
+            playersData.sort((a, b) => a.posId - b.posId);
+            return playersData;
+        };
+
+        const [scoutA, scoutB] = await Promise.all([
+            fetchTeamScout(teamA_Data.eaClubId, teamA_Data.eaPlatform),
+            fetchTeamScout(teamB_Data.eaClubId, teamB_Data.eaPlatform)
+        ]);
+
+        const buildEmbedsForTeam = (teamName, isLocal, players) => {
+            const embeds = [];
+            const emoji = isLocal ? '🏠' : '✈️';
+            
+            if (!players || players.length === 0) {
+                 const e = new EmbedBuilder().setColor('Green').setDescription(`${emoji} **${teamName}**\n*No se encontraron datos recientes en EA.*`);
+                 embeds.push(e);
+                 return embeds;
+            }
+            
+            // Dividir en bloques de 25 jugadores
+            for (let i = 0; i < players.length; i += 25) {
+                const chunk = players.slice(i, i + 25);
+                const text = chunk.map(p => `\`${p.posName.padEnd(3)}\` | **${p.name.padEnd(16)}** | ${p.height} cm`).join('\n');
+                const titleText = i === 0 ? `${emoji} **${teamName}**` : `${emoji} **${teamName}** (Cont.)`;
+                const e = new EmbedBuilder().setColor('Green').setDescription(`${titleText}\n${text}`);
+                embeds.push(e);
+            }
+            return embeds;
+        };
+
+        const allEmbeds = [
+            ...buildEmbedsForTeam(partido.equipoA.nombre, true, scoutA),
+            ...buildEmbedsForTeam(partido.equipoB.nombre, false, scoutB)
+        ];
+        
+        // Añadir título al primer embed y footer al último
+        if (allEmbeds.length > 0) {
+            allEmbeds[0].setTitle('📏 SCOUTING - Alturas y Posiciones');
+            allEmbeds[allEmbeds.length - 1].setFooter({ text: `Solicitado por: ${userTeamLabel} | Solo 1 uso por equipo` }).setTimestamp();
+        }
+
+        await interaction.channel.send({ embeds: allEmbeds });
+        return interaction.editReply({ content: '✅ Scouting completado. Resultado publicado en el hilo.' });
+    }
+
     const modalActions = ['admin_modify_result_start', 'payment_confirm_start', 'admin_add_test_teams', 'admin_edit_tournament_start', 'admin_rename_tournament', 'report_result_start'];
     if (modalActions.includes(action)) {
         if (action === 'admin_modify_result_start') {
