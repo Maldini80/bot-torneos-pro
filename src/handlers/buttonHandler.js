@@ -7434,7 +7434,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
     if (action === 'approve_paid_ealink') {
-        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
 
         const [tournamentShortId, userId, eaClubId, eaPlatform] = params;
@@ -7471,7 +7471,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     }
 
     if (action === 'reject_paid_ealink') {
-        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
 
         const [userId] = params;
@@ -7485,7 +7485,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     }
 
     if (action === 'approve_global_ealink') {
-        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
 
         const [teamDbId, eaClubId, eaPlatform] = params;
@@ -7506,7 +7506,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     }
 
     if (action === 'reject_global_ealink') {
-        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
 
         const embed = EmbedBuilder.from(interaction.message.embeds[0])
