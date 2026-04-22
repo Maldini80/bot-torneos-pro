@@ -132,17 +132,18 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             new ButtonBuilder().setCustomId(`invite_to_thread:${partido.matchId}:${tournamentShortId}`).setLabel("Invitar al Hilo").setStyle(ButtonStyle.Secondary).setEmoji("🤝")
         );
 
-        // Añadir botón de scouting de alturas si EA Scanner está activado
-        try {
-            const globalSettings = await getBotSettings();
-            if (globalSettings && globalSettings.eaScannerEnabled) {
-                row2.addComponents(
-                    new ButtonBuilder().setCustomId(`scout_heights:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Alturas").setStyle(ButtonStyle.Success).setEmoji("📏")
-                );
-            }
-        } catch (e) {
-            console.warn('[SCOUT] No se pudo verificar eaScannerEnabled:', e.message);
-        }
+        // Botón de scouting de alturas DESACTIVADO temporalmente.
+        // La API de EA solo devuelve la config actual del Pro, no la del partido jugado.
+        // try {
+        //     const globalSettings = await getBotSettings();
+        //     if (globalSettings && globalSettings.eaScannerEnabled) {
+        //         row2.addComponents(
+        //             new ButtonBuilder().setCustomId(`scout_heights:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Alturas").setStyle(ButtonStyle.Success).setEmoji("📏")
+        //         );
+        //     }
+        // } catch (e) {
+        //     console.warn('[SCOUT] No se pudo verificar eaScannerEnabled:', e.message);
+        // }
 
         await thread.send({ content: `<@&${ARBITRO_ROLE_ID}> ${mentionString}`, embeds: [embed], components: [row1, row2] });
 

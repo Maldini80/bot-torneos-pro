@@ -880,11 +880,13 @@ const handler = async (client, interaction) => {
                     new ButtonBuilder().setCustomId('team_link_ea_button').setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮'),
                     new ButtonBuilder().setCustomId('team_unlink_ea_button').setLabel('Desvincular EA').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
-                const row3 = new ActionRowBuilder();
-                if (team.eaClubId) {
-                    row3.addComponents(new ButtonBuilder().setCustomId('team_view_ea_heights_button').setLabel('Ver Alturas Plantilla EA').setStyle(ButtonStyle.Primary).setEmoji('📏'));
-                }
-                const components = team.eaClubId ? [row1, row2, row3] : [row1, row2];
+                // Botón de alturas DESACTIVADO temporalmente en panel de managers.
+                // La API de EA solo devuelve config actual del Pro, no la del partido jugado.
+                // const row3 = new ActionRowBuilder();
+                // if (team.eaClubId) {
+                //     row3.addComponents(new ButtonBuilder().setCustomId('team_view_ea_heights_button').setLabel('Ver Alturas Plantilla EA').setStyle(ButtonStyle.Primary).setEmoji('📏'));
+                // }
+                const components = [row1, row2];
                 await interaction.editReply({ embeds: [embed], components });
                 break;
             case 'team_submenu_friendlies':
