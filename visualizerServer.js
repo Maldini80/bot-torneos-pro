@@ -3676,6 +3676,20 @@ export async function startVisualizerServer(discordClient) {
                 blockReason = `Tu equipo tiene ${teamElo} ELO, pero esta bolsa permite máximo ${pool.maxElo} ELO.`;
             }
 
+            // Check EA Scanner
+            if (!blocked) {
+                try {
+                    const { getBotSettings } = await import('./database.js');
+                    const settings = await getBotSettings();
+                    if (settings.eaScannerEnabled && !userTeam.eaClubId) {
+                        blocked = true;
+                        blockReason = 'Debes vincular tu Club de EA Sports antes de inscribirte. Hazlo desde Discord con el botón "Vincular Club EA" en el panel de tu equipo.';
+                    }
+                } catch (e) {
+                    console.error('[my-status] Error checking EA settings:', e);
+                }
+            }
+
             res.json({
                 hasTeam: true,
                 team: {
