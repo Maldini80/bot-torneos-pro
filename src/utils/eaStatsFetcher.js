@@ -216,9 +216,10 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
 
         // Strategy 1: Try members/career/stats (singular clubId)
         const endpoints = [
-            `https://proclubs.ea.com/api/fc/members/career/stats?clubId=${clubId}&platform=${platform}`,
-            `https://proclubs.ea.com/api/fc/members/stats?clubId=${clubId}&platform=${platform}`,
+            `https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`,
             `https://proclubs.ea.com/api/fc/members/career/stats?clubIds=${clubId}&platform=${platform}`,
+            `https://proclubs.ea.com/api/fc/members/stats?clubId=${clubId}&platform=${platform}`,
+            `https://proclubs.ea.com/api/fc/members/career/stats?clubId=${clubId}&platform=${platform}`,
         ];
 
         for (const url of endpoints) {
