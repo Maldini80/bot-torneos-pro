@@ -247,6 +247,9 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
 
                 if (members.length > 0) {
                     console.log(`[EA Heights] Found ${members.length} members from stats endpoint`);
+                    // Debug: log first member's full structure
+                    console.log(`[EA Heights] Sample member keys: ${Object.keys(members[0]).join(', ')}`);
+                    console.log(`[EA Heights] Sample member data: ${JSON.stringify(members[0]).substring(0, 500)}`);
                     const playersData = members.map(m => ({
                         name: m.name || m.playername || 'Desconocido',
                         posName: posMap[m.proPos] || m.favoritePosition || `POS ${m.proPos}`,
