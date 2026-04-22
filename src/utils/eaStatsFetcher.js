@@ -212,11 +212,42 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
 export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
     try {
         const urlStats = `https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`;
-        const resStats = await fetch(urlStats, { headers: EA_HEADERS }).catch(() => null);
+        console.log(`[EA Heights] Fetching: ${urlStats}`);
+        const resStats = await fetch(urlStats, { headers: EA_HEADERS }).catch(e => { console.error('[EA Heights] Fetch error:', e.message); return null; });
         let members = [];
-        if (resStats && resStats.ok) {
-            const dataS = await resStats.json().catch(() => ({}));
-            if (dataS.members) members = dataS.members;
+        if (resStats) {
+            console.log(`[EA Heights] Status: ${resStats.status}`);
+            if (resStats.ok) {
+                const dataS = await resStats.json().catch(() => ({}));
+                console.log(`[EA Heights] Response keys: ${Object.keys(dataS).join(', ')}`);
+                // EA API can return data in different formats:
+                // Format 1: { "members": [...] }
+                // Format 2: { "234770": [...] }  (keyed by club ID)
+                // Format 3: { "234770": { "members": [...] } }
+                if (dataS.members && Array.isArray(dataS.members)) {
+                    members = dataS.members;
+                } else if (dataS[String(clubId)] && Array.isArray(dataS[String(clubId)])) {
+                    members = dataS[String(clubId)];
+                } else if (dataS[String(clubId)]?.members) {
+                    members = dataS[String(clubId)].members;
+                } else {
+                    // Try first array value we find
+                    for (const val of Object.values(dataS)) {
+                        if (Array.isArray(val) && val.length > 0) {
+                            members = val;
+                            break;
+                        }
+                        if (val && typeof val === 'object' && val.members && Array.isArray(val.members)) {
+                            members = val.members;
+                            break;
+                        }
+                    }
+                }
+                console.log(`[EA Heights] Found ${members.length} members`);
+            } else {
+                const errText = await resStats.text().catch(() => 'no body');
+                console.error(`[EA Heights] API error ${resStats.status}: ${errText.substring(0, 200)}`);
+            }
         }
 
         const posMap = {
