@@ -208,27 +208,28 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
     try {
         console.log(`[EA Heights] Starting for clubId=${clubId}, platform=${platform}`);
 
+        // Posiciones según EA FC en español
         const posMap = {
-            0: 'POR', 1: 'DFD', 2: 'DFC', 3: 'DFI', 4: 'CAD', 5: 'CAI',
+            0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
             6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
-            11: 'EDD', 12: 'EDI', 13: 'SD', 14: 'DC'
+            11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC'
         };
 
         const favPosMap = {
             'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
-            'fullback': 'CAD', 'leftback': 'DFI', 'rightback': 'DFD',
+            'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD',
             'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
             'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
-            'striker': 'DC', 'winger': 'EXT', 'wing': 'EXT'
+            'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
         };
 
-        // Orden: Portero → Centrales → Bandas → Centro → Delanteros → Desconocido
+        // Orden: Portero → Centrales → Laterales → Centro → Delanteros → Desconocido
         const posSortOrder = {
             'POR': 0,
             'DFC': 1,
-            'DFD': 2, 'DFI': 3, 'CAD': 4, 'CAI': 5,
+            'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5,
             'MCD': 6, 'MC': 7, 'MCO': 8, 'MD': 9, 'MI': 10,
-            'EDD': 11, 'EDI': 12, 'EXT': 13, 'SD': 14, 'DC': 15
+            'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14
         };
 
         // Strategy 1: Try members/career/stats (singular clubId)
@@ -265,7 +266,6 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
 
                 if (members.length > 0) {
                     console.log(`[EA Heights] Found ${members.length} members from stats endpoint`);
-                    // Debug: log first member's full structure
                     console.log(`[EA Heights] Sample member keys: ${Object.keys(members[0]).join(', ')}`);
                     console.log(`[EA Heights] Sample member data: ${JSON.stringify(members[0]).substring(0, 500)}`);
                     const playersData = members.map(m => {
@@ -276,7 +276,7 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
                             name: m.name || m.playername || 'Desconocido',
                             posName: resolvedPos,
                             sortOrder: posSortOrder[resolvedPos] ?? 99,
-                            height: rawHeight ? `${rawHeight} cm` : 'Sin datos aún'
+                            height: rawHeight ? `${rawHeight} cm` : 'No disponible'
                         };
                     });
                     playersData.sort((a, b) => a.sortOrder - b.sortOrder);

@@ -2342,9 +2342,9 @@ export async function handleButton(interaction) {
 
             // Mapeo de posiciones
             const posMap = {
-                0: 'POR', 1: 'DFD', 2: 'DFC', 3: 'DFI', 4: 'CAD', 5: 'CAI',
+                0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
                 6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
-                11: 'EDD', 12: 'EDI', 13: 'SD', 14: 'DC'
+                11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC'
             };
 
             const playersData = [];
