@@ -34,7 +34,7 @@ export async function setBotBusy(status) {
     await updateAllDraftManagementPanels(client, status);
 }
 
-const client = new Client({
+export const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
