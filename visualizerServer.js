@@ -2173,7 +2173,7 @@ app.post('/api/tournaments/:id/register', async (req, res) => {
                 return res.status(403).json({ error: 'No tienes permisos en este equipo' });
             }
 
-            const { getBotSettings } = await import('./src/database.js');
+            const { getBotSettings } = await import('./database.js');
             const settings = await getBotSettings();
             if (settings.eaScannerEnabled && !team.eaClubId) {
                 return res.status(403).json({ error: 'El sistema de estadísticas de EA Sports está activado. Debes vincular tu Club de EA desde la pestaña "Mi Equipo" y esperar aprobación antes de inscribirte.' });
@@ -3728,7 +3728,7 @@ export async function startVisualizerServer(discordClient) {
             if (!userTeam) return res.status(400).json({ error: 'No tienes un equipo registrado.' });
 
             // Validate EA
-            const { getBotSettings } = await import('./src/database.js');
+            const { getBotSettings } = await import('./database.js');
             const settings = await getBotSettings();
             if (settings.eaScannerEnabled && !userTeam.eaClubId) {
                 return res.status(403).json({ error: 'El sistema de estadísticas de EA Sports está activado. Debes vincular tu Club de EA desde la pestaña "Mi Equipo" y esperar aprobación antes de inscribirte.' });
