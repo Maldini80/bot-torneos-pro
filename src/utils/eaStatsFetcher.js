@@ -214,6 +214,14 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
             11: 'EDD', 12: 'EDI', 13: 'SD', 14: 'DC'
         };
 
+        const favPosMap = {
+            'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
+            'fullback': 'CAD', 'leftback': 'DFI', 'rightback': 'DFD',
+            'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
+            'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
+            'striker': 'DC', 'winger': 'EXT', 'wing': 'EXT'
+        };
+
         // Strategy 1: Try members/career/stats (singular clubId)
         const endpoints = [
             `https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`,
@@ -251,12 +259,17 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
                     // Debug: log first member's full structure
                     console.log(`[EA Heights] Sample member keys: ${Object.keys(members[0]).join(', ')}`);
                     console.log(`[EA Heights] Sample member data: ${JSON.stringify(members[0]).substring(0, 500)}`);
-                    const playersData = members.map(m => ({
-                        name: m.name || m.playername || 'Desconocido',
-                        posName: posMap[m.proPos] || m.favoritePosition || `POS ${m.proPos}`,
-                        posId: parseInt(m.proPos) || 99,
-                        height: m.proHeight || m.height || '?'
-                    }));
+                    const playersData = members.map(m => {
+                        const rawFavPos = (m.favoritePosition || '').toLowerCase();
+                        const resolvedPos = posMap[m.proPos] || favPosMap[rawFavPos] || (rawFavPos ? rawFavPos.toUpperCase().substring(0, 3) : '???');
+                        const rawHeight = m.proHeight || m.height;
+                        return {
+                            name: m.name || m.playername || 'Desconocido',
+                            posName: resolvedPos,
+                            posId: parseInt(m.proPos) || 99,
+                            height: rawHeight ? `${rawHeight} cm` : 'N/A'
+                        };
+                    });
                     playersData.sort((a, b) => a.posId - b.posId);
                     return playersData;
                 }
