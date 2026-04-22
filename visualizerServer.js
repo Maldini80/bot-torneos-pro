@@ -3727,7 +3727,7 @@ export async function startVisualizerServer(discordClient) {
 
 
 
-    // POST: Link EA club to user's team (auth required)
+    // POST: Link EA club to user's team (auth required, needs approval)
     app.post('/api/ea/link', async (req, res) => {
         try {
             if (!req.user) return res.status(401).json({ error: 'No autenticado.' });
@@ -3742,15 +3742,38 @@ export async function startVisualizerServer(discordClient) {
 
             if (!userTeam) return res.status(404).json({ error: 'No se encontró tu equipo.' });
 
-            await testDb.collection('teams').updateOne(
-                { _id: userTeam._id },
-                { $set: { eaClubId: clubId, eaPlatform: platform, eaClubName: clubName || 'Desconocido' } }
+            const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
+            if (!approvalChannelId) return res.status(500).json({ error: 'Canal de aprobaciones no configurado.' });
+
+            const { client } = await import('./index.js');
+            const approvalChannel = await client.channels.fetch(approvalChannelId).catch(() => null);
+            if (!approvalChannel) return res.status(500).json({ error: 'No se pudo encontrar el canal de aprobaciones.' });
+
+            const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+
+            const embed = new EmbedBuilder()
+                .setTitle('Solicitud de Vinculación con EA Sports (Bolsa/Web)')
+                .setColor('Yellow')
+                .addFields(
+                    { name: '👤 Solicitante', value: `<@${req.user.id}>`, inline: true },
+                    { name: '🏟️ Equipo', value: `${userTeam.name}`, inline: true },
+                    { name: '⚽ Club EA', value: `${clubName || 'Desconocido'} (ID: ${clubId})`, inline: false },
+                    { name: '🖥️ Plataforma EA', value: `${platform}`, inline: true }
+                )
+                .setTimestamp();
+
+            const safeClubName = (clubName || 'Desconocido').substring(0, 30);
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`approve_global_ealink_${userTeam._id.toString()}_${clubId}_${platform}_${safeClubName}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`reject_global_ealink_${req.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
             );
 
-            res.json({ success: true, message: `Club "${clubName}" vinculado a ${userTeam.name}.` });
+            await approvalChannel.send({ embeds: [embed], components: [row] });
+
+            res.json({ success: true, message: `Solicitud enviada a los administradores para su revisión.` });
         } catch (e) {
             console.error('[API EA Link] Error:', e);
-            res.status(500).json({ error: 'Error al vincular.' });
+            res.status(500).json({ error: 'Error al solicitar vinculación.' });
         }
     });
 

@@ -7484,6 +7484,39 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
+    if (action === 'approve_global_ealink') {
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
+
+        const [teamDbId, eaClubId, eaPlatform] = params;
+        const eaClubName = params.slice(3).join('_') || 'Desconocido';
+        const testDb = getDb('test');
+        
+        await testDb.collection('teams').updateOne(
+            { _id: new ObjectId(teamDbId) },
+            { $set: { eaClubId: eaClubId, eaPlatform: eaPlatform, eaClubName: eaClubName } }
+        );
+
+        const embed = EmbedBuilder.from(interaction.message.embeds[0])
+            .setColor('Green')
+            .setTitle('✅ Vinculación con EA Aprobada (Global)');
+
+        await interaction.update({ content: `Aprobado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+        return;
+    }
+
+    if (action === 'reject_global_ealink') {
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
+
+        const embed = EmbedBuilder.from(interaction.message.embeds[0])
+            .setColor('Red')
+            .setTitle('❌ Vinculación con EA Rechazada (Global)');
+
+        await interaction.update({ content: `Rechazado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+        return;
+    }
+
     if (action === 'admin_generate_tournament_stats') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
