@@ -3468,8 +3468,8 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             if (!tournament) return interaction.editReply({ content: 'El torneo no existe.' });
         }
 
-        const eaClubName = fields.getTextInputValue('ea_club_name');
-        const rawPlatform = fields.getTextInputValue('ea_platform').toLowerCase();
+        const eaClubName = interaction.fields.getTextInputValue('ea_club_name');
+        const rawPlatform = interaction.fields.getTextInputValue('ea_platform').toLowerCase();
         
         let eaPlatform = 'common-gen5';
         if (rawPlatform.includes('antigua') || rawPlatform.includes('ps4') || rawPlatform.includes('old') || rawPlatform.includes('xbox one')) {
