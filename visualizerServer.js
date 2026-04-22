@@ -3709,6 +3709,74 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // GET: Search EA clubs (auth required)
+    app.get('/api/ea/search', async (req, res) => {
+        try {
+            if (!req.user) return res.status(401).json({ error: 'No autenticado.' });
+            const { clubName, platform } = req.query;
+            if (!clubName) return res.status(400).json({ error: 'Nombre de club requerido.' });
+
+            let eaPlatform = 'common-gen5';
+            if (platform && (platform.includes('antigua') || platform.includes('gen4') || platform.includes('ps4'))) {
+                eaPlatform = 'common-gen4';
+            }
+
+            const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(clubName)}&platform=${eaPlatform}`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'application/json',
+                    'Origin': 'https://www.ea.com',
+                    'Referer': 'https://www.ea.com/'
+                }
+            });
+
+            if (eaRes.status === 404) return res.json({ clubs: [] });
+            if (!eaRes.ok) return res.status(502).json({ error: `Error de EA (${eaRes.status})` });
+
+            const data = await eaRes.json();
+            if (!data || Object.keys(data).length === 0) return res.json({ clubs: [] });
+
+            const clubs = Array.isArray(data) ? data : Object.values(data);
+            const results = clubs.slice(0, 25).map(c => ({
+                clubId: c.clubId,
+                clubName: c.clubName || (c.clubInfo && c.clubInfo.name) || c.name || 'Desconocido',
+                platform: eaPlatform
+            }));
+
+            res.json({ clubs: results });
+        } catch (e) {
+            console.error('[API EA Search] Error:', e);
+            res.status(500).json({ error: 'Error al buscar en EA.' });
+        }
+    });
+
+    // POST: Link EA club to user's team (auth required)
+    app.post('/api/ea/link', async (req, res) => {
+        try {
+            if (!req.user) return res.status(401).json({ error: 'No autenticado.' });
+            const { clubId, clubName, platform } = req.body;
+            if (!clubId || !platform) return res.status(400).json({ error: 'Datos incompletos.' });
+
+            const testDb = getDb('test');
+            const userTeam = await testDb.collection('teams').findOne({
+                guildId: process.env.GUILD_ID,
+                $or: [{ managerId: req.user.id }, { captains: req.user.id }]
+            });
+
+            if (!userTeam) return res.status(404).json({ error: 'No se encontró tu equipo.' });
+
+            await testDb.collection('teams').updateOne(
+                { _id: userTeam._id },
+                { $set: { eaClubId: clubId, eaPlatform: platform, eaClubName: clubName || 'Desconocido' } }
+            );
+
+            res.json({ success: true, message: `Club "${clubName}" vinculado a ${userTeam.name}.` });
+        } catch (e) {
+            console.error('[API EA Link] Error:', e);
+            res.status(500).json({ error: 'Error al vincular.' });
+        }
+    });
+
     // POST: Register team in pool (auth required)
     app.post('/api/pool/:poolId/register', async (req, res) => {
         try {
