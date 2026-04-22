@@ -1226,15 +1226,29 @@ const handler = async (client, interaction) => {
                     // Fusionar: sumar goles reales de todas las sesiones
                     let totalOur = 0, totalOpp = 0, totalSecs = 0;
                     for (const g of group) { totalOur += g.ourGoals; totalOpp += g.oppGoals; totalSecs += g.maxSecs; }
-                    const totalMin = Math.floor(totalSecs / 60);
                     const earliest = Math.min(...group.map(g => g.timestamp));
                     let emoji = '⚪';
                     if (totalOur > totalOpp) emoji = '🟢';
                     if (totalOur < totalOpp) emoji = '🔴';
-                    const dateStr = new Date(earliest * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+                    const dateStr = new Date(earliest * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Madrid' });
+
+                    // Desglose de sesiones (orden cronológico: la más antigua primero)
+                    const sortedGroup = [...group].sort((a, b) => a.timestamp - b.timestamp);
+                    let sessionLines = '';
+                    for (let si = 0; si < sortedGroup.length; si++) {
+                        const s = sortedGroup[si];
+                        const prefix = si < sortedGroup.length - 1 ? '├' : '└';
+                        let dnfTag = '';
+                        if (s.isDnf) {
+                            const dnfMin = Math.floor(s.maxSecs / 60);
+                            dnfTag = ` 🔌 Min ${dnfMin}`;
+                        }
+                        sessionLines += `\n${prefix} Sesión ${si + 1}: ${s.ourGoals} - ${s.oppGoals}${dnfTag}`;
+                    }
+
                     entries.push({
                         name: `${emoji} vs ${info.oppName}`,
-                        value: `**Resultado:** ${totalOur} - ${totalOpp} *(🔗 ${group.length} sesiones, ~${totalMin} min jugados)*\n🕛 *${dateStr}*`
+                        value: `**Resultado:** ${totalOur} - ${totalOpp} *(🔗 ${group.length} sesiones)*${sessionLines}\n🕛 *${dateStr}*`
                     });
                 } else {
                     // Sin merge: mostrar cada partido individualmente
@@ -1247,7 +1261,7 @@ const handler = async (client, interaction) => {
                         let emoji = '⚪';
                         if (g.ourGoals > g.oppGoals) emoji = '🟢';
                         if (g.ourGoals < g.oppGoals) emoji = '🔴';
-                        const dateStr = new Date(g.timestamp * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+                        const dateStr = new Date(g.timestamp * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Madrid' });
                         entries.push({
                             name: `${emoji} vs ${g.oppName}`,
                             value: `**Resultado:** ${g.ourGoals} - ${g.oppGoals}${dnfText}\n🕛 *${dateStr}*`
