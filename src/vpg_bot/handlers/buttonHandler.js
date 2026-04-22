@@ -1363,6 +1363,11 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'team_link_ea_button') {
+        const botSettings = await mongoose.connection.client.db('test').collection('bot_settings').findOne({ _id: 'global_config' });
+        if (botSettings && !botSettings.eaScannerEnabled) {
+            return interaction.reply({ content: '❌ El escáner de EA Sports no está activo actualmente. No es necesario vincular tu equipo en este momento.', ephemeral: true });
+        }
+
         const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
         if (!team) return interaction.reply({ content: 'No se encontró tu equipo o no tienes permisos.', ephemeral: true });
 

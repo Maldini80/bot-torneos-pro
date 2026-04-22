@@ -4045,6 +4045,12 @@ export async function handleSelectMenu(interaction) {
             });
             if (!userTeam) return interaction.editReply({ content: '❌ No se encontró tu equipo.', components: [] });
 
+            // Verificar si otro equipo ya tiene este club vinculado
+            const existingEaLink = await testDb.collection('teams').findOne({ eaClubId: eaClubId, _id: { $ne: userTeam._id } });
+            if (existingEaLink) {
+                return interaction.editReply({ content: `❌ Este club de EA ya está vinculado al equipo VPG "**${existingEaLink.name}**".`, components: [] });
+            }
+
             // Enviar notificación de aprobación a admins
             const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
             if (!approvalChannelId) return interaction.editReply({ content: '❌ El canal de aprobaciones no está configurado.', components: [] });

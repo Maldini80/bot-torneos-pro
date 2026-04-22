@@ -7484,12 +7484,15 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
-    if (action === 'approve_global_ealink') {
+    if (customId.startsWith('approve_global_ealink_')) {
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
 
-        const [teamDbId, eaClubId, eaPlatform] = params;
-        const eaClubName = params.slice(3).join('_') || 'Desconocido';
+        const parts = customId.split('_');
+        const teamDbId = parts[3];
+        const eaClubId = parts[4];
+        const eaPlatform = parts[5];
+        const eaClubName = parts.slice(6).join('_') || 'Desconocido';
         const testDb = getDb('test');
         
         await testDb.collection('teams').updateOne(
@@ -7505,7 +7508,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
-    if (action === 'reject_global_ealink') {
+    if (customId.startsWith('reject_global_ealink_')) {
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.roles.cache.has(process.env.APPROVER_ROLE_ID);
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida. Solo para administradores.', flags: [MessageFlags.Ephemeral] });
 
@@ -7562,6 +7565,11 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     }
 
     if (action === 'team_link_ea_button') {
+        const botSettings = await getBotSettings();
+        if (!botSettings.eaScannerEnabled) {
+            return interaction.reply({ content: '❌ El escáner de EA Sports no está activo actualmente. No es necesario vincular tu equipo en este momento.', flags: [MessageFlags.Ephemeral] });
+        }
+
         const testDb = getDb('test');
         const userTeam = await testDb.collection('teams').findOne({
             guildId: guild.id,

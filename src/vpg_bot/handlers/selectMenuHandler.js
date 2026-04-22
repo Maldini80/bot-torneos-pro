@@ -518,6 +518,11 @@ module.exports = async (client, interaction) => {
         const [eaClubId, eaPlatform, ...nameParts] = values[0].split('|');
         const eaClubName = nameParts.join('|') || 'Desconocido';
 
+        const existingEaLink = await Team.findOne({ eaClubId: eaClubId, _id: { $ne: team._id } });
+        if (existingEaLink) {
+            return interaction.followUp({ content: `❌ Este club de EA ya está vinculado al equipo VPG "**${existingEaLink.name}**".`, flags: MessageFlags.Ephemeral });
+        }
+
         const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.roles.cache.has(process.env.REFEREE_ROLE_ID);
 
         if (isAdmin) {
@@ -884,7 +889,8 @@ module.exports = async (client, interaction) => {
                 .addFields(
                     { name: t('managerGuideStep1Title', applicantMember), value: t('managerGuideStep1Value', applicantMember) },
                     { name: t('managerGuideStep2Title', applicantMember), value: t('managerGuideStep2Value', applicantMember) },
-                    { name: t('managerGuideStep3Title', applicantMember), value: t('managerGuideStep3Value', applicantMember) }
+                    { name: t('managerGuideStep3Title', applicantMember), value: t('managerGuideStep3Value', applicantMember) },
+                    { name: 'Paso 4: Vincular Equipo a EA', value: 'Vete a tu canal de gestión de equipo en el servidor y pulsa el botón **Vincular EA**. Esto es **obligatorio** para poder inscribirte en torneos y que el escáner registre las estadísticas de tus partidos.' }
                 );
             await applicantMember.send({ embeds: [managerGuideEmbed] });
         } catch (dmError) {

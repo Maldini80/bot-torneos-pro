@@ -614,6 +614,7 @@
                             });
                             const linkData = await linkRes.json();
                             if (linkRes.ok) {
+                                alert('⏳ ¡Solicitud de vinculación enviada!\n\nTu petición ha sido enviada a los administradores para su aprobación.\nUna vez que un administrador la apruebe en Discord, recarga esta página y podrás inscribirte al torneo.');
                                 statusEl.textContent = '⏳ ¡Solicitud enviada a los administradores para aprobación! Recargando...';
                                 statusEl.className = 'status-msg success';
                                 setTimeout(() => location.reload(), 2500);

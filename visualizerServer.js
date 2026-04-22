@@ -3742,6 +3742,12 @@ export async function startVisualizerServer(discordClient) {
 
             if (!userTeam) return res.status(404).json({ error: 'No se encontró tu equipo.' });
 
+            // Check if another team is already linked to this EA Club ID
+            const existingEaLink = await testDb.collection('teams').findOne({ eaClubId: clubId, _id: { $ne: userTeam._id } });
+            if (existingEaLink) {
+                return res.status(400).json({ error: `Este club de EA ya está vinculado al equipo VPG "${existingEaLink.name}".` });
+            }
+
             const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
             if (!approvalChannelId) return res.status(500).json({ error: 'Canal de aprobaciones no configurado.' });
 
