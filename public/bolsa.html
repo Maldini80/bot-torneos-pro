@@ -614,9 +614,9 @@
                             });
                             const linkData = await linkRes.json();
                             if (linkRes.ok) {
-                                statusEl.textContent = '✅ ¡Club vinculado! Recargando...';
+                                statusEl.textContent = '⏳ ¡Solicitud enviada a los administradores para aprobación! Recargando...';
                                 statusEl.className = 'status-msg success';
-                                setTimeout(() => location.reload(), 1200);
+                                setTimeout(() => location.reload(), 2500);
                             } else {
                                 statusEl.textContent = '❌ ' + (linkData.error || 'Error al vincular');
                                 statusEl.className = 'status-msg error';
