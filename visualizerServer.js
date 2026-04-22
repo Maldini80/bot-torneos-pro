@@ -957,21 +957,37 @@ app.get('/api/leagues', async (req, res) => {
 app.get('/api/ea/search', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'No autenticado' });
     const query = req.query.clubName;
-    const platform = req.query.platform || 'common-gen5';
+    const rawPlatform = req.query.platform || 'common-gen5';
     if (!query) return res.status(400).json({ error: 'Falta el nombre del club' });
 
+    // Normalize platform input from web form
+    let platform = rawPlatform;
+    if (rawPlatform === 'nueva') platform = 'common-gen5';
+    else if (rawPlatform === 'antigua') platform = 'common-gen4';
+
     try {
-        const fetch = (await import('node-fetch')).default || global.fetch; // node 18+ has global fetch
         const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(query)}&platform=${platform}`, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'Origin': 'https://www.ea.com',
+                'Referer': 'https://www.ea.com/'
             }
         });
         
+        if (eaRes.status === 404) return res.json({ clubs: [] });
         if (!eaRes.ok) throw new Error(`EA API responded with status: ${eaRes.status}`);
         const data = await eaRes.json();
-        res.json(data);
+
+        // Normalize to { clubs: [...] } format
+        const rawClubs = Array.isArray(data) ? data : Object.values(data || {});
+        const clubs = rawClubs.slice(0, 25).map(c => ({
+            clubId: c.clubId,
+            clubName: c.clubName || (c.clubInfo && c.clubInfo.name) || c.name || 'Desconocido',
+            platform: platform
+        }));
+
+        res.json({ clubs });
     } catch (e) {
         console.error('[EA Search Proxy] Error:', e.message);
         res.status(500).json({ error: 'Error al contactar con EA Sports' });
@@ -3709,46 +3725,7 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    // GET: Search EA clubs (auth required)
-    app.get('/api/ea/search', async (req, res) => {
-        try {
-            if (!req.user) return res.status(401).json({ error: 'No autenticado.' });
-            const { clubName, platform } = req.query;
-            if (!clubName) return res.status(400).json({ error: 'Nombre de club requerido.' });
 
-            let eaPlatform = 'common-gen5';
-            if (platform && (platform.includes('antigua') || platform.includes('gen4') || platform.includes('ps4'))) {
-                eaPlatform = 'common-gen4';
-            }
-
-            const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(clubName)}&platform=${eaPlatform}`, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept': 'application/json',
-                    'Origin': 'https://www.ea.com',
-                    'Referer': 'https://www.ea.com/'
-                }
-            });
-
-            if (eaRes.status === 404) return res.json({ clubs: [] });
-            if (!eaRes.ok) return res.status(502).json({ error: `Error de EA (${eaRes.status})` });
-
-            const data = await eaRes.json();
-            if (!data || Object.keys(data).length === 0) return res.json({ clubs: [] });
-
-            const clubs = Array.isArray(data) ? data : Object.values(data);
-            const results = clubs.slice(0, 25).map(c => ({
-                clubId: c.clubId,
-                clubName: c.clubName || (c.clubInfo && c.clubInfo.name) || c.name || 'Desconocido',
-                platform: eaPlatform
-            }));
-
-            res.json({ clubs: results });
-        } catch (e) {
-            console.error('[API EA Search] Error:', e);
-            res.status(500).json({ error: 'Error al buscar en EA.' });
-        }
-    });
 
     // POST: Link EA club to user's team (auth required)
     app.post('/api/ea/link', async (req, res) => {
