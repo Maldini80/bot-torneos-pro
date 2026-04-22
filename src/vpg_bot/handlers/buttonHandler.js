@@ -880,7 +880,12 @@ const handler = async (client, interaction) => {
                     new ButtonBuilder().setCustomId('team_link_ea_button').setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮'),
                     new ButtonBuilder().setCustomId('team_unlink_ea_button').setLabel('Desvincular EA').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
-                await interaction.editReply({ embeds: [embed], components: [row1, row2] });
+                const row3 = new ActionRowBuilder();
+                if (team.eaClubId) {
+                    row3.addComponents(new ButtonBuilder().setCustomId('team_view_ea_heights_button').setLabel('Ver Alturas Plantilla EA').setStyle(ButtonStyle.Primary).setEmoji('📏'));
+                }
+                const components = team.eaClubId ? [row1, row2, row3] : [row1, row2];
+                await interaction.editReply({ embeds: [embed], components });
                 break;
             case 'team_submenu_friendlies':
                 embed = new EmbedBuilder().setTitle(t('friendliesSubmenuTitle', member)).setColor('Green').setDescription(t('friendliesSubmenuDescription', member));
@@ -1079,6 +1084,41 @@ const handler = async (client, interaction) => {
         await team.save();
 
         return interaction.editReply({ content: `✅ El equipo **${team.name}** ha sido desvinculado de EA Sports por un administrador.` });
+    }
+
+    if (customId.startsWith('admin_ea_heights_')) {
+        await interaction.deferReply({ ephemeral: true });
+        const teamId = customId.replace('admin_ea_heights_', '');
+        const team = await Team.findById(teamId);
+
+        if (!team || !team.eaClubId) return interaction.editReply({ content: 'El equipo no tiene un club de EA vinculado.' });
+
+        try {
+            // Import dynamically since eaStatsFetcher is an ES Module
+            const eaStatsFetcher = await import('../../utils/eaStatsFetcher.js');
+            const playersData = await eaStatsFetcher.fetchClubRosterHeights(team.eaClubId, team.eaPlatform);
+
+            if (!playersData || playersData.length === 0) {
+                return interaction.editReply({ content: 'No se encontraron jugadores en la plantilla del club EA.' });
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle(`📏 Alturas de Plantilla EA: ${team.eaClubName}`)
+                .setColor('Blue')
+                .setTimestamp();
+
+            let description = 'Posición | Jugador | Altura\n----------------------------------\n';
+            playersData.forEach(p => {
+                description += `**${p.posName}** | ${p.name} | \`${p.height}\`\n`;
+            });
+
+            embed.setDescription(description);
+
+            return interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+            console.error('Error fetching ea heights (admin):', err);
+            return interaction.editReply({ content: '❌ Error al consultar las alturas con EA Sports.' });
+        }
     }
 
     if (customId.startsWith('admin_ea_matches_')) {
@@ -1400,6 +1440,40 @@ const handler = async (client, interaction) => {
         );
 
         return interaction.showModal(modal);
+    }
+
+    if (customId === 'team_view_ea_heights_button') {
+        const team = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
+        if (!team || !team.eaClubId) return interaction.reply({ content: 'No tienes un club de EA vinculado.', ephemeral: true });
+
+        await interaction.deferReply({ ephemeral: true });
+        
+        try {
+            // Import fetchClubRosterHeights dynamically because it's an ES Module
+            const eaStatsFetcher = await import('../../utils/eaStatsFetcher.js');
+            const playersData = await eaStatsFetcher.fetchClubRosterHeights(team.eaClubId, team.eaPlatform);
+
+            if (!playersData || playersData.length === 0) {
+                return interaction.editReply({ content: 'No se encontraron jugadores en la plantilla del club EA.' });
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle(`📏 Alturas de Plantilla EA: ${team.eaClubName}`)
+                .setColor('Blue')
+                .setTimestamp();
+
+            let description = 'Posición | Jugador | Altura\n----------------------------------\n';
+            playersData.forEach(p => {
+                description += `**${p.posName}** | ${p.name} | \`${p.height}\`\n`;
+            });
+
+            embed.setDescription(description);
+
+            return interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+            console.error('Error fetching ea heights:', err);
+            return interaction.editReply({ content: '❌ Error al consultar las alturas con EA Sports.' });
+        }
     }
 
     // --- Lógica para el Panel de Amistosos ---

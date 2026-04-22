@@ -628,6 +628,7 @@ module.exports = async (client, interaction) => {
         if (team.eaClubId) {
             row2.addComponents(new ButtonBuilder().setCustomId(`admin_unlink_ea_${teamId}`).setLabel('Desvincular EA').setStyle(ButtonStyle.Danger).setEmoji('❌'));
             row2.addComponents(new ButtonBuilder().setCustomId(`admin_ea_matches_${teamId}`).setLabel('Últimos Partidos EA').setStyle(ButtonStyle.Primary).setEmoji('📊'));
+            row2.addComponents(new ButtonBuilder().setCustomId(`admin_ea_heights_${teamId}`).setLabel('Ver Alturas').setStyle(ButtonStyle.Primary).setEmoji('📏'));
         } else {
             row2.addComponents(new ButtonBuilder().setCustomId(`admin_link_ea_${teamId}`).setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮'));
         }

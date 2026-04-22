@@ -203,3 +203,47 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
         return null;
     }
 }
+
+/**
+ * Fetch the roster of a club and return player heights and positions.
+ * @param {string} clubId EA Club ID
+ * @param {string} platform EA Platform
+ */
+export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
+    try {
+        const urlStats = `https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`;
+        const resStats = await fetch(urlStats, { headers: EA_HEADERS }).catch(() => null);
+        let members = [];
+        if (resStats && resStats.ok) {
+            const dataS = await resStats.json().catch(() => ({}));
+            if (dataS.members) members = dataS.members;
+        }
+
+        const posMap = {
+            0: 'POR', 1: 'DFD', 2: 'DFC', 3: 'DFI', 4: 'CAD', 5: 'CAI',
+            6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
+            11: 'EDD', 12: 'EDI', 13: 'SD', 14: 'DC'
+        };
+
+        const playersData = [];
+        for (const member of members) {
+            const posId = member.proPos;
+            const posName = posMap[posId] || `POS ${posId}`;
+            const height = member.proHeight || '?';
+            
+            playersData.push({
+                name: member.name,
+                posName,
+                posId: parseInt(posId) || 99,
+                height
+            });
+        }
+
+        playersData.sort((a, b) => a.posId - b.posId);
+        return playersData;
+    } catch (error) {
+        console.error('Error fetching club roster heights:', error);
+        return [];
+    }
+}
+
