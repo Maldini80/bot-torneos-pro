@@ -204,51 +204,9 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
     }
 }
 
-/**
- * Fetch the roster of a club and return player heights and positions.
- * @param {string} clubId EA Club ID
- * @param {string} platform EA Platform
- */
 export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
     try {
-        const urlStats = `https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`;
-        console.log(`[EA Heights] Fetching: ${urlStats}`);
-        const resStats = await fetch(urlStats, { headers: EA_HEADERS }).catch(e => { console.error('[EA Heights] Fetch error:', e.message); return null; });
-        let members = [];
-        if (resStats) {
-            console.log(`[EA Heights] Status: ${resStats.status}`);
-            if (resStats.ok) {
-                const dataS = await resStats.json().catch(() => ({}));
-                console.log(`[EA Heights] Response keys: ${Object.keys(dataS).join(', ')}`);
-                // EA API can return data in different formats:
-                // Format 1: { "members": [...] }
-                // Format 2: { "234770": [...] }  (keyed by club ID)
-                // Format 3: { "234770": { "members": [...] } }
-                if (dataS.members && Array.isArray(dataS.members)) {
-                    members = dataS.members;
-                } else if (dataS[String(clubId)] && Array.isArray(dataS[String(clubId)])) {
-                    members = dataS[String(clubId)];
-                } else if (dataS[String(clubId)]?.members) {
-                    members = dataS[String(clubId)].members;
-                } else {
-                    // Try first array value we find
-                    for (const val of Object.values(dataS)) {
-                        if (Array.isArray(val) && val.length > 0) {
-                            members = val;
-                            break;
-                        }
-                        if (val && typeof val === 'object' && val.members && Array.isArray(val.members)) {
-                            members = val.members;
-                            break;
-                        }
-                    }
-                }
-                console.log(`[EA Heights] Found ${members.length} members`);
-            } else {
-                const errText = await resStats.text().catch(() => 'no body');
-                console.error(`[EA Heights] API error ${resStats.status}: ${errText.substring(0, 200)}`);
-            }
-        }
+        console.log(`[EA Heights] Starting for clubId=${clubId}, platform=${platform}`);
 
         const posMap = {
             0: 'POR', 1: 'DFD', 2: 'DFC', 3: 'DFI', 4: 'CAD', 5: 'CAI',
@@ -256,24 +214,97 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
             11: 'EDD', 12: 'EDI', 13: 'SD', 14: 'DC'
         };
 
-        const playersData = [];
-        for (const member of members) {
-            const posId = member.proPos;
-            const posName = posMap[posId] || `POS ${posId}`;
-            const height = member.proHeight || '?';
-            
-            playersData.push({
-                name: member.name,
-                posName,
-                posId: parseInt(posId) || 99,
-                height
-            });
+        // Strategy 1: Try members/career/stats (singular clubId)
+        const endpoints = [
+            `https://proclubs.ea.com/api/fc/members/career/stats?clubId=${clubId}&platform=${platform}`,
+            `https://proclubs.ea.com/api/fc/members/stats?clubId=${clubId}&platform=${platform}`,
+            `https://proclubs.ea.com/api/fc/members/career/stats?clubIds=${clubId}&platform=${platform}`,
+        ];
+
+        for (const url of endpoints) {
+            console.log(`[EA Heights] Trying: ${url}`);
+            const res = await fetch(url, { headers: EA_HEADERS }).catch(() => null);
+            if (res && res.ok) {
+                const data = await res.json().catch(() => null);
+                if (!data) continue;
+                console.log(`[EA Heights] Success! Keys: ${Object.keys(data).join(', ')}`);
+
+                let members = [];
+                if (Array.isArray(data)) {
+                    members = data;
+                } else if (data.members && Array.isArray(data.members)) {
+                    members = data.members;
+                } else if (data[String(clubId)] && Array.isArray(data[String(clubId)])) {
+                    members = data[String(clubId)];
+                } else if (data[String(clubId)]?.members) {
+                    members = data[String(clubId)].members;
+                } else {
+                    for (const val of Object.values(data)) {
+                        if (Array.isArray(val) && val.length > 0) { members = val; break; }
+                        if (val?.members && Array.isArray(val.members)) { members = val.members; break; }
+                    }
+                }
+
+                if (members.length > 0) {
+                    console.log(`[EA Heights] Found ${members.length} members from stats endpoint`);
+                    const playersData = members.map(m => ({
+                        name: m.name || m.playername || 'Desconocido',
+                        posName: posMap[m.proPos] || m.favoritePosition || `POS ${m.proPos}`,
+                        posId: parseInt(m.proPos) || 99,
+                        height: m.proHeight || m.height || '?'
+                    }));
+                    playersData.sort((a, b) => a.posId - b.posId);
+                    return playersData;
+                }
+            } else if (res) {
+                console.log(`[EA Heights] ${url} returned ${res.status}`);
+            }
         }
 
-        playersData.sort((a, b) => a.posId - b.posId);
-        return playersData;
+        // Strategy 2: Fallback to match data - get last match players
+        console.log('[EA Heights] Stats endpoints failed, falling back to match data...');
+        const urlMatches = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`;
+        const resMatches = await fetch(urlMatches, { headers: EA_HEADERS }).catch(() => null);
+
+        if (resMatches && resMatches.ok) {
+            let matchData = await resMatches.json().catch(() => []);
+            if (!Array.isArray(matchData)) matchData = Object.values(matchData || {});
+            matchData.sort((a, b) => b.timestamp - a.timestamp);
+
+            if (matchData.length > 0 && matchData[0].players && matchData[0].players[String(clubId)]) {
+                const matchPlayers = matchData[0].players[String(clubId)];
+                console.log(`[EA Heights] Found ${Object.keys(matchPlayers).length} players from last match`);
+
+                const posNameMap = {
+                    'goalkeeper': 'POR', 'defender': 'DFC', 'midfielder': 'MC',
+                    'forward': 'DC', 'attacker': 'DC', 'wing': 'ED',
+                    'centerBack': 'DFC', 'fullback': 'CAD', 'leftBack': 'DFI',
+                    'rightBack': 'DFD', 'defensiveMidfield': 'MCD', 'centralMidfield': 'MC',
+                    'attackingMidfield': 'MCO', 'striker': 'DC', 'winger': 'ED'
+                };
+
+                const playersData = Object.values(matchPlayers).map(p => {
+                    const rawPos = (p.pos || '').toLowerCase();
+                    let posName = 'JUG';
+                    for (const [key, val] of Object.entries(posNameMap)) {
+                        if (rawPos.includes(key)) { posName = val; break; }
+                    }
+                    return {
+                        name: p.playername || 'Desconocido',
+                        posName,
+                        posId: 99,
+                        height: p.proHeight || p.height || 'N/A (solo visible en stats)'
+                    };
+                });
+
+                return playersData;
+            }
+        }
+
+        console.log('[EA Heights] No data found from any source');
+        return [];
     } catch (error) {
-        console.error('Error fetching club roster heights:', error);
+        console.error('[EA Heights] Error:', error);
         return [];
     }
 }
