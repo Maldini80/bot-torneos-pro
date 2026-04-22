@@ -7467,6 +7467,18 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setTitle('✅ Vinculación con EA Aprobada (Torneo de Pago)');
 
         await interaction.update({ content: `Aprobado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+
+        // Notificar al usuario por DM
+        try {
+            const targetUser = await client.users.fetch(userId);
+            await targetUser.send({
+                embeds: [new EmbedBuilder()
+                    .setColor('#2ecc71')
+                    .setTitle('✅ Vinculación con EA Aprobada')
+                    .setDescription(`Tu solicitud para vincular el club de EA **${eaClubName}** (ID: \`${eaClubId}\`) en el torneo **${tournament.nombre}** ha sido **aprobada**.\n\n🎮 Las estadísticas de tus partidos se recopilarán automáticamente.`)
+                    .setTimestamp()]
+            });
+        } catch (e) { console.warn('[EA DM] No se pudo notificar al usuario de la aprobación:', e.message); }
         return;
     }
 
@@ -7481,6 +7493,18 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setTitle('❌ Vinculación con EA Rechazada (Torneo de Pago)');
 
         await interaction.update({ content: `Rechazado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+
+        // Notificar al usuario por DM
+        try {
+            const targetUser = await client.users.fetch(userId);
+            await targetUser.send({
+                embeds: [new EmbedBuilder()
+                    .setColor('#e74c3c')
+                    .setTitle('❌ Vinculación con EA Rechazada')
+                    .setDescription('Tu solicitud de vinculación con un club de EA ha sido **rechazada** por un administrador. Si crees que es un error, contacta con el equipo de administración.')
+                    .setTimestamp()]
+            });
+        } catch (e) { console.warn('[EA DM] No se pudo notificar al usuario del rechazo:', e.message); }
         return;
     }
 
@@ -7505,6 +7529,21 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setTitle('✅ Vinculación con EA Aprobada (Global)');
 
         await interaction.update({ content: `Aprobado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+
+        // Notificar al usuario por DM
+        try {
+            const team = await testDb.collection('teams').findOne({ _id: new ObjectId(teamDbId) });
+            if (team && team.managerId) {
+                const targetUser = await client.users.fetch(team.managerId);
+                await targetUser.send({
+                    embeds: [new EmbedBuilder()
+                        .setColor('#2ecc71')
+                        .setTitle('✅ Vinculación con EA Aprobada')
+                        .setDescription(`Tu equipo **${team.name}** ha sido vinculado al club de EA **${eaClubName}** (ID: \`${eaClubId}\`).\n\n🎮 Las estadísticas de tus partidos se recopilarán automáticamente.`)
+                        .setTimestamp()]
+                });
+            }
+        } catch (e) { console.warn('[EA DM] No se pudo notificar al usuario de la aprobación global:', e.message); }
         return;
     }
 
@@ -7517,6 +7556,19 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setTitle('❌ Vinculación con EA Rechazada (Global)');
 
         await interaction.update({ content: `Rechazado por <@${interaction.user.id}>`, embeds: [embed], components: [] });
+
+        // Notificar al usuario por DM
+        try {
+            const userId = customId.split('_')[3];
+            const targetUser = await client.users.fetch(userId);
+            await targetUser.send({
+                embeds: [new EmbedBuilder()
+                    .setColor('#e74c3c')
+                    .setTitle('❌ Vinculación con EA Rechazada')
+                    .setDescription('Tu solicitud de vinculación con un club de EA ha sido **rechazada** por un administrador. Si crees que es un error, contacta con el equipo de administración.')
+                    .setTimestamp()]
+            });
+        } catch (e) { console.warn('[EA DM] No se pudo notificar al usuario del rechazo global:', e.message); }
         return;
     }
 
