@@ -222,6 +222,15 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
             'striker': 'DC', 'winger': 'EXT', 'wing': 'EXT'
         };
 
+        // Orden: Portero → Centrales → Bandas → Centro → Delanteros → Desconocido
+        const posSortOrder = {
+            'POR': 0,
+            'DFC': 1,
+            'DFD': 2, 'DFI': 3, 'CAD': 4, 'CAI': 5,
+            'MCD': 6, 'MC': 7, 'MCO': 8, 'MD': 9, 'MI': 10,
+            'EDD': 11, 'EDI': 12, 'EXT': 13, 'SD': 14, 'DC': 15
+        };
+
         // Strategy 1: Try members/career/stats (singular clubId)
         const endpoints = [
             `https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`,
@@ -266,11 +275,11 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
                         return {
                             name: m.name || m.playername || 'Desconocido',
                             posName: resolvedPos,
-                            posId: parseInt(m.proPos) || 99,
-                            height: rawHeight ? `${rawHeight} cm` : 'N/A'
+                            sortOrder: posSortOrder[resolvedPos] ?? 99,
+                            height: rawHeight ? `${rawHeight} cm` : 'Sin datos aún'
                         };
                     });
-                    playersData.sort((a, b) => a.posId - b.posId);
+                    playersData.sort((a, b) => a.sortOrder - b.sortOrder);
                     return playersData;
                 }
             } else if (res) {
