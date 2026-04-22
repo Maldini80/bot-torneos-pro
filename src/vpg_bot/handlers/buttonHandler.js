@@ -1162,74 +1162,104 @@ const handler = async (client, interaction) => {
                 return interaction.editReply({ content: '❌ No se han encontrado partidos recientes para este club en los servidores de EA.' });
             }
 
-            const recentMatches = data.slice(0, 5); // Últimos 5
-            
             const embed = new EmbedBuilder()
-                .setTitle(`Últimos 5 Partidos de EA: ${team.eaClubName || team.name}`)
+                .setTitle(`Últimos Partidos de EA: ${team.eaClubName || team.name}`)
                 .setColor('Blue')
                 .setThumbnail(team.logoUrl)
                 .setDescription(`Resultados directamente desde la base de datos de EA Sports para el club ID \`${team.eaClubId}\`:`);
 
-            for (let i = 0; i < recentMatches.length; i++) {
-                const match = recentMatches[i];
+            // --- Helper: extrae goles reales y datos de DNF de un partido ---
+            const extractMatchInfo = (match) => {
+                const clubIds = Object.keys(match.clubs || {});
+                const opponentId = clubIds.find(id => id !== String(team.eaClubId));
                 const ourStats = match.clubs[String(team.eaClubId)];
-                
-                // Encontrar el rival
-                const clubIdsInMatch = Object.keys(match.clubs);
-                const opponentId = clubIdsInMatch.find(id => id !== String(team.eaClubId));
-                const opponentStats = opponentId ? match.clubs[opponentId] : null;
-                
+                const oppStats = opponentId ? match.clubs[opponentId] : null;
                 let ourGoals = ourStats ? parseInt(ourStats.goals || 0) : 0;
-                let oppGoals = opponentStats ? parseInt(opponentStats.goals || 0) : 0;
-                
-                let dnfText = '';
-                // --- FIX RESULTADOS FANTASMA (3-0 DNF de EA) ---
+                let oppGoals = oppStats ? parseInt(oppStats.goals || 0) : 0;
+                let maxSecs = 0;
+                let isDnf = false;
+
                 if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
-                    let realOurGoals = 0;
-                    let realOppGoals = 0;
-                    let maxSecondsPlayed = 0;
-                    
+                    let realOur = 0, realOpp = 0;
                     if (match.players && match.players[String(team.eaClubId)]) {
-                        const ourPlayers = Object.values(match.players[String(team.eaClubId)]);
-                        realOurGoals = ourPlayers.reduce((sum, p) => sum + parseInt(p.goals || 0), 0);
-                        ourPlayers.forEach(p => {
-                            const secs = parseInt(p.secondsPlayed || 0);
-                            if (secs > maxSecondsPlayed) maxSecondsPlayed = secs;
-                        });
+                        const ps = Object.values(match.players[String(team.eaClubId)]);
+                        realOur = ps.reduce((s, p) => s + parseInt(p.goals || 0), 0);
+                        ps.forEach(p => { const sec = parseInt(p.secondsPlayed || 0); if (sec > maxSecs) maxSecs = sec; });
                     }
                     if (match.players && opponentId && match.players[opponentId]) {
-                        const oppPlayers = Object.values(match.players[opponentId]);
-                        realOppGoals = oppPlayers.reduce((sum, p) => sum + parseInt(p.goals || 0), 0);
-                        oppPlayers.forEach(p => {
-                            const secs = parseInt(p.secondsPlayed || 0);
-                            if (secs > maxSecondsPlayed) maxSecondsPlayed = secs;
-                        });
+                        const ps = Object.values(match.players[opponentId]);
+                        realOpp = ps.reduce((s, p) => s + parseInt(p.goals || 0), 0);
+                        ps.forEach(p => { const sec = parseInt(p.secondsPlayed || 0); if (sec > maxSecs) maxSecs = sec; });
                     }
-                    
-                    ourGoals = realOurGoals;
-                    oppGoals = realOppGoals;
+                    ourGoals = realOur;
+                    oppGoals = realOpp;
+                    if (maxSecs > 0 && maxSecs < 5200) isDnf = true;
+                }
 
-                    // Si el partido duró menos de 90 mins (aprox 5400 segs)
-                    if (maxSecondsPlayed > 0 && maxSecondsPlayed < 5200) {
-                        const dnfMin = Math.floor(maxSecondsPlayed / 60);
-                        dnfText = ` *(🔌 Desconexión Min ${dnfMin})*`;
+                const oppName = oppStats?.details?.name || (opponentId ? `Club ID ${opponentId}` : 'Desconocido');
+                return { ourGoals, oppGoals, maxSecs, isDnf, opponentId, oppName, timestamp: match.timestamp };
+            };
+
+            // --- Agrupar partidos consecutivos contra el mismo rival y fusionar si hubo DNF ---
+            const entries = [];
+            let mi = 0;
+            while (mi < data.length) {
+                const info = extractMatchInfo(data[mi]);
+                const group = [info];
+                let ni = mi + 1;
+
+                // Buscar partidos consecutivos contra el mismo rival dentro de 3 horas
+                while (ni < data.length) {
+                    const nextInfo = extractMatchInfo(data[ni]);
+                    const timeDiff = Math.abs(info.timestamp - nextInfo.timestamp);
+                    if (nextInfo.opponentId === info.opponentId && timeDiff < 3 * 3600) {
+                        group.push(nextInfo);
+                        ni++;
+                    } else {
+                        break;
                     }
                 }
-                // ----------------------------------------------
-                
-                const opponentName = opponentStats && opponentStats.details && opponentStats.details.name ? opponentStats.details.name : (opponentId ? `Club ID ${opponentId}` : 'Desconocido');
-                
-                let resultEmoji = '⚪'; // Empate
-                if (ourGoals > oppGoals) resultEmoji = '🟢'; // Victoria
-                if (ourGoals < oppGoals) resultEmoji = '🔴'; // Derrota
-                
-                const matchDate = new Date(match.timestamp * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
-                
-                embed.addFields({
-                    name: `${resultEmoji} vs ${opponentName}`,
-                    value: `**Resultado:** ${ourGoals} - ${oppGoals}${dnfText}\n🕛 *${matchDate}*`,
-                    inline: false
-                });
+
+                const hasDnf = group.some(g => g.isDnf);
+
+                if (hasDnf && group.length > 1) {
+                    // Fusionar: sumar goles reales de todas las sesiones
+                    let totalOur = 0, totalOpp = 0, totalSecs = 0;
+                    for (const g of group) { totalOur += g.ourGoals; totalOpp += g.oppGoals; totalSecs += g.maxSecs; }
+                    const totalMin = Math.floor(totalSecs / 60);
+                    const earliest = Math.min(...group.map(g => g.timestamp));
+                    let emoji = '⚪';
+                    if (totalOur > totalOpp) emoji = '🟢';
+                    if (totalOur < totalOpp) emoji = '🔴';
+                    const dateStr = new Date(earliest * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+                    entries.push({
+                        name: `${emoji} vs ${info.oppName}`,
+                        value: `**Resultado:** ${totalOur} - ${totalOpp} *(🔗 ${group.length} sesiones, ~${totalMin} min jugados)*\n🕛 *${dateStr}*`
+                    });
+                } else {
+                    // Sin merge: mostrar cada partido individualmente
+                    for (const g of group) {
+                        let dnfText = '';
+                        if (g.isDnf) {
+                            const dnfMin = Math.floor(g.maxSecs / 60);
+                            dnfText = ` *(🔌 Desconexión Min ${dnfMin})*`;
+                        }
+                        let emoji = '⚪';
+                        if (g.ourGoals > g.oppGoals) emoji = '🟢';
+                        if (g.ourGoals < g.oppGoals) emoji = '🔴';
+                        const dateStr = new Date(g.timestamp * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+                        entries.push({
+                            name: `${emoji} vs ${g.oppName}`,
+                            value: `**Resultado:** ${g.ourGoals} - ${g.oppGoals}${dnfText}\n🕛 *${dateStr}*`
+                        });
+                    }
+                }
+                mi = ni;
+            }
+
+            // Mostrar los últimos 5 resultados (ya procesados/fusionados)
+            for (const entry of entries.slice(0, 5)) {
+                embed.addFields({ name: entry.name, value: entry.value, inline: false });
             }
 
             return interaction.editReply({ embeds: [embed] });
