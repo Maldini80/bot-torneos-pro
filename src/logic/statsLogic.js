@@ -75,6 +75,36 @@ export function getTournamentPlayersStats(tournament) {
     return Object.values(allPlayers);
 }
 
+// --- Categorización de posiciones ---
+// EA envía texto genérico en inglés (forward, midfielder, defender, goalkeeper)
+// o abreviaturas en español desde el sistema interno (POR, DFC, MC, DC, etc.)
+// Esta función unifica ambos formatos en 5 categorías: GK, DEF, MED, CARR, DC
+function categorizePosition(pos) {
+    const p = (pos || '').toLowerCase().trim();
+
+    // 1. Coincidencia exacta con abreviaturas en español (más preciso)
+    const exactMap = {
+        'por': 'GK', 'portero': 'GK',
+        'dfc': 'DEF', 'ld': 'DEF', 'li': 'DEF', 'cad': 'DEF', 'cai': 'DEF',
+        'mcd': 'MED', 'mc': 'MED', 'mco': 'MED',
+        'md': 'CARR', 'mi': 'CARR',
+        'ed': 'DC', 'ei': 'DC', 'mp': 'DC', 'dc': 'DC'
+    };
+    if (exactMap[p]) return exactMap[p];
+
+    // 2. Coincidencia por texto en inglés (lo que envía EA en stats de partido)
+    if (p.includes('goalkeeper') || p === 'gk') return 'GK';
+    if (p.includes('defender') || p.includes('centerback') || p.includes('fullback')
+        || p.includes('leftback') || p.includes('rightback')) return 'DEF';
+    if (p.includes('lwb') || p.includes('rwb') || p.includes('wingback')) return 'CARR';
+    if (p.includes('midfielder') || p.includes('midfield')) return 'MED';
+    if (p.includes('forward') || p.includes('striker') || p.includes('winger')
+        || p.includes('attacker')) return 'DC';
+
+    // 3. Default: Medios (para no dejar a nadie fuera)
+    return 'MED';
+}
+
 export function generateBest11Embed(tournament, players) {
     if (players.length === 0) {
         return new EmbedBuilder()
@@ -83,58 +113,43 @@ export function generateBest11Embed(tournament, players) {
             .setColor('Red');
     }
 
-    // Categorizar jugadores por posición
+    // Categorizar jugadores por posición usando el sistema robusto
     const gks = [];
     const defs = [];
-    const centralMids = [];
-    const wideMids = [];
-    const fwds = [];
+    const meds = [];
+    const carrs = [];
+    const dcs = [];
 
     for (const p of players) {
-        const pos = p.pos || '';
-        if (pos.includes('goalkeeper') || pos.includes('gk') || pos === 'portero') {
-            gks.push(p);
-        } else if (pos.includes('defender') || pos.includes('cb') || pos.includes('lb') || pos.includes('rb')) {
-            // Laterales puros (LB/RB) suelen considerarse defensas en EA, a menos que jueguen LWB/RWB
-            defs.push(p);
-        } else if (pos.includes('lwb') || pos.includes('rwb') || pos.includes('lm') || pos.includes('rm')) {
-            // Carrileros y bandas
-            wideMids.push(p);
-        } else if (pos.includes('midfielder') || pos.includes('cm') || pos.includes('cam') || pos.includes('cdm')) {
-            // Medios centros (Ofensivos o defensivos)
-            centralMids.push(p);
-        } else if (pos.includes('forward') || pos.includes('st') || pos.includes('rw') || pos.includes('lw') || pos.includes('cf')) {
-            // Delanteros y extremos ofensivos
-            fwds.push(p);
-        } else {
-            // Default
-            centralMids.push(p);
+        const category = categorizePosition(p.pos);
+        switch (category) {
+            case 'GK': gks.push(p); break;
+            case 'DEF': defs.push(p); break;
+            case 'MED': meds.push(p); break;
+            case 'CARR': carrs.push(p); break;
+            case 'DC': dcs.push(p); break;
         }
     }
 
-    // Sistema de puntuación para ordenar
-    const getScore = (p) => {
-        return (p.avgRating * 2) + (p.goals * 1) + (p.assists * 0.5) + (p.mom * 1);
-    };
+    // Fórmulas de puntuación diferenciadas por línea
+    const getGkScore = (p) => (p.avgRating * 3) + (p.cleanSheets * 3) - (p.goalsConceded * 0.5) + (p.saves * 0.2);
+    const getDefScore = (p) => (p.avgRating * 3) + (p.cleanSheets * 2) + (p.goals * 0.5) + (p.assists * 0.5);
+    const getMedScore = (p) => (p.avgRating * 2) + (p.assists * 1.5) + (p.goals * 1) + (p.mom * 1);
+    const getCarrScore = (p) => (p.avgRating * 2) + (p.assists * 1.5) + (p.goals * 1) + (p.mom * 1);
+    const getDcScore = (p) => (p.avgRating * 2) + (p.goals * 2) + (p.assists * 1) + (p.mom * 1);
 
-    gks.sort((a, b) => getScore(b) - getScore(a));
-    defs.sort((a, b) => getScore(b) - getScore(a));
-    centralMids.sort((a, b) => getScore(b) - getScore(a));
-    wideMids.sort((a, b) => getScore(b) - getScore(a));
-    fwds.sort((a, b) => getScore(b) - getScore(a));
+    gks.sort((a, b) => getGkScore(b) - getGkScore(a));
+    defs.sort((a, b) => getDefScore(b) - getDefScore(a));
+    meds.sort((a, b) => getMedScore(b) - getMedScore(a));
+    carrs.sort((a, b) => getCarrScore(b) - getCarrScore(a));
+    dcs.sort((a, b) => getDcScore(b) - getDcScore(a));
 
-    // Formación 3-5-2 (1 GK, 3 DEF, 2 Bandas, 3 Medios, 2 FWD)
+    // Formación 3-5-2 (1 GK, 3 DEF, 3 MED, 2 CARR, 2 DC)
     const bestGk = gks.slice(0, 1);
     const bestDefs = defs.slice(0, 3);
-    const bestWideMids = wideMids.slice(0, 2);
-    const bestCentralMids = centralMids.slice(0, 3);
-    const bestFwds = fwds.slice(0, 2);
-
-    // Si faltan jugadores para la formación, rellenar (con fallbacks)
-    while (bestDefs.length < 3 && defs.length > bestDefs.length) bestDefs.push(defs[bestDefs.length]);
-    while (bestWideMids.length < 2 && wideMids.length > bestWideMids.length) bestWideMids.push(wideMids[bestWideMids.length]);
-    while (bestCentralMids.length < 3 && centralMids.length > bestCentralMids.length) bestCentralMids.push(centralMids[bestCentralMids.length]);
-    while (bestFwds.length < 2 && fwds.length > bestFwds.length) bestFwds.push(fwds[bestFwds.length]);
+    const bestMeds = meds.slice(0, 3);
+    const bestCarrs = carrs.slice(0, 2);
+    const bestDcs = dcs.slice(0, 2);
 
     // Calcular Premios Individuales
     const validPlayers = players.filter(p => p.gamesPlayed >= 1); // Mínimo de partidos
@@ -161,7 +176,7 @@ export function generateBest11Embed(tournament, players) {
     const embed = new EmbedBuilder()
         .setTitle(`🏆 Reporte Estadístico: ${tournament.nombre}`)
         .setColor('#FFD700') // Dorado
-        .setDescription('Basado en los datos oficiales extraídos de EA Sports FC.');
+        .setDescription('Basado en los datos oficiales extraídos de EA Sports FC.\nFormación: **3-5-2** (1 GK, 3 DEF, 3 MED, 2 CARR, 2 DC)');
 
     // Awards Field
     let awardsText = '';
@@ -174,25 +189,25 @@ export function generateBest11Embed(tournament, players) {
         embed.addFields({ name: '🎖️ Galardones Individuales', value: awardsText });
     }
 
-    // Best 11 Field
+    // Best 11 Field - De arriba a abajo del campo
     embed.addFields(
         { 
-            name: '⚽ Delanteros (FWD)', 
-            value: bestFwds.length > 0 ? bestFwds.map(formatPlayer).join(' - ') : 'N/A',
+            name: '⚽ Delanteros (DC)', 
+            value: bestDcs.length > 0 ? bestDcs.map(formatPlayer).join(' - ') : 'N/A',
             inline: false
         },
         { 
-            name: '🪄 Medios Centros (CM/CAM/CDM)', 
-            value: bestCentralMids.length > 0 ? bestCentralMids.map(formatPlayer).join(' - ') : 'N/A',
+            name: '🏃 Carrileros (CARR)', 
+            value: bestCarrs.length > 0 ? bestCarrs.map(formatPlayer).join(' - ') : 'N/A',
             inline: false
         },
         { 
-            name: '🏃 Carrileros y Bandas (LM/RM/LWB/RWB)', 
-            value: bestWideMids.length > 0 ? bestWideMids.map(formatPlayer).join(' - ') : 'N/A',
+            name: '🪄 Medios (MED)', 
+            value: bestMeds.length > 0 ? bestMeds.map(formatPlayer).join(' - ') : 'N/A',
             inline: false
         },
         { 
-            name: '🛡️ Defensas Centrales y Laterales (CB/LB/RB)', 
+            name: '🛡️ Defensas (DEF)', 
             value: bestDefs.length > 0 ? bestDefs.map(formatPlayer).join(' - ') : 'N/A',
             inline: false
         },
