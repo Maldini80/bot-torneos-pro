@@ -110,8 +110,22 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
         const mentionString = (mentionsA.join(' ') || 'Equipo A') + ' vs ' + (mentionsB.join(' ') || 'Equipo B');
         // --- FIN DE LA LÓGICA DE MIEMBROS Y MENCIONES MEJORADA ---
 
+        let eaScannerEnabled = false;
+        try {
+            const globalSettings = await getBotSettings();
+            if (globalSettings && globalSettings.eaScannerEnabled) {
+                eaScannerEnabled = true;
+            }
+        } catch (e) {
+            console.warn('[SCOUT] No se pudo verificar eaScannerEnabled al crear hilo:', e.message);
+        }
+
+        const inviteInstruction = eaScannerEnabled && partido.equipoB.eafcTeamName && partido.equipoB.eafcTeamName !== 'No vinculado'
+            ? `*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar a **${partido.equipoB.eafcTeamName}**.*`
+            : `*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*`;
+
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
-            .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n*El equipo local (${partido.equipoA.nombre}) debe buscar e invitar al equipo visitante.*`);
+            .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n${inviteInstruction}`);
 
         const footerText = '🇪🇸 Para subir una prueba, usa el botón o pega un enlace de YouTube/Twitch.\n' +
             '🇬🇧 To upload proof, use the button or paste a YouTube/Twitch link.';
