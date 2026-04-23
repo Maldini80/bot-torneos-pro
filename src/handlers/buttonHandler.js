@@ -7768,11 +7768,11 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
             // 4. Actualizar el visualizador si es necesario
             const { updatePublicMessages } = await import('../logic/tournamentLogic.js');
-            const { notifyTournamentVisualizer } = await import('../../index.js');
+            const { visualizerStateHandler } = await import('../../visualizerServer.js');
             
             const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
             await updatePublicMessages(client, updatedTournament);
-            notifyTournamentVisualizer(updatedTournament.shortId);
+            visualizerStateHandler.updateTournament(updatedTournament);
 
             await interaction.editReply({ content: '✅ La tabla de posiciones ha sido recalculada con éxito basándose en el calendario oficial.' });
         } catch (error) {
