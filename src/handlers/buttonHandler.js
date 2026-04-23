@@ -7591,6 +7591,45 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
+    if (action === 'admin_sync_ea_names') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        try {
+            let updatedCount = 0;
+            const testDb = getDb('test');
+
+            for (const captainId in tournament.teams.aprobados) {
+                const teamData = tournament.teams.aprobados[captainId];
+                const safeTeamName = teamData.nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const registeredTeam = await testDb.collection('teams').findOne({ name: { $regex: new RegExp(`^${safeTeamName}$`, 'i') }, guildId: tournament.guildId });
+
+                if (registeredTeam && registeredTeam.eaClubName && teamData.eafcTeamName !== registeredTeam.eaClubName) {
+                    teamData.eafcTeamName = registeredTeam.eaClubName;
+                    teamData.eaClubId = registeredTeam.eaClubId;
+                    teamData.eaPlatform = registeredTeam.eaPlatform;
+                    updatedCount++;
+                }
+            }
+
+            if (updatedCount > 0) {
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { 'teams.aprobados': tournament.teams.aprobados } }
+                );
+            }
+
+            await interaction.editReply({ content: `✅ Sincronización completada. Se han actualizado los datos de EA de **${updatedCount}** equipos en el torneo.` });
+        } catch (error) {
+            console.error('[SYNC EA NAMES] Error:', error);
+            await interaction.editReply({ content: '❌ Ocurrió un error al sincronizar los nombres.' });
+        }
+        return;
+    }
+
     if (action === 'admin_generate_tournament_stats') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });

@@ -376,6 +376,12 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
             .setLabel('Reporte EA (Mejor 11)')
             .setStyle(ButtonStyle.Primary)
             .setEmoji('📊')
+            .setDisabled(isBusy),
+        new ButtonBuilder()
+            .setCustomId(`admin_sync_ea_names:${tournament.shortId}`)
+            .setLabel('Sync Nombres EA')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🔄')
             .setDisabled(isBusy)
     );
 
