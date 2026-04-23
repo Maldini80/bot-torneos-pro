@@ -369,8 +369,10 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         );
     }
 
+    const row6 = new ActionRowBuilder();
+
     // Botón de Reporte EA / Mejor 11
-    row5.addComponents(
+    row6.addComponents(
         new ButtonBuilder()
             .setCustomId(`admin_generate_tournament_stats:${tournament.shortId}`)
             .setLabel('Reporte EA (Mejor 11)')
@@ -415,6 +417,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     if (row3.components.length > 0) components.push(row3);
     if (row4.components.length > 0) components.push(row4);
     if (row5.components.length > 0) components.push(row5);
+    if (row6.components.length > 0) components.push(row6);
 
     return { embeds: [embed], components };
 }
