@@ -304,7 +304,7 @@ export async function handleCommand(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         try {
-            const { generateBest11Image } = await import('../utils/best11ImageGenerator.js');
+            const { generateBest11Image, generateAwardsImage } = await import('../utils/best11ImageGenerator.js');
 
             // Datos ficticios para la prueba
             const fakeBest11 = {
@@ -329,11 +329,19 @@ export async function handleCommand(interaction) {
                 ]
             };
 
-            const imageAttachment = generateBest11Image('TORNEO DE PRUEBA - THE BLITZ', fakeBest11);
+            const fakeAwards = {
+                mvp: { name: 'XAVI_MASTER', avgRating: 9.1 },
+                topScorer: { name: 'MESSI_GOAT', avgRating: 9.6, goals: 12 },
+                topAssister: { name: 'INIESTA_MAGIC', avgRating: 8.8, assists: 8 },
+                zamora: { name: 'CASILLAS_PRO', avgRating: 8.2, cleanSheets: 4 }
+            };
+
+            const best11Img = generateBest11Image('TORNEO DE PRUEBA - THE BLITZ', fakeBest11);
+            const awardsImg = generateAwardsImage('TORNEO DE PRUEBA - THE BLITZ', fakeAwards);
 
             await interaction.editReply({
-                content: '✅ Imagen de prueba del Mejor 11 generada con datos ficticios:',
-                files: [imageAttachment]
+                content: '✅ Imagenes de prueba generadas con datos ficticios:',
+                files: [best11Img, awardsImg]
             });
         } catch (error) {
             console.error('[TEST MEJOR11] Error:', error);

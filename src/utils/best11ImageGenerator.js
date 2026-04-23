@@ -322,3 +322,172 @@ function shadeColor(color, percent) {
     const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
     return `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
 }
+
+// ==========================================
+// === IMAGEN DE PREMIOS INDIVIDUALES ===
+// ==========================================
+
+/**
+ * Genera una imagen premium con los premios individuales del torneo.
+ * @param {string} tournamentName - Nombre del torneo
+ * @param {Object} awards - { mvp, topScorer, topAssister, zamora }
+ * @returns {AttachmentBuilder}
+ */
+export function generateAwardsImage(tournamentName, awards) {
+    const WIDTH = 900;
+    const HEIGHT = 600;
+    const canvas = createCanvas(WIDTH, HEIGHT);
+    const ctx = canvas.getContext('2d');
+
+    // === FONDO ===
+    const bg = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+    bg.addColorStop(0, '#0b0d17');
+    bg.addColorStop(0.5, '#111827');
+    bg.addColorStop(1, '#0b0d17');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    // Viñeta
+    const vignette = ctx.createRadialGradient(WIDTH / 2, HEIGHT / 2, HEIGHT * 0.15, WIDTH / 2, HEIGHT / 2, HEIGHT * 0.7);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.5)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    // === HEADER ===
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 36px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('GALARDONES INDIVIDUALES', WIDTH / 2, 50);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '16px Arial, sans-serif';
+    const name = tournamentName.length > 50 ? tournamentName.substring(0, 49) + '...' : tournamentName;
+    ctx.fillText(name, WIDTH / 2, 78);
+
+    // Línea dorada
+    const lineGrad = ctx.createLinearGradient(100, 0, WIDTH - 100, 0);
+    lineGrad.addColorStop(0, 'rgba(255, 215, 0, 0)');
+    lineGrad.addColorStop(0.3, 'rgba(255, 215, 0, 0.7)');
+    lineGrad.addColorStop(0.7, 'rgba(255, 215, 0, 0.7)');
+    lineGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
+    ctx.strokeStyle = lineGrad;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(100, 95);
+    ctx.lineTo(WIDTH - 100, 95);
+    ctx.stroke();
+
+    // === PREMIOS ===
+    const awardsList = [
+        {
+            icon: 'MVP', iconColor: '#FFD700', label: 'MVP DEL TORNEO',
+            player: awards.mvp, stat: awards.mvp ? `Rating: ${awards.mvp.avgRating.toFixed(1)}` : null
+        },
+        {
+            icon: 'GOL', iconColor: '#00e676', label: 'BOTA DE ORO',
+            player: awards.topScorer, stat: awards.topScorer && awards.topScorer.goals > 0 ? `${awards.topScorer.goals} goles` : null
+        },
+        {
+            icon: 'AST', iconColor: '#42a5f5', label: 'MAXIMO ASISTENTE',
+            player: awards.topAssister, stat: awards.topAssister && awards.topAssister.assists > 0 ? `${awards.topAssister.assists} asistencias` : null
+        },
+        {
+            icon: 'GK', iconColor: '#ab47bc', label: 'GUANTE DE ORO (ZAMORA)',
+            player: awards.zamora, stat: awards.zamora ? `${awards.zamora.cleanSheets} porterias a cero` : null
+        }
+    ];
+
+    const cardW = 380;
+    const cardH = 95;
+    const startY = 125;
+    const gap = 15;
+
+    for (let i = 0; i < awardsList.length; i++) {
+        const award = awardsList[i];
+        const cx = WIDTH / 2;
+        const cy = startY + i * (cardH + gap) + cardH / 2;
+        const x = cx - cardW / 2;
+        const y = cy - cardH / 2;
+
+        // Sombra
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        roundedRect(ctx, x + 3, y + 3, cardW, cardH, 14);
+        ctx.fill();
+
+        // Fondo tarjeta
+        const cGrad = ctx.createLinearGradient(x, y, x + cardW, y);
+        cGrad.addColorStop(0, 'rgba(20, 25, 50, 0.9)');
+        cGrad.addColorStop(1, 'rgba(15, 20, 40, 0.95)');
+        ctx.fillStyle = cGrad;
+        roundedRect(ctx, x, y, cardW, cardH, 14);
+        ctx.fill();
+
+        // Borde
+        ctx.strokeStyle = award.iconColor;
+        ctx.lineWidth = 2;
+        roundedRect(ctx, x, y, cardW, cardH, 14);
+        ctx.stroke();
+
+        // Círculo del icono (izquierda)
+        const circleX = x + 50;
+        const circleY = cy;
+        const circleR = 28;
+
+        const cCircleGrad = ctx.createRadialGradient(circleX, circleY, 0, circleX, circleY, circleR);
+        cCircleGrad.addColorStop(0, award.iconColor);
+        cCircleGrad.addColorStop(1, shadeColor(award.iconColor, -50));
+        ctx.fillStyle = cCircleGrad;
+        ctx.beginPath();
+        ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Texto del icono
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(award.icon, circleX, circleY + 5);
+
+        // Textos (derecha del círculo)
+        const textX = circleX + 50;
+
+        // Label del premio
+        ctx.fillStyle = award.iconColor;
+        ctx.font = 'bold 13px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(award.label, textX, cy - 20);
+
+        if (award.player && award.stat) {
+            // Nombre del jugador
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px Arial, sans-serif';
+            const pName = award.player.name.length > 18 ? award.player.name.substring(0, 17) + '..' : award.player.name;
+            ctx.fillText(pName, textX, cy + 8);
+
+            // Estadística
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '14px Arial, sans-serif';
+            ctx.fillText(award.stat, textX, cy + 30);
+        } else {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = '16px Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('Sin datos disponibles', textX, cy + 5);
+        }
+    }
+
+    // === FOOTER ===
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.5)';
+    ctx.font = '12px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Powered by EA Sports FC  |  THE BLITZ', WIDTH / 2, HEIGHT - 20);
+
+    const buffer = canvas.toBuffer('image/png');
+    return new AttachmentBuilder(buffer, { name: 'premios.png' });
+}

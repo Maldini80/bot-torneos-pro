@@ -7584,20 +7584,25 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             const { getTournamentPlayersStats, generateBest11Embed } = await import('../logic/statsLogic.js');
             
             const players = getTournamentPlayersStats(tournament);
-            const { embed, best11 } = generateBest11Embed(tournament, players);
+            const { embed, best11, awards } = generateBest11Embed(tournament, players);
 
-            // Intentar generar la imagen del Mejor 11 (si canvas está disponible)
-            let imageAttachment = null;
+            // Intentar generar las imágenes (si canvas está disponible)
+            const files = [];
             try {
-                const { generateBest11Image } = await import('../utils/best11ImageGenerator.js');
-                imageAttachment = generateBest11Image(tournament.nombre, best11);
+                const { generateBest11Image, generateAwardsImage } = await import('../utils/best11ImageGenerator.js');
+                const best11Img = generateBest11Image(tournament.nombre, best11);
+                files.push(best11Img);
                 embed.setImage('attachment://mejor-11.png');
+
+                // Imagen de premios individuales
+                const awardsImg = generateAwardsImage(tournament.nombre, awards);
+                files.push(awardsImg);
             } catch (imgErr) {
-                console.warn('[Best11] No se pudo generar la imagen:', imgErr.message);
+                console.warn('[Best11] No se pudo generar las imágenes:', imgErr.message);
             }
 
             const sendPayload = { embeds: [embed] };
-            if (imageAttachment) sendPayload.files = [imageAttachment];
+            if (files.length > 0) sendPayload.files = files;
 
             // Intentar enviar al canal de logs (normalmente donde se anuncian partidos)
             let sent = false;
