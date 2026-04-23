@@ -70,6 +70,10 @@ const commands = [
         .setName('migrar-elo')
         .setDescription('Ejecuta la migración manual de campos ELO en todos los equipos.')
         .setDefaultMemberPermissions(0),
+    new SlashCommandBuilder()
+        .setName('probar-mejor11')
+        .setDescription('Genera una imagen de prueba del Mejor 11 con datos ficticios.')
+        .setDefaultMemberPermissions(0),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);

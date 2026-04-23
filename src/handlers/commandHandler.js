@@ -296,5 +296,49 @@ export async function handleCommand(interaction) {
             await interaction.editReply('❌ Ocurrió un error en la migración. Revisa los logs.');
         }
     }
+    if (commandName === 'probar-mejor11') {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.reply({ content: 'Este comando es solo para administradores.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        try {
+            const { generateBest11Image } = await import('../utils/best11ImageGenerator.js');
+
+            // Datos ficticios para la prueba
+            const fakeBest11 = {
+                gk:   [{ name: 'CASILLAS_PRO', avgRating: 8.2 }],
+                defs: [
+                    { name: 'SERGIO_RAMOS99', avgRating: 8.5 },
+                    { name: 'PUYOL_LEGEND', avgRating: 8.3 },
+                    { name: 'MARCELO_FCB', avgRating: 7.9 }
+                ],
+                meds: [
+                    { name: 'XAVI_MASTER', avgRating: 9.1 },
+                    { name: 'INIESTA_MAGIC', avgRating: 8.8 },
+                    { name: 'BUSQUETS_CDM', avgRating: 8.4 }
+                ],
+                carrs: [
+                    { name: 'JORDI_ALBA10', avgRating: 8.0 },
+                    { name: 'DANI_ALVES22', avgRating: 7.7 }
+                ],
+                dcs: [
+                    { name: 'MESSI_GOAT', avgRating: 9.6 },
+                    { name: 'VILLA_GUAJE', avgRating: 8.9 }
+                ]
+            };
+
+            const imageAttachment = generateBest11Image('TORNEO DE PRUEBA - THE BLITZ', fakeBest11);
+
+            await interaction.editReply({
+                content: '✅ Imagen de prueba del Mejor 11 generada con datos ficticios:',
+                files: [imageAttachment]
+            });
+        } catch (error) {
+            console.error('[TEST MEJOR11] Error:', error);
+            await interaction.editReply({ content: `❌ Error al generar la imagen: ${error.message}` });
+        }
+    }
 }
 
