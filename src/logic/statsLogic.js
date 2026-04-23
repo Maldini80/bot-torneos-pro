@@ -107,10 +107,11 @@ function categorizePosition(pos) {
 
 export function generateBest11Embed(tournament, players) {
     if (players.length === 0) {
-        return new EmbedBuilder()
+        const embed = new EmbedBuilder()
             .setTitle(`Mejor 11: ${tournament.nombre}`)
             .setDescription('No hay suficientes estadísticas de EA recopiladas en este torneo todavía.')
             .setColor('Red');
+        return { embed, best11: { gk: [], defs: [], meds: [], carrs: [], dcs: [] } };
     }
 
     // Categorizar jugadores por posición usando el sistema robusto
