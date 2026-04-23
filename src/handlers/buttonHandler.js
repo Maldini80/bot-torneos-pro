@@ -7584,14 +7584,27 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             const { getTournamentPlayersStats, generateBest11Embed } = await import('../logic/statsLogic.js');
             
             const players = getTournamentPlayersStats(tournament);
-            const embed = generateBest11Embed(tournament, players);
+            const { embed, best11 } = generateBest11Embed(tournament, players);
+
+            // Intentar generar la imagen del Mejor 11 (si canvas está disponible)
+            let imageAttachment = null;
+            try {
+                const { generateBest11Image } = await import('../utils/best11ImageGenerator.js');
+                imageAttachment = generateBest11Image(tournament.nombre, best11);
+                embed.setImage('attachment://mejor-11.png');
+            } catch (imgErr) {
+                console.warn('[Best11] No se pudo generar la imagen:', imgErr.message);
+            }
+
+            const sendPayload = { embeds: [embed] };
+            if (imageAttachment) sendPayload.files = [imageAttachment];
 
             // Intentar enviar al canal de logs (normalmente donde se anuncian partidos)
             let sent = false;
             if (tournament.discordMessageIds?.matchLogChannelId) {
                 const channel = await client.channels.fetch(tournament.discordMessageIds.matchLogChannelId).catch(() => null);
                 if (channel) {
-                    await channel.send({ embeds: [embed] });
+                    await channel.send(sendPayload);
                     sent = true;
                 }
             }
@@ -7599,7 +7612,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             if (!sent && tournament.discordMessageIds?.updateChannelId) {
                  const channel = await client.channels.fetch(tournament.discordMessageIds.updateChannelId).catch(() => null);
                  if (channel) {
-                     await channel.send({ embeds: [embed] });
+                     await channel.send(sendPayload);
                      sent = true;
                  }
             }
@@ -7607,7 +7620,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             if (sent) {
                 return interaction.editReply({ content: '✅ El reporte estadístico y el Mejor 11 se han generado y enviado al canal correspondiente.' });
             } else {
-                return interaction.editReply({ content: '⚠️ Reporte generado, pero no se encontró un canal válido de actualizaciones o logs para enviarlo. Revisa la configuración del torneo.', embeds: [embed] });
+                return interaction.editReply({ content: '⚠️ Reporte generado, pero no se encontró un canal válido.', ...sendPayload });
             }
 
         } catch (error) {

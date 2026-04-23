@@ -221,5 +221,5 @@ export function generateBest11Embed(tournament, players) {
     embed.setFooter({ text: 'Sistema Oficial VPG - Powered by EA Sports', iconURL: 'https://i.imgur.com/Qk9z9Xk.png' });
     embed.setTimestamp();
 
-    return embed;
+    return { embed, best11: { gk: bestGk, defs: bestDefs, meds: bestMeds, carrs: bestCarrs, dcs: bestDcs } };
 }
