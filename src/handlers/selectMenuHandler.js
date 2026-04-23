@@ -3008,7 +3008,9 @@ export async function handleSelectMenu(interaction) {
         const teamData = {
             id: team.managerId,
             nombre: team.name,
-            eafcTeamName: team.name,
+            eafcTeamName: team.eaClubName || team.name,
+            eaClubId: team.eaClubId || null,
+            eaPlatform: team.eaPlatform || null,
             capitanId: team.managerId,
             capitanTag: manager.tag,
             logoUrl: team.logoUrl,
