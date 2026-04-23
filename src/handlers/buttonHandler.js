@@ -7336,10 +7336,29 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 continue;
             }
 
+            // --- FIX: Buscar el nombre del club EA vinculado desde la BD ---
+            let eafcName = poolTeam.teamName; // Fallback al nombre del equipo
+            let eaClubId = null;
+            let eaPlatform = null;
+            try {
+                const testDb = getDb('test');
+                const dbTeam = await testDb.collection('teams').findOne({ _id: new ObjectId(poolTeam.teamDbId) });
+                if (dbTeam) {
+                    if (dbTeam.eaClubName) eafcName = dbTeam.eaClubName;
+                    if (dbTeam.eaClubId) eaClubId = dbTeam.eaClubId;
+                    if (dbTeam.eaPlatform) eaPlatform = dbTeam.eaPlatform;
+                }
+            } catch (lookupErr) {
+                console.warn(`[Pool→Tournament] No se pudo buscar datos EA para ${poolTeam.teamName}:`, lookupErr.message);
+            }
+            // --- FIN FIX ---
+
             const teamData = {
                 id: captainId,
                 nombre: poolTeam.teamName,
-                eafcTeamName: '',
+                eafcTeamName: eafcName,
+                eaClubId: eaClubId,
+                eaPlatform: eaPlatform,
                 capitanId: captainId,
                 capitanTag: 'Bolsa_Inscripcion',
                 coCaptainId: poolTeam.captains?.[0] || null,

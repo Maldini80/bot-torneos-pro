@@ -1499,7 +1499,9 @@ export async function approveTeam(client, tournament, teamData) {
                 // --- FIX: Sync missing data from test.teams ---
                 if (!teamData.logoUrl && registeredTeam.logoUrl) teamData.logoUrl = registeredTeam.logoUrl;
                 if (!teamData.twitter && registeredTeam.twitterHandle) teamData.twitter = registeredTeam.twitterHandle;
-                if (!teamData.eafcTeamName) teamData.eafcTeamName = registeredTeam.name;
+                if (!teamData.eafcTeamName) teamData.eafcTeamName = registeredTeam.eaClubName || registeredTeam.name;
+                if (!teamData.eaClubId && registeredTeam.eaClubId) teamData.eaClubId = registeredTeam.eaClubId;
+                if (!teamData.eaPlatform && registeredTeam.eaPlatform) teamData.eaPlatform = registeredTeam.eaPlatform;
             }
         } catch (err) {
             console.warn(`[MANAGER SYNC] Failed to lookup manager for team ${teamData.nombre}:`, err);
