@@ -229,10 +229,11 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
         allButtons.push(new ButtonBuilder().setCustomId(`admin_toggle_elo:${tournament.shortId}`).setLabel(eloBtnLabel).setStyle(eloBtnStyle).setEmoji(isIgnoreElo ? '🔒' : '🔓').setDisabled(isBusy));
     }
 
-    // EA Tools
+    // EA Tools & Re-calcs
     allButtons.push(new ButtonBuilder().setCustomId(`admin_generate_tournament_stats:${tournament.shortId}`).setLabel('Reporte EA (Mejor 11)').setStyle(ButtonStyle.Primary).setEmoji('📊').setDisabled(isBusy));
     allButtons.push(new ButtonBuilder().setCustomId(`admin_sync_ea_names:${tournament.shortId}`).setLabel('Sync Nombres EA').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy));
     allButtons.push(new ButtonBuilder().setCustomId(`admin_force_ea_reload:${tournament.shortId}`).setLabel('Forzar Reload Stats EA').setStyle(ButtonStyle.Secondary).setEmoji('🔌').setDisabled(isBusy));
+    allButtons.push(new ButtonBuilder().setCustomId(`admin_recalc_standings:${tournament.shortId}`).setLabel('Recalcular Tabla').setStyle(ButtonStyle.Danger).setEmoji('🧮').setDisabled(isBusy));
 
     if (tournament.config.paidSubType === 'draft') {
         allButtons.push(new ButtonBuilder().setCustomId(`ext_reg_manage:${tournament.shortId}`).setLabel('Gestionar Inscripciones').setStyle(ButtonStyle.Primary).setEmoji('📋').setDisabled(isBusy));

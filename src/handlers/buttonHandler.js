@@ -7702,6 +7702,86 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
+    if (action === 'admin_recalc_standings') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament || !tournament.structure || !tournament.structure.grupos) {
+            return interaction.reply({ content: 'El torneo no existe o no tiene fase de liguilla.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        try {
+            // 1. Poner a 0 todas las stats de todos los equipos en todos los grupos
+            for (const groupName in tournament.structure.grupos) {
+                const group = tournament.structure.grupos[groupName];
+                for (const equipo of group.equipos) {
+                    equipo.stats = { pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, dg: 0, pts: 0 };
+                }
+            }
+
+            // 2. Volver a calcular sumando solo los partidos finalizados
+            if (tournament.structure.calendario) {
+                for (const groupName in tournament.structure.calendario) {
+                    const groupMatches = tournament.structure.calendario[groupName];
+                    for (const partido of groupMatches) {
+                        if (partido.status === 'finalizado' && partido.resultado) {
+                            const [golesA, golesB] = partido.resultado.split('-').map(Number);
+                            const equipoA = tournament.structure.grupos[groupName].equipos.find(e => e.id === partido.equipoA.id);
+                            const equipoB = tournament.structure.grupos[groupName].equipos.find(e => e.id === partido.equipoB.id);
+
+                            if (!equipoA || !equipoB) continue;
+
+                            equipoA.stats.pj += 1;
+                            equipoB.stats.pj += 1;
+                            equipoA.stats.gf += golesA;
+                            equipoB.stats.gf += golesB;
+                            equipoA.stats.gc += golesB;
+                            equipoB.stats.gc += golesA;
+                            equipoA.stats.dg = equipoA.stats.gf - equipoA.stats.gc;
+                            equipoB.stats.dg = equipoB.stats.gf - equipoB.stats.gc;
+
+                            if (golesA > golesB) {
+                                equipoA.stats.pts += 3;
+                                equipoA.stats.pg += 1;
+                                equipoB.stats.pp += 1;
+                            } else if (golesB > golesA) {
+                                equipoB.stats.pts += 3;
+                                equipoB.stats.pg += 1;
+                                equipoA.stats.pp += 1;
+                            } else {
+                                equipoA.stats.pts += 1;
+                                equipoB.stats.pts += 1;
+                                equipoA.stats.pe += 1;
+                                equipoB.stats.pe += 1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Guardar en base de datos
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                { $set: { 'structure.grupos': tournament.structure.grupos } }
+            );
+
+            // 4. Actualizar el visualizador si es necesario
+            const { updatePublicMessages } = await import('../logic/tournamentLogic.js');
+            const { notifyTournamentVisualizer } = await import('../../index.js');
+            
+            const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+            await updatePublicMessages(client, updatedTournament);
+            notifyTournamentVisualizer(updatedTournament.shortId);
+
+            await interaction.editReply({ content: '✅ La tabla de posiciones ha sido recalculada con éxito basándose en el calendario oficial.' });
+        } catch (error) {
+            console.error('[RECALC STANDINGS] Error:', error);
+            await interaction.editReply({ content: '❌ Ocurrió un error al recalcular la tabla.' });
+        }
+        return;
+    }
+
     if (action === 'admin_generate_tournament_stats') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
