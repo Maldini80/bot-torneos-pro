@@ -92,24 +92,23 @@ export async function processMatchResult(client, guild, tournament, matchId, res
         const globalSettings = await getBotSettings();
         
         if (globalSettings.eaScannerEnabled) {
-            // Buscamos los equipos actualizados en la BD de equipos central
-            // partido.equipoA.id contiene el ID de Discord del capitán del equipo.
+            // Buscamos los equipos actualizados directamente desde la lista de aprobados del torneo
             const teamACaptainId = partido.equipoA.id;
             const teamBCaptainId = partido.equipoB.id;
             
-            const teamA = await db.collection('teams').findOne({ $or: [{ managerId: teamACaptainId }, { captains: teamACaptainId }] });
-            const teamB = await db.collection('teams').findOne({ $or: [{ managerId: teamBCaptainId }, { captains: teamBCaptainId }] });
+            const fullTeamA = currentTournament.teams.aprobados[teamACaptainId];
+            const fullTeamB = currentTournament.teams.aprobados[teamBCaptainId];
             
-            if (teamA && teamA.eaClubId && teamB && teamB.eaClubId) {
+            if (fullTeamA && fullTeamA.eaClubId && fullTeamB && fullTeamB.eaClubId) {
                 const { addJob } = await import('../utils/eaStatsQueue.js');
                 addJob(
                     matchId, 
                     currentTournament.shortId, 
                     matchPath, 
-                    teamA.eaClubId, 
-                    teamB.eaClubId, 
-                    teamA.eaPlatform, 
-                    teamB.eaPlatform
+                    fullTeamA.eaClubId, 
+                    fullTeamB.eaClubId, 
+                    fullTeamA.eaPlatform, 
+                    fullTeamB.eaPlatform
                 );
             } else {
                 console.log(`[EA_QUEUE] Partido ${matchId} ignorado: Al menos uno de los equipos no tiene vinculado un Club de EA.`);
