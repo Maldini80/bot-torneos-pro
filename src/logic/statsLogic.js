@@ -149,8 +149,22 @@ export function generateBest11Embed(tournament, players) {
     const bestGk = gks.slice(0, 1);
     const bestDefs = defs.slice(0, 3);
     const bestMeds = meds.slice(0, 3);
-    const bestCarrs = carrs.slice(0, 2);
     const bestDcs = dcs.slice(0, 2);
+    
+    let bestCarrs = carrs.slice(0, 2);
+    
+    // Fallback: Si no hay carrileros suficientes (por limitaciones de EA API), rellenar con los siguientes mejores DC o MED
+    let remainingDcs = dcs.slice(2);
+    let remainingMeds = meds.slice(3);
+    while (bestCarrs.length < 2) {
+        if (remainingDcs.length > 0) {
+            bestCarrs.push(remainingDcs.shift());
+        } else if (remainingMeds.length > 0) {
+            bestCarrs.push(remainingMeds.shift());
+        } else {
+            break;
+        }
+    }
 
     // Calcular Premios Individuales
     const validPlayers = players.filter(p => p.gamesPlayed >= 1); // Mínimo de partidos

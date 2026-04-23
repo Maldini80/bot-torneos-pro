@@ -74,6 +74,17 @@ async function processQueue() {
                 { $set: { [setKey]: stats } }
             );
 
+            // Emitir ping a la web para que se redibujen los botones de Stats
+            try {
+                const { visualizerStateHandler } = await import('../../visualizerServer.js');
+                const updatedTournament = await db.collection('tournaments').findOne({ shortId: job.tournamentShortId });
+                if (updatedTournament) {
+                    visualizerStateHandler.updateTournament(updatedTournament);
+                }
+            } catch (err) {
+                console.error('[EA_QUEUE] Error notificando al visualizador web:', err);
+            }
+
             console.log(`[EA_QUEUE] Estadísticas inyectadas exitosamente para ${job.matchId}.`);
         } else {
             console.log(`[EA_QUEUE] No se encontraron estadísticas recientes para ${job.matchId}.`);
