@@ -7630,6 +7630,78 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
+    if (action === 'admin_force_ea_reload') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        try {
+            const { getBotSettings } = await import('../../database.js');
+            const globalSettings = await getBotSettings();
+            if (!globalSettings.eaScannerEnabled) {
+                return interaction.editReply({ content: 'El escáner de EA está desactivado globalmente.' });
+            }
+
+            const { findMatchPath } = await import('../logic/matchLogic.js');
+            const { addJob } = await import('../utils/eaStatsQueue.js');
+
+            let queuedCount = 0;
+            const processMatchForQueue = (match) => {
+                if (match && match.status === 'finalizado') {
+                    const matchPath = findMatchPath(tournament, match.matchId);
+                    if (!matchPath) return;
+
+                    const teamAId = match.equipoA.capitanId || match.equipoA.id;
+                    const teamBId = match.equipoB.capitanId || match.equipoB.id;
+                    const fullTeamA = tournament.teams.aprobados[teamAId];
+                    const fullTeamB = tournament.teams.aprobados[teamBId];
+
+                    if (fullTeamA && fullTeamA.eaClubId && fullTeamB && fullTeamB.eaClubId) {
+                        addJob(
+                            match.matchId,
+                            tournament.shortId,
+                            matchPath,
+                            fullTeamA.eaClubId,
+                            fullTeamB.eaClubId,
+                            fullTeamA.eaPlatform,
+                            fullTeamB.eaPlatform
+                        );
+                        queuedCount++;
+                    }
+                }
+            };
+
+            if (tournament.structure && tournament.structure.calendario) {
+                for (const group of Object.values(tournament.structure.calendario)) {
+                    for (const match of group) {
+                        processMatchForQueue(match);
+                    }
+                }
+            }
+
+            if (tournament.structure && tournament.structure.eliminatorias) {
+                for (const [stageKey, stageData] of Object.entries(tournament.structure.eliminatorias)) {
+                    if (stageKey === 'rondaActual') continue;
+                    if (Array.isArray(stageData)) {
+                        for (const match of stageData) {
+                            processMatchForQueue(match);
+                        }
+                    } else if (stageData) {
+                        processMatchForQueue(stageData);
+                    }
+                }
+            }
+
+            await interaction.editReply({ content: `✅ Se han encolado **${queuedCount}** partidos finalizados para re-descargar sus estadísticas de EA. Por favor, espera unos minutos y vuelve a generar el Mejor 11.` });
+        } catch (error) {
+            console.error('[FORCE EA RELOAD] Error:', error);
+            await interaction.editReply({ content: '❌ Ocurrió un error al forzar la recarga.' });
+        }
+        return;
+    }
+
     if (action === 'admin_generate_tournament_stats') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });

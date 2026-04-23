@@ -67,7 +67,7 @@ async function processQueue() {
             
             const db = getDb();
             // Update atómico
-            const setKey = `structure.calendario.${job.matchPath}.eaStats`;
+            const setKey = `${job.matchPath}.eaStats`;
             
             await db.collection('tournaments').updateOne(
                 { shortId: job.tournamentShortId },
