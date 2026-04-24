@@ -1165,7 +1165,7 @@ const handler = async (client, interaction) => {
             const embed = new EmbedBuilder()
                 .setTitle(`Últimos Partidos de EA: ${team.eaClubName || team.name}`)
                 .setColor('Blue')
-                .setThumbnail(team.logoUrl)
+                .setThumbnail(`https://media.contentapi.ea.com/content/dam/eacom/ea-sports-fc/pro-clubs/global/logos/${team.eaClubId}.png`)
                 .setDescription(`Resultados directamente desde la base de datos de EA Sports para el club ID \`${team.eaClubId}\`:`);
 
             // --- Helper: extrae goles reales y datos de DNF de un partido ---
