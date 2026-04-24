@@ -336,8 +336,8 @@ export async function handleCommand(interaction) {
                 zamora: { name: 'CASILLAS_PRO', avgRating: 8.2, cleanSheets: 4 }
             };
 
-            const best11Img = generateBest11Image('TORNEO DE PRUEBA - THE BLITZ', fakeBest11);
-            const awardsImg = generateAwardsImage('TORNEO DE PRUEBA - THE BLITZ', fakeAwards);
+            const best11Img = await generateBest11Image('TORNEO DE PRUEBA - THE BLITZ', fakeBest11);
+            const awardsImg = await generateAwardsImage('TORNEO DE PRUEBA - THE BLITZ', fakeAwards);
 
             await interaction.editReply({
                 content: '✅ Imagenes de prueba generadas con datos ficticios:',

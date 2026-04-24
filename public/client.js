@@ -2787,15 +2787,18 @@ window.openMatchStatsModal = function(match) {
     
     // Calcular stats agregadas de jugadores
     const aggStats = (playersObj) => {
-        if (!playersObj) return { rating: 0, count: 0, goals: 0, assists: 0, saves: 0 };
+        if (!playersObj) return { rating: 0, count: 0, goals: 0, assists: 0, saves: 0, passes: 0, shots: 0, tackles: 0 };
         const pList = Object.values(playersObj);
         const sums = pList.reduce((acc, p) => {
             acc.rating += p.ratingSum || p.rating || 0;
             acc.goals += p.goals || 0;
             acc.assists += p.assists || 0;
             acc.saves += p.saves || 0;
+            acc.passes += p.passesMade || 0;
+            acc.shots += p.shots || 0;
+            acc.tackles += p.tackleAttempts || 0;
             return acc;
-        }, { rating: 0, count: pList.length, goals: 0, assists: 0, saves: 0 });
+        }, { rating: 0, count: pList.length, goals: 0, assists: 0, saves: 0, passes: 0, shots: 0, tackles: 0 });
         if (sums.count > 0) sums.rating = (sums.rating / sums.count).toFixed(1);
         return sums;
     };
@@ -2804,7 +2807,9 @@ window.openMatchStatsModal = function(match) {
     const statsB = aggStats(eaClubB.players);
 
     globalStatsHTML += renderStatBar('Nota Media', statsA.rating, statsB.rating);
-    globalStatsHTML += renderStatBar('Tiros a Puerta (Goles)', statsA.goals, statsB.goals);
+    globalStatsHTML += renderStatBar('Tiros Totales', statsA.shots, statsB.shots);
+    globalStatsHTML += renderStatBar('Pases Completados', statsA.passes, statsB.passes);
+    globalStatsHTML += renderStatBar('Entradas Intentadas', statsA.tackles, statsB.tackles);
     globalStatsHTML += renderStatBar('Paradas', statsA.saves, statsB.saves);
 
     document.getElementById('ms-global-stats').innerHTML = globalStatsHTML;
@@ -2817,7 +2822,7 @@ window.openMatchStatsModal = function(match) {
         const tbody = document.getElementById(tbodyId);
         tbody.innerHTML = '';
         if (!playersObj) {
-            tbody.innerHTML = '<tr><td colspan="5" class="placeholder">No hay datos de jugadores.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="placeholder">No hay datos de jugadores.</td></tr>';
             return;
         }
 
@@ -2827,11 +2832,19 @@ window.openMatchStatsModal = function(match) {
             rating: p.ratingSum || p.rating || 0,
             goals: p.goals || 0,
             assists: p.assists || 0,
+            passes: p.passesMade || 0,
+            tackles: p.tackleAttempts || 0,
+            shots: p.shots || 0,
             mom: p.mom || 0
         }));
 
         // Sort by position (GK -> DEF -> MID -> FWD) then rating
-        const posOrder = { 'gk':1, 'goalkeeper':1, 'cb':2, 'lb':2, 'rb':2, 'defender':2, 'cdm':3, 'cm':3, 'cam':3, 'lm':3, 'rm':3, 'lwb':3, 'rwb':3, 'midfielder':3, 'cf':4, 'st':4, 'rw':4, 'lw':4, 'forward':4 };
+        const posOrder = { 
+            'gk':1, 'goalkeeper':1, 'por':1,
+            'cb':2, 'lb':2, 'rb':2, 'defender':2, 'dfc':2, 'ld':2, 'li':2, 'cad':2, 'cai':2,
+            'cdm':3, 'cm':3, 'cam':3, 'lm':3, 'rm':3, 'lwb':3, 'rwb':3, 'midfielder':3, 'mcd':3, 'mc':3, 'mco':3, 'md':3, 'mi':3,
+            'cf':4, 'st':4, 'rw':4, 'lw':4, 'forward':4, 'dc':4, 'ed':4, 'ei':4, 'mp':4
+        };
         players.sort((a, b) => {
             const pa = posOrder[a.pos.toLowerCase()] || 5;
             const pb = posOrder[b.pos.toLowerCase()] || 5;
@@ -2848,6 +2861,9 @@ window.openMatchStatsModal = function(match) {
                 <td style="text-align:center; color: #f1c40f;">${parseFloat(p.rating).toFixed(1)}</td>
                 <td style="text-align:center;">${p.goals > 0 ? p.goals : '-'}</td>
                 <td style="text-align:center;">${p.assists > 0 ? p.assists : '-'}</td>
+                <td style="text-align:center;">${p.passes > 0 ? p.passes : '-'}</td>
+                <td style="text-align:center;">${p.tackles > 0 ? p.tackles : '-'}</td>
+                <td style="text-align:center;">${p.shots > 0 ? p.shots : '-'}</td>
             `;
             tbody.appendChild(tr);
         });

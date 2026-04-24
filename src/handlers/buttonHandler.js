@@ -7801,13 +7801,13 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             if (players.length > 0) {
                 try {
                     const { generateBest11Image, generateAwardsImage } = await import('../utils/best11ImageGenerator.js');
-                    const best11Img = generateBest11Image(tournament.nombre, best11);
+                    const best11Img = await generateBest11Image(tournament.nombre, best11);
                     files.push(best11Img);
                     embed.setImage('attachment://mejor-11.png');
 
                     // Imagen de premios individuales (solo si hay MVP y premios validos)
                     if (awards && awards.mvp) {
-                        const awardsImg = generateAwardsImage(tournament.nombre, awards);
+                        const awardsImg = await generateAwardsImage(tournament.nombre, awards);
                         files.push(awardsImg);
                     }
                 } catch (imgErr) {

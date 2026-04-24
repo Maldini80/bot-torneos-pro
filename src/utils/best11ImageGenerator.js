@@ -1,14 +1,14 @@
 // src/utils/best11ImageGenerator.js
-import { createCanvas } from 'canvas';
+import { createCanvas, loadImage } from 'canvas';
 import { AttachmentBuilder } from 'discord.js';
 
 /**
  * Genera una imagen premium del Mejor 11 en formación 3-5-2.
  * @param {string} tournamentName - Nombre del torneo
  * @param {Object} best11 - { gk: [], defs: [], meds: [], carrs: [], dcs: [] }
- * @returns {AttachmentBuilder}
+ * @returns {Promise<AttachmentBuilder>}
  */
-export function generateBest11Image(tournamentName, best11) {
+export async function generateBest11Image(tournamentName, best11) {
     const WIDTH = 900;
     const HEIGHT = 1100;
     const canvas = createCanvas(WIDTH, HEIGHT);
@@ -45,7 +45,7 @@ export function generateBest11Image(tournamentName, best11) {
 
     for (const slot of slots) {
         const player = slot.arr?.[slot.idx] || null;
-        drawPlayerCard(ctx, slot.x, slot.y, player, slot.label);
+        await drawPlayerCard(ctx, slot.x, slot.y, player, slot.label);
     }
 
     // === FOOTER ===
@@ -165,122 +165,77 @@ function drawHeader(ctx, w, tournamentName) {
 }
 
 // ==========================================
-// === TARJETA DE JUGADOR ===
+// === TARJETA DE JUGADOR (Vertical FUT) ===
 // ==========================================
-function drawPlayerCard(ctx, cx, cy, player, posLabel) {
-    const CARD_W = 155;
-    const CARD_H = 90;
+async function drawPlayerCard(ctx, cx, cy, player, posLabel) {
+    const CARD_W = 100;
+    const CARD_H = 140;
     const x = cx - CARD_W / 2;
     const y = cy - CARD_H / 2;
-    const r = 12;
-
-    // === Sombra de la tarjeta ===
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-    roundedRect(ctx, x + 3, y + 3, CARD_W, CARD_H, r);
-    ctx.fill();
 
     if (!player) {
-        // Tarjeta vacía
-        ctx.fillStyle = 'rgba(30, 35, 50, 0.5)';
-        roundedRect(ctx, x, y, CARD_W, CARD_H, r);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.lineWidth = 1;
-        roundedRect(ctx, x, y, CARD_W, CARD_H, r);
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-        ctx.font = 'bold 14px Arial, sans-serif';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(x, y, CARD_W, CARD_H);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.strokeRect(x, y, CARD_W, CARD_H);
+        ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
-        ctx.fillText(posLabel, cx, cy + 5);
+        ctx.font = '12px Arial';
+        ctx.fillText(posLabel, cx, cy);
         return;
     }
 
-    // === Fondo con gradiente premium ===
-    const cardGrad = ctx.createLinearGradient(x, y, x, y + CARD_H);
-    cardGrad.addColorStop(0, 'rgba(20, 30, 60, 0.92)');
-    cardGrad.addColorStop(1, 'rgba(10, 15, 35, 0.95)');
-    ctx.fillStyle = cardGrad;
-    roundedRect(ctx, x, y, CARD_W, CARD_H, r);
-    ctx.fill();
+    // Fondo tarjeta
+    ctx.fillStyle = '#1e2126';
+    ctx.fillRect(x, y, CARD_W, CARD_H);
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x, y, CARD_W, CARD_H);
 
-    // === Borde con brillo dorado ===
-    const borderGrad = ctx.createLinearGradient(x, y, x + CARD_W, y + CARD_H);
-    borderGrad.addColorStop(0, '#FFD700');
-    borderGrad.addColorStop(0.5, '#FFA500');
-    borderGrad.addColorStop(1, '#FFD700');
-    ctx.strokeStyle = borderGrad;
-    ctx.lineWidth = 2;
-    roundedRect(ctx, x, y, CARD_W, CARD_H, r);
-    ctx.stroke();
+    // Rating
+    ctx.fillStyle = '#d4af37';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(Math.floor(player.avgRating || 0), x + 10, y + 25);
+    ctx.font = '12px Arial';
+    ctx.fillText(posLabel, x + 10, y + 40);
 
-    // === Badge de posición (esquina superior izquierda) ===
-    const badgeW = 42;
-    const badgeH = 18;
-    const badgeX = x + 6;
-    const badgeY = y + 6;
-    ctx.fillStyle = '#FFD700';
-    roundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 4);
-    ctx.fill();
-    ctx.fillStyle = '#0a0e1a';
-    ctx.font = 'bold 11px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(posLabel, badgeX + badgeW / 2, badgeY + 13);
+    // Logo equipo
+    if (player.teamLogo) {
+        try {
+            const img = await loadImage(player.teamLogo);
+            ctx.drawImage(img, x + 65, y + 10, 25, 25);
+        } catch (e) {}
+    }
 
-    // === Nombre del jugador ===
+    // Nombre
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 15px Arial, sans-serif';
+    ctx.font = 'bold 11px Arial';
     ctx.textAlign = 'center';
-    const displayName = player.name.length > 15 ? player.name.substring(0, 14) + '..' : player.name;
-    ctx.fillText(displayName, cx, cy + 5);
+    ctx.fillText(player.name.substring(0, 12), cx, y + 80);
 
-    // === Círculo de Rating ===
-    const rating = (player.avgRating || 0).toFixed(1);
-    const ratingX = x + CARD_W - 28;
-    const ratingY = y + CARD_H - 22;
-    const ratingRadius = 16;
-
-    // Fondo del círculo (gradiente según nota)
-    const ratingColor = getRatingColor(player.avgRating || 0);
-    const rCircleGrad = ctx.createRadialGradient(ratingX, ratingY, 0, ratingX, ratingY, ratingRadius);
-    rCircleGrad.addColorStop(0, ratingColor);
-    rCircleGrad.addColorStop(1, shadeColor(ratingColor, -40));
-    ctx.fillStyle = rCircleGrad;
-    ctx.beginPath();
-    ctx.arc(ratingX, ratingY, ratingRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Borde del círculo
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(ratingX, ratingY, ratingRadius, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Texto del rating
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 13px Arial, sans-serif';
+    // Stats
+    ctx.font = '10px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(rating, ratingX, ratingY + 5);
+    ctx.fillText(`G: ${player.goals || 0} | A: ${player.assists || 0}`, cx, y + 105);
+    ctx.fillText(posLabel === 'GK' ? `PC: ${player.cleanSheets || 0}` : `T: ${player.shots || 0}`, cx, y + 125);
 }
 
 // ==========================================
 // === FOOTER ===
 // ==========================================
 function drawFooter(ctx, w, h) {
-    // Barra inferior
     const footerGrad = ctx.createLinearGradient(0, h - 80, 0, h);
     footerGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
     footerGrad.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
     ctx.fillStyle = footerGrad;
     ctx.fillRect(0, h - 80, w, 80);
 
-    // Formación
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.font = '14px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('3 - 5 - 2', w / 2, h - 45);
 
-    // Powered by
     ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
     ctx.font = '12px Arial, sans-serif';
     ctx.fillText('Powered by EA Sports FC  |  THE BLITZ', w / 2, h - 20);
@@ -304,16 +259,14 @@ function roundedRect(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
-// Color del círculo de rating según la nota
 function getRatingColor(rating) {
-    if (rating >= 9.0) return '#00e676'; // Verde brillante
-    if (rating >= 8.0) return '#66bb6a'; // Verde
-    if (rating >= 7.0) return '#ffc107'; // Amarillo
-    if (rating >= 6.0) return '#ff9800'; // Naranja
-    return '#f44336'; // Rojo
+    if (rating >= 9.0) return '#00e676';
+    if (rating >= 8.0) return '#66bb6a';
+    if (rating >= 7.0) return '#ffc107';
+    if (rating >= 6.0) return '#ff9800';
+    return '#f44336';
 }
 
-// Oscurecer un color hex
 function shadeColor(color, percent) {
     const num = parseInt(color.replace('#', ''), 16);
     const amt = Math.round(2.55 * percent);
@@ -331,9 +284,9 @@ function shadeColor(color, percent) {
  * Genera una imagen premium con los premios individuales del torneo.
  * @param {string} tournamentName - Nombre del torneo
  * @param {Object} awards - { mvp, topScorer, topAssister, zamora }
- * @returns {AttachmentBuilder}
+ * @returns {Promise<AttachmentBuilder>}
  */
-export function generateAwardsImage(tournamentName, awards) {
+export async function generateAwardsImage(tournamentName, awards) {
     const WIDTH = 900;
     const HEIGHT = 600;
     const canvas = createCanvas(WIDTH, HEIGHT);
@@ -464,16 +417,42 @@ export function generateAwardsImage(tournamentName, awards) {
         ctx.fillText(award.label, textX, cy - 20);
 
         if (award.player && award.stat) {
-            // Nombre del jugador
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 20px Arial, sans-serif';
-            const pName = award.player.name.length > 18 ? award.player.name.substring(0, 17) + '..' : award.player.name;
-            ctx.fillText(pName, textX, cy + 8);
+            // Logo del equipo (si tiene) al lado del nombre
+            if (award.player.teamLogo) {
+                try {
+                    const logo = await loadImage(award.player.teamLogo);
+                    ctx.drawImage(logo, textX, cy - 8, 24, 24);
+                    
+                    // Ajustar texto
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 20px Arial, sans-serif';
+                    const pName = award.player.name.length > 16 ? award.player.name.substring(0, 15) + '..' : award.player.name;
+                    ctx.fillText(pName, textX + 32, cy + 10);
+                } catch (e) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 20px Arial, sans-serif';
+                    const pName = award.player.name.length > 18 ? award.player.name.substring(0, 17) + '..' : award.player.name;
+                    ctx.fillText(pName, textX, cy + 8);
+                }
+            } else {
+                // Nombre del jugador sin logo
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 20px Arial, sans-serif';
+                const pName = award.player.name.length > 18 ? award.player.name.substring(0, 17) + '..' : award.player.name;
+                ctx.fillText(pName, textX, cy + 8);
+            }
 
             // Estadística
             ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
             ctx.font = '14px Arial, sans-serif';
             ctx.fillText(award.stat, textX, cy + 30);
+            
+            // Equipo texto
+            if (award.player.teamName) {
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
+                ctx.font = '12px Arial, sans-serif';
+                ctx.fillText(award.player.teamName, textX + 180, cy + 30);
+            }
         } else {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
             ctx.font = '16px Arial, sans-serif';

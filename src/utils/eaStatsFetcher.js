@@ -104,14 +104,26 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
         let possessionSumA = 0;
         let possessionSumB = 0;
 
+        const posMapNum = {
+            0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
+            6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
+            11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC'
+        };
+
         const aggregatePlayers = (targetClubPlayers, sourcePlayersData, teamGoalsAgainst) => {
             if (!sourcePlayersData) return;
             for (const [playerId, pData] of Object.entries(sourcePlayersData)) {
                 const pName = pData.playername || playerId;
+                
+                let resolvedPos = pData.pos || 'unknown';
+                if (!isNaN(pData.pos) && posMapNum[pData.pos] !== undefined) {
+                    resolvedPos = posMapNum[pData.pos];
+                }
+
                 if (!targetClubPlayers[pName]) {
                     targetClubPlayers[pName] = {
                         name: pName,
-                        pos: pData.pos || 'unknown',
+                        pos: resolvedPos,
                         goals: 0,
                         assists: 0,
                         ratingSum: 0,
@@ -119,7 +131,12 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                         gamesPlayed: 0,
                         cleanSheets: 0,
                         goalsConceded: 0,
-                        mom: 0 // Man of the match
+                        mom: 0, // Man of the match
+                        passesMade: 0,
+                        passAttempts: 0,
+                        tacklesMade: 0,
+                        tackleAttempts: 0,
+                        shots: 0
                     };
                 }
                 
@@ -129,9 +146,14 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                 targetClubPlayers[pName].saves += parseInt(pData.saves) || 0;
                 targetClubPlayers[pName].mom += parseInt(pData.mom) || 0;
                 targetClubPlayers[pName].gamesPlayed += 1;
+                targetClubPlayers[pName].passesMade += parseInt(pData.passesMade) || 0;
+                targetClubPlayers[pName].passAttempts += parseInt(pData.passAttempts) || parseInt(pData.passesMade) || 0;
+                targetClubPlayers[pName].tacklesMade += parseInt(pData.tacklesMade) || 0;
+                targetClubPlayers[pName].tackleAttempts += parseInt(pData.tackleAttempts) || parseInt(pData.tacklesMade) || 0;
+                targetClubPlayers[pName].shots += parseInt(pData.shots) || 0;
                 
-                const posLower = (pData.pos || '').toLowerCase();
-                if (posLower.includes('goalkeeper') || posLower.includes('gk') || posLower === 'portero') {
+                const posLower = resolvedPos.toLowerCase();
+                if (posLower.includes('goalkeeper') || posLower.includes('gk') || posLower === 'portero' || posLower === 'por') {
                      targetClubPlayers[pName].goalsConceded += teamGoalsAgainst;
                      if (teamGoalsAgainst === 0) {
                          targetClubPlayers[pName].cleanSheets += 1;

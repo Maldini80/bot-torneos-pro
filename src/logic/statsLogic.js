@@ -7,7 +7,7 @@ export function getTournamentPlayersStats(tournament) {
         if (!match.eaStats) return;
 
         // Combinar jugadores del clubA y clubB
-        const processClubPlayers = (clubPlayers) => {
+        const processClubPlayers = (clubPlayers, teamName, teamLogo) => {
             if (!clubPlayers) return;
             for (const [pName, pData] of Object.entries(clubPlayers)) {
                 if (!allPlayers[pName]) {
@@ -21,7 +21,14 @@ export function getTournamentPlayersStats(tournament) {
                         gamesPlayed: 0,
                         cleanSheets: 0,
                         goalsConceded: 0,
-                        mom: 0
+                        mom: 0,
+                        passesMade: 0,
+                        passAttempts: 0,
+                        tacklesMade: 0,
+                        tackleAttempts: 0,
+                        shots: 0,
+                        teamName: teamName || 'Desconocido',
+                        teamLogo: teamLogo || null
                     };
                 }
                 const tp = allPlayers[pName];
@@ -33,11 +40,20 @@ export function getTournamentPlayersStats(tournament) {
                 tp.cleanSheets += pData.cleanSheets || 0;
                 tp.goalsConceded += pData.goalsConceded || 0;
                 tp.mom += pData.mom || 0;
+                tp.passesMade += pData.passesMade || 0;
+                tp.passAttempts += pData.passAttempts || 0;
+                tp.tacklesMade += pData.tacklesMade || 0;
+                tp.tackleAttempts += pData.tackleAttempts || 0;
+                tp.shots += pData.shots || 0;
+                
+                // Si el jugador juega en varios equipos (raro, pero posible en mix), nos quedamos con el último
+                if (teamName) tp.teamName = teamName;
+                if (teamLogo) tp.teamLogo = teamLogo;
             }
         };
 
-        processClubPlayers(match.eaStats.clubA?.players);
-        processClubPlayers(match.eaStats.clubB?.players);
+        processClubPlayers(match.eaStats.clubA?.players, match.equipoA?.nombre, match.equipoA?.logoUrl);
+        processClubPlayers(match.eaStats.clubB?.players, match.equipoB?.nombre, match.equipoB?.logoUrl);
     };
 
     // Procesar grupos
