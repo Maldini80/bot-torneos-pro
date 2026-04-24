@@ -201,7 +201,7 @@ async function drawPlayerCard(ctx, cx, cy, player, posLabel) {
     ctx.fillText(posLabel, x + 10, y + 40);
 
     // Logo equipo
-    if (player.teamLogo) {
+    if (player.teamLogo && !player.teamLogo.includes('2M7540p.png') && !player.teamLogo.includes('default_logo')) {
         try {
             const img = await loadImage(player.teamLogo);
             ctx.drawImage(img, x + 65, y + 10, 25, 25);
@@ -418,7 +418,7 @@ export async function generateAwardsImage(tournamentName, awards) {
 
         if (award.player && award.stat) {
             // Logo del equipo (si tiene) al lado del nombre
-            if (award.player.teamLogo) {
+            if (award.player.teamLogo && !award.player.teamLogo.includes('2M7540p.png') && !award.player.teamLogo.includes('default_logo')) {
                 try {
                     const logo = await loadImage(award.player.teamLogo);
                     ctx.drawImage(logo, textX, cy - 8, 24, 24);
