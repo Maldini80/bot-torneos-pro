@@ -616,10 +616,9 @@ module.exports = async (client, interaction) => {
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`admin_change_data_${teamId}`).setLabel('Cambiar Datos').setStyle(ButtonStyle.Secondary),
             new ButtonBuilder().setCustomId(`admin_manage_members_${teamId}`).setLabel('Gestionar Miembros').setStyle(ButtonStyle.Primary),
-            // --- ESTE ES EL NUEVO BOTÓN ---
             new ButtonBuilder().setCustomId(`admin_change_manager_${teamId}`).setLabel('Cambiar Mánager').setStyle(ButtonStyle.Primary).setEmoji('👑'),
-            // --- BOTÓN ELO ---
-            new ButtonBuilder().setCustomId(`admin_edit_elo_${teamId}`).setLabel('Editar ELO').setStyle(ButtonStyle.Secondary).setEmoji('📊')
+            new ButtonBuilder().setCustomId(`admin_edit_elo_${teamId}`).setLabel('Editar ELO').setStyle(ButtonStyle.Secondary).setEmoji('📊'),
+            new ButtonBuilder().setCustomId(`admin_scout_player_${teamId}`).setLabel('Scout Jugador').setStyle(ButtonStyle.Success).setEmoji('🔍')
         );
         const row2 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger)

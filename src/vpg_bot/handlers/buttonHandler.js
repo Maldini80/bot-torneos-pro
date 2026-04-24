@@ -1123,6 +1123,34 @@ const handler = async (client, interaction) => {
         }
     }
 
+    if (customId.startsWith('admin_scout_player_')) {
+        const teamId = customId.replace('admin_scout_player_', '');
+        const modal = new ModalBuilder()
+            .setCustomId(`scout_player_modal_${teamId}`)
+            .setTitle('Scout Jugador EA');
+
+        const playerNameInput = new TextInputBuilder()
+            .setCustomId('player_name')
+            .setLabel("Nombre del jugador en EA (parcial o exacto)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setPlaceholder("Ej: Xavi_Master");
+
+        const platformInput = new TextInputBuilder()
+            .setCustomId('platform')
+            .setLabel("Consola (Nueva Gen o Antigua Gen)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue("Nueva Gen");
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(playerNameInput),
+            new ActionRowBuilder().addComponents(platformInput)
+        );
+
+        return interaction.showModal(modal);
+    }
+
     if (customId.startsWith('admin_ea_matches_')) {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         const teamId = customId.replace('admin_ea_matches_', '');

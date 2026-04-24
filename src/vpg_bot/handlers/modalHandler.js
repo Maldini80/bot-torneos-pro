@@ -92,6 +92,97 @@ module.exports = async (client, interaction) => {
         return;
     }
 
+    if (customId.startsWith('scout_player_modal_')) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        const teamId = customId.split('_')[3];
+        const team = await Team.findById(teamId);
+        
+        if (!team) return interaction.editReply({ content: 'El equipo VPG ya no existe.' });
+        if (!team.eaClubId) return interaction.editReply({ content: '❌ Este equipo no tiene un Club de EA vinculado. No se pueden buscar jugadores.' });
+
+        const playerNameQuery = fields.getTextInputValue('player_name').toLowerCase();
+        // IGNORAMOS LA PLATAFORMA DEL MODAL Y USAMOS LA DEL EQUIPO PARA ASEGURAR QUE FUNCIONE
+        const eaPlatform = team.eaPlatform || 'common-gen5';
+
+        try {
+            const url = `https://proclubs.ea.com/api/fc/members/career/stats?clubId=${team.eaClubId}&platform=${eaPlatform}`;
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                'Accept': 'application/json',
+                'Origin': 'https://www.ea.com',
+                'Referer': 'https://www.ea.com/'
+            };
+
+            const res = await fetch(url, { headers });
+            if (!res.ok) {
+                return interaction.editReply({ content: `❌ Error de los servidores de EA al buscar datos del club (Código: ${res.status}).` });
+            }
+
+            const data = await res.json();
+            
+            let members = [];
+            if (Array.isArray(data)) {
+                members = data;
+            } else if (data.members && Array.isArray(data.members)) {
+                members = data.members;
+            } else if (data[String(team.eaClubId)] && Array.isArray(data[String(team.eaClubId)])) {
+                members = data[String(team.eaClubId)];
+            } else if (data[String(team.eaClubId)]?.members) {
+                members = data[String(team.eaClubId)].members;
+            } else {
+                for (const val of Object.values(data)) {
+                    if (Array.isArray(val) && val.length > 0) { members = val; break; }
+                    if (val?.members && Array.isArray(val.members)) { members = val.members; break; }
+                }
+            }
+
+            if (!members || members.length === 0) {
+                return interaction.editReply({ content: '❌ EA no ha devuelto ningún jugador para este club. Puede que no hayan jugado partidos recientes.' });
+            }
+
+            // Buscar al jugador por coincidencia parcial
+            const matchedPlayers = members.filter(m => {
+                const name = (m.name || m.playername || '').toLowerCase();
+                return name.includes(playerNameQuery);
+            });
+
+            if (matchedPlayers.length === 0) {
+                return interaction.editReply({ content: `❌ No se ha encontrado a ningún jugador en el club **${team.eaClubName || team.name}** que contenga "${fields.getTextInputValue('player_name')}".` });
+            }
+
+            // Si hay varios, cogemos el primero por simplicidad (podríamos hacer un select menu después si queremos complicarlo)
+            const player = matchedPlayers[0];
+            const pName = player.name || player.playername || 'Desconocido';
+            
+            // Construir el Embed
+            const embed = new EmbedBuilder()
+                .setTitle(`Reporte de Scout: ${pName}`)
+                .setColor('Gold')
+                .setThumbnail(`https://eafc24.content.easports.com/fifa/fltOnlineAssets/24B23FDE-7835-41C2-87A2-F453DFDB2E82/2024/fcweb/crests/256x256/l${team.eaClubId}.png`)
+                .setDescription(`Estadísticas extraídas directamente de **EA Sports FC** para su rendimiento en **${team.eaClubName || team.name}**.`)
+                .addFields(
+                    { name: 'Partidos Jugados', value: `🏟️ ${player.gamesPlayed || player.gamesPlayed || 0}`, inline: true },
+                    { name: 'Valoración Media', value: `⭐ ${player.ratingAvg || player.rating || '0.0'}`, inline: true },
+                    { name: 'Hombre del Partido', value: `🏅 ${player.manOfTheMatch || player.mom || 0}`, inline: true },
+                    { name: 'Goles', value: `⚽ ${player.goals || 0}`, inline: true },
+                    { name: 'Asistencias', value: `👟 ${player.assists || 0}`, inline: true },
+                    { name: 'Tiros Totales', value: `🎯 ${player.shots || 0}`, inline: true },
+                    { name: 'Pases Completados', value: `🔄 ${player.passesMade || 0} / ${player.passAttempts || 0}`, inline: true },
+                    { name: 'Entradas con Éxito', value: `🛡️ ${player.tacklesMade || 0} / ${player.tackleAttempts || 0}`, inline: true },
+                    { name: 'Rojas / Amarillas', value: `🟥 ${player.redCards || 0} / 🟨 ${player.yellowCards || 0}`, inline: true }
+                )
+                .setFooter({ text: 'VPG EA Sports Scout System' })
+                .setTimestamp();
+
+            return interaction.editReply({ embeds: [embed] });
+
+        } catch (error) {
+            console.error('Error en scout player:', error);
+            return interaction.editReply({ content: '❌ Ha ocurrido un error interno al buscar las estadísticas.' });
+        }
+    }
+
     if (customId.startsWith('admin_create_team_modal_')) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
