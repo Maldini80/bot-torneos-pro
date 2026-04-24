@@ -1165,7 +1165,7 @@ const handler = async (client, interaction) => {
             const embed = new EmbedBuilder()
                 .setTitle(`Últimos Partidos de EA: ${team.eaClubName || team.name}`)
                 .setColor('Blue')
-                .setThumbnail(`https://media.contentapi.ea.com/content/dam/eacom/ea-sports-fc/pro-clubs/global/logos/${team.eaClubId}.png`)
+                .setThumbnail(`https://eafc24.content.easports.com/fifa/fltOnlineAssets/24B23FDE-7835-41C2-87A2-F453DFDB2E82/2024/fcweb/crests/256x256/l${team.eaClubId}.png`)
                 .setDescription(`Resultados directamente desde la base de datos de EA Sports para el club ID \`${team.eaClubId}\`:`);
 
             // --- Helper: extrae goles reales y datos de DNF de un partido ---
