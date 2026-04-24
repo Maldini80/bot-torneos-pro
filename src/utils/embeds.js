@@ -173,6 +173,7 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
 
     if (hasCaptains) {
         allButtons.push(new ButtonBuilder().setCustomId(`admin_edit_team_start:${tournament.shortId}`).setLabel('Editar Equipo').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy));
+        allButtons.push(new ButtonBuilder().setCustomId(`admin_edit_ea_club_start:${tournament.shortId}`).setLabel('Editar Club EA').setStyle(ButtonStyle.Secondary).setEmoji('🎮').setDisabled(isBusy));
         allButtons.push(new ButtonBuilder().setCustomId(`admin_manage_cocaptains_start:${tournament.shortId}`).setLabel('Gestionar Ayudantes').setStyle(ButtonStyle.Secondary).setEmoji('🤝').setDisabled(isBusy));
     }
 

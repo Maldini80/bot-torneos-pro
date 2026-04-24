@@ -1418,7 +1418,7 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
         const userId = req.user.id;
         const { draftId } = req.params;
         const { primaryPosition, secondaryPosition, role, teamName,
-            eafcTeamName, streamPlatform, streamUsername, whatsapp } = req.body;
+            eafcTeamName, eaClubId, eaPlatform, streamPlatform, streamUsername, whatsapp } = req.body;
 
         if (!primaryPosition) {
             return res.status(400).json({ error: 'Debes seleccionar al menos una posición principal.' });
@@ -1513,6 +1513,7 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
 
             const captainData = {
                 userId, userName, teamName: teamName.trim(), eafcTeamName: eafcTeamName.trim(),
+                eaClubId: eaClubId || null, eaPlatform: eaPlatform || 'common-gen5',
                 streamChannel, psnId, twitter: verifiedUser.twitter || '',
                 whatsapp: finalWhatsapp, position: primaryPosition
             };
@@ -2199,16 +2200,19 @@ app.post('/api/tournaments/:id/register', async (req, res) => {
         }
         // Caso 2: Equipo Temporal (Solo Paid)
         else if (teamData && tournament.inscripcion === 'Pago') {
-            if (!teamData.name || !teamData.logoUrl) {
-                return res.status(400).json({ error: 'Faltan datos del equipo' });
+            if (!teamData.name && !teamData.teamName) {
+                return res.status(400).json({ error: 'Faltan datos del equipo (nombre)' });
             }
             finalTeamData = {
                 _id: new ObjectId(),
-                name: teamData.name,
+                name: teamData.name || teamData.teamName || req.user.username, // Fallback if no name provided
                 abbreviation: (teamData.abbreviation || 'TMP').toUpperCase(),
-                logoUrl: teamData.logoUrl,
+                logoUrl: teamData.logoUrl || 'https://i.imgur.com/2M7540p.png',
                 region: teamData.region || 'EU',
                 managerId: req.user.id,
+                eaClubId: teamData.eaClubId || null,
+                eafcTeamName: teamData.eafcTeamName || null,
+                eaPlatform: teamData.eaPlatform || 'common-gen5',
                 isTemp: true
             };
         } else {

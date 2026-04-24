@@ -308,32 +308,32 @@ export async function handleCommand(interaction) {
 
             // Datos ficticios para la prueba
             const fakeBest11 = {
-                gk:   [{ name: 'CASILLAS_PRO', avgRating: 8.2 }],
+                gk:   [{ name: 'CASILLAS_PRO', avgRating: 8.2, teamName: 'MADRID ESPORTS', teamLogo: 'https://i.imgur.com/2M7540p.png' }],
                 defs: [
-                    { name: 'SERGIO_RAMOS99', avgRating: 8.5 },
-                    { name: 'PUYOL_LEGEND', avgRating: 8.3 },
-                    { name: 'MARCELO_FCB', avgRating: 7.9 }
+                    { name: 'SERGIO_RAMOS99', avgRating: 8.5, teamName: 'MADRID ESPORTS', teamLogo: 'https://i.imgur.com/2M7540p.png' },
+                    { name: 'PUYOL_LEGEND', avgRating: 8.3, teamName: 'CATALUNYA FC', teamLogo: 'https://i.imgur.com/2M7540p.png' },
+                    { name: 'MARCELO_FCB', avgRating: 7.9, teamName: 'MADRID ESPORTS', teamLogo: 'https://i.imgur.com/2M7540p.png' }
                 ],
                 meds: [
-                    { name: 'XAVI_MASTER', avgRating: 9.1 },
-                    { name: 'INIESTA_MAGIC', avgRating: 8.8 },
-                    { name: 'BUSQUETS_CDM', avgRating: 8.4 }
+                    { name: 'XAVI_MASTER', avgRating: 9.1, teamName: 'CATALUNYA FC', teamLogo: 'https://i.imgur.com/2M7540p.png' },
+                    { name: 'INIESTA_MAGIC', avgRating: 8.8, teamName: 'CATALUNYA FC', teamLogo: 'https://i.imgur.com/2M7540p.png' },
+                    { name: 'BUSQUETS_CDM', avgRating: 8.4, teamName: 'CATALUNYA FC', teamLogo: 'https://i.imgur.com/2M7540p.png' }
                 ],
                 carrs: [
-                    { name: 'JORDI_ALBA10', avgRating: 8.0 },
-                    { name: 'DANI_ALVES22', avgRating: 7.7 }
+                    { name: 'JORDI_ALBA10', avgRating: 8.0, teamName: 'VALENCIA PRO', teamLogo: 'https://i.imgur.com/2M7540p.png' },
+                    { name: 'DANI_ALVES22', avgRating: 7.7, teamName: 'SEVILLA FC', teamLogo: 'https://i.imgur.com/2M7540p.png' }
                 ],
                 dcs: [
-                    { name: 'MESSI_GOAT', avgRating: 9.6 },
-                    { name: 'VILLA_GUAJE', avgRating: 8.9 }
+                    { name: 'MESSI_GOAT', avgRating: 9.6, teamName: 'ARGENTINA PRO', teamLogo: 'https://i.imgur.com/2M7540p.png' },
+                    { name: 'VILLA_GUAJE', avgRating: 8.9, teamName: 'VALENCIA PRO', teamLogo: 'https://i.imgur.com/2M7540p.png' }
                 ]
             };
 
             const fakeAwards = {
-                mvp: { name: 'XAVI_MASTER', avgRating: 9.1 },
-                topScorer: { name: 'MESSI_GOAT', avgRating: 9.6, goals: 12 },
-                topAssister: { name: 'INIESTA_MAGIC', avgRating: 8.8, assists: 8 },
-                zamora: { name: 'CASILLAS_PRO', avgRating: 8.2, cleanSheets: 4 }
+                mvp: { name: 'XAVI_MASTER', avgRating: 9.1, teamName: 'CATALUNYA FC', teamLogo: 'https://i.imgur.com/2M7540p.png' },
+                topScorer: { name: 'MESSI_GOAT', avgRating: 9.6, goals: 12, teamName: 'ARGENTINA PRO', teamLogo: 'https://i.imgur.com/2M7540p.png' },
+                topAssister: { name: 'INIESTA_MAGIC', avgRating: 8.8, assists: 8, teamName: 'CATALUNYA FC', teamLogo: 'https://i.imgur.com/2M7540p.png' },
+                zamora: { name: 'CASILLAS_PRO', avgRating: 8.2, cleanSheets: 4, teamName: 'MADRID ESPORTS', teamLogo: 'https://i.imgur.com/2M7540p.png' }
             };
 
             const best11Img = await generateBest11Image('TORNEO DE PRUEBA - THE BLITZ', fakeBest11);

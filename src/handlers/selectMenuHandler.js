@@ -877,6 +877,35 @@ export async function handleSelectMenu(interaction) {
     }
 
     // --- PAGINACIÓN PARA EDICIÓN DE EQUIPOS (>25 equipos) ---
+    if (action === 'admin_edit_ea_club_page_select') {
+        await interaction.deferUpdate();
+        const [tournamentShortId] = params;
+        const pageIndex = parseInt(interaction.values[0].replace('page_', ''));
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+
+        const PAGE_SIZE = 25;
+        const startIdx = pageIndex * PAGE_SIZE;
+        const pageTeams = approvedTeams.slice(startIdx, startIdx + PAGE_SIZE);
+
+        const teamOptions = pageTeams.map(team => ({
+            label: team.nombre,
+            description: `EA ID: ${team.eaClubId || 'No asignado'} - Cap: ${team.capitanTag}`,
+            value: team.capitanId
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`admin_edit_ea_club_select:${tournamentShortId}`)
+            .setPlaceholder('Selecciona el equipo a editar')
+            .addOptions(teamOptions);
+
+        await interaction.editReply({
+            content: `Página ${pageIndex + 1} — Selecciona un equipo para editar su EA ID:`,
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
+        return;
+    }
+
     if (action === 'admin_edit_team_page_select') {
         await interaction.deferUpdate();
         const [tournamentShortId] = params;
@@ -1002,6 +1031,38 @@ export async function handleSelectMenu(interaction) {
             content: `🤝 **Gestión de Ayudante para ${team.nombre}**\n\n👤 Capitán: <@${captainId}>\n🤝 Ayudante actual: ${team.coCaptainId ? `<@${team.coCaptainId}>` : '*Ninguno*'}\n\nSelecciona un usuario del menú para asignarlo como ayudante (reemplazará al actual si lo hay), o usa el botón rojo para quitar al ayudante actual.`,
             components: components
         });
+        return;
+    }
+
+    if (action === 'admin_edit_ea_club_select') {
+        const [tournamentShortId] = params;
+        const captainId = interaction.values[0];
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const team = tournament.teams.aprobados[captainId];
+
+        if (!team) {
+            return interaction.reply({ content: 'Error: No se pudo encontrar el equipo seleccionado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
+
+        const modal = new ModalBuilder()
+            .setCustomId(`modal_admin_edit_ea_club:${tournamentShortId}:${captainId}`)
+            .setTitle(`Editar EA ID: ${team.nombre}`.slice(0, 45));
+
+        const eaIdInput = new TextInputBuilder()
+            .setCustomId('new_ea_club_id')
+            .setLabel('Nuevo EA Club ID (Déjalo en blanco para borrar)')
+            .setPlaceholder('Ej: 1234567')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+            
+        if (team.eaClubId) {
+            eaIdInput.setValue(team.eaClubId.toString());
+        }
+
+        modal.addComponents(new ActionRowBuilder().addComponents(eaIdInput));
+        await interaction.showModal(modal);
         return;
     }
 

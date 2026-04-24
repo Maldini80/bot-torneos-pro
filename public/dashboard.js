@@ -763,6 +763,130 @@ class DashboardApp {
             });
         }
 
+        // Paid Reg EA Search Logic
+        const paidSearchEaBtn = document.getElementById('paid-search-ea-btn');
+        const paidEaInput = document.getElementById('paid-ea-name');
+        const paidEaPlatform = document.getElementById('paid-ea-platform');
+        const paidEaResults = document.getElementById('paid-ea-search-results');
+        const paidEaSelectedId = document.getElementById('paid-ea-id');
+        const paidEaSelectedDiv = document.getElementById('paid-ea-selected-club');
+        const paidEaSelectedName = document.getElementById('paid-ea-selected-name');
+        const paidEaRemoveBtn = document.getElementById('paid-ea-remove-btn');
+
+        if (paidSearchEaBtn) {
+            paidSearchEaBtn.addEventListener('click', async () => {
+                const query = paidEaInput.value.trim();
+                if (query.length < 3) return alert('Introduce al menos 3 letras para buscar en EA.');
+                
+                paidSearchEaBtn.textContent = '⏳';
+                paidSearchEaBtn.disabled = true;
+                paidEaResults.innerHTML = '';
+                
+                try {
+                    const res = await fetch(`/api/ea/search?clubName=${encodeURIComponent(query)}&platform=${paidEaPlatform.value}`);
+                    const data = await res.json();
+                    
+                    if (!res.ok) throw new Error(data.error || 'Error buscando en EA');
+                    
+                    if (!data || data.length === 0 || Object.keys(data).length === 0) {
+                        paidEaResults.innerHTML = '<div class="dropdown-item">No se encontraron clubes.</div>';
+                    } else {
+                        const clubs = Array.isArray(data) ? data : Object.values(data);
+                        clubs.forEach(club => {
+                            const name = club.clubName || (club.clubInfo && club.clubInfo.name) || club.name || 'Club Desconocido';
+                            const div = document.createElement('div');
+                            div.className = 'dropdown-item';
+                            div.innerHTML = `<strong>${name}</strong> <span style="font-size:0.8em; color:#aaa;">(${club.clubId})</span>`;
+                            div.onclick = () => {
+                                paidEaSelectedId.value = club.clubId;
+                                paidEaSelectedName.textContent = name;
+                                paidEaSelectedDiv.classList.remove('hidden');
+                                paidEaResults.classList.add('hidden');
+                                paidEaInput.value = '';
+                            };
+                            paidEaResults.appendChild(div);
+                        });
+                    }
+                    paidEaResults.classList.remove('hidden');
+                } catch (e) {
+                    alert(e.message);
+                } finally {
+                    paidSearchEaBtn.textContent = '🔍 Buscar';
+                    paidSearchEaBtn.disabled = false;
+                }
+            });
+            
+            paidEaRemoveBtn.addEventListener('click', () => {
+                paidEaSelectedId.value = '';
+                paidEaSelectedDiv.classList.add('hidden');
+            });
+            
+            // Hide results if clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-container')) {
+                    if (paidEaResults) paidEaResults.classList.add('hidden');
+                }
+            });
+        }
+
+        // Paid Reg Form Submit
+        const paidRegForm = document.getElementById('paid-reg-form');
+        if (paidRegForm) {
+            paidRegForm.onsubmit = async (e) => {
+                e.preventDefault();
+                const btn = paidRegForm.querySelector('button[type="submit"]');
+                const errorBox = document.getElementById('paid-reg-error');
+                
+                // Get the global tournament ID which should be stored when modal opened
+                const targetTournamentId = paidRegForm.dataset.tournamentId;
+                if (!targetTournamentId) return;
+
+                btn.disabled = true;
+                btn.textContent = 'Procesando...';
+                errorBox.classList.add('hidden');
+
+                const teamName = document.getElementById('paid-team-name').value;
+                const eaClubId = document.getElementById('paid-ea-id').value;
+                const eaPlatform = document.getElementById('paid-ea-platform').value;
+
+                if (!eaClubId) {
+                    errorBox.textContent = 'Debes buscar y vincular tu club de EA Sports.';
+                    errorBox.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.textContent = 'Completar Inscripción';
+                    return;
+                }
+
+                try {
+                    await window.dashboard.registerTournament(targetTournamentId, {
+                        teamName: teamName,
+                        eafcTeamName: document.getElementById('paid-ea-selected-name').textContent,
+                        eaClubId: eaClubId,
+                        eaPlatform: eaPlatform,
+                        streamChannel: '',
+                        twitter: ''
+                    }, null);
+                    
+                    document.getElementById('paid-reg-modal').classList.add('hidden');
+                    paidRegForm.reset();
+                    paidEaRemoveBtn.click();
+                } catch (err) {
+                    errorBox.textContent = err.message || 'Error al inscribirse';
+                    errorBox.classList.remove('hidden');
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Completar Inscripción';
+                }
+            };
+            
+            // Close buttons
+            document.querySelectorAll('.close-paid-reg').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.getElementById('paid-reg-modal').classList.add('hidden');
+                });
+            });
+        }
+
         // Form Submit
         const form = document.getElementById('create-team-form');
         if (form) {
@@ -1622,15 +1746,21 @@ async function openRegistrationModal(tournamentId, isPaid, langCode) {
     const lang = langCode || getCurrentLanguage();
     const tr = window.dashboard?.translations?.[lang]?.tournaments?.prompts || {};
 
-    // TORNEO DE PAGO - Inscripción directa sin preguntas
+    // TORNEO DE PAGO - Mostrar Modal de Inscripción de Pago
     if (isPaid) {
-        // Enviamos sin nombre — el backend lo auto-genera con el nombre del usuario
-        await registerTournament(tournamentId, {
-            teamName: null,
-            eafcTeamName: null,
-            streamChannel: '',
-            twitter: ''
-        }, null);
+        const modal = document.getElementById('paid-reg-modal');
+        if (modal) {
+            document.getElementById('paid-reg-form').dataset.tournamentId = tournamentId;
+            modal.classList.remove('hidden');
+        } else {
+            // Fallback si no está el modal en el DOM
+            await registerTournament(tournamentId, {
+                teamName: null,
+                eafcTeamName: null,
+                streamChannel: '',
+                twitter: ''
+            }, null);
+        }
     }
     // TORNEO GRATUITO - Requiere equipo VPG
     else {
@@ -1956,7 +2086,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const position = document.getElementById('draft-cap-position').value;
             const teamName = document.getElementById('draft-cap-team-name').value.trim();
-            const eafcTeamName = document.getElementById('draft-cap-eafc-name').value.trim();
+            const eafcName = document.getElementById('draft-cap-eafc-name').value.trim();
             const streamPlatform = document.getElementById('draft-cap-stream-platform').value;
             const streamUsername = document.getElementById('draft-cap-stream-user').value.trim();
             const statusEl = document.getElementById('draft-captain-status');
@@ -1971,8 +2101,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusEl.style.color = '#f04747';
                 return;
             }
-            if (!eafcTeamName) {
-                statusEl.textContent = 'Debes indicar el nombre de tu equipo en EAFC.';
+            if (!eaClubId) {
+                statusEl.textContent = 'Debes buscar y vincular tu equipo en EAFC.';
                 statusEl.style.color = '#f04747';
                 return;
             }
@@ -2001,8 +2131,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             await submitDraftRegistration('captain', {
-                role: 'captain', primaryPosition: position,
-                teamName, eafcTeamName, streamPlatform, streamUsername, whatsapp
+                role: 'captain', position, teamName, eafcTeamName: eafcName,
+                streamPlatform, streamUsername, whatsapp
             });
         });
     }

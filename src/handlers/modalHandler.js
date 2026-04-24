@@ -246,6 +246,41 @@ export async function handleModal(interaction) {
     // --- LÓGICA ORIGINAL DEL BOT (CON CORRECCIONES DE FLAGS) ---
     // =======================================================
 
+    // --- FIX: Handler para editar el EA Club ID manualmente desde el admin panel ---
+    if (action === 'modal_admin_edit_ea_club') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId, captainId] = params;
+        const newEaId = interaction.fields.getTextInputValue('new_ea_club_id').trim();
+        
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply({ content: 'Torneo no encontrado.' });
+        
+        const team = tournament.teams.aprobados[captainId];
+        if (!team) return interaction.editReply({ content: 'Equipo no encontrado en el torneo.' });
+
+        const oldEaId = team.eaClubId;
+        const finalEaId = newEaId || null; // Si está vacío, borrar
+        
+        // Update in DB
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $set: { [`teams.aprobados.${captainId}.eaClubId`]: finalEaId } }
+        );
+
+        // Update the master DB as well to sync
+        if (team.managerId || team.id) {
+             const managerIdToSync = team.managerId || team.id || captainId;
+             const dbTest = getDb('test');
+             await dbTest.collection('teams').updateOne(
+                 { managerId: managerIdToSync, guildId: interaction.guildId },
+                 { $set: { eaClubId: finalEaId } }
+             );
+        }
+
+        await interaction.editReply({ content: `✅ **EA Club ID Actualizado**\nEl equipo **${team.nombre}** ahora tiene el EA ID: ${finalEaId ? `\`${finalEaId}\`` : '*Borrado/Ninguno*'}\n*(Se cambió de: ${oldEaId || 'Ninguno'})*` });
+        return;
+    }
+
     // --- FIX: Handler para el modal de convertir a liguilla flexible ---
     if (action === 'edit_tournament_to_flexible') {
         const [tournamentShortId] = params;

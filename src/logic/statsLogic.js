@@ -1,14 +1,31 @@
 import { EmbedBuilder } from 'discord.js';
+import { getDb } from '../../database.js';
 
-export function getTournamentPlayersStats(tournament) {
+export async function getTournamentPlayersStats(tournament) {
     const allPlayers = {};
+    const teamMetadataCache = {}; // Cache para no saturar la BD
+    const dbTest = getDb('test');
 
     const processMatch = (match) => {
         if (!match.eaStats) return;
 
         // Combinar jugadores del clubA y clubB
-        const processClubPlayers = (clubPlayers, teamName, teamLogo) => {
+        const processClubPlayers = (clubPlayers, teamName, teamLogo, eaClubId) => {
             if (!clubPlayers) return;
+            
+            // Usa los datos del cache si existen (para equipos temporales/draft)
+            let finalName = teamName;
+            let finalLogo = teamLogo;
+            if (eaClubId && teamMetadataCache[eaClubId]) {
+                if (!teamLogo || teamLogo.includes('2M7540p.png') || teamLogo.includes('default_logo')) {
+                    finalLogo = teamMetadataCache[eaClubId].logoUrl || teamLogo;
+                }
+                // Si el nombre es muy simple, usar el de EA (opcional, por ahora mantenemos el fallback)
+                if (!teamName || teamName === 'Desconocido' || teamName === 'TMP') {
+                    finalName = teamMetadataCache[eaClubId].name || teamName;
+                }
+            }
+
             for (const [pName, pData] of Object.entries(clubPlayers)) {
                 if (!allPlayers[pName]) {
                     allPlayers[pName] = {
@@ -27,8 +44,8 @@ export function getTournamentPlayersStats(tournament) {
                         tacklesMade: 0,
                         tackleAttempts: 0,
                         shots: 0,
-                        teamName: teamName || 'Desconocido',
-                        teamLogo: teamLogo || null
+                        teamName: finalName || 'Desconocido',
+                        teamLogo: finalLogo || null
                     };
                 }
                 const tp = allPlayers[pName];
@@ -46,15 +63,32 @@ export function getTournamentPlayersStats(tournament) {
                 tp.tackleAttempts += pData.tackleAttempts || 0;
                 tp.shots += pData.shots || 0;
                 
-                // Si el jugador juega en varios equipos (raro, pero posible en mix), nos quedamos con el último
-                if (teamName) tp.teamName = teamName;
-                if (teamLogo) tp.teamLogo = teamLogo;
+                if (finalName) tp.teamName = finalName;
+                if (finalLogo) tp.teamLogo = finalLogo;
             }
         };
 
-        processClubPlayers(match.eaStats.clubA?.players, match.equipoA?.nombre, match.equipoA?.logoUrl);
-        processClubPlayers(match.eaStats.clubB?.players, match.equipoB?.nombre, match.equipoB?.logoUrl);
+        const eaClubIdA = match.equipoA?.eaClubId || (tournament.teams?.aprobados && tournament.teams.aprobados[match.equipoA?.id]?.eaClubId);
+        const eaClubIdB = match.equipoB?.eaClubId || (tournament.teams?.aprobados && tournament.teams.aprobados[match.equipoB?.id]?.eaClubId);
+
+        processClubPlayers(match.eaStats.clubA?.players, match.equipoA?.nombre, match.equipoA?.logoUrl, eaClubIdA);
+        processClubPlayers(match.eaStats.clubB?.players, match.equipoB?.nombre, match.equipoB?.logoUrl, eaClubIdB);
     };
+
+    // Pre-carga de metadatos desde test.teams para los eaClubId de los equipos del torneo
+    if (tournament.teams?.aprobados) {
+        const eaClubIds = Object.values(tournament.teams.aprobados).map(t => t.eaClubId).filter(id => id);
+        if (eaClubIds.length > 0) {
+            try {
+                const teamsFromDb = await dbTest.collection('teams').find({ eaClubId: { $in: eaClubIds } }).toArray();
+                for (const t of teamsFromDb) {
+                    teamMetadataCache[t.eaClubId] = { logoUrl: t.logoUrl, name: t.eaClubName || t.name };
+                }
+            } catch (err) {
+                console.error('[STATS LOGIC] Error buscando metadata de equipos en test.teams:', err);
+            }
+        }
+    }
 
     // Procesar grupos
     if (tournament.structure?.calendario) {

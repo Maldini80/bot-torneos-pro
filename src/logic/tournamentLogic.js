@@ -715,6 +715,7 @@ export async function createTournamentFromDraft(client, guild, draftShortId, for
             const teamPlayers = draft.players.filter(p => p.captainId === captain.userId);
             const teamData = {
                 id: captain.userId, nombre: captain.teamName, eafcTeamName: captain.eafcTeamName,
+                eaClubId: captain.eaClubId || null, eaPlatform: captain.eaPlatform || 'common-gen5',
                 capitanId: captain.userId, capitanTag: captain.userName,
                 coCaptainId: null, coCaptainTag: null, bandera: '🏳️', paypal: null,
                 streamChannel: captain.streamChannel, twitter: captain.twitter,

@@ -460,6 +460,47 @@
     </div>
     </div>
 
+    <!-- === MODAL INSCRIPCION TORNEO DE PAGO === -->
+    <div id="paid-reg-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button close-paid-reg">&times;</span>
+            <h2>Inscripción a Torneo de Pago</h2>
+            <p>Introduce tu nombre de equipo y asocia tu club de EA Sports.</p>
+
+            <form id="paid-reg-form" class="standard-form">
+                <div class="form-group">
+                    <label for="paid-team-name">Nombre de tu Equipo (Obligatorio)</label>
+                    <input type="text" id="paid-team-name" required placeholder="Ej: Los Galácticos FC" minlength="3" maxlength="30">
+                </div>
+
+                <!-- Buscador EA Sports -->
+                <div class="form-group search-container" style="background: rgba(138, 43, 226, 0.1); padding: 15px; border-radius: 8px; border: 1px dashed rgba(138, 43, 226, 0.5);">
+                    <label for="paid-ea-name" style="color: #d1b3ff;">Vincular con EA Sports FC (Obligatorio para torneos)</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+                        <select id="paid-ea-platform" style="padding: 10px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white;">
+                            <option value="common-gen5">Gen5 (PS5/Xbox Series/PC)</option>
+                            <option value="common-gen4">Gen4 (PS4/Xbox One)</option>
+                        </select>
+                        <input type="text" id="paid-ea-name" placeholder="Buscar nombre de tu club en EA..." autocomplete="off" style="flex:1;">
+                        <button type="button" id="paid-search-ea-btn" class="action-btn" style="padding: 10px; min-width: 90px;">🔍 Buscar</button>
+                    </div>
+                    <small style="color: #aaa;">Vincula tu club para que el bot pueda escanear las estadísticas de los partidos.</small>
+                    <div id="paid-ea-search-results" class="dropdown-results hidden"></div>
+                    <input type="hidden" id="paid-ea-id">
+                    <div id="paid-ea-selected-club" class="hidden" style="margin-top: 10px; padding: 10px; background: rgba(46, 204, 113, 0.2); border: 1px solid #2ecc71; border-radius: 6px; color: white; display: flex; align-items: center; justify-content: space-between;">
+                        <span>✅ Vinculado: <strong id="paid-ea-selected-name"></strong></span>
+                        <button type="button" id="paid-ea-remove-btn" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-size: 1.2rem;">&times;</button>
+                    </div>
+                </div>
+
+                <div id="paid-reg-error" class="error-message hidden"></div>
+
+                <button type="submit" class="primary-btn full-width" style="margin-top: 20px;">
+                    Completar Inscripción
+                </button>
+            </form>
+        </div>
+    </div>
     <!-- === MODAL GESTIONAR EQUIPO === -->
     <div id="manage-team-modal" class="modal hidden">
         <div class="modal-content large-modal">

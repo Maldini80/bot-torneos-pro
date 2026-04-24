@@ -637,6 +637,59 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'admin_edit_ea_club_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        const approvedTeams = Object.values(tournament.teams.aprobados);
+
+        if (approvedTeams.length === 0) {
+            return interaction.editReply({ content: 'No hay equipos aprobados para editar el Club EA.' });
+        }
+
+        const PAGE_SIZE = 25;
+
+        if (approvedTeams.length > PAGE_SIZE) {
+            const pageCount = Math.ceil(approvedTeams.length / PAGE_SIZE);
+            const pageOptions = [];
+            for (let i = 0; i < pageCount; i++) {
+                const start = i * PAGE_SIZE + 1;
+                const end = Math.min((i + 1) * PAGE_SIZE, approvedTeams.length);
+                pageOptions.push({
+                    label: `Página ${i + 1} (Equipos ${start}-${end})`,
+                    value: `page_${i}`,
+                });
+            }
+
+            const pageMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_edit_ea_club_page_select:${tournamentShortId}`)
+                .setPlaceholder('Selecciona una página de equipos')
+                .addOptions(pageOptions);
+
+            await interaction.editReply({
+                content: `Hay **${approvedTeams.length}** equipos. Selecciona una página para ver los equipos:`,
+                components: [new ActionRowBuilder().addComponents(pageMenu)]
+            });
+        } else {
+            const teamOptions = approvedTeams.map(team => ({
+                label: team.nombre,
+                description: `EA ID: ${team.eaClubId || 'No asignado'} - Cap: ${team.capitanTag}`,
+                value: team.capitanId
+            }));
+
+            const teamMenu = new StringSelectMenuBuilder()
+                .setCustomId(`admin_edit_ea_club_select:${tournamentShortId}`)
+                .setPlaceholder('Selecciona el equipo a editar')
+                .addOptions(teamOptions);
+
+            await interaction.editReply({
+                content: `Selecciona el equipo al que deseas editarle el ID del Club de EA Sports:`,
+                components: [new ActionRowBuilder().addComponents(teamMenu)]
+            });
+        }
+        return;
+    }
+
     if (action === 'admin_edit_team_start') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
@@ -7793,7 +7846,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         try {
             const { getTournamentPlayersStats, generateBest11Embed } = await import('../logic/statsLogic.js');
             
-            const players = getTournamentPlayersStats(tournament);
+            const players = await getTournamentPlayersStats(tournament);
             const { embed, best11, awards } = generateBest11Embed(tournament, players);
 
             // Intentar generar las imágenes (si hay jugadores y canvas está disponible)
