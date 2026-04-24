@@ -1162,10 +1162,25 @@ const handler = async (client, interaction) => {
                 return interaction.editReply({ content: '❌ No se han encontrado partidos recientes para este club en los servidores de EA.' });
             }
 
+            let finalLogoUrl = team.logoUrl;
+            try {
+                const infoUrl = `https://proclubs.ea.com/api/fc/clubs/info?clubIds=${team.eaClubId}&platform=${team.eaPlatform}`;
+                const infoRes = await fetch(infoUrl, { headers });
+                if (infoRes.ok) {
+                    const infoData = await infoRes.json();
+                    const clubInfo = infoData[team.eaClubId];
+                    if (clubInfo && clubInfo.teamId) {
+                        finalLogoUrl = `https://eafc24.content.easports.com/fifa/fltOnlineAssets/24B23FDE-7835-41C2-87A2-F453DFDB2E82/2024/fcweb/crests/256x256/l${clubInfo.teamId}.png`;
+                    }
+                }
+            } catch (e) {
+                console.error("Error fetching EA club info for logo", e);
+            }
+
             const embed = new EmbedBuilder()
                 .setTitle(`Últimos Partidos de EA: ${team.eaClubName || team.name}`)
                 .setColor('Blue')
-                .setThumbnail(`https://eafc24.content.easports.com/fifa/fltOnlineAssets/24B23FDE-7835-41C2-87A2-F453DFDB2E82/2024/fcweb/crests/256x256/l${team.eaClubId}.png`)
+                .setThumbnail(finalLogoUrl)
                 .setDescription(`Resultados directamente desde la base de datos de EA Sports para el club ID \`${team.eaClubId}\`:`);
 
             // --- Helper: extrae goles reales y datos de DNF de un partido ---
