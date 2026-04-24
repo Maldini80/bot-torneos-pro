@@ -155,6 +155,15 @@ module.exports = async (client, interaction) => {
             const player = matchedPlayers[0];
             const pName = player.name || player.playername || 'Desconocido';
             
+            // Cálculos de precisión
+            const passesMade = parseInt(player.passesMade) || 0;
+            const passAttempts = parseInt(player.passAttempts) || passesMade; // Si EA no da intentos, asume 100%
+            const passPercentage = passAttempts > 0 ? Math.round((passesMade / passAttempts) * 100) : 0;
+
+            const tacklesMade = parseInt(player.tacklesMade) || 0;
+            const tackleAttempts = parseInt(player.tackleAttempts) || tacklesMade;
+            const tacklePercentage = tackleAttempts > 0 ? Math.round((tacklesMade / tackleAttempts) * 100) : 0;
+
             // Construir el Embed
             const embed = new EmbedBuilder()
                 .setTitle(`Reporte de Scout: ${pName}`)
@@ -168,8 +177,8 @@ module.exports = async (client, interaction) => {
                     { name: 'Goles', value: `⚽ ${player.goals || 0}`, inline: true },
                     { name: 'Asistencias', value: `👟 ${player.assists || 0}`, inline: true },
                     { name: 'Tiros Totales', value: `🎯 ${player.shots || 0}`, inline: true },
-                    { name: 'Pases Completados', value: `🔄 ${player.passesMade || 0} / ${player.passAttempts || 0}`, inline: true },
-                    { name: 'Entradas con Éxito', value: `🛡️ ${player.tacklesMade || 0} / ${player.tackleAttempts || 0}`, inline: true },
+                    { name: 'Pases Completados', value: `🔄 ${passesMade} / ${passAttempts} (${passPercentage}%)`, inline: true },
+                    { name: 'Entradas con Éxito', value: `🛡️ ${tacklesMade} / ${tackleAttempts} (${tacklePercentage}%)`, inline: true },
                     { name: 'Rojas / Amarillas', value: `🟥 ${player.redCards || 0} / 🟨 ${player.yellowCards || 0}`, inline: true }
                 )
                 .setFooter({ text: 'VPG EA Sports Scout System' })
