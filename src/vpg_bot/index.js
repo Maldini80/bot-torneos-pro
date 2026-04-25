@@ -14,7 +14,6 @@ const Team = require('./models/team.js');
 const Ticket = require('./models/ticket.js'); // Nuevo modelo para tickets
 const TicketConfig = require('./models/ticketConfig.js'); // Nuevo modelo para configuración de tickets
 const t = require('./utils/translator.js');
-const { runVpgCrawler } = require('../utils/eaStatsCrawler.cjs');
 
 // Exportamos la función de inicio
 async function startVpgBot() {
@@ -91,6 +90,7 @@ async function startVpgBot() {
         cron.schedule('10 6 * * *', async () => {
             console.log('[VPG] Ejecutando EA Stats Crawler a las 6:10 AM...');
             try {
+                const { runVpgCrawler } = await import('../utils/eaStatsCrawler.js');
                 await runVpgCrawler();
             } catch (error) {
                 console.error('[VPG] Error fatal en el EA Stats Crawler:', error);

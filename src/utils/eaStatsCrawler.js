@@ -1,7 +1,6 @@
-const fetch = require('node-fetch');
-const mongoose = require('mongoose');
-const { getBotSettings, getDb } = require('../../database.js');
-const Team = require('../vpg_bot/models/team.js');
+import mongoose from 'mongoose';
+import { getBotSettings, getDb } from '../../database.js';
+import Team from '../vpg_bot/models/team.js';
 
 const EA_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -136,6 +135,4 @@ async function updateClubProfile(coll, clubId, clubName, matchData) {
     );
 }
 
-module.exports = {
-    runVpgCrawler
-};
+export { runVpgCrawler };
