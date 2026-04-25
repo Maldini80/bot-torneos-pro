@@ -1581,29 +1581,40 @@ const handler = async (client, interaction) => {
             let matchCount = 0;
             const { runVpgCrawler } = await import('../../utils/eaStatsCrawler.js');
             
-            const POS_MAP = { 0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI', 6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI', 11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC' };
-            
+            const POS_MAP = { 0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI', 6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI', 11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC', 'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC', 'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD', 'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC', 'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC', 'striker': 'DC', 'winger': 'ED', 'wing': 'ED' };
+
+            // Helper para keys inconsistentes de EA API
+            const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
+            const gf = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseFloat(obj[k]) || 0; } return 0; };
+
             for (const match of allMatches) {
                 for (const clubId in (match.clubs || {})) {
                     const clubName = teamMap[clubId] || match.clubs[clubId]?.details?.name || clubId;
                     const clubData = match.clubs[clubId];
-                    const goalsAgainst = parseInt(clubData.goalsAgainst || 0);
+                    const goalsAgainst = gv(clubData, 'goalsAgainst', 'goalsagainst');
                     
+                    // Calcular wins/losses/ties comparando goles (EA no los devuelve por partido)
+                    const clubIds = Object.keys(match.clubs || {});
+                    const opponentId = clubIds.find(id => id !== clubId);
+                    const opponentClub = opponentId ? (match.clubs[opponentId] || {}) : {};
+                    const ourGoals = parseInt(clubData.goals || 0);
+                    const oppGoals = parseInt(opponentClub.goals || 0);
+
                     // Update club profile
                     const clubInc = {
                         'stats.matchesPlayed': 1,
-                        'stats.wins': parseInt(clubData.wins || 0),
-                        'stats.losses': parseInt(clubData.losses || 0),
-                        'stats.ties': parseInt(clubData.ties || 0),
-                        'stats.goals': parseInt(clubData.goals || 0),
+                        'stats.wins': ourGoals > oppGoals ? 1 : 0,
+                        'stats.losses': ourGoals < oppGoals ? 1 : 0,
+                        'stats.ties': ourGoals === oppGoals ? 1 : 0,
+                        'stats.goals': ourGoals,
                         'stats.goalsAgainst': goalsAgainst,
-                        'stats.shots': parseInt(clubData.shots || 0),
-                        'stats.shotsOnTarget': parseInt(clubData.shotsontarget || clubData.shotsongoal || 0),
-                        'stats.passesMade': parseInt(clubData.passesmade || 0),
-                        'stats.passesAttempted': parseInt(clubData.passesattempted || 0),
-                        'stats.tacklesMade': parseInt(clubData.tacklesmade || 0),
-                        'stats.tacklesAttempted': parseInt(clubData.tacklesattempted || 0),
-                        'stats.possession': parseFloat(clubData.possession || 0),
+                        'stats.shots': gv(clubData, 'shots'),
+                        'stats.shotsOnTarget': gv(clubData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal'),
+                        'stats.passesMade': gv(clubData, 'passesMade', 'passesmade'),
+                        'stats.passesAttempted': gv(clubData, 'passesAttempted', 'passesattempted'),
+                        'stats.tacklesMade': gv(clubData, 'tacklesMade', 'tacklesmade'),
+                        'stats.tacklesAttempted': gv(clubData, 'tacklesAttempted', 'tacklesattempted'),
+                        'stats.possession': gf(clubData, 'possession'),
                         'stats.possessionCount': 1
                     };
                     await db.collection('club_profiles').updateOne(
@@ -1622,19 +1633,19 @@ const handler = async (client, interaction) => {
                             
                             const playerInc = {
                                 'stats.matchesPlayed': 1,
-                                'stats.goals': parseInt(p.goals || 0),
-                                'stats.assists': parseInt(p.assists || 0),
-                                'stats.passesMade': parseInt(p.passesmade || 0),
-                                'stats.passesAttempted': parseInt(p.passesattempted || 0),
-                                'stats.tacklesMade': parseInt(p.tacklesmade || 0),
-                                'stats.tacklesAttempted': parseInt(p.tacklesattempted || 0),
-                                'stats.shots': parseInt(p.shots || 0),
-                                'stats.shotsOnTarget': parseInt(p.shotsongoal || p.shotsontarget || 0),
-                                'stats.interceptions': parseInt(p.interceptions || 0),
-                                'stats.saves': parseInt(p.saves || 0),
-                                'stats.redCards': parseInt(p.redcards || 0),
-                                'stats.yellowCards': parseInt(p.yellowcards || 0),
-                                'stats.mom': parseInt(p.mom || 0),
+                                'stats.goals': gv(p, 'goals'),
+                                'stats.assists': gv(p, 'assists'),
+                                'stats.passesMade': gv(p, 'passesMade', 'passesmade'),
+                                'stats.passesAttempted': gv(p, 'passesAttempted', 'passesattempted'),
+                                'stats.tacklesMade': gv(p, 'tacklesMade', 'tacklesmade'),
+                                'stats.tacklesAttempted': gv(p, 'tacklesAttempted', 'tacklesattempted'),
+                                'stats.shots': gv(p, 'shots'),
+                                'stats.shotsOnTarget': gv(p, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal'),
+                                'stats.interceptions': gv(p, 'interceptions'),
+                                'stats.saves': gv(p, 'saves'),
+                                'stats.redCards': gv(p, 'redCards', 'redcards'),
+                                'stats.yellowCards': gv(p, 'yellowCards', 'yellowcards'),
+                                'stats.mom': gv(p, 'mom'),
                                 'stats.cleanSheets': (isGK && goalsAgainst === 0) ? 1 : 0,
                                 'stats.goalsConceded': isGK ? goalsAgainst : 0
                             };
