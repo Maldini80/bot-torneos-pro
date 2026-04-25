@@ -1571,7 +1571,7 @@ const handler = async (client, interaction) => {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         await interaction.deferReply({ ephemeral: true });
         
-        await interaction.editReply({ content: '🔄 Iniciando re-escaneo completo de perfiles desde partidos guardados...' });
+        await interaction.editReply({ content: '🔄 Iniciando re-escaneo completo de perfiles desde partidos guardados... Esto puede tardar unos minutos.' });
         
         try {
             const { getDb } = await import('../../../database.js');
@@ -1588,7 +1588,9 @@ const handler = async (client, interaction) => {
             for (const t of teams) teamMap[t.eaClubId] = t.name;
             
             let matchCount = 0;
-            const { runVpgCrawler } = await import('../../utils/eaStatsCrawler.js');
+            const totalMatches = allMatches.length;
+            
+            await interaction.editReply({ content: `🔄 Re-escaneando **${totalMatches} partidos**... 0%` });
             
             const POS_MAP = { 0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI', 6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI', 11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC', 'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC', 'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD', 'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC', 'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC', 'striker': 'DC', 'winger': 'ED', 'wing': 'ED' };
 
@@ -1668,6 +1670,11 @@ const handler = async (client, interaction) => {
                     }
                 }
                 matchCount++;
+                // Progreso cada 25 partidos
+                if (matchCount % 25 === 0 || matchCount === totalMatches) {
+                    const pct = ((matchCount / totalMatches) * 100).toFixed(0);
+                    await interaction.editReply({ content: `🔄 Re-escaneando... **${matchCount}/${totalMatches}** partidos (${pct}%)` }).catch(() => {});
+                }
             }
             
             return interaction.editReply({ content: `✅ **Re-escaneo completado**\nSe han reconstruido todos los perfiles desde **${matchCount} partidos** guardados en la base de datos.\nTodos los campos nuevos (tiros, posesión, paradas, etc.) ya están calculados.` });
