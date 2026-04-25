@@ -1461,7 +1461,7 @@ const handler = async (client, interaction) => {
         };
         const yesterday = objectIdFromTime(Date.now() - 24 * 60 * 60 * 1000);
 
-        const { getDb } = require('../../database.js');
+        const { getDb } = await import('../../../database.js');
         const db = getDb();
         if (!db) return interaction.editReply({ content: 'Error de conexión con la base de datos local.' });
 
