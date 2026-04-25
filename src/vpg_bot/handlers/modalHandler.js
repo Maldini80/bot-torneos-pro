@@ -947,15 +947,21 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: '\u200B', value: '**🛡️ DEFENSA**', inline: false },
                 { name: 'Eficacia Entradas', value: tackleAcc !== '—' ? `${tackleAcc}%` : '—', inline: true },
                 { name: 'Entradas', value: tacklesAtt > 0 ? `${tacklesMade}/${tacklesAtt}` : `${tacklesMade}`, inline: true },
-                { name: 'Intercepciones', value: `${intercepts}`, inline: true }
+                { name: 'Entradas/Partido', value: `${(tacklesMade / m).toFixed(1)}`, inline: true }
             );
         
         if (isGK) {
+            const savesPerGame = (saves / m).toFixed(1);
+            const concededPerGame = (goalsConceded / m).toFixed(1);
+            const saveRate = (saves + goalsConceded) > 0 ? (((saves / (saves + goalsConceded)) * 100).toFixed(1)) : '—';
             embed.addFields(
                 { name: '\u200B', value: '**🧤 PORTERO**', inline: false },
-                { name: 'Paradas', value: `${saves} (${(saves / m).toFixed(1)}/P)`, inline: true },
+                { name: 'Paradas', value: `${saves} (${savesPerGame}/P)`, inline: true },
+                { name: '% Paradas', value: `${saveRate}%`, inline: true },
                 { name: 'Porterías a 0', value: `${cleanSheets}`, inline: true },
-                { name: 'Goles Encajados', value: `${goalsConceded} (${(goalsConceded / m).toFixed(1)}/P)`, inline: true }
+                { name: 'Goles Encajados', value: `${goalsConceded} (${concededPerGame}/P)`, inline: true },
+                { name: '\u200B', value: '\u200B', inline: true },
+                { name: '\u200B', value: '\u200B', inline: true }
             );
         }
         
@@ -1153,18 +1159,18 @@ if (customId.startsWith('manager_request_modal_')) {
             // Helper para keys inconsistentes de EA API
             const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
             
-            // EA no devuelve tiros/pases/entradas a nivel de club — sumar de jugadores
+            // Sumar stats de todos los jugadores del equipo
             const sumTeamStats = (players) => {
-                let s = { shots: 0, shotsOT: 0, pm: 0, pa: 0, tm: 0, ta: 0 };
+                let s = { shots: 0, pm: 0, pa: 0, tm: 0, ta: 0, gkSaves: 0 };
                 if (!players) return s;
                 for (const pid in players) {
                     const p = players[pid];
                     s.shots += gv(p, 'shots');
-                    s.shotsOT += gv(p, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal');
                     s.pm += gv(p, 'passesMade', 'passesmade', 'passescompleted');
                     s.pa += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
                     s.tm += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
                     s.ta += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                    s.gkSaves += gv(p, 'saves');
                 }
                 return s;
             };
@@ -1172,8 +1178,9 @@ if (customId.startsWith('manager_request_modal_')) {
             const ourStats = sumTeamStats(match.players?.[club.eaClubId]);
             const oppStats = sumTeamStats(match.players?.[opponentId]);
             
-            const possession = ourClub.possession || '?';
-            const mShots = ourStats.shots;
+            // Tiros a puerta = goles + paradas del portero rival
+            const ourShotsOT = ourGoals + oppStats.gkSaves;
+            const oppShotsOT = oppGoals + ourStats.gkSaves;
             const mPassMade = ourStats.pm;
             const mPassAtt = ourStats.pa;
             const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
@@ -1223,8 +1230,8 @@ if (customId.startsWith('manager_request_modal_')) {
                 .setColor(resultColor)
                 .addFields(
                     { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
-                    { name: '🔫 Tiros', value: `**${mShots}** vs ${oppStats.shots}`, inline: true },
-                    { name: '\u200B', value: '\u200B', inline: true },
+                    { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
+                    { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
                     { name: '🎯 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
                     { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
                     { name: '\u200B', value: '\u200B', inline: true }
