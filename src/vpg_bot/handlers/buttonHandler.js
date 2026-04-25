@@ -1507,6 +1507,42 @@ const handler = async (client, interaction) => {
 
         return interaction.editReply({ content: `✅ **Escaneos Deshechos**\nSe han borrado **${recentMatches.length} partidos** recientes de la base de datos y se han restado las estadísticas a los **${playersAffected} jugadores** involucrados.` });
     }
+    // --- Lógica del Panel de Estadísticas (Kiosko) ---
+    if (customId === 'stats_team_scout') {
+        const modal = new ModalBuilder()
+            .setCustomId('stats_team_scout_modal')
+            .setTitle('🛡️ Scout de Equipo');
+
+        const input = new TextInputBuilder()
+            .setCustomId('team_name')
+            .setLabel('Nombre del Equipo (Discord o EA)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Ceuta Guardians')
+            .setRequired(true);
+
+        const row = new ActionRowBuilder().addComponents(input);
+        modal.addComponents(row);
+
+        return interaction.showModal(modal);
+    }
+
+    if (customId === 'stats_player_scout') {
+        const modal = new ModalBuilder()
+            .setCustomId('stats_player_scout_modal')
+            .setTitle('🔍 Scout de Jugador');
+
+        const input = new TextInputBuilder()
+            .setCustomId('player_name')
+            .setLabel('Nombre exacto en EA Sports')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: zzraydenzz')
+            .setRequired(true);
+
+        const row = new ActionRowBuilder().addComponents(input);
+        modal.addComponents(row);
+
+        return interaction.showModal(modal);
+    }
 
     // --- Lógica para los botones de GESTIÓN DE PLANTILLA ---
     if (customId === 'team_invite_player_button') {

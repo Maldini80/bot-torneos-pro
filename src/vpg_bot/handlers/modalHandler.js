@@ -859,4 +859,115 @@ if (customId.startsWith('manager_request_modal_')) {
         await sendPaginatedTeamMenu(interaction, teams, 'admin_select_team_to_manage', 'manage', 0, `Equipos encontrados para "${query}":`);
         return;
     }
+
+    if (customId === 'stats_player_scout_modal') {
+        const playerName = fields.getTextInputValue('player_name').trim();
+        await interaction.deferReply();
+        
+        const { getDb } = await import('../../../database.js');
+        const db = getDb();
+        if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
+        
+        // Búsqueda insensible a mayúsculas
+        const profile = await db.collection('player_profiles').findOne({ eaPlayerName: new RegExp(`^${playerName}$`, 'i') });
+        if (!profile) return interaction.editReply({ content: `No se encontró ningún registro para el jugador **${playerName}**.` });
+        
+        const stats = profile.stats || {};
+        const matches = stats.matchesPlayed || 0;
+        
+        if (matches === 0) return interaction.editReply({ content: `El jugador **${profile.eaPlayerName}** no tiene partidos registrados.` });
+        
+        const goals = stats.goals || 0;
+        const assists = stats.assists || 0;
+        const passesMade = stats.passesMade || 0;
+        const passesAttempted = stats.passesAttempted || 0;
+        const tacklesMade = stats.tacklesMade || 0;
+        const tacklesAttempted = stats.tacklesAttempted || 0;
+        const mom = stats.mom || 0;
+        const redCards = stats.redCards || 0;
+        
+        const passAccuracy = passesAttempted > 0 ? ((passesMade / passesAttempted) * 100).toFixed(1) : 0;
+        const tackleAccuracy = tacklesAttempted > 0 ? ((tacklesMade / tacklesAttempted) * 100).toFixed(1) : 0;
+        const goalsPerGame = (goals / matches).toFixed(2);
+        const assistsPerGame = (assists / matches).toFixed(2);
+        
+        let avgRating = 0;
+        if (stats.ratings && stats.ratings.length > 0) {
+            const sum = stats.ratings.reduce((a, b) => a + b, 0);
+            avgRating = (sum / stats.ratings.length).toFixed(1);
+        }
+        
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 Informe de Scout: ${profile.eaPlayerName}`)
+            .setDescription(`**Último equipo:** ${profile.lastClub || 'Desconocido'}\n**Última actividad:** ${profile.lastActive ? new Date(profile.lastActive).toLocaleDateString('es-ES') : 'Desconocida'}`)
+            .setColor('#2ecc71')
+            .addFields(
+                { name: 'Partidos Jugados', value: `${matches}`, inline: true },
+                { name: 'Nota Media', value: `⭐ ${avgRating}`, inline: true },
+                { name: 'MVM (Mejor Jugador)', value: `🏆 ${mom}`, inline: true },
+                
+                { name: 'Goles', value: `⚽ ${goals} (${goalsPerGame} G/P)`, inline: true },
+                { name: 'Asistencias', value: `👟 ${assists} (${assistsPerGame} A/P)`, inline: true },
+                { name: 'Tarjetas Rojas', value: `🟥 ${redCards}`, inline: true },
+                
+                { name: 'Precisión de Pase', value: `🎯 ${passAccuracy}% (${passesMade}/${passesAttempted})`, inline: true },
+                { name: 'Eficacia Defensiva', value: `🛡️ ${tackleAccuracy}% (${tacklesMade}/${tacklesAttempted})`, inline: true }
+            )
+            .setThumbnail('https://cdn-icons-png.flaticon.com/512/3103/3103407.png');
+            
+        return interaction.editReply({ embeds: [embed] });
+    }
+
+    if (customId === 'stats_team_scout_modal') {
+        const teamName = fields.getTextInputValue('team_name').trim();
+        await interaction.deferReply();
+        
+        const { getDb } = await import('../../../database.js');
+        const db = getDb();
+        if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
+        
+        // Buscamos por el nombre exacto ignorando mayúsculas, o si no encuentra, probamos búsqueda parcial
+        let club = await db.collection('club_profiles').findOne({ eaClubName: new RegExp(`^${teamName}$`, 'i') });
+        if (!club) {
+            club = await db.collection('club_profiles').findOne({ eaClubName: new RegExp(`${teamName}`, 'i') });
+        }
+
+        if (!club) return interaction.editReply({ content: `No se encontró ningún registro para el equipo **${teamName}** en EA Sports.` });
+        
+        const stats = club.stats || {};
+        const matches = stats.matchesPlayed || 0;
+        
+        if (matches === 0) return interaction.editReply({ content: `El equipo **${club.eaClubName}** no tiene partidos registrados.` });
+        
+        const wins = stats.wins || 0;
+        const ties = stats.ties || 0;
+        const losses = stats.losses || 0;
+        const goals = stats.goals || 0;
+        const goalsAgainst = stats.goalsAgainst || 0;
+        
+        const winrate = ((wins / matches) * 100).toFixed(1);
+        const goalsPerGame = (goals / matches).toFixed(1);
+        const goalsAgainstPerGame = (goalsAgainst / matches).toFixed(1);
+        
+        const embed = new EmbedBuilder()
+            .setTitle(`🛡️ Informe de Scout: ${club.eaClubName}`)
+            .setDescription(`**Última actividad:** ${club.lastActive ? new Date(club.lastActive).toLocaleDateString('es-ES') : 'Desconocida'}`)
+            .setColor('#3498db')
+            .addFields(
+                { name: 'Partidos Jugados', value: `${matches}`, inline: true },
+                { name: 'Victorias', value: `✅ ${wins}`, inline: true },
+                { name: 'Porcentaje Victoria', value: `📈 ${winrate}%`, inline: true },
+                
+                { name: 'Empates', value: `➖ ${ties}`, inline: true },
+                { name: 'Derrotas', value: `❌ ${losses}`, inline: true },
+                { name: '\u200B', value: '\u200B', inline: true },
+                
+                { name: 'Goles a Favor', value: `⚽ ${goals} (${goalsPerGame} G/P)`, inline: true },
+                { name: 'Goles en Contra', value: `🥅 ${goalsAgainst} (${goalsAgainstPerGame} G/P)`, inline: true },
+                { name: 'Diferencia Goles', value: `⚖️ ${goals > goalsAgainst ? '+' : ''}${goals - goalsAgainst}`, inline: true }
+            )
+            .setThumbnail('https://cdn-icons-png.flaticon.com/512/3103/3103407.png');
+            
+        return interaction.editReply({ embeds: [embed] });
+    }
 };
