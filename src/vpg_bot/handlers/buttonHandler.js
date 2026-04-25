@@ -1383,12 +1383,29 @@ const handler = async (client, interaction) => {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         await interaction.deferReply({ ephemeral: true });
         
-        interaction.editReply({ content: '🚀 Iniciando escaneo manual del Crawler en segundo plano... (Esto no bloqueará el bot, te avisaré aquí si puedo o simplemente revisa los resultados con el comando Scout en unos minutos).' });
+        await interaction.editReply({ content: '🚀 Iniciando escaneo manual del Crawler en segundo plano... Conectando con EA Sports...' });
         
         try {
             const { runVpgCrawler } = await import('../utils/eaStatsCrawler.js');
-            await runVpgCrawler(true); // force manual = true
-            return interaction.editReply({ content: '✅ ¡Escaneo manual de EA Sports completado con éxito! Todas las estadísticas locales han sido actualizadas.' });
+            
+            let lastUpdate = Date.now();
+            const onProgress = async (current, total, teamName) => {
+                const now = Date.now();
+                // Actualizar cada 2.5 segundos o si es el último equipo, para no rate-limitear a Discord
+                if (now - lastUpdate > 2500 || current === total) {
+                    lastUpdate = now;
+                    const percentage = Math.round((current / total) * 100);
+                    const filled = Math.floor(percentage / 10);
+                    const bar = '🟩'.repeat(filled) + '⬜'.repeat(10 - filled);
+                    
+                    await interaction.editReply({ 
+                        content: `🚀 **Escaneo Manual en Progreso**\n\n**Progreso:** ${current} / ${total} equipos completados (${percentage}%)\n${bar}\n\nAnalizando: \`${teamName}\`` 
+                    }).catch(() => {});
+                }
+            };
+
+            const totalTeams = await runVpgCrawler(true, onProgress);
+            return interaction.editReply({ content: `✅ ¡Escaneo manual de EA Sports completado con éxito!\nSe procesaron **${totalTeams} equipos** y sus estadísticas locales han sido actualizadas.` });
         } catch (error) {
             console.error('[CRAWLER] Error manual:', error);
             return interaction.editReply({ content: '❌ Hubo un error al forzar el escaneo del Crawler. Revisa la consola.' });

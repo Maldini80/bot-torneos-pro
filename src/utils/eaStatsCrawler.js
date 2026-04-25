@@ -11,7 +11,7 @@ const EA_HEADERS = {
 /**
  * Función principal del Crawler VPG
  */
-async function runVpgCrawler(manual = false) {
+async function runVpgCrawler(manual = false, onProgress = null) {
     console.log('[CRAWLER] Iniciando recolección de estadísticas...');
     const settings = await getBotSettings();
     if (!manual && !settings.crawlerEnabled) {
@@ -39,7 +39,11 @@ async function runVpgCrawler(manual = false) {
     const playerColl = db.collection('player_profiles');
     const clubColl = db.collection('club_profiles');
 
+    let i = 0;
+    const totalTeams = teams.length;
+
     for (const team of teams) {
+        i++;
         const platform = team.eaPlatform || 'common-gen5';
         const clubId = team.eaClubId;
         console.log(`[CRAWLER] Procesando equipo: ${team.name} (ClubID: ${clubId})`);
@@ -85,8 +89,12 @@ async function runVpgCrawler(manual = false) {
         } catch (error) {
             console.error(`[CRAWLER] Error procesando equipo ${team.name}:`, error);
         }
+        if (onProgress) {
+            await onProgress(i, totalTeams, team.name).catch(() => {});
+        }
     }
     console.log('[CRAWLER] Recolección de estadísticas finalizada.');
+    return totalTeams;
 }
 
 async function updatePlayerProfile(coll, playerName, matchData, clubName) {
