@@ -946,6 +946,26 @@ const handler = async (client, interaction) => {
         return;
     }
 
+    if (customId === 'admin_search_team_button') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        
+        const modal = new ModalBuilder()
+            .setCustomId('admin_search_team_modal')
+            .setTitle('Buscar Equipo a Gestionar');
+
+        const searchInput = new TextInputBuilder()
+            .setCustomId('teamSearchQuery')
+            .setLabel('Nombre del Equipo')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Real Madrid, FC Barcelona...')
+            .setRequired(true);
+
+        const row = new ActionRowBuilder().addComponents(searchInput);
+        modal.addComponents(row);
+
+        return interaction.showModal(modal);
+    }
+
     if (customId.startsWith('admin_manage_members_')) {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         await interaction.deferReply({ ephemeral: true });
@@ -1410,6 +1430,66 @@ const handler = async (client, interaction) => {
             console.error('[CRAWLER] Error manual:', error);
             return interaction.editReply({ content: '❌ Hubo un error al forzar el escaneo del Crawler. Revisa la consola.' });
         }
+    }
+    if (customId.startsWith('admin_undo_scan_')) {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+        
+        const teamId = customId.split('_')[3];
+        const team = await Team.findById(teamId).lean();
+        if (!team || !team.eaClubId) return interaction.editReply({ content: 'El equipo no tiene un Club EA vinculado.' });
+
+        const mongoose = require('mongoose');
+        const objectIdFromTime = (timeInMs) => {
+            return new mongoose.Types.ObjectId(Math.floor(timeInMs / 1000).toString(16) + "0000000000000000");
+        };
+        const yesterday = objectIdFromTime(Date.now() - 24 * 60 * 60 * 1000);
+
+        const { getDb } = require('../../database.js');
+        const db = getDb();
+        if (!db) return interaction.editReply({ content: 'Error de conexión con la base de datos local.' });
+
+        const matchColl = db.collection('scanned_matches');
+        const playerColl = db.collection('player_profiles');
+
+        const recentMatches = await matchColl.find({
+            _id: { $gt: yesterday },
+            [`clubs.${team.eaClubId}`]: { $exists: true }
+        }).toArray();
+
+        if (recentMatches.length === 0) {
+            return interaction.editReply({ content: 'No se han encontrado escaneos recientes (últimas 24h) para deshacer en este equipo.' });
+        }
+
+        let playersAffected = 0;
+        for (const match of recentMatches) {
+            if (match.players && match.players[team.eaClubId]) {
+                const playersData = match.players[team.eaClubId];
+                for (const playerId in playersData) {
+                    const p = playersData[playerId];
+                    const decrementData = {
+                        'stats.matchesPlayed': -1,
+                        'stats.goals': -parseInt(p.goals || 0),
+                        'stats.assists': -parseInt(p.assists || 0),
+                        'stats.passesMade': -parseInt(p.passesmade || 0),
+                        'stats.passesAttempted': -parseInt(p.passesattempted || 0),
+                        'stats.tacklesMade': -parseInt(p.tacklesmade || 0),
+                        'stats.tacklesAttempted': -parseInt(p.tacklesattempted || 0),
+                        'stats.redCards': -parseInt(p.redCards || 0),
+                        'stats.mom': -parseInt(p.mom || 0)
+                    };
+                    
+                    await playerColl.updateOne(
+                        { eaPlayerName: p.playername },
+                        { $inc: decrementData }
+                    );
+                    playersAffected++;
+                }
+            }
+            await matchColl.deleteOne({ _id: match._id });
+        }
+
+        return interaction.editReply({ content: `✅ **Escaneos Deshechos**\nSe han borrado **${recentMatches.length} partidos** recientes de la base de datos y se han restado las estadísticas a los **${playersAffected} jugadores** involucrados.` });
     }
 
     // --- Lógica para los botones de GESTIÓN DE PLANTILLA ---

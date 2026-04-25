@@ -838,4 +838,25 @@ if (customId.startsWith('manager_request_modal_')) {
             return interaction.editReply({ content: t('applicationSentFailManagerDMsClosed', member) });
         }
     }
+    if (customId === 'admin_search_team_modal') {
+        const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+
+        const query = fields.getTextInputValue('teamSearchQuery').trim().toLowerCase();
+        
+        await interaction.deferReply({ ephemeral: true });
+        
+        const teams = await Team.find({ 
+            guildId: interaction.guildId,
+            name: { $regex: query, $options: 'i' }
+        }).sort({ name: 1 }).lean();
+
+        if (teams.length === 0) {
+            return interaction.editReply({ content: `No se encontró ningún equipo que contenga "${query}".` });
+        }
+
+        const { sendPaginatedTeamMenu } = require('../utils/pagination.js');
+        await sendPaginatedTeamMenu(interaction, teams, 'admin_select_team_to_manage', 'manage', 0, `Equipos encontrados para "${query}":`);
+        return;
+    }
 };
