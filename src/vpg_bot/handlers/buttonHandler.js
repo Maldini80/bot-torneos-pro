@@ -1568,7 +1568,7 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'admin_rescan_profiles') {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        if (interaction.user.id !== guild.ownerId) return interaction.reply({ content: '🔒 Solo el **dueño del servidor** puede recalcular stats.', flags: MessageFlags.Ephemeral });
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         await interaction.editReply({ content: '🔄 Iniciando re-escaneo completo de perfiles desde partidos guardados... Esto puede tardar unos minutos.' });
