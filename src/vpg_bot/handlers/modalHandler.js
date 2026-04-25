@@ -99,89 +99,55 @@ module.exports = async (client, interaction) => {
         const team = await Team.findById(teamId);
         
         if (!team) return interaction.editReply({ content: 'El equipo VPG ya no existe.' });
-        if (!team.eaClubId) return interaction.editReply({ content: '❌ Este equipo no tiene un Club de EA vinculado. No se pueden buscar jugadores.' });
+        if (!team.eaClubId) return interaction.editReply({ content: '❌ Este equipo no tiene un Club de EA vinculado.' });
 
-        const playerNameQuery = fields.getTextInputValue('player_name').toLowerCase();
-        // IGNORAMOS LA PLATAFORMA DEL MODAL Y USAMOS LA DEL EQUIPO PARA ASEGURAR QUE FUNCIONE
-        const eaPlatform = team.eaPlatform || 'common-gen5';
+        const playerNameQuery = fields.getTextInputValue('player_name').trim();
 
         try {
-            const url = `https://proclubs.ea.com/api/fc/members/career/stats?clubId=${team.eaClubId}&platform=${eaPlatform}`;
-            const headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                'Accept': 'application/json',
-                'Origin': 'https://www.ea.com',
-                'Referer': 'https://www.ea.com/'
-            };
-
-            const res = await fetch(url, { headers });
-            if (!res.ok) {
-                return interaction.editReply({ content: `❌ Error de los servidores de EA al buscar datos del club (Código: ${res.status}).` });
-            }
-
-            const data = await res.json();
+            const playerColl = mongoose.connection.client.db('test').collection('player_profiles');
             
-            let members = [];
-            if (Array.isArray(data)) {
-                members = data;
-            } else if (data.members && Array.isArray(data.members)) {
-                members = data.members;
-            } else if (data[String(team.eaClubId)] && Array.isArray(data[String(team.eaClubId)])) {
-                members = data[String(team.eaClubId)];
-            } else if (data[String(team.eaClubId)]?.members) {
-                members = data[String(team.eaClubId)].members;
-            } else {
-                for (const val of Object.values(data)) {
-                    if (Array.isArray(val) && val.length > 0) { members = val; break; }
-                    if (val?.members && Array.isArray(val.members)) { members = val.members; break; }
-                }
-            }
-
-            if (!members || members.length === 0) {
-                return interaction.editReply({ content: '❌ EA no ha devuelto ningún jugador para este club. Puede que no hayan jugado partidos recientes.' });
-            }
-
-            // Buscar al jugador por coincidencia parcial
-            const matchedPlayers = members.filter(m => {
-                const name = (m.name || m.playername || '').toLowerCase();
-                return name.includes(playerNameQuery);
+            // Buscar al jugador por coincidencia (case insensitive)
+            const player = await playerColl.findOne({
+                eaPlayerName: { $regex: new RegExp(playerNameQuery, 'i') }
             });
 
-            if (matchedPlayers.length === 0) {
-                return interaction.editReply({ content: `❌ No se ha encontrado a ningún jugador en el club **${team.eaClubName || team.name}** que contenga "${fields.getTextInputValue('player_name')}".` });
+            if (!player || !player.stats) {
+                return interaction.editReply({ content: `❌ No se ha encontrado a ningún jugador en nuestra base de datos local que contenga "${playerNameQuery}". Es posible que aún no haya jugado ningún partido competitivo escaneado por el bot.` });
             }
 
-            // Si hay varios, cogemos el primero por simplicidad (podríamos hacer un select menu después si queremos complicarlo)
-            const player = matchedPlayers[0];
-            const pName = player.name || player.playername || 'Desconocido';
+            const pName = player.eaPlayerName || playerNameQuery;
+            const stats = player.stats;
             
-            // Cálculos de precisión
-            const passesMade = parseInt(player.passesMade) || 0;
-            const passAttempts = parseInt(player.passAttempts) || passesMade; // Si EA no da intentos, asume 100%
+            const passesMade = stats.passesMade || 0;
+            const passAttempts = stats.passesAttempted || passesMade;
             const passPercentage = passAttempts > 0 ? Math.round((passesMade / passAttempts) * 100) : 0;
 
-            const tacklesMade = parseInt(player.tacklesMade) || 0;
-            const tackleAttempts = parseInt(player.tackleAttempts) || tacklesMade;
+            const tacklesMade = stats.tacklesMade || 0;
+            const tackleAttempts = stats.tacklesAttempted || tacklesMade;
             const tacklePercentage = tackleAttempts > 0 ? Math.round((tacklesMade / tackleAttempts) * 100) : 0;
+            
+            let ratingAvg = 0;
+            if (stats.ratings && stats.ratings.length > 0) {
+                ratingAvg = (stats.ratings.reduce((a, b) => a + b, 0) / stats.ratings.length).toFixed(1);
+            }
 
-            // Construir el Embed
             const embed = new EmbedBuilder()
                 .setTitle(`Reporte de Scout: ${pName}`)
                 .setColor('Gold')
                 .setThumbnail(`https://eafc24.content.easports.com/fifa/fltOnlineAssets/24B23FDE-7835-41C2-87A2-F453DFDB2E82/2024/fcweb/crests/256x256/l${team.eaClubId}.png`)
-                .setDescription(`Estadísticas extraídas directamente de **EA Sports FC** para su rendimiento en **${team.eaClubName || team.name}**.`)
+                .setDescription(`Estadísticas extraídas de nuestra **Base de Datos Local**. Muestra el historial completo de partidos oficiales escaneados para este jugador.`)
                 .addFields(
-                    { name: 'Partidos Jugados', value: `🏟️ ${player.gamesPlayed || player.gamesPlayed || 0}`, inline: true },
-                    { name: 'Valoración Media', value: `⭐ ${player.ratingAvg || player.rating || '0.0'}`, inline: true },
-                    { name: 'Hombre del Partido', value: `🏅 ${player.manOfTheMatch || player.mom || 0}`, inline: true },
-                    { name: 'Goles', value: `⚽ ${player.goals || 0}`, inline: true },
-                    { name: 'Asistencias', value: `👟 ${player.assists || 0}`, inline: true },
-                    { name: 'Tiros Totales', value: `🎯 ${player.shots || 0}`, inline: true },
+                    { name: 'Partidos Jugados', value: `🏟️ ${stats.matchesPlayed || 0}`, inline: true },
+                    { name: 'Valoración Media', value: `⭐ ${ratingAvg}`, inline: true },
+                    { name: 'Hombre del Partido', value: `🏅 ${stats.mom || 0}`, inline: true },
+                    { name: 'Goles Totales', value: `⚽ ${stats.goals || 0}`, inline: true },
+                    { name: 'Asistencias', value: `👟 ${stats.assists || 0}`, inline: true },
+                    { name: 'Último Equipo', value: `🛡️ ${player.lastClub || 'Desconocido'}`, inline: true },
                     { name: 'Pases Completados', value: `🔄 ${passesMade} / ${passAttempts} (${passPercentage}%)`, inline: true },
                     { name: 'Entradas con Éxito', value: `🛡️ ${tacklesMade} / ${tackleAttempts} (${tacklePercentage}%)`, inline: true },
-                    { name: 'Rojas / Amarillas', value: `🟥 ${player.redCards || 0} / 🟨 ${player.yellowCards || 0}`, inline: true }
+                    { name: 'Tarjetas Rojas', value: `🟥 ${stats.redCards || 0}`, inline: true }
                 )
-                .setFooter({ text: 'VPG EA Sports Scout System' })
+                .setFooter({ text: 'VPG EA Sports Scout System (Local DB)' })
                 .setTimestamp();
 
             return interaction.editReply({ embeds: [embed] });

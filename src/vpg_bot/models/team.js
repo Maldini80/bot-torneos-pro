@@ -15,7 +15,6 @@ const teamSchema = new mongoose.Schema({
     eaClubId: { type: String, default: null },
     eaClubName: { type: String, default: null },
     eaPlatform: { type: String, default: 'common-gen5' },
-    // AÑADE LA SIGUIENTE LÍNEA AQUÍ
     recruitmentOpen: { type: Boolean, default: true }
 });
 

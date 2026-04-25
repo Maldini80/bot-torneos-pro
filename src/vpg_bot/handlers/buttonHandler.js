@@ -1336,6 +1336,49 @@ const handler = async (client, interaction) => {
         return interaction.reply({ content: `Todas las solicitudes de registro de equipo pendientes se encuentran en el canal <#${approvalChannelId}>.`, ephemeral: true });
     }
 
+    if (customId === 'admin_toggle_crawler') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+        const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
+        const settings = await settingsColl.findOne({ _id: 'global_config' });
+        
+        if (!settings) return interaction.editReply({ content: 'Configuración global no encontrada.' });
+        
+        const newState = !settings.crawlerEnabled;
+        await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerEnabled: newState } });
+        
+        return interaction.editReply({ content: `✅ Crawler de Estadísticas VPG actualizado: **${newState ? 'ON 🟢' : 'OFF 🔴'}**` });
+    }
+
+    if (customId === 'admin_config_crawler_days') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+        
+        const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
+        const settings = await settingsColl.findOne({ _id: 'global_config' });
+        const currentDays = settings ? (settings.crawlerDays || []) : [];
+
+        const dayOptions = [
+            { label: 'Lunes', value: '1', default: currentDays.includes(1) },
+            { label: 'Martes', value: '2', default: currentDays.includes(2) },
+            { label: 'Miércoles', value: '3', default: currentDays.includes(3) },
+            { label: 'Jueves', value: '4', default: currentDays.includes(4) },
+            { label: 'Viernes', value: '5', default: currentDays.includes(5) },
+            { label: 'Sábado', value: '6', default: currentDays.includes(6) },
+            { label: 'Domingo', value: '0', default: currentDays.includes(0) }
+        ];
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('admin_crawler_days_select')
+            .setPlaceholder('Selecciona los días a escanear')
+            .addOptions(dayOptions)
+            .setMinValues(1)
+            .setMaxValues(7);
+
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+        return interaction.editReply({ content: 'Selecciona qué días de la semana quieres que el Crawler de EA actúe buscando estadísticas automáticamente.', components: [row] });
+    }
+
     // --- Lógica para los botones de GESTIÓN DE PLANTILLA ---
     if (customId === 'team_invite_player_button') {
         await interaction.deferReply({ ephemeral: true });

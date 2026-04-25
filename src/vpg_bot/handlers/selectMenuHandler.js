@@ -637,6 +637,22 @@ module.exports = async (client, interaction) => {
         return;
     }
 
+    if (customId === 'admin_crawler_days_select') {
+        await interaction.deferUpdate();
+        const selectedDays = values.map(Number); // Convertir a números
+        
+        const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
+        await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerDays: selectedDays } });
+        
+        const dayNames = { 0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado' };
+        const selectedNames = selectedDays.map(d => dayNames[d]).join(', ');
+
+        return interaction.editReply({ 
+            content: `✅ Días de escaneo del Crawler actualizados correctamente.\n**Nuevos días:** ${selectedNames}`,
+            components: [] 
+        });
+    }
+
     if (customId === 'roster_management_menu') {
         await interaction.deferUpdate();
         const targetId = selectedValue;

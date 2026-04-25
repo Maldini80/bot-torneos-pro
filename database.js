@@ -62,6 +62,13 @@ export async function ensureIndexes() {
             { expireAfterSeconds: 900 } // 15 minutos = 900 segundos
         );
 
+        // Índices para Crawler VPG
+        await db.collection('scanned_matches').createIndex({ matchId: 1 }, { unique: true });
+        await db.collection('scanned_matches').createIndex({ "clubA.clubId": 1 });
+        await db.collection('scanned_matches').createIndex({ "clubB.clubId": 1 });
+        await db.collection('player_profiles').createIndex({ eaPlayerName: 1 }, { unique: true });
+        await db.collection('club_profiles').createIndex({ eaClubId: 1 }, { unique: true });
+
         console.log('[DATABASE] Índices creados/verificados correctamente');
     } catch (error) {
         // Los errores de índices duplicados son normales y se ignoran
@@ -156,8 +163,10 @@ const defaultBotSettings = {
     eaScannerEnabled: false, // Interruptor global para el recolector de EA Sports
     // --- INICIO DE LAS NUEVAS REGLAS ---
     draftMinQuotas: 'GK:1,DFC:2,CARR:2,MC:4,DC:2', // Mínimo para iniciar selección
-    draftMaxQuotas: 'GK:1,DFC:2,CARR:2,MC:4,DC:2'  // Máximo por equipo
+    draftMaxQuotas: 'GK:1,DFC:2,CARR:2,MC:4,DC:2', // Máximo por equipo
     // --- FIN DE LAS NUEVAS REGLAS ---
+    crawlerEnabled: true,
+    crawlerDays: [1, 2, 3, 4] // 1=Lunes, 4=Jueves
 };
 
 /**

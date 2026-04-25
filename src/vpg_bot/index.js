@@ -14,6 +14,7 @@ const Team = require('./models/team.js');
 const Ticket = require('./models/ticket.js'); // Nuevo modelo para tickets
 const TicketConfig = require('./models/ticketConfig.js'); // Nuevo modelo para configuración de tickets
 const t = require('./utils/translator.js');
+const { runVpgCrawler } = require('../utils/eaStatsCrawler.js');
 
 // Exportamos la función de inicio
 async function startVpgBot() {
@@ -84,6 +85,16 @@ async function startVpgBot() {
                 await clearChannel(instantChannelId, "Amistosos Instantáneos");
                 console.log('[VPG] Limpieza diaria completada.');
             } catch (error) { console.error('[VPG] Error fatal durante la limpieza diaria:', error); }
+        }, { scheduled: true, timezone: "Europe/Madrid" });
+
+        // Cronjob para el Crawler de EA Stats
+        cron.schedule('10 6 * * *', async () => {
+            console.log('[VPG] Ejecutando EA Stats Crawler a las 6:10 AM...');
+            try {
+                await runVpgCrawler();
+            } catch (error) {
+                console.error('[VPG] Error fatal en el EA Stats Crawler:', error);
+            }
         }, { scheduled: true, timezone: "Europe/Madrid" });
     });
 
