@@ -1455,11 +1455,7 @@ const handler = async (client, interaction) => {
         const team = await Team.findById(teamId).lean();
         if (!team || !team.eaClubId) return interaction.editReply({ content: 'El equipo no tiene un Club EA vinculado.' });
 
-        const mongoose = require('mongoose');
-        const objectIdFromTime = (timeInMs) => {
-            return new mongoose.Types.ObjectId(Math.floor(timeInMs / 1000).toString(16) + "0000000000000000");
-        };
-        const yesterday = objectIdFromTime(Date.now() - 24 * 60 * 60 * 1000);
+        const yesterdayTimestamp = Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000);
 
         const { getDb } = await import('../../../database.js');
         const db = getDb();
@@ -1469,7 +1465,7 @@ const handler = async (client, interaction) => {
         const playerColl = db.collection('player_profiles');
 
         const recentMatches = await matchColl.find({
-            _id: { $gt: yesterday },
+            timestamp: { $gt: yesterdayTimestamp },
             [`clubs.${team.eaClubId}`]: { $exists: true }
         }).toArray();
 
