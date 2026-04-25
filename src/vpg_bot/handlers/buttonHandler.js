@@ -1608,9 +1608,17 @@ const handler = async (client, interaction) => {
                     const firstClubId = Object.keys(match.clubs || {})[0];
                     if (firstClubId) {
                         console.log('[RESCAN][DEBUG] Club-level keys:', Object.keys(match.clubs[firstClubId]));
+                        console.log('[RESCAN][DEBUG] Club DETAILS:', JSON.stringify(match.clubs[firstClubId].details));
+                        console.log('[RESCAN][DEBUG] Club full data:', JSON.stringify(match.clubs[firstClubId]));
                         if (match.players && match.players[firstClubId]) {
                             const firstPlayer = Object.values(match.players[firstClubId])[0];
-                            if (firstPlayer) console.log('[RESCAN][DEBUG] Player-level keys:', Object.keys(firstPlayer));
+                            if (firstPlayer) {
+                                console.log('[RESCAN][DEBUG] Player-level keys:', Object.keys(firstPlayer));
+                                console.log('[RESCAN][DEBUG] Player aggregate_0:', firstPlayer.match_event_aggregate_0);
+                                console.log('[RESCAN][DEBUG] Player aggregate_1:', firstPlayer.match_event_aggregate_1);
+                                console.log('[RESCAN][DEBUG] Player aggregate_2:', firstPlayer.match_event_aggregate_2);
+                                console.log('[RESCAN][DEBUG] Player aggregate_3:', firstPlayer.match_event_aggregate_3);
+                            }
                         }
                     }
                     debugLogged = true;
