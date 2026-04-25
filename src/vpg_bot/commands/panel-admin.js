@@ -10,7 +10,7 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply({ flags: 64 });
 
-        const { getBotSettings } = require('../../database.js');
+        const { getBotSettings } = await import('../../../database.js');
         const settings = await getBotSettings();
         const crawlerOn = settings.crawlerEnabled;
 
