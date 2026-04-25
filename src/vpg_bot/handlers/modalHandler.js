@@ -927,7 +927,7 @@ if (customId.startsWith('manager_request_modal_')) {
         
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Informe de Scout: ${profile.eaPlayerName}`)
-            .setDescription(`📋 **Equipo:** ${profile.lastClub || 'Desconocido'} | **Posición:** ${pos}\n📅 **Última actividad:** ${profile.lastActive ? new Date(profile.lastActive).toLocaleDateString('es-ES') : '—'}`)
+            .setDescription(`📋 **Equipo:** ${profile.lastClub || 'Desconocido'}\n📅 **Última actividad:** ${profile.lastActive ? new Date(profile.lastActive).toLocaleDateString('es-ES') : '—'}`)
             .setColor('#2ecc71')
             .addFields(
                 { name: '🏟️ Partidos', value: `**${m}**`, inline: true },
