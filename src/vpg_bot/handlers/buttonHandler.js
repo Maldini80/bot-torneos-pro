@@ -1406,7 +1406,7 @@ const handler = async (client, interaction) => {
         await interaction.editReply({ content: '🚀 Iniciando escaneo manual del Crawler en segundo plano... Conectando con EA Sports...' });
         
         try {
-            const { runVpgCrawler } = await import('../utils/eaStatsCrawler.js');
+            const { runVpgCrawler } = await import('../../utils/eaStatsCrawler.js');
             
             let lastUpdate = Date.now();
             const onProgress = async (current, total, teamName) => {
