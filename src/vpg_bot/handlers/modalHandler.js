@@ -939,14 +939,14 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: 'Contribución Gol', value: `${goals + assists} (${((goals + assists) / m).toFixed(2)}/P)`, inline: true },
                 { name: 'Tiros', value: `${shots} (${spg}/P)`, inline: true },
                 { name: 'Tiros a Puerta', value: `${shotsOT}`, inline: true },
-                { name: 'Eficacia Tiro', value: `${shotAcc}%`, inline: true },
+                { name: 'Eficacia Tiro', value: shots > 0 ? `${shotAcc}%` : '—', inline: true },
                 { name: '\u200B', value: '**🎯 PASE**', inline: false },
-                { name: 'Precisión', value: `${passAcc}%`, inline: true },
-                { name: 'Pases Completos', value: `${passesMade}/${passesAtt}`, inline: true },
+                { name: 'Precisión', value: passAcc !== '—' ? `${passAcc}%` : '—', inline: true },
+                { name: 'Pases Completos', value: passesAtt > 0 ? `${passesMade}/${passesAtt}` : `${passesMade}`, inline: true },
                 { name: 'Pases/Partido', value: `${passPerGame}`, inline: true },
                 { name: '\u200B', value: '**🛡️ DEFENSA**', inline: false },
-                { name: 'Eficacia Entradas', value: `${tackleAcc}%`, inline: true },
-                { name: 'Entradas', value: `${tacklesMade}/${tacklesAtt}`, inline: true },
+                { name: 'Eficacia Entradas', value: tackleAcc !== '—' ? `${tackleAcc}%` : '—', inline: true },
+                { name: 'Entradas', value: tacklesAtt > 0 ? `${tacklesMade}/${tacklesAtt}` : `${tacklesMade}`, inline: true },
                 { name: 'Intercepciones', value: `${intercepts}`, inline: true }
             );
         

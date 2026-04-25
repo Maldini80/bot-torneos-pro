@@ -1601,7 +1601,20 @@ const handler = async (client, interaction) => {
             const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
             const gf = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseFloat(obj[k]) || 0; } return 0; };
 
+            let debugLogged = false;
             for (const match of allMatches) {
+                // Log keys del primer partido para debug
+                if (!debugLogged) {
+                    const firstClubId = Object.keys(match.clubs || {})[0];
+                    if (firstClubId) {
+                        console.log('[RESCAN][DEBUG] Club-level keys:', Object.keys(match.clubs[firstClubId]));
+                        if (match.players && match.players[firstClubId]) {
+                            const firstPlayer = Object.values(match.players[firstClubId])[0];
+                            if (firstPlayer) console.log('[RESCAN][DEBUG] Player-level keys:', Object.keys(firstPlayer));
+                        }
+                    }
+                    debugLogged = true;
+                }
                 for (const clubId in (match.clubs || {})) {
                     const clubName = teamMap[clubId] || match.clubs[clubId]?.details?.name || clubId;
                     const clubData = match.clubs[clubId];
