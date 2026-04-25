@@ -26,7 +26,12 @@ module.exports = {
                 .setCustomId('stats_player_scout')
                 .setLabel('Scout de Jugador')
                 .setStyle(ButtonStyle.Success)
-                .setEmoji('🔍')
+                .setEmoji('🔍'),
+            new ButtonBuilder()
+                .setCustomId('stats_match_history')
+                .setLabel('Últimos Partidos')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📜')
         );
 
         await interaction.channel.send({ embeds: [embed], components: [row] });

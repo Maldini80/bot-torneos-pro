@@ -79,13 +79,14 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                 await matchColl.insertOne(match);
 
                 // Process players
+                const goalsAgainstThisMatch = match.clubs && match.clubs[clubId] ? parseInt(match.clubs[clubId].goalsAgainst || 0) : 0;
                 if (match.players && match.players[clubId]) {
                     const playersData = match.players[clubId];
                     for (const playerId in playersData) {
                         const player = playersData[playerId];
                         const playerName = player.playername;
 
-                        await updatePlayerProfile(playerColl, playerName, player, team.name);
+                        await updatePlayerProfile(playerColl, playerName, player, team.name, goalsAgainstThisMatch);
                     }
                 }
 
@@ -108,7 +109,16 @@ async function runVpgCrawler(manual = false, onProgress = null) {
     }
 }
 
-async function updatePlayerProfile(coll, playerName, matchData, clubName) {
+const POS_MAP = {
+    0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
+    6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
+    11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC'
+};
+
+async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsAgainstThisMatch = 0) {
+    const pos = POS_MAP[matchData.pos] || matchData.pos || '???';
+    const isGK = pos === 'POR';
+
     const incrementData = {
         'stats.matchesPlayed': 1,
         'stats.goals': parseInt(matchData.goals || 0),
@@ -117,8 +127,15 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName) {
         'stats.passesAttempted': parseInt(matchData.passesattempted || 0),
         'stats.tacklesMade': parseInt(matchData.tacklesmade || 0),
         'stats.tacklesAttempted': parseInt(matchData.tacklesattempted || 0),
+        'stats.shots': parseInt(matchData.shots || 0),
+        'stats.shotsOnTarget': parseInt(matchData.shotsongoal || matchData.shotsontarget || 0),
+        'stats.interceptions': parseInt(matchData.interceptions || 0),
+        'stats.saves': parseInt(matchData.saves || 0),
         'stats.redCards': parseInt(matchData.redcards || 0),
-        'stats.mom': parseInt(matchData.mom || 0)
+        'stats.yellowCards': parseInt(matchData.yellowcards || 0),
+        'stats.mom': parseInt(matchData.mom || 0),
+        'stats.cleanSheets': (isGK && goalsAgainstThisMatch === 0) ? 1 : 0,
+        'stats.goalsConceded': isGK ? goalsAgainstThisMatch : 0
     };
 
     const rating = parseFloat(matchData.rating || 0);
@@ -126,7 +143,7 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName) {
     await coll.updateOne(
         { eaPlayerName: playerName },
         { 
-            $set: { lastClub: clubName, lastActive: new Date() },
+            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos },
             $inc: incrementData,
             $push: { 'stats.ratings': rating }
         },
@@ -141,7 +158,15 @@ async function updateClubProfile(coll, clubId, clubName, matchData) {
         'stats.losses': parseInt(matchData.losses || 0),
         'stats.ties': parseInt(matchData.ties || 0),
         'stats.goals': parseInt(matchData.goals || 0),
-        'stats.goalsAgainst': parseInt(matchData.goalsAgainst || 0)
+        'stats.goalsAgainst': parseInt(matchData.goalsAgainst || 0),
+        'stats.shots': parseInt(matchData.shots || 0),
+        'stats.shotsOnTarget': parseInt(matchData.shotsontarget || matchData.shotsongoal || 0),
+        'stats.passesMade': parseInt(matchData.passesmade || 0),
+        'stats.passesAttempted': parseInt(matchData.passesattempted || 0),
+        'stats.tacklesMade': parseInt(matchData.tacklesmade || 0),
+        'stats.tacklesAttempted': parseInt(matchData.tacklesattempted || 0),
+        'stats.possession': parseFloat(matchData.possession || 0),
+        'stats.possessionCount': 1
     };
 
     await coll.updateOne(

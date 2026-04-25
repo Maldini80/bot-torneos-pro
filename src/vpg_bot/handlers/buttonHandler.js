@@ -1544,6 +1544,123 @@ const handler = async (client, interaction) => {
         return interaction.showModal(modal);
     }
 
+    if (customId === 'stats_match_history') {
+        const modal = new ModalBuilder()
+            .setCustomId('stats_match_history_modal')
+            .setTitle('📜 Historial de Partidos');
+
+        const input = new TextInputBuilder()
+            .setCustomId('team_name')
+            .setLabel('Nombre del Equipo (Discord o EA)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Ceuta Guardians')
+            .setRequired(true);
+
+        const row2 = new ActionRowBuilder().addComponents(input);
+        modal.addComponents(row2);
+
+        return interaction.showModal(modal);
+    }
+
+    if (customId === 'admin_rescan_profiles') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+        
+        await interaction.editReply({ content: '🔄 Iniciando re-escaneo completo de perfiles desde partidos guardados...' });
+        
+        try {
+            const { getDb } = await import('../../../database.js');
+            const db = getDb();
+            if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
+            
+            // Borrar profiles actuales
+            await db.collection('player_profiles').deleteMany({});
+            await db.collection('club_profiles').deleteMany({});
+            
+            const allMatches = await db.collection('scanned_matches').find({}).toArray();
+            const teams = await Team.find({ eaClubId: { $ne: null } });
+            const teamMap = {};
+            for (const t of teams) teamMap[t.eaClubId] = t.name;
+            
+            let matchCount = 0;
+            const { runVpgCrawler } = await import('../../utils/eaStatsCrawler.js');
+            
+            const POS_MAP = { 0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI', 6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI', 11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC' };
+            
+            for (const match of allMatches) {
+                for (const clubId in (match.clubs || {})) {
+                    const clubName = teamMap[clubId] || match.clubs[clubId]?.details?.name || clubId;
+                    const clubData = match.clubs[clubId];
+                    const goalsAgainst = parseInt(clubData.goalsAgainst || 0);
+                    
+                    // Update club profile
+                    const clubInc = {
+                        'stats.matchesPlayed': 1,
+                        'stats.wins': parseInt(clubData.wins || 0),
+                        'stats.losses': parseInt(clubData.losses || 0),
+                        'stats.ties': parseInt(clubData.ties || 0),
+                        'stats.goals': parseInt(clubData.goals || 0),
+                        'stats.goalsAgainst': goalsAgainst,
+                        'stats.shots': parseInt(clubData.shots || 0),
+                        'stats.shotsOnTarget': parseInt(clubData.shotsontarget || clubData.shotsongoal || 0),
+                        'stats.passesMade': parseInt(clubData.passesmade || 0),
+                        'stats.passesAttempted': parseInt(clubData.passesattempted || 0),
+                        'stats.tacklesMade': parseInt(clubData.tacklesmade || 0),
+                        'stats.tacklesAttempted': parseInt(clubData.tacklesattempted || 0),
+                        'stats.possession': parseFloat(clubData.possession || 0),
+                        'stats.possessionCount': 1
+                    };
+                    await db.collection('club_profiles').updateOne(
+                        { eaClubId: clubId },
+                        { $set: { eaClubName: clubName, lastActive: new Date() }, $inc: clubInc },
+                        { upsert: true }
+                    );
+                    
+                    // Update player profiles
+                    if (match.players && match.players[clubId]) {
+                        for (const playerId in match.players[clubId]) {
+                            const p = match.players[clubId][playerId];
+                            const pos = POS_MAP[p.pos] || p.pos || '???';
+                            const isGK = pos === 'POR';
+                            const rating = parseFloat(p.rating || 0);
+                            
+                            const playerInc = {
+                                'stats.matchesPlayed': 1,
+                                'stats.goals': parseInt(p.goals || 0),
+                                'stats.assists': parseInt(p.assists || 0),
+                                'stats.passesMade': parseInt(p.passesmade || 0),
+                                'stats.passesAttempted': parseInt(p.passesattempted || 0),
+                                'stats.tacklesMade': parseInt(p.tacklesmade || 0),
+                                'stats.tacklesAttempted': parseInt(p.tacklesattempted || 0),
+                                'stats.shots': parseInt(p.shots || 0),
+                                'stats.shotsOnTarget': parseInt(p.shotsongoal || p.shotsontarget || 0),
+                                'stats.interceptions': parseInt(p.interceptions || 0),
+                                'stats.saves': parseInt(p.saves || 0),
+                                'stats.redCards': parseInt(p.redcards || 0),
+                                'stats.yellowCards': parseInt(p.yellowcards || 0),
+                                'stats.mom': parseInt(p.mom || 0),
+                                'stats.cleanSheets': (isGK && goalsAgainst === 0) ? 1 : 0,
+                                'stats.goalsConceded': isGK ? goalsAgainst : 0
+                            };
+                            
+                            await db.collection('player_profiles').updateOne(
+                                { eaPlayerName: p.playername },
+                                { $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos }, $inc: playerInc, $push: { 'stats.ratings': rating } },
+                                { upsert: true }
+                            );
+                        }
+                    }
+                }
+                matchCount++;
+            }
+            
+            return interaction.editReply({ content: `✅ **Re-escaneo completado**\nSe han reconstruido todos los perfiles desde **${matchCount} partidos** guardados en la base de datos.\nTodos los campos nuevos (tiros, posesión, paradas, etc.) ya están calculados.` });
+        } catch (error) {
+            console.error('[RESCAN] Error:', error);
+            return interaction.editReply({ content: '❌ Error durante el re-escaneo. Revisa la consola.' });
+        }
+    }
+
     // --- Lógica para los botones de GESTIÓN DE PLANTILLA ---
     if (customId === 'team_invite_player_button') {
         await interaction.deferReply({ ephemeral: true });
