@@ -862,7 +862,7 @@ if (customId.startsWith('manager_request_modal_')) {
 
     if (customId === 'stats_player_scout_modal') {
         const playerName = fields.getTextInputValue('player_name').trim();
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         const { getDb } = await import('../../../database.js');
         const db = getDb();
@@ -971,7 +971,7 @@ if (customId.startsWith('manager_request_modal_')) {
 
     if (customId === 'stats_team_scout_modal') {
         const teamName = fields.getTextInputValue('team_name').trim();
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         const { getDb } = await import('../../../database.js');
         const db = getDb();
@@ -1092,7 +1092,7 @@ if (customId.startsWith('manager_request_modal_')) {
 
     if (customId === 'stats_match_history_modal') {
         const teamName = fields.getTextInputValue('team_name').trim();
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         const { getDb } = await import('../../../database.js');
         const db = getDb();
