@@ -25,7 +25,8 @@ module.exports = {
 );
         const row2 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('admin_toggle_crawler').setLabel('Crawler EA: ON/OFF').setStyle(ButtonStyle.Secondary).setEmoji('🤖'),
-            new ButtonBuilder().setCustomId('admin_config_crawler_days').setLabel('Días de Escaneo').setStyle(ButtonStyle.Secondary).setEmoji('📅')
+            new ButtonBuilder().setCustomId('admin_config_crawler_days').setLabel('Días de Escaneo').setStyle(ButtonStyle.Secondary).setEmoji('📅'),
+            new ButtonBuilder().setCustomId('admin_force_crawler').setLabel('Forzar Escaneo Ahora').setStyle(ButtonStyle.Success).setEmoji('🚀')
         );
         
         // Enviamos el panel al canal

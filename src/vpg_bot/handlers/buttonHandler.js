@@ -1379,6 +1379,22 @@ const handler = async (client, interaction) => {
         return interaction.editReply({ content: 'Selecciona qué días de la semana quieres que el Crawler de EA actúe buscando estadísticas automáticamente.', components: [row] });
     }
 
+    if (customId === 'admin_force_crawler') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+        
+        interaction.editReply({ content: '🚀 Iniciando escaneo manual del Crawler en segundo plano... (Esto no bloqueará el bot, te avisaré aquí si puedo o simplemente revisa los resultados con el comando Scout en unos minutos).' });
+        
+        try {
+            const { runVpgCrawler } = await import('../utils/eaStatsCrawler.js');
+            await runVpgCrawler(true); // force manual = true
+            return interaction.editReply({ content: '✅ ¡Escaneo manual de EA Sports completado con éxito! Todas las estadísticas locales han sido actualizadas.' });
+        } catch (error) {
+            console.error('[CRAWLER] Error manual:', error);
+            return interaction.editReply({ content: '❌ Hubo un error al forzar el escaneo del Crawler. Revisa la consola.' });
+        }
+    }
+
     // --- Lógica para los botones de GESTIÓN DE PLANTILLA ---
     if (customId === 'team_invite_player_button') {
         await interaction.deferReply({ ephemeral: true });

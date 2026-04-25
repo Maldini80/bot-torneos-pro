@@ -11,17 +11,17 @@ const EA_HEADERS = {
 /**
  * Función principal del Crawler VPG
  */
-async function runVpgCrawler() {
+async function runVpgCrawler(manual = false) {
     console.log('[CRAWLER] Iniciando recolección de estadísticas...');
     const settings = await getBotSettings();
-    if (!settings.crawlerEnabled) {
+    if (!manual && !settings.crawlerEnabled) {
         console.log('[CRAWLER] El crawler está desactivado. Abortando.');
         return;
     }
 
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
-    if (!settings.crawlerDays.includes(dayOfWeek)) {
+    if (!manual && !settings.crawlerDays.includes(dayOfWeek)) {
         console.log(`[CRAWLER] Hoy (día ${dayOfWeek}) no está en los días de escaneo configurados. Abortando.`);
         return;
     }
