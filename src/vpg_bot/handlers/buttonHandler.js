@@ -1607,14 +1607,26 @@ const handler = async (client, interaction) => {
                     const clubData = match.clubs[clubId];
                     const goalsAgainst = gv(clubData, 'goalsAgainst', 'goalsagainst');
                     
-                    // Calcular wins/losses/ties comparando goles (EA no los devuelve por partido)
                     const clubIds = Object.keys(match.clubs || {});
                     const opponentId = clubIds.find(id => id !== clubId);
                     const opponentClub = opponentId ? (match.clubs[opponentId] || {}) : {};
                     const ourGoals = parseInt(clubData.goals || 0);
                     const oppGoals = parseInt(opponentClub.goals || 0);
 
-                    // Update club profile
+                    // Sumar stats de jugadores (EA no devuelve estos datos a nivel de club)
+                    let tShots = 0, tShotsOT = 0, tPM = 0, tPA = 0, tTM = 0, tTA = 0;
+                    if (match.players && match.players[clubId]) {
+                        for (const pid in match.players[clubId]) {
+                            const p = match.players[clubId][pid];
+                            tShots += gv(p, 'shots');
+                            tShotsOT += gv(p, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal');
+                            tPM += gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                            tPA += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                            tTM += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                            tTA += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                        }
+                    }
+
                     const clubInc = {
                         'stats.matchesPlayed': 1,
                         'stats.wins': ourGoals > oppGoals ? 1 : 0,
@@ -1622,12 +1634,12 @@ const handler = async (client, interaction) => {
                         'stats.ties': ourGoals === oppGoals ? 1 : 0,
                         'stats.goals': ourGoals,
                         'stats.goalsAgainst': goalsAgainst,
-                        'stats.shots': gv(clubData, 'shots'),
-                        'stats.shotsOnTarget': gv(clubData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal'),
-                        'stats.passesMade': gv(clubData, 'passesMade', 'passesmade'),
-                        'stats.passesAttempted': gv(clubData, 'passesAttempted', 'passesattempted'),
-                        'stats.tacklesMade': gv(clubData, 'tacklesMade', 'tacklesmade'),
-                        'stats.tacklesAttempted': gv(clubData, 'tacklesAttempted', 'tacklesattempted'),
+                        'stats.shots': gv(clubData, 'shots') || tShots,
+                        'stats.shotsOnTarget': gv(clubData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal') || tShotsOT,
+                        'stats.passesMade': gv(clubData, 'passesMade', 'passesmade') || tPM,
+                        'stats.passesAttempted': gv(clubData, 'passesAttempted', 'passesattempted') || tPA,
+                        'stats.tacklesMade': gv(clubData, 'tacklesMade', 'tacklesmade') || tTM,
+                        'stats.tacklesAttempted': gv(clubData, 'tacklesAttempted', 'tacklesattempted') || tTA,
                         'stats.possession': gf(clubData, 'possession'),
                         'stats.possessionCount': 1
                     };
@@ -1649,10 +1661,10 @@ const handler = async (client, interaction) => {
                                 'stats.matchesPlayed': 1,
                                 'stats.goals': gv(p, 'goals'),
                                 'stats.assists': gv(p, 'assists'),
-                                'stats.passesMade': gv(p, 'passesMade', 'passesmade'),
-                                'stats.passesAttempted': gv(p, 'passesAttempted', 'passesattempted'),
-                                'stats.tacklesMade': gv(p, 'tacklesMade', 'tacklesmade'),
-                                'stats.tacklesAttempted': gv(p, 'tacklesAttempted', 'tacklesattempted'),
+                                'stats.passesMade': gv(p, 'passesMade', 'passesmade', 'passescompleted'),
+                                'stats.passesAttempted': gv(p, 'passesAttempted', 'passesattempted', 'passattempts'),
+                                'stats.tacklesMade': gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted'),
+                                'stats.tacklesAttempted': gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts'),
                                 'stats.shots': gv(p, 'shots'),
                                 'stats.shotsOnTarget': gv(p, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal'),
                                 'stats.interceptions': gv(p, 'interceptions'),

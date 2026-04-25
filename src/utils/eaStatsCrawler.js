@@ -134,10 +134,10 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
         'stats.matchesPlayed': 1,
         'stats.goals': getVal(matchData, 'goals'),
         'stats.assists': getVal(matchData, 'assists'),
-        'stats.passesMade': getVal(matchData, 'passesMade', 'passesmade'),
-        'stats.passesAttempted': getVal(matchData, 'passesAttempted', 'passesattempted'),
-        'stats.tacklesMade': getVal(matchData, 'tacklesMade', 'tacklesmade'),
-        'stats.tacklesAttempted': getVal(matchData, 'tacklesAttempted', 'tacklesattempted'),
+        'stats.passesMade': getVal(matchData, 'passesMade', 'passesmade', 'passescompleted'),
+        'stats.passesAttempted': getVal(matchData, 'passesAttempted', 'passesattempted', 'passattempts'),
+        'stats.tacklesMade': getVal(matchData, 'tacklesMade', 'tacklesmade', 'tacklescompleted'),
+        'stats.tacklesAttempted': getVal(matchData, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts'),
         'stats.shots': getVal(matchData, 'shots'),
         'stats.shotsOnTarget': getVal(matchData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal'),
         'stats.interceptions': getVal(matchData, 'interceptions'),
@@ -163,8 +163,6 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
 }
 
 async function updateClubProfile(coll, clubId, clubName, matchClubData, matchData) {
-    // EA no devuelve wins/losses/ties por partido — hay que calcularlos
-    // matchData es el match completo, matchClubData es clubs[clubId]
     const clubIds = Object.keys(matchData.clubs || {});
     const opponentId = clubIds.find(id => id !== clubId);
     const opponentClub = opponentId ? (matchData.clubs[opponentId] || {}) : {};
@@ -175,15 +173,32 @@ async function updateClubProfile(coll, clubId, clubName, matchClubData, matchDat
     const isLoss = ourGoals < oppGoals ? 1 : 0;
     const isTie = ourGoals === oppGoals ? 1 : 0;
 
-    // EA API keys son inconsistentes: a veces camelCase, a veces minúsculas
-    const getVal = (obj, ...keys) => {
-        for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; }
+    const gv = (obj, ...keys) => {
+        for (const k of keys) { if (obj[k] !== undefined && obj[k] !== null) return parseInt(obj[k]) || 0; }
         return 0;
     };
-    const getFloat = (obj, ...keys) => {
-        for (const k of keys) { if (obj[k] !== undefined) return parseFloat(obj[k]) || 0; }
+    const gf = (obj, ...keys) => {
+        for (const k of keys) { if (obj[k] !== undefined && obj[k] !== null) return parseFloat(obj[k]) || 0; }
         return 0;
     };
+
+    // EA API NO devuelve tiros/pases/entradas a nivel de club — hay que sumarlos de los jugadores
+    let teamShots = 0, teamShotsOT = 0, teamPassesMade = 0, teamPassesAtt = 0, teamTacklesMade = 0, teamTacklesAtt = 0;
+    if (matchData.players && matchData.players[clubId]) {
+        for (const pid in matchData.players[clubId]) {
+            const p = matchData.players[clubId][pid];
+            teamShots += gv(p, 'shots');
+            teamShotsOT += gv(p, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal');
+            teamPassesMade += gv(p, 'passesMade', 'passesmade', 'passescompleted');
+            teamPassesAtt += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+            teamTacklesMade += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+            teamTacklesAtt += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+        }
+    }
+
+    // Fallback: si el club SÍ tiene datos, usarlos (por si EA alguna vez los devuelve)
+    const clubShots = gv(matchClubData, 'shots');
+    const clubPassesMade = gv(matchClubData, 'passesMade', 'passesmade');
 
     const incrementData = {
         'stats.matchesPlayed': 1,
@@ -191,14 +206,14 @@ async function updateClubProfile(coll, clubId, clubName, matchClubData, matchDat
         'stats.losses': isLoss,
         'stats.ties': isTie,
         'stats.goals': ourGoals,
-        'stats.goalsAgainst': getVal(matchClubData, 'goalsAgainst', 'goalsagainst'),
-        'stats.shots': getVal(matchClubData, 'shots'),
-        'stats.shotsOnTarget': getVal(matchClubData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal'),
-        'stats.passesMade': getVal(matchClubData, 'passesMade', 'passesmade'),
-        'stats.passesAttempted': getVal(matchClubData, 'passesAttempted', 'passesattempted'),
-        'stats.tacklesMade': getVal(matchClubData, 'tacklesMade', 'tacklesmade'),
-        'stats.tacklesAttempted': getVal(matchClubData, 'tacklesAttempted', 'tacklesattempted'),
-        'stats.possession': getFloat(matchClubData, 'possession'),
+        'stats.goalsAgainst': gv(matchClubData, 'goalsAgainst', 'goalsagainst'),
+        'stats.shots': clubShots || teamShots,
+        'stats.shotsOnTarget': gv(matchClubData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal') || teamShotsOT,
+        'stats.passesMade': clubPassesMade || teamPassesMade,
+        'stats.passesAttempted': gv(matchClubData, 'passesAttempted', 'passesattempted') || teamPassesAtt,
+        'stats.tacklesMade': gv(matchClubData, 'tacklesMade', 'tacklesmade') || teamTacklesMade,
+        'stats.tacklesAttempted': gv(matchClubData, 'tacklesAttempted', 'tacklesattempted') || teamTacklesAtt,
+        'stats.possession': gf(matchClubData, 'possession'),
         'stats.possessionCount': 1
     };
 
