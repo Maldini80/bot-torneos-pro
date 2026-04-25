@@ -1358,16 +1358,29 @@ const handler = async (client, interaction) => {
 
     if (customId === 'admin_toggle_crawler') {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
-        await interaction.deferReply({ ephemeral: true });
+        
         const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
         const settings = await settingsColl.findOne({ _id: 'global_config' });
         
-        if (!settings) return interaction.editReply({ content: 'Configuración global no encontrada.' });
+        if (!settings) return interaction.reply({ content: 'Configuración global no encontrada.', ephemeral: true });
         
         const newState = !settings.crawlerEnabled;
         await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerEnabled: newState } });
         
-        return interaction.editReply({ content: `✅ Crawler de Estadísticas VPG actualizado: **${newState ? 'ON 🟢' : 'OFF 🔴'}**` });
+        const components = interaction.message.components.map(row => ActionRowBuilder.from(row));
+        const btnRow = components.find(r => r.components.some(c => c.data.custom_id === 'admin_toggle_crawler'));
+        if (btnRow) {
+            const btnIndex = btnRow.components.findIndex(c => c.data.custom_id === 'admin_toggle_crawler');
+            if (btnIndex !== -1) {
+                btnRow.components[btnIndex] = new ButtonBuilder()
+                    .setCustomId('admin_toggle_crawler')
+                    .setLabel(newState ? 'Crawler: ACTIVO 🟢' : 'Crawler: PAUSADO 🔴')
+                    .setStyle(newState ? ButtonStyle.Success : ButtonStyle.Secondary);
+            }
+        }
+        
+        await interaction.update({ components });
+        return interaction.followUp({ content: `✅ Crawler de Estadísticas VPG actualizado: **${newState ? 'ON 🟢' : 'OFF 🔴'}**`, ephemeral: true });
     }
 
     if (customId === 'admin_config_crawler_days') {

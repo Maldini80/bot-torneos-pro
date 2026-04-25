@@ -8,8 +8,11 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
-        // CORRECCIÓN: Usamos flags: 64 en lugar de ephemeral: true
         await interaction.deferReply({ flags: 64 });
+
+        const { getBotSettings } = require('../../database.js');
+        const settings = await getBotSettings();
+        const crawlerOn = settings.crawlerEnabled;
 
         const embed = new EmbedBuilder()
             .setTitle('Panel de Control de Administrador VPG')
@@ -29,15 +32,13 @@ module.exports = {
         );
 
         const row3 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('admin_toggle_crawler').setLabel('Crawler EA: ON/OFF').setStyle(ButtonStyle.Secondary).setEmoji('🤖'),
+            new ButtonBuilder().setCustomId('admin_toggle_crawler').setLabel(crawlerOn ? 'Crawler: ACTIVO 🟢' : 'Crawler: PAUSADO 🔴').setStyle(crawlerOn ? ButtonStyle.Success : ButtonStyle.Secondary),
             new ButtonBuilder().setCustomId('admin_config_crawler_days').setLabel('Días de Escaneo').setStyle(ButtonStyle.Secondary).setEmoji('📅'),
             new ButtonBuilder().setCustomId('admin_force_crawler').setLabel('Forzar Escaneo Ahora').setStyle(ButtonStyle.Success).setEmoji('🚀')
         );
         
-        // Enviamos el panel al canal
         await interaction.channel.send({ embeds: [embed], components: [row, row2, row3] });
         
-        // Editamos la respuesta privada para confirmar
         return interaction.editReply({ content: '✅ Panel de administrador creado con éxito.' });
-    },
+    }
 };
