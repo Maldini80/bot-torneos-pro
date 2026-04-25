@@ -74,6 +74,10 @@ const commands = [
         .setName('probar-mejor11')
         .setDescription('Genera una imagen de prueba del Mejor 11 con datos ficticios.')
         .setDefaultMemberPermissions(0),
+    new SlashCommandBuilder()
+        .setName('panel-estadisticas')
+        .setDescription('Crea el Kiosko de Estadísticas Avanzadas de EA Sports.')
+        .setDefaultMemberPermissions(0),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);
