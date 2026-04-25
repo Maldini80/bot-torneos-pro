@@ -1568,8 +1568,8 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'admin_rescan_profiles') {
-        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
-        await interaction.deferReply({ ephemeral: true });
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         await interaction.editReply({ content: '🔄 Iniciando re-escaneo completo de perfiles desde partidos guardados... Esto puede tardar unos minutos.' });
         
@@ -1579,9 +1579,11 @@ const handler = async (client, interaction) => {
             if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
             
             // Borrar profiles actuales
+            console.log('[RESCAN] Borrando perfiles antiguos...');
             await db.collection('player_profiles').deleteMany({});
             await db.collection('club_profiles').deleteMany({});
             
+            console.log('[RESCAN] Cargando partidos...');
             const allMatches = await db.collection('scanned_matches').find({}).toArray();
             const teams = await Team.find({ eaClubId: { $ne: null } });
             const teamMap = {};
@@ -1589,6 +1591,7 @@ const handler = async (client, interaction) => {
             
             let matchCount = 0;
             const totalMatches = allMatches.length;
+            console.log(`[RESCAN] Procesando ${totalMatches} partidos...`);
             
             await interaction.editReply({ content: `🔄 Re-escaneando **${totalMatches} partidos**... 0%` });
             
@@ -1673,6 +1676,7 @@ const handler = async (client, interaction) => {
                 // Progreso cada 25 partidos
                 if (matchCount % 25 === 0 || matchCount === totalMatches) {
                     const pct = ((matchCount / totalMatches) * 100).toFixed(0);
+                    console.log(`[RESCAN] ${matchCount}/${totalMatches} (${pct}%)`);
                     await interaction.editReply({ content: `🔄 Re-escaneando... **${matchCount}/${totalMatches}** partidos (${pct}%)` }).catch(() => {});
                 }
             }
