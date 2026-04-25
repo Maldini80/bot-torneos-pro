@@ -17,6 +17,8 @@ import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
 import { parseWhatsAppList, matchTeamsToDatabase, distributeByElo } from '../logic/whatsappDistributor.js';
 import { generateExcelImage } from '../utils/twitter.js';
 import { scheduleRegistrationListUpdate } from '../utils/registrationListManager.js';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 
 export async function handleModal(interaction) {
@@ -24,6 +26,13 @@ export async function handleModal(interaction) {
     const client = interaction.client;
     const guild = interaction.guild;
     const db = getDb();
+
+    // Redirigir modales del Panel de Estadísticas al handler del VPG Bot
+    if (customId.startsWith('stats_')) {
+        const vpgModalHandler = require('../vpg_bot/handlers/modalHandler.js');
+        return vpgModalHandler(client, interaction);
+    }
+
     const [action, ...params] = customId.split(':');
 
     // =======================================================

@@ -25,12 +25,20 @@ import ExcelJS from 'exceljs';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 import { createRegistrationListChannel, deleteRegistrationListChannel, scheduleRegistrationListUpdate, forceRefreshRegistrationList } from '../utils/registrationListManager.js';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 export async function handleButton(interaction) {
     const customId = interaction.customId;
     const client = interaction.client;
     const guild = interaction.guild;
     const db = getDb();
+
+    // Redirigir botones del Panel de Estadísticas al handler del VPG Bot
+    if (customId.startsWith('stats_') || customId === 'admin_rescan_profiles') {
+        const vpgButtonHandler = require('../vpg_bot/handlers/buttonHandler.js');
+        return vpgButtonHandler(client, interaction);
+    }
 
     const [action, ...params] = customId.split(':');
 

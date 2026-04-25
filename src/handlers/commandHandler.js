@@ -348,5 +348,10 @@ export async function handleCommand(interaction) {
             await interaction.editReply({ content: `❌ Error al generar la imagen: ${error.message}` });
         }
     }
-}
 
+    if (commandName === 'panel-estadisticas') {
+        const panelEstadisticas = require('../vpg_bot/commands/panel-estadisticas.js');
+        await panelEstadisticas.execute(interaction);
+        return;
+    }
+}
