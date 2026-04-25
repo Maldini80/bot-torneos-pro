@@ -14,7 +14,7 @@ const Team = require('./models/team.js');
 const Ticket = require('./models/ticket.js'); // Nuevo modelo para tickets
 const TicketConfig = require('./models/ticketConfig.js'); // Nuevo modelo para configuración de tickets
 const t = require('./utils/translator.js');
-const { runVpgCrawler } = require('../utils/eaStatsCrawler.js');
+const { runVpgCrawler } = require('../utils/eaStatsCrawler.cjs');
 
 // Exportamos la función de inicio
 async function startVpgBot() {
