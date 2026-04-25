@@ -1440,6 +1440,9 @@ const handler = async (client, interaction) => {
             const totalTeams = await runVpgCrawler(true, onProgress);
             return interaction.editReply({ content: `✅ ¡Escaneo manual de EA Sports completado con éxito!\nSe procesaron **${totalTeams} equipos** y sus estadísticas locales han sido actualizadas.` });
         } catch (error) {
+            if (error.message === 'CRAWLER_ALREADY_RUNNING') {
+                return interaction.editReply({ content: '⏳ Ya hay un escaneo de EA Sports ejecutándose en este momento (probablemente otro admin lo acaba de pulsar o es la hora automática). Por favor, espera a que termine.' });
+            }
             console.error('[CRAWLER] Error manual:', error);
             return interaction.editReply({ content: '❌ Hubo un error al forzar el escaneo del Crawler. Revisa la consola.' });
         }

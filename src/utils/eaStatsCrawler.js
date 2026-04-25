@@ -8,12 +8,20 @@ const EA_HEADERS = {
     "Referer": "https://www.ea.com/"
 };
 
+let isCrawlerRunning = false;
+
 /**
  * Función principal del Crawler VPG
  */
 async function runVpgCrawler(manual = false, onProgress = null) {
-    console.log('[CRAWLER] Iniciando recolección de estadísticas...');
-    const settings = await getBotSettings();
+    if (isCrawlerRunning) {
+        throw new Error('CRAWLER_ALREADY_RUNNING');
+    }
+    isCrawlerRunning = true;
+
+    try {
+        console.log('[CRAWLER] Iniciando recolección de estadísticas...');
+        const settings = await getBotSettings();
     if (!manual && !settings.crawlerEnabled) {
         console.log('[CRAWLER] El crawler está desactivado. Abortando.');
         return;
@@ -95,6 +103,9 @@ async function runVpgCrawler(manual = false, onProgress = null) {
     }
     console.log('[CRAWLER] Recolección de estadísticas finalizada.');
     return totalTeams;
+    } finally {
+        isCrawlerRunning = false;
+    }
 }
 
 async function updatePlayerProfile(coll, playerName, matchData, clubName) {
