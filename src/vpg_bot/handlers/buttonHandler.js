@@ -1504,6 +1504,15 @@ const handler = async (client, interaction) => {
         return interaction.editReply({ content: `✅ **Escaneos Deshechos**\nSe han borrado **${recentMatches.length} partidos** recientes de la base de datos y se han restado las estadísticas a los **${playersAffected} jugadores** involucrados.` });
     }
     // --- Lógica del Panel de Estadísticas (Kiosko) ---
+    if (customId === 'stats_team_scout' || customId === 'stats_player_scout' || customId === 'stats_match_history') {
+        // Restringir a: Admin, Managers, Capitanes, Árbitros
+        const isReferee = member.roles.cache.has(process.env.REFEREE_ROLE_ID);
+        const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
+        if (!isAdmin && !isReferee && !userTeam) {
+            return interaction.reply({ content: '🔒 Solo **administradores**, **managers**, **capitanes** y **árbitros** pueden usar el panel de estadísticas.', ephemeral: true });
+        }
+    }
+
     if (customId === 'stats_team_scout') {
         const modal = new ModalBuilder()
             .setCustomId('stats_team_scout_modal')
