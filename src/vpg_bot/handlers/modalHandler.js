@@ -919,7 +919,10 @@ if (customId.startsWith('manager_request_modal_')) {
         let avgRating = '—';
         if (s.ratings && s.ratings.length > 0) avgRating = (s.ratings.reduce((a, b) => a + b, 0) / s.ratings.length).toFixed(1);
         
-        const pos = profile.lastPosition || '???';
+        // Traducir posiciones de texto EA que quedaron sin normalizar en perfiles antiguos
+        const POS_TRANSLATE = { 'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC', 'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD', 'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC', 'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC', 'striker': 'DC', 'winger': 'ED' };
+        const rawPos = profile.lastPosition || '???';
+        const pos = POS_TRANSLATE[rawPos.toLowerCase()] || rawPos;
         const isGK = pos === 'POR';
         
         const embed = new EmbedBuilder()
@@ -1150,20 +1153,22 @@ if (customId.startsWith('manager_request_modal_')) {
             if (ourGoals > oppGoals) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
             else if (ourGoals < oppGoals) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
             
-            // Stats del equipo
+            // Helper para keys inconsistentes de EA API (camelCase vs minúsculas)
+            const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
+            
             const possession = ourClub.possession || '?';
-            const mShots = parseInt(ourClub.shots || 0);
-            const mShotsOT = parseInt(ourClub.shotsontarget || ourClub.shotsongoal || 0);
+            const mShots = gv(ourClub, 'shots');
+            const mShotsOT = gv(ourClub, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal');
             const mShotAcc = mShots > 0 ? ((mShotsOT / mShots) * 100).toFixed(0) : '?';
-            const mPassMade = parseInt(ourClub.passesmade || 0);
-            const mPassAtt = parseInt(ourClub.passesattempted || 0);
+            const mPassMade = gv(ourClub, 'passesMade', 'passesmade');
+            const mPassAtt = gv(ourClub, 'passesAttempted', 'passesattempted');
             const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
-            const mTackMade = parseInt(ourClub.tacklesmade || 0);
-            const mTackAtt = parseInt(ourClub.tacklesattempted || 0);
+            const mTackMade = gv(ourClub, 'tacklesMade', 'tacklesmade');
+            const mTackAtt = gv(ourClub, 'tacklesAttempted', 'tacklesattempted');
             const mTackAcc = mTackAtt > 0 ? ((mTackMade / mTackAtt) * 100).toFixed(0) : '?';
             const oppPoss = opponentClub.possession || '?';
-            const oppShots = parseInt(opponentClub.shots || 0);
-            const oppShotsOT = parseInt(opponentClub.shotsontarget || opponentClub.shotsongoal || 0);
+            const oppShots = gv(opponentClub, 'shots');
+            const oppShotsOT = gv(opponentClub, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal');
             
             // Alineación ORDENADA con stats detalladas
             let lineupStr = '';
@@ -1174,10 +1179,10 @@ if (customId.startsWith('manager_request_modal_')) {
                     const pGoals = parseInt(p.goals || 0);
                     const pAssists = parseInt(p.assists || 0);
                     const rating = parseFloat(p.rating || 0).toFixed(1);
-                    const pPM = parseInt(p.passesmade || 0);
-                    const pPA = parseInt(p.passesattempted || 0);
-                    const pTM = parseInt(p.tacklesmade || 0);
-                    const pTA = parseInt(p.tacklesattempted || 0);
+                    const pPM = parseInt(p.passesMade || p.passesmade || 0);
+                    const pPA = parseInt(p.passesAttempted || p.passesattempted || 0);
+                    const pTM = parseInt(p.tacklesMade || p.tacklesmade || 0);
+                    const pTA = parseInt(p.tacklesAttempted || p.tacklesattempted || 0);
                     const pPassPct = pPA > 0 ? ((pPM / pPA) * 100).toFixed(0) + '%' : '';
                     const pTackPct = pTA > 0 ? ((pTM / pTA) * 100).toFixed(0) + '%' : '';
                     

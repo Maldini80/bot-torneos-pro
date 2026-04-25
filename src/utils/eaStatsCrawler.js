@@ -92,7 +92,7 @@ async function runVpgCrawler(manual = false, onProgress = null) {
 
                 // Process club stats
                 if (match.clubs && match.clubs[clubId]) {
-                    await updateClubProfile(clubColl, clubId, team.name, match.clubs[clubId]);
+                    await updateClubProfile(clubColl, clubId, team.name, match.clubs[clubId], match);
                 }
             }
         } catch (error) {
@@ -124,21 +124,27 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     const pos = POS_MAP[matchData.pos] || matchData.pos || '???';
     const isGK = pos === 'POR';
 
+    // EA API keys son inconsistentes: a veces camelCase, a veces minúsculas
+    const getVal = (obj, ...keys) => {
+        for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; }
+        return 0;
+    };
+
     const incrementData = {
         'stats.matchesPlayed': 1,
-        'stats.goals': parseInt(matchData.goals || 0),
-        'stats.assists': parseInt(matchData.assists || 0),
-        'stats.passesMade': parseInt(matchData.passesmade || 0),
-        'stats.passesAttempted': parseInt(matchData.passesattempted || 0),
-        'stats.tacklesMade': parseInt(matchData.tacklesmade || 0),
-        'stats.tacklesAttempted': parseInt(matchData.tacklesattempted || 0),
-        'stats.shots': parseInt(matchData.shots || 0),
-        'stats.shotsOnTarget': parseInt(matchData.shotsongoal || matchData.shotsontarget || 0),
-        'stats.interceptions': parseInt(matchData.interceptions || 0),
-        'stats.saves': parseInt(matchData.saves || 0),
-        'stats.redCards': parseInt(matchData.redcards || 0),
-        'stats.yellowCards': parseInt(matchData.yellowcards || 0),
-        'stats.mom': parseInt(matchData.mom || 0),
+        'stats.goals': getVal(matchData, 'goals'),
+        'stats.assists': getVal(matchData, 'assists'),
+        'stats.passesMade': getVal(matchData, 'passesMade', 'passesmade'),
+        'stats.passesAttempted': getVal(matchData, 'passesAttempted', 'passesattempted'),
+        'stats.tacklesMade': getVal(matchData, 'tacklesMade', 'tacklesmade'),
+        'stats.tacklesAttempted': getVal(matchData, 'tacklesAttempted', 'tacklesattempted'),
+        'stats.shots': getVal(matchData, 'shots'),
+        'stats.shotsOnTarget': getVal(matchData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal'),
+        'stats.interceptions': getVal(matchData, 'interceptions'),
+        'stats.saves': getVal(matchData, 'saves'),
+        'stats.redCards': getVal(matchData, 'redCards', 'redcards'),
+        'stats.yellowCards': getVal(matchData, 'yellowCards', 'yellowcards'),
+        'stats.mom': getVal(matchData, 'mom'),
         'stats.cleanSheets': (isGK && goalsAgainstThisMatch === 0) ? 1 : 0,
         'stats.goalsConceded': isGK ? goalsAgainstThisMatch : 0
     };
@@ -156,21 +162,43 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     );
 }
 
-async function updateClubProfile(coll, clubId, clubName, matchData) {
+async function updateClubProfile(coll, clubId, clubName, matchClubData, matchData) {
+    // EA no devuelve wins/losses/ties por partido — hay que calcularlos
+    // matchData es el match completo, matchClubData es clubs[clubId]
+    const clubIds = Object.keys(matchData.clubs || {});
+    const opponentId = clubIds.find(id => id !== clubId);
+    const opponentClub = opponentId ? (matchData.clubs[opponentId] || {}) : {};
+    
+    const ourGoals = parseInt(matchClubData.goals || 0);
+    const oppGoals = parseInt(opponentClub.goals || 0);
+    const isWin = ourGoals > oppGoals ? 1 : 0;
+    const isLoss = ourGoals < oppGoals ? 1 : 0;
+    const isTie = ourGoals === oppGoals ? 1 : 0;
+
+    // EA API keys son inconsistentes: a veces camelCase, a veces minúsculas
+    const getVal = (obj, ...keys) => {
+        for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; }
+        return 0;
+    };
+    const getFloat = (obj, ...keys) => {
+        for (const k of keys) { if (obj[k] !== undefined) return parseFloat(obj[k]) || 0; }
+        return 0;
+    };
+
     const incrementData = {
         'stats.matchesPlayed': 1,
-        'stats.wins': parseInt(matchData.wins || 0),
-        'stats.losses': parseInt(matchData.losses || 0),
-        'stats.ties': parseInt(matchData.ties || 0),
-        'stats.goals': parseInt(matchData.goals || 0),
-        'stats.goalsAgainst': parseInt(matchData.goalsAgainst || 0),
-        'stats.shots': parseInt(matchData.shots || 0),
-        'stats.shotsOnTarget': parseInt(matchData.shotsontarget || matchData.shotsongoal || 0),
-        'stats.passesMade': parseInt(matchData.passesmade || 0),
-        'stats.passesAttempted': parseInt(matchData.passesattempted || 0),
-        'stats.tacklesMade': parseInt(matchData.tacklesmade || 0),
-        'stats.tacklesAttempted': parseInt(matchData.tacklesattempted || 0),
-        'stats.possession': parseFloat(matchData.possession || 0),
+        'stats.wins': isWin,
+        'stats.losses': isLoss,
+        'stats.ties': isTie,
+        'stats.goals': ourGoals,
+        'stats.goalsAgainst': getVal(matchClubData, 'goalsAgainst', 'goalsagainst'),
+        'stats.shots': getVal(matchClubData, 'shots'),
+        'stats.shotsOnTarget': getVal(matchClubData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal'),
+        'stats.passesMade': getVal(matchClubData, 'passesMade', 'passesmade'),
+        'stats.passesAttempted': getVal(matchClubData, 'passesAttempted', 'passesattempted'),
+        'stats.tacklesMade': getVal(matchClubData, 'tacklesMade', 'tacklesmade'),
+        'stats.tacklesAttempted': getVal(matchClubData, 'tacklesAttempted', 'tacklesattempted'),
+        'stats.possession': getFloat(matchClubData, 'possession'),
         'stats.possessionCount': 1
     };
 
