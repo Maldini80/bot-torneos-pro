@@ -1511,9 +1511,9 @@ const handler = async (client, interaction) => {
 
         const input = new TextInputBuilder()
             .setCustomId('team_name')
-            .setLabel('Nombre del Equipo (Discord o EA)')
+            .setLabel('Nombre del equipo (parcial)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ej: Ceuta Guardians')
+            .setPlaceholder('Ej: Ceuta, Guardians, etc.')
             .setRequired(true);
 
         const row = new ActionRowBuilder().addComponents(input);
@@ -1529,9 +1529,9 @@ const handler = async (client, interaction) => {
 
         const input = new TextInputBuilder()
             .setCustomId('player_name')
-            .setLabel('Nombre exacto en EA Sports')
+            .setLabel('Nombre del jugador (parcial o completo)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ej: zzraydenzz')
+            .setPlaceholder('Ej: Messi, xavi_pro, etc.')
             .setRequired(true);
 
         const row = new ActionRowBuilder().addComponents(input);
@@ -1547,9 +1547,9 @@ const handler = async (client, interaction) => {
 
         const input = new TextInputBuilder()
             .setCustomId('team_name')
-            .setLabel('Nombre del Equipo (Discord o EA)')
+            .setLabel('Nombre del equipo (parcial)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ej: Ceuta Guardians')
+            .setPlaceholder('Ej: Ceuta, Guardians, etc.')
             .setRequired(true);
 
         const row2 = new ActionRowBuilder().addComponents(input);
