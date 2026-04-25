@@ -938,8 +938,8 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: 'Asistencias', value: `${assists} (${apg}/P)`, inline: true },
                 { name: 'Contribución Gol', value: `${goals + assists} (${((goals + assists) / m).toFixed(2)}/P)`, inline: true },
                 { name: 'Tiros', value: `${shots} (${spg}/P)`, inline: true },
-                { name: 'Tiros a Puerta', value: `${shotsOT}`, inline: true },
-                { name: 'Eficacia Tiro', value: shots > 0 ? `${shotAcc}%` : '—', inline: true },
+                { name: 'Tiros/Gol', value: goals > 0 ? `${(shots / goals).toFixed(1)}` : '—', inline: true },
+                { name: '\u200B', value: '\u200B', inline: true },
                 { name: '\u200B', value: '**🎯 PASE**', inline: false },
                 { name: 'Precisión', value: passAcc !== '—' ? `${passAcc}%` : '—', inline: true },
                 { name: 'Pases Completos', value: passesAtt > 0 ? `${passesMade}/${passesAtt}` : `${passesMade}`, inline: true },
@@ -1016,17 +1016,14 @@ if (customId.startsWith('manager_request_modal_')) {
         
         const wins = s.wins || 0, ties = s.ties || 0, losses = s.losses || 0;
         const goals = s.goals || 0, goalsAgainst = s.goalsAgainst || 0;
-        const shots = s.shots || 0, shotsOT = s.shotsOnTarget || 0;
+        const shots = s.shots || 0;
         const passesMade = s.passesMade || 0, passesAtt = s.passesAttempted || 0;
         const tacklesMade = s.tacklesMade || 0, tacklesAtt = s.tacklesAttempted || 0;
-        const possession = s.possession || 0, possCount = s.possessionCount || 0;
         
         const winrate = ((wins / m) * 100).toFixed(1);
         const gpg = (goals / m).toFixed(1), gapg = (goalsAgainst / m).toFixed(1);
-        const shotAcc = shots > 0 ? ((shotsOT / shots) * 100).toFixed(1) : '—';
         const passAcc = passesAtt > 0 ? ((passesMade / passesAtt) * 100).toFixed(1) : '—';
         const tackleAcc = tacklesAtt > 0 ? ((tacklesMade / tacklesAtt) * 100).toFixed(1) : '—';
-        const avgPoss = possCount > 0 ? (possession / possCount).toFixed(1) : '—';
         
         // Buscar última alineación ORDENADA
         const POS_MAP = {
@@ -1074,11 +1071,11 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: '\u200B', value: '**⚽ ATAQUE**', inline: false },
                 { name: 'Goles', value: `${goals} (${gpg}/P)`, inline: true },
                 { name: 'Tiros', value: `${shots} (${(shots / m).toFixed(1)}/P)`, inline: true },
-                { name: 'Eficacia Tiro', value: `${shotAcc}% (${shotsOT} a puerta)`, inline: true },
+                { name: 'Tiros/Gol', value: goals > 0 ? `${(shots / goals).toFixed(1)}` : '—', inline: true },
                 { name: '\u200B', value: '**🎯 POSESIÓN Y PASE**', inline: false },
-                { name: 'Posesión Media', value: `${avgPoss}%`, inline: true },
-                { name: 'Precisión Pase', value: `${passAcc}%`, inline: true },
-                { name: 'Pases', value: `${passesMade}/${passesAtt}`, inline: true },
+                { name: 'Precisión Pase', value: passAcc !== '—' ? `${passAcc}%` : '—', inline: true },
+                { name: 'Pases', value: passesAtt > 0 ? `${passesMade}/${passesAtt}` : `${passesMade}`, inline: true },
+                { name: 'Pases/Partido', value: `${(passesMade / m).toFixed(0)}`, inline: true },
                 { name: '\u200B', value: '**🛡️ DEFENSA**', inline: false },
                 { name: 'Goles en Contra', value: `${goalsAgainst} (${gapg}/P)`, inline: true },
                 { name: 'Eficacia Entradas', value: `${tackleAcc}%`, inline: true },
@@ -1177,17 +1174,18 @@ if (customId.startsWith('manager_request_modal_')) {
             
             const possession = ourClub.possession || '?';
             const mShots = ourStats.shots;
-            const mShotsOT = ourStats.shotsOT;
-            const mShotAcc = mShots > 0 ? ((mShotsOT / mShots) * 100).toFixed(0) : '?';
             const mPassMade = ourStats.pm;
             const mPassAtt = ourStats.pa;
             const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
             const mTackMade = ourStats.tm;
             const mTackAtt = ourStats.ta;
             const mTackAcc = mTackAtt > 0 ? ((mTackMade / mTackAtt) * 100).toFixed(0) : '?';
-            const oppPoss = opponentClub.possession || '?';
-            const oppShots = oppStats.shots;
-            const oppShotsOT = oppStats.shotsOT;
+            
+            // Posesión estimada: ratio de pases intentados
+            const totalPassAtt = mPassAtt + oppStats.pa;
+            const estPoss = totalPassAtt > 0 ? ((mPassAtt / totalPassAtt) * 100).toFixed(0) : '?';
+            const estOppPoss = totalPassAtt > 0 ? ((oppStats.pa / totalPassAtt) * 100).toFixed(0) : '?';
+            const oppPassAcc = oppStats.pa > 0 ? ((oppStats.pm / oppStats.pa) * 100).toFixed(0) : '?';
             
             // Alineación ORDENADA con stats detalladas
             let lineupStr = '';
@@ -1224,11 +1222,11 @@ if (customId.startsWith('manager_request_modal_')) {
                 .setDescription(`📅 ${matchDate}`)
                 .setColor(resultColor)
                 .addFields(
-                    { name: '⚽ Posesión', value: `${possession}% vs ${oppPoss}%`, inline: true },
-                    { name: '🎯 Tiros (a puerta)', value: `${mShotsOT}/${mShots} (${mShotAcc}%) vs ${oppShotsOT}/${oppShots}`, inline: true },
+                    { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
+                    { name: '🔫 Tiros', value: `**${mShots}** vs ${oppStats.shots}`, inline: true },
                     { name: '\u200B', value: '\u200B', inline: true },
-                    { name: '🎯 Pases', value: `${mPassMade}/${mPassAtt} (${mPassAcc}%)`, inline: true },
-                    { name: '🛡️ Entradas', value: `${mTackMade}/${mTackAtt} (${mTackAcc}%)`, inline: true },
+                    { name: '🎯 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
+                    { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
                     { name: '\u200B', value: '\u200B', inline: true }
                 );
             
