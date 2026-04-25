@@ -855,7 +855,7 @@ if (customId.startsWith('manager_request_modal_')) {
             return interaction.editReply({ content: `No se encontró ningún equipo que contenga "${query}".` });
         }
 
-        const { sendPaginatedTeamMenu } = require('../utils/pagination.js');
+        const { sendPaginatedTeamMenu } = require('./buttonHandler.js');
         await sendPaginatedTeamMenu(interaction, teams, 'admin_select_team_to_manage', 'manage', 0, `Equipos encontrados para "${query}":`);
         return;
     }
