@@ -242,21 +242,6 @@ async function drawPlayerCard(ctx, cx, cy, player, posLabel) {
         ctx.fillText(teamDisplay, cx, y + 98);
     }
 
-    // Stats
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(`⚽ ${player.goals || 0}  |  🎩 ${player.assists || 0}`, cx, y + 128);
-    
-    // Stat secundaria
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.font = '11px Arial';
-    if (posLabel === 'GK') {
-        ctx.fillText(`🧤 ${player.cleanSheets || 0} porterías a 0`, cx, y + 148);
-    } else {
-        ctx.fillText(`${player.gamesPlayed || 0} partidos`, cx, y + 148);
-    }
-
     // Rating decimal pequeño
     ctx.fillStyle = '#d4af37';
     ctx.font = '11px Arial';
