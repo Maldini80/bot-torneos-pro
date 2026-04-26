@@ -1360,7 +1360,7 @@ if (customId.startsWith('manager_request_modal_')) {
                     
                     let extras = [];
                     if (pGoals > 0) extras.push(`⚽${pGoals}`);
-                    if (pAssists > 0) extras.push(`👟${pAssists}`);
+                    if (pAssists > 0) extras.push(`🎩${pAssists}`);
                     if (pPassPct) extras.push(`👟${pPassPct}`);
                     if (pTackPct) extras.push(`🛡️${pTackPct}`);
                     
