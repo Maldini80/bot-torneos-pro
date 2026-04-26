@@ -20,19 +20,21 @@ async function runVpgCrawler(manual = false, onProgress = null) {
     isCrawlerRunning = true;
 
     try {
-        console.log('[CRAWLER] Iniciando recolección de estadísticas...');
         const settings = await getBotSettings();
     if (!manual && !settings.crawlerEnabled) {
-        console.log('[CRAWLER] El crawler está desactivado. Abortando.');
+        console.log('[CRAWLER] ⏸️ Crawler desactivado en configuración. No se ejecuta.');
         return;
     }
 
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     if (!manual && !settings.crawlerDays.includes(dayOfWeek)) {
-        console.log(`[CRAWLER] Hoy (día ${dayOfWeek}) no está en los días de escaneo configurados. Abortando.`);
+        console.log(`[CRAWLER] ⏸️ Hoy es ${dayNames[dayOfWeek]} — no está en los días configurados (${settings.crawlerDays.map(d => dayNames[d]).join(', ')}). No se ejecuta.`);
         return;
     }
+
+    console.log('[CRAWLER] ▶️ Iniciando recolección de estadísticas...');
 
     const db = getDb();
     if (!db) {
@@ -71,6 +73,29 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                 const matchId = match.matchId;
                 const matchTimestamp = parseInt(match.timestamp) * 1000;
                 const matchDate = new Date(matchTimestamp);
+
+                // Filtro horario: solo guardar partidos dentro de la franja configurada (hora Madrid)
+                if (settings.crawlerTimeRange) {
+                    const madridTimeStr = matchDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
+                    const [h, min] = madridTimeStr.split(':').map(Number);
+                    const matchMinutes = h * 60 + min;
+                    const [sh, sm] = settings.crawlerTimeRange.start.split(':').map(Number);
+                    const [eh, em] = settings.crawlerTimeRange.end.split(':').map(Number);
+                    const startMin = sh * 60 + sm;
+                    const endMin = eh * 60 + em;
+
+                    let inRange;
+                    if (startMin <= endMin) {
+                        inRange = matchMinutes >= startMin && matchMinutes <= endMin;
+                    } else {
+                        // Cruza medianoche (ej: 21:30 → 00:30)
+                        inRange = matchMinutes >= startMin || matchMinutes <= endMin;
+                    }
+                    if (!inRange) {
+                        console.log(`[CRAWLER] ⏰ Partido ${matchId} ignorado (${madridTimeStr}h Madrid, fuera de ${settings.crawlerTimeRange.start}-${settings.crawlerTimeRange.end})`);
+                        continue;
+                    }
+                }
 
                 // Check if match already processed
                 const exists = await matchColl.findOne({ matchId });

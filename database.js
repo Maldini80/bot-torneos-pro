@@ -166,7 +166,8 @@ const defaultBotSettings = {
     draftMaxQuotas: 'GK:1,DFC:2,CARR:2,MC:4,DC:2', // Máximo por equipo
     // --- FIN DE LAS NUEVAS REGLAS ---
     crawlerEnabled: true,
-    crawlerDays: [1, 2, 3, 4] // 1=Lunes, 4=Jueves
+    crawlerDays: [1, 2, 3, 4], // 1=Lunes, 4=Jueves
+    crawlerTimeRange: { start: '21:30', end: '00:30' } // Franja horaria Madrid. null = sin filtro
 };
 
 /**

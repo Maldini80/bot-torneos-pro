@@ -1412,6 +1412,45 @@ const handler = async (client, interaction) => {
         return interaction.editReply({ content: 'Selecciona qué días de la semana quieres que el Crawler de EA actúe buscando estadísticas automáticamente.', components: [row] });
     }
 
+    if (customId === 'admin_config_crawler_time') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+
+        const { getBotSettings } = await import('../../../database.js');
+        const settings = await getBotSettings();
+        const currentRange = settings.crawlerTimeRange;
+        const currentStart = currentRange ? currentRange.start : '21:30';
+        const currentEnd = currentRange ? currentRange.end : '00:30';
+
+        const modal = new ModalBuilder()
+            .setCustomId('admin_crawler_time_modal')
+            .setTitle('⏰ Franja Horaria del Crawler');
+
+        const startInput = new TextInputBuilder()
+            .setCustomId('crawler_time_start')
+            .setLabel(`Hora inicio (Madrid) — Actual: ${currentStart}`)
+            .setStyle(1) // Short
+            .setPlaceholder('Ej: 21:30')
+            .setValue(currentStart)
+            .setRequired(true)
+            .setMaxLength(5);
+
+        const endInput = new TextInputBuilder()
+            .setCustomId('crawler_time_end')
+            .setLabel(`Hora fin (Madrid) — Actual: ${currentEnd}`)
+            .setStyle(1)
+            .setPlaceholder('Ej: 00:30')
+            .setValue(currentEnd)
+            .setRequired(true)
+            .setMaxLength(5);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(startInput),
+            new ActionRowBuilder().addComponents(endInput)
+        );
+
+        return interaction.showModal(modal);
+    }
+
     if (customId === 'admin_force_crawler') {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         await interaction.deferReply({ ephemeral: true });
@@ -1561,8 +1600,18 @@ const handler = async (client, interaction) => {
             .setPlaceholder('Ej: Ceuta, Guardians, etc.')
             .setRequired(true);
 
-        const row2 = new ActionRowBuilder().addComponents(input);
-        modal.addComponents(row2);
+        const timeInput = new TextInputBuilder()
+            .setCustomId('time_filter')
+            .setLabel('Franja horaria (opcional, ej: 21:00-00:00)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Dejar vacío para ver todos')
+            .setRequired(false)
+            .setMaxLength(11);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(input),
+            new ActionRowBuilder().addComponents(timeInput)
+        );
 
         return interaction.showModal(modal);
     }

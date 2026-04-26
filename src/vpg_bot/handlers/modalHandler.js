@@ -860,6 +860,31 @@ if (customId.startsWith('manager_request_modal_')) {
         return;
     }
 
+    if (customId === 'admin_crawler_time_modal') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        const startRaw = fields.getTextInputValue('crawler_time_start').trim().toLowerCase();
+        const endRaw = fields.getTextInputValue('crawler_time_end').trim().toLowerCase();
+
+        // Permitir desactivar con "off" o "null"
+        if (startRaw === 'off' || startRaw === 'null' || startRaw === 'no') {
+            const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
+            await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerTimeRange: null } });
+            return interaction.editReply({ content: '✅ Filtro horario **desactivado**. El crawler guardará partidos de cualquier hora.' });
+        }
+
+        // Validar formato HH:MM
+        const timeRegex = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+        if (!timeRegex.test(startRaw) || !timeRegex.test(endRaw)) {
+            return interaction.editReply({ content: '❌ Formato incorrecto. Usa **HH:MM** (ej: `21:30`). Para desactivar, escribe `off` en la hora de inicio.' });
+        }
+
+        const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
+        await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerTimeRange: { start: startRaw, end: endRaw } } });
+
+        return interaction.editReply({ content: `✅ Franja horaria del crawler actualizada: **${startRaw} — ${endRaw}** (hora Madrid).\\n\\nSolo se guardarán partidos que terminen dentro de este rango. Para desactivar, escribe \`off\`.` });
+    }
+
     if (customId === 'stats_player_scout_modal') {
         const playerName = fields.getTextInputValue('player_name').trim();
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -927,12 +952,12 @@ if (customId.startsWith('manager_request_modal_')) {
         
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Informe de Scout: ${profile.eaPlayerName}`)
-            .setDescription(`📋 **Equipo:** ${profile.lastClub || 'Desconocido'}\n📅 **Última actividad:** ${profile.lastActive ? new Date(profile.lastActive).toLocaleDateString('es-ES') : '—'}`)
+            .setDescription(`📋 **Equipo:** ${profile.lastClub || 'Desconocido'}\n🎽 **Posición:** ${pos}\n📅 **Última actividad:** ${profile.lastActive ? new Date(profile.lastActive).toLocaleDateString('es-ES') : '—'}`)
             .setColor('#2ecc71')
             .addFields(
                 { name: '🏟️ Partidos', value: `**${m}**`, inline: true },
                 { name: '⭐ Nota Media', value: `**${avgRating}**`, inline: true },
-                { name: '🏆 MVM', value: `**${mom}**`, inline: true },
+                { name: '🏆 MVP', value: `**${mom}**`, inline: true },
                 { name: '\u200B', value: '**⚽ ATAQUE**', inline: false },
                 { name: 'Goles', value: `${goals} (${gpg}/P)`, inline: true },
                 { name: 'Asistencias', value: `${assists} (${apg}/P)`, inline: true },
@@ -947,7 +972,7 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: '\u200B', value: '**🛡️ DEFENSA**', inline: false },
                 { name: 'Eficacia Entradas', value: tackleAcc !== '—' ? `${tackleAcc}%` : '—', inline: true },
                 { name: 'Entradas', value: tacklesAtt > 0 ? `${tacklesMade}/${tacklesAtt}` : `${tacklesMade}`, inline: true },
-                { name: 'Entradas/Partido', value: `${(tacklesMade / m).toFixed(1)}`, inline: true }
+                { name: 'Intercepciones', value: `${intercepts}`, inline: true }
             );
         
         if (isGK) {
@@ -1080,8 +1105,8 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: 'Tiros/Gol', value: goals > 0 ? `${(shots / goals).toFixed(1)}` : '—', inline: true },
                 { name: '\u200B', value: '**👟 POSESIÓN Y PASE**', inline: false },
                 { name: 'Precisión Pase', value: passAcc !== '—' ? `${passAcc}%` : '—', inline: true },
-                { name: 'Pases', value: passesAtt > 0 ? `${passesMade}/${passesAtt}` : `${passesMade}`, inline: true },
                 { name: 'Pases/Partido', value: `${(passesMade / m).toFixed(0)}`, inline: true },
+                { name: '\u200B', value: '\u200B', inline: true },
                 { name: '\u200B', value: '**🛡️ DEFENSA**', inline: false },
                 { name: 'Goles en Contra', value: `${goalsAgainst} (${gapg}/P)`, inline: true },
                 { name: 'Eficacia Entradas', value: `${tackleAcc}%`, inline: true },
@@ -1095,11 +1120,23 @@ if (customId.startsWith('manager_request_modal_')) {
 
     if (customId === 'stats_match_history_modal') {
         const teamName = fields.getTextInputValue('team_name').trim();
+        const timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim();
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         const { getDb } = await import('../../../database.js');
         const db = getDb();
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
+
+        // Parsear filtro horario opcional (formato: HH:MM-HH:MM)
+        let timeFilter = null;
+        if (timeFilterRaw) {
+            const timeMatch = timeFilterRaw.match(/^(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
+            if (timeMatch) {
+                timeFilter = { start: timeMatch[1], end: timeMatch[2] };
+            } else {
+                return interaction.editReply({ content: '❌ Formato de franja horaria incorrecto. Usa **HH:MM-HH:MM** (ej: `21:00-00:00`). Déjalo vacío para ver todos.' });
+            }
+        }
 
         const safeQuery = teamName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         let club = null;
@@ -1120,11 +1157,35 @@ if (customId.startsWith('manager_request_modal_')) {
         }
         if (!club) return interaction.editReply({ content: `No se encontró ningún equipo con **"${teamName}"**.` });
         
-        const matches = await db.collection('scanned_matches').find({
+        let matches = await db.collection('scanned_matches').find({
             [`clubs.${club.eaClubId}`]: { $exists: true }
-        }).sort({ timestamp: -1 }).limit(10).toArray();
+        }).sort({ timestamp: -1 }).limit(50).toArray();
+
+        // Aplicar filtro horario si se proporcionó
+        if (timeFilter) {
+            const [sh, sm] = timeFilter.start.split(':').map(Number);
+            const [eh, em] = timeFilter.end.split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+
+            matches = matches.filter(match => {
+                if (!match.timestamp) return false;
+                const matchDate = new Date(parseInt(match.timestamp) * 1000);
+                const madridTimeStr = matchDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
+                const [h, min] = madridTimeStr.split(':').map(Number);
+                const matchMinutes = h * 60 + min;
+
+                if (startMin <= endMin) {
+                    return matchMinutes >= startMin && matchMinutes <= endMin;
+                } else {
+                    return matchMinutes >= startMin || matchMinutes <= endMin;
+                }
+            });
+        }
+
+        matches = matches.slice(0, 10);
         
-        if (matches.length === 0) return interaction.editReply({ content: `No hay partidos guardados para **${club.eaClubName}**.` });
+        if (matches.length === 0) return interaction.editReply({ content: timeFilter ? `No hay partidos guardados para **${club.eaClubName}** en la franja **${timeFilter.start}-${timeFilter.end}** (Madrid).` : `No hay partidos guardados para **${club.eaClubName}**.` });
         
         const POS_MAP = {
             0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
@@ -1150,7 +1211,9 @@ if (customId.startsWith('manager_request_modal_')) {
             
             const ourGoals = parseInt(ourClub.goals || 0);
             const oppGoals = parseInt(opponentClub.goals || 0);
-            const matchDate = match.timestamp ? new Date(parseInt(match.timestamp) * 1000).toLocaleDateString('es-ES') : '?';
+            const matchDateObj = match.timestamp ? new Date(parseInt(match.timestamp) * 1000) : null;
+            const matchDate = matchDateObj ? matchDateObj.toLocaleDateString('es-ES') : '?';
+            const matchTime = matchDateObj ? matchDateObj.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }) : '';
             
             let resultEmoji = '➖', resultColor = '#95a5a6';
             if (ourGoals > oppGoals) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
@@ -1226,7 +1289,7 @@ if (customId.startsWith('manager_request_modal_')) {
             
             const embed = new EmbedBuilder()
                 .setTitle(`${resultEmoji} ${club.eaClubName} ${ourGoals} - ${oppGoals} ${opponentName}`)
-                .setDescription(`📅 ${matchDate}`)
+                .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)`)
                 .setColor(resultColor)
                 .addFields(
                     { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
