@@ -253,7 +253,7 @@ export function generateBest11Embed(tournament, players) {
     let awardsText = '';
     if (mvp) awardsText += `🥇 **MVP del Torneo:** ${mvp.name} (⭐ ${mvp.avgRating.toFixed(1)})\n`;
     if (topScorer && topScorer.goals > 0) awardsText += `👟 **Bota de Oro:** ${topScorer.name} (${topScorer.goals} goles)\n`;
-    if (topAssister && topAssister.assists > 0) awardsText += `👟 **Máximo Asistente:** ${topAssister.name} (${topAssister.assists} asist.)\n`;
+    if (topAssister && topAssister.assists > 0) awardsText += `🎯 **Máximo Asistente:** ${topAssister.name} (${topAssister.assists} asist.)\n`;
     if (zamora) awardsText += `🧤 **Guante de Oro:** ${zamora.name} (${zamora.cleanSheets} imbatidas)\n`;
 
     if (awardsText) {

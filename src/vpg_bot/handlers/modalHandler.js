@@ -1057,7 +1057,7 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: '\u200B', value: '**🛡️ DEFENSA**', inline: false },
                 { name: 'Eficacia Entradas', value: tackleAcc !== '—' ? `${tackleAcc}%` : '—', inline: true },
                 { name: 'Entradas', value: tacklesAtt > 0 ? `${tacklesMade}/${tacklesAtt}` : `${tacklesMade}`, inline: true },
-                { name: 'Intercepciones', value: `${intercepts}`, inline: true }
+                { name: 'Entradas/Partido', value: `${(tacklesMade / m).toFixed(1)}`, inline: true }
             );
         
         if (isGK) {
