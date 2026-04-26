@@ -940,7 +940,7 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: 'Tiros', value: `${shots} (${spg}/P)`, inline: true },
                 { name: 'Tiros/Gol', value: goals > 0 ? `${(shots / goals).toFixed(1)}` : '—', inline: true },
                 { name: '\u200B', value: '\u200B', inline: true },
-                { name: '\u200B', value: '**🎯 PASE**', inline: false },
+                { name: '\u200B', value: '**👟 PASE**', inline: false },
                 { name: 'Precisión', value: passAcc !== '—' ? `${passAcc}%` : '—', inline: true },
                 { name: 'Pases Completos', value: passesAtt > 0 ? `${passesMade}/${passesAtt}` : `${passesMade}`, inline: true },
                 { name: 'Pases/Partido', value: `${passPerGame}`, inline: true },
@@ -1035,7 +1035,7 @@ if (customId.startsWith('manager_request_modal_')) {
         const POS_MAP = {
             0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
             6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
-            11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC',
+            11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC',
             'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
             'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD',
             'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
@@ -1078,7 +1078,7 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: 'Goles', value: `${goals} (${gpg}/P)`, inline: true },
                 { name: 'Tiros', value: `${shots} (${(shots / m).toFixed(1)}/P)`, inline: true },
                 { name: 'Tiros/Gol', value: goals > 0 ? `${(shots / goals).toFixed(1)}` : '—', inline: true },
-                { name: '\u200B', value: '**🎯 POSESIÓN Y PASE**', inline: false },
+                { name: '\u200B', value: '**👟 POSESIÓN Y PASE**', inline: false },
                 { name: 'Precisión Pase', value: passAcc !== '—' ? `${passAcc}%` : '—', inline: true },
                 { name: 'Pases', value: passesAtt > 0 ? `${passesMade}/${passesAtt}` : `${passesMade}`, inline: true },
                 { name: 'Pases/Partido', value: `${(passesMade / m).toFixed(0)}`, inline: true },
@@ -1129,7 +1129,7 @@ if (customId.startsWith('manager_request_modal_')) {
         const POS_MAP = {
             0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
             6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
-            11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC',
+            11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC',
             'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
             'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD',
             'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
@@ -1213,7 +1213,7 @@ if (customId.startsWith('manager_request_modal_')) {
                     let extras = [];
                     if (pGoals > 0) extras.push(`⚽${pGoals}`);
                     if (pAssists > 0) extras.push(`👟${pAssists}`);
-                    if (pPassPct) extras.push(`🎯${pPassPct}`);
+                    if (pPassPct) extras.push(`👟${pPassPct}`);
                     if (pTackPct) extras.push(`🛡️${pTackPct}`);
                     
                     return {
@@ -1232,7 +1232,7 @@ if (customId.startsWith('manager_request_modal_')) {
                     { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
                     { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
                     { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
-                    { name: '🎯 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
+                    { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
                     { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
                     { name: '\u200B', value: '\u200B', inline: true }
                 );

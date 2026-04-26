@@ -112,7 +112,7 @@ async function runVpgCrawler(manual = false, onProgress = null) {
 const POS_MAP = {
     0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
     6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
-    11: 'ED', 12: 'EI', 13: 'MP', 14: 'DC',
+    11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC',
     'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
     'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD',
     'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
