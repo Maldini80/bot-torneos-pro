@@ -1741,7 +1741,7 @@ const handler = async (client, interaction) => {
                     if (match.players && match.players[clubId]) {
                         for (const playerId in match.players[clubId]) {
                             const p = match.players[clubId][playerId];
-                            const pos = POS_MAP[p.pos] || p.pos || '???';
+                            const pos = POS_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
                             const isGK = pos === 'POR';
                             const rating = parseFloat(p.rating || 0);
                             

@@ -116,7 +116,10 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                 const pName = pData.playername || playerId;
                 
                 let resolvedPos = pData.pos || 'unknown';
-                if (!isNaN(pData.pos) && posMapNum[pData.pos] !== undefined) {
+                // Priorizar archetypeid (más preciso) sobre pos (genérico)
+                if (pData.archetypeid !== undefined && posMapNum[pData.archetypeid] !== undefined) {
+                    resolvedPos = posMapNum[pData.archetypeid];
+                } else if (!isNaN(pData.pos) && posMapNum[pData.pos] !== undefined) {
                     resolvedPos = posMapNum[pData.pos];
                 }
 

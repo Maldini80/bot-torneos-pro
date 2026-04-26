@@ -146,7 +146,8 @@ const POS_MAP = {
 };
 
 async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsAgainstThisMatch = 0) {
-    const pos = POS_MAP[matchData.pos] || matchData.pos || '???';
+    // Priorizar archetypeid (más preciso) sobre pos (genérico como "midfielder")
+    const pos = POS_MAP[matchData.archetypeid] || POS_MAP[matchData.pos] || matchData.pos || '???';
     const isGK = pos === 'POR';
 
     // EA API keys son inconsistentes: a veces camelCase, a veces minúsculas

@@ -911,7 +911,7 @@ if (customId.startsWith('manager_request_modal_')) {
                     if (p.playername && p.playername.toLowerCase().includes(safeQuery)) {
                         const matchDate = new Date(parseInt(match.timestamp) * 1000);
                         const madridTime = matchDate.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
-                        const mappedPos = POS_MAP[p.pos] || p.pos || '???';
+                        const mappedPos = POS_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
                         found.push({
                             name: p.playername,
                             pos: p.pos,
@@ -1139,7 +1139,7 @@ if (customId.startsWith('manager_request_modal_')) {
         if (lastMatch.length > 0 && lastMatch[0].players && lastMatch[0].players[club.eaClubId]) {
             const players = Object.values(lastMatch[0].players[club.eaClubId]);
             const sorted = players.map(p => {
-                const pos = POS_MAP[p.pos] || p.pos || '???';
+                const pos = POS_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
                 return { pos, name: p.playername, order: POS_ORDER[pos] ?? 99 };
             }).sort((a, b) => a.order - b.order);
             lineupStr = sorted.map(p => `**${p.pos}** ${p.name}`).join(' | ');
@@ -1324,7 +1324,7 @@ if (customId.startsWith('manager_request_modal_')) {
             if (match.players && match.players[club.eaClubId]) {
                 const players = Object.values(match.players[club.eaClubId]);
                 const sorted = players.map(p => {
-                    const pos = POS_MAP[p.pos] || p.pos || '?';
+                    const pos = POS_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '?';
                     const pGoals = parseInt(p.goals || 0);
                     const pAssists = parseInt(p.assists || 0);
                     const rating = parseFloat(p.rating || 0).toFixed(1);
