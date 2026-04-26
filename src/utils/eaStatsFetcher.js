@@ -110,15 +110,21 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
             11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC'
         };
 
+        // Mapa de ARQUETIPOS (clase del jugador, no posición en formación)
+        const archetypeMap = {
+            1: 'POR', 2: 'POR', 3: 'DFC', 4: 'DFC', 5: 'DFC', 6: 'DFC',
+            7: 'MC', 8: 'MC', 9: 'MC', 10: 'MI', 11: 'DC', 12: 'MI', 13: 'DC'
+        };
+
         const aggregatePlayers = (targetClubPlayers, sourcePlayersData, teamGoalsAgainst) => {
             if (!sourcePlayersData) return;
             for (const [playerId, pData] of Object.entries(sourcePlayersData)) {
                 const pName = pData.playername || playerId;
                 
                 let resolvedPos = pData.pos || 'unknown';
-                // Priorizar archetypeid (más preciso) sobre pos (genérico)
-                if (pData.archetypeid !== undefined && posMapNum[pData.archetypeid] !== undefined) {
-                    resolvedPos = posMapNum[pData.archetypeid];
+                // Priorizar archetypeid (clase del jugador) sobre pos (genérico como "midfielder")
+                if (pData.archetypeid !== undefined && archetypeMap[pData.archetypeid] !== undefined) {
+                    resolvedPos = archetypeMap[pData.archetypeid];
                 } else if (!isNaN(pData.pos) && posMapNum[pData.pos] !== undefined) {
                     resolvedPos = posMapNum[pData.pos];
                 }

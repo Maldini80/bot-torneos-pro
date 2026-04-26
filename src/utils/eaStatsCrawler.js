@@ -145,9 +145,26 @@ const POS_MAP = {
     'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
 };
 
+// Mapa de ARQUETIPOS de EA FC (clase del jugador, no posición en formación)
+const ARCHETYPE_MAP = {
+    1: 'POR',   // Muro
+    2: 'POR',   // Guardameta Líbero
+    3: 'DFC',   // Impulso
+    4: 'DFC',   // Líder
+    5: 'DFC',   // Motor
+    6: 'DFC',   // Amenaza
+    7: 'MC',    // Nexo
+    8: 'MC',    // Guía
+    9: 'MC',    // Artista
+    10: 'MI',   // Chispa → Carrilero
+    11: 'DC',   // Mago
+    12: 'MI',   // Killer → Carrilero
+    13: 'DC',   // Finalizador
+};
+
 async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsAgainstThisMatch = 0) {
-    // Priorizar archetypeid (más preciso) sobre pos (genérico como "midfielder")
-    const pos = POS_MAP[matchData.archetypeid] || POS_MAP[matchData.pos] || matchData.pos || '???';
+    // Priorizar archetypeid (clase del jugador) sobre pos (texto genérico como "midfielder")
+    const pos = ARCHETYPE_MAP[matchData.archetypeid] || POS_MAP[matchData.pos] || matchData.pos || '???';
     const isGK = pos === 'POR';
 
     // EA API keys son inconsistentes: a veces camelCase, a veces minúsculas

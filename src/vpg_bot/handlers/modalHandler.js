@@ -12,6 +12,23 @@ const mongoose = require('mongoose');
 
 const POSITION_KEYS = ['GK', 'CB', 'WB', 'CDM', 'CM', 'CAM', 'ST'];
 
+// Mapa de ARQUETIPOS de EA FC (clase del jugador, no posición en formación)
+const ARCHETYPE_MAP = {
+    1: 'POR',   // Muro
+    2: 'POR',   // Guardameta Líbero
+    3: 'DFC',   // Impulso
+    4: 'DFC',   // Líder
+    5: 'DFC',   // Motor
+    6: 'DFC',   // Amenaza
+    7: 'MC',    // Nexo
+    8: 'MC',    // Guía
+    9: 'MC',    // Artista
+    10: 'MI',   // Chispa → Carrilero
+    11: 'DC',   // Mago
+    12: 'MI',   // Killer → Carrilero
+    13: 'DC',   // Finalizador
+};
+
 async function sendApprovalRequest(interaction, client, { vpgUsername, teamName, teamAbbr, teamTwitter, leagueName, logoUrl }) {
     const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
     if (!approvalChannelId) return;
@@ -911,7 +928,7 @@ if (customId.startsWith('manager_request_modal_')) {
                     if (p.playername && p.playername.toLowerCase().includes(safeQuery)) {
                         const matchDate = new Date(parseInt(match.timestamp) * 1000);
                         const madridTime = matchDate.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
-                        const mappedPos = POS_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
+                        const mappedPos = ARCHETYPE_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
                         found.push({
                             name: p.playername,
                             pos: p.pos,
@@ -1139,7 +1156,7 @@ if (customId.startsWith('manager_request_modal_')) {
         if (lastMatch.length > 0 && lastMatch[0].players && lastMatch[0].players[club.eaClubId]) {
             const players = Object.values(lastMatch[0].players[club.eaClubId]);
             const sorted = players.map(p => {
-                const pos = POS_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
+                const pos = ARCHETYPE_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
                 return { pos, name: p.playername, order: POS_ORDER[pos] ?? 99 };
             }).sort((a, b) => a.order - b.order);
             lineupStr = sorted.map(p => `**${p.pos}** ${p.name}`).join(' | ');
@@ -1324,7 +1341,7 @@ if (customId.startsWith('manager_request_modal_')) {
             if (match.players && match.players[club.eaClubId]) {
                 const players = Object.values(match.players[club.eaClubId]);
                 const sorted = players.map(p => {
-                    const pos = POS_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '?';
+                    const pos = ARCHETYPE_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '?';
                     const pGoals = parseInt(p.goals || 0);
                     const pAssists = parseInt(p.assists || 0);
                     const rating = parseFloat(p.rating || 0).toFixed(1);
