@@ -165,7 +165,7 @@ function resolvePos(posRaw, archetypeid) {
 
     // Mediocampista: usar archetypeid para distinguir carrileros de centrocampistas
     if (p === 'midfielder') {
-        if (archetypeid == 10 || archetypeid == 12) return 'MI'; // Chispa/Killer → Carrilero
+        if (archetypeid == 10 || archetypeid == 12) return 'CARR'; // Chispa/Killer → Carrilero
         return 'MC';
     }
 

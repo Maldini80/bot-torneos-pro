@@ -25,7 +25,7 @@ function resolvePos(posRaw, archetypeid) {
     if (p === 'forward' || p === 'attacker' || p === 'striker') return 'DC';
     if (p === 'defender' || p === 'centerback') return 'DFC';
     if (p === 'midfielder') {
-        if (archetypeid == 10 || archetypeid == 12) return 'MI'; // Chispa/Killer → Carrilero
+        if (archetypeid == 10 || archetypeid == 12) return 'CARR'; // Chispa/Killer → Carrilero
         return 'MC';
     }
     return POS_MAP_INLINE[posRaw] || posRaw || '???';
@@ -1142,7 +1142,7 @@ if (customId.startsWith('manager_request_modal_')) {
             'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
             'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
         };
-        const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'MCO': 8, 'MD': 9, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
+        const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'CARR': 8, 'MCO': 9, 'MD': 10, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
 
         let lineupStr = 'Sin datos de alineación';
         const lastMatch = await db.collection('scanned_matches').find({
@@ -1272,7 +1272,7 @@ if (customId.startsWith('manager_request_modal_')) {
             'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
             'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
         };
-        const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'MCO': 8, 'MD': 9, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
+        const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'CARR': 8, 'MCO': 9, 'MD': 10, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
 
         const embeds = [];
         

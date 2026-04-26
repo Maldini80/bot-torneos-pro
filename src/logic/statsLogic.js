@@ -143,7 +143,7 @@ function categorizePosition(pos) {
         'por': 'GK', 'portero': 'GK',
         'dfc': 'DEF', 'ld': 'DEF', 'li': 'DEF', 'cad': 'DEF', 'cai': 'DEF',
         'mcd': 'MED', 'mc': 'MED', 'mco': 'MED',
-        'md': 'CARR', 'mi': 'CARR',
+        'md': 'CARR', 'mi': 'CARR', 'carr': 'CARR',
         'ed': 'DC', 'ei': 'DC', 'mp': 'DC', 'dc': 'DC'
     };
     if (exactMap[p]) return exactMap[p];

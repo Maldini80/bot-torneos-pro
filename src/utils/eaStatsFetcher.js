@@ -116,7 +116,7 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
             if (p === 'goalkeeper') return 'POR';
             if (p === 'forward' || p === 'attacker' || p === 'striker') return 'DC';
             if (p === 'defender' || p === 'centerback') return 'DFC';
-            if (p === 'midfielder') { if (archetypeid == 10 || archetypeid == 12) return 'MI'; return 'MC'; }
+            if (p === 'midfielder') { if (archetypeid == 10 || archetypeid == 12) return 'CARR'; return 'MC'; }
             return posMapNum[posRaw] || posRaw || '???';
         };
 
