@@ -933,6 +933,15 @@ if (customId.startsWith('manager_request_modal_')) {
                             rating: p.rating || '—',
                             goals: p.goals || 0,
                             assists: p.assists || 0,
+                            intercepts: p.interceptions ?? p.Interceptions ?? p.interception ?? '—',
+                            tacklesMade: p.tacklesMade ?? p.tacklesmade ?? p.tacklescompleted ?? '—',
+                            tacklesAtt: p.tacklesAttempted ?? p.tacklesattempted ?? p.tackleattempts ?? '—',
+                            allKeys: Object.keys(p),
+                            rawDefense: JSON.stringify({
+                                interceptions: p.interceptions, Interceptions: p.Interceptions,
+                                tacklesmade: p.tacklesmade, tacklesMade: p.tacklesMade, tacklescompleted: p.tacklescompleted,
+                                tacklesattempted: p.tacklesattempted, tacklesAttempted: p.tacklesAttempted, tackleattempts: p.tackleattempts
+                            }),
                             date: madridTime,
                             matchId: match.matchId,
                             clubName: match.clubs?.[clubId]?.details?.name || clubId
@@ -948,14 +957,15 @@ if (customId.startsWith('manager_request_modal_')) {
         }
 
         let output = `🔬 **Debug EA — ${found[0].name}**\n\`\`\`\n`;
-        output += `${'Fecha'.padEnd(12)} ${'pos'.padEnd(4)} ${'Mapeado'.padEnd(8)} ${'Archetype'.padEnd(10)} ${'Rating'.padEnd(7)} ${'G'.padEnd(3)} ${'A'.padEnd(3)} Club\n`;
+        output += `${'Fecha'.padEnd(12)} ${'Pos'.padEnd(5)} ${'Map'.padEnd(5)} ${'Arch'.padEnd(5)} ${'Rat'.padEnd(5)} ${'G'.padEnd(3)} ${'A'.padEnd(3)} ${'Int'.padEnd(4)} ${'TM'.padEnd(4)} ${'TA'.padEnd(4)} Club\n`;
         output += `${'─'.repeat(70)}\n`;
         for (const f of found) {
-            output += `${f.date.padEnd(12)} ${String(f.pos).padEnd(4)} ${f.mappedPos.padEnd(8)} ${String(f.archetypeid).padEnd(10)} ${String(f.rating).padEnd(7)} ${String(f.goals).padEnd(3)} ${String(f.assists).padEnd(3)} ${f.clubName}\n`;
+            output += `${f.date.padEnd(12)} ${String(f.pos).substring(0,4).padEnd(5)} ${f.mappedPos.padEnd(5)} ${String(f.archetypeid).padEnd(5)} ${String(f.rating).padEnd(5)} ${String(f.goals).padEnd(3)} ${String(f.assists).padEnd(3)} ${String(f.intercepts).padEnd(4)} ${String(f.tacklesMade).padEnd(4)} ${String(f.tacklesAtt).padEnd(4)} ${f.clubName}\n`;
         }
         output += `\`\`\`\n`;
-        output += `**Leyenda:** \`pos\` = ID de posición EA → \`Mapeado\` = resultado de POS_MAP\n`;
-        output += `Si \`pos\` es **12** → mapea a **MI** (nuestro cambio para carrileros)`;
+        output += `**Leyenda:** Pos=EA, Map=resolvePos, Arch=archetypeid, Int=intercepciones, TM=entradas hechas, TA=entradas intentadas\n\n`;
+        output += `**Keys defensivas crudas (1er partido):**\n\`\`\`json\n${found[0].rawDefense}\n\`\`\`\n`;
+        output += `**Todas las keys EA (1er partido):**\n\`${found[0].allKeys.join(', ')}\``;
 
         return interaction.editReply({ content: output });
     }
