@@ -69,6 +69,8 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                 matches = Object.values(matches || {});
             }
 
+            console.log(`[CRAWLER] API devolvió ${matches.length} partidos para ${team.name}`);
+
             for (const match of matches) {
                 const matchId = match.matchId;
                 const matchTimestamp = parseInt(match.timestamp) * 1000;

@@ -86,9 +86,9 @@ async function startVpgBot() {
             } catch (error) { console.error('[VPG] Error fatal durante la limpieza diaria:', error); }
         }, { scheduled: true, timezone: "Europe/Madrid" });
 
-        // Cronjob para el Crawler de EA Stats
-        cron.schedule('10 6 * * *', async () => {
-            console.log('[VPG] Ejecutando EA Stats Crawler a las 6:10 AM...');
+        // Cronjob para el Crawler de EA Stats (01:30 hora Madrid — justo tras las jornadas oficiales)
+        cron.schedule('30 1 * * *', async () => {
+            console.log('[VPG] Ejecutando EA Stats Crawler a la 1:30 AM (Madrid)...');
             try {
                 const { runVpgCrawler } = await import('../utils/eaStatsCrawler.js');
                 await runVpgCrawler();
