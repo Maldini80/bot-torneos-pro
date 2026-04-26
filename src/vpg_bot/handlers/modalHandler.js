@@ -885,6 +885,68 @@ if (customId.startsWith('manager_request_modal_')) {
         return interaction.editReply({ content: `✅ Franja horaria del crawler actualizada: **${startRaw} — ${endRaw}** (hora Madrid).\\n\\nSolo se guardarán partidos que terminen dentro de este rango. Para desactivar, escribe \`off\`.` });
     }
 
+    if (customId === 'stats_debug_ea_modal') {
+        const playerName = fields.getTextInputValue('player_name').trim();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        const { getDb } = await import('../../../database.js');
+        const db = getDb();
+        if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
+
+        const safeQuery = playerName.toLowerCase();
+        const recentMatches = await db.collection('scanned_matches').find({}).sort({ timestamp: -1 }).limit(300).toArray();
+
+        const POS_MAP = {
+            0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
+            6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
+            11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC'
+        };
+
+        const found = [];
+        for (const match of recentMatches) {
+            if (!match.players) continue;
+            for (const clubId in match.players) {
+                for (const pId in match.players[clubId]) {
+                    const p = match.players[clubId][pId];
+                    if (p.playername && p.playername.toLowerCase().includes(safeQuery)) {
+                        const matchDate = new Date(parseInt(match.timestamp) * 1000);
+                        const madridTime = matchDate.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+                        const mappedPos = POS_MAP[p.pos] || p.pos || '???';
+                        found.push({
+                            name: p.playername,
+                            pos: p.pos,
+                            mappedPos,
+                            archetypeid: p.archetypeid ?? '—',
+                            rating: p.rating || '—',
+                            goals: p.goals || 0,
+                            assists: p.assists || 0,
+                            date: madridTime,
+                            matchId: match.matchId,
+                            clubName: match.clubs?.[clubId]?.details?.name || clubId
+                        });
+                    }
+                }
+            }
+            if (found.length >= 5) break;
+        }
+
+        if (found.length === 0) {
+            return interaction.editReply({ content: `🔬 No se encontró ningún jugador con **"${playerName}"** en los últimos 300 partidos escaneados.` });
+        }
+
+        let output = `🔬 **Debug EA — ${found[0].name}**\n\`\`\`\n`;
+        output += `${'Fecha'.padEnd(12)} ${'pos'.padEnd(4)} ${'Mapeado'.padEnd(8)} ${'Archetype'.padEnd(10)} ${'Rating'.padEnd(7)} ${'G'.padEnd(3)} ${'A'.padEnd(3)} Club\n`;
+        output += `${'─'.repeat(70)}\n`;
+        for (const f of found) {
+            output += `${f.date.padEnd(12)} ${String(f.pos).padEnd(4)} ${f.mappedPos.padEnd(8)} ${String(f.archetypeid).padEnd(10)} ${String(f.rating).padEnd(7)} ${String(f.goals).padEnd(3)} ${String(f.assists).padEnd(3)} ${f.clubName}\n`;
+        }
+        output += `\`\`\`\n`;
+        output += `**Leyenda:** \`pos\` = ID de posición EA → \`Mapeado\` = resultado de POS_MAP\n`;
+        output += `Si \`pos\` es **12** → mapea a **MI** (nuestro cambio para carrileros)`;
+
+        return interaction.editReply({ content: output });
+    }
+
     if (customId === 'stats_player_scout_modal') {
         const playerName = fields.getTextInputValue('player_name').trim();
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });

@@ -1552,6 +1552,24 @@ const handler = async (client, interaction) => {
         }
     }
 
+    if (customId === 'stats_debug_ea') {
+        if (!isAdmin) return interaction.reply({ content: '🔒 Solo **administradores** pueden usar Debug EA.', ephemeral: true });
+
+        const modal = new ModalBuilder()
+            .setCustomId('stats_debug_ea_modal')
+            .setTitle('🔬 Debug EA — Datos Crudos');
+
+        const input = new TextInputBuilder()
+            .setCustomId('player_name')
+            .setLabel('Nombre del jugador (parcial o completo)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: joselitoRJ7')
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        return interaction.showModal(modal);
+    }
+
     if (customId === 'stats_team_scout') {
         const modal = new ModalBuilder()
             .setCustomId('stats_team_scout_modal')

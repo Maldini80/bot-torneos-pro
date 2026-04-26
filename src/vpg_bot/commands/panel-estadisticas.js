@@ -29,7 +29,12 @@ module.exports = {
                 .setCustomId('stats_match_history')
                 .setLabel('Últimos Partidos')
                 .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📜')
+                .setEmoji('📜'),
+            new ButtonBuilder()
+                .setCustomId('stats_debug_ea')
+                .setLabel('Debug EA')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔬')
         );
 
         return interaction.reply({ embeds: [embed], components: [row] });
