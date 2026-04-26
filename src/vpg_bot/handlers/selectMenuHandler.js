@@ -621,7 +621,8 @@ module.exports = async (client, interaction) => {
             new ButtonBuilder().setCustomId(`admin_scout_player_${teamId}`).setLabel('Scout Jugador').setStyle(ButtonStyle.Success).setEmoji('🔍')
         );
         const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId(`admin_elo_history_${teamId}`).setLabel('Historial ELO').setStyle(ButtonStyle.Secondary).setEmoji('📜')
         );
         
         if (team.eaClubId) {

@@ -1046,6 +1046,46 @@ const handler = async (client, interaction) => {
         return interaction.showModal(modal);
     }
 
+    if (customId.startsWith('admin_elo_history_')) {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+        const teamId = customId.split('_')[3];
+        const team = await Team.findById(teamId).lean();
+        if (!team) return interaction.editReply({ content: 'No se encontró el equipo.' });
+
+        const history = team.eloHistory || [];
+        if (history.length === 0) {
+            return interaction.editReply({ content: `📜 **${team.name}** no tiene historial de ELO registrado.` });
+        }
+
+        // Mostrar las últimas 15 entradas (más recientes primero)
+        const latest = history.slice(-15).reverse();
+        let table = '```\nFECHA            | ANTES | DESP  | CAMBIO | MOTIVO\n';
+        table += '-----------------+-------+-------+--------+------------------\n';
+        for (const entry of latest) {
+            const date = new Date(entry.date);
+            const dateStr = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }).padEnd(16);
+            const oldE = String(entry.oldElo ?? '?').padStart(5);
+            const newE = String(entry.newElo ?? '?').padStart(5);
+            const delta = entry.delta > 0 ? `+${entry.delta}` : `${entry.delta}`;
+            const deltaStr = delta.padStart(6);
+            let reason = entry.reason || '?';
+            if (reason === 'tournament_end') reason = entry.tournamentShortId ? `Torneo: ${entry.tournamentShortId.substring(0, 12)}` : 'Fin Torneo';
+            else if (reason === 'manual_admin_edit' || reason === 'manual') reason = 'Manual (Admin)';
+            table += `${dateStr} | ${oldE} | ${newE} | ${deltaStr} | ${reason.substring(0, 18)}\n`;
+        }
+        table += '```';
+
+        const { EmbedBuilder } = await import('discord.js');
+        const embed = new EmbedBuilder()
+            .setTitle(`📜 Historial ELO: ${team.name}`)
+            .setColor('#00b0f4')
+            .setDescription(`**ELO actual:** ${team.elo || 1000}\n**Registros:** ${history.length} (mostrando últimos ${latest.length})\n\n${table}`)
+            .setTimestamp();
+
+        return interaction.editReply({ embeds: [embed] });
+    }
+
     if (customId.startsWith('admin_dissolve_team_')) {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         const teamId = customId.split('_')[3];
