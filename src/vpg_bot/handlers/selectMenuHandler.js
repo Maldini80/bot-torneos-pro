@@ -618,24 +618,33 @@ module.exports = async (client, interaction) => {
             new ButtonBuilder().setCustomId(`admin_manage_members_${teamId}`).setLabel('Gestionar Miembros').setStyle(ButtonStyle.Primary),
             new ButtonBuilder().setCustomId(`admin_change_manager_${teamId}`).setLabel('Cambiar Mánager').setStyle(ButtonStyle.Primary).setEmoji('👑'),
             new ButtonBuilder().setCustomId(`admin_edit_elo_${teamId}`).setLabel('Editar ELO').setStyle(ButtonStyle.Secondary).setEmoji('📊'),
-            new ButtonBuilder().setCustomId(`admin_scout_player_${teamId}`).setLabel('Scout Jugador').setStyle(ButtonStyle.Success).setEmoji('🔍')
+            new ButtonBuilder().setCustomId(`admin_elo_history_${teamId}`).setLabel('Historial ELO').setStyle(ButtonStyle.Secondary).setEmoji('📜')
         );
         const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId(`admin_elo_history_${teamId}`).setLabel('Historial ELO').setStyle(ButtonStyle.Secondary).setEmoji('📜')
+            new ButtonBuilder().setCustomId(`admin_scout_player_${teamId}`).setLabel('Scout Jugador').setStyle(ButtonStyle.Success).setEmoji('🔍'),
+            new ButtonBuilder().setCustomId(`admin_dissolve_team_${teamId}`).setLabel('DISOLVER EQUIPO').setStyle(ButtonStyle.Danger)
         );
         
         if (team.eaClubId) {
             row2.addComponents(new ButtonBuilder().setCustomId(`admin_unlink_ea_${teamId}`).setLabel('Desvincular EA').setStyle(ButtonStyle.Danger).setEmoji('❌'));
-            row2.addComponents(new ButtonBuilder().setCustomId(`admin_ea_matches_${teamId}`).setLabel('Últimos Partidos EA').setStyle(ButtonStyle.Primary).setEmoji('📊'));
-            row2.addComponents(new ButtonBuilder().setCustomId(`admin_ea_heights_${teamId}`).setLabel('Ver Alturas').setStyle(ButtonStyle.Primary).setEmoji('📏'));
-            row2.addComponents(new ButtonBuilder().setCustomId(`admin_undo_scan_${teamId}`).setLabel('Deshacer Escaneos (24h)').setStyle(ButtonStyle.Danger).setEmoji('🗑️'));
         } else {
             row2.addComponents(new ButtonBuilder().setCustomId(`admin_link_ea_${teamId}`).setLabel('Vincular EA').setStyle(ButtonStyle.Success).setEmoji('🎮'));
         }
-        const row3 = new ActionRowBuilder().addComponents(leagueMenu);
 
-        await interaction.editReply({ content: '', embeds: [embed], components: [row1, row2, row3] });
+        const allRows = [row1, row2];
+
+        if (team.eaClubId) {
+            const row3 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`admin_ea_matches_${teamId}`).setLabel('Últimos Partidos EA').setStyle(ButtonStyle.Primary).setEmoji('📊'),
+                new ButtonBuilder().setCustomId(`admin_ea_heights_${teamId}`).setLabel('Ver Alturas').setStyle(ButtonStyle.Primary).setEmoji('📏'),
+                new ButtonBuilder().setCustomId(`admin_undo_scan_${teamId}`).setLabel('Deshacer Escaneos (24h)').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+            );
+            allRows.push(row3);
+        }
+
+        allRows.push(new ActionRowBuilder().addComponents(leagueMenu));
+
+        await interaction.editReply({ content: '', embeds: [embed], components: allRows });
         return;
     }
 
