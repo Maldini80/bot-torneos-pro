@@ -16,12 +16,14 @@ export async function getTournamentPlayersStats(tournament) {
             let finalName = teamName;
             let finalLogo = teamLogo;
             
-            // Si hay eaClubId, forzamos el uso del escudo oficial de EA Sports
-            if (eaClubId) {
-                finalLogo = `https://eafc24.content.easports.com/fifa/fltOnlineAssets/24B23FDE-7835-41C2-87A2-F453DFDB2E82/2024/fcweb/crests/256x256/l${eaClubId}.png`;
-            } else if (teamMetadataCache[eaClubId]) {
-                if (!teamLogo || teamLogo.includes('2M7540p.png') || teamLogo.includes('default_logo')) {
-                    finalLogo = teamMetadataCache[eaClubId].logoUrl || teamLogo;
+            // Prioridad de logo: 1) Logo puesto por el manager en Discord, 2) Escudo EA Sports como fallback
+            if (!finalLogo || finalLogo.includes('2M7540p.png') || finalLogo.includes('default_logo')) {
+                // Sin logo propio: intentar con el cache de la BD
+                if (teamMetadataCache[eaClubId] && teamMetadataCache[eaClubId].logoUrl) {
+                    finalLogo = teamMetadataCache[eaClubId].logoUrl;
+                } else if (eaClubId) {
+                    // Último recurso: escudo de EA Sports
+                    finalLogo = `https://eafc24.content.easports.com/fifa/fltOnlineAssets/24B23FDE-7835-41C2-87A2-F453DFDB2E82/2024/fcweb/crests/256x256/l${eaClubId}.png`;
                 }
             }
 
