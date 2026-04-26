@@ -145,26 +145,36 @@ const POS_MAP = {
     'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
 };
 
-// Mapa de ARQUETIPOS de EA FC (clase del jugador, no posición en formación)
-const ARCHETYPE_MAP = {
-    1: 'POR',   // Muro
-    2: 'POR',   // Guardameta Líbero
-    3: 'DFC',   // Impulso
-    4: 'DFC',   // Líder
-    5: 'DFC',   // Motor
-    6: 'DFC',   // Amenaza
-    7: 'MC',    // Nexo
-    8: 'MC',    // Guía
-    9: 'MC',    // Artista
-    10: 'MI',   // Chispa → Carrilero
-    11: 'DC',   // Mago
-    12: 'MI',   // Killer → Carrilero
-    13: 'DC',   // Finalizador
-};
+// Resuelve la posición combinando pos (categoría EA) + archetypeid (clase del jugador)
+// pos indica la zona general (goalkeeper, defender, midfielder, forward)
+// archetypeid distingue el rol exacto dentro de esa zona
+function resolvePos(posRaw, archetypeid) {
+    // Si pos es numérico (raro pero posible), usar POS_MAP directo
+    if (!isNaN(posRaw) && POS_MAP[posRaw] !== undefined) return POS_MAP[posRaw];
+
+    const p = String(posRaw || '').toLowerCase();
+
+    // Portero: siempre POR
+    if (p === 'goalkeeper') return 'POR';
+
+    // Delantero: siempre DC (incluso si el arquetipo es Killer/Chispa)
+    if (p === 'forward' || p === 'attacker' || p === 'striker') return 'DC';
+
+    // Defensa: siempre DFC
+    if (p === 'defender' || p === 'centerback') return 'DFC';
+
+    // Mediocampista: usar archetypeid para distinguir carrileros de centrocampistas
+    if (p === 'midfielder') {
+        if (archetypeid == 10 || archetypeid == 12) return 'MI'; // Chispa/Killer → Carrilero
+        return 'MC';
+    }
+
+    // Fallback: texto de POS_MAP o crudo
+    return POS_MAP[posRaw] || posRaw || '???';
+}
 
 async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsAgainstThisMatch = 0) {
-    // Priorizar archetypeid (clase del jugador) sobre pos (texto genérico como "midfielder")
-    const pos = ARCHETYPE_MAP[matchData.archetypeid] || POS_MAP[matchData.pos] || matchData.pos || '???';
+    const pos = resolvePos(matchData.pos, matchData.archetypeid);
     const isGK = pos === 'POR';
 
     // EA API keys son inconsistentes: a veces camelCase, a veces minúsculas

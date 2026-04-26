@@ -1663,7 +1663,15 @@ const handler = async (client, interaction) => {
             await interaction.editReply({ content: `🔄 Re-escaneando **${totalMatches} partidos**... 0%` });
             
             const POS_MAP = { 0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI', 6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI', 11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC', 'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC', 'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD', 'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC', 'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC', 'striker': 'DC', 'winger': 'ED', 'wing': 'ED' };
-            const ARCHETYPE_MAP = { 1: 'POR', 2: 'POR', 3: 'DFC', 4: 'DFC', 5: 'DFC', 6: 'DFC', 7: 'MC', 8: 'MC', 9: 'MC', 10: 'MI', 11: 'DC', 12: 'MI', 13: 'DC' };
+            const resolvePos = (posRaw, archetypeid) => {
+                if (!isNaN(posRaw) && POS_MAP[posRaw] !== undefined) return POS_MAP[posRaw];
+                const p = String(posRaw || '').toLowerCase();
+                if (p === 'goalkeeper') return 'POR';
+                if (p === 'forward' || p === 'attacker' || p === 'striker') return 'DC';
+                if (p === 'defender' || p === 'centerback') return 'DFC';
+                if (p === 'midfielder') { if (archetypeid == 10 || archetypeid == 12) return 'MI'; return 'MC'; }
+                return POS_MAP[posRaw] || posRaw || '???';
+            };
 
             // Helper para keys inconsistentes de EA API
             const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
@@ -1742,7 +1750,7 @@ const handler = async (client, interaction) => {
                     if (match.players && match.players[clubId]) {
                         for (const playerId in match.players[clubId]) {
                             const p = match.players[clubId][playerId];
-                            const pos = ARCHETYPE_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
+                            const pos = resolvePos(p.pos, p.archetypeid);
                             const isGK = pos === 'POR';
                             const rating = parseFloat(p.rating || 0);
                             

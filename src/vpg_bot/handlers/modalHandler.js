@@ -12,22 +12,24 @@ const mongoose = require('mongoose');
 
 const POSITION_KEYS = ['GK', 'CB', 'WB', 'CDM', 'CM', 'CAM', 'ST'];
 
-// Mapa de ARQUETIPOS de EA FC (clase del jugador, no posición en formación)
-const ARCHETYPE_MAP = {
-    1: 'POR',   // Muro
-    2: 'POR',   // Guardameta Líbero
-    3: 'DFC',   // Impulso
-    4: 'DFC',   // Líder
-    5: 'DFC',   // Motor
-    6: 'DFC',   // Amenaza
-    7: 'MC',    // Nexo
-    8: 'MC',    // Guía
-    9: 'MC',    // Artista
-    10: 'MI',   // Chispa → Carrilero
-    11: 'DC',   // Mago
-    12: 'MI',   // Killer → Carrilero
-    13: 'DC',   // Finalizador
-};
+// Resuelve posición combinando pos (categoría EA) + archetypeid (clase)
+function resolvePos(posRaw, archetypeid) {
+    const POS_MAP_INLINE = {
+        0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
+        6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
+        11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC'
+    };
+    if (!isNaN(posRaw) && POS_MAP_INLINE[posRaw] !== undefined) return POS_MAP_INLINE[posRaw];
+    const p = String(posRaw || '').toLowerCase();
+    if (p === 'goalkeeper') return 'POR';
+    if (p === 'forward' || p === 'attacker' || p === 'striker') return 'DC';
+    if (p === 'defender' || p === 'centerback') return 'DFC';
+    if (p === 'midfielder') {
+        if (archetypeid == 10 || archetypeid == 12) return 'MI'; // Chispa/Killer → Carrilero
+        return 'MC';
+    }
+    return POS_MAP_INLINE[posRaw] || posRaw || '???';
+}
 
 async function sendApprovalRequest(interaction, client, { vpgUsername, teamName, teamAbbr, teamTwitter, leagueName, logoUrl }) {
     const approvalChannelId = process.env.APPROVAL_CHANNEL_ID;
@@ -913,12 +915,6 @@ if (customId.startsWith('manager_request_modal_')) {
         const safeQuery = playerName.toLowerCase();
         const recentMatches = await db.collection('scanned_matches').find({}).sort({ timestamp: -1 }).limit(300).toArray();
 
-        const POS_MAP = {
-            0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
-            6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
-            11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC'
-        };
-
         const found = [];
         for (const match of recentMatches) {
             if (!match.players) continue;
@@ -928,7 +924,7 @@ if (customId.startsWith('manager_request_modal_')) {
                     if (p.playername && p.playername.toLowerCase().includes(safeQuery)) {
                         const matchDate = new Date(parseInt(match.timestamp) * 1000);
                         const madridTime = matchDate.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
-                        const mappedPos = ARCHETYPE_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
+                        const mappedPos = resolvePos(p.pos, p.archetypeid);
                         found.push({
                             name: p.playername,
                             pos: p.pos,
@@ -1156,7 +1152,7 @@ if (customId.startsWith('manager_request_modal_')) {
         if (lastMatch.length > 0 && lastMatch[0].players && lastMatch[0].players[club.eaClubId]) {
             const players = Object.values(lastMatch[0].players[club.eaClubId]);
             const sorted = players.map(p => {
-                const pos = ARCHETYPE_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '???';
+                const pos = resolvePos(p.pos, p.archetypeid);
                 return { pos, name: p.playername, order: POS_ORDER[pos] ?? 99 };
             }).sort((a, b) => a.order - b.order);
             lineupStr = sorted.map(p => `**${p.pos}** ${p.name}`).join(' | ');
@@ -1341,7 +1337,7 @@ if (customId.startsWith('manager_request_modal_')) {
             if (match.players && match.players[club.eaClubId]) {
                 const players = Object.values(match.players[club.eaClubId]);
                 const sorted = players.map(p => {
-                    const pos = ARCHETYPE_MAP[p.archetypeid] || POS_MAP[p.pos] || p.pos || '?';
+                    const pos = resolvePos(p.pos, p.archetypeid);
                     const pGoals = parseInt(p.goals || 0);
                     const pAssists = parseInt(p.assists || 0);
                     const rating = parseFloat(p.rating || 0).toFixed(1);

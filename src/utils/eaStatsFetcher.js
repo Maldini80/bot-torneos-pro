@@ -110,10 +110,14 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
             11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC'
         };
 
-        // Mapa de ARQUETIPOS (clase del jugador, no posición en formación)
-        const archetypeMap = {
-            1: 'POR', 2: 'POR', 3: 'DFC', 4: 'DFC', 5: 'DFC', 6: 'DFC',
-            7: 'MC', 8: 'MC', 9: 'MC', 10: 'MI', 11: 'DC', 12: 'MI', 13: 'DC'
+        const resolvePos = (posRaw, archetypeid) => {
+            if (!isNaN(posRaw) && posMapNum[posRaw] !== undefined) return posMapNum[posRaw];
+            const p = String(posRaw || '').toLowerCase();
+            if (p === 'goalkeeper') return 'POR';
+            if (p === 'forward' || p === 'attacker' || p === 'striker') return 'DC';
+            if (p === 'defender' || p === 'centerback') return 'DFC';
+            if (p === 'midfielder') { if (archetypeid == 10 || archetypeid == 12) return 'MI'; return 'MC'; }
+            return posMapNum[posRaw] || posRaw || '???';
         };
 
         const aggregatePlayers = (targetClubPlayers, sourcePlayersData, teamGoalsAgainst) => {
@@ -121,13 +125,7 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
             for (const [playerId, pData] of Object.entries(sourcePlayersData)) {
                 const pName = pData.playername || playerId;
                 
-                let resolvedPos = pData.pos || 'unknown';
-                // Priorizar archetypeid (clase del jugador) sobre pos (genérico como "midfielder")
-                if (pData.archetypeid !== undefined && archetypeMap[pData.archetypeid] !== undefined) {
-                    resolvedPos = archetypeMap[pData.archetypeid];
-                } else if (!isNaN(pData.pos) && posMapNum[pData.pos] !== undefined) {
-                    resolvedPos = posMapNum[pData.pos];
-                }
+                const resolvedPos = resolvePos(pData.pos, pData.archetypeid);
 
                 if (!targetClubPlayers[pName]) {
                     targetClubPlayers[pName] = {
