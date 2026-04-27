@@ -1619,7 +1619,7 @@ const handler = async (client, interaction) => {
             .setCustomId('team_name')
             .setLabel('Nombre del equipo (parcial)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ej: Ceuta, Guardians, etc.')
+            .setPlaceholder('Ej: Real Madrid, Barça, etc.')
             .setRequired(true);
 
         const row = new ActionRowBuilder().addComponents(input);
@@ -1655,7 +1655,7 @@ const handler = async (client, interaction) => {
             .setCustomId('team_name')
             .setLabel('Nombre del equipo (parcial)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ej: Ceuta, Guardians, etc.')
+            .setPlaceholder('Ej: Real Madrid, Barça, etc.')
             .setRequired(true);
 
         const timeInput = new TextInputBuilder()
