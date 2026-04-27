@@ -3,8 +3,8 @@
 
 import { getDb } from '../../database.js';
 import { ObjectId } from 'mongodb';
-import { TOURNAMENT_FORMATS, DRAFT_POSITIONS } from '../../config.js';
-import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField } from 'discord.js';
+import { TOURNAMENT_FORMATS, DRAFT_POSITIONS, CHANNELS } from '../../config.js';
+import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, MessageFlags, PermissionsBitField, ChannelType } from 'discord.js';
 import { updateTournamentConfig, addCoCaptain, createNewDraft, handlePlayerSelection, createTournamentFromDraft, kickPlayerFromDraft, inviteReplacementPlayer, approveTeam, updateDraftMainInterface, updatePublicMessages, notifyVisualizer, kickTeam, notifyTournamentVisualizer } from '../logic/tournamentLogic.js';
 import { handlePlatformSelection, handlePCLauncherSelection, handleProfileUpdateSelection, checkVerification } from '../logic/verificationLogic.js';
 import { setChannelIcon } from '../utils/panelManager.js';
@@ -608,12 +608,35 @@ export async function handleSelectMenu(interaction) {
             return interaction.editReply({ content: '❌ Torneo no encontrado.', components: [] });
         }
 
-        if (!tournament.discordMessageIds?.managementThreadId) {
-            return interaction.editReply({ content: '❌ Este torneo no tiene un hilo de gestión asociado.', components: [] });
-        }
-
         try {
-            const thread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId);
+            let thread = null;
+            if (tournament.discordMessageIds?.managementThreadId) {
+                try {
+                    thread = await client.channels.fetch(tournament.discordMessageIds.managementThreadId);
+                } catch (err) {
+                    if (err.code === 10003) {
+                        console.log(`[REGENERATE] Hilo ${tournament.discordMessageIds.managementThreadId} no encontrado. Creando uno nuevo.`);
+                    } else {
+                        throw err;
+                    }
+                }
+            }
+
+            // Si el hilo no existe (fue borrado o nunca existió), creamos uno nuevo
+            if (!thread) {
+                const parentChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_MANAGEMENT_PARENT).catch(() => interaction.channel);
+                thread = await parentChannel.threads.create({
+                    name: `⚙️-gestión-${tournament.nombre.toLowerCase().replace(/\s+/g, '-')}`,
+                    autoArchiveDuration: 10080,
+                    reason: 'Panel de gestión regenerado (el original no existía o fue borrado).'
+                });
+
+                // Actualizar DB con el nuevo ID del hilo
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { 'discordMessageIds.managementThreadId': thread.id } }
+                );
+            }
 
             // Desarchivar si es necesario
             if (thread.archived) {
@@ -632,7 +655,7 @@ export async function handleSelectMenu(interaction) {
                 await thread.send(panelContent);
             }
 
-            await interaction.editReply({ content: `✅ Panel de gestión de **${tournament.nombre}** regenerado correctamente en el hilo de gestión.`, components: [] });
+            await interaction.editReply({ content: `✅ Panel de gestión de **${tournament.nombre}** regenerado correctamente en el hilo: ${thread.toString()}`, components: [] });
         } catch (error) {
             console.error(`[REGENERATE] Error al regenerar panel de ${tournamentShortId}:`, error);
             await interaction.editReply({ content: `❌ Error al regenerar el panel: ${error.message}`, components: [] });
