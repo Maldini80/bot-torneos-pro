@@ -60,7 +60,7 @@ async function processQueue() {
     try {
         console.log(`[EA_QUEUE] Procesando partido ${job.matchId} de torneo ${job.tournamentShortId}...`);
 
-        const stats = await fetchAndAggregateStats(job.clubIdA, job.clubIdB, job.platform, 3);
+        const stats = await fetchAndAggregateStats(job.clubIdA, job.clubIdB, job.platform, 12);
         
         if (stats) {
             console.log(`[EA_QUEUE] Estadísticas obtenidas para ${job.matchId}. Inyectando en la BD...`);
