@@ -1061,6 +1061,8 @@ if (customId.startsWith('manager_request_modal_')) {
         const pending = pendingSelections.get(interaction.user.id);
         if (pending) pendingSelections.delete(interaction.user.id);
         
+        console.log(`📊 [DEBUG-SCOUT] pending = ${JSON.stringify(pending)}`);
+        
         let timeFilters = []; // Array de { start, end, name }
         let daysFilter = null;
         let resolvedSlotNames = [];
@@ -1069,8 +1071,10 @@ if (customId.startsWith('manager_request_modal_')) {
             // Resolver slots seleccionados desde la DB
             const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
             const savedSlots = config?.timeSlots || [];
+            console.log(`📊 [DEBUG-SCOUT] savedSlots en DB = ${JSON.stringify(savedSlots)}`);
             for (const slotName of pending.slots) {
                 const found = savedSlots.find(s => s.name === slotName);
+                console.log(`📊 [DEBUG-SCOUT] buscando "${slotName}" → ${found ? JSON.stringify(found) : 'NO ENCONTRADO'}`);
                 if (found) {
                     timeFilters.push({ start: found.start, end: found.end, name: found.name });
                     resolvedSlotNames.push(found.name);
@@ -1575,6 +1579,8 @@ if (customId.startsWith('manager_request_modal_')) {
         const pending = pendingSelections.get(interaction.user.id);
         if (pending) pendingSelections.delete(interaction.user.id);
         
+        console.log(`📊 [DEBUG-HISTORY] pending = ${JSON.stringify(pending)}`);
+        
         let timeFilters = [];
         let daysFilter = null;
         let resolvedSlotNames = [];
@@ -1582,8 +1588,10 @@ if (customId.startsWith('manager_request_modal_')) {
         if (pending && pending.slots && !pending.slots.includes('__ALL__')) {
             const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
             const savedSlots = config?.timeSlots || [];
+            console.log(`📊 [DEBUG-HISTORY] savedSlots en DB = ${JSON.stringify(savedSlots)}`);
             for (const slotName of pending.slots) {
                 const found = savedSlots.find(s => s.name === slotName);
+                console.log(`📊 [DEBUG-HISTORY] buscando "${slotName}" → ${found ? JSON.stringify(found) : 'NO ENCONTRADO'}`);
                 if (found) {
                     timeFilters.push({ start: found.start, end: found.end, name: found.name });
                     resolvedSlotNames.push(found.name);
@@ -1593,6 +1601,7 @@ if (customId.startsWith('manager_request_modal_')) {
                     }
                 }
             }
+            console.log(`📊 [DEBUG-HISTORY] timeFilters resueltos = ${JSON.stringify(timeFilters)}, daysFilter = ${JSON.stringify(daysFilter)}`);
         } else if (!pending && timeFilterRaw) {
             const timeMatch = timeFilterRaw.match(/^(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
             if (timeMatch) {
