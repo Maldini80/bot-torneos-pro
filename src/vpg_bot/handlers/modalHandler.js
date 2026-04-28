@@ -1043,11 +1043,57 @@ if (customId.startsWith('manager_request_modal_')) {
         return interaction.editReply({ content: `🗑️ Franja **"${removed.name}"** (\`${removed.start}-${removed.end}\`) eliminada.` });
     }
 
+    // Helper: parsear rango de fechas desde texto
+    // Soporta: "15/04/26-28/04/26", "desde 20/04/26", "hasta 28/04/26"
+    const parseDateFilter = (raw) => {
+        if (!raw) return null;
+        const parseDate = (s) => {
+            const parts = s.trim().split('/');
+            if (parts.length < 2) return null;
+            const day = parseInt(parts[0]);
+            const month = parseInt(parts[1]) - 1;
+            const year = parts[2] ? (parseInt(parts[2]) < 100 ? 2000 + parseInt(parts[2]) : parseInt(parts[2])) : new Date().getFullYear();
+            const d = new Date(year, month, day);
+            return isNaN(d.getTime()) ? null : d;
+        };
+        
+        // "desde DD/MM/YY"
+        const desdeMatch = raw.match(/^desde\s+(.+)$/i);
+        if (desdeMatch) {
+            const from = parseDate(desdeMatch[1]);
+            return from ? { from, to: null } : null;
+        }
+        // "hasta DD/MM/YY"
+        const hastaMatch = raw.match(/^hasta\s+(.+)$/i);
+        if (hastaMatch) {
+            const to = parseDate(hastaMatch[1]);
+            if (to) to.setHours(23, 59, 59);
+            return to ? { from: null, to } : null;
+        }
+        // "DD/MM/YY-DD/MM/YY"
+        const rangeMatch = raw.match(/^(.+?)\s*[-–]\s*(.+)$/);
+        if (rangeMatch) {
+            const from = parseDate(rangeMatch[1]);
+            const to = parseDate(rangeMatch[2]);
+            if (to) to.setHours(23, 59, 59);
+            return (from || to) ? { from, to } : null;
+        }
+        // Solo una fecha = ese día
+        const single = parseDate(raw);
+        if (single) {
+            const to = new Date(single);
+            to.setHours(23, 59, 59);
+            return { from: single, to };
+        }
+        return null;
+    };
+
     if (customId === 'stats_player_scout_modal') {
         const playerName = fields.getTextInputValue('player_name').trim();
-        let timeFilterRaw = '', daysFilterRaw = '';
+        let timeFilterRaw = '', daysFilterRaw = '', dateFilterRaw = '';
         try { timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim(); } catch(e) {}
         try { daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim(); } catch(e) {}
+        try { dateFilterRaw = (fields.getTextInputValue('date_filter') || '').trim(); } catch(e) {}
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) scout jugador: "${playerName}"`);
@@ -1146,10 +1192,19 @@ if (customId.startsWith('manager_request_modal_')) {
             }
         }
         
+        // Parsear rango de fechas
+        const dateFilter = parseDateFilter(dateFilterRaw);
+        
         // Helper para filtrar matches por hora/día Madrid — soporta múltiples franjas (OR)
         const filterMatchByTimeAndDay = (match) => {
             if (!match.timestamp) return false;
             const matchDate = new Date(parseInt(match.timestamp) * 1000);
+            
+            // Filtro de fecha
+            if (dateFilter) {
+                if (dateFilter.from && matchDate < dateFilter.from) return false;
+                if (dateFilter.to && matchDate > dateFilter.to) return false;
+            }
             
             // Filtro de día
             if (daysFilter) {
@@ -1183,7 +1238,7 @@ if (customId.startsWith('manager_request_modal_')) {
 
         // Si hay filtros activos, recalcular stats desde scanned_matches
         let s, m, pos, lastClub, lastActive;
-        const hasFilters = timeFilters.length > 0 || daysFilter;
+        const hasFilters = timeFilters.length > 0 || daysFilter || dateFilter;
         
         if (hasFilters) {
             // Buscar todos los matches donde este jugador participó
@@ -1319,6 +1374,14 @@ if (customId.startsWith('manager_request_modal_')) {
             const daysText = daysFilter.map(d => dayNames[d]).join(', ');
             filterText += (filterText ? ' | ' : '') + `📅 ${daysText}`;
         }
+        if (dateFilter) {
+            const fmt = (d) => d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            let dateStr = '';
+            if (dateFilter.from && dateFilter.to) dateStr = `${fmt(dateFilter.from)} — ${fmt(dateFilter.to)}`;
+            else if (dateFilter.from) dateStr = `desde ${fmt(dateFilter.from)}`;
+            else if (dateFilter.to) dateStr = `hasta ${fmt(dateFilter.to)}`;
+            filterText += (filterText ? ' | ' : '') + `🗓️ ${dateStr}`;
+        }
         
         const dnfNote = (s.dnfCount && s.dnfCount > 0) ? ` *(+${s.dnfCount} 🔌 sin datos)*` : '';
         
@@ -1378,9 +1441,10 @@ if (customId.startsWith('manager_request_modal_')) {
 
     if (customId === 'stats_team_scout_modal') {
         const teamName = fields.getTextInputValue('team_name').trim();
-        let timeFilterRaw = '', daysFilterRaw = '';
+        let timeFilterRaw = '', daysFilterRaw = '', dateFilterRaw = '';
         try { timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim(); } catch(e) {}
         try { daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim(); } catch(e) {}
+        try { dateFilterRaw = (fields.getTextInputValue('date_filter') || '').trim(); } catch(e) {}
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) scout equipo: "${teamName}"`);
@@ -1435,6 +1499,9 @@ if (customId.startsWith('manager_request_modal_')) {
             if (daysFilter.length === 0) daysFilter = null;
         }
         
+        // Parsear rango de fechas
+        const dateFilter = parseDateFilter(dateFilterRaw);
+        
         // Texto de filtros para embed
         let filterText = '';
         if (resolvedSlotNames.length > 0) {
@@ -1445,6 +1512,14 @@ if (customId.startsWith('manager_request_modal_')) {
         if (daysFilter) {
             const dayNames = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
             filterText += (filterText ? ' | ' : '') + `📅 ${daysFilter.map(d => dayNames[d]).join(', ')}`;
+        }
+        if (dateFilter) {
+            const fmt = (d) => d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            let dateStr = '';
+            if (dateFilter.from && dateFilter.to) dateStr = `${fmt(dateFilter.from)} — ${fmt(dateFilter.to)}`;
+            else if (dateFilter.from) dateStr = `desde ${fmt(dateFilter.from)}`;
+            else if (dateFilter.to) dateStr = `hasta ${fmt(dateFilter.to)}`;
+            filterText += (filterText ? ' | ' : '') + `🗓️ ${dateStr}`;
         }
 
         const safeQuery = teamName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1480,7 +1555,7 @@ if (customId.startsWith('manager_request_modal_')) {
             return interaction.editReply({ content: `No se encontró ningún equipo con **"${teamName}"**.` });
         }
         
-        const hasFilters = timeFilters.length > 0 || daysFilter;
+        const hasFilters = timeFilters.length > 0 || daysFilter || dateFilter;
         let s, m;
         
         if (hasFilters) {
@@ -1490,10 +1565,15 @@ if (customId.startsWith('manager_request_modal_')) {
                 [`clubs.${club.eaClubId}`]: { $exists: true }
             }).sort({ timestamp: -1 }).toArray();
             
-            // Helper para filtrar por hora/día Madrid
+            // Helper para filtrar por hora/día/fecha Madrid
             const filterMatch = (match) => {
                 if (!match.timestamp) return false;
                 const matchDate = new Date(parseInt(match.timestamp) * 1000);
+                // Filtro de fecha
+                if (dateFilter) {
+                    if (dateFilter.from && matchDate < dateFilter.from) return false;
+                    if (dateFilter.to && matchDate > dateFilter.to) return false;
+                }
                 if (daysFilter) {
                     const madridDayStr = matchDate.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid', weekday: 'short' });
                     const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
@@ -1642,9 +1722,10 @@ if (customId.startsWith('manager_request_modal_')) {
 
     if (customId === 'stats_match_history_modal') {
         const teamName = fields.getTextInputValue('team_name').trim();
-        let timeFilterRaw = '', daysFilterRaw = '';
+        let timeFilterRaw = '', daysFilterRaw = '', dateFilterRaw = '';
         try { timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim(); } catch(e) {}
         try { daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim(); } catch(e) {}
+        try { dateFilterRaw = (fields.getTextInputValue('date_filter') || '').trim(); } catch(e) {}
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) historial equipo: "${teamName}"`);
@@ -1707,6 +1788,9 @@ if (customId.startsWith('manager_request_modal_')) {
             if (daysFilter.length === 0) daysFilter = null;
         }
 
+        // Parsear rango de fechas
+        const dateFilter = parseDateFilter(dateFilterRaw);
+
         const safeQuery = teamName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         let club = null;
 
@@ -1730,10 +1814,16 @@ if (customId.startsWith('manager_request_modal_')) {
             [`clubs.${club.eaClubId}`]: { $exists: true }
         }).sort({ timestamp: -1 }).limit(50).toArray();
 
-        // Aplicar filtro horario (multi-slot OR) y de días
+        // Aplicar filtro horario (multi-slot OR), de días y de fechas
         matches = matches.filter(match => {
             if (!match.timestamp) return false;
             const matchDate = new Date(parseInt(match.timestamp) * 1000);
+            
+            // Filtro de fecha
+            if (dateFilter) {
+                if (dateFilter.from && matchDate < dateFilter.from) return false;
+                if (dateFilter.to && matchDate > dateFilter.to) return false;
+            }
             
             // Filtro de día
             if (daysFilter) {
@@ -1777,6 +1867,12 @@ if (customId.startsWith('manager_request_modal_')) {
         if (daysFilter) {
             const dayNames = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
             filterInfo.push(`días ${daysFilter.map(d => dayNames[d]).join(', ')}`);
+        }
+        if (dateFilter) {
+            const fmt = (d) => d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            if (dateFilter.from && dateFilter.to) filterInfo.push(`🗓️ ${fmt(dateFilter.from)} — ${fmt(dateFilter.to)}`);
+            else if (dateFilter.from) filterInfo.push(`🗓️ desde ${fmt(dateFilter.from)}`);
+            else if (dateFilter.to) filterInfo.push(`🗓️ hasta ${fmt(dateFilter.to)}`);
         }
         const filterStr = filterInfo.length > 0 ? ` (${filterInfo.join(', ')})` : '';
         

@@ -960,7 +960,18 @@ module.exports = async (client, interaction) => {
             .setPlaceholder(cfg.placeholder)
             .setRequired(true);
         
-        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        const dateInput = new TextInputBuilder()
+            .setCustomId('date_filter')
+            .setLabel('📅 Rango de fechas (opcional)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: 15/04/26-28/04/26 o desde 20/04/26')
+            .setRequired(false)
+            .setMaxLength(30);
+        
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(input),
+            new ActionRowBuilder().addComponents(dateInput)
+        );
         
         return interaction.showModal(modal);
     }
