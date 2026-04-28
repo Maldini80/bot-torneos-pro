@@ -21,6 +21,14 @@ export async function handleSelectMenu(interaction) {
 
     const [action, ...params] = customId.split(':');
 
+    // Redirigir select menus del Panel de Estadísticas al handler del VPG Bot
+    if (customId.startsWith('stats_slot_select_')) {
+        const { createRequire } = await import('module');
+        const require = createRequire(import.meta.url);
+        const vpgSelectMenuHandler = require('../vpg_bot/handlers/selectMenuHandler.js');
+        return vpgSelectMenuHandler(client, interaction);
+    }
+
     // =======================================================
     // --- LÓGICA DE VERIFICACIÓN Y GESTIÓN DE PERFIL ---
     // =======================================================
