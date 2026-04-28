@@ -887,7 +887,8 @@ if (customId.startsWith('manager_request_modal_')) {
 
         // Permitir desactivar con "off" o "null"
         if (startRaw === 'off' || startRaw === 'null' || startRaw === 'no') {
-            const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
+            const { getDb: getDbImport } = await import('../../../database.js');
+            const settingsColl = getDbImport().collection('bot_settings');
             await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerTimeRange: null } });
             return interaction.editReply({ content: '✅ Filtro horario **desactivado**. El crawler guardará partidos de cualquier hora.' });
         }
@@ -898,7 +899,8 @@ if (customId.startsWith('manager_request_modal_')) {
             return interaction.editReply({ content: '❌ Formato incorrecto. Usa **HH:MM** (ej: `21:30`). Para desactivar, escribe `off` en la hora de inicio.' });
         }
 
-        const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
+        const { getDb: getDbImport2 } = await import('../../../database.js');
+        const settingsColl = getDbImport2().collection('bot_settings');
         await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerTimeRange: { start: startRaw, end: endRaw } } });
 
         return interaction.editReply({ content: `✅ Franja horaria del crawler actualizada: **${startRaw} — ${endRaw}** (hora Madrid).\\n\\nSolo se guardarán partidos que terminen dentro de este rango. Para desactivar, escribe \`off\`.` });
@@ -970,13 +972,143 @@ if (customId.startsWith('manager_request_modal_')) {
         return interaction.editReply({ content: output });
     }
 
+    // --- CRUD de Franjas Horarias con Nombre ---
+    if (customId === 'admin_create_time_slot_modal') {
+        const slotName = fields.getTextInputValue('slot_name').trim();
+        const slotStart = fields.getTextInputValue('slot_start').trim();
+        const slotEnd = fields.getTextInputValue('slot_end').trim();
+        const slotDaysRaw = (fields.getTextInputValue('slot_days') || '').trim();
+        
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        // Validar formato HH:MM
+        const timeRegex = /^\d{1,2}:\d{2}$/;
+        if (!timeRegex.test(slotStart) || !timeRegex.test(slotEnd)) {
+            return interaction.editReply({ content: '❌ Formato incorrecto. Usa **HH:MM** (ej: `22:20`).' });
+        }
+        
+        // Parsear días opcionales
+        let daysText = '';
+        if (slotDaysRaw) {
+            const days = slotDaysRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+            const dayNames = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+            daysText = days.map(d => dayNames[d]).join(', ');
+        }
+        
+        const { getDb: getDbSlots } = await import('../../../database.js');
+        const settingsColl = getDbSlots().collection('bot_settings');
+        
+        // Verificar que no exista ya
+        const config = await settingsColl.findOne({ _id: 'global_config' });
+        const existing = (config?.timeSlots || []).find(s => s.name.toLowerCase() === slotName.toLowerCase());
+        if (existing) {
+            return interaction.editReply({ content: `❌ Ya existe una franja con el nombre **"${slotName}"**. Bórrala primero o usa otro nombre.` });
+        }
+        
+        const newSlot = { name: slotName, start: slotStart, end: slotEnd };
+        if (daysText) newSlot.days = daysText;
+        if (slotDaysRaw) newSlot.daysRaw = slotDaysRaw;
+        
+        await settingsColl.updateOne(
+            { _id: 'global_config' },
+            { $push: { timeSlots: newSlot } }
+        );
+        
+        return interaction.editReply({ content: `✅ Franja **"${slotName}"** creada: \`${slotStart}-${slotEnd}\`${daysText ? ` | 📅 ${daysText}` : ''}.\n\n💡 Ahora puedes escribir **"${slotName}"** en el campo de franja horaria de los paneles de estadísticas en vez de escribir la hora manualmente.` });
+    }
+
+    if (customId === 'admin_delete_time_slot_modal') {
+        const slotName = fields.getTextInputValue('slot_name').trim();
+        
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        const { getDb: getDbSlots } = await import('../../../database.js');
+        const settingsColl = getDbSlots().collection('bot_settings');
+        
+        const config = await settingsColl.findOne({ _id: 'global_config' });
+        const slots = config?.timeSlots || [];
+        const idx = slots.findIndex(s => s.name.toLowerCase() === slotName.toLowerCase());
+        
+        if (idx === -1) {
+            const available = slots.map(s => `• ${s.name}`).join('\n') || '_Ninguna_';
+            return interaction.editReply({ content: `❌ No se encontró ninguna franja con el nombre **"${slotName}"**.\n\nFranjas disponibles:\n${available}` });
+        }
+        
+        const removed = slots[idx];
+        await settingsColl.updateOne(
+            { _id: 'global_config' },
+            { $pull: { timeSlots: { name: removed.name } } }
+        );
+        
+        return interaction.editReply({ content: `🗑️ Franja **"${removed.name}"** (\`${removed.start}-${removed.end}\`) eliminada.` });
+    }
+
     if (customId === 'stats_player_scout_modal') {
         const playerName = fields.getTextInputValue('player_name').trim();
+        const timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim();
+        const daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim();
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) scout jugador: "${playerName}"`);
         
         const { getDb } = await import('../../../database.js');
         const db = getDb();
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
+
+        // 1. Comprobar si hay selección de franjas desde el selector
+        const { pendingSelections } = require('../../utils/pendingStatsSelections.js');
+        const pending = pendingSelections.get(interaction.user.id);
+        if (pending) pendingSelections.delete(interaction.user.id);
+        
+        let timeFilters = []; // Array de { start, end, name }
+        let daysFilter = null;
+        let resolvedSlotNames = [];
+        
+        if (pending && pending.slots && !pending.slots.includes('__ALL__')) {
+            // Resolver slots seleccionados desde la DB
+            const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
+            const savedSlots = config?.timeSlots || [];
+            for (const slotName of pending.slots) {
+                const found = savedSlots.find(s => s.name === slotName);
+                if (found) {
+                    timeFilters.push({ start: found.start, end: found.end, name: found.name });
+                    resolvedSlotNames.push(found.name);
+                    // Usar días del primer slot que los tenga
+                    if (found.daysRaw && !daysFilter) {
+                        daysFilter = found.daysRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+                        if (daysFilter.length === 0) daysFilter = null;
+                    }
+                }
+            }
+        } else if (!pending && timeFilterRaw) {
+            // Fallback: parsear texto manual
+            const timeMatch = timeFilterRaw.match(/^(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
+            if (timeMatch) {
+                timeFilters.push({ start: timeMatch[1], end: timeMatch[2] });
+            } else {
+                // Intentar resolver como nombre
+                const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
+                const slots = config?.timeSlots || [];
+                const found = slots.find(s => s.name.toLowerCase() === timeFilterRaw.toLowerCase());
+                if (found) {
+                    timeFilters.push({ start: found.start, end: found.end, name: found.name });
+                    resolvedSlotNames.push(found.name);
+                    if (found.daysRaw && !daysFilterRaw) {
+                        daysFilter = found.daysRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+                        if (daysFilter.length === 0) daysFilter = null;
+                    }
+                } else {
+                    const available = slots.map(s => `• **${s.name}** → \`${s.start}-${s.end}\``).join('\n');
+                    return interaction.editReply({ content: `❌ Formato incorrecto. Usa **HH:MM-HH:MM** o un nombre de franja.${available ? '\n\n📐 Franjas:\n' + available : ''}` });
+                }
+            }
+        }
+        
+        // Parsear días manual si no viene de slot
+        if (!daysFilter && daysFilterRaw) {
+            daysFilter = daysFilterRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+            if (daysFilter.length === 0) daysFilter = null;
+        }
 
         // Escapar caracteres especiales de regex
         const safeQuery = playerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1009,9 +1141,118 @@ if (customId.startsWith('manager_request_modal_')) {
             }
         }
         
-        const s = profile.stats || {};
-        const m = s.matchesPlayed || 0;
-        if (m === 0) return interaction.editReply({ content: `El jugador **${profile.eaPlayerName}** no tiene partidos registrados aún.` });
+        // Helper para filtrar matches por hora/día Madrid — soporta múltiples franjas (OR)
+        const filterMatchByTimeAndDay = (match) => {
+            if (!match.timestamp) return false;
+            const matchDate = new Date(parseInt(match.timestamp) * 1000);
+            
+            // Filtro de día
+            if (daysFilter) {
+                const madridDayStr = matchDate.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid', weekday: 'short' });
+                const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+                const madridDay = dayMap[madridDayStr] ?? matchDate.getDay();
+                if (!daysFilter.includes(madridDay)) return false;
+            }
+            
+            // Filtro horario — match pasa si cae dentro de CUALQUIER franja seleccionada
+            if (timeFilters.length > 0) {
+                const madridTimeStr = matchDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
+                const [h, min] = madridTimeStr.split(':').map(Number);
+                const matchMinutes = h * 60 + min;
+                
+                const matchesAnySlot = timeFilters.some(tf => {
+                    const [sh, sm] = tf.start.split(':').map(Number);
+                    const [eh, em] = tf.end.split(':').map(Number);
+                    const startMin = sh * 60 + sm;
+                    const endMin = eh * 60 + em;
+                    if (startMin <= endMin) {
+                        return matchMinutes >= startMin && matchMinutes <= endMin;
+                    } else {
+                        return matchMinutes >= startMin || matchMinutes <= endMin;
+                    }
+                });
+                if (!matchesAnySlot) return false;
+            }
+            return true;
+        };
+
+        // Si hay filtros activos, recalcular stats desde scanned_matches
+        let s, m, pos, lastClub, lastActive;
+        const hasFilters = timeFilters.length > 0 || daysFilter;
+        
+        if (hasFilters) {
+            // Buscar todos los matches donde este jugador participó
+            const allMatches = await db.collection('scanned_matches').find({}).sort({ timestamp: -1 }).toArray();
+            
+            const filtered = allMatches.filter(match => {
+                // Check if player is in this match
+                if (!match.players) return false;
+                for (const clubId of Object.keys(match.players)) {
+                    for (const pid of Object.keys(match.players[clubId])) {
+                        const pData = match.players[clubId][pid];
+                        if (pData.playername && pData.playername.toLowerCase() === profile.eaPlayerName.toLowerCase()) {
+                            return filterMatchByTimeAndDay(match);
+                        }
+                    }
+                }
+                return false;
+            });
+            
+            // Aggregate stats from filtered matches
+            const aggr = { matchesPlayed: 0, goals: 0, assists: 0, shots: 0, shotsOnTarget: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0, interceptions: 0, saves: 0, mom: 0, redCards: 0, yellowCards: 0, cleanSheets: 0, goalsConceded: 0, ratings: [] };
+            
+            const getVal = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
+            
+            for (const match of filtered) {
+                for (const clubId of Object.keys(match.players || {})) {
+                    for (const pid of Object.keys(match.players[clubId])) {
+                        const pData = match.players[clubId][pid];
+                        if (pData.playername && pData.playername.toLowerCase() === profile.eaPlayerName.toLowerCase()) {
+                            aggr.matchesPlayed++;
+                            aggr.goals += getVal(pData, 'goals');
+                            aggr.assists += getVal(pData, 'assists');
+                            aggr.shots += getVal(pData, 'shots');
+                            aggr.shotsOnTarget += getVal(pData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal');
+                            aggr.passesMade += getVal(pData, 'passesMade', 'passesmade');
+                            aggr.passesAttempted += getVal(pData, 'passesAttempted', 'passesattempted', 'passattempts');
+                            aggr.tacklesMade += getVal(pData, 'tacklesMade', 'tacklesmade');
+                            aggr.tacklesAttempted += getVal(pData, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                            aggr.interceptions += getVal(pData, 'interceptions');
+                            aggr.saves += getVal(pData, 'saves');
+                            aggr.mom += getVal(pData, 'mom');
+                            aggr.redCards += getVal(pData, 'redCards', 'redcards');
+                            aggr.yellowCards += getVal(pData, 'yellowCards', 'yellowcards');
+                            aggr.ratings.push(parseFloat(pData.rating || 0));
+                            
+                            // GK stats
+                            const posStr = String(pData.pos || '').toLowerCase();
+                            if (posStr === 'goalkeeper' || posStr === '0') {
+                                const goalsAgainst = match.clubs[clubId] ? parseInt(match.clubs[clubId].goalsAgainst || 0) : 0;
+                                aggr.goalsConceded += goalsAgainst;
+                                if (goalsAgainst === 0) aggr.cleanSheets++;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            s = aggr;
+            m = aggr.matchesPlayed;
+            pos = profile.lastPosition || '???';
+            lastClub = profile.lastClub;
+            lastActive = profile.lastActive;
+        } else {
+            s = profile.stats || {};
+            m = s.matchesPlayed || 0;
+            pos = profile.lastPosition || '???';
+            lastClub = profile.lastClub;
+            lastActive = profile.lastActive;
+        }
+        
+        if (m === 0) {
+            const filterInfo = hasFilters ? ` dentro de la franja/días seleccionados` : '';
+            return interaction.editReply({ content: `El jugador **${profile.eaPlayerName}** no tiene partidos registrados${filterInfo}.` });
+        }
         
         const goals = s.goals || 0, assists = s.assists || 0, shots = s.shots || 0, shotsOT = s.shotsOnTarget || 0;
         const passesMade = s.passesMade || 0, passesAtt = s.passesAttempted || 0;
@@ -1031,13 +1272,26 @@ if (customId.startsWith('manager_request_modal_')) {
         
         // Traducir posiciones de texto EA que quedaron sin normalizar en perfiles antiguos
         const POS_TRANSLATE = { 'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC', 'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD', 'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC', 'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC', 'striker': 'DC', 'winger': 'ED' };
-        const rawPos = profile.lastPosition || '???';
-        const pos = POS_TRANSLATE[rawPos.toLowerCase()] || rawPos;
-        const isGK = pos === 'POR';
+        const rawPos = pos;
+        const translatedPos = POS_TRANSLATE[rawPos.toLowerCase()] || rawPos;
+        const isGK = translatedPos === 'POR';
+        
+        // Crear texto de filtros activos
+        let filterText = '';
+        if (resolvedSlotNames.length > 0) {
+            filterText += `📐 ${resolvedSlotNames.join(', ')}`;
+        } else if (timeFilters.length > 0) {
+            filterText += `⏰ ${timeFilters.map(tf => `${tf.start}-${tf.end}`).join(' + ')}`;
+        }
+        if (daysFilter) {
+            const dayNames = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+            const daysText = daysFilter.map(d => dayNames[d]).join(', ');
+            filterText += (filterText ? ' | ' : '') + `📅 ${daysText}`;
+        }
         
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Informe de Scout: ${profile.eaPlayerName}`)
-            .setDescription(`📋 **Equipo:** ${profile.lastClub || 'Desconocido'}\n🎽 **Posición:** ${pos}\n📅 **Última actividad:** ${profile.lastActive ? new Date(profile.lastActive).toLocaleDateString('es-ES') : '—'}`)
+            .setDescription(`📋 **Equipo:** ${lastClub || 'Desconocido'}\n🎽 **Posición:** ${translatedPos}\n📅 **Última actividad:** ${lastActive ? new Date(lastActive).toLocaleDateString('es-ES') : '—'}${filterText ? `\n🔎 **Filtro:** ${filterText}` : ''}`)
             .setColor('#2ecc71')
             .addFields(
                 { name: '🏟️ Partidos', value: `**${m}**`, inline: true },
@@ -1081,17 +1335,83 @@ if (customId.startsWith('manager_request_modal_')) {
             { name: '🟥 Rojas', value: `${redCards}`, inline: true },
             { name: '\u200B', value: '\u200B', inline: true }
         );
+        
+        if (filterText) {
+            embed.setFooter({ text: `Filtro aplicado: ${filterText}` });
+        }
             
         return interaction.editReply({ embeds: [embed] });
     }
 
     if (customId === 'stats_team_scout_modal') {
         const teamName = fields.getTextInputValue('team_name').trim();
+        const timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim();
+        const daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim();
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) scout equipo: "${teamName}"`);
         
         const { getDb } = await import('../../../database.js');
         const db = getDb();
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
+
+        // Comprobar pendingSelections
+        const { pendingSelections } = require('../../utils/pendingStatsSelections.js');
+        const pending = pendingSelections.get(interaction.user.id);
+        if (pending) pendingSelections.delete(interaction.user.id);
+        
+        let timeFilters = [];
+        let daysFilter = null;
+        let resolvedSlotNames = [];
+        
+        if (pending && pending.slots && !pending.slots.includes('__ALL__')) {
+            const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
+            const savedSlots = config?.timeSlots || [];
+            for (const slotName of pending.slots) {
+                const found = savedSlots.find(s => s.name === slotName);
+                if (found) {
+                    timeFilters.push({ start: found.start, end: found.end, name: found.name });
+                    resolvedSlotNames.push(found.name);
+                    if (found.daysRaw && !daysFilter) {
+                        daysFilter = found.daysRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+                        if (daysFilter.length === 0) daysFilter = null;
+                    }
+                }
+            }
+        } else if (!pending && timeFilterRaw) {
+            const timeMatch = timeFilterRaw.match(/^(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
+            if (timeMatch) {
+                timeFilters.push({ start: timeMatch[1], end: timeMatch[2] });
+            } else {
+                const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
+                const slots = config?.timeSlots || [];
+                const found = slots.find(s => s.name.toLowerCase() === timeFilterRaw.toLowerCase());
+                if (found) {
+                    timeFilters.push({ start: found.start, end: found.end, name: found.name });
+                    resolvedSlotNames.push(found.name);
+                    if (found.daysRaw && !daysFilterRaw) {
+                        daysFilter = found.daysRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+                        if (daysFilter.length === 0) daysFilter = null;
+                    }
+                }
+            }
+        }
+        if (!daysFilter && daysFilterRaw) {
+            daysFilter = daysFilterRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+            if (daysFilter.length === 0) daysFilter = null;
+        }
+        
+        // Texto de filtros para embed
+        let filterText = '';
+        if (resolvedSlotNames.length > 0) {
+            filterText += `📐 ${resolvedSlotNames.join(', ')}`;
+        } else if (timeFilters.length > 0) {
+            filterText += `⏰ ${timeFilters.map(tf => `${tf.start}-${tf.end}`).join(' + ')}`;
+        }
+        if (daysFilter) {
+            const dayNames = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+            filterText += (filterText ? ' | ' : '') + `📅 ${daysFilter.map(d => dayNames[d]).join(', ')}`;
+        }
 
         const safeQuery = teamName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         let club = null;
@@ -1171,7 +1491,7 @@ if (customId.startsWith('manager_request_modal_')) {
         const displayName = vpgTeamName ? `${vpgTeamName} (${club.eaClubName})` : club.eaClubName;
         const embed = new EmbedBuilder()
             .setTitle(`🛡️ Análisis Táctico: ${displayName}`)
-            .setDescription(`📅 **Última actividad:** ${club.lastActive ? new Date(club.lastActive).toLocaleDateString('es-ES') : '—'}`)
+            .setDescription(`📅 **Última actividad:** ${club.lastActive ? new Date(club.lastActive).toLocaleDateString('es-ES') : '—'}${filterText ? `\n🔎 **Filtro:** ${filterText}` : ''}`)
             .setColor('#3498db');
         
         if (vpgLogo) embed.setThumbnail(vpgLogo);
@@ -1199,6 +1519,10 @@ if (customId.startsWith('manager_request_modal_')) {
                 { name: '\u200B', value: '**📋 ÚLTIMA ALINEACIÓN**', inline: false },
                 { name: '\u200B', value: lineupStr, inline: false }
             );
+        
+        if (filterText) {
+            embed.setFooter({ text: `Filtro aplicado: ${filterText}` });
+        }
             
         return interaction.editReply({ embeds: [embed] });
     }
@@ -1206,21 +1530,62 @@ if (customId.startsWith('manager_request_modal_')) {
     if (customId === 'stats_match_history_modal') {
         const teamName = fields.getTextInputValue('team_name').trim();
         const timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim();
+        const daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim();
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) historial equipo: "${teamName}"`);
         
         const { getDb } = await import('../../../database.js');
         const db = getDb();
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
 
-        // Parsear filtro horario opcional (formato: HH:MM-HH:MM)
-        let timeFilter = null;
-        if (timeFilterRaw) {
+        // Comprobar pendingSelections
+        const { pendingSelections } = require('../../utils/pendingStatsSelections.js');
+        const pending = pendingSelections.get(interaction.user.id);
+        if (pending) pendingSelections.delete(interaction.user.id);
+        
+        let timeFilters = [];
+        let daysFilter = null;
+        let resolvedSlotNames = [];
+        
+        if (pending && pending.slots && !pending.slots.includes('__ALL__')) {
+            const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
+            const savedSlots = config?.timeSlots || [];
+            for (const slotName of pending.slots) {
+                const found = savedSlots.find(s => s.name === slotName);
+                if (found) {
+                    timeFilters.push({ start: found.start, end: found.end, name: found.name });
+                    resolvedSlotNames.push(found.name);
+                    if (found.daysRaw && !daysFilter) {
+                        daysFilter = found.daysRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+                        if (daysFilter.length === 0) daysFilter = null;
+                    }
+                }
+            }
+        } else if (!pending && timeFilterRaw) {
             const timeMatch = timeFilterRaw.match(/^(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
             if (timeMatch) {
-                timeFilter = { start: timeMatch[1], end: timeMatch[2] };
+                timeFilters.push({ start: timeMatch[1], end: timeMatch[2] });
             } else {
-                return interaction.editReply({ content: '❌ Formato de franja horaria incorrecto. Usa **HH:MM-HH:MM** (ej: `21:00-00:00`). Déjalo vacío para ver todos.' });
+                const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
+                const slots = config?.timeSlots || [];
+                const found = slots.find(s => s.name.toLowerCase() === timeFilterRaw.toLowerCase());
+                if (found) {
+                    timeFilters.push({ start: found.start, end: found.end, name: found.name });
+                    resolvedSlotNames.push(found.name);
+                    if (found.daysRaw && !daysFilterRaw) {
+                        daysFilter = found.daysRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+                        if (daysFilter.length === 0) daysFilter = null;
+                    }
+                } else {
+                    const available = slots.map(s => `• **${s.name}** → \`${s.start}-${s.end}\``).join('\n');
+                    return interaction.editReply({ content: `❌ Formato incorrecto. Usa **HH:MM-HH:MM** o un nombre de franja.${available ? '\n\n📐 Franjas:\n' + available : ''}` });
+                }
             }
+        }
+        if (!daysFilter && daysFilterRaw) {
+            daysFilter = daysFilterRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+            if (daysFilter.length === 0) daysFilter = null;
         }
 
         const safeQuery = teamName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1246,31 +1611,57 @@ if (customId.startsWith('manager_request_modal_')) {
             [`clubs.${club.eaClubId}`]: { $exists: true }
         }).sort({ timestamp: -1 }).limit(50).toArray();
 
-        // Aplicar filtro horario si se proporcionó
-        if (timeFilter) {
-            const [sh, sm] = timeFilter.start.split(':').map(Number);
-            const [eh, em] = timeFilter.end.split(':').map(Number);
-            const startMin = sh * 60 + sm;
-            const endMin = eh * 60 + em;
-
-            matches = matches.filter(match => {
-                if (!match.timestamp) return false;
-                const matchDate = new Date(parseInt(match.timestamp) * 1000);
+        // Aplicar filtro horario (multi-slot OR) y de días
+        matches = matches.filter(match => {
+            if (!match.timestamp) return false;
+            const matchDate = new Date(parseInt(match.timestamp) * 1000);
+            
+            // Filtro de día
+            if (daysFilter) {
+                const madridDayStr = matchDate.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid', weekday: 'short' });
+                const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+                const madridDay = dayMap[madridDayStr] ?? matchDate.getDay();
+                if (!daysFilter.includes(madridDay)) return false;
+            }
+            
+            // Filtro horario — pasa si cae dentro de CUALQUIER franja seleccionada
+            if (timeFilters.length > 0) {
                 const madridTimeStr = matchDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
                 const [h, min] = madridTimeStr.split(':').map(Number);
                 const matchMinutes = h * 60 + min;
-
-                if (startMin <= endMin) {
-                    return matchMinutes >= startMin && matchMinutes <= endMin;
-                } else {
-                    return matchMinutes >= startMin || matchMinutes <= endMin;
-                }
-            });
-        }
+                
+                const matchesAnySlot = timeFilters.some(tf => {
+                    const [sh, sm] = tf.start.split(':').map(Number);
+                    const [eh, em] = tf.end.split(':').map(Number);
+                    const startMin = sh * 60 + sm;
+                    const endMin = eh * 60 + em;
+                    if (startMin <= endMin) {
+                        return matchMinutes >= startMin && matchMinutes <= endMin;
+                    } else {
+                        return matchMinutes >= startMin || matchMinutes <= endMin;
+                    }
+                });
+                if (!matchesAnySlot) return false;
+            }
+            
+            return true;
+        });
 
         matches = matches.slice(0, 10);
         
-        if (matches.length === 0) return interaction.editReply({ content: timeFilter ? `No hay partidos guardados para **${club.eaClubName}** en la franja **${timeFilter.start}-${timeFilter.end}** (Madrid).` : `No hay partidos guardados para **${club.eaClubName}**.` });
+        const filterInfo = [];
+        if (resolvedSlotNames.length > 0) {
+            filterInfo.push(`📐 ${resolvedSlotNames.join(', ')}`);
+        } else if (timeFilters.length > 0) {
+            filterInfo.push(`franja ${timeFilters.map(tf => `${tf.start}-${tf.end}`).join(' + ')}`);
+        }
+        if (daysFilter) {
+            const dayNames = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+            filterInfo.push(`días ${daysFilter.map(d => dayNames[d]).join(', ')}`);
+        }
+        const filterStr = filterInfo.length > 0 ? ` (${filterInfo.join(', ')})` : '';
+        
+        if (matches.length === 0) return interaction.editReply({ content: `No hay partidos guardados para **${club.eaClubName}**${filterStr}.` });
         
         const POS_MAP = {
             0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
@@ -1284,114 +1675,202 @@ if (customId.startsWith('manager_request_modal_')) {
         };
         const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'CARR': 8, 'MCO': 9, 'MD': 10, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
 
-        const embeds = [];
+        // Helper para keys inconsistentes de EA API
+        const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
         
-        for (let i = 0; i < Math.min(matches.length, 5); i++) {
-            const match = matches[i];
-            const clubIds = Object.keys(match.clubs || {});
+        // --- Helper: extrae goles reales y datos de DNF de un partido ---
+        const extractMatchInfo = (match) => {
+            const matchClubIds = Object.keys(match.clubs || {});
+            const opponentId = matchClubIds.find(id => id !== club.eaClubId);
             const ourClub = match.clubs[club.eaClubId] || {};
-            const opponentId = clubIds.find(id => id !== club.eaClubId);
             const opponentClub = opponentId ? (match.clubs[opponentId] || {}) : {};
-            const opponentName = opponentClub.details?.name || opponentId || 'Desconocido';
-            
-            const ourGoals = parseInt(ourClub.goals || 0);
-            const oppGoals = parseInt(opponentClub.goals || 0);
-            const matchDateObj = match.timestamp ? new Date(parseInt(match.timestamp) * 1000) : null;
-            const matchDate = matchDateObj ? matchDateObj.toLocaleDateString('es-ES') : '?';
-            const matchTime = matchDateObj ? matchDateObj.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }) : '';
-            
-            let resultEmoji = '➖', resultColor = '#95a5a6';
-            if (ourGoals > oppGoals) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
-            else if (ourGoals < oppGoals) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
-            
-            // Helper para keys inconsistentes de EA API
-            const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
-            
-            // Sumar stats de todos los jugadores del equipo
-            const sumTeamStats = (players) => {
-                let s = { shots: 0, pm: 0, pa: 0, tm: 0, ta: 0, gkSaves: 0 };
-                if (!players) return s;
-                for (const pid in players) {
-                    const p = players[pid];
-                    s.shots += gv(p, 'shots');
-                    s.pm += gv(p, 'passesMade', 'passesmade', 'passescompleted');
-                    s.pa += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
-                    s.tm += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
-                    s.ta += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
-                    s.gkSaves += gv(p, 'saves');
+            let ourGoals = parseInt(ourClub.goals || 0);
+            let oppGoals = parseInt(opponentClub.goals || 0);
+            let maxSecs = 0;
+            let isDnf = false;
+
+            if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
+                let realOur = 0, realOpp = 0;
+                if (match.players && match.players[club.eaClubId]) {
+                    const ps = Object.values(match.players[club.eaClubId]);
+                    realOur = ps.reduce((s, p) => s + parseInt(p.goals || 0), 0);
+                    ps.forEach(p => { const sec = parseInt(p.secondsPlayed || 0); if (sec > maxSecs) maxSecs = sec; });
                 }
-                return s;
-            };
-            
-            const ourStats = sumTeamStats(match.players?.[club.eaClubId]);
-            const oppStats = sumTeamStats(match.players?.[opponentId]);
-            
-            // Tiros a puerta = goles + paradas del portero rival
-            const ourShotsOT = ourGoals + oppStats.gkSaves;
-            const oppShotsOT = oppGoals + ourStats.gkSaves;
-            const mPassMade = ourStats.pm;
-            const mPassAtt = ourStats.pa;
-            const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
-            const mTackMade = ourStats.tm;
-            const mTackAtt = ourStats.ta;
-            const mTackAcc = mTackAtt > 0 ? ((mTackMade / mTackAtt) * 100).toFixed(0) : '?';
-            
-            // Posesión estimada: ratio de pases intentados
-            const totalPassAtt = mPassAtt + oppStats.pa;
-            const estPoss = totalPassAtt > 0 ? ((mPassAtt / totalPassAtt) * 100).toFixed(0) : '?';
-            const estOppPoss = totalPassAtt > 0 ? ((oppStats.pa / totalPassAtt) * 100).toFixed(0) : '?';
-            const oppPassAcc = oppStats.pa > 0 ? ((oppStats.pm / oppStats.pa) * 100).toFixed(0) : '?';
-            
-            // Alineación ORDENADA con stats detalladas
-            let lineupStr = '';
-            if (match.players && match.players[club.eaClubId]) {
-                const players = Object.values(match.players[club.eaClubId]);
-                const sorted = players.map(p => {
-                    const pos = resolvePos(p.pos, p.archetypeid);
-                    const pGoals = parseInt(p.goals || 0);
-                    const pAssists = parseInt(p.assists || 0);
-                    const rating = parseFloat(p.rating || 0).toFixed(1);
-                    const pPM = gv(p, 'passesMade', 'passesmade', 'passescompleted');
-                    const pPA = gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
-                    const pTM = gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
-                    const pTA = gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
-                    const pPassPct = pPA > 0 ? ((pPM / pPA) * 100).toFixed(0) + '%' : '';
-                    const pTackPct = pTA > 0 ? ((pTM / pTA) * 100).toFixed(0) + '%' : '';
+                if (match.players && opponentId && match.players[opponentId]) {
+                    const ps = Object.values(match.players[opponentId]);
+                    realOpp = ps.reduce((s, p) => s + parseInt(p.goals || 0), 0);
+                    ps.forEach(p => { const sec = parseInt(p.secondsPlayed || 0); if (sec > maxSecs) maxSecs = sec; });
+                }
+                ourGoals = realOur;
+                oppGoals = realOpp;
+                if (maxSecs > 0 && maxSecs < 5200) isDnf = true;
+            }
+
+            const oppName = opponentClub.details?.name || opponentId || 'Desconocido';
+            return { ourGoals, oppGoals, maxSecs, isDnf, opponentId, oppName, timestamp: parseInt(match.timestamp), match };
+        };
+
+        // --- Agrupar partidos consecutivos contra el mismo rival y fusionar si hubo DNF ---
+        const entries = [];
+        let mi = 0;
+        while (mi < matches.length) {
+            const info = extractMatchInfo(matches[mi]);
+            const group = [info];
+            let ni = mi + 1;
+
+            // Buscar partidos consecutivos contra el mismo rival dentro de 3 horas
+            while (ni < matches.length) {
+                const nextInfo = extractMatchInfo(matches[ni]);
+                const timeDiff = Math.abs(info.timestamp - nextInfo.timestamp);
+                if (nextInfo.opponentId === info.opponentId && timeDiff < 3 * 3600) {
+                    group.push(nextInfo);
+                    ni++;
+                } else {
+                    break;
+                }
+            }
+
+            const hasDnf = group.some(g => g.isDnf);
+
+            if (hasDnf && group.length > 1) {
+                // Fusionar: sumar goles reales de todas las sesiones
+                let totalOur = 0, totalOpp = 0;
+                for (const g of group) { totalOur += g.ourGoals; totalOpp += g.oppGoals; }
+                const sortedGroup = [...group].sort((a, b) => a.timestamp - b.timestamp);
+                
+                // Desglose de sesiones para embed
+                let sessionLines = '';
+                for (let si = 0; si < sortedGroup.length; si++) {
+                    const s = sortedGroup[si];
+                    const prefix = si < sortedGroup.length - 1 ? '├' : '└';
+                    let dnfTag = '';
+                    if (s.isDnf) {
+                        const dnfMin = Math.floor(s.maxSecs / 60);
+                        dnfTag = ` 🔌 Min ${dnfMin}`;
+                    }
+                    sessionLines += `\n${prefix} Sesión ${si + 1}: ${s.ourGoals} - ${s.oppGoals}${dnfTag}`;
+                }
+
+                let resultEmoji = '➖', resultColor = '#95a5a6';
+                if (totalOur > totalOpp) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
+                else if (totalOur < totalOpp) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
+                
+                const earliest = Math.min(...group.map(g => g.timestamp));
+                const matchDateObj = new Date(earliest * 1000);
+                const matchDate = matchDateObj.toLocaleDateString('es-ES');
+                const matchTime = matchDateObj.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
+                
+                // Usar el último match del grupo para stats detalladas (el completo si lo hay)
+                const lastFullMatch = sortedGroup.find(g => !g.isDnf)?.match || sortedGroup[sortedGroup.length - 1].match;
+                
+                const embed = new EmbedBuilder()
+                    .setTitle(`${resultEmoji} ${club.eaClubName} ${totalOur} - ${totalOpp} ${info.oppName}`)
+                    .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)\n🔗 **${group.length} sesiones** (fusión DNF)${sessionLines}`)
+                    .setColor(resultColor);
+                
+                entries.push(embed);
+            } else {
+                // Sin merge: mostrar cada partido individualmente con stats detalladas
+                for (const g of group) {
+                    const match = g.match;
+                    const matchDateObj = new Date(g.timestamp * 1000);
+                    const matchDate = matchDateObj.toLocaleDateString('es-ES');
+                    const matchTime = matchDateObj.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
                     
-                    let extras = [];
-                    if (pGoals > 0) extras.push(`⚽${pGoals}`);
-                    if (pAssists > 0) extras.push(`🎩${pAssists}`);
-                    if (pPassPct) extras.push(`👟${pPassPct}`);
-                    if (pTackPct) extras.push(`🛡️${pTackPct}`);
+                    let resultEmoji = '➖', resultColor = '#95a5a6';
+                    if (g.ourGoals > g.oppGoals) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
+                    else if (g.ourGoals < g.oppGoals) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
                     
-                    return {
-                        order: POS_ORDER[pos] ?? 99,
-                        text: `\`${pos.padEnd(3)}\` **${p.playername}** ⭐${rating}${extras.length > 0 ? ' ' + extras.join(' ') : ''}`
+                    // Sumar stats de todos los jugadores del equipo
+                    const sumTeamStats = (players) => {
+                        let s = { shots: 0, pm: 0, pa: 0, tm: 0, ta: 0, gkSaves: 0 };
+                        if (!players) return s;
+                        for (const pid in players) {
+                            const p = players[pid];
+                            s.shots += gv(p, 'shots');
+                            s.pm += gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                            s.pa += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                            s.tm += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                            s.ta += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                            s.gkSaves += gv(p, 'saves');
+                        }
+                        return s;
                     };
-                }).sort((a, b) => a.order - b.order);
-                lineupStr = sorted.map(p => p.text).join('\n');
+                    
+                    const ourStats = sumTeamStats(match.players?.[club.eaClubId]);
+                    const oppStats = sumTeamStats(match.players?.[g.opponentId]);
+                    
+                    const ourShotsOT = g.ourGoals + oppStats.gkSaves;
+                    const oppShotsOT = g.oppGoals + ourStats.gkSaves;
+                    const mPassMade = ourStats.pm;
+                    const mPassAtt = ourStats.pa;
+                    const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
+                    const mTackMade = ourStats.tm;
+                    const mTackAtt = ourStats.ta;
+                    const mTackAcc = mTackAtt > 0 ? ((mTackMade / mTackAtt) * 100).toFixed(0) : '?';
+                    
+                    const totalPassAtt = mPassAtt + oppStats.pa;
+                    const estPoss = totalPassAtt > 0 ? ((mPassAtt / totalPassAtt) * 100).toFixed(0) : '?';
+                    const estOppPoss = totalPassAtt > 0 ? ((oppStats.pa / totalPassAtt) * 100).toFixed(0) : '?';
+                    const oppPassAcc = oppStats.pa > 0 ? ((oppStats.pm / oppStats.pa) * 100).toFixed(0) : '?';
+                    
+                    const dnfText = g.isDnf ? ` *(🔌 DNF min ${Math.floor(g.maxSecs / 60)})*` : '';
+                    
+                    // Alineación ORDENADA con stats detalladas
+                    let lineupStr = '';
+                    if (match.players && match.players[club.eaClubId]) {
+                        const players = Object.values(match.players[club.eaClubId]);
+                        const sorted = players.map(p => {
+                            const pos = resolvePos(p.pos, p.archetypeid);
+                            const pGoals = parseInt(p.goals || 0);
+                            const pAssists = parseInt(p.assists || 0);
+                            const rating = parseFloat(p.rating || 0).toFixed(1);
+                            const pPM = gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                            const pPA = gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                            const pTM = gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                            const pTA = gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                            const pPassPct = pPA > 0 ? ((pPM / pPA) * 100).toFixed(0) + '%' : '';
+                            const pTackPct = pTA > 0 ? ((pTM / pTA) * 100).toFixed(0) + '%' : '';
+                            
+                            let extras = [];
+                            if (pGoals > 0) extras.push(`⚽${pGoals}`);
+                            if (pAssists > 0) extras.push(`🎩${pAssists}`);
+                            if (pPassPct) extras.push(`👟${pPassPct}`);
+                            if (pTackPct) extras.push(`🛡️${pTackPct}`);
+                            
+                            return {
+                                order: POS_ORDER[pos] ?? 99,
+                                text: `\`${pos.padEnd(3)}\` **${p.playername}** ⭐${rating}${extras.length > 0 ? ' ' + extras.join(' ') : ''}`
+                            };
+                        }).sort((a, b) => a.order - b.order);
+                        lineupStr = sorted.map(p => p.text).join('\n');
+                    }
+                    
+                    const embed = new EmbedBuilder()
+                        .setTitle(`${resultEmoji} ${club.eaClubName} ${g.ourGoals} - ${g.oppGoals} ${g.oppName}`)
+                        .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)${dnfText}`)
+                        .setColor(resultColor)
+                        .addFields(
+                            { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
+                            { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
+                            { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                            { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
+                            { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
+                            { name: '\u200B', value: '\u200B', inline: true }
+                        );
+                    
+                    if (lineupStr) {
+                        embed.addFields({ name: '📋 Alineación y Rendimiento', value: lineupStr, inline: false });
+                    }
+                    
+                    entries.push(embed);
+                }
             }
-            
-            const embed = new EmbedBuilder()
-                .setTitle(`${resultEmoji} ${club.eaClubName} ${ourGoals} - ${oppGoals} ${opponentName}`)
-                .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)`)
-                .setColor(resultColor)
-                .addFields(
-                    { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
-                    { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
-                    { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
-                    { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
-                    { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
-                    { name: '\u200B', value: '\u200B', inline: true }
-                );
-            
-            if (lineupStr) {
-                embed.addFields({ name: '📋 Alineación y Rendimiento', value: lineupStr, inline: false });
-            }
-            
-            embeds.push(embed);
+            mi = ni;
         }
+
+        const embeds = entries.slice(0, 5);
         
-        return interaction.editReply({ content: `📜 **Últimos ${embeds.length} partidos de ${club.eaClubName}:**`, embeds });
+        return interaction.editReply({ content: `📜 **Últimos ${embeds.length} partidos de ${club.eaClubName}**${filterStr}:`, embeds });
     }
 };

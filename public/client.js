@@ -2765,6 +2765,8 @@ window.openMatchStatsModal = function(match) {
             pctA = (numA / total) * 100;
             pctB = (numB / total) * 100;
         }
+        // No renderizar si ambos valores son 0 (datos vacíos)
+        if (numA === 0 && numB === 0) return '';
         return `
             <div class="stat-bar-container">
                 <div class="stat-bar-value" style="color: #00d4ff;">${valA}</div>
@@ -2778,39 +2780,76 @@ window.openMatchStatsModal = function(match) {
         `;
     };
 
-    let globalStatsHTML = '';
-    if (eaClubA.goals !== undefined && eaClubB.goals !== undefined) {
-        globalStatsHTML += renderStatBar('Goles', eaClubA.goals, eaClubB.goals);
-    }
-    // Si EA nos pasase posesión/tiros a nivel club se podrían añadir aquí, de lo contrario lo omitimos o calculamos sumas.
-    // Por ahora, calculemos la nota media de la plantilla y tiros (si están)
+    // Helper: obtener valor con fallback de múltiples keys
+    const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
+    const gf = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseFloat(obj[k]) || 0; } return 0; };
     
     // Calcular stats agregadas de jugadores
     const aggStats = (playersObj) => {
-        if (!playersObj) return { rating: 0, count: 0, goals: 0, assists: 0, saves: 0, passes: 0, shots: 0, tackles: 0 };
+        if (!playersObj) return { rating: 0, count: 0, goals: 0, assists: 0, saves: 0, passesMade: 0, passAttempts: 0, shots: 0, tacklesMade: 0, tackleAttempts: 0, validCount: 0 };
         const pList = Object.values(playersObj);
         const sums = pList.reduce((acc, p) => {
-            acc.rating += p.ratingSum || p.rating || 0;
-            acc.goals += p.goals || 0;
-            acc.assists += p.assists || 0;
-            acc.saves += p.saves || 0;
-            acc.passes += p.passesMade || 0;
-            acc.shots += p.shots || 0;
-            acc.tackles += p.tackleAttempts || 0;
+            acc.rating += gf(p, 'ratingSum', 'rating');
+            acc.goals += gv(p, 'goals');
+            acc.assists += gv(p, 'assists');
+            acc.saves += gv(p, 'saves');
+            acc.passesMade += gv(p, 'passesMade');
+            acc.passAttempts += gv(p, 'passAttempts', 'passesAttempted');
+            acc.shots += gv(p, 'shots');
+            acc.tacklesMade += gv(p, 'tacklesMade');
+            acc.tackleAttempts += gv(p, 'tackleAttempts', 'tacklesAttempted');
+            // Contar solo jugadores con datos válidos (no desconectados)
+            const hasData = gv(p, 'passesMade') > 0 || gv(p, 'shots') > 0 || gv(p, 'tacklesMade') > 0;
+            if (hasData) acc.validCount++;
+            acc.count++;
             return acc;
-        }, { rating: 0, count: pList.length, goals: 0, assists: 0, saves: 0, passes: 0, shots: 0, tackles: 0 });
-        if (sums.count > 0) sums.rating = (sums.rating / sums.count).toFixed(1);
+        }, { rating: 0, count: 0, goals: 0, assists: 0, saves: 0, passesMade: 0, passAttempts: 0, shots: 0, tacklesMade: 0, tackleAttempts: 0, validCount: 0 });
+        
+        // Calcular rating promedio usando gamesPlayed del jugador si disponible
+        if (sums.count > 0) {
+            // Si ratingSum contiene la suma de ratings de varias partidas, dividir por gamesPlayed
+            const totalGames = pList.reduce((acc, p) => acc + (p.gamesPlayed || 1), 0);
+            sums.avgRating = totalGames > 0 ? (sums.rating / totalGames).toFixed(1) : '0.0';
+        } else {
+            sums.avgRating = '—';
+        }
+        
         return sums;
     };
 
     const statsA = aggStats(eaClubA.players);
     const statsB = aggStats(eaClubB.players);
 
-    globalStatsHTML += renderStatBar('Nota Media', statsA.rating, statsB.rating);
+    let globalStatsHTML = '';
+    if (eaClubA.goals !== undefined && eaClubB.goals !== undefined) {
+        globalStatsHTML += renderStatBar('Goles', eaClubA.goals, eaClubB.goals);
+    }
+    
+    globalStatsHTML += renderStatBar('Nota Media', statsA.avgRating, statsB.avgRating);
     globalStatsHTML += renderStatBar('Tiros Totales', statsA.shots, statsB.shots);
-    globalStatsHTML += renderStatBar('Pases Completados', statsA.passes, statsB.passes);
-    globalStatsHTML += renderStatBar('Entradas Intentadas', statsA.tackles, statsB.tackles);
+    globalStatsHTML += renderStatBar('Pases Completados', statsA.passesMade, statsB.passesMade);
+    
+    // Mostrar porcentaje de pases si hay datos
+    if (statsA.passAttempts > 0 || statsB.passAttempts > 0) {
+        const passAccA = statsA.passAttempts > 0 ? ((statsA.passesMade / statsA.passAttempts) * 100).toFixed(0) + '%' : '—';
+        const passAccB = statsB.passAttempts > 0 ? ((statsB.passesMade / statsB.passAttempts) * 100).toFixed(0) + '%' : '—';
+        globalStatsHTML += renderStatBar('Precisión Pase', passAccA, passAccB);
+    }
+    
+    globalStatsHTML += renderStatBar('Entradas Completadas', statsA.tacklesMade, statsB.tacklesMade);
     globalStatsHTML += renderStatBar('Paradas', statsA.saves, statsB.saves);
+    
+    // Posesión estimada (ratio de pases intentados)
+    if (statsA.passAttempts > 0 || statsB.passAttempts > 0) {
+        const totalPA = statsA.passAttempts + statsB.passAttempts;
+        const possA = totalPA > 0 ? ((statsA.passAttempts / totalPA) * 100).toFixed(0) + '%' : '—';
+        const possB = totalPA > 0 ? ((statsB.passAttempts / totalPA) * 100).toFixed(0) + '%' : '—';
+        globalStatsHTML += renderStatBar('Posesión (est.)', possA, possB);
+    }
+    
+    if (!globalStatsHTML) {
+        globalStatsHTML = '<p style="color: #888; text-align: center; padding: 20px;">No hay datos estadísticos disponibles para este partido.</p>';
+    }
 
     document.getElementById('ms-global-stats').innerHTML = globalStatsHTML;
 
@@ -2821,28 +2860,31 @@ window.openMatchStatsModal = function(match) {
     const renderPlayers = (playersObj, tbodyId) => {
         const tbody = document.getElementById(tbodyId);
         tbody.innerHTML = '';
-        if (!playersObj) {
-            tbody.innerHTML = '<tr><td colspan="8" class="placeholder">No hay datos de jugadores.</td></tr>';
+        if (!playersObj || Object.keys(playersObj).length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="placeholder" style="text-align:center; color:#888; padding:15px;">No hay datos de jugadores. (Posible desconexión)</td></tr>';
             return;
         }
 
         const players = Object.values(playersObj).map(p => ({
             name: p.name,
             pos: p.pos || 'UNK',
-            rating: p.ratingSum || p.rating || 0,
-            goals: p.goals || 0,
-            assists: p.assists || 0,
-            passes: p.passesMade || 0,
-            tackles: p.tackleAttempts || 0,
-            shots: p.shots || 0,
-            mom: p.mom || 0
+            rating: gf(p, 'ratingSum', 'rating'),
+            gamesPlayed: p.gamesPlayed || 1,
+            goals: gv(p, 'goals'),
+            assists: gv(p, 'assists'),
+            passesMade: gv(p, 'passesMade'),
+            passAttempts: gv(p, 'passAttempts', 'passesAttempted'),
+            tacklesMade: gv(p, 'tacklesMade'),
+            tackleAttempts: gv(p, 'tackleAttempts', 'tacklesAttempted'),
+            shots: gv(p, 'shots'),
+            mom: gv(p, 'mom')
         }));
 
         // Sort by position (GK -> DEF -> MID -> FWD) then rating
         const posOrder = { 
             'gk':1, 'goalkeeper':1, 'por':1,
             'cb':2, 'lb':2, 'rb':2, 'defender':2, 'dfc':2, 'ld':2, 'li':2, 'cad':2, 'cai':2,
-            'cdm':3, 'cm':3, 'cam':3, 'lm':3, 'rm':3, 'lwb':3, 'rwb':3, 'midfielder':3, 'mcd':3, 'mc':3, 'mco':3, 'md':3, 'mi':3,
+            'cdm':3, 'cm':3, 'cam':3, 'lm':3, 'rm':3, 'lwb':3, 'rwb':3, 'midfielder':3, 'mcd':3, 'mc':3, 'mco':3, 'md':3, 'mi':3, 'carr':3,
             'cf':4, 'st':4, 'rw':4, 'lw':4, 'forward':4, 'dc':4, 'ed':4, 'ei':4, 'mp':4
         };
         players.sort((a, b) => {
@@ -2854,15 +2896,31 @@ window.openMatchStatsModal = function(match) {
 
         players.forEach(p => {
             const momIcon = p.mom ? ' 🎖️' : '';
+            const avgRating = p.gamesPlayed > 0 ? (p.rating / p.gamesPlayed).toFixed(1) : parseFloat(p.rating).toFixed(1);
+            
+            // Formato de pases: completados/intentados (%)
+            let passesDisplay = '-';
+            if (p.passesMade > 0 || p.passAttempts > 0) {
+                const pct = p.passAttempts > 0 ? ` (${((p.passesMade / p.passAttempts) * 100).toFixed(0)}%)` : '';
+                passesDisplay = `${p.passesMade}${pct}`;
+            }
+            
+            // Formato de entradas: completadas/intentadas (%)
+            let tacklesDisplay = '-';
+            if (p.tacklesMade > 0 || p.tackleAttempts > 0) {
+                const pct = p.tackleAttempts > 0 ? ` (${((p.tacklesMade / p.tackleAttempts) * 100).toFixed(0)}%)` : '';
+                tacklesDisplay = `${p.tacklesMade}${pct}`;
+            }
+            
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.75rem;">${p.pos.toUpperCase()}</span></td>
                 <td style="font-weight:bold;">${p.name}${momIcon}</td>
-                <td style="text-align:center; color: #f1c40f;">${parseFloat(p.rating).toFixed(1)}</td>
+                <td style="text-align:center; color: #f1c40f;">${avgRating}</td>
                 <td style="text-align:center;">${p.goals > 0 ? p.goals : '-'}</td>
                 <td style="text-align:center;">${p.assists > 0 ? p.assists : '-'}</td>
-                <td style="text-align:center;">${p.passes > 0 ? p.passes : '-'}</td>
-                <td style="text-align:center;">${p.tackles > 0 ? p.tackles : '-'}</td>
+                <td style="text-align:center;">${passesDisplay}</td>
+                <td style="text-align:center;">${tacklesDisplay}</td>
                 <td style="text-align:center;">${p.shots > 0 ? p.shots : '-'}</td>
             `;
             tbody.appendChild(tr);

@@ -1399,7 +1399,8 @@ const handler = async (client, interaction) => {
     if (customId === 'admin_toggle_crawler') {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         
-        const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
+        const { getDb: getDbImport } = await import('../../../database.js');
+        const settingsColl = getDbImport().collection('bot_settings');
         const settings = await settingsColl.findOne({ _id: 'global_config' });
         
         if (!settings) return interaction.reply({ content: 'Configuración global no encontrada.', ephemeral: true });
@@ -1427,8 +1428,8 @@ const handler = async (client, interaction) => {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         await interaction.deferReply({ ephemeral: true });
         
-        const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
-        const settings = await settingsColl.findOne({ _id: 'global_config' });
+        const { getBotSettings: getBotSettingsImport } = await import('../../../database.js');
+        const settings = await getBotSettingsImport();
         const currentDays = settings ? (settings.crawlerDays || []) : [];
 
         const dayOptions = [
@@ -1610,66 +1611,165 @@ const handler = async (client, interaction) => {
         return interaction.showModal(modal);
     }
 
-    if (customId === 'stats_team_scout') {
-        const modal = new ModalBuilder()
-            .setCustomId('stats_team_scout_modal')
-            .setTitle('🛡️ Scout de Equipo');
 
-        const input = new TextInputBuilder()
-            .setCustomId('team_name')
-            .setLabel('Nombre del equipo (parcial)')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ej: Real Madrid, Barça, etc.')
-            .setRequired(true);
-
-        const row = new ActionRowBuilder().addComponents(input);
-        modal.addComponents(row);
-
-        return interaction.showModal(modal);
+    // --- Stats buttons: Selector de franjas horarias (multi-select) ---
+    if (customId === 'stats_player_scout' || customId === 'stats_team_scout' || customId === 'stats_match_history') {
+        console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) abrió: ${customId}`);
+        
+        const { getDb: getDbSlots } = await import('../../../database.js');
+        const config = await getDbSlots().collection('bot_settings').findOne({ _id: 'global_config' });
+        const slots = config?.timeSlots || [];
+        
+        if (slots.length === 0) {
+            // Sin franjas guardadas → abrir modal directamente (solo nombre)
+            const typeMap = {
+                'stats_player_scout': { modalId: 'stats_player_scout_modal', title: '🔍 Scout de Jugador', fieldId: 'player_name', fieldLabel: 'Nombre del jugador (parcial o completo)', placeholder: 'Ej: Messi, xavi_pro, etc.' },
+                'stats_team_scout': { modalId: 'stats_team_scout_modal', title: '🛡️ Análisis de Equipo', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' },
+                'stats_match_history': { modalId: 'stats_match_history_modal', title: '📜 Historial de Partidos', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' }
+            };
+            const cfg = typeMap[customId];
+            const modal = new ModalBuilder().setCustomId(cfg.modalId).setTitle(cfg.title);
+            const input = new TextInputBuilder().setCustomId(cfg.fieldId).setLabel(cfg.fieldLabel).setStyle(TextInputStyle.Short).setPlaceholder(cfg.placeholder).setRequired(true);
+            // Hidden fields with empty defaults for backward compat
+            const timeInput = new TextInputBuilder().setCustomId('time_filter').setLabel('Franja horaria (ej: 22:20-01:00)').setStyle(TextInputStyle.Short).setPlaceholder('Sin franjas guardadas — escribe manual o vacío').setRequired(false).setMaxLength(30);
+            const daysInput = new TextInputBuilder().setCustomId('days_filter').setLabel('Días (0=Dom,1=Lun,...6=Sáb)').setStyle(TextInputStyle.Short).setPlaceholder('Vacío = todos').setRequired(false).setMaxLength(20);
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(input),
+                new ActionRowBuilder().addComponents(timeInput),
+                new ActionRowBuilder().addComponents(daysInput)
+            );
+            return interaction.showModal(modal);
+        }
+        
+        // Construir selector de franjas
+        const selectId = `stats_slot_select_${customId}`;
+        const options = [
+            { label: '🌐 Todas (sin filtro)', value: '__ALL__', description: 'Ver stats de todos los partidos' }
+        ];
+        for (const slot of slots) {
+            options.push({
+                label: `📐 ${slot.name}`,
+                value: slot.name,
+                description: `${slot.start}-${slot.end}${slot.days ? ' | ' + slot.days : ''}`
+            });
+        }
+        
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(selectId)
+            .setPlaceholder('Selecciona una o varias franjas...')
+            .setMinValues(1)
+            .setMaxValues(options.length)
+            .addOptions(options);
+        
+        const embed = new EmbedBuilder()
+            .setTitle('📐 Seleccionar Franja Horaria')
+            .setDescription('Elige las franjas horarias sobre las que calcular las estadísticas.\nPuedes seleccionar **varias** a la vez.\n\n💡 Selecciona **"🌐 Todas"** para ver stats sin filtro horario.')
+            .setColor('#9b59b6');
+        
+        return interaction.reply({
+            embeds: [embed],
+            components: [new ActionRowBuilder().addComponents(selectMenu)],
+            flags: MessageFlags.Ephemeral
+        });
     }
 
-    if (customId === 'stats_player_scout') {
-        const modal = new ModalBuilder()
-            .setCustomId('stats_player_scout_modal')
-            .setTitle('🔍 Scout de Jugador');
-
-        const input = new TextInputBuilder()
-            .setCustomId('player_name')
-            .setLabel('Nombre del jugador (parcial o completo)')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ej: Messi, xavi_pro, etc.')
-            .setRequired(true);
-
-        const row = new ActionRowBuilder().addComponents(input);
-        modal.addComponents(row);
-
-        return interaction.showModal(modal);
+    // --- CRUD de Franjas Horarias con Nombre ---
+    if (customId === 'admin_manage_time_slots') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        const { getDb: getDbSlots } = await import('../../../database.js');
+        const settingsColl = getDbSlots().collection('bot_settings');
+        const config = await settingsColl.findOne({ _id: 'global_config' });
+        const slots = config?.timeSlots || [];
+        
+        let slotList = '';
+        if (slots.length === 0) {
+            slotList = '_No hay franjas creadas. Usa el botón de abajo para crear una._';
+        } else {
+            slotList = slots.map((s, i) => `**${i + 1}.** 📐 **${s.name}** — \`${s.start}-${s.end}\`${s.days ? ` | 📅 ${s.days}` : ''}`).join('\n');
+        }
+        
+        const embed = new EmbedBuilder()
+            .setTitle('📐 Gestionar Franjas Horarias')
+            .setDescription(`Las franjas guardadas se pueden usar por nombre en los paneles de estadísticas.\n\n${slotList}`)
+            .setColor('#9b59b6')
+            .setFooter({ text: `${slots.length} franja(s) guardada(s)` });
+        
+        const rows = [];
+        rows.push(new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('admin_create_time_slot').setLabel('➕ Crear Franja').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('admin_delete_time_slot').setLabel('🗑️ Borrar Franja').setStyle(ButtonStyle.Danger).setDisabled(slots.length === 0)
+        ));
+        
+        return interaction.editReply({ embeds: [embed], components: rows });
     }
 
-    if (customId === 'stats_match_history') {
+    if (customId === 'admin_create_time_slot') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        
         const modal = new ModalBuilder()
-            .setCustomId('stats_match_history_modal')
-            .setTitle('📜 Historial de Partidos');
+            .setCustomId('admin_create_time_slot_modal')
+            .setTitle('📐 Crear Franja Horaria');
 
-        const input = new TextInputBuilder()
-            .setCustomId('team_name')
-            .setLabel('Nombre del equipo (parcial)')
+        const nameInput = new TextInputBuilder()
+            .setCustomId('slot_name')
+            .setLabel('Nombre de la franja')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ej: Real Madrid, Barça, etc.')
-            .setRequired(true);
+            .setPlaceholder('Ej: Horario VPG, Noche, etc.')
+            .setRequired(true)
+            .setMaxLength(30);
 
-        const timeInput = new TextInputBuilder()
-            .setCustomId('time_filter')
-            .setLabel('Franja horaria (opcional, ej: 21:00-00:00)')
+        const startInput = new TextInputBuilder()
+            .setCustomId('slot_start')
+            .setLabel('Hora de inicio (HH:MM)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Dejar vacío para ver todos')
+            .setPlaceholder('Ej: 22:20')
+            .setRequired(true)
+            .setMaxLength(5);
+
+        const endInput = new TextInputBuilder()
+            .setCustomId('slot_end')
+            .setLabel('Hora de fin (HH:MM)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: 01:00')
+            .setRequired(true)
+            .setMaxLength(5);
+
+        const daysInput = new TextInputBuilder()
+            .setCustomId('slot_days')
+            .setLabel('Días (opcional: 0=Dom,1=Lun,...,6=Sáb)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: 0,1,2,3,4 — Vacío = todos')
             .setRequired(false)
-            .setMaxLength(11);
+            .setMaxLength(20);
 
         modal.addComponents(
-            new ActionRowBuilder().addComponents(input),
-            new ActionRowBuilder().addComponents(timeInput)
+            new ActionRowBuilder().addComponents(nameInput),
+            new ActionRowBuilder().addComponents(startInput),
+            new ActionRowBuilder().addComponents(endInput),
+            new ActionRowBuilder().addComponents(daysInput)
         );
+
+        return interaction.showModal(modal);
+    }
+
+    if (customId === 'admin_delete_time_slot') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        
+        const modal = new ModalBuilder()
+            .setCustomId('admin_delete_time_slot_modal')
+            .setTitle('🗑️ Borrar Franja Horaria');
+
+        const nameInput = new TextInputBuilder()
+            .setCustomId('slot_name')
+            .setLabel('Nombre exacto de la franja a borrar')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Horario VPG')
+            .setRequired(true)
+            .setMaxLength(30);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
 
         return interaction.showModal(modal);
     }
@@ -1993,7 +2093,8 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'team_link_ea_button') {
-        const botSettings = await mongoose.connection.client.db('test').collection('bot_settings').findOne({ _id: 'global_config' });
+        const { getBotSettings: getBotSettingsImport2 } = await import('../../../database.js');
+        const botSettings = await getBotSettingsImport2();
         if (botSettings && !botSettings.eaScannerEnabled) {
             return interaction.reply({ content: '❌ El escáner de EA Sports no está activo actualmente. No es necesario vincular tu equipo en este momento.', ephemeral: true });
         }

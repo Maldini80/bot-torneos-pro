@@ -105,6 +105,34 @@ async function runVpgCrawler(manual = false, onProgress = null) {
 
                 await matchColl.insertOne(match);
 
+                // --- FIX: Detectar DNF (desconexión) para no contaminar stats ---
+                const clubIds = Object.keys(match.clubs || {});
+                const opponentId = clubIds.find(id => id !== clubId);
+                const ourClubData = match.clubs[clubId] || {};
+                const oppClubData = opponentId ? (match.clubs[opponentId] || {}) : {};
+                const ourMatchGoals = parseInt(ourClubData.goals || 0);
+                const oppMatchGoals = parseInt(oppClubData.goals || 0);
+                
+                let ourTeamDnf = false; // Nuestro equipo se desconectó
+                if ((ourMatchGoals === 0 && oppMatchGoals === 3) || (ourMatchGoals === 3 && oppMatchGoals === 0)) {
+                    // Verificar si fue un DNF por secondsPlayed
+                    let maxSecs = 0;
+                    if (match.players && match.players[clubId]) {
+                        Object.values(match.players[clubId]).forEach(p => {
+                            const sec = parseInt(p.secondsPlayed || 0);
+                            if (sec > maxSecs) maxSecs = sec;
+                        });
+                    }
+                    if (maxSecs > 0 && maxSecs < 5200) {
+                        // Es un DNF. Si nuestro equipo perdió 0-3, es nuestra desconexión
+                        if (ourMatchGoals === 0 && oppMatchGoals === 3) {
+                            ourTeamDnf = true;
+                            console.log(`[CRAWLER] 🔌 DNF detectado para ${team.name} en partido ${matchId} (max ${Math.floor(maxSecs/60)} min). Solo se guarda rating.`);
+                        }
+                    }
+                }
+                // ---------------------------------------------------------------
+
                 // Process players
                 const goalsAgainstThisMatch = match.clubs && match.clubs[clubId] ? parseInt(match.clubs[clubId].goalsAgainst || 0) : 0;
                 if (match.players && match.players[clubId]) {
@@ -113,7 +141,12 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                         const player = playersData[playerId];
                         const playerName = player.playername;
 
-                        await updatePlayerProfile(playerColl, playerName, player, team.name, goalsAgainstThisMatch);
+                        if (ourTeamDnf) {
+                            // Solo guardar rating, no sumar stats vacías
+                            await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name);
+                        } else {
+                            await updatePlayerProfile(playerColl, playerName, player, team.name, goalsAgainstThisMatch);
+                        }
                     }
                 }
 
@@ -211,6 +244,25 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
         { 
             $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos },
             $inc: incrementData,
+            $push: { 'stats.ratings': rating }
+        },
+        { upsert: true }
+    );
+}
+
+/**
+ * Solo guarda el rating del jugador en un partido DNF, sin incrementar estadísticas.
+ * Esto evita que los datos vacíos de una desconexión diluyan las medias del jugador.
+ */
+async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubName) {
+    const pos = resolvePos(matchData.pos, matchData.archetypeid);
+    const rating = parseFloat(matchData.rating || 0);
+    
+    // Solo guardar rating (sin incrementar matchesPlayed ni stats)
+    await coll.updateOne(
+        { eaPlayerName: playerName },
+        { 
+            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos },
             $push: { 'stats.ratings': rating }
         },
         { upsert: true }

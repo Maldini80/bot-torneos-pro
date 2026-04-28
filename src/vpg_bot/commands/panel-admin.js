@@ -39,7 +39,8 @@ module.exports = {
             new ButtonBuilder().setCustomId('admin_rescan_profiles').setLabel('Recalcular Stats').setStyle(ButtonStyle.Danger).setEmoji('🔄')
         );
         const row4 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('stats_debug_ea').setLabel('Debug EA').setStyle(ButtonStyle.Secondary).setEmoji('🔬')
+            new ButtonBuilder().setCustomId('stats_debug_ea').setLabel('Debug EA').setStyle(ButtonStyle.Secondary).setEmoji('🔬'),
+            new ButtonBuilder().setCustomId('admin_manage_time_slots').setLabel('Gestionar Franjas').setStyle(ButtonStyle.Secondary).setEmoji('📐')
         );
         
         await interaction.channel.send({ embeds: [embed], components: [row, row2, row3, row4] });

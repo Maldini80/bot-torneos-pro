@@ -652,7 +652,8 @@ module.exports = async (client, interaction) => {
         await interaction.deferUpdate();
         const selectedDays = values.map(Number); // Convertir a números
         
-        const settingsColl = mongoose.connection.client.db('test').collection('bot_settings');
+        const { getDb: getDbImport } = await import('../../../database.js');
+        const settingsColl = getDbImport().collection('bot_settings');
         await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerDays: selectedDays } });
         
         const dayNames = { 0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado' };
@@ -925,5 +926,62 @@ module.exports = async (client, interaction) => {
         }
 
         return interaction.followUp({ content: `✅ Equipo **${teamName}** creado en Liga **${leagueName}**. ELO Inicial: **${startingElo}**.`, flags: MessageFlags.Ephemeral });
+    }
+
+    // --- Stats: Selector de franjas horarias → abrir modal ---
+    if (customId.startsWith('stats_slot_select_')) {
+        const statsType = customId.replace('stats_slot_select_', ''); // stats_player_scout | stats_team_scout | stats_match_history
+        const selectedSlots = values; // Array of slot names or ['__ALL__']
+        
+        console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) seleccionó franjas: [${selectedSlots.join(', ')}] para ${statsType}`);
+        
+        // Guardar selección en memoria
+        const { pendingSelections } = require('../../utils/pendingStatsSelections.js');
+        pendingSelections.set(interaction.user.id, {
+            slots: selectedSlots,
+            timestamp: Date.now()
+        });
+        
+        // Abrir modal según el tipo de stats
+        const typeMap = {
+            'stats_player_scout': { modalId: 'stats_player_scout_modal', title: '🔍 Scout de Jugador', fieldId: 'player_name', fieldLabel: 'Nombre del jugador (parcial o completo)', placeholder: 'Ej: Messi, xavi_pro, etc.' },
+            'stats_team_scout': { modalId: 'stats_team_scout_modal', title: '🛡️ Análisis de Equipo', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' },
+            'stats_match_history': { modalId: 'stats_match_history_modal', title: '📜 Historial de Partidos', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' }
+        };
+        
+        const cfg = typeMap[statsType];
+        if (!cfg) return interaction.reply({ content: '❌ Tipo de stats no reconocido.', ephemeral: true });
+        
+        const modal = new ModalBuilder().setCustomId(cfg.modalId).setTitle(cfg.title);
+        const input = new TextInputBuilder()
+            .setCustomId(cfg.fieldId)
+            .setLabel(cfg.fieldLabel)
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder(cfg.placeholder)
+            .setRequired(true);
+        
+        // Campos ocultos — la resolución real viene del pendingSelections
+        const timeInput = new TextInputBuilder()
+            .setCustomId('time_filter')
+            .setLabel('Franja (ya seleccionada arriba, dejar vacío)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Dejar vacío — ya seleccionaste arriba')
+            .setRequired(false)
+            .setMaxLength(30);
+        const daysInput = new TextInputBuilder()
+            .setCustomId('days_filter')
+            .setLabel('Días (ya incluidos en franja, dejar vacío)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Dejar vacío — ya incluido en la franja')
+            .setRequired(false)
+            .setMaxLength(20);
+        
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(input),
+            new ActionRowBuilder().addComponents(timeInput),
+            new ActionRowBuilder().addComponents(daysInput)
+        );
+        
+        return interaction.showModal(modal);
     }
 };
