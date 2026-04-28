@@ -1045,8 +1045,9 @@ if (customId.startsWith('manager_request_modal_')) {
 
     if (customId === 'stats_player_scout_modal') {
         const playerName = fields.getTextInputValue('player_name').trim();
-        const timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim();
-        const daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim();
+        let timeFilterRaw = '', daysFilterRaw = '';
+        try { timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim(); } catch(e) {}
+        try { daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim(); } catch(e) {}
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) scout jugador: "${playerName}"`);
@@ -1345,8 +1346,9 @@ if (customId.startsWith('manager_request_modal_')) {
 
     if (customId === 'stats_team_scout_modal') {
         const teamName = fields.getTextInputValue('team_name').trim();
-        const timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim();
-        const daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim();
+        let timeFilterRaw = '', daysFilterRaw = '';
+        try { timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim(); } catch(e) {}
+        try { daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim(); } catch(e) {}
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) scout equipo: "${teamName}"`);
@@ -1529,8 +1531,9 @@ if (customId.startsWith('manager_request_modal_')) {
 
     if (customId === 'stats_match_history_modal') {
         const teamName = fields.getTextInputValue('team_name').trim();
-        const timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim();
-        const daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim();
+        let timeFilterRaw = '', daysFilterRaw = '';
+        try { timeFilterRaw = (fields.getTextInputValue('time_filter') || '').trim(); } catch(e) {}
+        try { daysFilterRaw = (fields.getTextInputValue('days_filter') || '').trim(); } catch(e) {}
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) historial equipo: "${teamName}"`);

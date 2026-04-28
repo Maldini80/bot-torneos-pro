@@ -960,27 +960,7 @@ module.exports = async (client, interaction) => {
             .setPlaceholder(cfg.placeholder)
             .setRequired(true);
         
-        // Campos ocultos — la resolución real viene del pendingSelections
-        const timeInput = new TextInputBuilder()
-            .setCustomId('time_filter')
-            .setLabel('Franja (ya seleccionada arriba, dejar vacío)')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Dejar vacío — ya seleccionaste arriba')
-            .setRequired(false)
-            .setMaxLength(30);
-        const daysInput = new TextInputBuilder()
-            .setCustomId('days_filter')
-            .setLabel('Días (ya incluidos en franja, dejar vacío)')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Dejar vacío — ya incluido en la franja')
-            .setRequired(false)
-            .setMaxLength(20);
-        
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(input),
-            new ActionRowBuilder().addComponents(timeInput),
-            new ActionRowBuilder().addComponents(daysInput)
-        );
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
         
         return interaction.showModal(modal);
     }
