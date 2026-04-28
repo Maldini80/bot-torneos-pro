@@ -113,24 +113,9 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                 const ourMatchGoals = parseInt(ourClubData.goals || 0);
                 const oppMatchGoals = parseInt(oppClubData.goals || 0);
                 
-                let ourTeamDnf = false; // Nuestro equipo se desconectó
-                if ((ourMatchGoals === 0 && oppMatchGoals === 3) || (ourMatchGoals === 3 && oppMatchGoals === 0)) {
-                    // Verificar si fue un DNF por secondsPlayed
-                    let maxSecs = 0;
-                    if (match.players && match.players[clubId]) {
-                        Object.values(match.players[clubId]).forEach(p => {
-                            const sec = parseInt(p.secondsPlayed || 0);
-                            if (sec > maxSecs) maxSecs = sec;
-                        });
-                    }
-                    if (maxSecs > 0 && maxSecs < 5200) {
-                        // Es un DNF. Si nuestro equipo perdió 0-3, es nuestra desconexión
-                        if (ourMatchGoals === 0 && oppMatchGoals === 3) {
-                            ourTeamDnf = true;
-                            console.log(`[CRAWLER] 🔌 DNF detectado para ${team.name} en partido ${matchId} (max ${Math.floor(maxSecs/60)} min). Solo se guarda rating.`);
-                        }
-                    }
-                }
+                // ---------------------------------------------------------------
+                // DNF inteligente: verificar por jugador si tiene datos reales
+                // Si pases+tiros+entradas == 0 → solo guardar rating
                 // ---------------------------------------------------------------
 
                 // Process players
@@ -140,9 +125,15 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                     for (const playerId in playersData) {
                         const player = playersData[playerId];
                         const playerName = player.playername;
+                        
+                        const pm = parseInt(player.passesMade || player.passesmade || 0);
+                        const sh = parseInt(player.shots || 0);
+                        const tk = parseInt(player.tacklesMade || player.tacklesmade || 0);
+                        const hasRealStats = (pm + sh + tk) > 0;
 
-                        if (ourTeamDnf) {
-                            // Solo guardar rating, no sumar stats vacías
+                        if (!hasRealStats) {
+                            // Sin datos reales → solo rating
+                            console.log(`[CRAWLER] 🔌 Stats vacías para ${playerName} (${team.name}) en partido ${matchId}. Solo se guarda rating.`);
                             await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name);
                         } else {
                             await updatePlayerProfile(playerColl, playerName, player, team.name, goalsAgainstThisMatch);

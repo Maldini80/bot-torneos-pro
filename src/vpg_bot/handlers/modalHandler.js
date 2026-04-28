@@ -1200,7 +1200,7 @@ if (customId.startsWith('manager_request_modal_')) {
             });
             
             // Aggregate stats from filtered matches
-            const aggr = { matchesPlayed: 0, goals: 0, assists: 0, shots: 0, shotsOnTarget: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0, interceptions: 0, saves: 0, mom: 0, redCards: 0, yellowCards: 0, cleanSheets: 0, goalsConceded: 0, ratings: [] };
+            const aggr = { matchesPlayed: 0, goals: 0, assists: 0, shots: 0, shotsOnTarget: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0, interceptions: 0, saves: 0, mom: 0, redCards: 0, yellowCards: 0, cleanSheets: 0, goalsConceded: 0, ratings: [], dnfCount: 0 };
             
             const getVal = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
             
@@ -1209,21 +1209,35 @@ if (customId.startsWith('manager_request_modal_')) {
                     for (const pid of Object.keys(match.players[clubId])) {
                         const pData = match.players[clubId][pid];
                         if (pData.playername && pData.playername.toLowerCase() === profile.eaPlayerName.toLowerCase()) {
+                            // Comprobar si el jugador tiene datos reales en este partido
+                            const pm = getVal(pData, 'passesMade', 'passesmade');
+                            const sh = getVal(pData, 'shots');
+                            const tk = getVal(pData, 'tacklesMade', 'tacklesmade');
+                            const hasRealStats = (pm + sh + tk) > 0;
+                            
+                            // Siempre guardar rating
+                            aggr.ratings.push(parseFloat(pData.rating || 0));
+                            
+                            if (!hasRealStats) {
+                                // Partido sin datos reales (DNF temprano) → solo rating
+                                aggr.dnfCount++;
+                                continue;
+                            }
+                            
                             aggr.matchesPlayed++;
                             aggr.goals += getVal(pData, 'goals');
                             aggr.assists += getVal(pData, 'assists');
-                            aggr.shots += getVal(pData, 'shots');
+                            aggr.shots += sh;
                             aggr.shotsOnTarget += getVal(pData, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal');
-                            aggr.passesMade += getVal(pData, 'passesMade', 'passesmade');
+                            aggr.passesMade += pm;
                             aggr.passesAttempted += getVal(pData, 'passesAttempted', 'passesattempted', 'passattempts');
-                            aggr.tacklesMade += getVal(pData, 'tacklesMade', 'tacklesmade');
+                            aggr.tacklesMade += tk;
                             aggr.tacklesAttempted += getVal(pData, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
                             aggr.interceptions += getVal(pData, 'interceptions');
                             aggr.saves += getVal(pData, 'saves');
                             aggr.mom += getVal(pData, 'mom');
                             aggr.redCards += getVal(pData, 'redCards', 'redcards');
                             aggr.yellowCards += getVal(pData, 'yellowCards', 'yellowcards');
-                            aggr.ratings.push(parseFloat(pData.rating || 0));
                             
                             // GK stats
                             const posStr = String(pData.pos || '').toLowerCase();
@@ -1290,12 +1304,14 @@ if (customId.startsWith('manager_request_modal_')) {
             filterText += (filterText ? ' | ' : '') + `📅 ${daysText}`;
         }
         
+        const dnfNote = (s.dnfCount && s.dnfCount > 0) ? ` *(+${s.dnfCount} 🔌 sin datos)*` : '';
+        
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Informe de Scout: ${profile.eaPlayerName}`)
             .setDescription(`📋 **Equipo:** ${lastClub || 'Desconocido'}\n🎽 **Posición:** ${translatedPos}\n📅 **Última actividad:** ${lastActive ? new Date(lastActive).toLocaleDateString('es-ES') : '—'}${filterText ? `\n🔎 **Filtro:** ${filterText}` : ''}`)
             .setColor('#2ecc71')
             .addFields(
-                { name: '🏟️ Partidos', value: `**${m}**`, inline: true },
+                { name: '🏟️ Partidos', value: `**${m}**${dnfNote}`, inline: true },
                 { name: '⭐ Nota Media', value: `**${avgRating}**`, inline: true },
                 { name: '🏆 MVP', value: `**${mom}**`, inline: true },
                 { name: '\u200B', value: '**⚽ ATAQUE**', inline: false },
@@ -1692,25 +1708,45 @@ if (customId.startsWith('manager_request_modal_')) {
             let maxSecs = 0;
             let isDnf = false;
 
-            if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
-                let realOur = 0, realOpp = 0;
-                if (match.players && match.players[club.eaClubId]) {
-                    const ps = Object.values(match.players[club.eaClubId]);
-                    realOur = ps.reduce((s, p) => s + parseInt(p.goals || 0), 0);
-                    ps.forEach(p => { const sec = parseInt(p.secondsPlayed || 0); if (sec > maxSecs) maxSecs = sec; });
+            // Calcular maxSecs de TODOS los jugadores (ambos equipos)
+            for (const cid of [club.eaClubId, opponentId].filter(Boolean)) {
+                if (match.players?.[cid]) {
+                    Object.values(match.players[cid]).forEach(p => {
+                        const sec = parseInt(p.secondsPlayed || 0);
+                        if (sec > maxSecs) maxSecs = sec;
+                    });
                 }
-                if (match.players && opponentId && match.players[opponentId]) {
-                    const ps = Object.values(match.players[opponentId]);
-                    realOpp = ps.reduce((s, p) => s + parseInt(p.goals || 0), 0);
-                    ps.forEach(p => { const sec = parseInt(p.secondsPlayed || 0); if (sec > maxSecs) maxSecs = sec; });
+            }
+
+            // DNF = partido con duración real < 87 min
+            if (maxSecs > 0 && maxSecs < 5200) isDnf = true;
+
+            // Corrección de goles fantasma SOLO en resultados 3-0 / 0-3 con DNF
+            if (isDnf && ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3))) {
+                let realOur = 0, realOpp = 0;
+                if (match.players?.[club.eaClubId]) {
+                    realOur = Object.values(match.players[club.eaClubId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
+                }
+                if (match.players?.[opponentId]) {
+                    realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
                 }
                 ourGoals = realOur;
                 oppGoals = realOpp;
-                if (maxSecs > 0 && maxSecs < 5200) isDnf = true;
+            }
+
+            // Verificar si NUESTRO equipo tiene stats reales (pases + tiros + entradas > 0)
+            let ourHasRealStats = false;
+            if (match.players?.[club.eaClubId]) {
+                for (const p of Object.values(match.players[club.eaClubId])) {
+                    const pm = parseInt(p.passesMade || p.passesmade || 0);
+                    const sh = parseInt(p.shots || 0);
+                    const tk = parseInt(p.tacklesMade || p.tacklesmade || 0);
+                    if ((pm + sh + tk) > 0) { ourHasRealStats = true; break; }
+                }
             }
 
             const oppName = opponentClub.details?.name || opponentId || 'Desconocido';
-            return { ourGoals, oppGoals, maxSecs, isDnf, opponentId, oppName, timestamp: parseInt(match.timestamp), match };
+            return { ourGoals, oppGoals, maxSecs, isDnf, ourHasRealStats, opponentId, oppName, timestamp: parseInt(match.timestamp), match };
         };
 
         // --- Agrupar partidos consecutivos contra el mismo rival y fusionar si hubo DNF ---

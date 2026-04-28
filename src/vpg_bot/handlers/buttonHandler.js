@@ -1408,6 +1408,7 @@ const handler = async (client, interaction) => {
         const newState = !settings.crawlerEnabled;
         await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerEnabled: newState } });
         
+        // Actualizar botón
         const components = interaction.message.components.map(row => ActionRowBuilder.from(row));
         const btnRow = components.find(r => r.components.some(c => c.data.custom_id === 'admin_toggle_crawler'));
         if (btnRow) {
@@ -1420,7 +1421,26 @@ const handler = async (client, interaction) => {
             }
         }
         
-        await interaction.update({ components });
+        // Actualizar embed con nuevo estado
+        const crawlerDays = settings.crawlerDays || [];
+        const crawlerStart = settings.crawlerStartTime || '22:20';
+        const crawlerEnd = settings.crawlerEndTime || '01:00';
+        const timeSlots = settings.timeSlots || [];
+        const dayNames = { 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 0: 'Dom' };
+        const daysStr = crawlerDays.length > 0 ? crawlerDays.map(d => dayNames[d]).join(', ') : 'Sin configurar';
+        const slotsStr = timeSlots.length > 0 ? timeSlots.map(s => s.name).join(', ') : 'Ninguna';
+        
+        const embeds = interaction.message.embeds.map(e => EmbedBuilder.from(e));
+        if (embeds.length > 0) {
+            embeds[0].setDescription(
+                `🤖 **Crawler:** ${newState ? '**ACTIVO** 🟢' : '**PAUSADO** 🔴'}\n` +
+                `📅 **Días de escaneo:** ${daysStr}\n` +
+                `⏰ **Franja del crawler:** ${crawlerStart} — ${crawlerEnd} (Madrid)\n` +
+                `📐 **Franjas stats guardadas:** ${slotsStr}`
+            ).setColor(newState ? '#2ecc71' : '#c0392b');
+        }
+        
+        await interaction.update({ embeds, components });
         return interaction.followUp({ content: `✅ Crawler de Estadísticas VPG actualizado: **${newState ? 'ON 🟢' : 'OFF 🔴'}**`, ephemeral: true });
     }
 

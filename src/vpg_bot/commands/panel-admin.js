@@ -11,13 +11,30 @@ module.exports = {
         await interaction.deferReply({ flags: 64 });
 
         const { getBotSettings } = await import('../../../database.js');
+        const { getDb } = await import('../../../database.js');
         const settings = await getBotSettings();
         const crawlerOn = settings.crawlerEnabled;
 
+        // Obtener config adicional
+        const config = await getDb().collection('bot_settings').findOne({ _id: 'global_config' });
+        const crawlerDays = settings.crawlerDays || [];
+        const crawlerStart = settings.crawlerStartTime || '22:20';
+        const crawlerEnd = settings.crawlerEndTime || '01:00';
+        const timeSlots = config?.timeSlots || [];
+        
+        const dayNames = { 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 0: 'Dom' };
+        const daysStr = crawlerDays.length > 0 ? crawlerDays.map(d => dayNames[d]).join(', ') : 'Sin configurar';
+        const slotsStr = timeSlots.length > 0 ? timeSlots.map(s => s.name).join(', ') : 'Ninguna';
+
         const embed = new EmbedBuilder()
             .setTitle('Panel de Control de Administrador VPG')
-            .setDescription('Usa los botones de abajo para gestionar la comunidad.')
-            .setColor('#c0392b');
+            .setDescription(
+                `🤖 **Crawler:** ${crawlerOn ? '**ACTIVO** 🟢' : '**PAUSADO** 🔴'}\n` +
+                `📅 **Días de escaneo:** ${daysStr}\n` +
+                `⏰ **Franja del crawler:** ${crawlerStart} — ${crawlerEnd} (Madrid)\n` +
+                `📐 **Franjas stats guardadas:** ${slotsStr}`
+            )
+            .setColor(crawlerOn ? '#2ecc71' : '#c0392b');
             
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('admin_create_team_button').setLabel('Crear Equipo').setStyle(ButtonStyle.Success).setEmoji('➕'),
