@@ -1480,9 +1480,88 @@ if (customId.startsWith('manager_request_modal_')) {
             return interaction.editReply({ content: `No se encontró ningún equipo con **"${teamName}"**.` });
         }
         
-        const s = club.stats || {};
-        const m = s.matchesPlayed || 0;
-        if (m === 0) return interaction.editReply({ content: `El equipo **${club.eaClubName}** no tiene partidos registrados aún.` });
+        const hasFilters = timeFilters.length > 0 || daysFilter;
+        let s, m;
+        
+        if (hasFilters) {
+            console.log(`📊 [DEBUG-TEAM] Recalculando stats con filtros para ${club.eaClubName}`);
+            // Recalcular stats desde scanned_matches con filtro de franja/día
+            const allMatches = await db.collection('scanned_matches').find({
+                [`clubs.${club.eaClubId}`]: { $exists: true }
+            }).sort({ timestamp: -1 }).toArray();
+            
+            // Helper para filtrar por hora/día Madrid
+            const filterMatch = (match) => {
+                if (!match.timestamp) return false;
+                const matchDate = new Date(parseInt(match.timestamp) * 1000);
+                if (daysFilter) {
+                    const madridDayStr = matchDate.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid', weekday: 'short' });
+                    const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+                    const madridDay = dayMap[madridDayStr] ?? matchDate.getDay();
+                    if (!daysFilter.includes(madridDay)) return false;
+                }
+                if (timeFilters.length > 0) {
+                    const madridTimeStr = matchDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
+                    const [h, min] = madridTimeStr.split(':').map(Number);
+                    const matchMinutes = h * 60 + min;
+                    const matchesAnySlot = timeFilters.some(tf => {
+                        const [sh, sm] = tf.start.split(':').map(Number);
+                        const [eh, em] = tf.end.split(':').map(Number);
+                        const startMin = sh * 60 + sm;
+                        const endMin = eh * 60 + em;
+                        if (startMin <= endMin) return matchMinutes >= startMin && matchMinutes <= endMin;
+                        else return matchMinutes >= startMin || matchMinutes <= endMin;
+                    });
+                    if (!matchesAnySlot) return false;
+                }
+                return true;
+            };
+            
+            const filtered = allMatches.filter(filterMatch);
+            console.log(`📊 [DEBUG-TEAM] ${allMatches.length} matches totales → ${filtered.length} tras filtro`);
+            
+            const getVal = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
+            
+            const aggr = { matchesPlayed: 0, wins: 0, ties: 0, losses: 0, goals: 0, goalsAgainst: 0, shots: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0 };
+            
+            for (const match of filtered) {
+                const clubIds = Object.keys(match.clubs || {});
+                const opponentId = clubIds.find(id => id !== club.eaClubId);
+                const ourClub = match.clubs[club.eaClubId] || {};
+                const oppClub = opponentId ? (match.clubs[opponentId] || {}) : {};
+                
+                aggr.matchesPlayed++;
+                const og = parseInt(ourClub.goals || 0);
+                const oag = parseInt(ourClub.goalsAgainst || oppClub.goals || 0);
+                aggr.goals += og;
+                aggr.goalsAgainst += oag;
+                if (og > oag) aggr.wins++;
+                else if (og < oag) aggr.losses++;
+                else aggr.ties++;
+                
+                // Sumar stats de jugadores de nuestro equipo
+                if (match.players?.[club.eaClubId]) {
+                    for (const p of Object.values(match.players[club.eaClubId])) {
+                        aggr.shots += getVal(p, 'shots');
+                        aggr.passesMade += getVal(p, 'passesMade', 'passesmade', 'passescompleted');
+                        aggr.passesAttempted += getVal(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                        aggr.tacklesMade += getVal(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                        aggr.tacklesAttempted += getVal(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                    }
+                }
+            }
+            
+            s = aggr;
+            m = aggr.matchesPlayed;
+        } else {
+            s = club.stats || {};
+            m = s.matchesPlayed || 0;
+        }
+        
+        if (m === 0) {
+            const filterInfo = hasFilters ? ' dentro de la franja/días seleccionados' : '';
+            return interaction.editReply({ content: `El equipo **${club.eaClubName}** no tiene partidos registrados${filterInfo}.` });
+        }
         
         const wins = s.wins || 0, ties = s.ties || 0, losses = s.losses || 0;
         const goals = s.goals || 0, goalsAgainst = s.goalsAgainst || 0;
