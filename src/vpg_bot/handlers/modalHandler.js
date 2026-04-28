@@ -1056,7 +1056,7 @@ if (customId.startsWith('manager_request_modal_')) {
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
 
         // 1. Comprobar si hay selección de franjas desde el selector
-        const { pendingSelections } = require('../../utils/pendingStatsSelections.js');
+        const { pendingSelections } = await import('../../utils/pendingStatsSelections.js');
         const pending = pendingSelections.get(interaction.user.id);
         if (pending) pendingSelections.delete(interaction.user.id);
         
@@ -1356,7 +1356,7 @@ if (customId.startsWith('manager_request_modal_')) {
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
 
         // Comprobar pendingSelections
-        const { pendingSelections } = require('../../utils/pendingStatsSelections.js');
+        const { pendingSelections } = await import('../../utils/pendingStatsSelections.js');
         const pending = pendingSelections.get(interaction.user.id);
         if (pending) pendingSelections.delete(interaction.user.id);
         
@@ -1540,7 +1540,7 @@ if (customId.startsWith('manager_request_modal_')) {
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
 
         // Comprobar pendingSelections
-        const { pendingSelections } = require('../../utils/pendingStatsSelections.js');
+        const { pendingSelections } = await import('../../utils/pendingStatsSelections.js');
         const pending = pendingSelections.get(interaction.user.id);
         if (pending) pendingSelections.delete(interaction.user.id);
         

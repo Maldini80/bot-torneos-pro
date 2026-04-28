@@ -936,7 +936,7 @@ module.exports = async (client, interaction) => {
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) seleccionó franjas: [${selectedSlots.join(', ')}] para ${statsType}`);
         
         // Guardar selección en memoria
-        const { pendingSelections } = require('../../utils/pendingStatsSelections.js');
+        const { pendingSelections } = await import('../../utils/pendingStatsSelections.js');
         pendingSelections.set(interaction.user.id, {
             slots: selectedSlots,
             timestamp: Date.now()
