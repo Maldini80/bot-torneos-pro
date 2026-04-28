@@ -114,9 +114,20 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                 const oppMatchGoals = parseInt(oppClubData.goals || 0);
                 
                 // ---------------------------------------------------------------
-                // DNF inteligente: verificar por jugador si tiene datos reales
-                // Si pases+tiros+entradas == 0 → solo guardar rating
+                // DNF inteligente: AMBAS condiciones necesarias para excluir
+                // 1. Partido corto (secondsPlayed < 5200 = ~87min)
+                // 2. Datos vacíos del jugador (pases + tiros + entradas == 0)
                 // ---------------------------------------------------------------
+                
+                // Calcular duración máxima del partido
+                let matchMaxSecs = 0;
+                if (match.players && match.players[clubId]) {
+                    Object.values(match.players[clubId]).forEach(p => {
+                        const sec = parseInt(p.secondsPlayed || 0);
+                        if (sec > matchMaxSecs) matchMaxSecs = sec;
+                    });
+                }
+                const isShortMatch = matchMaxSecs > 0 && matchMaxSecs < 5200;
 
                 // Process players
                 const goalsAgainstThisMatch = match.clubs && match.clubs[clubId] ? parseInt(match.clubs[clubId].goalsAgainst || 0) : 0;
@@ -131,9 +142,9 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                         const tk = parseInt(player.tacklesMade || player.tacklesmade || 0);
                         const hasRealStats = (pm + sh + tk) > 0;
 
-                        if (!hasRealStats) {
-                            // Sin datos reales → solo rating
-                            console.log(`[CRAWLER] 🔌 Stats vacías para ${playerName} (${team.name}) en partido ${matchId}. Solo se guarda rating.`);
+                        if (isShortMatch && !hasRealStats) {
+                            // Partido corto + sin datos → DNF, solo rating
+                            console.log(`[CRAWLER] 🔌 DNF sin datos para ${playerName} (${team.name}) en partido ${matchId} (${Math.floor(matchMaxSecs/60)} min). Solo rating.`);
                             await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name);
                         } else {
                             await updatePlayerProfile(playerColl, playerName, player, team.name, goalsAgainstThisMatch);

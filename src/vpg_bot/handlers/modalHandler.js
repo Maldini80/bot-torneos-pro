@@ -1209,17 +1209,29 @@ if (customId.startsWith('manager_request_modal_')) {
                     for (const pid of Object.keys(match.players[clubId])) {
                         const pData = match.players[clubId][pid];
                         if (pData.playername && pData.playername.toLowerCase() === profile.eaPlayerName.toLowerCase()) {
-                            // Comprobar si el jugador tiene datos reales en este partido
+                            // Comprobar si es un partido sin datos reales (DNF temprano)
+                            // Se necesitan AMBAS condiciones:
+                            // 1. Partido corto (secondsPlayed < 5200 = ~87min)
+                            // 2. Datos vacíos (pases + tiros + entradas == 0)
                             const pm = getVal(pData, 'passesMade', 'passesmade');
                             const sh = getVal(pData, 'shots');
                             const tk = getVal(pData, 'tacklesMade', 'tacklesmade');
                             const hasRealStats = (pm + sh + tk) > 0;
                             
+                            let matchMaxSecs = 0;
+                            for (const cid of Object.keys(match.players || {})) {
+                                Object.values(match.players[cid]).forEach(p => {
+                                    const sec = parseInt(p.secondsPlayed || 0);
+                                    if (sec > matchMaxSecs) matchMaxSecs = sec;
+                                });
+                            }
+                            const isShortMatch = matchMaxSecs > 0 && matchMaxSecs < 5200;
+                            
                             // Siempre guardar rating
                             aggr.ratings.push(parseFloat(pData.rating || 0));
                             
-                            if (!hasRealStats) {
-                                // Partido sin datos reales (DNF temprano) → solo rating
+                            if (isShortMatch && !hasRealStats) {
+                                // Partido corto + sin datos → DNF donde nos desconectamos
                                 aggr.dnfCount++;
                                 continue;
                             }
