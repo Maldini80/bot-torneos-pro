@@ -2049,7 +2049,10 @@ if (customId.startsWith('manager_request_modal_')) {
                     .setColor(resultColor);
                 
                 // Añadir stats de la sesión con datos reales (la que no fue DNF, o la última)
-                const bestSession = mData.sessions.find(s => s.ourHasRealStats && !s.isDnf) || mData.sessions.find(s => s.ourHasRealStats) || mData.sessions[mData.sessions.length - 1];
+                let bestIdx = mData.sessions.findIndex(s => s.ourHasRealStats && !s.isDnf);
+                if (bestIdx < 0) bestIdx = mData.sessions.findIndex(s => s.ourHasRealStats);
+                if (bestIdx < 0) bestIdx = mData.sessions.length - 1;
+                const bestSession = mData.sessions[bestIdx];
                 const bMatch = bestSession.match;
                 if (bMatch.players && bMatch.players[club.eaClubId]) {
                     const sumTeamStats = (players) => {
@@ -2086,7 +2089,7 @@ if (customId.startsWith('manager_request_modal_')) {
                         if (parseInt(p.assists || 0) > 0) extras.push(`🎩${p.assists}`);
                         return { order: POS_ORDER[pos] ?? 99, text: `\`${pos.padEnd(3)}\` **${p.playername}** ⭐${rating}${extras.length > 0 ? ' ' + extras.join(' ') : ''}` };
                     }).sort((a, b) => a.order - b.order);
-                    embed.addFields({ name: '📋 Alineación (sesión con datos)', value: sorted.map(p => p.text).join('\n'), inline: false });
+                    embed.addFields({ name: `📋 Alineación (sesión ${bestIdx + 1})`, value: sorted.map(p => p.text).join('\n'), inline: false });
                 }
                 
                 entries.push(embed);
