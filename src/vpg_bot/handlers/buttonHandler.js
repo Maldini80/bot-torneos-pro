@@ -1223,6 +1223,7 @@ const handler = async (client, interaction) => {
         await interaction.deferReply({ ephemeral: true });
 
         try {
+            const { mergeSessions } = await import('../../utils/matchUtils.js');
             const headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'application/json, text/plain, */*',
@@ -1271,76 +1272,23 @@ const handler = async (client, interaction) => {
                 .setThumbnail(finalLogoUrl)
                 .setDescription(`Resultados directamente desde la base de datos de EA Sports para el club ID \`${team.eaClubId}\`:`);
 
-            // --- Helper: extrae goles reales y datos de DNF de un partido ---
-            const extractMatchInfo = (match) => {
-                const clubIds = Object.keys(match.clubs || {});
-                const opponentId = clubIds.find(id => id !== String(team.eaClubId));
-                const ourStats = match.clubs[String(team.eaClubId)];
-                const oppStats = opponentId ? match.clubs[opponentId] : null;
-                let ourGoals = ourStats ? parseInt(ourStats.goals || 0) : 0;
-                let oppGoals = oppStats ? parseInt(oppStats.goals || 0) : 0;
-                let maxSecs = 0;
-                let isDnf = false;
-
-                if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
-                    let realOur = 0, realOpp = 0;
-                    if (match.players && match.players[String(team.eaClubId)]) {
-                        const ps = Object.values(match.players[String(team.eaClubId)]);
-                        realOur = ps.reduce((s, p) => s + parseInt(p.goals || 0), 0);
-                        ps.forEach(p => { const sec = parseInt(p.secondsPlayed || 0); if (sec > maxSecs) maxSecs = sec; });
-                    }
-                    if (match.players && opponentId && match.players[opponentId]) {
-                        const ps = Object.values(match.players[opponentId]);
-                        realOpp = ps.reduce((s, p) => s + parseInt(p.goals || 0), 0);
-                        ps.forEach(p => { const sec = parseInt(p.secondsPlayed || 0); if (sec > maxSecs) maxSecs = sec; });
-                    }
-                    ourGoals = realOur;
-                    oppGoals = realOpp;
-                    if (maxSecs > 0 && maxSecs < 5200) isDnf = true;
-                }
-
-                const oppName = oppStats?.details?.name || (opponentId ? `Club ID ${opponentId}` : 'Desconocido');
-                return { ourGoals, oppGoals, maxSecs, isDnf, opponentId, oppName, timestamp: match.timestamp };
-            };
-
             // --- Agrupar partidos consecutivos contra el mismo rival y fusionar si hubo DNF ---
+            const mergedMatches = mergeSessions(data, team.eaClubId);
             const entries = [];
-            let mi = 0;
-            while (mi < data.length) {
-                const info = extractMatchInfo(data[mi]);
-                const group = [info];
-                let ni = mi + 1;
 
-                // Buscar partidos consecutivos contra el mismo rival dentro de 3 horas
-                while (ni < data.length) {
-                    const nextInfo = extractMatchInfo(data[ni]);
-                    const timeDiff = Math.abs(info.timestamp - nextInfo.timestamp);
-                    if (nextInfo.opponentId === info.opponentId && timeDiff < 3 * 3600) {
-                        group.push(nextInfo);
-                        ni++;
-                    } else {
-                        break;
-                    }
-                }
-
-                const hasDnf = group.some(g => g.isDnf);
-
-                if (hasDnf && group.length > 1) {
-                    // Fusionar: sumar goles reales de todas las sesiones
-                    let totalOur = 0, totalOpp = 0, totalSecs = 0;
-                    for (const g of group) { totalOur += g.ourGoals; totalOpp += g.oppGoals; totalSecs += g.maxSecs; }
-                    const earliest = Math.min(...group.map(g => g.timestamp));
+            for (const mData of mergedMatches) {
+                if (mData.isMerged) {
                     let emoji = '⚪';
-                    if (totalOur > totalOpp) emoji = '🟢';
-                    if (totalOur < totalOpp) emoji = '🔴';
-                    const dateStr = new Date(earliest * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Madrid' });
+                    if (mData.ourGoals > mData.oppGoals) emoji = '🟢';
+                    else if (mData.ourGoals < mData.oppGoals) emoji = '🔴';
+                    
+                    const dateStr = new Date(mData.timestamp * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Madrid' });
 
                     // Desglose de sesiones (orden cronológico: la más antigua primero)
-                    const sortedGroup = [...group].sort((a, b) => a.timestamp - b.timestamp);
                     let sessionLines = '';
-                    for (let si = 0; si < sortedGroup.length; si++) {
-                        const s = sortedGroup[si];
-                        const prefix = si < sortedGroup.length - 1 ? '├' : '└';
+                    for (let si = 0; si < mData.sessions.length; si++) {
+                        const s = mData.sessions[si];
+                        const prefix = si < mData.sessions.length - 1 ? '├' : '└';
                         let dnfTag = '';
                         if (s.isDnf) {
                             const dnfMin = Math.floor(s.maxSecs / 60);
@@ -1350,28 +1298,26 @@ const handler = async (client, interaction) => {
                     }
 
                     entries.push({
-                        name: `${emoji} vs ${info.oppName}`,
-                        value: `**Resultado:** ${totalOur} - ${totalOpp} *(🔗 ${group.length} sesiones)*${sessionLines}\n🕛 *${dateStr}*`
+                        name: `${emoji} vs ${mData.oppName}`,
+                        value: `**Resultado:** ${mData.ourGoals} - ${mData.oppGoals} *(🔗 ${mData.sessionCount} sesiones)*${sessionLines}\n🕛 *${dateStr}*`
                     });
                 } else {
                     // Sin merge: mostrar cada partido individualmente
-                    for (const g of group) {
-                        let dnfText = '';
-                        if (g.isDnf) {
-                            const dnfMin = Math.floor(g.maxSecs / 60);
-                            dnfText = ` *(🔌 Desconexión Min ${dnfMin})*`;
-                        }
-                        let emoji = '⚪';
-                        if (g.ourGoals > g.oppGoals) emoji = '🟢';
-                        if (g.ourGoals < g.oppGoals) emoji = '🔴';
-                        const dateStr = new Date(g.timestamp * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Madrid' });
-                        entries.push({
-                            name: `${emoji} vs ${g.oppName}`,
-                            value: `**Resultado:** ${g.ourGoals} - ${g.oppGoals}${dnfText}\n🕛 *${dateStr}*`
-                        });
+                    const g = mData.sessions[0];
+                    let dnfText = '';
+                    if (g.isDnf) {
+                        const dnfMin = Math.floor(g.maxSecs / 60);
+                        dnfText = ` *(🔌 Desconexión Min ${dnfMin})*`;
                     }
+                    let emoji = '⚪';
+                    if (g.ourGoals > g.oppGoals) emoji = '🟢';
+                    else if (g.ourGoals < g.oppGoals) emoji = '🔴';
+                    const dateStr = new Date(g.timestamp * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Madrid' });
+                    entries.push({
+                        name: `${emoji} vs ${g.oppName}`,
+                        value: `**Resultado:** ${g.ourGoals} - ${g.oppGoals}${dnfText}\n🕛 *${dateStr}*`
+                    });
                 }
-                mi = ni;
             }
 
             // Mostrar los últimos 5 resultados (ya procesados/fusionados)

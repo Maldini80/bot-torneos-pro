@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { getBotSettings, getDb } from '../../database.js';
 import Team from '../vpg_bot/models/team.js';
+import { extractMatchInfo } from './matchUtils.js';
 
 const EA_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -272,12 +273,10 @@ async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubNa
 }
 
 async function updateClubProfile(coll, clubId, clubName, matchClubData, matchData) {
-    const clubIds = Object.keys(matchData.clubs || {});
-    const opponentId = clubIds.find(id => id !== clubId);
-    const opponentClub = opponentId ? (matchData.clubs[opponentId] || {}) : {};
+    const info = extractMatchInfo(matchData, clubId);
     
-    const ourGoals = parseInt(matchClubData.goals || 0);
-    const oppGoals = parseInt(opponentClub.goals || 0);
+    const ourGoals = info.ourGoals;
+    const oppGoals = info.oppGoals;
     const isWin = ourGoals > oppGoals ? 1 : 0;
     const isLoss = ourGoals < oppGoals ? 1 : 0;
     const isTie = ourGoals === oppGoals ? 1 : 0;

@@ -1450,6 +1450,7 @@ if (customId.startsWith('manager_request_modal_')) {
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) scout equipo: "${teamName}"`);
         
         const { getDb } = await import('../../../database.js');
+        const { extractMatchInfo, mergeSessions } = await import('../../utils/matchUtils.js');
         const db = getDb();
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
 
@@ -1604,29 +1605,28 @@ if (customId.startsWith('manager_request_modal_')) {
             
             const aggr = { matchesPlayed: 0, wins: 0, ties: 0, losses: 0, goals: 0, goalsAgainst: 0, shots: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0 };
             
-            for (const match of filtered) {
-                const clubIds = Object.keys(match.clubs || {});
-                const opponentId = clubIds.find(id => id !== club.eaClubId);
-                const ourClub = match.clubs[club.eaClubId] || {};
-                const oppClub = opponentId ? (match.clubs[opponentId] || {}) : {};
-                
+            const mergedMatches = mergeSessions(filtered, club.eaClubId);
+            
+            for (const mData of mergedMatches) {
                 aggr.matchesPlayed++;
-                const og = parseInt(ourClub.goals || 0);
-                const oag = parseInt(ourClub.goalsAgainst || oppClub.goals || 0);
+                const og = mData.ourGoals;
+                const oag = mData.oppGoals;
                 aggr.goals += og;
                 aggr.goalsAgainst += oag;
                 if (og > oag) aggr.wins++;
                 else if (og < oag) aggr.losses++;
                 else aggr.ties++;
                 
-                // Sumar stats de jugadores de nuestro equipo
-                if (match.players?.[club.eaClubId]) {
-                    for (const p of Object.values(match.players[club.eaClubId])) {
-                        aggr.shots += getVal(p, 'shots');
-                        aggr.passesMade += getVal(p, 'passesMade', 'passesmade', 'passescompleted');
-                        aggr.passesAttempted += getVal(p, 'passesAttempted', 'passesattempted', 'passattempts');
-                        aggr.tacklesMade += getVal(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
-                        aggr.tacklesAttempted += getVal(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                for (const session of mData.sessions) {
+                    const match = session.match;
+                    if (match.players?.[club.eaClubId]) {
+                        for (const p of Object.values(match.players[club.eaClubId])) {
+                            aggr.shots += getVal(p, 'shots');
+                            aggr.passesMade += getVal(p, 'passesMade', 'passesmade', 'passescompleted');
+                            aggr.passesAttempted += getVal(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                            aggr.tacklesMade += getVal(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                            aggr.tacklesAttempted += getVal(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                        }
                     }
                 }
             }
@@ -1883,101 +1883,17 @@ if (customId.startsWith('manager_request_modal_')) {
             6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
             11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC',
             'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
-            'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD',
-            'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
-            'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
-            'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
-        };
-        const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'CARR': 8, 'MCO': 9, 'MD': 10, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
-
-        // Helper para keys inconsistentes de EA API
-        const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
-        
-        // --- Helper: extrae goles reales y datos de DNF de un partido ---
-        const extractMatchInfo = (match) => {
-            const matchClubIds = Object.keys(match.clubs || {});
-            const opponentId = matchClubIds.find(id => id !== club.eaClubId);
-            const ourClub = match.clubs[club.eaClubId] || {};
-            const opponentClub = opponentId ? (match.clubs[opponentId] || {}) : {};
-            let ourGoals = parseInt(ourClub.goals || 0);
-            let oppGoals = parseInt(opponentClub.goals || 0);
-            let maxSecs = 0;
-            let isDnf = false;
-
-            // Calcular maxSecs de TODOS los jugadores (ambos equipos)
-            for (const cid of [club.eaClubId, opponentId].filter(Boolean)) {
-                if (match.players?.[cid]) {
-                    Object.values(match.players[cid]).forEach(p => {
-                        const sec = parseInt(p.secondsPlayed || 0);
-                        if (sec > maxSecs) maxSecs = sec;
-                    });
-                }
-            }
-
-            // DNF = partido con duración real < 87 min
-            if (maxSecs > 0 && maxSecs < 5200) isDnf = true;
-
-            // Corrección de goles fantasma SOLO en resultados 3-0 / 0-3 con DNF
-            if (isDnf && ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3))) {
-                let realOur = 0, realOpp = 0;
-                if (match.players?.[club.eaClubId]) {
-                    realOur = Object.values(match.players[club.eaClubId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
-                }
-                if (match.players?.[opponentId]) {
-                    realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
-                }
-                ourGoals = realOur;
-                oppGoals = realOpp;
-            }
-
-            // Verificar si NUESTRO equipo tiene stats reales (pases + tiros + entradas > 0)
-            let ourHasRealStats = false;
-            if (match.players?.[club.eaClubId]) {
-                for (const p of Object.values(match.players[club.eaClubId])) {
-                    const pm = parseInt(p.passesMade || p.passesmade || 0);
-                    const sh = parseInt(p.shots || 0);
-                    const tk = parseInt(p.tacklesMade || p.tacklesmade || 0);
-                    if ((pm + sh + tk) > 0) { ourHasRealStats = true; break; }
-                }
-            }
-
-            const oppName = opponentClub.details?.name || opponentId || 'Desconocido';
-            return { ourGoals, oppGoals, maxSecs, isDnf, ourHasRealStats, opponentId, oppName, timestamp: parseInt(match.timestamp), match };
-        };
-
-        // --- Agrupar partidos consecutivos contra el mismo rival y fusionar si hubo DNF ---
+            'fullbac        // --- Agrupar partidos consecutivos contra el mismo rival y fusionar si hubo DNF ---
+        const mergedMatches = mergeSessions(matches, club.eaClubId);
         const entries = [];
-        let mi = 0;
-        while (mi < matches.length) {
-            const info = extractMatchInfo(matches[mi]);
-            const group = [info];
-            let ni = mi + 1;
 
-            // Buscar partidos consecutivos contra el mismo rival dentro de 3 horas
-            while (ni < matches.length) {
-                const nextInfo = extractMatchInfo(matches[ni]);
-                const timeDiff = Math.abs(info.timestamp - nextInfo.timestamp);
-                if (nextInfo.opponentId === info.opponentId && timeDiff < 3 * 3600) {
-                    group.push(nextInfo);
-                    ni++;
-                } else {
-                    break;
-                }
-            }
-
-            const hasDnf = group.some(g => g.isDnf);
-
-            if (hasDnf && group.length > 1) {
-                // Fusionar: sumar goles reales de todas las sesiones
-                let totalOur = 0, totalOpp = 0;
-                for (const g of group) { totalOur += g.ourGoals; totalOpp += g.oppGoals; }
-                const sortedGroup = [...group].sort((a, b) => a.timestamp - b.timestamp);
-                
+        for (const mData of mergedMatches) {
+            if (mData.isMerged) {
                 // Desglose de sesiones para embed
                 let sessionLines = '';
-                for (let si = 0; si < sortedGroup.length; si++) {
-                    const s = sortedGroup[si];
-                    const prefix = si < sortedGroup.length - 1 ? '├' : '└';
+                for (let si = 0; si < mData.sessions.length; si++) {
+                    const s = mData.sessions[si];
+                    const prefix = si < mData.sessions.length - 1 ? '├' : '└';
                     let dnfTag = '';
                     if (s.isDnf) {
                         const dnfMin = Math.floor(s.maxSecs / 60);
@@ -1987,108 +1903,116 @@ if (customId.startsWith('manager_request_modal_')) {
                 }
 
                 let resultEmoji = '➖', resultColor = '#95a5a6';
-                if (totalOur > totalOpp) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
-                else if (totalOur < totalOpp) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
+                if (mData.ourGoals > mData.oppGoals) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
+                else if (mData.ourGoals < mData.oppGoals) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
                 
-                const earliest = Math.min(...group.map(g => g.timestamp));
-                const matchDateObj = new Date(earliest * 1000);
+                const matchDateObj = new Date(mData.timestamp * 1000);
                 const matchDate = matchDateObj.toLocaleDateString('es-ES');
                 const matchTime = matchDateObj.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
                 
-                // Usar el último match del grupo para stats detalladas (el completo si lo hay)
-                const lastFullMatch = sortedGroup.find(g => !g.isDnf)?.match || sortedGroup[sortedGroup.length - 1].match;
-                
                 const embed = new EmbedBuilder()
-                    .setTitle(`${resultEmoji} ${club.eaClubName} ${totalOur} - ${totalOpp} ${info.oppName}`)
-                    .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)\n🔗 **${group.length} sesiones** (fusión DNF)${sessionLines}`)
+                    .setTitle(`${resultEmoji} ${club.eaClubName} ${mData.ourGoals} - ${mData.oppGoals} ${mData.oppName}`)
+                    .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)\n🔗 **${mData.sessionCount} sesiones** (fusión DNF)${sessionLines}`)
                     .setColor(resultColor);
                 
                 entries.push(embed);
             } else {
                 // Sin merge: mostrar cada partido individualmente con stats detalladas
-                for (const g of group) {
-                    const match = g.match;
-                    const matchDateObj = new Date(g.timestamp * 1000);
-                    const matchDate = matchDateObj.toLocaleDateString('es-ES');
-                    const matchTime = matchDateObj.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
-                    
-                    let resultEmoji = '➖', resultColor = '#95a5a6';
-                    if (g.ourGoals > g.oppGoals) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
-                    else if (g.ourGoals < g.oppGoals) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
-                    
-                    // Sumar stats de todos los jugadores del equipo
-                    const sumTeamStats = (players) => {
-                        let s = { shots: 0, pm: 0, pa: 0, tm: 0, ta: 0, gkSaves: 0 };
-                        if (!players) return s;
-                        for (const pid in players) {
-                            const p = players[pid];
-                            s.shots += gv(p, 'shots');
-                            s.pm += gv(p, 'passesMade', 'passesmade', 'passescompleted');
-                            s.pa += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
-                            s.tm += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
-                            s.ta += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
-                            s.gkSaves += gv(p, 'saves');
-                        }
-                        return s;
-                    };
-                    
-                    const ourStats = sumTeamStats(match.players?.[club.eaClubId]);
-                    const oppStats = sumTeamStats(match.players?.[g.opponentId]);
-                    
-                    const ourShotsOT = g.ourGoals + oppStats.gkSaves;
-                    const oppShotsOT = g.oppGoals + ourStats.gkSaves;
-                    const mPassMade = ourStats.pm;
-                    const mPassAtt = ourStats.pa;
-                    const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
-                    const mTackMade = ourStats.tm;
-                    const mTackAtt = ourStats.ta;
-                    const mTackAcc = mTackAtt > 0 ? ((mTackMade / mTackAtt) * 100).toFixed(0) : '?';
-                    
-                    const totalPassAtt = mPassAtt + oppStats.pa;
-                    const estPoss = totalPassAtt > 0 ? ((mPassAtt / totalPassAtt) * 100).toFixed(0) : '?';
-                    const estOppPoss = totalPassAtt > 0 ? ((oppStats.pa / totalPassAtt) * 100).toFixed(0) : '?';
-                    const oppPassAcc = oppStats.pa > 0 ? ((oppStats.pm / oppStats.pa) * 100).toFixed(0) : '?';
-                    
-                    const dnfText = g.isDnf ? ` *(🔌 DNF min ${Math.floor(g.maxSecs / 60)})*` : '';
-                    
-                    // Alineación ORDENADA con stats detalladas
-                    let lineupStr = '';
-                    if (match.players && match.players[club.eaClubId]) {
-                        const players = Object.values(match.players[club.eaClubId]);
-                        const sorted = players.map(p => {
-                            const pos = resolvePos(p.pos, p.archetypeid);
-                            const pGoals = parseInt(p.goals || 0);
-                            const pAssists = parseInt(p.assists || 0);
-                            const rating = parseFloat(p.rating || 0).toFixed(1);
-                            const pPM = gv(p, 'passesMade', 'passesmade', 'passescompleted');
-                            const pPA = gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
-                            const pTM = gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
-                            const pTA = gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
-                            const pPassPct = pPA > 0 ? ((pPM / pPA) * 100).toFixed(0) + '%' : '';
-                            const pTackPct = pTA > 0 ? ((pTM / pTA) * 100).toFixed(0) + '%' : '';
-                            
-                            let extras = [];
-                            if (pGoals > 0) extras.push(`⚽${pGoals}`);
-                            if (pAssists > 0) extras.push(`🎩${pAssists}`);
-                            if (pPassPct) extras.push(`👟${pPassPct}`);
-                            if (pTackPct) extras.push(`🛡️${pTackPct}`);
-                            
-                            return {
-                                order: POS_ORDER[pos] ?? 99,
-                                text: `\`${pos.padEnd(3)}\` **${p.playername}** ⭐${rating}${extras.length > 0 ? ' ' + extras.join(' ') : ''}`
-                            };
-                        }).sort((a, b) => a.order - b.order);
-                        lineupStr = sorted.map(p => p.text).join('\n');
+                const g = mData.sessions[0];
+                const match = g.match;
+                const matchDateObj = new Date(g.timestamp * 1000);
+                const matchDate = matchDateObj.toLocaleDateString('es-ES');
+                const matchTime = matchDateObj.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
+                
+                let resultEmoji = '➖', resultColor = '#95a5a6';
+                if (g.ourGoals > g.oppGoals) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
+                else if (g.ourGoals < g.oppGoals) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
+                
+                // Sumar stats de todos los jugadores del equipo
+                const sumTeamStats = (players) => {
+                    let s = { shots: 0, pm: 0, pa: 0, tm: 0, ta: 0, gkSaves: 0 };
+                    if (!players) return s;
+                    for (const pid in players) {
+                        const p = players[pid];
+                        s.shots += gv(p, 'shots');
+                        s.pm += gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                        s.pa += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                        s.tm += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                        s.ta += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                        s.gkSaves += gv(p, 'saves');
                     }
-                    
-                    const embed = new EmbedBuilder()
-                        .setTitle(`${resultEmoji} ${club.eaClubName} ${g.ourGoals} - ${g.oppGoals} ${g.oppName}`)
-                        .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)${dnfText}`)
-                        .setColor(resultColor)
-                        .addFields(
-                            { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
-                            { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
-                            { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                    return s;
+                };
+                
+                const ourStats = sumTeamStats(match.players?.[club.eaClubId]);
+                const oppStats = sumTeamStats(match.players?.[g.opponentId]);
+                
+                const ourShotsOT = g.ourGoals + oppStats.gkSaves;
+                const oppShotsOT = g.oppGoals + ourStats.gkSaves;
+                const mPassMade = ourStats.pm;
+                const mPassAtt = ourStats.pa;
+                const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
+                const mTackMade = ourStats.tm;
+                const mTackAtt = ourStats.ta;
+                const mTackAcc = mTackAtt > 0 ? ((mTackMade / mTackAtt) * 100).toFixed(0) : '?';
+                
+                const totalPassAtt = mPassAtt + oppStats.pa;
+                const estPoss = totalPassAtt > 0 ? ((mPassAtt / totalPassAtt) * 100).toFixed(0) : '?';
+                const estOppPoss = totalPassAtt > 0 ? ((oppStats.pa / totalPassAtt) * 100).toFixed(0) : '?';
+                const oppPassAcc = oppStats.pa > 0 ? ((oppStats.pm / oppStats.pa) * 100).toFixed(0) : '?';
+                
+                const dnfText = g.isDnf ? ` *(🔌 DNF min ${Math.floor(g.maxSecs / 60)})*` : '';
+                
+                // Alineación ORDENADA con stats detalladas
+                let lineupStr = '';
+                if (match.players && match.players[club.eaClubId]) {
+                    const players = Object.values(match.players[club.eaClubId]);
+                    const sorted = players.map(p => {
+                        const pos = resolvePos(p.pos, p.archetypeid);
+                        const pGoals = parseInt(p.goals || 0);
+                        const pAssists = parseInt(p.assists || 0);
+                        const rating = parseFloat(p.rating || 0).toFixed(1);
+                        const pPM = gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                        const pPA = gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                        const pTM = gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                        const pTA = gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                        const pPassPct = pPA > 0 ? ((pPM / pPA) * 100).toFixed(0) + '%' : '';
+                        const pTackPct = pTA > 0 ? ((pTM / pTA) * 100).toFixed(0) + '%' : '';
+                        
+                        let extras = [];
+                        if (pGoals > 0) extras.push(`⚽${pGoals}`);
+                        if (pAssists > 0) extras.push(`🎩${pAssists}`);
+                        if (pPassPct) extras.push(`👟${pPassPct}`);
+                        if (pTackPct) extras.push(`🛡️${pTackPct}`);
+                        
+                        return {
+                            order: POS_ORDER[pos] ?? 99,
+                            text: `\`${pos.padEnd(3)}\` **${p.playername}** ⭐${rating}${extras.length > 0 ? ' ' + extras.join(' ') : ''}`
+                        };
+                    }).sort((a, b) => a.order - b.order);
+                    lineupStr = sorted.map(p => p.text).join('\n');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setTitle(`${resultEmoji} ${club.eaClubName} ${g.ourGoals} - ${g.oppGoals} ${g.oppName}`)
+                    .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)${dnfText}`)
+                    .setColor(resultColor)
+                    .addFields(
+                        { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
+                        { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
+                        { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                        { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
+                        { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
+                        { name: '\u200B', value: '\u200B', inline: true }
+                    );
+                
+                if (lineupStr) {
+                    embed.addFields({ name: '📋 Alineación y Rendimiento', value: lineupStr, inline: false });
+                }
+                
+                entries.push(embed);
+            }
+        }ShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
                             { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
                             { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
                             { name: '\u200B', value: '\u200B', inline: true }
