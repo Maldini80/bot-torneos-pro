@@ -61,13 +61,33 @@ function extractMatchInfo(match, primaryClubId) {
         let trueOurGoals, trueOppGoals;
         
         if (ourGoals === 3 && oppGoals === 0) {
-            // NOSOTROS ganamos por DNF → nuestros datos son fiables
-            trueOurGoals = realOur;                    // Suma de goals de nuestros jugadores
-            trueOppGoals = maxGoalsConceded;           // Lo que nuestros jugadores concedieron
+            // NOSOTROS ganamos por DNF (el rival desconectó)
+            // Goles del rival: nuestro goalsconceded (siempre fiable)
+            trueOppGoals = maxGoalsConceded;
+            // Nuestros goles: múltiples fuentes
+            if (realOur > 0) {
+                // Fuente principal: goles de nuestros jugadores (EA sí los creditó)
+                trueOurGoals = realOur;
+            } else if (maxOppGoalsConceded > 0 && maxOppGoalsConceded < 3) {
+                // Fallback: goalsconceded del rival (solo si NO es el ghost score 3)
+                trueOurGoals = maxOppGoalsConceded;
+            } else {
+                // Último recurso: EA no creditó goles ni hay dato fiable del rival
+                // Asumir empate (heurística: DNFs tardíos suelen ser empates)
+                trueOurGoals = maxGoalsConceded;
+            }
         } else {
-            // EL RIVAL ganó por DNF → los datos del rival son fiables
-            trueOppGoals = realOpp;                    // Suma de goals del rival
-            trueOurGoals = maxOppGoalsConceded;        // Lo que el rival concedió
+            // EL RIVAL ganó por DNF (nosotros desconectamos)
+            // Nuestros goles: goalsconceded del rival (ellos son fiables)
+            trueOurGoals = maxOppGoalsConceded;
+            // Goles del rival: múltiples fuentes
+            if (realOpp > 0) {
+                trueOppGoals = realOpp;
+            } else if (maxGoalsConceded > 0 && maxGoalsConceded < 3) {
+                trueOppGoals = maxGoalsConceded;
+            } else {
+                trueOppGoals = maxOppGoalsConceded;
+            }
         }
         
         // Always correct if player goals do not match the EA official 3-0 / 0-3 score
