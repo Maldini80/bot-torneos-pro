@@ -41,12 +41,24 @@ function extractMatchInfo(match, primaryClubId) {
             realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
         }
         
-        console.log(`[DEBUG-DNF-MATCH] Club ${primaryClubId} DNF match raw data:`, JSON.stringify(match));
+        // ¡TRUCO! EA borra los goles del rival si se desconecta, pero NUESTROS jugadores
+        // todavía tienen registrado cuántos goles recibieron en 'goalsconceded'.
+        let maxGoalsConceded = 0;
+        if (match.players && match.players[String(primaryClubId)]) {
+            Object.values(match.players[String(primaryClubId)]).forEach(p => {
+                const conceded = parseInt(p.goalsconceded || 0);
+                if (conceded > maxGoalsConceded) maxGoalsConceded = conceded;
+            });
+        }
+        
+        // El verdadero número de goles del rival es el máximo entre los goles que marcaron
+        // sus jugadores (si existen) y los goles que nosotros concedimos.
+        const trueOppGoals = Math.max(realOpp, maxGoalsConceded);
         
         // Always correct if player goals do not match the EA official 3-0 / 0-3 score
-        if (ourGoals !== realOur || oppGoals !== realOpp) {
+        if (ourGoals !== realOur || oppGoals !== trueOppGoals) {
             ourGoals = realOur;
-            oppGoals = realOpp;
+            oppGoals = trueOppGoals;
             isDnf = true; // Mark as DNF since we had to correct ghost goals
         }
     }
