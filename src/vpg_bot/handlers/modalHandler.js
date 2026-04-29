@@ -1731,6 +1731,7 @@ if (customId.startsWith('manager_request_modal_')) {
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) historial equipo: "${teamName}"`);
         
         const { getDb } = await import('../../../database.js');
+        const { extractMatchInfo, mergeSessions } = await import('../../utils/matchUtils.js');
         const db = getDb();
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
 
