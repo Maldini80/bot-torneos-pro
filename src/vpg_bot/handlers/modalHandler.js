@@ -1883,7 +1883,17 @@ if (customId.startsWith('manager_request_modal_')) {
             6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
             11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC',
             'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
-            'fullbac        // --- Agrupar partidos consecutivos contra el mismo rival y fusionar si hubo DNF ---
+            'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD',
+            'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
+            'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
+            'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
+        };
+        const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'CARR': 8, 'MCO': 9, 'MD': 10, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
+
+        // Helper para keys inconsistentes de EA API
+        const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
+
+        // --- Agrupar partidos consecutivos contra el mismo rival y fusionar si hubo DNF ---
         const mergedMatches = mergeSessions(matches, club.eaClubId);
         const entries = [];
 
@@ -2012,20 +2022,6 @@ if (customId.startsWith('manager_request_modal_')) {
                 
                 entries.push(embed);
             }
-        }ShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
-                            { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
-                            { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
-                            { name: '\u200B', value: '\u200B', inline: true }
-                        );
-                    
-                    if (lineupStr) {
-                        embed.addFields({ name: '📋 Alineación y Rendimiento', value: lineupStr, inline: false });
-                    }
-                    
-                    entries.push(embed);
-                }
-            }
-            mi = ni;
         }
 
         const embeds = entries.slice(0, 5);
