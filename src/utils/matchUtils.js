@@ -51,13 +51,22 @@ function extractMatchInfo(match, primaryClubId) {
             });
         }
         
+        let maxOppGoalsConceded = 0;
+        if (match.players && opponentId && match.players[opponentId]) {
+            Object.values(match.players[opponentId]).forEach(p => {
+                const conceded = parseInt(p.goalsconceded || 0);
+                if (conceded > maxOppGoalsConceded) maxOppGoalsConceded = conceded;
+            });
+        }
+        
         // El verdadero número de goles del rival es el máximo entre los goles que marcaron
         // sus jugadores (si existen) y los goles que nosotros concedimos.
         const trueOppGoals = Math.max(realOpp, maxGoalsConceded);
+        const trueOurGoals = Math.max(realOur, maxOppGoalsConceded);
         
         // Always correct if player goals do not match the EA official 3-0 / 0-3 score
-        if (ourGoals !== realOur || oppGoals !== trueOppGoals) {
-            ourGoals = realOur;
+        if (ourGoals !== trueOurGoals || oppGoals !== trueOppGoals) {
+            ourGoals = trueOurGoals;
             oppGoals = trueOppGoals;
             isDnf = true; // Mark as DNF since we had to correct ghost goals
         }
