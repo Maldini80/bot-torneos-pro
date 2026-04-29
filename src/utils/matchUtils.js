@@ -41,6 +41,8 @@ function extractMatchInfo(match, primaryClubId) {
             realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
         }
         
+        console.log(`[DEBUG-DNF-MATCH] Club ${primaryClubId} DNF match raw data:`, JSON.stringify(match));
+        
         // Always correct if player goals do not match the EA official 3-0 / 0-3 score
         if (ourGoals !== realOur || oppGoals !== realOpp) {
             ourGoals = realOur;
