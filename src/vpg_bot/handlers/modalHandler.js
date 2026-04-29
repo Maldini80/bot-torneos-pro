@@ -2129,8 +2129,20 @@ if (customId.startsWith('manager_request_modal_')) {
                 const embed = new EmbedBuilder()
                     .setTitle(`${resultEmoji} ${club.eaClubName} ${g.ourGoals} - ${g.oppGoals} ${g.oppName}`)
                     .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)${dnfText}`)
-                    .setColor(resultColor)
-                    .addFields(
+                    .setColor(resultColor);
+                
+                if (g.isDnf) {
+                    // En DNF las stats comparativas no son fiables
+                    embed.addFields(
+                        { name: '⚽ Posesión (est.)', value: `⚠️ *No fiable (DNF)*`, inline: true },
+                        { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta)`, inline: true },
+                        { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                        { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%)`, inline: true },
+                        { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
+                        { name: '⚠️ DNF', value: `*Stats del rival no fiables por desconexión*`, inline: true }
+                    );
+                } else {
+                    embed.addFields(
                         { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
                         { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
                         { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
@@ -2138,6 +2150,7 @@ if (customId.startsWith('manager_request_modal_')) {
                         { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
                         { name: '\u200B', value: '\u200B', inline: true }
                     );
+                }
                 
                 if (lineupStr) {
                     embed.addFields({ name: '📋 Alineación y Rendimiento', value: lineupStr, inline: false });
