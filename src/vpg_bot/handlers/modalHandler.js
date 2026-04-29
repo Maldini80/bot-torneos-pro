@@ -2134,12 +2134,12 @@ if (customId.startsWith('manager_request_modal_')) {
                 if (g.isDnf) {
                     // En DNF las stats comparativas no son fiables
                     embed.addFields(
-                        { name: '⚽ Posesión (est.)', value: `⚠️ *No fiable (DNF)*`, inline: true },
+                        { name: '⚽ Posesión (est.)', value: `⚠️ *No disp. (DNF)*`, inline: true },
                         { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta)`, inline: true },
                         { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
                         { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%)`, inline: true },
                         { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
-                        { name: '⚠️ DNF', value: `*Stats del rival no fiables por desconexión*`, inline: true }
+                        { name: '⚠️ DNF', value: `*Stats del rival no disp. por desconexión*`, inline: true }
                     );
                 } else {
                     embed.addFields(
