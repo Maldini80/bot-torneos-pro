@@ -1330,6 +1330,40 @@ module.exports = async (client, interaction) => {
                         .setTitle(`${resultEmoji} ${club.eaClubName} ${mData.ourGoals} - ${mData.oppGoals} ${mData.oppName}`)
                         .setDescription(`📅 ${mdo.toLocaleDateString('es-ES')} — 🕐 ${mdo.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' })}h (Madrid)\n🔗 **${mData.sessionCount} sesiones** (fusión DNF)${sessionLines}`)
                         .setColor(resultColor);
+
+                    // Stats de la mejor sesión
+                    const bestSession = mData.sessions.find(s => s.ourHasRealStats && !s.isDnf) || mData.sessions.find(s => s.ourHasRealStats) || mData.sessions[mData.sessions.length - 1];
+                    const bMatch = bestSession.match;
+                    if (bMatch.players && bMatch.players[club.eaClubId]) {
+                        const sumTS = (players) => {
+                            let st = { shots: 0, pm: 0, pa: 0, tm: 0, ta: 0 };
+                            if (!players) return st;
+                            for (const pid in players) {
+                                const p = players[pid];
+                                st.shots += gv(p, 'shots');
+                                st.pm += gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                                st.pa += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                                st.tm += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                                st.ta += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                            }
+                            return st;
+                        };
+                        const oSt = sumTS(bMatch.players[club.eaClubId]);
+                        embed.addFields(
+                            { name: '👟 Pases', value: `**${oSt.pm}/${oSt.pa}** (${oSt.pa > 0 ? ((oSt.pm / oSt.pa) * 100).toFixed(0) : '?'}%)`, inline: true },
+                            { name: '🛡️ Entradas', value: `**${oSt.tm}/${oSt.ta}** (${oSt.ta > 0 ? ((oSt.tm / oSt.ta) * 100).toFixed(0) : '?'}%)`, inline: true },
+                            { name: '🔫 Tiros', value: `**${oSt.shots}**`, inline: true }
+                        );
+                        const sorted = Object.values(bMatch.players[club.eaClubId]).map(p => {
+                            const pos = resolvePos(p.pos, p.archetypeid);
+                            const rating = parseFloat(p.rating || 0).toFixed(1);
+                            let extras = [];
+                            if (parseInt(p.goals || 0) > 0) extras.push(`⚽${p.goals}`);
+                            if (parseInt(p.assists || 0) > 0) extras.push(`🎩${p.assists}`);
+                            return { order: POS_ORDER[pos] ?? 99, text: `\`${pos.padEnd(3)}\` **${p.playername}** ⭐${rating}${extras.length > 0 ? ' ' + extras.join(' ') : ''}` };
+                        }).sort((a, b) => a.order - b.order);
+                        embed.addFields({ name: '📋 Alineación (sesión con datos)', value: sorted.map(p => p.text).join('\n'), inline: false });
+                    }
                     entries.push(embed);
                 } else {
                     const g = mData.sessions[0];
