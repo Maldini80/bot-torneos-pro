@@ -32,18 +32,11 @@ function extractMatchInfo(match, primaryClubId) {
 
     // Check for "ghost" goals (3-0 or 0-3 defaults by EA for DNF)
     if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
-        let realOur = 0, realOpp = 0;
+        // ¡TRUCO! EA modifica los goles en DNF: al ganador le pone 3-0 o 0-3.
+        // Pero 'goalsconceded' de cada equipo mantiene los goles REALES que recibieron.
+        // Usamos goalsconceded como fuente principal de verdad.
         
-        if (match.players && match.players[String(primaryClubId)]) {
-            realOur = Object.values(match.players[String(primaryClubId)]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
-        }
-        if (match.players && opponentId && match.players[opponentId]) {
-            realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
-        }
-        
-        // ¡TRUCO! EA borra los goles del rival si se desconecta, pero NUESTROS jugadores
-        // todavía tienen registrado cuántos goles recibieron en 'goalsconceded'.
-        let maxGoalsConceded = 0;
+        let maxGoalsConceded = 0; // Goles que NOSOTROS recibimos = goles reales del RIVAL
         if (match.players && match.players[String(primaryClubId)]) {
             Object.values(match.players[String(primaryClubId)]).forEach(p => {
                 const conceded = parseInt(p.goalsconceded || 0);
@@ -51,7 +44,7 @@ function extractMatchInfo(match, primaryClubId) {
             });
         }
         
-        let maxOppGoalsConceded = 0;
+        let maxOppGoalsConceded = 0; // Goles que el RIVAL recibió = goles reales NUESTROS
         if (match.players && opponentId && match.players[opponentId]) {
             Object.values(match.players[opponentId]).forEach(p => {
                 const conceded = parseInt(p.goalsconceded || 0);
@@ -59,10 +52,20 @@ function extractMatchInfo(match, primaryClubId) {
             });
         }
         
-        // El verdadero número de goles del rival es el máximo entre los goles que marcaron
-        // sus jugadores (si existen) y los goles que nosotros concedimos.
-        const trueOppGoals = Math.max(realOpp, maxGoalsConceded);
-        const trueOurGoals = Math.max(realOur, maxOppGoalsConceded);
+        // Fallback: si no hay datos de goalsconceded, usar la suma de goals de jugadores
+        let realOur = 0, realOpp = 0;
+        if (match.players && match.players[String(primaryClubId)]) {
+            realOur = Object.values(match.players[String(primaryClubId)]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
+        }
+        if (match.players && opponentId && match.players[opponentId]) {
+            realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
+        }
+        
+        // Prioridad: goalsconceded del equipo contrario (más fiable que goals de jugadores)
+        // Nuestros goles reales = lo que el rival recibió (maxOppGoalsConceded)
+        // Goles del rival reales = lo que nosotros recibimos (maxGoalsConceded)
+        const trueOurGoals = maxOppGoalsConceded > 0 ? maxOppGoalsConceded : realOur;
+        const trueOppGoals = maxGoalsConceded > 0 ? maxGoalsConceded : realOpp;
         
         // Always correct if player goals do not match the EA official 3-0 / 0-3 score
         if (ourGoals !== trueOurGoals || oppGoals !== trueOppGoals) {
