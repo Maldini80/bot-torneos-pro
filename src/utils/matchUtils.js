@@ -32,46 +32,49 @@ function extractMatchInfo(match, primaryClubId) {
 
     // Check for "ghost" goals (3-0 or 0-3 defaults by EA for DNF)
     if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
-        // ¡TRUCO! EA modifica los goles en DNF: al ganador le pone 3-0 o 0-3.
-        // Pero 'goalsconceded' de cada equipo mantiene los goles REALES que recibieron.
-        // Usamos goalsconceded como fuente principal de verdad.
+        // En DNF, EA modifica AMBOS equipos: infla goles del ganador y goalsconceded del perdedor.
+        // FUENTE DE VERDAD: datos del equipo que NO desconectó (nuestro equipo):
+        //   - Nuestros goles reales = suma de 'goals' de nuestros jugadores (NO inflados)
+        //   - Goles del rival = max 'goalsconceded' de nuestros jugadores (siempre real)
+        // Si NOSOTROS somos los que desconectamos, usamos datos del rival como fuente.
         
-        let maxGoalsConceded = 0; // Goles que NOSOTROS recibimos = goles reales del RIVAL
+        // Datos de NUESTRO equipo
+        let realOur = 0, maxGoalsConceded = 0;
         if (match.players && match.players[String(primaryClubId)]) {
+            realOur = Object.values(match.players[String(primaryClubId)]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
             Object.values(match.players[String(primaryClubId)]).forEach(p => {
                 const conceded = parseInt(p.goalsconceded || 0);
                 if (conceded > maxGoalsConceded) maxGoalsConceded = conceded;
             });
         }
         
-        let maxOppGoalsConceded = 0; // Goles que el RIVAL recibió = goles reales NUESTROS
+        // Datos del equipo RIVAL (fallback si no tenemos datos propios)
+        let realOpp = 0, maxOppGoalsConceded = 0;
         if (match.players && opponentId && match.players[opponentId]) {
+            realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
             Object.values(match.players[opponentId]).forEach(p => {
                 const conceded = parseInt(p.goalsconceded || 0);
                 if (conceded > maxOppGoalsConceded) maxOppGoalsConceded = conceded;
             });
         }
         
-        // Fallback: si no hay datos de goalsconceded, usar la suma de goals de jugadores
-        let realOur = 0, realOpp = 0;
-        if (match.players && match.players[String(primaryClubId)]) {
-            realOur = Object.values(match.players[String(primaryClubId)]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
-        }
-        if (match.players && opponentId && match.players[opponentId]) {
-            realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
-        }
+        let trueOurGoals, trueOppGoals;
         
-        // Prioridad: goalsconceded del equipo contrario (más fiable que goals de jugadores)
-        // Nuestros goles reales = lo que el rival recibió (maxOppGoalsConceded)
-        // Goles del rival reales = lo que nosotros recibimos (maxGoalsConceded)
-        const trueOurGoals = maxOppGoalsConceded > 0 ? maxOppGoalsConceded : realOur;
-        const trueOppGoals = maxGoalsConceded > 0 ? maxGoalsConceded : realOpp;
+        if (ourGoals === 3 && oppGoals === 0) {
+            // NOSOTROS ganamos por DNF → nuestros datos son fiables
+            trueOurGoals = realOur;                    // Suma de goals de nuestros jugadores
+            trueOppGoals = maxGoalsConceded;           // Lo que nuestros jugadores concedieron
+        } else {
+            // EL RIVAL ganó por DNF → los datos del rival son fiables
+            trueOppGoals = realOpp;                    // Suma de goals del rival
+            trueOurGoals = maxOppGoalsConceded;        // Lo que el rival concedió
+        }
         
         // Always correct if player goals do not match the EA official 3-0 / 0-3 score
         if (ourGoals !== trueOurGoals || oppGoals !== trueOppGoals) {
             ourGoals = trueOurGoals;
             oppGoals = trueOppGoals;
-            isDnf = true; // Mark as DNF since we had to correct ghost goals
+            isDnf = true;
         }
     }
     
