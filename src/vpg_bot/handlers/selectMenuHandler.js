@@ -1339,7 +1339,7 @@ module.exports = async (client, interaction) => {
                     const bMatch = bestSession.match;
                     if (bMatch.players && bMatch.players[club.eaClubId]) {
                         const sumTS = (players) => {
-                            let st = { shots: 0, pm: 0, pa: 0, tm: 0, ta: 0 };
+                            let st = { shots: 0, pm: 0, pa: 0, tm: 0, ta: 0, gkSaves: 0 };
                             if (!players) return st;
                             for (const pid in players) {
                                 const p = players[pid];
@@ -1348,21 +1348,54 @@ module.exports = async (client, interaction) => {
                                 st.pa += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
                                 st.tm += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
                                 st.ta += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                                st.gkSaves += gv(p, 'saves');
                             }
                             return st;
                         };
-                        const oSt = sumTS(bMatch.players[club.eaClubId]);
-                        embed.addFields(
-                            { name: '👟 Pases', value: `**${oSt.pm}/${oSt.pa}** (${oSt.pa > 0 ? ((oSt.pm / oSt.pa) * 100).toFixed(0) : '?'}%)`, inline: true },
-                            { name: '🛡️ Entradas', value: `**${oSt.tm}/${oSt.ta}** (${oSt.ta > 0 ? ((oSt.tm / oSt.ta) * 100).toFixed(0) : '?'}%)`, inline: true },
-                            { name: '🔫 Tiros', value: `**${oSt.shots}**`, inline: true }
-                        );
+                        const ourStats = sumTS(bMatch.players[club.eaClubId]);
+                        const oppStats = sumTS(bMatch.players?.[bestSession.opponentId]);
+                        const ourShotsOT = bestSession.ourGoals + oppStats.gkSaves;
+                        const mPassMade = ourStats.pm, mPassAtt = ourStats.pa;
+                        const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
+                        const mTackMade = ourStats.tm, mTackAtt = ourStats.ta;
+                        const mTackAcc = mTackAtt > 0 ? ((mTackMade / mTackAtt) * 100).toFixed(0) : '?';
+                        const totalPassAtt = mPassAtt + oppStats.pa;
+                        const estPoss = totalPassAtt > 0 ? ((mPassAtt / totalPassAtt) * 100).toFixed(0) : '?';
+                        const estOppPoss = totalPassAtt > 0 ? ((oppStats.pa / totalPassAtt) * 100).toFixed(0) : '?';
+
+                        if (!bestSession.isDnf) {
+                            const oppPassAcc = oppStats.pa > 0 ? ((oppStats.pm / oppStats.pa) * 100).toFixed(0) : '?';
+                            const oppShotsOT = bestSession.oppGoals + ourStats.gkSaves;
+                            embed.addFields(
+                                { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
+                                { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
+                                { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                                { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
+                                { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
+                                { name: '\u200B', value: '\u200B', inline: true }
+                            );
+                        } else {
+                            embed.addFields(
+                                { name: '⚽ Posesión (est.)', value: `⚠️ *No disp. (DNF)*`, inline: true },
+                                { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta)`, inline: true },
+                                { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                                { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%)`, inline: true },
+                                { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
+                                { name: '⚠️ DNF', value: `*Stats del rival no disp.*`, inline: true }
+                            );
+                        }
                         const sorted = Object.values(bMatch.players[club.eaClubId]).map(p => {
                             const pos = resolvePos(p.pos, p.archetypeid);
                             const rating = parseFloat(p.rating || 0).toFixed(1);
                             let extras = [];
                             if (parseInt(p.goals || 0) > 0) extras.push(`⚽${p.goals}`);
                             if (parseInt(p.assists || 0) > 0) extras.push(`🎩${p.assists}`);
+                            const pPA = gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                            const pPM = gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                            if (pPA > 0) extras.push(`👟${((pPM / pPA) * 100).toFixed(0)}%`);
+                            const pTA = gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                            const pTM = gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                            if (pTA > 0) extras.push(`🛡️${((pTM / pTA) * 100).toFixed(0)}%`);
                             return { order: POS_ORDER[pos] ?? 99, text: `\`${pos.padEnd(3)}\` **${p.playername}** ⭐${rating}${extras.length > 0 ? ' ' + extras.join(' ') : ''}` };
                         }).sort((a, b) => a.order - b.order);
                         embed.addFields({ name: `📋 Alineación (sesión ${bestIdx + 1})`, value: sorted.map(p => p.text).join('\n'), inline: false });

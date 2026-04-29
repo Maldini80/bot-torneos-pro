@@ -2070,16 +2070,40 @@ if (customId.startsWith('manager_request_modal_')) {
                         return st;
                     };
                     const ourStats = sumTeamStats(bMatch.players[club.eaClubId]);
-                    const mPassAcc = ourStats.pa > 0 ? ((ourStats.pm / ourStats.pa) * 100).toFixed(0) : '?';
-                    const mTackAcc = ourStats.ta > 0 ? ((ourStats.tm / ourStats.ta) * 100).toFixed(0) : '?';
-                    
-                    embed.addFields(
-                        { name: '👟 Pases', value: `**${ourStats.pm}/${ourStats.pa}** (${mPassAcc}%)`, inline: true },
-                        { name: '🛡️ Entradas', value: `**${ourStats.tm}/${ourStats.ta}** (${mTackAcc}%)`, inline: true },
-                        { name: '🔫 Tiros', value: `**${ourStats.shots}**`, inline: true }
-                    );
+                    const oppStats = sumTeamStats(bMatch.players?.[bestSession.opponentId]);
+                    const ourShotsOT = bestSession.ourGoals + oppStats.gkSaves;
+                    const mPassMade = ourStats.pm, mPassAtt = ourStats.pa;
+                    const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
+                    const mTackMade = ourStats.tm, mTackAtt = ourStats.ta;
+                    const mTackAcc = mTackAtt > 0 ? ((mTackMade / mTackAtt) * 100).toFixed(0) : '?';
+                    const totalPassAtt = mPassAtt + oppStats.pa;
+                    const estPoss = totalPassAtt > 0 ? ((mPassAtt / totalPassAtt) * 100).toFixed(0) : '?';
+                    const estOppPoss = totalPassAtt > 0 ? ((oppStats.pa / totalPassAtt) * 100).toFixed(0) : '?';
 
-                    // Alineación de la mejor sesión
+                    // Si la sesión elegida NO es DNF, mostrar stats comparativas completas
+                    if (!bestSession.isDnf) {
+                        const oppPassAcc = oppStats.pa > 0 ? ((oppStats.pm / oppStats.pa) * 100).toFixed(0) : '?';
+                        const oppShotsOT = bestSession.oppGoals + ourStats.gkSaves;
+                        embed.addFields(
+                            { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
+                            { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
+                            { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                            { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
+                            { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
+                            { name: '\u200B', value: '\u200B', inline: true }
+                        );
+                    } else {
+                        embed.addFields(
+                            { name: '⚽ Posesión (est.)', value: `⚠️ *No disp. (DNF)*`, inline: true },
+                            { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta)`, inline: true },
+                            { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                            { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%)`, inline: true },
+                            { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
+                            { name: '⚠️ DNF', value: `*Stats del rival no disp.*`, inline: true }
+                        );
+                    }
+
+                    // Alineación con stats por jugador
                     const players = Object.values(bMatch.players[club.eaClubId]);
                     const sorted = players.map(p => {
                         const pos = resolvePos(p.pos, p.archetypeid);
@@ -2087,6 +2111,12 @@ if (customId.startsWith('manager_request_modal_')) {
                         let extras = [];
                         if (parseInt(p.goals || 0) > 0) extras.push(`⚽${p.goals}`);
                         if (parseInt(p.assists || 0) > 0) extras.push(`🎩${p.assists}`);
+                        const pPA = gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                        const pPM = gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                        if (pPA > 0) extras.push(`👟${((pPM / pPA) * 100).toFixed(0)}%`);
+                        const pTA = gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                        const pTM = gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                        if (pTA > 0) extras.push(`🛡️${((pTM / pTA) * 100).toFixed(0)}%`);
                         return { order: POS_ORDER[pos] ?? 99, text: `\`${pos.padEnd(3)}\` **${p.playername}** ⭐${rating}${extras.length > 0 ? ' ' + extras.join(' ') : ''}` };
                     }).sort((a, b) => a.order - b.order);
                     embed.addFields({ name: `📋 Alineación (sesión ${bestIdx + 1})`, value: sorted.map(p => p.text).join('\n'), inline: false });
