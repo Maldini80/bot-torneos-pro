@@ -1017,6 +1017,66 @@ if (customId.startsWith('manager_request_modal_')) {
         return interaction.editReply({ content: `✅ Franja **"${slotName}"** creada: \`${slotStart}-${slotEnd}\`${daysText ? ` | 📅 ${daysText}` : ''}.\n\n💡 Ahora puedes escribir **"${slotName}"** en el campo de franja horaria de los paneles de estadísticas en vez de escribir la hora manualmente.` });
     }
 
+    if (customId === 'admin_edit_time_slot_modal') {
+        const slotName = fields.getTextInputValue('slot_name').trim();
+        const slotStart = fields.getTextInputValue('slot_start').trim();
+        const slotEnd = fields.getTextInputValue('slot_end').trim();
+        const slotDaysRaw = (fields.getTextInputValue('slot_days') || '').trim();
+        
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        const { pendingSelections } = await import('../../utils/pendingStatsSelections.js');
+        const ctx = pendingSelections.get(interaction.user.id);
+        const originalName = ctx?.editSlotOriginalName;
+        if (ctx) pendingSelections.delete(interaction.user.id);
+        
+        if (!originalName) return interaction.editReply({ content: '❌ La sesión expiró. Vuelve a intentar editar.' });
+
+        // Validar formato HH:MM
+        const timeRegex = /^\d{1,2}:\d{2}$/;
+        if (!timeRegex.test(slotStart) || !timeRegex.test(slotEnd)) {
+            return interaction.editReply({ content: '❌ Formato incorrecto. Usa **HH:MM** (ej: `22:20`).' });
+        }
+        
+        // Parsear días opcionales
+        let daysText = '';
+        if (slotDaysRaw) {
+            const days = slotDaysRaw.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 0 && d <= 6);
+            const dayNames = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+            daysText = days.map(d => dayNames[d]).join(', ');
+        }
+        
+        const { getDb: getDbSlots } = await import('../../../database.js');
+        const settingsColl = getDbSlots().collection('bot_settings');
+        const config = await settingsColl.findOne({ _id: 'global_config' });
+        let slots = config?.timeSlots || [];
+        
+        const idx = slots.findIndex(s => s.name === originalName);
+        if (idx === -1) return interaction.editReply({ content: `❌ No se encontró la franja original **"${originalName}"**.` });
+
+        // Verificar colisión de nombre si se cambió el nombre
+        if (slotName.toLowerCase() !== originalName.toLowerCase()) {
+            const exists = slots.find(s => s.name.toLowerCase() === slotName.toLowerCase());
+            if (exists) return interaction.editReply({ content: `❌ Ya existe otra franja con el nombre **"${slotName}"**.` });
+        }
+        
+        // Actualizar datos
+        slots[idx].name = slotName;
+        slots[idx].start = slotStart;
+        slots[idx].end = slotEnd;
+        if (daysText) {
+            slots[idx].days = daysText;
+            slots[idx].daysRaw = slotDaysRaw;
+        } else {
+            delete slots[idx].days;
+            delete slots[idx].daysRaw;
+        }
+        
+        await settingsColl.updateOne({ _id: 'global_config' }, { $set: { timeSlots: slots } });
+        
+        return interaction.editReply({ content: `✅ Franja actualizada: **"${slotName}"** \`${slotStart}-${slotEnd}\`${daysText ? ` | 📅 ${daysText}` : ''}.` });
+    }
+
     if (customId === 'admin_delete_time_slot_modal') {
         const slotName = fields.getTextInputValue('slot_name').trim();
         
@@ -1179,16 +1239,38 @@ if (customId.startsWith('manager_request_modal_')) {
             if (results.length === 1) {
                 profile = results[0];
             } else {
-                // Múltiples resultados — mostrar lista
-                let list = results.map((p, i) => {
+                // Múltiples resultados — mostrar desplegable
+                const { pendingSelections } = await import('../../utils/pendingStatsSelections.js');
+                pendingSelections.set(interaction.user.id, {
+                    disambigType: 'player_scout',
+                    timeFilters, daysFilter, resolvedSlotNames,
+                    dateFilter: dateFilterRaw ? { raw: dateFilterRaw } : null,
+                    timestamp: Date.now()
+                });
+                
+                const options = results.slice(0, 25).map(p => {
                     const s = p.stats || {};
                     const m = s.matchesPlayed || 0;
                     let avgR = '—';
                     if (s.ratings && s.ratings.length > 0) avgR = (s.ratings.reduce((a, b) => a + b, 0) / s.ratings.length).toFixed(1);
-                    return `**${i + 1}.** \`${p.eaPlayerName}\` — ${p.lastPosition || '?'} | ${p.lastClub || '?'} | ${m}P | ⭐${avgR} | ⚽${s.goals || 0}`;
-                }).join('\n');
+                    return {
+                        label: p.eaPlayerName,
+                        value: p.eaPlayerName,
+                        description: `${p.lastPosition || '?'} | ${p.lastClub || '?'} | ${m}P | ⭐${avgR}`
+                    };
+                });
                 
-                return interaction.editReply({ content: `🔍 Se encontraron **${results.length}** jugadores con **"${playerName}"**. Escribe el nombre más completo:\n\n${list}` });
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('stats_disambig_player')
+                    .setPlaceholder('Selecciona el jugador correcto...')
+                    .setMinValues(1)
+                    .setMaxValues(1)
+                    .addOptions(options);
+                
+                return interaction.editReply({
+                    content: `🔍 Se encontraron **${results.length}** jugadores con **"${playerName}"**. Elige el correcto:`,
+                    components: [new ActionRowBuilder().addComponents(selectMenu)]
+                });
             }
         }
         
@@ -1536,8 +1618,28 @@ if (customId.startsWith('manager_request_modal_')) {
             vpgTeamName = vpgTeams[0].name;
             vpgLogo = vpgTeams[0].logoUrl;
         } else if (vpgTeams.length > 1) {
-            const list = vpgTeams.slice(0, 10).map((t, i) => `**${i + 1}.** ${t.name} (${t.abbreviation}) — Liga: ${t.league}`).join('\n');
-            return interaction.editReply({ content: `🔍 Se encontraron **${vpgTeams.length}** equipos. Escribe el nombre más completo:\n\n${list}` });
+            const { pendingSelections: ps } = await import('../../utils/pendingStatsSelections.js');
+            const dateFilter = parseDateFilter(dateFilterRaw);
+            ps.set(interaction.user.id, {
+                disambigType: 'team_scout',
+                timeFilters, daysFilter, resolvedSlotNames,
+                dateFilter: dateFilter ? { from: dateFilter.from?.toISOString(), to: dateFilter.to?.toISOString() } : null,
+                timestamp: Date.now()
+            });
+            const options = vpgTeams.slice(0, 25).map(t => ({
+                label: t.name,
+                value: t.eaClubId,
+                description: `${t.abbreviation} — Liga: ${t.league}`
+            }));
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('stats_disambig_team')
+                .setPlaceholder('Selecciona el equipo correcto...')
+                .setMinValues(1).setMaxValues(1)
+                .addOptions(options);
+            return interaction.editReply({
+                content: `🔍 Se encontraron **${vpgTeams.length}** equipos. Elige el correcto:`,
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
         }
 
         // 2. Fallback: buscar en club_profiles por nombre EA
@@ -1800,8 +1902,28 @@ if (customId.startsWith('manager_request_modal_')) {
         if (vpgTeams.length === 1) {
             club = await db.collection('club_profiles').findOne({ eaClubId: vpgTeams[0].eaClubId });
         } else if (vpgTeams.length > 1) {
-            const list = vpgTeams.slice(0, 10).map((t, i) => `**${i + 1}.** ${t.name} (${t.abbreviation}) — Liga: ${t.league}`).join('\n');
-            return interaction.editReply({ content: `🔍 Se encontraron **${vpgTeams.length}** equipos. Escribe el nombre más completo:\n\n${list}` });
+            const { pendingSelections: ps } = await import('../../utils/pendingStatsSelections.js');
+            const dateFilter = parseDateFilter(dateFilterRaw);
+            ps.set(interaction.user.id, {
+                disambigType: 'match_history',
+                timeFilters, daysFilter, resolvedSlotNames,
+                dateFilter: dateFilter ? { from: dateFilter.from?.toISOString(), to: dateFilter.to?.toISOString() } : null,
+                timestamp: Date.now()
+            });
+            const options = vpgTeams.slice(0, 25).map(t => ({
+                label: t.name,
+                value: t.eaClubId,
+                description: `${t.abbreviation} — Liga: ${t.league}`
+            }));
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('stats_disambig_team')
+                .setPlaceholder('Selecciona el equipo correcto...')
+                .setMinValues(1).setMaxValues(1)
+                .addOptions(options);
+            return interaction.editReply({
+                content: `🔍 Se encontraron **${vpgTeams.length}** equipos. Elige el correcto:`,
+                components: [new ActionRowBuilder().addComponents(selectMenu)]
+            });
         }
 
         // 2. Fallback a club_profiles

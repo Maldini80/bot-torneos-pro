@@ -960,11 +960,18 @@ module.exports = async (client, interaction) => {
             .setPlaceholder(cfg.placeholder)
             .setRequired(true);
         
+        // Calcular fecha por defecto: ayer-hoy (Madrid)
+        const _fmtD = (d) => d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit' });
+        const _now = new Date();
+        const _yesterday = new Date(_now.getTime() - 86400000);
+        const defaultDateRange = `${_fmtD(_yesterday)}-${_fmtD(_now)}`;
+        
         const dateInput = new TextInputBuilder()
             .setCustomId('date_filter')
             .setLabel('📅 Rango de fechas (opcional)')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('Ej: 15/04/26-28/04/26 o desde 20/04/26')
+            .setValue(defaultDateRange)
             .setRequired(false)
             .setMaxLength(30);
         
@@ -974,5 +981,333 @@ module.exports = async (client, interaction) => {
         );
         
         return interaction.showModal(modal);
+    }
+
+    // --- Admin: Editar franja horaria (select → modal pre-rellenado) ---
+    if (customId === 'admin_edit_slot_select') {
+        const slotName = values[0];
+        
+        const { getDb: getDbSlots } = await import('../../../database.js');
+        const config = await getDbSlots().collection('bot_settings').findOne({ _id: 'global_config' });
+        const slot = (config?.timeSlots || []).find(s => s.name === slotName);
+        
+        if (!slot) return interaction.reply({ content: `❌ No se encontró la franja **"${slotName}"**.`, ephemeral: true });
+        
+        const modal = new ModalBuilder()
+            .setCustomId('admin_edit_time_slot_modal')
+            .setTitle('✏️ Editar Franja Horaria');
+
+        const nameInput = new TextInputBuilder()
+            .setCustomId('slot_name')
+            .setLabel('Nombre de la franja')
+            .setStyle(TextInputStyle.Short)
+            .setValue(slot.name)
+            .setRequired(true)
+            .setMaxLength(30);
+
+        const startInput = new TextInputBuilder()
+            .setCustomId('slot_start')
+            .setLabel('Hora de inicio (HH:MM)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(slot.start)
+            .setRequired(true)
+            .setMaxLength(5);
+
+        const endInput = new TextInputBuilder()
+            .setCustomId('slot_end')
+            .setLabel('Hora de fin (HH:MM)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(slot.end)
+            .setRequired(true)
+            .setMaxLength(5);
+
+        const daysInput = new TextInputBuilder()
+            .setCustomId('slot_days')
+            .setLabel('Días (opcional: 0=Dom,1=Lun,...,6=Sáb)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(slot.daysRaw || '')
+            .setPlaceholder('Ej: 0,1,2,3,4 — Vacío = todos')
+            .setRequired(false)
+            .setMaxLength(20);
+
+        // Guardar nombre original para saber cuál actualizar
+        const { pendingSelections } = await import('../../utils/pendingStatsSelections.js');
+        pendingSelections.set(interaction.user.id, {
+            editSlotOriginalName: slot.name,
+            timestamp: Date.now()
+        });
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(nameInput),
+            new ActionRowBuilder().addComponents(startInput),
+            new ActionRowBuilder().addComponents(endInput),
+            new ActionRowBuilder().addComponents(daysInput)
+        );
+
+        return interaction.showModal(modal);
+    }
+
+    // --- Stats: Desambiguación de equipo/jugador (select → ejecutar stats) ---
+    if (customId.startsWith('stats_disambig_')) {
+        const selectedValue = values[0]; // eaClubId o eaPlayerName
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        const { pendingSelections } = await import('../../utils/pendingStatsSelections.js');
+        const ctx = pendingSelections.get(interaction.user.id);
+        if (ctx) pendingSelections.delete(interaction.user.id);
+        
+        if (!ctx || !ctx.disambigType) {
+            return interaction.editReply({ content: '❌ La sesión expiró. Vuelve a usar el botón del panel.' });
+        }
+
+        const { getDb } = await import('../../../database.js');
+        const db = getDb();
+        if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
+        
+        const { extractMatchInfo, mergeSessions } = await import('../../utils/matchUtils.js');
+
+        // ── TEAM SCOUT ──
+        if (ctx.disambigType === 'team_scout') {
+            const club = await db.collection('club_profiles').findOne({ eaClubId: selectedValue });
+            if (!club) return interaction.editReply({ content: '❌ Equipo no encontrado en la base de datos.' });
+            
+            const vpgTeam = await Team.findOne({ eaClubId: selectedValue }).lean();
+            const vpgTeamName = vpgTeam?.name || null;
+            const vpgLogo = vpgTeam?.logoUrl || null;
+            
+            // Reconstruir filtros desde contexto
+            const timeFilters = ctx.timeFilters || [];
+            const daysFilter = ctx.daysFilter || null;
+            const dateFilter = ctx.dateFilter || null;
+            const resolvedSlotNames = ctx.resolvedSlotNames || [];
+            const hasFilters = timeFilters.length > 0 || daysFilter || dateFilter;
+            
+            let filterText = '';
+            if (resolvedSlotNames.length > 0) filterText += `📐 ${resolvedSlotNames.join(', ')}`;
+            else if (timeFilters.length > 0) filterText += `⏰ ${timeFilters.map(tf => `${tf.start}-${tf.end}`).join(' + ')}`;
+            if (daysFilter) {
+                const dayNames = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+                filterText += (filterText ? ' | ' : '') + `📅 ${daysFilter.map(d => dayNames[d]).join(', ')}`;
+            }
+            if (dateFilter) {
+                const fmt = (d) => new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                let dateStr = '';
+                if (dateFilter.from && dateFilter.to) dateStr = `${fmt(dateFilter.from)} — ${fmt(dateFilter.to)}`;
+                else if (dateFilter.from) dateStr = `desde ${fmt(dateFilter.from)}`;
+                else if (dateFilter.to) dateStr = `hasta ${fmt(dateFilter.to)}`;
+                filterText += (filterText ? ' | ' : '') + `🗓️ ${dateStr}`;
+            }
+            
+            let s, m;
+            if (hasFilters) {
+                const allMatches = await db.collection('scanned_matches').find({
+                    [`clubs.${club.eaClubId}`]: { $exists: true }
+                }).sort({ timestamp: -1 }).limit(200).toArray();
+                
+                const filtered = allMatches.filter(match => {
+                    if (!match.timestamp) return false;
+                    const matchDate = new Date(parseInt(match.timestamp) * 1000);
+                    if (dateFilter) {
+                        if (dateFilter.from && matchDate < new Date(dateFilter.from)) return false;
+                        if (dateFilter.to && matchDate > new Date(dateFilter.to)) return false;
+                    }
+                    if (daysFilter) {
+                        const madridDayStr = matchDate.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid', weekday: 'short' });
+                        const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+                        if (!daysFilter.includes(dayMap[madridDayStr] ?? matchDate.getDay())) return false;
+                    }
+                    if (timeFilters.length > 0) {
+                        const madridTimeStr = matchDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
+                        const [h, min] = madridTimeStr.split(':').map(Number);
+                        const matchMin = h * 60 + min;
+                        const ok = timeFilters.some(tf => {
+                            const [sh, sm] = tf.start.split(':').map(Number);
+                            const [eh, em] = tf.end.split(':').map(Number);
+                            const sM = sh * 60 + sm, eM = eh * 60 + em;
+                            return sM <= eM ? (matchMin >= sM && matchMin <= eM) : (matchMin >= sM || matchMin <= eM);
+                        });
+                        if (!ok) return false;
+                    }
+                    return true;
+                });
+                
+                const getVal = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
+                const aggr = { matchesPlayed: 0, wins: 0, ties: 0, losses: 0, goals: 0, goalsAgainst: 0, shots: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0 };
+                const mergedMatches = mergeSessions(filtered, club.eaClubId);
+                for (const mData of mergedMatches) {
+                    aggr.matchesPlayed++;
+                    aggr.goals += mData.ourGoals;
+                    aggr.goalsAgainst += mData.oppGoals;
+                    if (mData.ourGoals > mData.oppGoals) aggr.wins++;
+                    else if (mData.ourGoals < mData.oppGoals) aggr.losses++;
+                    else aggr.ties++;
+                    for (const session of mData.sessions) {
+                        if (session.match.players?.[club.eaClubId]) {
+                            for (const p of Object.values(session.match.players[club.eaClubId])) {
+                                aggr.shots += getVal(p, 'shots');
+                                aggr.passesMade += getVal(p, 'passesMade', 'passesmade', 'passescompleted');
+                                aggr.passesAttempted += getVal(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                                aggr.tacklesMade += getVal(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                                aggr.tacklesAttempted += getVal(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                            }
+                        }
+                    }
+                }
+                s = aggr; m = aggr.matchesPlayed;
+            } else {
+                s = club.stats || {}; m = s.matchesPlayed || 0;
+            }
+
+            if (m === 0) return interaction.editReply({ content: `El equipo **${club.eaClubName}** no tiene partidos registrados.` });
+
+            const wins = s.wins || 0, ties = s.ties || 0, losses = s.losses || 0;
+            const goals = s.goals || 0, goalsAgainst = s.goalsAgainst || 0;
+            const passAcc = (s.passesAttempted || 0) > 0 ? (((s.passesMade || 0) / s.passesAttempted) * 100).toFixed(1) : '—';
+            const tackleAcc = (s.tacklesAttempted || 0) > 0 ? (((s.tacklesMade || 0) / s.tacklesAttempted) * 100).toFixed(1) : '—';
+            const winrate = ((wins / m) * 100).toFixed(1);
+            const gpg = (goals / m).toFixed(2), gapg = (goalsAgainst / m).toFixed(2);
+
+            const embed = new EmbedBuilder()
+                .setTitle(`🛡️ ${vpgTeamName || club.eaClubName}`)
+                .setDescription(`📊 Análisis basado en **${m}** partidos.${filterText ? `\n🔎 **Filtro:** ${filterText}` : ''}`)
+                .setColor('#3498db')
+                .addFields(
+                    { name: '🏆 Victorias', value: `${wins}`, inline: true },
+                    { name: '🤝 Empates', value: `${ties}`, inline: true },
+                    { name: '❌ Derrotas', value: `${losses}`, inline: true },
+                    { name: '📈 Winrate', value: `${winrate}%`, inline: true },
+                    { name: '⚽ Goles F/C', value: `${goals}/${goalsAgainst}`, inline: true },
+                    { name: '⚽ Media G', value: `${gpg} F / ${gapg} C`, inline: true },
+                    { name: 'Eficacia Pases', value: `${passAcc}%`, inline: true },
+                    { name: 'Eficacia Entradas', value: `${tackleAcc}%`, inline: true },
+                    { name: 'Diferencia Goles', value: `${goals > goalsAgainst ? '+' : ''}${goals - goalsAgainst}`, inline: true }
+                );
+            if (vpgLogo) embed.setThumbnail(vpgLogo);
+            if (filterText) embed.setFooter({ text: `Filtro aplicado: ${filterText}` });
+            return interaction.editReply({ embeds: [embed] });
+        }
+
+        // ── MATCH HISTORY ──
+        if (ctx.disambigType === 'match_history') {
+            const club = await db.collection('club_profiles').findOne({ eaClubId: selectedValue });
+            if (!club) return interaction.editReply({ content: '❌ Equipo no encontrado.' });
+            
+            const timeFilters = ctx.timeFilters || [];
+            const daysFilter = ctx.daysFilter || null;
+            const dateFilter = ctx.dateFilter || null;
+            
+            let matches = await db.collection('scanned_matches').find({
+                [`clubs.${club.eaClubId}`]: { $exists: true }
+            }).sort({ timestamp: -1 }).limit(50).toArray();
+
+            matches = matches.filter(match => {
+                if (!match.timestamp) return false;
+                const matchDate = new Date(parseInt(match.timestamp) * 1000);
+                if (dateFilter) {
+                    if (dateFilter.from && matchDate < new Date(dateFilter.from)) return false;
+                    if (dateFilter.to && matchDate > new Date(dateFilter.to)) return false;
+                }
+                if (daysFilter) {
+                    const madridDayStr = matchDate.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid', weekday: 'short' });
+                    const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+                    if (!daysFilter.includes(dayMap[madridDayStr] ?? matchDate.getDay())) return false;
+                }
+                if (timeFilters.length > 0) {
+                    const madridTimeStr = matchDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
+                    const [h, min] = madridTimeStr.split(':').map(Number);
+                    const matchMin = h * 60 + min;
+                    const ok = timeFilters.some(tf => {
+                        const [sh, sm] = tf.start.split(':').map(Number);
+                        const [eh, em] = tf.end.split(':').map(Number);
+                        const sM = sh * 60 + sm, eM = eh * 60 + em;
+                        return sM <= eM ? (matchMin >= sM && matchMin <= eM) : (matchMin >= sM || matchMin <= eM);
+                    });
+                    if (!ok) return false;
+                }
+                return true;
+            });
+
+            const mergedMatches = mergeSessions(matches, club.eaClubId);
+            if (mergedMatches.length === 0) return interaction.editReply({ content: `No se encontraron partidos para **${club.eaClubName}**.` });
+
+            let lines = [];
+            for (const mData of mergedMatches.slice(0, 15)) {
+                const info = extractMatchInfo(mData.sessions[0].match, club.eaClubId);
+                const d = new Date(parseInt(mData.sessions[0].match.timestamp) * 1000);
+                const dateStr = d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit' });
+                const timeStr = d.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
+                const icon = mData.ourGoals > mData.oppGoals ? '🟢' : mData.ourGoals < mData.oppGoals ? '🔴' : '🟡';
+                const dnfTag = mData.isDnf ? ' 🔌' : '';
+                lines.push(`${icon} **${mData.ourGoals}-${mData.oppGoals}** vs ${info.opponentName || '?'} — ${dateStr} ${timeStr}${dnfTag}`);
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle(`📜 Historial: ${club.eaClubName}`)
+                .setDescription(lines.join('\n'))
+                .setColor('#e67e22')
+                .setFooter({ text: `${mergedMatches.length} partidos encontrados` });
+            return interaction.editReply({ embeds: [embed] });
+        }
+
+        // ── PLAYER SCOUT ──
+        if (ctx.disambigType === 'player_scout') {
+            const profile = await db.collection('player_profiles').findOne({ eaPlayerName: selectedValue });
+            if (!profile) return interaction.editReply({ content: '❌ Jugador no encontrado.' });
+            
+            const timeFilters = ctx.timeFilters || [];
+            const daysFilter = ctx.daysFilter || null;
+            const dateFilter = ctx.dateFilter || null;
+            const resolvedSlotNames = ctx.resolvedSlotNames || [];
+            const hasFilters = timeFilters.length > 0 || daysFilter || dateFilter;
+
+            let filterText = '';
+            if (resolvedSlotNames.length > 0) filterText += `📐 ${resolvedSlotNames.join(', ')}`;
+            else if (timeFilters.length > 0) filterText += `⏰ ${timeFilters.map(tf => `${tf.start}-${tf.end}`).join(' + ')}`;
+            if (daysFilter) {
+                const dayNames = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
+                filterText += (filterText ? ' | ' : '') + `📅 ${daysFilter.map(d => dayNames[d]).join(', ')}`;
+            }
+            if (dateFilter) {
+                const fmt = (d) => new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                let dateStr = '';
+                if (dateFilter.from && dateFilter.to) dateStr = `${fmt(dateFilter.from)} — ${fmt(dateFilter.to)}`;
+                else if (dateFilter.from) dateStr = `desde ${fmt(dateFilter.from)}`;
+                else if (dateFilter.to) dateStr = `hasta ${fmt(dateFilter.to)}`;
+                filterText += (filterText ? ' | ' : '') + `🗓️ ${dateStr}`;
+            }
+
+            const s = profile.stats || {};
+            const m = s.matchesPlayed || 0;
+            if (m === 0) return interaction.editReply({ content: `El jugador **${profile.eaPlayerName}** no tiene partidos registrados.` });
+
+            const pos = profile.lastPosition || '?';
+            const goals = s.goals || 0, assists = s.assists || 0, shots = s.shots || 0;
+            const passesMade = s.passesMade || 0, passesAtt = s.passesAttempted || 0;
+            const tacklesMade = s.tacklesMade || 0, tacklesAtt = s.tacklesAttempted || 0;
+            const mom = s.mom || 0;
+            const passAcc = passesAtt > 0 ? ((passesMade / passesAtt) * 100).toFixed(1) : '—';
+            const tackleAcc = tacklesAtt > 0 ? ((tacklesMade / tacklesAtt) * 100).toFixed(1) : '—';
+            const gpg = (goals / m).toFixed(2), apg = (assists / m).toFixed(2);
+            let avgRating = '—';
+            if (s.ratings && s.ratings.length > 0) avgRating = (s.ratings.reduce((a, b) => a + b, 0) / s.ratings.length).toFixed(1);
+
+            const embed = new EmbedBuilder()
+                .setTitle(`🔍 Informe de Scout: ${profile.eaPlayerName}`)
+                .setDescription(`📋 **Equipo:** ${profile.lastClub || '?'}\n🎽 **Posición:** ${pos}${filterText ? `\n🔎 **Filtro:** ${filterText}` : ''}`)
+                .setColor('#2ecc71')
+                .addFields(
+                    { name: '🏟️ Partidos', value: `**${m}**`, inline: true },
+                    { name: '⭐ Nota Media', value: `**${avgRating}**`, inline: true },
+                    { name: '🏆 MVP', value: `**${mom}**`, inline: true },
+                    { name: 'Goles', value: `${goals} (${gpg}/P)`, inline: true },
+                    { name: 'Asistencias', value: `${assists} (${apg}/P)`, inline: true },
+                    { name: 'Eficacia Pases', value: `${passAcc}%`, inline: true },
+                    { name: 'Eficacia Entradas', value: `${tackleAcc}%`, inline: true }
+                );
+            if (filterText) embed.setFooter({ text: `Filtro aplicado: ${filterText}` });
+            return interaction.editReply({ embeds: [embed] });
+        }
+
+        return interaction.editReply({ content: '❌ Tipo de desambiguación no reconocido.' });
     }
 };

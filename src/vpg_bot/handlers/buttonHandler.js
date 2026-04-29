@@ -1599,10 +1599,17 @@ const handler = async (client, interaction) => {
             // Hidden fields with empty defaults for backward compat
             const timeInput = new TextInputBuilder().setCustomId('time_filter').setLabel('Franja horaria (ej: 22:20-01:00)').setStyle(TextInputStyle.Short).setPlaceholder('Sin franjas guardadas — escribe manual o vacío').setRequired(false).setMaxLength(30);
             const daysInput = new TextInputBuilder().setCustomId('days_filter').setLabel('Días (0=Dom,1=Lun,...6=Sáb)').setStyle(TextInputStyle.Short).setPlaceholder('Vacío = todos').setRequired(false).setMaxLength(20);
+            // Fecha por defecto: ayer-hoy (Madrid)
+            const _fmtD = (d) => d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit' });
+            const _now = new Date();
+            const _yesterday = new Date(_now.getTime() - 86400000);
+            const defaultDateRange = `${_fmtD(_yesterday)}-${_fmtD(_now)}`;
+            const dateInput = new TextInputBuilder().setCustomId('date_filter').setLabel('📅 Rango de fechas (opcional)').setStyle(TextInputStyle.Short).setPlaceholder('Ej: 15/04/26-28/04/26').setValue(defaultDateRange).setRequired(false).setMaxLength(30);
             modal.addComponents(
                 new ActionRowBuilder().addComponents(input),
                 new ActionRowBuilder().addComponents(timeInput),
-                new ActionRowBuilder().addComponents(daysInput)
+                new ActionRowBuilder().addComponents(daysInput),
+                new ActionRowBuilder().addComponents(dateInput)
             );
             return interaction.showModal(modal);
         }
@@ -1665,6 +1672,7 @@ const handler = async (client, interaction) => {
         const rows = [];
         rows.push(new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('admin_create_time_slot').setLabel('➕ Crear Franja').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('admin_edit_time_slot').setLabel('✏️ Editar Franja').setStyle(ButtonStyle.Primary).setDisabled(slots.length === 0),
             new ButtonBuilder().setCustomId('admin_delete_time_slot').setLabel('🗑️ Borrar Franja').setStyle(ButtonStyle.Danger).setDisabled(slots.length === 0)
         ));
         
@@ -1738,6 +1746,35 @@ const handler = async (client, interaction) => {
         modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
 
         return interaction.showModal(modal);
+    }
+
+    if (customId === 'admin_edit_time_slot') {
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        const { getDb: getDbSlots } = await import('../../../database.js');
+        const config = await getDbSlots().collection('bot_settings').findOne({ _id: 'global_config' });
+        const slots = config?.timeSlots || [];
+        
+        if (slots.length === 0) return interaction.editReply({ content: 'No hay franjas para editar.' });
+        
+        const options = slots.map(s => ({
+            label: `📐 ${s.name}`,
+            value: s.name,
+            description: `${s.start}-${s.end}${s.days ? ' | ' + s.days : ''}`
+        }));
+        
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('admin_edit_slot_select')
+            .setPlaceholder('Selecciona la franja a editar...')
+            .setMinValues(1)
+            .setMaxValues(1)
+            .addOptions(options);
+        
+        return interaction.editReply({
+            content: '✏️ Selecciona la franja horaria que quieres editar:',
+            components: [new ActionRowBuilder().addComponents(selectMenu)]
+        });
     }
 
     if (customId === 'admin_rescan_profiles') {
