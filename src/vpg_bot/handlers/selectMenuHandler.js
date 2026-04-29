@@ -1230,23 +1230,142 @@ module.exports = async (client, interaction) => {
             const mergedMatches = mergeSessions(matches, club.eaClubId);
             if (mergedMatches.length === 0) return interaction.editReply({ content: `No se encontraron partidos para **${club.eaClubName}**.` });
 
-            let lines = [];
-            for (const mData of mergedMatches.slice(0, 15)) {
-                const info = extractMatchInfo(mData.sessions[0].match, club.eaClubId);
-                const d = new Date(parseInt(mData.sessions[0].match.timestamp) * 1000);
-                const dateStr = d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit' });
-                const timeStr = d.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
-                const icon = mData.ourGoals > mData.oppGoals ? '🟢' : mData.ourGoals < mData.oppGoals ? '🔴' : '🟡';
-                const dnfTag = mData.isDnf ? ' 🔌' : '';
-                lines.push(`${icon} **${mData.ourGoals}-${mData.oppGoals}** vs ${info.opponentName || '?'} — ${dateStr} ${timeStr}${dnfTag}`);
+            const POS_MAP = {
+                0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
+                6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
+                11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC',
+                'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
+                'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD',
+                'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
+                'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
+                'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
+            };
+            const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'CARR': 8, 'MCO': 9, 'MD': 10, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
+            const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
+            const resolvePos = (pos, archId) => {
+                if (pos !== undefined && POS_MAP[pos] !== undefined) return POS_MAP[pos];
+                if (archId !== undefined) {
+                    const a = String(archId).toLowerCase();
+                    if (POS_MAP[a]) return POS_MAP[a];
+                    if (a.includes('goal') || a.includes('keeper')) return 'POR';
+                    if (a.includes('defend') || a.includes('back')) return 'DFC';
+                    if (a.includes('midfield')) return 'MC';
+                    if (a.includes('wing')) return 'ED';
+                    if (a.includes('forward') || a.includes('strik') || a.includes('attack')) return 'DC';
+                }
+                return 'CARR';
+            };
+
+            const entries = [];
+            for (const mData of mergedMatches) {
+                if (mData.isMerged) {
+                    let sessionLines = '';
+                    for (let si = 0; si < mData.sessions.length; si++) {
+                        const s = mData.sessions[si];
+                        const prefix = si < mData.sessions.length - 1 ? '├' : '└';
+                        let dnfTag = '';
+                        if (s.isDnf) dnfTag = ` 🔌 Min ${Math.floor(s.maxSecs / 60)}`;
+                        sessionLines += `\n${prefix} Sesión ${si + 1}: ${s.ourGoals} - ${s.oppGoals}${dnfTag}`;
+                    }
+                    let resultEmoji = '➖', resultColor = '#95a5a6';
+                    if (mData.ourGoals > mData.oppGoals) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
+                    else if (mData.ourGoals < mData.oppGoals) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
+                    const mdo = new Date(mData.timestamp * 1000);
+                    const embed = new EmbedBuilder()
+                        .setTitle(`${resultEmoji} ${club.eaClubName} ${mData.ourGoals} - ${mData.oppGoals} ${mData.oppName}`)
+                        .setDescription(`📅 ${mdo.toLocaleDateString('es-ES')} — 🕐 ${mdo.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' })}h (Madrid)\n🔗 **${mData.sessionCount} sesiones** (fusión DNF)${sessionLines}`)
+                        .setColor(resultColor);
+                    entries.push(embed);
+                } else {
+                    const g = mData.sessions[0];
+                    const match = g.match;
+                    const mdo = new Date(g.timestamp * 1000);
+                    const matchDate = mdo.toLocaleDateString('es-ES');
+                    const matchTime = mdo.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
+                    let resultEmoji = '➖', resultColor = '#95a5a6';
+                    if (g.ourGoals > g.oppGoals) { resultEmoji = '✅'; resultColor = '#2ecc71'; }
+                    else if (g.ourGoals < g.oppGoals) { resultEmoji = '❌'; resultColor = '#e74c3c'; }
+
+                    const sumTeamStats = (players) => {
+                        let s = { shots: 0, pm: 0, pa: 0, tm: 0, ta: 0, gkSaves: 0 };
+                        if (!players) return s;
+                        for (const pid in players) {
+                            const p = players[pid];
+                            s.shots += gv(p, 'shots');
+                            s.pm += gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                            s.pa += gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                            s.tm += gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                            s.ta += gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                            s.gkSaves += gv(p, 'saves');
+                        }
+                        return s;
+                    };
+                    const ourStats = sumTeamStats(match.players?.[club.eaClubId]);
+                    const oppStats = sumTeamStats(match.players?.[g.opponentId]);
+                    const ourShotsOT = g.ourGoals + oppStats.gkSaves;
+                    const oppShotsOT = g.oppGoals + ourStats.gkSaves;
+                    const mPassMade = ourStats.pm, mPassAtt = ourStats.pa;
+                    const mPassAcc = mPassAtt > 0 ? ((mPassMade / mPassAtt) * 100).toFixed(0) : '?';
+                    const mTackMade = ourStats.tm, mTackAtt = ourStats.ta;
+                    const mTackAcc = mTackAtt > 0 ? ((mTackMade / mTackAtt) * 100).toFixed(0) : '?';
+                    const totalPassAtt = mPassAtt + oppStats.pa;
+                    const estPoss = totalPassAtt > 0 ? ((mPassAtt / totalPassAtt) * 100).toFixed(0) : '?';
+                    const estOppPoss = totalPassAtt > 0 ? ((oppStats.pa / totalPassAtt) * 100).toFixed(0) : '?';
+                    const oppPassAcc = oppStats.pa > 0 ? ((oppStats.pm / oppStats.pa) * 100).toFixed(0) : '?';
+                    const dnfText = g.isDnf ? ` *(🔌 DNF min ${Math.floor(g.maxSecs / 60)})*` : '';
+
+                    let lineupStr = '';
+                    if (match.players && match.players[club.eaClubId]) {
+                        const sorted = Object.values(match.players[club.eaClubId]).map(p => {
+                            const pos = resolvePos(p.pos, p.archetypeid);
+                            const rating = parseFloat(p.rating || 0).toFixed(1);
+                            let extras = [];
+                            if (parseInt(p.goals || 0) > 0) extras.push(`⚽${p.goals}`);
+                            if (parseInt(p.assists || 0) > 0) extras.push(`🎩${p.assists}`);
+                            const pPA = gv(p, 'passesAttempted', 'passesattempted', 'passattempts');
+                            const pPM = gv(p, 'passesMade', 'passesmade', 'passescompleted');
+                            if (pPA > 0) extras.push(`👟${((pPM / pPA) * 100).toFixed(0)}%`);
+                            const pTA = gv(p, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                            const pTM = gv(p, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                            if (pTA > 0) extras.push(`🛡️${((pTM / pTA) * 100).toFixed(0)}%`);
+                            return { order: POS_ORDER[pos] ?? 99, text: `\`${pos.padEnd(3)}\` **${p.playername}** ⭐${rating}${extras.length > 0 ? ' ' + extras.join(' ') : ''}` };
+                        }).sort((a, b) => a.order - b.order);
+                        lineupStr = sorted.map(p => p.text).join('\n');
+                    }
+
+                    const embed = new EmbedBuilder()
+                        .setTitle(`${resultEmoji} ${club.eaClubName} ${g.ourGoals} - ${g.oppGoals} ${g.oppName}`)
+                        .setDescription(`📅 ${matchDate} — 🕐 ${matchTime}h (Madrid)${dnfText}`)
+                        .setColor(resultColor);
+
+                    if (g.isDnf) {
+                        embed.addFields(
+                            { name: '⚽ Posesión (est.)', value: `⚠️ *No fiable (DNF)*`, inline: true },
+                            { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta)`, inline: true },
+                            { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                            { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%)`, inline: true },
+                            { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
+                            { name: '⚠️ DNF', value: `*Stats del rival no fiables*`, inline: true }
+                        );
+                    } else {
+                        embed.addFields(
+                            { name: '⚽ Posesión (est.)', value: `**${estPoss}%** vs ${estOppPoss}%`, inline: true },
+                            { name: '🔫 Tiros', value: `**${ourStats.shots}** (${ourShotsOT} a puerta) vs ${oppStats.shots} (${oppShotsOT})`, inline: true },
+                            { name: '🎯 Eficacia', value: ourStats.shots > 0 ? `**${((ourShotsOT / ourStats.shots) * 100).toFixed(0)}%**` : '—', inline: true },
+                            { name: '👟 Pases', value: `**${mPassMade}/${mPassAtt}** (${mPassAcc}%) vs ${oppPassAcc}%`, inline: true },
+                            { name: '🛡️ Entradas', value: `**${mTackMade}/${mTackAtt}** (${mTackAcc}%)`, inline: true },
+                            { name: '\u200B', value: '\u200B', inline: true }
+                        );
+                    }
+                    if (lineupStr) embed.addFields({ name: '📋 Alineación y Rendimiento', value: lineupStr, inline: false });
+                    entries.push(embed);
+                }
             }
 
-            const embed = new EmbedBuilder()
-                .setTitle(`📜 Historial: ${club.eaClubName}`)
-                .setDescription(lines.join('\n'))
-                .setColor('#e67e22')
-                .setFooter({ text: `${mergedMatches.length} partidos encontrados` });
-            return interaction.editReply({ embeds: [embed] });
+            const embeds = entries.slice(0, 5);
+            let filterStr = '';
+            if (ctx.resolvedSlotNames?.length > 0) filterStr = ` (📐 ${ctx.resolvedSlotNames.join(', ')})`;
+            return interaction.editReply({ content: `📜 **Últimos ${embeds.length} partidos de ${club.eaClubName}**${filterStr}:`, embeds });
         }
 
         // ── PLAYER SCOUT ──
