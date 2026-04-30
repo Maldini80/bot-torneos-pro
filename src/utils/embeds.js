@@ -231,6 +231,8 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     }
 
     // EA Tools & Re-calcs
+    const isAutoResults = tournament.config.autoResults === true;
+    allButtons.push(new ButtonBuilder().setCustomId(`admin_toggle_auto_results:${tournament.shortId}`).setLabel(isAutoResults ? '🤖 Auto-Resultados: ON' : '🤖 Auto-Resultados: OFF').setStyle(isAutoResults ? ButtonStyle.Success : ButtonStyle.Secondary).setDisabled(isBusy));
     allButtons.push(new ButtonBuilder().setCustomId(`admin_generate_tournament_stats:${tournament.shortId}`).setLabel('Reporte EA (Mejor 11)').setStyle(ButtonStyle.Primary).setEmoji('📊').setDisabled(isBusy));
     allButtons.push(new ButtonBuilder().setCustomId(`admin_sync_ea_names:${tournament.shortId}`).setLabel('Sync Nombres EA').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy));
     allButtons.push(new ButtonBuilder().setCustomId(`admin_force_ea_reload:${tournament.shortId}`).setLabel('Forzar Reload Stats EA').setStyle(ButtonStyle.Secondary).setEmoji('🔌').setDisabled(isBusy));

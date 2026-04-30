@@ -14,15 +14,16 @@ import { updateTournamentManagementThread } from '../utils/panelManager.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { postTournamentUpdate } from '../utils/twitter.js';
 
-export async function finalizeMatchThread(client, partido, resultString) {
+export async function finalizeMatchThread(client, partido, resultString, delayMs = 10000) {
     if (!partido || !partido.threadId) return;
 
     try {
         const thread = await client.channels.fetch(partido.threadId).catch(() => null);
         if (thread) {
-            const finalMessage = `✅ **Resultado final confirmado:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}.\n\nEste hilo se eliminará automáticamente en 10 segundos.`;
+            const delaySecs = Math.round(delayMs / 1000);
+            const finalMessage = `✅ **Resultado final confirmado:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}.\n\nEste hilo se eliminará automáticamente en ${delaySecs} segundos.`;
             await thread.send(finalMessage);
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            await new Promise(resolve => setTimeout(resolve, delayMs));
             await thread.delete('Partido finalizado.').catch(() => { });
         }
     } catch (error) {

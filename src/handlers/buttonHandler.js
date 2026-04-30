@@ -7763,6 +7763,63 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         return;
     }
 
+    if (action === 'admin_toggle_auto_results') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const newState = !(tournament.config.autoResults === true);
+
+        await db.collection('tournaments').updateOne(
+            { _id: tournament._id },
+            { $set: { 'config.autoResults': newState } }
+        );
+
+        try {
+            const { startAutoResults, stopAutoResults, isAutoResultsActive } = await import('../utils/autoResultsDetector.js');
+
+            if (newState) {
+                // Verificar si ya hay otro torneo con auto-results activo
+                if (isAutoResultsActive()) {
+                    // Ya está corriendo (posiblemente por otro torneo), no hacer nada extra
+                    console.log(`[AUTO-RESULTS] Intervalo ya activo. Torneo "${tournament.nombre}" añadido a la verificación.`);
+                } else {
+                    startAutoResults(client);
+                }
+            } else {
+                // Verificar si quedan otros torneos con autoResults activo
+                const otherAutoTournaments = await db.collection('tournaments').countDocuments({
+                    'config.autoResults': true,
+                    shortId: { $ne: tournamentShortId },
+                    status: { $nin: ['finalizado', 'cancelado', 'inscripcion_abierta', 'archivado'] }
+                });
+
+                if (otherAutoTournaments === 0) {
+                    stopAutoResults();
+                } else {
+                    console.log(`[AUTO-RESULTS] Todavía hay ${otherAutoTournaments} torneo(s) con auto-resultados activos. El intervalo sigue corriendo.`);
+                }
+            }
+        } catch (importErr) {
+            console.error('[AUTO-RESULTS] Error importando módulo:', importErr);
+        }
+
+        const { updateTournamentManagementThread } = await import('../utils/panelManager.js');
+        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
+        await updateTournamentManagementThread(client, updatedTournament);
+
+        const stateEmoji = newState ? '✅ ACTIVADO' : '⛔ DESACTIVADO';
+        await interaction.editReply({
+            content: `🤖 **Auto-Resultados EA:** ${stateEmoji}\n\n${newState
+                ? '▶️ El bot verificará cada **90 segundos** si los equipos con partidos activos han jugado en EA. Los resultados se validarán automáticamente.'
+                : '⏹️ La detección automática de resultados ha sido desactivada. Los capitanes deben reportar los resultados manualmente.'
+            }`
+        });
+        return;
+    }
+
     if (action === 'admin_recalc_standings') {
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
