@@ -164,8 +164,10 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     }
 
     // Team and result management
-    allButtons.push(new ButtonBuilder().setCustomId(`admin_manage_results_start:${tournament.shortId}`).setLabel('Gestionar Resultados').setStyle(ButtonStyle.Primary).setEmoji('🗂️').setDisabled(isBusy));
-    allButtons.push(new ButtonBuilder().setCustomId(`admin_recover_threads:${tournament.shortId}`).setLabel('Reparar Hilos').setStyle(ButtonStyle.Secondary).setEmoji('🔧').setDisabled(isBusy));
+    if (!isBeforeDraw) {
+        allButtons.push(new ButtonBuilder().setCustomId(`admin_manage_results_start:${tournament.shortId}`).setLabel('Gestionar Resultados').setStyle(ButtonStyle.Primary).setEmoji('🗂️').setDisabled(isBusy));
+        allButtons.push(new ButtonBuilder().setCustomId(`admin_recover_threads:${tournament.shortId}`).setLabel('Reparar Hilos').setStyle(ButtonStyle.Secondary).setEmoji('🔧').setDisabled(isBusy));
+    }
 
     if (isGroupStage && tournament.config.formatId === 'flexible_league') {
         allButtons.push(new ButtonBuilder().setCustomId(`admin_recover_round_start:${tournament.shortId}`).setLabel('Regenerar Jornada').setStyle(ButtonStyle.Danger).setEmoji('♻️').setDisabled(isBusy));
@@ -231,12 +233,16 @@ export function createTournamentManagementPanel(tournament, isBusy = false) {
     }
 
     // EA Tools & Re-calcs
-    const isAutoResults = tournament.config.autoResults === true;
-    allButtons.push(new ButtonBuilder().setCustomId(`admin_toggle_auto_results:${tournament.shortId}`).setLabel(isAutoResults ? '🤖 Auto-Resultados: ON' : '🤖 Auto-Resultados: OFF').setStyle(isAutoResults ? ButtonStyle.Success : ButtonStyle.Secondary).setDisabled(isBusy));
-    allButtons.push(new ButtonBuilder().setCustomId(`admin_generate_tournament_stats:${tournament.shortId}`).setLabel('Reporte EA (Mejor 11)').setStyle(ButtonStyle.Primary).setEmoji('📊').setDisabled(isBusy));
+    if (!isBeforeDraw) {
+        const isAutoResults = tournament.config.autoResults === true;
+        allButtons.push(new ButtonBuilder().setCustomId(`admin_toggle_auto_results:${tournament.shortId}`).setLabel(isAutoResults ? '🤖 Auto-Resultados: ON' : '🤖 Auto-Resultados: OFF').setStyle(isAutoResults ? ButtonStyle.Success : ButtonStyle.Secondary).setDisabled(isBusy));
+        allButtons.push(new ButtonBuilder().setCustomId(`admin_generate_tournament_stats:${tournament.shortId}`).setLabel('Reporte EA (Mejor 11)').setStyle(ButtonStyle.Primary).setEmoji('📊').setDisabled(isBusy));
+        allButtons.push(new ButtonBuilder().setCustomId(`admin_force_ea_reload:${tournament.shortId}`).setLabel('Forzar Reload Stats EA').setStyle(ButtonStyle.Secondary).setEmoji('🔌').setDisabled(isBusy));
+        allButtons.push(new ButtonBuilder().setCustomId(`admin_recalc_standings:${tournament.shortId}`).setLabel('Recalcular Tabla').setStyle(ButtonStyle.Danger).setEmoji('🧮').setDisabled(isBusy));
+    }
+    
+    // El sync de nombres sí puede ser útil antes de empezar el torneo si ya han metido sus clubs
     allButtons.push(new ButtonBuilder().setCustomId(`admin_sync_ea_names:${tournament.shortId}`).setLabel('Sync Nombres EA').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy));
-    allButtons.push(new ButtonBuilder().setCustomId(`admin_force_ea_reload:${tournament.shortId}`).setLabel('Forzar Reload Stats EA').setStyle(ButtonStyle.Secondary).setEmoji('🔌').setDisabled(isBusy));
-    allButtons.push(new ButtonBuilder().setCustomId(`admin_recalc_standings:${tournament.shortId}`).setLabel('Recalcular Tabla').setStyle(ButtonStyle.Danger).setEmoji('🧮').setDisabled(isBusy));
 
     if (tournament.config.paidSubType === 'draft') {
         allButtons.push(new ButtonBuilder().setCustomId(`ext_reg_manage:${tournament.shortId}`).setLabel('Gestionar Inscripciones').setStyle(ButtonStyle.Primary).setEmoji('📋').setDisabled(isBusy));
