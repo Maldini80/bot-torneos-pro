@@ -127,15 +127,33 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
     return { embeds: [embed], components };
 }
 
-export function createTournamentManagementPanel(tournament, isBusy = false, activeCategory = 'configuracion') {
+export function createTournamentManagementPanel(tournament, isBusy = false) {
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#e67e22')
-        .setTitle(`Gestión del Torneo: ${tournament.nombre}`) // Backticks importantes aqui
+        .setTitle(`Gestión del Torneo: ${tournament.nombre}`)
         .setDescription(isBusy
             ? `🔴 **ESTADO: OCUPADO**\nID: \`${tournament.shortId}\`\nControles bloqueados.`
             : `✅ **ESTADO: LISTO**\nID: \`${tournament.shortId}\`\nEstado: **${tournament.status.replace(/_/g, ' ')}**`
-        ).setFooter({ text: 'Selecciona una categoría en el menú para ver las acciones disponibles.' });
+        ).setFooter({ text: 'Selecciona una categoría para ver las herramientas disponibles (Solo tú las verás).' });
 
+    const mainButtons = [
+        new ButtonBuilder().setCustomId(`admin_category_configuracion:${tournament.shortId}`).setLabel('Configuración').setStyle(ButtonStyle.Secondary).setEmoji('⚙️').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId(`admin_category_equipos:${tournament.shortId}`).setLabel('Equipos').setStyle(ButtonStyle.Secondary).setEmoji('👥').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId(`admin_category_competicion:${tournament.shortId}`).setLabel('Competición').setStyle(ButtonStyle.Secondary).setEmoji('🏆').setDisabled(isBusy),
+        new ButtonBuilder().setCustomId(`admin_category_ea_tools:${tournament.shortId}`).setLabel('EA Sports').setStyle(ButtonStyle.Secondary).setEmoji('🎮').setDisabled(isBusy)
+    ];
+
+    if (tournament.config.paidSubType === 'draft') {
+        mainButtons.push(new ButtonBuilder().setCustomId(`admin_category_draft:${tournament.shortId}`).setLabel('Draft Tools').setStyle(ButtonStyle.Secondary).setEmoji('📋').setDisabled(isBusy));
+    }
+
+    const row = new ActionRowBuilder().addComponents(mainButtons);
+
+    return { embeds: [embed], components: [row] };
+}
+
+export function createTournamentCategoryPanel(tournament, category) {
+    const isBusy = false; // Efímeros no necesitan check de busy strict
     const isBeforeDraw = tournament.status === 'inscripcion_abierta';
     const isGroupStage = tournament.status === 'fase_de_grupos';
     const hasEnoughTeamsForDraw = Object.keys(tournament.teams.aprobados).length >= 2;
@@ -143,31 +161,14 @@ export function createTournamentManagementPanel(tournament, isBusy = false, acti
     const knockoutStageNames = ['treintaidosavos', 'dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
     const isKnockoutStage = knockoutStageNames.includes(tournament.status);
 
-    // 1. CREATE SELECT MENU
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId(`admin_panel_category_select:${tournament.shortId}`)
-        .setPlaceholder('Selecciona una categoría de herramientas')
-        .setDisabled(isBusy)
-        .addOptions([
-            { label: 'Configuración del Torneo', value: 'configuracion', emoji: '⚙️', default: activeCategory === 'configuracion' },
-            { label: 'Gestión de Equipos', value: 'equipos', emoji: '👥', default: activeCategory === 'equipos' },
-            { label: 'Competición y Partidos', value: 'competicion', emoji: '🏆', default: activeCategory === 'competicion' },
-            { label: 'Herramientas EA Sports', value: 'ea_tools', emoji: '🎮', default: activeCategory === 'ea_tools' }
-        ]);
-
-    if (tournament.config.paidSubType === 'draft') {
-        selectMenu.addOptions([
-            { label: 'Herramientas Draft', value: 'draft', emoji: '📋', default: activeCategory === 'draft' }
-        ]);
-    }
-
-    const selectMenuRow = new ActionRowBuilder().addComponents(selectMenu);
-
-    // 2. CREATE BUTTONS BASED ON CATEGORY
+    let title = '';
+    let description = '';
     const activeButtons = [];
 
-    switch (activeCategory) {
+    switch (category) {
         case 'configuracion':
+            title = '⚙️ Configuración del Torneo';
+            description = 'Ajustes generales y acciones destructivas.';
             if (isBeforeDraw) {
                 activeButtons.push(new ButtonBuilder().setCustomId(`admin_change_format_start:${tournament.shortId}`).setLabel('Editar Torneo').setStyle(ButtonStyle.Primary).setEmoji('📝').setDisabled(isBusy));
                 activeButtons.push(new ButtonBuilder().setCustomId(`admin_notify_changes:${tournament.shortId}`).setLabel('Notificar Cambios').setStyle(ButtonStyle.Primary).setEmoji('📢').setDisabled(isBusy || !hasCaptains));
@@ -197,6 +198,8 @@ export function createTournamentManagementPanel(tournament, isBusy = false, acti
             break;
 
         case 'equipos':
+            title = '👥 Gestión de Equipos';
+            description = 'Herramientas para administrar los participantes.';
             if (hasCaptains) {
                 activeButtons.push(new ButtonBuilder().setCustomId(`admin_edit_team_start:${tournament.shortId}`).setLabel('Editar Equipo').setStyle(ButtonStyle.Primary).setEmoji('🔧').setDisabled(isBusy));
                 activeButtons.push(new ButtonBuilder().setCustomId(`admin_edit_ea_club_start:${tournament.shortId}`).setLabel('Editar Club EA').setStyle(ButtonStyle.Secondary).setEmoji('🎮').setDisabled(isBusy));
@@ -218,6 +221,8 @@ export function createTournamentManagementPanel(tournament, isBusy = false, acti
             break;
 
         case 'competicion':
+            title = '🏆 Competición y Partidos';
+            description = 'Gestión del desarrollo del torneo.';
             if (isBeforeDraw) {
                 activeButtons.push(new ButtonBuilder().setCustomId(`admin_force_draw:${tournament.shortId}`).setLabel('Forzar Sorteo').setStyle(ButtonStyle.Success).setEmoji('🎲').setDisabled(isBusy || !hasEnoughTeamsForDraw));
             } else {
@@ -239,6 +244,8 @@ export function createTournamentManagementPanel(tournament, isBusy = false, acti
             break;
 
         case 'ea_tools':
+            title = '🎮 Herramientas EA Sports';
+            description = 'Integración con estadísticas de EA.';
             activeButtons.push(new ButtonBuilder().setCustomId(`admin_sync_ea_names:${tournament.shortId}`).setLabel('Sync Nombres EA').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy));
             if (!isBeforeDraw) {
                 const isAutoResults = tournament.config.autoResults === true;
@@ -250,6 +257,8 @@ export function createTournamentManagementPanel(tournament, isBusy = false, acti
             break;
 
         case 'draft':
+            title = '📋 Herramientas Draft';
+            description = 'Opciones exclusivas para torneos Draft.';
             if (tournament.config.paidSubType === 'draft') {
                 activeButtons.push(new ButtonBuilder().setCustomId(`admin_draft_ext_roulette:${tournament.shortId}`).setLabel('Ruleta Capitanes').setStyle(ButtonStyle.Primary).setEmoji('🎲').setDisabled(isBusy));
                 activeButtons.push(new ButtonBuilder().setCustomId(`admin_draft_ext_pickorder:${tournament.shortId}`).setLabel('Orden Picks').setStyle(ButtonStyle.Success).setEmoji('🏆').setDisabled(isBusy));
@@ -259,14 +268,23 @@ export function createTournamentManagementPanel(tournament, isBusy = false, acti
             break;
     }
 
-    const components = [selectMenuRow];
+    const embed = new EmbedBuilder()
+        .setColor('#e67e22')
+        .setTitle(title)
+        .setDescription(description)
+        .setFooter({ text: 'Acciones efímeras. Solo tú puedes ver este mensaje.' });
 
-    // Chunk buttons into rows of max 5
+    const components = [];
+
+    // Si no hay botones (ej. categoría vacía en fase concreta), mostrar uno inhabilitado
+    if (activeButtons.length === 0) {
+        components.push(new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('dummy').setLabel('Ninguna acción disponible').setStyle(ButtonStyle.Secondary).setDisabled(true)
+        ));
+        return { embeds: [embed], components };
+    }
+
     for (let i = 0; i < activeButtons.length; i += 5) {
-        if (components.length >= 5) {
-            console.warn(`[WARNING] Tournament management panel for ${tournament.shortId} exceeded 5 ActionRows! Truncating.`);
-            break;
-        }
         const row = new ActionRowBuilder().addComponents(activeButtons.slice(i, i + 5));
         components.push(row);
     }

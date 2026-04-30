@@ -17,7 +17,7 @@ import {
 } from '../logic/verificationLogic.js';
 import { findMatch, simulateAllPendingMatches } from '../logic/matchLogic.js';
 import { updateAdminPanel, updateTournamentManagementThread } from '../utils/panelManager.js';
-import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel, createPoolEmbed } from '../utils/embeds.js';
+import { createRuleAcceptanceEmbed, createDraftStatusEmbed, createTeamRosterManagementEmbed, createGlobalAdminPanel, createStreamerWarningEmbed, createTournamentManagementPanel, createTournamentCategoryPanel, createPoolEmbed } from '../utils/embeds.js';
 import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
 import { getLeagueByElo, LEAGUE_EMOJIS } from '../logic/eloLogic.js';
 import { generateExcelImage } from '../utils/twitter.js';
@@ -41,6 +41,20 @@ export async function handleButton(interaction) {
     }
 
     const [action, ...params] = customId.split(':');
+
+    // Handler para abrir sub-paneles de categorías de administración de torneos
+    if (action.startsWith('admin_category_')) {
+        const category = action.replace('admin_category_', '');
+        const [tournamentShortId] = params;
+        
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) {
+            return interaction.reply({ content: '❌ Torneo no encontrado.', flags: MessageFlags.Ephemeral });
+        }
+        
+        const { embeds, components } = createTournamentCategoryPanel(tournament, category);
+        return interaction.reply({ embeds, components, flags: MessageFlags.Ephemeral });
+    }
 
     // NUEVO: Botón de inicio que muestra los botones correctos
     if (action === 'start_verification_or_registration') {
