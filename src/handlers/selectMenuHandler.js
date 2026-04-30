@@ -48,6 +48,20 @@ export async function handleSelectMenu(interaction) {
         return;
     }
 
+    if (action === 'admin_panel_category_select') {
+        const [tournamentShortId] = params;
+        const selectedCategory = interaction.values[0];
+        
+        await interaction.deferUpdate();
+        
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return;
+        
+        const { embeds, components } = createTournamentManagementPanel(tournament, false, selectedCategory);
+        await interaction.editReply({ embeds, components });
+        return;
+    }
+
     // --- FIN DE LA NUEVA LÓGICA ---
     if (action === 'admin_select_replacement_position' || action === 'admin_select_replacement_page') {
         await interaction.deferUpdate();
