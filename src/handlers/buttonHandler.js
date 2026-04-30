@@ -3419,10 +3419,10 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     // =======================================================
 
     if (action === 'admin_toggle_manual_knockout') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply({ content: 'Error: Torneo no encontrado.' });
+        if (!tournament) return interaction.followUp({ content: 'Error: Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
 
         const newValue = !tournament.config.manualKnockoutPairing;
         await db.collection('tournaments').updateOne(
@@ -3430,14 +3430,16 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             { $set: { 'config.manualKnockoutPairing': newValue } }
         );
 
-        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-        const { updateTournamentManagementThread } = await import('../utils/panelManager.js');
-        await updateTournamentManagementThread(client, updatedTournament);
+        tournament.config.manualKnockoutPairing = newValue;
+        const { createTournamentCategoryPanel } = await import('../utils/embeds.js');
+        const { embeds, components } = createTournamentCategoryPanel(tournament, 'competicion');
+        await interaction.editReply({ embeds, components });
 
-        await interaction.editReply({
+        await interaction.followUp({
             content: newValue
                 ? '✅ **Emparejamiento Manual activado.** Cuando una ronda termine, se te pedirá elegir los emparejamientos de la siguiente.'
-                : '✅ **Emparejamiento Automático activado.** Las siguientes rondas se emparejarán al azar automáticamente.'
+                : '✅ **Emparejamiento Automático activado.** Las siguientes rondas se emparejarán al azar automáticamente.',
+            flags: [MessageFlags.Ephemeral]
         });
         return;
     }
@@ -4095,14 +4097,14 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     }
 
     if (action === 'admin_toggle_registration') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
+        if (!tournament) return interaction.followUp({ content: "Error: Torneo no encontrado.", flags: [MessageFlags.Ephemeral] });
 
         const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
         if (!isAdminOrRef) {
-            return interaction.editReply({ content: '❌ No tienes permisos para usar este botón.' });
+            return interaction.followUp({ content: '❌ No tienes permisos para usar este botón.', flags: [MessageFlags.Ephemeral] });
         }
 
         const currentState = tournament.config.registrationClosed || false;
@@ -4113,13 +4115,12 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             { $set: { 'config.registrationClosed': newState } }
         );
 
-        // Update the admin panel to reflect the new state
         tournament.config.registrationClosed = newState;
-        const { createTournamentManagementPanel } = await import('../utils/embeds.js');
-        const { embeds, components } = createTournamentManagementPanel(tournament);
-        await interaction.message.edit({ embeds, components });
-
-        await interaction.editReply({ content: `✅ Inscripciones **${newState ? 'CERRADAS' : 'ABIERTAS'}** para el torneo.` });
+        const { createTournamentCategoryPanel } = await import('../utils/embeds.js');
+        const { embeds, components } = createTournamentCategoryPanel(tournament, 'configuracion');
+        
+        await interaction.editReply({ embeds, components });
+        await interaction.followUp({ content: `✅ Inscripciones **${newState ? 'CERRADAS' : 'ABIERTAS'}** para el torneo.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
 
@@ -4167,13 +4168,13 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
     }
 
     if (action === 'admin_toggle_elo') {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferUpdate();
         const [tournamentShortId] = params;
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.editReply({ content: "Error: Torneo no encontrado." });
+        if (!tournament) return interaction.followUp({ content: "Error: Torneo no encontrado.", flags: [MessageFlags.Ephemeral] });
 
         const isAdminOrRef = interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID) || interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
-        if (!isAdminOrRef) return interaction.editReply({ content: '❌ No tienes permisos.' });
+        if (!isAdminOrRef) return interaction.followUp({ content: '❌ No tienes permisos.', flags: [MessageFlags.Ephemeral] });
 
         const currentRequireElo = tournament.config.requireElo !== false; // por defecto es true
         const newRequireElo = !currentRequireElo;
@@ -4184,11 +4185,11 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         );
 
         tournament.config.requireElo = newRequireElo;
-        const { createTournamentManagementPanel } = await import('../utils/embeds.js');
-        const { embeds, components } = createTournamentManagementPanel(tournament);
-        await interaction.message.edit({ embeds, components });
+        const { createTournamentCategoryPanel } = await import('../utils/embeds.js');
+        const { embeds, components } = createTournamentCategoryPanel(tournament, 'configuracion');
+        await interaction.editReply({ embeds, components });
 
-        await interaction.editReply({ content: `✅ Validación de ELO **${newRequireElo ? 'ACTIVADA' : 'DESACTIVADA'}** para este torneo.` });
+        await interaction.followUp({ content: `✅ Validación de ELO **${newRequireElo ? 'ACTIVADA' : 'DESACTIVADA'}** para este torneo.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
 
@@ -7782,7 +7783,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
 
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferUpdate();
 
         const newState = !(tournament.config.autoResults === true);
 
@@ -7820,16 +7821,19 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             console.error('[AUTO-RESULTS] Error importando módulo:', importErr);
         }
 
-        const { updateTournamentManagementThread } = await import('../utils/panelManager.js');
-        const updatedTournament = await db.collection('tournaments').findOne({ _id: tournament._id });
-        await updateTournamentManagementThread(client, updatedTournament);
+        // Actualizamos panel efimero
+        const { createTournamentCategoryPanel } = await import('../utils/embeds.js');
+        tournament.config.autoResults = newState;
+        const { embeds, components } = createTournamentCategoryPanel(tournament, 'ea_tools');
+        await interaction.editReply({ embeds, components });
 
         const stateEmoji = newState ? '✅ ACTIVADO' : '⛔ DESACTIVADO';
-        await interaction.editReply({
+        await interaction.followUp({
             content: `🤖 **Auto-Resultados EA:** ${stateEmoji}\n\n${newState
                 ? '▶️ El bot verificará cada **90 segundos** si los equipos con partidos activos han jugado en EA. Los resultados se validarán automáticamente.'
                 : '⏹️ La detección automática de resultados ha sido desactivada. Los capitanes deben reportar los resultados manualmente.'
-            }`
+            }`,
+            flags: [MessageFlags.Ephemeral]
         });
         return;
     }
