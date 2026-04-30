@@ -218,9 +218,30 @@ async function checkMatchResult(client, db, tournament, partido) {
 
     if (merged.length === 0) return;
 
-    // Tomar el resultado más reciente
+    // Tomar el resultado más reciente (puede ser una sesión o la fusión de varias)
     const result = merged[0];
     const resultString = `${result.ourGoals}-${result.oppGoals}`;
+
+    // === LÓGICA DE GRACIA PARA PARTIDOS INCOMPLETOS ===
+    // EA timestamp is in seconds
+    const latestSessionTimestamp = result.sessions[result.sessions.length - 1].timestamp;
+    const secondsSinceLastPlay = Math.floor(Date.now() / 1000) - latestSessionTimestamp;
+    
+    // Consideramos "partido completo" si EA dice que no es DNF, O si entre todas las partes
+    // fusionadas suman al menos 4800 segundos (80 minutos in-game)
+    const isFullMatch = !result.isDnf || result.maxSecs >= 4800;
+    
+    // Consideramos "Rage-Quit/Abandono" si han pasado más de 25 minutos reales (1500 segundos)
+    // desde la última vez que jugaron y no han empezado/terminado una nueva parte
+    const hasRageQuit = secondsSinceLastPlay >= 1500;
+
+    if (!isFullMatch && !hasRageQuit) {
+        // Aún no han jugado 80 minutos en total y han pasado menos de 25 min reales.
+        // El escáner de 90s los ignora momentáneamente para darles tiempo a jugar la "segunda parte".
+        // console.log(`[AUTO-RESULTS] Partido incompleto detectado (${result.maxSecs}s jugados). Esperando segunda parte...`);
+        return;
+    }
+    // ===================================================
 
     console.log(`[AUTO-RESULTS] 🎯 Resultado detectado para partido ${partido.matchId}: ${partido.equipoA.nombre} ${resultString} ${partido.equipoB.nombre}`);
 
