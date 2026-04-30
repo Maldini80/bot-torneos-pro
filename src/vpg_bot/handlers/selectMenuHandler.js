@@ -1183,6 +1183,9 @@ module.exports = async (client, interaction) => {
             };
             const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'CARR': 8, 'MCO': 9, 'MD': 10, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
             const resolvePos = (pos, archId) => {
+                // Special case: midfielder with CARR archetypes (must check before POS_MAP)
+                const posStr = String(pos || '').toLowerCase();
+                if (posStr === 'midfielder' && (archId == 10 || archId == 12)) return 'CARR';
                 if (pos !== undefined && POS_MAP[pos] !== undefined) return POS_MAP[pos];
                 if (archId !== undefined) {
                     const a = String(archId).toLowerCase();
@@ -1298,6 +1301,9 @@ module.exports = async (client, interaction) => {
             const POS_ORDER = { 'POR': 0, 'DFC': 1, 'LD': 2, 'LI': 3, 'CAD': 4, 'CAI': 5, 'MCD': 6, 'MC': 7, 'CARR': 8, 'MCO': 9, 'MD': 10, 'MI': 10, 'ED': 11, 'EI': 12, 'MP': 13, 'DC': 14 };
             const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
             const resolvePos = (pos, archId) => {
+                // Special case: midfielder with CARR archetypes (must check before POS_MAP)
+                const posStr = String(pos || '').toLowerCase();
+                if (posStr === 'midfielder' && (archId == 10 || archId == 12)) return 'CARR';
                 if (pos !== undefined && POS_MAP[pos] !== undefined) return POS_MAP[pos];
                 if (archId !== undefined) {
                     const a = String(archId).toLowerCase();
