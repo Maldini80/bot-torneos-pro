@@ -12,8 +12,8 @@ let isProcessing = false;
 let workerInterval = null;
 
 // Cuánto tiempo (ms) esperar después de un partido terminado para consultar estadísticas.
-// Por defecto 4 minutos = 240,000 ms.
-const GRACE_PERIOD_MS = 240000; 
+// Por defecto 2 minutos = 120,000 ms (bajo demanda manual con botón "Forzar Reload Stats EA").
+const GRACE_PERIOD_MS = 120000; 
 // Cuánto tiempo (ms) pausar entre consultas reales a la API.
 const COOLDOWN_MS = 3000;
 
@@ -32,7 +32,7 @@ export function addJob(matchId, tournamentShortId, matchPath, clubIdA, clubIdB, 
         processAt: Date.now() + GRACE_PERIOD_MS
     });
 
-    console.log(`[EA_QUEUE] Trabajo añadido para partido ${matchId} (vs EA Club ${clubIdA} - ${clubIdB}). Será procesado en 4 mins.`);
+    console.log(`[EA_QUEUE] Trabajo añadido para partido ${matchId} (vs EA Club ${clubIdA} - ${clubIdB}). Será procesado en 2 mins.`);
 
     if (!workerInterval) {
         startWorker();

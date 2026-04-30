@@ -87,13 +87,16 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     await updateTournamentManagementThread(client, finalTournamentState);
     await notifyTournamentVisualizer(finalTournamentState);
 
-    // [NUEVA LÓGICA] Cola Global de Estadísticas de EA Sports
+    // [DESACTIVADO] Encolado automático de estadísticas EA tras cada partido.
+    // Ahora las estadísticas profundas solo se descargan bajo demanda con el botón
+    // "Forzar Reload Stats EA" del panel de gestión del torneo.
+    // El auto-detector de resultados (90s) NO se ve afectado por este cambio.
+    /*
     try {
         const { getBotSettings } = await import('../../database.js');
         const globalSettings = await getBotSettings();
         
         if (globalSettings.eaScannerEnabled) {
-            // Buscamos los equipos actualizados directamente desde la lista de aprobados del torneo
             const teamACaptainId = partido.equipoA.id;
             const teamBCaptainId = partido.equipoB.id;
             
@@ -118,6 +121,7 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     } catch (eaError) {
         console.error(`[EA_QUEUE] Error al intentar añadir trabajo a la cola:`, eaError);
     }
+    */
 
     return partido;
 }
