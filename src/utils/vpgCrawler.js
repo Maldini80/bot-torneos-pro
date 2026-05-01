@@ -44,40 +44,36 @@ function extractArray(rawData) {
     return [];
 }
 
+// =====================================================================
+// Ligas de VPG España PS5/Crossplay - Extraídas de virtualprogaming.com
+// Última actualización: 2026-05-01
+// Estas ligas raramente cambian. Si VPG añade/elimina alguna,
+// actualizar esta lista manualmente.
+// =====================================================================
+const VPG_SPAIN_LEAGUES = [
+    { id: 1, title: 'SUPERLIGA ESPAÑA IMPACT GAME A', slug: 'superliga-spain-a' },
+    { id: 2, title: 'SUPERLIGA ESPAÑA IMPACT GAME B', slug: 'superliga-spain-b' },
+    { id: 3, title: 'SEGUNDA DIVISION A', slug: 'segunda-division-a-spain' },
+    { id: 4, title: 'SEGUNDA DIVISION B', slug: 'segunda-division-b-spain' },
+    { id: 5, title: 'TERCERA DIVISION A', slug: 'tercera-division-a-spain' },
+    { id: 6, title: 'TERCERA DIVISION B', slug: 'tercera-division-b-spain' },
+    { id: 7, title: 'CUARTA DIVISION A', slug: 'cuarta-division-a-spain' },
+    { id: 8, title: 'CUARTA DIVISION B', slug: 'cuarta-division-b-spain' },
+    { id: 9, title: 'QUINTA DIVISION A', slug: 'quinta-division-a-spain' },
+    { id: 10, title: 'QUINTA DIVISION B', slug: 'quinta-division-b-spain' },
+    { id: 11, title: 'QUINTA DIVISION C', slug: 'quinta-division-c-spain' },
+    { id: 12, title: 'QUINTA DIVISION D', slug: 'quinta-division-d-spain' },
+];
+
 /**
- * Sincroniza la lista de ligas de la comunidad VPG España
+ * Sincroniza la lista de ligas de la comunidad VPG España.
+ * Usa la lista hardcodeada como fuente principal ya que Cloudflare
+ * bloquea las peticiones directas del servidor a api.virtualprogaming.com.
  * @returns {Promise<Array>} Lista de ligas con su id, title y slug
  */
 export async function fetchVpgSpainLeagues() {
-    try {
-        // Probamos múltiples endpoints: el proxy del frontend y la API directa
-        const urls = [
-            'https://virtualprogaming.com/api/communities/vpg-spain/leagues/',
-            'https://api.virtualprogaming.com/public/communities/vpg-spain/leagues/',
-            'https://api.virtualprogaming.com/v1/communities/vpg-spain/leagues/',
-        ];
-
-        const rawData = await vpgFetch(urls);
-        const leagues = extractArray(rawData);
-
-        console.log(`[VPG Crawler] Raw response type: ${typeof rawData}, isArray: ${Array.isArray(rawData)}`);
-        if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
-            console.log(`[VPG Crawler] Raw response keys: ${Object.keys(rawData).join(', ')}`);
-        }
-        console.log(`[VPG Crawler] Found ${leagues.length} leagues`);
-        if (leagues.length > 0) {
-            console.log(`[VPG Crawler] First league sample:`, JSON.stringify(leagues[0]).substring(0, 300));
-        }
-
-        return leagues.map(league => ({
-            id: league.id,
-            title: league.title || league.name || league.league_name || 'Unknown',
-            slug: league.slug || league.league_slug || ''
-        }));
-    } catch (error) {
-        console.error('[VPG Crawler] Error fetching leagues:', error.message);
-        throw error;
-    }
+    console.log(`[VPG Crawler] Cargando ${VPG_SPAIN_LEAGUES.length} ligas de VPG España (lista local)`);
+    return VPG_SPAIN_LEAGUES;
 }
 
 /**
