@@ -243,6 +243,31 @@ async function checkMatchResult(client, db, tournament, partido) {
     }
     // ===================================================
 
+    // === DETECCIÓN DE PRÓRROGA ===
+    // Si algún jugador jugó más de 93 minutos, es probable que hayan jugado prórroga.
+    // No auto-validar: el resultado incluye goles de tiempo extra que no cuentan en liga.
+    if (result.hasExtraTime) {
+        console.log(`[AUTO-RESULTS] ⚠️ Prórroga detectada en partido ${partido.matchId} (${resultString}). No se auto-valida.`);
+        
+        try {
+            const thread = await client.channels.fetch(partido.threadId).catch(() => null);
+            if (thread) {
+                await thread.send({
+                    content: `⚠️ **Posible prórroga detectada**\n\n` +
+                        `Se ha detectado que el partido superó el minuto 93. Es posible que se haya jugado prórroga.\n\n` +
+                        `📊 Resultado detectado (puede incluir prórroga): ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}\n\n` +
+                        `⚠️ **Este resultado NO se ha validado automáticamente.**\n` +
+                        `Un administrador debe verificar el resultado del minuto 90 y validarlo manualmente.`
+                });
+            }
+        } catch (notifyErr) {
+            console.warn(`[AUTO-RESULTS] No se pudo notificar prórroga en hilo ${partido.threadId}:`, notifyErr.message);
+        }
+        
+        return;
+    }
+    // ================================
+
     console.log(`[AUTO-RESULTS] 🎯 Resultado detectado para partido ${partido.matchId}: ${partido.equipoA.nombre} ${resultString} ${partido.equipoB.nombre}`);
 
     // Re-leer el torneo para asegurar datos frescos (evitar race condition con validación manual)

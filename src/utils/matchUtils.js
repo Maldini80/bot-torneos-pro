@@ -30,67 +30,65 @@ function extractMatchInfo(match, primaryClubId) {
         });
     }
 
+    // Detectar prórroga: si algún jugador jugó >= 5640 segundos (minuto 94+)
+    let hasExtraTime = false;
+    if (match.players) {
+        for (const clubPlayers of Object.values(match.players)) {
+            for (const p of Object.values(clubPlayers)) {
+                if (parseInt(p.secondsPlayed || 0) >= 5640) {
+                    hasExtraTime = true;
+                    break;
+                }
+            }
+            if (hasExtraTime) break;
+        }
+    }
+
     // Check for "ghost" goals (3-0 or 0-3 defaults by EA for DNF)
     if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
-        // En DNF, EA modifica AMBOS equipos: infla goles del ganador y goalsconceded del perdedor.
-        // FUENTE DE VERDAD: datos del equipo que NO desconectó (nuestro equipo):
-        //   - Nuestros goles reales = suma de 'goals' de nuestros jugadores (NO inflados)
-        //   - Goles del rival = max 'goalsconceded' de nuestros jugadores (siempre real)
-        // Si NOSOTROS somos los que desconectamos, usamos datos del rival como fuente.
+        // En DNF, EA pone un 3-0 fantasma. La fuente de verdad son los goalsconceded cruzados:
+        //   - Goles reales del rival = max(goalsconceded) de NUESTROS jugadores
+        //   - Nuestros goles reales = max(goalsconceded) de jugadores del RIVAL
+        // Esto captura goles en propia puerta y goles de jugadores que se fueron.
         
-        // Datos de NUESTRO equipo
-        let realOur = 0, maxGoalsConceded = 0;
+        // goalsconceded de NUESTROS jugadores → goles reales del rival
+        let maxGoalsConceded = 0;
         if (match.players && match.players[String(primaryClubId)]) {
-            realOur = Object.values(match.players[String(primaryClubId)]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
             Object.values(match.players[String(primaryClubId)]).forEach(p => {
                 const conceded = parseInt(p.goalsconceded || 0);
                 if (conceded > maxGoalsConceded) maxGoalsConceded = conceded;
             });
         }
         
-        // Datos del equipo RIVAL (fallback si no tenemos datos propios)
-        let realOpp = 0, maxOppGoalsConceded = 0;
+        // goalsconceded de jugadores del RIVAL → nuestros goles reales
+        let maxOppGoalsConceded = 0;
         if (match.players && opponentId && match.players[opponentId]) {
-            realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
             Object.values(match.players[opponentId]).forEach(p => {
                 const conceded = parseInt(p.goalsconceded || 0);
                 if (conceded > maxOppGoalsConceded) maxOppGoalsConceded = conceded;
             });
         }
         
-        let trueOurGoals, trueOppGoals;
+        // FUENTE PRIMARIA: goalsconceded cruzado
+        let trueOurGoals = maxOppGoalsConceded;  // Lo que el rival encajó = nuestros goles
+        let trueOppGoals = maxGoalsConceded;     // Lo que nosotros encajamos = goles del rival
         
-        if (ourGoals === 3 && oppGoals === 0) {
-            // NOSOTROS ganamos por DNF (el rival desconectó)
-            // Goles del rival: nuestro goalsconceded (siempre fiable)
-            trueOppGoals = maxGoalsConceded;
-            // Nuestros goles: múltiples fuentes
-            if (realOur > 0) {
-                // Fuente principal: goles de nuestros jugadores (EA sí los creditó)
-                trueOurGoals = realOur;
-            } else if (maxOppGoalsConceded > 0 && maxOppGoalsConceded < 3) {
-                // Fallback: goalsconceded del rival (solo si NO es el ghost score 3)
-                trueOurGoals = maxOppGoalsConceded;
-            } else {
-                // Último recurso: EA no creditó goles ni hay dato fiable del rival
-                // Asumir empate (heurística: DNFs tardíos suelen ser empates)
-                trueOurGoals = maxGoalsConceded;
+        // FALLBACK: si ambos goalsconceded son 0, intentar con suma de goles individuales
+        if (trueOurGoals === 0 && trueOppGoals === 0) {
+            let realOur = 0, realOpp = 0;
+            if (match.players && match.players[String(primaryClubId)]) {
+                realOur = Object.values(match.players[String(primaryClubId)]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
             }
-        } else {
-            // EL RIVAL ganó por DNF (nosotros desconectamos)
-            // Nuestros goles: goalsconceded del rival (ellos son fiables)
-            trueOurGoals = maxOppGoalsConceded;
-            // Goles del rival: múltiples fuentes
-            if (realOpp > 0) {
+            if (match.players && opponentId && match.players[opponentId]) {
+                realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + parseInt(p.goals || 0), 0);
+            }
+            if (realOur > 0 || realOpp > 0) {
+                trueOurGoals = realOur;
                 trueOppGoals = realOpp;
-            } else if (maxGoalsConceded > 0 && maxGoalsConceded < 3) {
-                trueOppGoals = maxGoalsConceded;
-            } else {
-                trueOppGoals = maxOppGoalsConceded;
             }
         }
         
-        // Always correct if player goals do not match the EA official 3-0 / 0-3 score
+        // Corregir si el resultado de EA no coincide con la fuente de verdad
         if (ourGoals !== trueOurGoals || oppGoals !== trueOppGoals) {
             ourGoals = trueOurGoals;
             oppGoals = trueOppGoals;
@@ -123,6 +121,7 @@ function extractMatchInfo(match, primaryClubId) {
         oppGoals,
         maxSecs,
         isDnf,
+        hasExtraTime,
         ourHasRealStats,
         opponentId,
         oppName,
@@ -187,6 +186,7 @@ function mergeSessions(matches, primaryClubId) {
                 oppGoals: totalOpp,
                 maxSecs: totalSecs,
                 isDnf: true, // The overall encounter had a DNF
+                hasExtraTime: group.some(g => g.hasExtraTime),
                 opponentId: group[0].opponentId,
                 oppName: group[0].oppName,
                 timestamp: earliestTimestamp,
@@ -203,6 +203,7 @@ function mergeSessions(matches, primaryClubId) {
                 oppGoals: g.oppGoals,
                 maxSecs: g.maxSecs,
                 isDnf: g.isDnf,
+                hasExtraTime: g.hasExtraTime,
                 opponentId: g.opponentId,
                 oppName: g.oppName,
                 timestamp: g.timestamp,
