@@ -99,11 +99,10 @@ export async function fetchVpgLeaderboard(leagueSlug, positionGroup, type = 'wee
         if (!vpgPos) throw new Error(`Invalid position group: ${positionGroup}`);
 
         // Probamos varias combinaciones de parámetros
+        // La API requiere "leaderboard" como nombre del parámetro (no "position")
         const paramSets = [
-            { position: vpgPos, type: type },
-            { position: vpgPos, type: type, sort: 'match_rating' },
-            { position: vpgPos, type: type, limit: '50' },
-            { position: vpgPos },
+            { leaderboard: vpgPos, type: type },
+            { leaderboard: vpgPos },
         ];
 
         let lastError = null;
