@@ -85,33 +85,54 @@ export async function fetchVpgSpainLeagues() {
  */
 export async function fetchVpgLeaderboard(leagueSlug, positionGroup, type = 'weekly') {
     try {
+        // VPG usa "Top Gk", "Top Cb", etc. como valores de posición en su API
         const posMap = {
-            'gk': 'Gk',
-            'cb': 'Cb',
-            'cdm': 'Cdm',
-            'cam': 'Cam',
-            'wingers': 'Wingers',
-            'strikers': 'Strikers'
+            'gk': 'Top Gk',
+            'cb': 'Top Cb',
+            'cdm': 'Top Cdm',
+            'cam': 'Top Cam',
+            'wingers': 'Top Wingers',
+            'strikers': 'Top Strikers'
         };
 
         const vpgPos = posMap[positionGroup];
         if (!vpgPos) throw new Error(`Invalid position group: ${positionGroup}`);
 
-        const queryParams = new URLSearchParams({
-            type: type,
-            position: vpgPos,
-            limit: '50',
-            sort: 'match_rating'
-        }).toString();
-
-        const urls = [
-            `https://virtualprogaming.com/api/leagues/${leagueSlug}/leaderboard?${queryParams}`,
-            `https://virtualprogaming.com/api/league/${leagueSlug}/stats?${queryParams}`,
-            `https://api.virtualprogaming.com/public/leagues/${leagueSlug}/leaderboard?${queryParams}`,
+        // Probamos varias combinaciones de parámetros
+        const paramSets = [
+            { position: vpgPos, type: type },
+            { position: vpgPos, type: type, sort: 'match_rating' },
+            { position: vpgPos, type: type, limit: '50' },
+            { position: vpgPos },
         ];
 
-        const rawData = await vpgFetch(urls);
-        return extractArray(rawData);
+        let lastError = null;
+        for (const params of paramSets) {
+            const queryParams = new URLSearchParams(params).toString();
+            const url = `https://api.virtualprogaming.com/public/leagues/${leagueSlug}/leaderboard?${queryParams}`;
+            try {
+                console.log(`[VPG Crawler] Trying leaderboard: ${url}`);
+                const res = await fetch(url, { headers: HEADERS, redirect: 'follow' });
+                console.log(`[VPG Crawler] Response: ${res.status} ${res.statusText}`);
+                if (!res.ok) {
+                    const errorText = await res.text().catch(() => '');
+                    console.log(`[VPG Crawler] Error body: ${errorText.substring(0, 200)}`);
+                    continue;
+                }
+                const data = await res.json();
+                const players = extractArray(data);
+                if (players.length > 0) {
+                    console.log(`[VPG Crawler] ✅ Got ${players.length} players for ${positionGroup}`);
+                    console.log(`[VPG Crawler] First player sample:`, JSON.stringify(players[0]).substring(0, 300));
+                    return players;
+                }
+            } catch (e) {
+                lastError = e;
+                console.log(`[VPG Crawler] Failed: ${e.message}`);
+            }
+        }
+
+        throw lastError || new Error(`No data found for ${positionGroup}`);
     } catch (error) {
         console.error(`[VPG Crawler] Error fetching leaderboard for ${leagueSlug} - ${positionGroup}:`, error.message);
         throw error;
