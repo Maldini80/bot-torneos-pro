@@ -1,10 +1,13 @@
 import axios from 'axios';
 
-const VPG_API_BASE = 'https://api.virtualprogaming.com/v1';
+const VPG_API_BASE = 'https://api.virtualprogaming.com/public';
+const VPG_COMMUNITY_SLUG = 'vpg-spain';
 const HEADERS = {
     'User-Agent': 'VPG/1.0.0 (iPhone; iOS 15.0; Scale/3.00)',
     'Accept': 'application/json, text/plain, */*',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Origin': 'https://virtualprogaming.com',
+    'Referer': 'https://virtualprogaming.com/'
 };
 
 /**
@@ -13,23 +16,38 @@ const HEADERS = {
  */
 export async function fetchVpgSpainLeagues() {
     try {
-        // La URL de ligas para la comunidad VPG España
-        // Puede variar si la API cambia, pero basado en la web app, suele ser:
-        const response = await axios.get(`${VPG_API_BASE}/communities/VPG-espana-ps5/leagues`, { headers: HEADERS });
+        const url = `${VPG_API_BASE}/communities/${VPG_COMMUNITY_SLUG}/leagues`;
+        console.log(`[VPG Crawler] Fetching leagues from: ${url}`);
+        const response = await axios.get(url, { headers: HEADERS });
         
-        // Devolvemos la lista mapeada. Asumimos la estructura típica de VPG
-        if (response.data && response.data.data) {
-            return response.data.data.map(league => ({
-                id: league.id,
-                title: league.title || league.name,
-                slug: league.slug
-            }));
+        // La API puede devolver un array directamente o un objeto con .data / .results
+        const rawData = response.data;
+        let leagues = [];
+
+        if (Array.isArray(rawData)) {
+            leagues = rawData;
+        } else if (rawData && Array.isArray(rawData.data)) {
+            leagues = rawData.data;
+        } else if (rawData && Array.isArray(rawData.results)) {
+            leagues = rawData.results;
+        } else if (rawData && typeof rawData === 'object') {
+            // Puede ser un objeto con keys numéricas
+            leagues = Object.values(rawData);
         }
-        
-        // Si no funciona lo anterior, intentar buscar por region si existe endpoint
-        return [];
+
+        console.log(`[VPG Crawler] Raw response keys: ${Object.keys(rawData || {}).join(', ')}`);
+        console.log(`[VPG Crawler] Found ${leagues.length} leagues`);
+
+        return leagues.map(league => ({
+            id: league.id,
+            title: league.title || league.name || league.league_name || 'Unknown',
+            slug: league.slug || league.league_slug || ''
+        }));
     } catch (error) {
         console.error('[VPG Crawler] Error fetching leagues:', error.message);
+        if (error.response) {
+            console.error(`[VPG Crawler] Status: ${error.response.status}, Data:`, JSON.stringify(error.response.data).substring(0, 200));
+        }
         throw error;
     }
 }
@@ -43,10 +61,6 @@ export async function fetchVpgSpainLeagues() {
  */
 export async function fetchVpgLeaderboard(leagueSlug, positionGroup, type = 'weekly') {
     try {
-        // Mapeo de grupo de posicion al id de posicion en VPG (basado en su UI)
-        // La API puede usar query params como ?type=weekly&position=Cb
-        // Basándonos en la UI: 'Gk', 'Cb', 'Fb', 'Cdm', 'Cam', 'Wingers', 'Strikers'
-        
         const posMap = {
             'gk': 'Gk',
             'cb': 'Cb',
@@ -59,23 +73,40 @@ export async function fetchVpgLeaderboard(leagueSlug, positionGroup, type = 'wee
         const vpgPos = posMap[positionGroup];
         if (!vpgPos) throw new Error(`Invalid position group: ${positionGroup}`);
 
-        // La URL para los leaderboards (puede ser id o slug dependiendo de la API exacta)
-        // Intentaremos con slug primero que es lo que aparece en la URL web
-        const url = `${VPG_API_BASE}/league/${leagueSlug}/stats`;
+        // Intentar con /public/ primero, luego /v1/ como fallback
+        const urls = [
+            `${VPG_API_BASE}/leagues/${leagueSlug}/leaderboard`,
+            `${VPG_API_BASE}/league/${leagueSlug}/stats`,
+            `https://api.virtualprogaming.com/v1/leagues/${leagueSlug}/leaderboard`
+        ];
+
         const params = {
-            type: type, // 'weekly' o 'all'
+            type: type,
             position: vpgPos,
-            limit: 50, // Traer suficientes para filtrar
-            sort: 'match_rating' // Asegurarnos de ordenar por rating
+            limit: 50,
+            sort: 'match_rating'
         };
 
-        const response = await axios.get(url, { headers: HEADERS, params });
-        
-        if (response.data && response.data.data) {
-            return response.data.data;
+        let lastError = null;
+        for (const url of urls) {
+            try {
+                console.log(`[VPG Crawler] Trying leaderboard: ${url} with position=${vpgPos}, type=${type}`);
+                const response = await axios.get(url, { headers: HEADERS, params });
+                
+                const rawData = response.data;
+                if (Array.isArray(rawData)) return rawData;
+                if (rawData && Array.isArray(rawData.data)) return rawData.data;
+                if (rawData && Array.isArray(rawData.results)) return rawData.results;
+                if (rawData && typeof rawData === 'object') return Object.values(rawData);
+                return [];
+            } catch (e) {
+                lastError = e;
+                console.log(`[VPG Crawler] URL ${url} failed: ${e.message}`);
+                continue;
+            }
         }
-
-        return [];
+        
+        throw lastError;
     } catch (error) {
         console.error(`[VPG Crawler] Error fetching leaderboard for ${leagueSlug} - ${positionGroup}:`, error.message);
         throw error;
