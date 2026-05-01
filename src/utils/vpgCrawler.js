@@ -85,14 +85,14 @@ export async function fetchVpgSpainLeagues() {
  */
 export async function fetchVpgLeaderboard(leagueSlug, positionGroup, type = 'weekly') {
     try {
-        // VPG usa "Top Gk", "Top Cb", etc. como valores de posición en su API
+        // VPG API valores permitidos: 'top_gk', 'top_cb', 'top_fb', 'top_cdm', 'top_cam', 'top_wingers', 'top_strikers', 'top_scorer'
         const posMap = {
-            'gk': 'Top Gk',
-            'cb': 'Top Cb',
-            'cdm': 'Top Cdm',
-            'cam': 'Top Cam',
-            'wingers': 'Top Wingers',
-            'strikers': 'Top Strikers'
+            'gk': 'top_gk',
+            'cb': 'top_cb',
+            'cdm': 'top_cdm',
+            'cam': 'top_cam',
+            'wingers': 'top_wingers',
+            'strikers': 'top_strikers'
         };
 
         const vpgPos = posMap[positionGroup];
