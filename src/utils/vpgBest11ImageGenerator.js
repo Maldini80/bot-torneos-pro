@@ -170,11 +170,13 @@ async function drawPlayerCard(ctx, cx, cy, playerData, posLabel) {
         return;
     }
 
-    const { player, team, stats } = playerData;
-    const rating = stats?.match_rating || 0;
-    const playerName = player?.username || 'Desconocido';
-    const teamName = team?.name || 'Agente Libre';
-    const teamLogoUrl = team?.logo_url;
+    // La API VPG devuelve objetos planos: { username, team_name, team_logo, match_rating, ... }
+    const rating = playerData.match_rating || playerData.points || 0;
+    const playerName = playerData.username || 'Desconocido';
+    const teamName = playerData.team_name || 'Agente Libre';
+    // Los logos de VPG están en files.virtualprogaming.com
+    const teamLogoId = playerData.team_logo;
+    const teamLogoUrl = teamLogoId ? `https://files.virtualprogaming.com/logos/teams/${teamLogoId}.png` : null;
 
     // Fondo tarjeta con gradiente
     const cardGrad = ctx.createLinearGradient(x, y, x, y + CARD_H);
@@ -201,12 +203,12 @@ async function drawPlayerCard(ctx, cx, cy, playerData, posLabel) {
     ctx.fillText(posLabel, x + 12, y + 52);
 
     // Logo equipo remoto (VPG)
-    if (teamLogoUrl && !teamLogoUrl.includes('default')) {
+    if (teamLogoUrl) {
         try {
             const img = await loadImage(teamLogoUrl);
             ctx.drawImage(img, x + CARD_W - 42, y + 8, 34, 34);
         } catch (e) {
-            console.error('[VPG] Error loading image for card:', teamLogoUrl, e.message);
+            console.error('[VPG] Error loading team logo:', teamLogoUrl, e.message);
         }
     }
 
@@ -235,8 +237,9 @@ async function drawPlayerCard(ctx, cx, cy, playerData, posLabel) {
     ctx.fillStyle = '#d4af37';
     ctx.font = '11px Arial';
     ctx.textAlign = 'left';
-    const decimal = rating.toFixed(1).split('.')[1];
-    ctx.fillText(`.${decimal}`, x + 12 + ctx.measureText(Math.floor(rating).toString()).width + 2, y + 34);
+    const ratingNum = typeof rating === 'number' ? rating : parseFloat(rating) || 0;
+    const decimal = ratingNum.toFixed(1).split('.')[1];
+    ctx.fillText(`.${decimal}`, x + 12 + ctx.measureText(Math.floor(ratingNum).toString()).width + 2, y + 34);
 }
 
 // ==========================================

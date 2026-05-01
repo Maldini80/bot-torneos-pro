@@ -2,6 +2,11 @@ import { fetchVpgLeaderboard } from '../utils/vpgCrawler.js';
 
 /**
  * Calcula el Mejor 11 (3-5-2) a partir de los datos de VPG.
+ * 
+ * Estructura de la API VPG (respuesta plana):
+ * { username, user_avatar, user_nationality, team_name, team_slug, team_logo, 
+ *   points, match_rating, goals, assists, pass_accuracy, ... }
+ * 
  * @param {string} leagueSlug 
  * @param {string} type 'weekly' o 'all'
  * @param {string[]} excludedTeams Nombres de equipos a excluir
@@ -15,11 +20,10 @@ export async function calculateVpgBest11(leagueSlug, type, excludedTeams = []) {
     const getTopValidPlayers = async (position, count) => {
         try {
             const players = await fetchVpgLeaderboard(leagueSlug, position, type);
-            // player object typical structure: { player: { username }, team: { name, logo_url }, stats: { match_rating } }
-            // Filtrar excluidos y ordenar por match_rating descendente
+            // La API devuelve objetos planos: { username, team_name, match_rating, ... }
             const valid = players
-                .filter(p => !isExcluded(p.team?.name))
-                .sort((a, b) => (b.stats?.match_rating || 0) - (a.stats?.match_rating || 0));
+                .filter(p => !isExcluded(p.team_name))
+                .sort((a, b) => (b.match_rating || 0) - (a.match_rating || 0));
             return valid.slice(0, count);
         } catch (e) {
             console.error(`Error procesando posición ${position}:`, e.message);
@@ -34,20 +38,19 @@ export async function calculateVpgBest11(leagueSlug, type, excludedTeams = []) {
     const cbs = await getTopValidPlayers('cb', 3);
 
     // 5 MEDIOS (2 CDM, 1 CAM, 2 Wingers)
-    // Pedimos 3 de CDM, 3 de CAM y escogemos los 3 mejores absolutos combinados.
     // El usuario especificó: "Wingers son los CARR. CDM y CAM son medios osea los 3 de esas dos posiciones"
     const cdms = await getTopValidPlayers('cdm', 5);
     const cams = await getTopValidPlayers('cam', 5);
     
     const allCenterMids = [...cdms, ...cams]
-        .sort((a, b) => (b.stats?.match_rating || 0) - (a.stats?.match_rating || 0));
+        .sort((a, b) => (b.match_rating || 0) - (a.match_rating || 0));
     
-    // Evitar duplicados (un jugador podría estar en ambas listas si VPG es raro, aunque no debería)
+    // Evitar duplicados
     const uniqueCenterMids = [];
     const seenNames = new Set();
     for (const p of allCenterMids) {
-        if (!seenNames.has(p.player?.username)) {
-            seenNames.add(p.player?.username);
+        if (!seenNames.has(p.username)) {
+            seenNames.add(p.username);
             uniqueCenterMids.push(p);
         }
     }
