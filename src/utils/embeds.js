@@ -244,9 +244,14 @@ export function createTournamentCategoryPanel(tournament, category) {
             break;
 
         case 'ea_tools':
-            title = '🎮 Herramientas EA Sports';
-            description = 'Integración con estadísticas de EA.';
+            title = '🎮 Herramientas EA Sports / VPG';
+            description = 'Integración con estadísticas de EA y VPG.';
             activeButtons.push(new ButtonBuilder().setCustomId(`admin_sync_ea_names:${tournament.shortId}`).setLabel('Sync Nombres EA').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(isBusy));
+            
+            // Botones VPG
+            activeButtons.push(new ButtonBuilder().setCustomId(`admin_vpg_sync_leagues:${tournament.shortId}`).setLabel('Sincronizar Ligas VPG').setStyle(ButtonStyle.Secondary).setEmoji('🌐').setDisabled(isBusy));
+            activeButtons.push(new ButtonBuilder().setCustomId(`admin_vpg_best11_start:${tournament.shortId}`).setLabel('Generar 11 Ideal VPG').setStyle(ButtonStyle.Primary).setEmoji('⭐').setDisabled(isBusy));
+
             if (!isBeforeDraw) {
                 const isAutoResults = tournament.config.autoResults === true;
                 activeButtons.push(new ButtonBuilder().setCustomId(`admin_toggle_auto_results:${tournament.shortId}`).setLabel(isAutoResults ? '🤖 Auto-Resultados: ON' : '🤖 Auto-Resultados: OFF').setStyle(isAutoResults ? ButtonStyle.Success : ButtonStyle.Secondary).setDisabled(isBusy));

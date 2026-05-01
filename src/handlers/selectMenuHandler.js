@@ -29,6 +29,37 @@ export async function handleSelectMenu(interaction) {
         return vpgSelectMenuHandler(client, interaction);
     }
 
+    if (action === 'vpg_select_league') {
+        const [tournamentShortId] = params;
+        const leagueSlug = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId(`vpg_best11_modal:${tournamentShortId}:${leagueSlug}`)
+            .setTitle('Configuración 11 Ideal VPG');
+
+        const typeInput = new TextInputBuilder()
+            .setCustomId('vpg_stats_type')
+            .setLabel("Tipo (escribe 'weekly' o 'all')")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setValue("weekly");
+
+        const excludedInput = new TextInputBuilder()
+            .setCustomId('vpg_excluded_teams')
+            .setLabel("Equipos a excluir (separados por comas)")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(false)
+            .setPlaceholder("Ej: NOU TES TRISTE, Toxic FC");
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(typeInput),
+            new ActionRowBuilder().addComponents(excludedInput)
+        );
+
+        await interaction.showModal(modal);
+        return;
+    }
+
     // =======================================================
     // --- LÓGICA DE VERIFICACIÓN Y GESTIÓN DE PERFIL ---
     // =======================================================

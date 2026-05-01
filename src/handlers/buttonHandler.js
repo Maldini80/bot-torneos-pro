@@ -7984,6 +7984,64 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         }
     }
 
+    if (action === 'admin_vpg_sync_leagues') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        try {
+            const { fetchVpgSpainLeagues } = await import('../utils/vpgCrawler.js');
+            const leagues = await fetchVpgSpainLeagues();
+            
+            if (leagues && leagues.length > 0) {
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    { $set: { vpgLeagues: leagues } }
+                );
+                await interaction.editReply({ content: `✅ Sincronización exitosa. Se han encontrado y guardado **${leagues.length} ligas** de VPG España.` });
+            } else {
+                await interaction.editReply({ content: '⚠️ La sincronización terminó pero no se encontraron ligas (o la API cambió).' });
+            }
+        } catch (e) {
+            console.error('[VPG Sync]', e);
+            await interaction.editReply({ content: '❌ Error sincronizando ligas con VPG.' });
+        }
+        return;
+    }
+
+    if (action === 'admin_vpg_best11_start') {
+        const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+
+        const leagues = tournament.vpgLeagues || [];
+        if (leagues.length === 0) {
+            return interaction.reply({ content: '❌ No hay ligas sincronizadas. Pulsa primero el botón "Sincronizar Ligas VPG".', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const options = leagues.slice(0, 25).map(l => ({
+            label: l.title.substring(0, 100),
+            description: `Slug: ${l.slug}`.substring(0, 100),
+            value: l.slug
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`vpg_select_league:${tournamentShortId}`)
+            .setPlaceholder('Selecciona la Liga VPG')
+            .addOptions(options);
+
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+
+        await interaction.reply({ 
+            content: 'Selecciona la liga para la cual deseas generar el 11 Ideal VPG:', 
+            components: [row], 
+            flags: [MessageFlags.Ephemeral] 
+        });
+        return;
+    }
+
     if (action === 'team_link_ea_button') {
         const botSettings = await getBotSettings();
         if (!botSettings.eaScannerEnabled) {

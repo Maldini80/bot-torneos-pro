@@ -36,6 +36,53 @@ export async function handleModal(interaction) {
     const [action, ...params] = customId.split(':');
 
     // =======================================================
+    // --- LÓGICA VPG ---
+    // =======================================================
+    if (action === 'vpg_best11_modal') {
+        const [tournamentShortId, leagueSlug] = params;
+        const typeRaw = interaction.fields.getTextInputValue('vpg_stats_type').trim().toLowerCase();
+        const type = typeRaw === 'all' ? 'all' : 'weekly';
+        
+        let excludedTeams = [];
+        try {
+            const rawExcluded = interaction.fields.getTextInputValue('vpg_excluded_teams');
+            if (rawExcluded && rawExcluded.trim() !== '') {
+                excludedTeams = rawExcluded.split(',').map(t => t.trim()).filter(t => t.length > 0);
+            }
+        } catch (e) {
+            // Campo opcional
+        }
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        try {
+            const { calculateVpgBest11 } = await import('../logic/vpgStatsLogic.js');
+            const best11Data = await calculateVpgBest11(leagueSlug, type, excludedTeams);
+
+            // Importar e invocar al generador de imágenes
+            const { generateVpgBest11Image } = await import('../utils/vpgBest11ImageGenerator.js');
+            const imageBuffer = await generateVpgBest11Image(best11Data, tournamentShortId, leagueSlug);
+
+            const attachment = new AttachmentBuilder(imageBuffer, { name: 'vpg_best11.png' });
+
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            const channelId = tournament?.config?.resultsChannelId || interaction.channelId;
+            const channel = await client.channels.fetch(channelId).catch(() => interaction.channel);
+
+            await channel.send({
+                content: `⭐ **11 Ideal VPG (${type === 'weekly' ? 'Semanal' : 'Global'})** ⭐\nLiga: \`${leagueSlug}\``,
+                files: [attachment]
+            });
+
+            await interaction.editReply({ content: '✅ Imagen del 11 Ideal generada y enviada correctamente.' });
+        } catch (error) {
+            console.error('[VPG Best11 Error]', error);
+            await interaction.editReply({ content: `❌ Error al generar el 11 Ideal: ${error.message}` });
+        }
+        return;
+    }
+
+    // =======================================================
     // --- LÓGICA DE VERIFICACIÓN Y GESTIÓN DE PERFIL ---
     // =======================================================
 
