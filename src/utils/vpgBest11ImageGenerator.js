@@ -174,9 +174,9 @@ async function drawPlayerCard(ctx, cx, cy, playerData, posLabel) {
     const rating = playerData.match_rating || playerData.points || 0;
     const playerName = playerData.username || 'Desconocido';
     const teamName = playerData.team_name || 'Agente Libre';
-    // Los logos de VPG están en files.virtualprogaming.com
+    // Los logos de VPG están en el CDN de Cloudflare Images
     const teamLogoId = playerData.team_logo;
-    const teamLogoUrl = teamLogoId ? `https://files.virtualprogaming.com/logos/teams/${teamLogoId}.png` : null;
+    const teamLogoUrl = teamLogoId ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${teamLogoId}/smThumb` : null;
 
     // Fondo tarjeta con gradiente
     const cardGrad = ctx.createLinearGradient(x, y, x, y + CARD_H);
@@ -202,17 +202,15 @@ async function drawPlayerCard(ctx, cx, cy, playerData, posLabel) {
     ctx.font = 'bold 14px Arial';
     ctx.fillText(posLabel, x + 12, y + 52);
 
-    // TODO: Investigar la URL correcta del CDN de logos de VPG
-    // El campo team_logo contiene IDs como "admin_5ad1a8b0-..." pero
-    // files.virtualprogaming.com no existe. Necesitamos encontrar el CDN correcto.
-    // if (teamLogoUrl) {
-    //     try {
-    //         const img = await loadImage(teamLogoUrl);
-    //         ctx.drawImage(img, x + CARD_W - 42, y + 8, 34, 34);
-    //     } catch (e) {
-    //         console.error('[VPG] Error loading team logo:', teamLogoUrl, e.message);
-    //     }
-    // }
+    // Logo equipo (CDN Cloudflare Images de VPG)
+    if (teamLogoUrl) {
+        try {
+            const img = await loadImage(teamLogoUrl);
+            ctx.drawImage(img, x + CARD_W - 42, y + 8, 34, 34);
+        } catch (e) {
+            // Silenciar errores de logo para no spamear logs
+        }
+    }
 
     // Línea separadora
     ctx.strokeStyle = 'rgba(212, 175, 55, 0.3)';
