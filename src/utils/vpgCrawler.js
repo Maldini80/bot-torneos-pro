@@ -1,14 +1,48 @@
-import axios from 'axios';
-
-const VPG_API_BASE = 'https://api.virtualprogaming.com/public';
-const VPG_COMMUNITY_SLUG = 'vpg-spain';
+// Usamos fetch nativo de Node.js (no axios) para evitar bucles de redirección con Cloudflare
 const HEADERS = {
     'User-Agent': 'VPG/1.0.0 (iPhone; iOS 15.0; Scale/3.00)',
-    'Accept': 'application/json, text/plain, */*',
-    'Content-Type': 'application/json',
-    'Origin': 'https://virtualprogaming.com',
-    'Referer': 'https://virtualprogaming.com/'
+    'Accept': 'application/json',
 };
+
+/**
+ * Hace un fetch con reintentos a múltiples URLs
+ */
+async function vpgFetch(urls) {
+    if (typeof urls === 'string') urls = [urls];
+    let lastError = null;
+    for (const url of urls) {
+        try {
+            console.log(`[VPG Crawler] Trying: ${url}`);
+            const res = await fetch(url, { headers: HEADERS, redirect: 'follow' });
+            console.log(`[VPG Crawler] Response: ${res.status} ${res.statusText}`);
+            if (!res.ok) {
+                console.log(`[VPG Crawler] Non-OK response from ${url}: ${res.status}`);
+                continue;
+            }
+            const data = await res.json();
+            return data;
+        } catch (e) {
+            lastError = e;
+            console.log(`[VPG Crawler] Failed ${url}: ${e.message}`);
+        }
+    }
+    throw lastError || new Error('All VPG API URLs failed');
+}
+
+/**
+ * Extrae un array de datos de una respuesta que puede tener varias formas
+ */
+function extractArray(rawData) {
+    if (Array.isArray(rawData)) return rawData;
+    if (rawData && Array.isArray(rawData.data)) return rawData.data;
+    if (rawData && Array.isArray(rawData.results)) return rawData.results;
+    if (rawData && typeof rawData === 'object') {
+        // Filtrar solo items que parezcan ligas/jugadores (tienen id)
+        const values = Object.values(rawData).filter(v => v && typeof v === 'object' && v.id);
+        if (values.length > 0) return values;
+    }
+    return [];
+}
 
 /**
  * Sincroniza la lista de ligas de la comunidad VPG España
@@ -16,27 +50,24 @@ const HEADERS = {
  */
 export async function fetchVpgSpainLeagues() {
     try {
-        const url = `${VPG_API_BASE}/communities/${VPG_COMMUNITY_SLUG}/leagues`;
-        console.log(`[VPG Crawler] Fetching leagues from: ${url}`);
-        const response = await axios.get(url, { headers: HEADERS });
-        
-        // La API puede devolver un array directamente o un objeto con .data / .results
-        const rawData = response.data;
-        let leagues = [];
+        // Probamos múltiples endpoints: el proxy del frontend y la API directa
+        const urls = [
+            'https://virtualprogaming.com/api/communities/vpg-spain/leagues/',
+            'https://api.virtualprogaming.com/public/communities/vpg-spain/leagues/',
+            'https://api.virtualprogaming.com/v1/communities/vpg-spain/leagues/',
+        ];
 
-        if (Array.isArray(rawData)) {
-            leagues = rawData;
-        } else if (rawData && Array.isArray(rawData.data)) {
-            leagues = rawData.data;
-        } else if (rawData && Array.isArray(rawData.results)) {
-            leagues = rawData.results;
-        } else if (rawData && typeof rawData === 'object') {
-            // Puede ser un objeto con keys numéricas
-            leagues = Object.values(rawData);
+        const rawData = await vpgFetch(urls);
+        const leagues = extractArray(rawData);
+
+        console.log(`[VPG Crawler] Raw response type: ${typeof rawData}, isArray: ${Array.isArray(rawData)}`);
+        if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
+            console.log(`[VPG Crawler] Raw response keys: ${Object.keys(rawData).join(', ')}`);
         }
-
-        console.log(`[VPG Crawler] Raw response keys: ${Object.keys(rawData || {}).join(', ')}`);
         console.log(`[VPG Crawler] Found ${leagues.length} leagues`);
+        if (leagues.length > 0) {
+            console.log(`[VPG Crawler] First league sample:`, JSON.stringify(leagues[0]).substring(0, 300));
+        }
 
         return leagues.map(league => ({
             id: league.id,
@@ -45,9 +76,6 @@ export async function fetchVpgSpainLeagues() {
         }));
     } catch (error) {
         console.error('[VPG Crawler] Error fetching leagues:', error.message);
-        if (error.response) {
-            console.error(`[VPG Crawler] Status: ${error.response.status}, Data:`, JSON.stringify(error.response.data).substring(0, 200));
-        }
         throw error;
     }
 }
@@ -73,40 +101,21 @@ export async function fetchVpgLeaderboard(leagueSlug, positionGroup, type = 'wee
         const vpgPos = posMap[positionGroup];
         if (!vpgPos) throw new Error(`Invalid position group: ${positionGroup}`);
 
-        // Intentar con /public/ primero, luego /v1/ como fallback
-        const urls = [
-            `${VPG_API_BASE}/leagues/${leagueSlug}/leaderboard`,
-            `${VPG_API_BASE}/league/${leagueSlug}/stats`,
-            `https://api.virtualprogaming.com/v1/leagues/${leagueSlug}/leaderboard`
-        ];
-
-        const params = {
+        const queryParams = new URLSearchParams({
             type: type,
             position: vpgPos,
-            limit: 50,
+            limit: '50',
             sort: 'match_rating'
-        };
+        }).toString();
 
-        let lastError = null;
-        for (const url of urls) {
-            try {
-                console.log(`[VPG Crawler] Trying leaderboard: ${url} with position=${vpgPos}, type=${type}`);
-                const response = await axios.get(url, { headers: HEADERS, params });
-                
-                const rawData = response.data;
-                if (Array.isArray(rawData)) return rawData;
-                if (rawData && Array.isArray(rawData.data)) return rawData.data;
-                if (rawData && Array.isArray(rawData.results)) return rawData.results;
-                if (rawData && typeof rawData === 'object') return Object.values(rawData);
-                return [];
-            } catch (e) {
-                lastError = e;
-                console.log(`[VPG Crawler] URL ${url} failed: ${e.message}`);
-                continue;
-            }
-        }
-        
-        throw lastError;
+        const urls = [
+            `https://virtualprogaming.com/api/leagues/${leagueSlug}/leaderboard?${queryParams}`,
+            `https://virtualprogaming.com/api/league/${leagueSlug}/stats?${queryParams}`,
+            `https://api.virtualprogaming.com/public/leagues/${leagueSlug}/leaderboard?${queryParams}`,
+        ];
+
+        const rawData = await vpgFetch(urls);
+        return extractArray(rawData);
     } catch (error) {
         console.error(`[VPG Crawler] Error fetching leaderboard for ${leagueSlug} - ${positionGroup}:`, error.message);
         throw error;
