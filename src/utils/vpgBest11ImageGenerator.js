@@ -202,15 +202,17 @@ async function drawPlayerCard(ctx, cx, cy, playerData, posLabel) {
     ctx.font = 'bold 14px Arial';
     ctx.fillText(posLabel, x + 12, y + 52);
 
-    // Logo equipo remoto (VPG)
-    if (teamLogoUrl) {
-        try {
-            const img = await loadImage(teamLogoUrl);
-            ctx.drawImage(img, x + CARD_W - 42, y + 8, 34, 34);
-        } catch (e) {
-            console.error('[VPG] Error loading team logo:', teamLogoUrl, e.message);
-        }
-    }
+    // TODO: Investigar la URL correcta del CDN de logos de VPG
+    // El campo team_logo contiene IDs como "admin_5ad1a8b0-..." pero
+    // files.virtualprogaming.com no existe. Necesitamos encontrar el CDN correcto.
+    // if (teamLogoUrl) {
+    //     try {
+    //         const img = await loadImage(teamLogoUrl);
+    //         ctx.drawImage(img, x + CARD_W - 42, y + 8, 34, 34);
+    //     } catch (e) {
+    //         console.error('[VPG] Error loading team logo:', teamLogoUrl, e.message);
+    //     }
+    // }
 
     // Línea separadora
     ctx.strokeStyle = 'rgba(212, 175, 55, 0.3)';
