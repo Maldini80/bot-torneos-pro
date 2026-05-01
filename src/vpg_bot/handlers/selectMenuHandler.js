@@ -17,6 +17,17 @@ module.exports = async (client, interaction) => {
     const { customId, values, guild, user, member } = interaction;
     const selectedValue = values[0];
 
+    // --- RUTEO AL BOT PRINCIPAL (VPG CRAWLER SELECTIONS) ---
+    if (customId.startsWith('vpg_select_league') || customId.startsWith('admin_config_crawler_days')) {
+        try {
+            const { handleSelectMenu } = await import('../../handlers/selectMenuHandler.js');
+            return handleSelectMenu(interaction);
+        } catch (error) {
+            console.error('Error al rutear menú VPG al bot principal:', error);
+            return interaction.reply({ content: '❌ Error interno al cargar el módulo.', ephemeral: true });
+        }
+    }
+
     if (customId === 'registration_select_platform_step1') {
         let member = interaction.member;
         if (!member) {

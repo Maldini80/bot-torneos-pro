@@ -171,6 +171,17 @@ async function sendApprovalRequest(interaction, client, { vpgUsername, teamName,
 const handler = async (client, interaction) => {
     const { customId, user } = interaction;
 
+    // --- RUTEO AL BOT PRINCIPAL (EA STATS & VPG CRAWLER) ---
+    if (customId.startsWith('admin_vpg_sync_leagues') || customId.startsWith('admin_vpg_best11_start') || customId.startsWith('admin_config_crawler_time') || customId.startsWith('admin_force_crawler') || customId.startsWith('admin_rescan_profiles') || customId.startsWith('stats_debug_ea') || customId.startsWith('admin_manage_time_slots')) {
+        try {
+            const { handleButton } = await import('../../handlers/buttonHandler.js');
+            return handleButton(interaction);
+        } catch (error) {
+            console.error('Error al rutear botón de EA Stats al bot principal:', error);
+            return interaction.reply({ content: '❌ Error interno al cargar el módulo.', ephemeral: true });
+        }
+    }
+
     // Handler para abrir sub-paneles de categorías del Panel Admin VPG
     if (customId.startsWith('vpg_admin_category_')) {
         const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);

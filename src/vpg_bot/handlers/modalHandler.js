@@ -93,6 +93,17 @@ module.exports = async (client, interaction) => {
         }
     }
     
+    // --- RUTEO AL BOT PRINCIPAL (VPG CRAWLER MODALS) ---
+    if (customId.startsWith('vpg_best11_modal')) {
+        try {
+            const { handleModal } = await import('../../handlers/modalHandler.js');
+            return handleModal(interaction);
+        } catch (error) {
+            console.error('Error al rutear modal VPG al bot principal:', error);
+            return interaction.reply({ content: '❌ Error interno al cargar el módulo.', ephemeral: true });
+        }
+    }
+
     if (customId.startsWith('admin_submit_logo_modal_')) {
         await interaction.deferUpdate();
         const teamId = customId.split('_')[4];
