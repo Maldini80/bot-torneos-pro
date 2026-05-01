@@ -7986,9 +7986,6 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
     if (action === 'admin_vpg_sync_leagues') {
         const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
-
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         try {
@@ -7996,10 +7993,17 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             const leagues = await fetchVpgSpainLeagues();
             
             if (leagues && leagues.length > 0) {
-                await db.collection('tournaments').updateOne(
-                    { _id: tournament._id },
-                    { $set: { vpgLeagues: leagues } }
-                );
+                if (tournamentShortId === 'global') {
+                    const { updateBotSettings } = await import('../../database.js');
+                    await updateBotSettings({ vpgLeagues: leagues });
+                } else {
+                    const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+                    if (!tournament) return interaction.editReply({ content: 'El torneo no existe.' });
+                    await db.collection('tournaments').updateOne(
+                        { _id: tournament._id },
+                        { $set: { vpgLeagues: leagues } }
+                    );
+                }
                 await interaction.editReply({ content: `✅ Sincronización exitosa. Se han encontrado y guardado **${leagues.length} ligas** de VPG España.` });
             } else {
                 await interaction.editReply({ content: '⚠️ La sincronización terminó pero no se encontraron ligas (o la API cambió).' });
@@ -8013,10 +8017,18 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
     if (action === 'admin_vpg_best11_start') {
         const [tournamentShortId] = params;
-        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-        if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+        
+        let leagues = [];
+        if (tournamentShortId === 'global') {
+            const { getBotSettings } = await import('../../database.js');
+            const settings = await getBotSettings();
+            leagues = settings.vpgLeagues || [];
+        } else {
+            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (!tournament) return interaction.reply({ content: 'El torneo no existe.', flags: [MessageFlags.Ephemeral] });
+            leagues = tournament.vpgLeagues || [];
+        }
 
-        const leagues = tournament.vpgLeagues || [];
         if (leagues.length === 0) {
             return interaction.reply({ content: '❌ No hay ligas sincronizadas. Pulsa primero el botón "Sincronizar Ligas VPG".', flags: [MessageFlags.Ephemeral] });
         }

@@ -65,8 +65,13 @@ export async function handleModal(interaction) {
 
             const attachment = new AttachmentBuilder(imageBuffer, { name: 'vpg_best11.png' });
 
-            const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
-            const channelId = tournament?.config?.resultsChannelId || interaction.channelId;
+            let channelId = interaction.channelId;
+            if (tournamentShortId !== 'global') {
+                const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+                if (tournament?.config?.resultsChannelId) {
+                    channelId = tournament.config.resultsChannelId;
+                }
+            }
             const channel = await client.channels.fetch(channelId).catch(() => interaction.channel);
 
             await channel.send({
