@@ -171,6 +171,19 @@ async function sendApprovalRequest(interaction, client, { vpgUsername, teamName,
 const handler = async (client, interaction) => {
     const { customId, user } = interaction;
 
+    // Handler para abrir sub-paneles de categorías del Panel Admin VPG
+    if (customId.startsWith('vpg_admin_category_')) {
+        const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+
+        const category = customId.replace('vpg_admin_category_', '');
+        const { getBotSettings } = await import('../../../database.js');
+        const settings = await getBotSettings();
+        const { createVpgAdminCategoryPanel } = await import('../../utils/embeds.js');
+        const { embeds, components } = createVpgAdminCategoryPanel(category, settings);
+        return interaction.reply({ embeds, components, flags: MessageFlags.Ephemeral });
+    }
+
     if (customId === 'start_player_registration') {
         await interaction.deferReply({ ephemeral: true });
         let member = interaction.member;
@@ -1345,7 +1358,7 @@ const handler = async (client, interaction) => {
     if (customId === 'admin_toggle_crawler') {
         if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
         
-        const { getDb: getDbImport } = await import('../../../database.js');
+        const { getDb: getDbImport, getBotSettings: getBotSettingsImport } = await import('../../../database.js');
         const settingsColl = getDbImport().collection('bot_settings');
         const settings = await settingsColl.findOne({ _id: 'global_config' });
         
@@ -1353,40 +1366,17 @@ const handler = async (client, interaction) => {
         
         const newState = !settings.crawlerEnabled;
         await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerEnabled: newState } });
-        
-        // Actualizar botón
-        const components = interaction.message.components.map(row => ActionRowBuilder.from(row));
-        const btnRow = components.find(r => r.components.some(c => c.data.custom_id === 'admin_toggle_crawler'));
-        if (btnRow) {
-            const btnIndex = btnRow.components.findIndex(c => c.data.custom_id === 'admin_toggle_crawler');
-            if (btnIndex !== -1) {
-                btnRow.components[btnIndex] = new ButtonBuilder()
-                    .setCustomId('admin_toggle_crawler')
-                    .setLabel(newState ? 'Crawler: ACTIVO 🟢' : 'Crawler: PAUSADO 🔴')
-                    .setStyle(newState ? ButtonStyle.Success : ButtonStyle.Secondary);
-            }
-        }
-        
-        // Actualizar embed con nuevo estado
-        const crawlerDays = settings.crawlerDays || [];
-        const crawlerStart = settings.crawlerStartTime || '22:20';
-        const crawlerEnd = settings.crawlerEndTime || '01:00';
-        const timeSlots = settings.timeSlots || [];
-        const dayNames = { 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 0: 'Dom' };
-        const daysStr = crawlerDays.length > 0 ? crawlerDays.map(d => dayNames[d]).join(', ') : 'Sin configurar';
-        const slotsStr = timeSlots.length > 0 ? timeSlots.map(s => s.name).join(', ') : 'Ninguna';
-        
-        const embeds = interaction.message.embeds.map(e => EmbedBuilder.from(e));
-        if (embeds.length > 0) {
-            embeds[0].setDescription(
-                `🤖 **Crawler:** ${newState ? '**ACTIVO** 🟢' : '**PAUSADO** 🔴'}\n` +
-                `📅 **Días de escaneo:** ${daysStr}\n` +
-                `⏰ **Franja del crawler:** ${crawlerStart} — ${crawlerEnd} (Madrid)\n` +
-                `📐 **Franjas stats guardadas:** ${slotsStr}`
-            ).setColor(newState ? '#2ecc71' : '#c0392b');
-        }
-        
-        await interaction.update({ embeds, components });
+
+        // Refrescar el sub-panel efímero de EA Stats con el nuevo estado
+        await interaction.deferUpdate();
+        const freshSettings = await getBotSettingsImport();
+        const { createVpgAdminCategoryPanel, updateVpgAdminPanelEmbed } = await import('../../utils/embeds.js');
+        const { embeds, components } = createVpgAdminCategoryPanel('ea_stats', freshSettings);
+        await interaction.editReply({ embeds, components });
+
+        // Actualizar el embed del panel principal (mensaje no efímero)
+        await updateVpgAdminPanelEmbed(client);
+
         return interaction.followUp({ content: `✅ Crawler de Estadísticas VPG actualizado: **${newState ? 'ON 🟢' : 'OFF 🔴'}**`, ephemeral: true });
     }
 

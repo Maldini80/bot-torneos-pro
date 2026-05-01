@@ -1305,3 +1305,114 @@ export function createPoolEmbed(pool) {
 
     return { embeds: [embed], components: [row1] };
 }
+
+/**
+ * Crea el sub-panel efímero para una categoría del Panel Admin VPG.
+ * Similar a createTournamentCategoryPanel pero para el panel VPG.
+ */
+export function createVpgAdminCategoryPanel(category, settings) {
+    let title = '';
+    let description = '';
+    const activeButtons = [];
+
+    const dayNames = { 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 0: 'Dom' };
+
+    switch (category) {
+        case 'equipos':
+            title = '🏟️ Gestión de Equipos';
+            description = 'Herramientas para crear, gestionar y buscar equipos registrados.';
+            activeButtons.push(
+                new ButtonBuilder().setCustomId('admin_create_team_button').setLabel('Crear Equipo').setStyle(ButtonStyle.Success).setEmoji('➕'),
+                new ButtonBuilder().setCustomId('admin_manage_team_button').setLabel('Gestionar Equipos').setStyle(ButtonStyle.Primary).setEmoji('📋'),
+                new ButtonBuilder().setCustomId('admin_search_team_button').setLabel('Buscar Equipo').setStyle(ButtonStyle.Primary).setEmoji('🔍'),
+                new ButtonBuilder().setCustomId('admin_view_pending_requests').setLabel('Ver Solicitudes').setStyle(ButtonStyle.Secondary).setEmoji('⏳')
+            );
+            break;
+
+        case 'ligas':
+            title = '🏆 Gestión de Ligas';
+            description = 'Crear y eliminar ligas del sistema.';
+            activeButtons.push(
+                new ButtonBuilder().setCustomId('admin_create_league_button').setLabel('Crear Liga').setStyle(ButtonStyle.Success).setEmoji('🏆'),
+                new ButtonBuilder().setCustomId('admin_delete_league_button').setLabel('Borrar Liga').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+            );
+            break;
+
+        case 'ea_stats': {
+            title = '📊 EA Stats & Crawler';
+            const crawlerOn = settings.crawlerEnabled;
+            const crawlerDays = settings.crawlerDays || [];
+            const crawlerStart = settings.crawlerStartTime || '22:20';
+            const crawlerEnd = settings.crawlerEndTime || '01:00';
+            const daysStr = crawlerDays.length > 0 ? crawlerDays.map(d => dayNames[d]).join(', ') : 'Sin configurar';
+            description = `🤖 Crawler: ${crawlerOn ? '**ACTIVO** 🟢' : '**PAUSADO** 🔴'}\n📅 Días: ${daysStr}\n⏰ Franja: ${crawlerStart} — ${crawlerEnd} (Madrid)`;
+
+            activeButtons.push(
+                new ButtonBuilder().setCustomId('admin_toggle_crawler').setLabel(crawlerOn ? 'Crawler: ACTIVO 🟢' : 'Crawler: PAUSADO 🔴').setStyle(crawlerOn ? ButtonStyle.Success : ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('admin_config_crawler_days').setLabel('Días de Escaneo').setStyle(ButtonStyle.Secondary).setEmoji('📅'),
+                new ButtonBuilder().setCustomId('admin_config_crawler_time').setLabel('Franja Horaria').setStyle(ButtonStyle.Secondary).setEmoji('⏰'),
+                new ButtonBuilder().setCustomId('admin_force_crawler').setLabel('Forzar Escaneo Ahora').setStyle(ButtonStyle.Success).setEmoji('🚀'),
+                new ButtonBuilder().setCustomId('admin_rescan_profiles').setLabel('Recalcular Stats').setStyle(ButtonStyle.Danger).setEmoji('🔄'),
+                new ButtonBuilder().setCustomId('stats_debug_ea').setLabel('Debug EA').setStyle(ButtonStyle.Secondary).setEmoji('🔬'),
+                new ButtonBuilder().setCustomId('admin_manage_time_slots').setLabel('Gestionar Franjas').setStyle(ButtonStyle.Secondary).setEmoji('📐')
+            );
+            break;
+        }
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor('#2c3e50')
+        .setTitle(title)
+        .setDescription(description)
+        .setFooter({ text: 'Acciones efímeras. Solo tú puedes ver este mensaje.' });
+
+    const components = [];
+    for (let i = 0; i < activeButtons.length; i += 5) {
+        components.push(new ActionRowBuilder().addComponents(activeButtons.slice(i, i + 5)));
+    }
+
+    return { embeds: [embed], components };
+}
+
+/**
+ * Busca el mensaje principal del Panel Admin VPG y actualiza su embed.
+ * Se usa después de cambiar el estado del crawler u otros toggles desde un sub-panel efímero.
+ */
+export async function updateVpgAdminPanelEmbed(client) {
+    try {
+        const db = getDb();
+        const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
+        if (!config?.vpgAdminPanel) return;
+
+        const channel = await client.channels.fetch(config.vpgAdminPanel.channelId).catch(() => null);
+        if (!channel) return;
+
+        const message = await channel.messages.fetch(config.vpgAdminPanel.messageId).catch(() => null);
+        if (!message) return;
+
+        const settings = await getBotSettings();
+        const crawlerOn = settings.crawlerEnabled;
+        const crawlerDays = settings.crawlerDays || [];
+        const crawlerStart = settings.crawlerStartTime || '22:20';
+        const crawlerEnd = settings.crawlerEndTime || '01:00';
+        const timeSlots = config.timeSlots || [];
+        const dayNames = { 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 0: 'Dom' };
+        const daysStr = crawlerDays.length > 0 ? crawlerDays.map(d => dayNames[d]).join(', ') : 'Sin configurar';
+        const slotsStr = timeSlots.length > 0 ? timeSlots.map(s => s.name).join(', ') : 'Ninguna';
+
+        const embed = new EmbedBuilder()
+            .setTitle('Panel de Control de Administrador VPG')
+            .setDescription(
+                `🤖 **Crawler:** ${crawlerOn ? '**ACTIVO** 🟢' : '**PAUSADO** 🔴'}\n` +
+                `📅 **Días de escaneo:** ${daysStr}\n` +
+                `⏰ **Franja del crawler:** ${crawlerStart} — ${crawlerEnd} (Madrid)\n` +
+                `📐 **Franjas stats guardadas:** ${slotsStr}`
+            )
+            .setColor(crawlerOn ? '#2ecc71' : '#c0392b')
+            .setFooter({ text: 'Selecciona una categoría para ver las herramientas (Solo tú las verás).' });
+
+        await message.edit({ embeds: [embed], components: message.components });
+    } catch (err) {
+        console.warn('[VPG-ADMIN] No se pudo actualizar el panel principal:', err.message);
+    }
+}

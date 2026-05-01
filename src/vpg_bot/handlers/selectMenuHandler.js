@@ -659,6 +659,10 @@ module.exports = async (client, interaction) => {
         const dayNames = { 0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado' };
         const selectedNames = selectedDays.map(d => dayNames[d]).join(', ');
 
+        // Actualizar el panel principal
+        const { updateVpgAdminPanelEmbed } = await import('../../utils/embeds.js');
+        await updateVpgAdminPanelEmbed(client);
+
         return interaction.editReply({ 
             content: `✅ Días de escaneo del Crawler actualizados correctamente.\n**Nuevos días:** ${selectedNames}`,
             components: [] 

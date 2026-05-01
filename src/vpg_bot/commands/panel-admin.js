@@ -34,33 +34,22 @@ module.exports = {
                 `⏰ **Franja del crawler:** ${crawlerStart} — ${crawlerEnd} (Madrid)\n` +
                 `📐 **Franjas stats guardadas:** ${slotsStr}`
             )
-            .setColor(crawlerOn ? '#2ecc71' : '#c0392b');
-            
+            .setColor(crawlerOn ? '#2ecc71' : '#c0392b')
+            .setFooter({ text: 'Selecciona una categoría para ver las herramientas (Solo tú las verás).' });
+
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('admin_create_team_button').setLabel('Crear Equipo').setStyle(ButtonStyle.Success).setEmoji('➕'),
-            new ButtonBuilder().setCustomId('admin_manage_team_button').setLabel('Gestionar Equipos').setStyle(ButtonStyle.Primary).setEmoji('📋'),
-            new ButtonBuilder().setCustomId('admin_search_team_button').setLabel('Buscar Equipo').setStyle(ButtonStyle.Primary).setEmoji('🔍'),
-            new ButtonBuilder().setCustomId('admin_view_pending_requests').setLabel('Ver Solicitudes').setStyle(ButtonStyle.Secondary).setEmoji('⏳')
-        );
-
-        const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('admin_create_league_button').setLabel('Crear Liga').setStyle(ButtonStyle.Success).setEmoji('🏆'),
-            new ButtonBuilder().setCustomId('admin_delete_league_button').setLabel('Borrar Liga').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
-        );
-
-        const row3 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('admin_toggle_crawler').setLabel(crawlerOn ? 'Crawler: ACTIVO 🟢' : 'Crawler: PAUSADO 🔴').setStyle(crawlerOn ? ButtonStyle.Success : ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('admin_config_crawler_days').setLabel('Días de Escaneo').setStyle(ButtonStyle.Secondary).setEmoji('📅'),
-            new ButtonBuilder().setCustomId('admin_config_crawler_time').setLabel('Franja Horaria').setStyle(ButtonStyle.Secondary).setEmoji('⏰'),
-            new ButtonBuilder().setCustomId('admin_force_crawler').setLabel('Forzar Escaneo Ahora').setStyle(ButtonStyle.Success).setEmoji('🚀'),
-            new ButtonBuilder().setCustomId('admin_rescan_profiles').setLabel('Recalcular Stats').setStyle(ButtonStyle.Danger).setEmoji('🔄')
-        );
-        const row4 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('stats_debug_ea').setLabel('Debug EA').setStyle(ButtonStyle.Secondary).setEmoji('🔬'),
-            new ButtonBuilder().setCustomId('admin_manage_time_slots').setLabel('Gestionar Franjas').setStyle(ButtonStyle.Secondary).setEmoji('📐')
+            new ButtonBuilder().setCustomId('vpg_admin_category_equipos').setLabel('Equipos').setStyle(ButtonStyle.Primary).setEmoji('🏟️'),
+            new ButtonBuilder().setCustomId('vpg_admin_category_ligas').setLabel('Ligas').setStyle(ButtonStyle.Success).setEmoji('🏆'),
+            new ButtonBuilder().setCustomId('vpg_admin_category_ea_stats').setLabel('EA Stats').setStyle(ButtonStyle.Secondary).setEmoji('📊')
         );
         
-        await interaction.channel.send({ embeds: [embed], components: [row, row2, row3, row4] });
+        const panelMsg = await interaction.channel.send({ embeds: [embed], components: [row] });
+
+        // Guardar referencia del mensaje del panel para poder actualizarlo desde sub-paneles
+        await getDb().collection('bot_settings').updateOne(
+            { _id: 'global_config' },
+            { $set: { vpgAdminPanel: { messageId: panelMsg.id, channelId: interaction.channelId } } }
+        );
         
         return interaction.editReply({ content: '✅ Panel de administrador creado con éxito.' });
     }

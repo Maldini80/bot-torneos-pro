@@ -890,6 +890,9 @@ if (customId.startsWith('manager_request_modal_')) {
             const { getDb: getDbImport } = await import('../../../database.js');
             const settingsColl = getDbImport().collection('bot_settings');
             await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerTimeRange: null } });
+            // Actualizar el panel principal
+            const { updateVpgAdminPanelEmbed } = await import('../../utils/embeds.js');
+            await updateVpgAdminPanelEmbed(client);
             return interaction.editReply({ content: '✅ Filtro horario **desactivado**. El crawler guardará partidos de cualquier hora.' });
         }
 
@@ -902,6 +905,10 @@ if (customId.startsWith('manager_request_modal_')) {
         const { getDb: getDbImport2 } = await import('../../../database.js');
         const settingsColl = getDbImport2().collection('bot_settings');
         await settingsColl.updateOne({ _id: 'global_config' }, { $set: { crawlerTimeRange: { start: startRaw, end: endRaw } } });
+
+        // Actualizar el panel principal
+        const { updateVpgAdminPanelEmbed } = await import('../../utils/embeds.js');
+        await updateVpgAdminPanelEmbed(client);
 
         return interaction.editReply({ content: `✅ Franja horaria del crawler actualizada: **${startRaw} — ${endRaw}** (hora Madrid).\\n\\nSolo se guardarán partidos que terminen dentro de este rango. Para desactivar, escribe \`off\`.` });
     }

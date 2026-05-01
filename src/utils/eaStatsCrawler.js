@@ -72,6 +72,8 @@ async function runVpgCrawler(manual = false, onProgress = null) {
 
             console.log(`[CRAWLER] API devolvió ${matches.length} partidos para ${team.name}`);
 
+            // === FASE 1: Filtrar partidos nuevos por franja horaria y duplicados ===
+            const newMatches = [];
             for (const match of matches) {
                 const matchId = match.matchId;
                 const matchTimestamp = parseInt(match.timestamp) * 1000;
@@ -91,7 +93,6 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                     if (startMin <= endMin) {
                         inRange = matchMinutes >= startMin && matchMinutes <= endMin;
                     } else {
-                        // Cruza medianoche (ej: 21:30 → 00:30)
                         inRange = matchMinutes >= startMin || matchMinutes <= endMin;
                     }
                     if (!inRange) {
@@ -100,40 +101,45 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                     }
                 }
 
-                // Check if match already processed
                 const exists = await matchColl.findOne({ matchId });
                 if (exists) continue;
 
-                await matchColl.insertOne(match);
+                newMatches.push(match);
+            }
 
-                // --- FIX: Detectar DNF (desconexión) para no contaminar stats ---
-                const clubIds = Object.keys(match.clubs || {});
-                const opponentId = clubIds.find(id => id !== clubId);
-                const ourClubData = match.clubs[clubId] || {};
-                const oppClubData = opponentId ? (match.clubs[opponentId] || {}) : {};
-                const ourMatchGoals = parseInt(ourClubData.goals || 0);
-                const oppMatchGoals = parseInt(oppClubData.goals || 0);
-                
-                // ---------------------------------------------------------------
-                // DNF inteligente: AMBAS condiciones necesarias para excluir
-                // 1. Partido corto (secondsPlayed < 5200 = ~87min)
-                // 2. Datos vacíos del jugador (pases + tiros + entradas == 0)
-                // ---------------------------------------------------------------
-                
-                // Calcular duración máxima del partido
+            if (newMatches.length === 0) continue;
+
+            // === FASE 2: Agrupar por rival dentro de ventana de 3h ===
+            const groups = groupMatchesByOpponent(newMatches, clubId);
+
+            // === FASE 3: Procesar cada grupo (stats solo de la mejor sesión) ===
+            for (const group of groups) {
+                // Insertar TODAS las sesiones en scanned_matches (datos crudos)
+                for (const match of group) {
+                    await matchColl.insertOne(match);
+                }
+
+                // Elegir la sesión con más datos para procesar stats
+                const bestMatch = findBestSession(group, clubId);
+
+                if (group.length > 1) {
+                    console.log(`[CRAWLER] 🔗 ${group.length} sesiones fusionadas vs mismo rival para ${team.name}. Stats de la sesión más completa.`);
+                }
+
+                // --- DNF inteligente ---
                 let matchMaxSecs = 0;
-                if (match.players && match.players[clubId]) {
-                    Object.values(match.players[clubId]).forEach(p => {
+                if (bestMatch.players && bestMatch.players[clubId]) {
+                    Object.values(bestMatch.players[clubId]).forEach(p => {
                         const sec = parseInt(p.secondsPlayed || 0);
                         if (sec > matchMaxSecs) matchMaxSecs = sec;
                     });
                 }
                 const isShortMatch = matchMaxSecs > 0 && matchMaxSecs < 5200;
 
-                // Process players
-                const goalsAgainstThisMatch = match.clubs && match.clubs[clubId] ? parseInt(match.clubs[clubId].goalsAgainst || 0) : 0;
-                if (match.players && match.players[clubId]) {
-                    const playersData = match.players[clubId];
+                // Process players (solo de la mejor sesión)
+                const goalsAgainstThisMatch = bestMatch.clubs && bestMatch.clubs[clubId] ? parseInt(bestMatch.clubs[clubId].goalsAgainst || 0) : 0;
+                if (bestMatch.players && bestMatch.players[clubId]) {
+                    const playersData = bestMatch.players[clubId];
                     for (const playerId in playersData) {
                         const player = playersData[playerId];
                         const playerName = player.playername;
@@ -144,8 +150,7 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                         const hasRealStats = (pm + sh + tk) > 0;
 
                         if (isShortMatch && !hasRealStats) {
-                            // Partido corto + sin datos → DNF, solo rating
-                            console.log(`[CRAWLER] 🔌 DNF sin datos para ${playerName} (${team.name}) en partido ${matchId} (${Math.floor(matchMaxSecs/60)} min). Solo rating.`);
+                            console.log(`[CRAWLER] 🔌 DNF sin datos para ${playerName} (${team.name}) en partido ${bestMatch.matchId} (${Math.floor(matchMaxSecs/60)} min). Solo rating.`);
                             await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name);
                         } else {
                             await updatePlayerProfile(playerColl, playerName, player, team.name, goalsAgainstThisMatch);
@@ -153,9 +158,9 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                     }
                 }
 
-                // Process club stats
-                if (match.clubs && match.clubs[clubId]) {
-                    await updateClubProfile(clubColl, clubId, team.name, match.clubs[clubId], match);
+                // Process club stats (solo de la mejor sesión)
+                if (bestMatch.clubs && bestMatch.clubs[clubId]) {
+                    await updateClubProfile(clubColl, clubId, team.name, bestMatch.clubs[clubId], bestMatch);
                 }
             }
         } catch (error) {
@@ -333,6 +338,76 @@ async function updateClubProfile(coll, clubId, clubName, matchClubData, matchDat
         },
         { upsert: true }
     );
+}
+
+/**
+ * Agrupa partidos del mismo rival dentro de una ventana de 3 horas.
+ * Esto evita contar sesiones de un mismo partido (ej: 46+48 min) como 2 partidos distintos.
+ */
+function groupMatchesByOpponent(matches, clubId) {
+    const sorted = [...matches].sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
+    const groups = [];
+    const used = new Set();
+
+    for (let i = 0; i < sorted.length; i++) {
+        if (used.has(i)) continue;
+        const match = sorted[i];
+        const opponentId = Object.keys(match.clubs || {}).find(id => id !== String(clubId));
+        const group = [match];
+        used.add(i);
+
+        for (let j = i + 1; j < sorted.length; j++) {
+            if (used.has(j)) continue;
+            const nextMatch = sorted[j];
+            const nextOpponentId = Object.keys(nextMatch.clubs || {}).find(id => id !== String(clubId));
+            const timeDiff = Math.abs(parseInt(match.timestamp) - parseInt(nextMatch.timestamp));
+
+            if (nextOpponentId === opponentId && timeDiff < 3 * 3600) {
+                group.push(nextMatch);
+                used.add(j);
+            }
+        }
+
+        groups.push(group);
+    }
+
+    return groups;
+}
+
+/**
+ * De un grupo de sesiones contra el mismo rival, devuelve la sesión con más datos.
+ * Prioriza: (1) sesiones con stats reales, (2) la más larga.
+ */
+function findBestSession(group, clubId) {
+    if (group.length === 1) return group[0];
+
+    let best = group[0];
+    let bestScore = 0;
+
+    for (const match of group) {
+        let maxSecs = 0;
+        let hasRealStats = false;
+
+        if (match.players && match.players[String(clubId)]) {
+            for (const p of Object.values(match.players[String(clubId)])) {
+                const sec = parseInt(p.secondsPlayed || 0);
+                if (sec > maxSecs) maxSecs = sec;
+                const pm = parseInt(p.passesMade || p.passesmade || 0);
+                const sh = parseInt(p.shots || 0);
+                const tk = parseInt(p.tacklesMade || p.tacklesmade || 0);
+                if ((pm + sh + tk) > 0) hasRealStats = true;
+            }
+        }
+
+        // Priorizar: sesión con stats reales (peso 10000) + duración
+        const score = (hasRealStats ? 10000 : 0) + maxSecs;
+        if (score > bestScore) {
+            bestScore = score;
+            best = match;
+        }
+    }
+
+    return best;
 }
 
 export { runVpgCrawler };
