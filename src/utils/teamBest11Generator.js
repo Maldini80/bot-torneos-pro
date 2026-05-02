@@ -33,6 +33,7 @@ function determinePositionGroup(player) {
     if (p === 'POR') return 'gk';
     if (['DFC', 'LI', 'LD', 'CAD', 'CAI', 'DFI', 'DFD'].includes(p)) return 'def';
     if (['MCD', 'MC', 'MCO', 'MI', 'MD'].includes(p)) return 'mid';
+    if (['CARR', 'LTI', 'LTD'].includes(p)) return 'carr';
     return 'fwd'; // ED, EI, DC, MP, SD, etc.
 }
 
@@ -59,27 +60,28 @@ export async function calculateTeamBest11(roster) {
     const gks = playersWithPoints.filter(p => p.posGroup === 'gk');
     const defs = playersWithPoints.filter(p => p.posGroup === 'def');
     const mids = playersWithPoints.filter(p => p.posGroup === 'mid');
+    const carrs = playersWithPoints.filter(p => p.posGroup === 'carr');
     const fwds = playersWithPoints.filter(p => p.posGroup === 'fwd');
 
     const best11 = {
         gk: gks.slice(0, 1),
         def: defs.slice(0, 3), // Formación 3-5-2
-        mid: mids.slice(0, 5),
+        mid: mids.slice(0, 3),
+        carr: carrs.slice(0, 2),
         fwd: fwds.slice(0, 2)
     };
 
     // --- RELLENO INTELIGENTE ---
-    // Si faltan jugadores en alguna posición, rellenamos con los que tienen más puntos sobrantes
     let selectedNames = new Set([
         ...best11.gk.map(p => p.name),
         ...best11.def.map(p => p.name),
         ...best11.mid.map(p => p.name),
+        ...best11.carr.map(p => p.name),
         ...best11.fwd.map(p => p.name)
     ]);
 
     const getRemaining = () => playersWithPoints.filter(p => !selectedNames.has(p.name));
 
-    // Si falta portero (muy raro que jueguen sin él, pero por si acaso)
     if (best11.gk.length < 1) {
         const remaining = getRemaining();
         if (remaining.length > 0) {
@@ -88,7 +90,6 @@ export async function calculateTeamBest11(roster) {
         }
     }
 
-    // Si faltan defensas
     while (best11.def.length < 3) {
         const remaining = getRemaining();
         if (remaining.length === 0) break;
@@ -96,15 +97,20 @@ export async function calculateTeamBest11(roster) {
         selectedNames.add(remaining[0].name);
     }
 
-    // Si faltan medios
-    while (best11.mid.length < 5) {
+    while (best11.mid.length < 3) {
         const remaining = getRemaining();
         if (remaining.length === 0) break;
         best11.mid.push(remaining[0]);
         selectedNames.add(remaining[0].name);
     }
 
-    // Si faltan delanteros
+    while (best11.carr.length < 2) {
+        const remaining = getRemaining();
+        if (remaining.length === 0) break;
+        best11.carr.push(remaining[0]);
+        selectedNames.add(remaining[0].name);
+    }
+
     while (best11.fwd.length < 2) {
         const remaining = getRemaining();
         if (remaining.length === 0) break;
@@ -180,10 +186,12 @@ export async function generateTeamBest11Image(best11, teamName, teamLogoUrl) {
             { x: 950, y: 1000, label: 'DFD' }
         ],
         mid: [
-            { x: 200, y: 700, label: 'CARR' },
             { x: 400, y: 800, label: 'MCD' },
             { x: 600, y: 650, label: 'MCO' },
-            { x: 800, y: 800, label: 'MCD' },
+            { x: 800, y: 800, label: 'MCD' }
+        ],
+        carr: [
+            { x: 200, y: 700, label: 'CARR' },
             { x: 1000, y: 700, label: 'CARR' }
         ],
         fwd: [
@@ -262,6 +270,9 @@ export async function generateTeamBest11Image(best11, teamName, teamLogoUrl) {
     }
     for (let i = 0; i < positionsCoords.mid.length; i++) {
         await drawCard(positionsCoords.mid[i].x, positionsCoords.mid[i].y, best11.mid[i], positionsCoords.mid[i].label);
+    }
+    for (let i = 0; i < positionsCoords.carr.length; i++) {
+        await drawCard(positionsCoords.carr[i].x, positionsCoords.carr[i].y, best11.carr[i], positionsCoords.carr[i].label);
     }
     for (let i = 0; i < positionsCoords.fwd.length; i++) {
         await drawCard(positionsCoords.fwd[i].x, positionsCoords.fwd[i].y, best11.fwd[i], positionsCoords.fwd[i].label);
