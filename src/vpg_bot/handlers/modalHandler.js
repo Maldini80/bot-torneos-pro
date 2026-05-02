@@ -126,8 +126,16 @@ module.exports = async (client, interaction) => {
                 filterInfo = `\n*(Filtros: ${dateFilterRaw ? dateFilterRaw : 'Siempre'} | ${timeFilterRaw ? timeFilterRaw : 'Todo el día'})*`;
             }
 
+            let benchText = '';
+            if (best11.bench && best11.bench.length > 0) {
+                const sortedBench = best11.bench.sort((a, b) => b.points - a.points);
+                const mapped = sortedBench.map(p => `• **${p.name}** | ${p.posName || p.posGroup.toUpperCase()} | ${p.points} pts | ${p.gamesPlayed} PJ`);
+                benchText = `\n\n🪑 **Banquillo (Resto de plantilla):**\n${mapped.slice(0, 15).join('\n')}`;
+                if (mapped.length > 15) benchText += `\n*...y ${mapped.length - 15} más.*`;
+            }
+
             return interaction.editReply({ 
-                content: `🌟 **11 Ideal Acumulativo de ${team.name}**${filterInfo}`,
+                content: `🌟 **11 Ideal Acumulativo de ${team.name}**${filterInfo}${benchText}`,
                 files: [{ attachment: imageBuffer, name: 'best11.png' }] 
             });
 

@@ -118,6 +118,8 @@ export async function calculateTeamBest11(roster) {
         selectedNames.add(remaining[0].name);
     }
 
+    best11.bench = getRemaining();
+
     return best11;
 }
 
