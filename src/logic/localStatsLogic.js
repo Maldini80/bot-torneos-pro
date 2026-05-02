@@ -134,8 +134,15 @@ export async function aggregateTeamLocalStats(team, dateFilterStr = '', timeFilt
         const d = new Date(year, month - 1, day, h, min, 0);
 
         if (dateFilter) {
-            if (dateFilter.from && d < dateFilter.from) continue;
-            if (dateFilter.to && d > dateFilter.to) continue;
+            // Lógica "Gamer": Si un partido se juega a las 01:00 AM del día 26, 
+            // para el jugador pertenece a la "sesión de noche" del día 25.
+            // Restamos 1 día a la fecha lógica de comparación si es de madrugada (antes de las 06:00).
+            const logicalDate = new Date(d);
+            if (h < 6) {
+                logicalDate.setDate(logicalDate.getDate() - 1);
+            }
+            if (dateFilter.from && logicalDate < dateFilter.from) continue;
+            if (dateFilter.to && logicalDate > dateFilter.to) continue;
         }
 
         if (timeFilter) {
