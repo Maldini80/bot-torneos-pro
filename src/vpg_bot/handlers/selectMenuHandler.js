@@ -962,7 +962,8 @@ module.exports = async (client, interaction) => {
         const typeMap = {
             'stats_player_scout': { modalId: 'stats_player_scout_modal', title: '🔍 Scout de Jugador', fieldId: 'player_name', fieldLabel: 'Nombre del jugador (parcial o completo)', placeholder: 'Ej: Messi, xavi_pro, etc.' },
             'stats_team_scout': { modalId: 'stats_team_scout_modal', title: '🛡️ Análisis de Equipo', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' },
-            'stats_match_history': { modalId: 'stats_match_history_modal', title: '📜 Historial de Partidos', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' }
+            'stats_match_history': { modalId: 'stats_match_history_modal', title: '📜 Historial de Partidos', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' },
+            'stats_best11_scout': { modalId: 'stats_best11_scout_modal', title: '🌟 Mejor 11 de Equipo', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' }
         };
         
         const cfg = typeMap[statsType];
