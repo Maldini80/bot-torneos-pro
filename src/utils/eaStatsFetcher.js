@@ -305,7 +305,17 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
                             name: m.name || m.playername || 'Desconocido',
                             posName: resolvedPos,
                             sortOrder: posSortOrder[resolvedPos] ?? 99,
-                            height: rawHeight ? `${rawHeight} cm` : 'No disponible'
+                            height: rawHeight ? `${rawHeight} cm` : 'No disponible',
+                            gamesPlayed: m.gamesPlayed,
+                            goals: m.goals,
+                            assists: m.assists,
+                            passesMade: m.passesMade,
+                            tacklesMade: m.tacklesMade,
+                            cleanSheetsDef: m.cleanSheetsDef,
+                            cleanSheetsGK: m.cleanSheetsGK,
+                            manOfTheMatch: m.manOfTheMatch,
+                            favoritePosition: m.favoritePosition,
+                            proPos: m.proPos
                         };
                     });
                     playersData.sort((a, b) => a.sortOrder - b.sortOrder);

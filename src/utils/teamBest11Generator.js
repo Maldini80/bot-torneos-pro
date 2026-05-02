@@ -45,12 +45,19 @@ export async function calculateTeamBest11(eaClubId, eaPlatform = 'common-gen5') 
         throw new Error('No se encontraron jugadores en el club de EA Sports.');
     }
 
-    const playersWithPoints = roster.map(p => ({
-        ...p,
-        points: calculatePlayerPoints(p),
-        posGroup: determinePositionGroup(p),
-        username: p.name
-    })).sort((a, b) => b.points - a.points); // Ordenar por puntos de mayor a menor
+    const playersWithPoints = roster
+        .filter(p => parseInt(p.gamesPlayed || 0) > 0)
+        .map(p => ({
+            ...p,
+            points: calculatePlayerPoints(p),
+            posGroup: determinePositionGroup(p),
+            username: p.name
+        }))
+        .sort((a, b) => b.points - a.points); // Ordenar por puntos de mayor a menor
+
+    if (playersWithPoints.length === 0) {
+        throw new Error('Ningún jugador de este club de EA tiene partidos jugados registrados en su historial.');
+    }
 
     const gks = playersWithPoints.filter(p => p.posGroup === 'gk');
     const defs = playersWithPoints.filter(p => p.posGroup === 'def');
