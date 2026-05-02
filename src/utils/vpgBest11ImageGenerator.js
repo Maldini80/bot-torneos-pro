@@ -171,7 +171,7 @@ async function drawPlayerCard(ctx, cx, cy, playerData, posLabel) {
     }
 
     // La API VPG devuelve objetos planos: { username, team_name, team_logo, match_rating, ... }
-    const rating = playerData.match_rating || playerData.points || 0;
+    const rating = playerData.points !== undefined && playerData.points !== null ? playerData.points : (playerData.match_rating || 0);
     const playerName = playerData.username || 'Desconocido';
     const teamName = playerData.team_name || 'Agente Libre';
     // Los logos de VPG están en el CDN de Cloudflare Images

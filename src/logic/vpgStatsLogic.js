@@ -20,10 +20,10 @@ export async function calculateVpgBest11(leagueSlug, type, excludedTeams = []) {
     const getTopValidPlayers = async (position, count) => {
         try {
             const players = await fetchVpgLeaderboard(leagueSlug, position, type);
-            // La API devuelve objetos planos: { username, team_name, match_rating, ... }
+            // La API devuelve objetos planos: { username, team_name, points, match_rating, ... }
             const valid = players
                 .filter(p => !isExcluded(p.team_name))
-                .sort((a, b) => (b.match_rating || 0) - (a.match_rating || 0));
+                .sort((a, b) => (b.points || 0) - (a.points || 0));
             return valid.slice(0, count);
         } catch (e) {
             console.error(`Error procesando posición ${position}:`, e.message);
@@ -43,7 +43,7 @@ export async function calculateVpgBest11(leagueSlug, type, excludedTeams = []) {
     const cams = await getTopValidPlayers('cam', 5);
     
     const allCenterMids = [...cdms, ...cams]
-        .sort((a, b) => (b.match_rating || 0) - (a.match_rating || 0));
+        .sort((a, b) => (b.points || 0) - (a.points || 0));
     
     // Evitar duplicados
     const uniqueCenterMids = [];
