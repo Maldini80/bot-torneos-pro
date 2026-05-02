@@ -148,6 +148,71 @@ module.exports = async (client, interaction) => {
         }
     }
 
+    if (customId.startsWith('modal_public_best11_')) {
+        await interaction.deferReply({ ephemeral: true });
+        const eaClubId = customId.replace('modal_public_best11_', '');
+        
+        const dateFilterRaw = fields.getTextInputValue('dateFilter');
+        const timeFilterRaw = fields.getTextInputValue('timeFilter');
+        
+        let daysFilterRaw = '';
+        try { daysFilterRaw = fields.getTextInputValue('daysFilter') || ''; } catch(e) {}
+
+        try {
+            const { getDb } = await import('../../../database.js');
+            const club = await getDb().collection('club_profiles').findOne({ eaClubId });
+            if (!club) return interaction.editReply({ content: '❌ Equipo EA no encontrado.' });
+
+            const { aggregateTeamLocalStats } = await import('../../logic/localStatsLogic.js');
+            const roster = await aggregateTeamLocalStats({ eaClubId }, dateFilterRaw, timeFilterRaw, daysFilterRaw);
+
+            const { calculateTeamBest11 } = await import('../../utils/teamBest11Generator.js');
+            const best11 = await calculateTeamBest11(roster);
+
+            let filterInfo = '';
+            if (dateFilterRaw || timeFilterRaw || daysFilterRaw) {
+                filterInfo = `\n*(Filtros: ${dateFilterRaw ? dateFilterRaw : 'Siempre'} | ${timeFilterRaw ? timeFilterRaw : 'Todo el día'} | ${daysFilterRaw ? daysFilterRaw : 'Todos los días'})*`;
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle(`🌟 11 Ideal (Táctico) de ${club.eaClubName}`)
+                .setDescription(filterInfo || 'Toda la temporada')
+                .setColor('#FFD700');
+
+            if (club.logoUrl) embed.setThumbnail(club.logoUrl);
+
+            let titulares = '';
+            const addPos = (arr, title) => {
+                if (arr && arr.length > 0) {
+                    titulares += `**${title}**\n` + arr.map(p => `• ${p.posName || 'Pos'}: **${p.name}** (${p.points} pts)`).join('\n') + '\n\n';
+                }
+            };
+
+            addPos(best11.fwd, 'Delanteros');
+            addPos(best11.mid, 'Centrocampistas');
+            addPos(best11.carr, 'Carrileros');
+            addPos(best11.def, 'Defensas');
+            addPos(best11.gk, 'Portero');
+
+            embed.addFields({ name: '🛡️ TITULARES', value: titulares || 'No hay suficientes datos', inline: false });
+
+            let benchText = '';
+            if (best11.bench && best11.bench.length > 0) {
+                const sortedBench = best11.bench.sort((a, b) => b.points - a.points);
+                const mapped = sortedBench.slice(0, 10).map(p => `• **${p.name}** | ${p.posName || p.posGroup.toUpperCase()} | ${p.points} pts`);
+                benchText = mapped.join('\n');
+                if (sortedBench.length > 10) benchText += `\n*...y ${sortedBench.length - 10} más.*`;
+                embed.addFields({ name: '🪑 BANQUILLO', value: benchText, inline: false });
+            }
+
+            return interaction.editReply({ embeds: [embed] });
+
+        } catch (err) {
+            console.error('Error generando el 11 Ideal Publico:', err);
+            return interaction.editReply({ content: '❌ Ocurrió un error al generar el Mejor 11: ' + err.message });
+        }
+    }
+
 
     if (customId.startsWith('admin_submit_logo_modal_')) {
         await interaction.deferUpdate();
@@ -1882,7 +1947,15 @@ if (customId.startsWith('manager_request_modal_')) {
             embed.setFooter({ text: `Filtro aplicado: ${filterText}` });
         }
             
-        return interaction.editReply({ embeds: [embed] });
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`public_best11_${club.eaClubId}`)
+                .setLabel('Mejor 11 (Texto)')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🌟')
+        );
+            
+        return interaction.editReply({ embeds: [embed], components: [row] });
     }
 
     if (customId === 'stats_match_history_modal') {

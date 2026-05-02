@@ -1207,8 +1207,9 @@ const handler = async (client, interaction) => {
         }
     }
 
-    if (customId.startsWith('admin_team_best11_')) {
-        const teamId = customId.replace('admin_team_best11_', '');
+    if (customId.startsWith('admin_team_best11_') || customId.startsWith('public_best11_')) {
+        const isPublic = customId.startsWith('public_best11_');
+        const entityId = customId.replace(isPublic ? 'public_best11_' : 'admin_team_best11_', '');
         
         // Calcular fecha por defecto: Hace 7 días hasta hoy
         const hoy = new Date();
@@ -1219,7 +1220,7 @@ const handler = async (client, interaction) => {
         const defaultDate = `${pad(hace7Dias.getDate())}/${pad(hace7Dias.getMonth()+1)}/${hace7Dias.getFullYear().toString().substring(2)} - ${pad(hoy.getDate())}/${pad(hoy.getMonth()+1)}/${hoy.getFullYear().toString().substring(2)}`;
 
         const modal = new ModalBuilder()
-            .setCustomId(`modal_team_best11_${teamId}`)
+            .setCustomId(isPublic ? `modal_public_best11_${entityId}` : `modal_team_best11_${entityId}`)
             .setTitle('Filtros: Mejor 11 del Equipo');
 
         const dateInput = new TextInputBuilder()
