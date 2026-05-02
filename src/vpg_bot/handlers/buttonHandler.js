@@ -1650,11 +1650,17 @@ const handler = async (client, interaction) => {
             // Hidden fields with empty defaults for backward compat
             const timeInput = new TextInputBuilder().setCustomId('time_filter').setLabel('Franja horaria (ej: 22:20-01:00)').setStyle(TextInputStyle.Short).setPlaceholder('Sin franjas guardadas — escribe manual o vacío').setRequired(false).setMaxLength(30);
             const daysInput = new TextInputBuilder().setCustomId('days_filter').setLabel('Días (0=Dom,1=Lun,...6=Sáb)').setStyle(TextInputStyle.Short).setPlaceholder('Vacío = todos').setRequired(false).setMaxLength(20);
-            // Fecha por defecto: ayer-hoy (Madrid)
+            // Fecha por defecto: ayer-hoy (Madrid) o última semana para Mejor 11
             const _fmtD = (d) => d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit' });
             const _now = new Date();
-            const _yesterday = new Date(_now.getTime() - 86400000);
-            const defaultDateRange = `${_fmtD(_yesterday)}-${_fmtD(_now)}`;
+            let defaultDateRange = '';
+            if (customId === 'stats_best11_scout') {
+                const _lastWeek = new Date(_now.getTime() - 7 * 86400000);
+                defaultDateRange = `${_fmtD(_lastWeek)}-${_fmtD(_now)}`;
+            } else {
+                const _yesterday = new Date(_now.getTime() - 86400000);
+                defaultDateRange = `${_fmtD(_yesterday)}-${_fmtD(_now)}`;
+            }
             const dateInput = new TextInputBuilder().setCustomId('date_filter').setLabel('📅 Rango de fechas (opcional)').setStyle(TextInputStyle.Short).setPlaceholder('Ej: 15/04/26-28/04/26').setValue(defaultDateRange).setRequired(false).setMaxLength(30);
             modal.addComponents(
                 new ActionRowBuilder().addComponents(input),

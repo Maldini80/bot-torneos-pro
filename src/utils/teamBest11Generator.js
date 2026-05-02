@@ -1,5 +1,6 @@
 import { registerFont, createCanvas, loadImage } from 'canvas';
 import path from 'path';
+import { EmbedBuilder } from 'discord.js';
 
 // --- CONFIGURACIÓN DE PUNTOS ---
 function calculatePlayerPoints(player) {
@@ -313,7 +314,7 @@ export async function generateTeamBest11Image(best11, teamName, teamLogoUrl) {
 }
 
 export function generatePublicBest11Embed(best11, club, filterInfo) {
-    const { EmbedBuilder } = require('discord.js');
+    
     const embed = new EmbedBuilder()
         .setTitle(`🌟 11 Ideal (Táctico) de ${club.eaClubName}`)
         .setDescription(filterInfo || 'Toda la temporada')

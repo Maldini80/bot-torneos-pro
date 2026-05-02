@@ -977,11 +977,17 @@ module.exports = async (client, interaction) => {
             .setPlaceholder(cfg.placeholder)
             .setRequired(true);
         
-        // Calcular fecha por defecto: ayer-hoy (Madrid)
+        // Calcular fecha por defecto: ayer-hoy (Madrid) o última semana para Mejor 11
         const _fmtD = (d) => d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit' });
         const _now = new Date();
-        const _yesterday = new Date(_now.getTime() - 86400000);
-        const defaultDateRange = `${_fmtD(_yesterday)}-${_fmtD(_now)}`;
+        let defaultDateRange = '';
+        if (statsType === 'stats_best11_scout') {
+            const _lastWeek = new Date(_now.getTime() - 7 * 86400000);
+            defaultDateRange = `${_fmtD(_lastWeek)}-${_fmtD(_now)}`;
+        } else {
+            const _yesterday = new Date(_now.getTime() - 86400000);
+            defaultDateRange = `${_fmtD(_yesterday)}-${_fmtD(_now)}`;
+        }
         
         const dateInput = new TextInputBuilder()
             .setCustomId('date_filter')
