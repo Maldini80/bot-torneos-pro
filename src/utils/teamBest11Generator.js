@@ -195,6 +195,19 @@ export async function generateTeamBest11Image(best11, teamName, teamLogoUrl) {
         ]
     };
 
+    // Helper para obtener la posición real más jugada
+    function getPlayerRealPosition(p) {
+        const favMap = {
+            'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
+            'fullback': 'LTD', 'leftback': 'LTI', 'rightback': 'LTD',
+            'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
+            'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
+            'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
+        };
+        const fav = (p.favoritePosition || '').toLowerCase();
+        return favMap[fav] || p.posName || posLabel;
+    }
+
     // Helper para dibujar una carta
     async function drawCard(cx, cy, player, posLabel) {
         const CARD_W = 160;
@@ -242,7 +255,8 @@ export async function generateTeamBest11Image(best11, teamName, teamLogoUrl) {
         // Posición y Partidos
         ctx.font = 'bold 16px Arial';
         ctx.fillStyle = '#fef08a'; // Amarillo clarito
-        ctx.fillText(`${posLabel} | ${player.gamesPlayed || 0} PJ`, cx, y + 170);
+        const actualPos = getPlayerRealPosition(player);
+        ctx.fillText(`${actualPos} | ${player.gamesPlayed || 0} PJ`, cx, y + 170);
 
         // Detalle de aportación (Goles o Asistencias dependiendo si atacante o defensa)
         ctx.font = '12px Arial';
