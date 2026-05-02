@@ -41,15 +41,16 @@ export function parseDateFilter(raw) {
 
 export function parseTimeFilter(raw) {
     if (!raw) return null;
-    const parts = raw.split('-').map(s => s.trim());
-    if (parts.length !== 2) return null;
-    const fromTime = parts[0]; // e.g., "22:00"
-    const toTime = parts[1];   // e.g., "00:00"
-    return { from: fromTime, to: toTime };
+    const filters = raw.split(',').map(f => {
+        const parts = f.split('-').map(s => s.trim());
+        if (parts.length !== 2) return null;
+        return { from: parts[0], to: parts[1] };
+    }).filter(f => f !== null);
+    return filters.length > 0 ? filters : null;
 }
 
-function matchesTimeFilter(date, timeFilter) {
-    if (!timeFilter) return true;
+function matchesTimeFilter(date, timeFilters) {
+    if (!timeFilters || timeFilters.length === 0) return true;
     const matchHour = date.getHours();
     const matchMinute = date.getMinutes();
     
@@ -58,19 +59,21 @@ function matchesTimeFilter(date, timeFilter) {
         return { h: parseInt(p[0]), m: parseInt(p[1]) };
     };
     
-    const from = parseHM(timeFilter.from);
-    const to = parseHM(timeFilter.to);
-    
     const matchVal = matchHour * 60 + matchMinute;
-    const fromVal = from.h * 60 + from.m;
-    let toVal = to.h * 60 + to.m;
     
-    if (toVal < fromVal) {
-        // Cruza la medianoche (ej: 23:00 - 01:00)
-        return matchVal >= fromVal || matchVal <= toVal;
-    } else {
-        return matchVal >= fromVal && matchVal <= toVal;
-    }
+    return timeFilters.some(tf => {
+        const from = parseHM(tf.from);
+        const to = parseHM(tf.to);
+        const fromVal = from.h * 60 + from.m;
+        let toVal = to.h * 60 + to.m;
+        
+        if (toVal < fromVal) {
+            // Cruza la medianoche (ej: 23:00 - 01:00)
+            return matchVal >= fromVal || matchVal <= toVal;
+        } else {
+            return matchVal >= fromVal && matchVal <= toVal;
+        }
+    });
 }
 
 const POS_MAP = {

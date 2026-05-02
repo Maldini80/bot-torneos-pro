@@ -1387,21 +1387,30 @@ if (customId.startsWith('manager_request_modal_')) {
         
         if (hasFilters) {
             // Buscar todos los matches donde este jugador participó
-            const allMatches = await db.collection('scanned_matches').find({}).sort({ timestamp: -1 }).toArray();
+            // Buscar todos los matches donde este jugador participó usando un cursor
+            const cursor = db.collection('scanned_matches').find({});
+            const filtered = [];
             
-            const filtered = allMatches.filter(match => {
-                // Check if player is in this match
-                if (!match.players) return false;
+            for await (const match of cursor) {
+                if (!match.players) continue;
+                let found = false;
                 for (const clubId of Object.keys(match.players)) {
                     for (const pid of Object.keys(match.players[clubId])) {
                         const pData = match.players[clubId][pid];
                         if (pData.playername && pData.playername.toLowerCase() === profile.eaPlayerName.toLowerCase()) {
-                            return filterMatchByTimeAndDay(match);
+                            if (filterMatchByTimeAndDay(match)) {
+                                filtered.push(match);
+                            }
+                            found = true;
+                            break;
                         }
                     }
+                    if (found) break;
                 }
-                return false;
-            });
+            }
+            
+            // Sort filtered matches by timestamp to accurately determine lastClub and lastActive
+            filtered.sort((a, b) => (parseInt(b.timestamp) || 0) - (parseInt(a.timestamp) || 0));
             
             // Aggregate stats from filtered matches
             const aggr = { matchesPlayed: 0, goals: 0, assists: 0, shots: 0, shotsOnTarget: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0, interceptions: 0, saves: 0, mom: 0, redCards: 0, yellowCards: 0, cleanSheets: 0, goalsConceded: 0, ratings: [], dnfCount: 0 };
@@ -1885,7 +1894,17 @@ if (customId.startsWith('manager_request_modal_')) {
         if (customId === 'stats_best11_scout_modal') {
             try {
                 const { aggregateTeamLocalStats } = await import('../../logic/localStatsLogic.js');
-                const roster = await aggregateTeamLocalStats({ eaClubId: club.eaClubId }, dateFilterRaw, timeFilterRaw, daysFilterRaw);
+                
+                let effectiveTimeFilterRaw = timeFilterRaw;
+                if (!effectiveTimeFilterRaw && timeFilters && timeFilters.length > 0) {
+                    effectiveTimeFilterRaw = timeFilters.map(f => `${f.start}-${f.end}`).join(',');
+                }
+                let effectiveDaysFilterRaw = daysFilterRaw;
+                if (!effectiveDaysFilterRaw && daysFilter && daysFilter.length > 0) {
+                    effectiveDaysFilterRaw = daysFilter.join(',');
+                }
+
+                const roster = await aggregateTeamLocalStats({ eaClubId: club.eaClubId }, dateFilterRaw, effectiveTimeFilterRaw, effectiveDaysFilterRaw);
                 const { calculateTeamBest11, generatePublicBest11Embed } = await import('../../utils/teamBest11Generator.js');
                 const best11 = await calculateTeamBest11(roster);
                 
@@ -1894,8 +1913,8 @@ if (customId.startsWith('manager_request_modal_')) {
                 const displayName = vpgTeam ? vpgTeam.name : club.eaClubName;
                 
                 let filterInfo = '';
-                if (dateFilterRaw || timeFilterRaw || daysFilterRaw) {
-                    filterInfo = `\n*(Filtros: ${dateFilterRaw ? dateFilterRaw : 'Siempre'} | ${timeFilterRaw ? timeFilterRaw : 'Todo el día'} | ${daysFilterRaw ? daysFilterRaw : 'Todos los días'})*`;
+                if (dateFilterRaw || effectiveTimeFilterRaw || effectiveDaysFilterRaw) {
+                    filterInfo = `\n*(Filtros: ${dateFilterRaw ? dateFilterRaw : 'Siempre'} | ${effectiveTimeFilterRaw ? effectiveTimeFilterRaw : 'Todo el día'} | ${effectiveDaysFilterRaw ? effectiveDaysFilterRaw : 'Todos los días'})*`;
                 }
 
                 const best11Embed = generatePublicBest11Embed(best11, displayName, vpgLogo, filterInfo);
