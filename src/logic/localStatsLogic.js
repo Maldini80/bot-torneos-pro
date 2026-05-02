@@ -97,12 +97,23 @@ function resolvePos(posRaw, archetypeid) {
     return POS_MAP[posRaw] || posRaw || '???';
 }
 
-export async function aggregateTeamLocalStats(team, dateFilterStr = '', timeFilterStr = '') {
+export function parseDaysFilter(raw) {
+    if (!raw) return null;
+    const map = { 'L': 1, 'M': 2, 'X': 3, 'J': 4, 'V': 5, 'S': 6, 'D': 0 };
+    const days = raw.toUpperCase().replace(/-/g, ',').split(',').map(s => {
+        const d = s.trim();
+        return map[d] !== undefined ? map[d] : null;
+    }).filter(d => d !== null);
+    return days.length > 0 ? days : null;
+}
+
+export async function aggregateTeamLocalStats(team, dateFilterStr = '', timeFilterStr = '', daysFilterStr = '') {
     const db = getDb();
     const matchColl = db.collection('scanned_matches');
 
     const dateFilter = parseDateFilter(dateFilterStr);
     const timeFilter = parseTimeFilter(timeFilterStr);
+    const daysFilter = parseDaysFilter(daysFilterStr);
 
     if (!team.eaClubId) {
         throw new Error('El equipo no tiene un ID de club de EA vinculado.');
@@ -133,16 +144,21 @@ export async function aggregateTeamLocalStats(team, dateFilterStr = '', timeFilt
         // Así parseDateFilter (que usa el timezone local) y matchesTimeFilter coinciden perfectamente.
         const d = new Date(year, month - 1, day, h, min, 0);
 
+        // Lógica "Gamer": Si un partido se juega a las 01:00 AM del día 26, 
+        // para el jugador pertenece a la "sesión de noche" del día 25.
+        // Restamos 1 día a la fecha lógica de comparación si es de madrugada (antes de las 06:00).
+        const logicalDate = new Date(d);
+        if (h < 6) {
+            logicalDate.setDate(logicalDate.getDate() - 1);
+        }
+
         if (dateFilter) {
-            // Lógica "Gamer": Si un partido se juega a las 01:00 AM del día 26, 
-            // para el jugador pertenece a la "sesión de noche" del día 25.
-            // Restamos 1 día a la fecha lógica de comparación si es de madrugada (antes de las 06:00).
-            const logicalDate = new Date(d);
-            if (h < 6) {
-                logicalDate.setDate(logicalDate.getDate() - 1);
-            }
             if (dateFilter.from && logicalDate < dateFilter.from) continue;
             if (dateFilter.to && logicalDate > dateFilter.to) continue;
+        }
+
+        if (daysFilter) {
+            if (!daysFilter.includes(logicalDate.getDay())) continue;
         }
 
         if (timeFilter) {

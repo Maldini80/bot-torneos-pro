@@ -109,21 +109,24 @@ module.exports = async (client, interaction) => {
         
         const dateFilterRaw = fields.getTextInputValue('dateFilter');
         const timeFilterRaw = fields.getTextInputValue('timeFilter');
+        
+        let daysFilterRaw = '';
+        try { daysFilterRaw = fields.getTextInputValue('daysFilter') || ''; } catch(e) {}
 
         try {
             const team = await Team.findById(teamId);
             if (!team) return interaction.editReply({ content: '❌ Equipo no encontrado.' });
 
             const { aggregateTeamLocalStats } = await import('../../logic/localStatsLogic.js');
-            const roster = await aggregateTeamLocalStats(team, dateFilterRaw, timeFilterRaw);
+            const roster = await aggregateTeamLocalStats(team, dateFilterRaw, timeFilterRaw, daysFilterRaw);
 
             const { calculateTeamBest11, generateTeamBest11Image } = await import('../../utils/teamBest11Generator.js');
             const best11 = await calculateTeamBest11(roster);
             const imageBuffer = await generateTeamBest11Image(best11, team.name, team.logoUrl || team.teamLogoUrl);
 
             let filterInfo = '';
-            if (dateFilterRaw || timeFilterRaw) {
-                filterInfo = `\n*(Filtros: ${dateFilterRaw ? dateFilterRaw : 'Siempre'} | ${timeFilterRaw ? timeFilterRaw : 'Todo el día'})*`;
+            if (dateFilterRaw || timeFilterRaw || daysFilterRaw) {
+                filterInfo = `\n*(Filtros: ${dateFilterRaw ? dateFilterRaw : 'Siempre'} | ${timeFilterRaw ? timeFilterRaw : 'Todo el día'} | ${daysFilterRaw ? daysFilterRaw : 'Todos los días'})*`;
             }
 
             let benchText = '';

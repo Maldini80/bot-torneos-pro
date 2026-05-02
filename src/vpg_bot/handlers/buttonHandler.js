@@ -1238,9 +1238,18 @@ const handler = async (client, interaction) => {
             .setPlaceholder("Ej: 22:00 - 00:00")
             .setRequired(false);
 
+        const daysInput = new TextInputBuilder()
+            .setCustomId('daysFilter')
+            .setLabel("Días de la semana (L, M, X, J, V, S, D)")
+            .setStyle(TextInputStyle.Short)
+            .setValue("L, M, X, J")
+            .setPlaceholder("Ej: L, M, X, J")
+            .setRequired(false);
+
         modal.addComponents(
             new ActionRowBuilder().addComponents(dateInput),
-            new ActionRowBuilder().addComponents(timeInput)
+            new ActionRowBuilder().addComponents(timeInput),
+            new ActionRowBuilder().addComponents(daysInput)
         );
 
         return interaction.showModal(modal);
