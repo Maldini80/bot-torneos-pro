@@ -1234,6 +1234,7 @@ const handler = async (client, interaction) => {
             .setCustomId('timeFilter')
             .setLabel("Franja Horaria (HH:MM - HH:MM) Opcional")
             .setStyle(TextInputStyle.Short)
+            .setValue("22:50 - 00:15")
             .setPlaceholder("Ej: 22:00 - 00:00")
             .setRequired(false);
 
