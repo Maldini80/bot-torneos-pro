@@ -329,11 +329,11 @@ export function generatePublicBest11Embed(best11, club, filterInfo) {
         }
     };
 
-    addPos(best11.fwd, 'Delanteros');
+    addPos(best11.gk, 'Portero');
+    addPos(best11.def, 'Defensas');
     addPos(best11.mid, 'Centrocampistas');
     addPos(best11.carr, 'Carrileros');
-    addPos(best11.def, 'Defensas');
-    addPos(best11.gk, 'Portero');
+    addPos(best11.fwd, 'Delanteros');
 
     embed.addFields({ name: '🛡️ TITULARES', value: titulares || 'No hay suficientes datos', inline: false });
 

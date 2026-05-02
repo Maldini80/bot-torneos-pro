@@ -99,7 +99,7 @@ function resolvePos(posRaw, archetypeid) {
 
 export function parseDaysFilter(raw) {
     if (!raw) return null;
-    const map = { 'L': 1, 'M': 2, 'X': 3, 'J': 4, 'V': 5, 'S': 6, 'D': 0 };
+    const map = { 'L': 1, 'M': 2, 'X': 3, 'J': 4, 'V': 5, 'S': 6, 'D': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '0': 0 };
     const days = raw.toUpperCase().replace(/-/g, ',').split(',').map(s => {
         const d = s.trim();
         return map[d] !== undefined ? map[d] : null;
