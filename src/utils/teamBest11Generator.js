@@ -27,13 +27,13 @@ function calculatePlayerPoints(player) {
 }
 
 // --- CLASIFICACIÓN DE POSICIONES ---
-// proPos suele indicar la posición en EA. Si no, usamos favoritePosition.
+// Usamos posName que es calculado de forma mucho más precisa por nuestro bot (POR, DFC, MC, DC)
 function determinePositionGroup(player) {
-    const posLabel = (player.favoritePosition || '').toLowerCase();
-    if (posLabel.includes('goal') || player.proPos === '0') return 'gk';
-    if (posLabel.includes('def') || ['1','2','3','4'].includes(player.proPos)) return 'def';
-    if (posLabel.includes('mid') || ['5','6','7','8'].includes(player.proPos)) return 'mid';
-    return 'fwd'; // por defecto delantero
+    const p = (player.posName || '').toUpperCase();
+    if (p === 'POR') return 'gk';
+    if (['DFC', 'LI', 'LD', 'CAD', 'CAI', 'DFI', 'DFD'].includes(p)) return 'def';
+    if (['MCD', 'MC', 'MCO', 'MI', 'MD'].includes(p)) return 'mid';
+    return 'fwd'; // ED, EI, DC, MP, SD, etc.
 }
 
 // Lógica principal de selección
