@@ -73,7 +73,7 @@ function matchesTimeFilter(date, timeFilter) {
     }
 }
 
-export async function aggregateTeamLocalStats(teamId, eaClubId, dateFilterStr = '', timeFilterStr = '') {
+export async function aggregateTeamLocalStats(team, dateFilterStr = '', timeFilterStr = '') {
     const db = getDb();
     const tournaments = await db.collection('tournaments').find({}).toArray();
 
@@ -100,26 +100,30 @@ export async function aggregateTeamLocalStats(teamId, eaClubId, dateFilterStr = 
                 }
             }
             
-            if (!timestampMs) return; // Si no podemos determinar la fecha, lo saltamos por precaución o lo incluimos? Mejor saltar si hay filtros estrictos.
+            if (timestampMs) {
+                const d = new Date(timestampMs);
 
-            const d = new Date(timestampMs);
+                if (dateFilter) {
+                    if (dateFilter.from && d < dateFilter.from) return;
+                    if (dateFilter.to && d > dateFilter.to) return;
+                }
 
-            if (dateFilter) {
-                if (dateFilter.from && d < dateFilter.from) return;
-                if (dateFilter.to && d > dateFilter.to) return;
-            }
-
-            if (timeFilter) {
-                if (!matchesTimeFilter(d, timeFilter)) return;
+                if (timeFilter) {
+                    if (!matchesTimeFilter(d, timeFilter)) return;
+                }
             }
         }
 
         // Determinar si somos clubA o clubB
+        // match.equipoA.id suele ser el managerId (Discord ID del capitán)
         let myPlayers = null;
-        if (match.equipoA.id === teamId) {
-            myPlayers = match.eaStats.clubA.players;
-        } else if (match.equipoB.id === teamId) {
-            myPlayers = match.eaStats.clubB.players;
+        const isTeamA = match.equipoA.id === team.managerId || (team.captains && team.captains.includes(match.equipoA.id));
+        const isTeamB = match.equipoB.id === team.managerId || (team.captains && team.captains.includes(match.equipoB.id));
+        
+        if (isTeamA) {
+            myPlayers = match.eaStats.clubA?.players;
+        } else if (isTeamB) {
+            myPlayers = match.eaStats.clubB?.players;
         }
 
         if (!myPlayers) return;

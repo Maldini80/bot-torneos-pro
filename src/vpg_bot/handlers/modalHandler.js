@@ -115,7 +115,7 @@ module.exports = async (client, interaction) => {
             if (!team) return interaction.editReply({ content: '❌ Equipo no encontrado.' });
 
             const { aggregateTeamLocalStats } = await import('../../logic/localStatsLogic.js');
-            const roster = await aggregateTeamLocalStats(team.id, team.eaClubId, dateFilterRaw, timeFilterRaw);
+            const roster = await aggregateTeamLocalStats(team, dateFilterRaw, timeFilterRaw);
 
             const { calculateTeamBest11, generateTeamBest11Image } = await import('../../utils/teamBest11Generator.js');
             const best11 = await calculateTeamBest11(roster);
