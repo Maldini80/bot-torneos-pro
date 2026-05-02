@@ -180,30 +180,17 @@ export async function generateTeamBest11Image(best11, teamName, teamLogoUrl) {
             { x: 950, y: 1000, label: 'DFD' }
         ],
         mid: [
-            { x: 200, y: 700, label: 'MI' },
+            { x: 200, y: 700, label: 'CARR' },
             { x: 400, y: 800, label: 'MCD' },
             { x: 600, y: 650, label: 'MCO' },
             { x: 800, y: 800, label: 'MCD' },
-            { x: 1000, y: 700, label: 'MD' }
+            { x: 1000, y: 700, label: 'CARR' }
         ],
         fwd: [
             { x: 450, y: 350, label: 'DC' },
             { x: 750, y: 350, label: 'DC' }
         ]
     };
-
-    // Helper para obtener la posición real más jugada
-    function getPlayerRealPosition(p) {
-        const favMap = {
-            'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
-            'fullback': 'LTD', 'leftback': 'LTI', 'rightback': 'LTD',
-            'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
-            'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
-            'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
-        };
-        const fav = (p.favoritePosition || '').toLowerCase();
-        return favMap[fav] || p.posName || posLabel;
-    }
 
     // Helper para dibujar una carta
     async function drawCard(cx, cy, player, posLabel) {
@@ -252,8 +239,9 @@ export async function generateTeamBest11Image(best11, teamName, teamLogoUrl) {
         // Posición y Partidos
         ctx.font = 'bold 16px Arial';
         ctx.fillStyle = '#fef08a'; // Amarillo clarito
-        const actualPos = getPlayerRealPosition(player);
-        ctx.fillText(`${actualPos} | ${player.gamesPlayed || 0} PJ`, cx, y + 170);
+        
+        // Usamos la etiqueta del slot para la carta para que quede claro de qué juega en este 11
+        ctx.fillText(`${posLabel} | ${player.gamesPlayed || 0} PJ`, cx, y + 170);
 
         // Detalle de aportación (Goles o Asistencias dependiendo si atacante o defensa)
         ctx.font = '12px Arial';

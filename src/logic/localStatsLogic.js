@@ -80,7 +80,7 @@ const POS_MAP = {
     'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
     'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD',
     'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
-    'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
+    'attackingmidfield': 'MCO', 'leftmid': 'MI', 'rightmid': 'MD', 'forward': 'DC', 'attacker': 'DC',
     'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
 };
 
