@@ -1242,7 +1242,7 @@ const handler = async (client, interaction) => {
             .setCustomId('daysFilter')
             .setLabel("Días de la semana (L, M, X, J, V, S, D)")
             .setStyle(TextInputStyle.Short)
-            .setValue("L, M, X, J")
+            .setValue("L, M, X")
             .setPlaceholder("Ej: L, M, X, J")
             .setRequired(false);
 
