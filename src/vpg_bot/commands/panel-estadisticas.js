@@ -29,7 +29,12 @@ module.exports = {
                 .setCustomId('stats_match_history')
                 .setLabel('Últimos Partidos')
                 .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📜')
+                .setEmoji('📜'),
+            new ButtonBuilder()
+                .setCustomId('stats_best11_scout')
+                .setLabel('Mejor 11 por Equipos')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🌟')
         );
 
         return interaction.reply({ embeds: [embed], components: [row] });

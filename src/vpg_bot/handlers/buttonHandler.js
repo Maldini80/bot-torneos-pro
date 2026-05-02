@@ -1207,7 +1207,7 @@ const handler = async (client, interaction) => {
         }
     }
 
-    if (customId.startsWith('admin_team_best11_') || customId.startsWith('public_best11_')) {
+    if (customId.startsWith('admin_team_best11_')) {
         const isPublic = customId.startsWith('public_best11_');
         const entityId = customId.replace(isPublic ? 'public_best11_' : 'admin_team_best11_', '');
         
@@ -1600,7 +1600,7 @@ const handler = async (client, interaction) => {
         return interaction.editReply({ content: `✅ **Escaneos Deshechos**\nSe han borrado **${recentMatches.length} partidos** recientes de la base de datos y se han restado las estadísticas a los **${playersAffected} jugadores** involucrados.` });
     }
     // --- Lógica del Panel de Estadísticas (Kiosko) ---
-    if (customId === 'stats_team_scout' || customId === 'stats_player_scout' || customId === 'stats_match_history') {
+    if (customId === 'stats_team_scout' || customId === 'stats_player_scout' || customId === 'stats_match_history' || customId === 'stats_best11_scout') {
         // Restringir a: Admin, Managers, Capitanes, Árbitros
         const isReferee = member.roles.cache.has(process.env.REFEREE_ROLE_ID);
         const userTeam = await Team.findOne({ guildId: guild.id, $or: [{ managerId: user.id }, { captains: user.id }] });
@@ -1629,7 +1629,7 @@ const handler = async (client, interaction) => {
 
 
     // --- Stats buttons: Selector de franjas horarias (multi-select) ---
-    if (customId === 'stats_player_scout' || customId === 'stats_team_scout' || customId === 'stats_match_history') {
+    if (customId === 'stats_player_scout' || customId === 'stats_team_scout' || customId === 'stats_match_history' || customId === 'stats_best11_scout') {
         console.log(`📊 [STATS] ${interaction.user.tag} (${interaction.user.id}) abrió: ${customId}`);
         
         const { getDb: getDbSlots } = await import('../../../database.js');
@@ -1641,7 +1641,8 @@ const handler = async (client, interaction) => {
             const typeMap = {
                 'stats_player_scout': { modalId: 'stats_player_scout_modal', title: '🔍 Scout de Jugador', fieldId: 'player_name', fieldLabel: 'Nombre del jugador (parcial o completo)', placeholder: 'Ej: Messi, xavi_pro, etc.' },
                 'stats_team_scout': { modalId: 'stats_team_scout_modal', title: '🛡️ Análisis de Equipo', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' },
-                'stats_match_history': { modalId: 'stats_match_history_modal', title: '📜 Historial de Partidos', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' }
+                'stats_match_history': { modalId: 'stats_match_history_modal', title: '📜 Historial de Partidos', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' },
+                'stats_best11_scout': { modalId: 'stats_best11_scout_modal', title: '🌟 Mejor 11 de Equipo', fieldId: 'team_name', fieldLabel: 'Nombre del equipo (parcial)', placeholder: 'Ej: Real Madrid, Barça, etc.' }
             };
             const cfg = typeMap[customId];
             const modal = new ModalBuilder().setCustomId(cfg.modalId).setTitle(cfg.title);

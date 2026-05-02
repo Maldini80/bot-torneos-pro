@@ -311,3 +311,40 @@ export async function generateTeamBest11Image(best11, teamName, teamLogoUrl) {
 
     return canvas.toBuffer('image/png');
 }
+
+export function generatePublicBest11Embed(best11, club, filterInfo) {
+    const { EmbedBuilder } = require('discord.js');
+    const embed = new EmbedBuilder()
+        .setTitle(`🌟 11 Ideal (Táctico) de ${club.eaClubName}`)
+        .setDescription(filterInfo || 'Toda la temporada')
+        .setColor('#FFD700');
+
+    if (club.logoUrl) embed.setThumbnail(club.logoUrl);
+
+    let titulares = '';
+    const addPos = (arr, title) => {
+        if (arr && arr.length > 0) {
+            titulares += `**${title}**\n` + arr.map(p => `• ${p.posName || 'Pos'}: **${p.name}** (${p.points} pts)`).join('\n') + '\n\n';
+        }
+    };
+
+    addPos(best11.fwd, 'Delanteros');
+    addPos(best11.mid, 'Centrocampistas');
+    addPos(best11.carr, 'Carrileros');
+    addPos(best11.def, 'Defensas');
+    addPos(best11.gk, 'Portero');
+
+    embed.addFields({ name: '🛡️ TITULARES', value: titulares || 'No hay suficientes datos', inline: false });
+
+    let benchText = '';
+    if (best11.bench && best11.bench.length > 0) {
+        const sortedBench = best11.bench.sort((a, b) => b.points - a.points);
+        const mapped = sortedBench.slice(0, 10).map(p => `• **${p.name}** | ${p.posName || p.posGroup.toUpperCase()} | ${p.points} pts`);
+        benchText = mapped.join('\n');
+        if (sortedBench.length > 10) benchText += `\n*...y ${sortedBench.length - 10} más.*`;
+        embed.addFields({ name: '🪑 BANQUILLO', value: benchText, inline: false });
+    }
+
+    return embed;
+}
+

@@ -1261,6 +1261,43 @@ module.exports = async (client, interaction) => {
             return interaction.editReply({ embeds: [embed] });
         }
 
+        // ── BEST 11 SCOUT ──
+        if (ctx.disambigType === 'best11_scout') {
+            const club = await db.collection('club_profiles').findOne({ eaClubId: selectedValue });
+            if (!club) return interaction.editReply({ content: '❌ Equipo no encontrado en la base de datos.' });
+
+            try {
+                const { aggregateTeamLocalStats } = await import('../../logic/localStatsLogic.js');
+                const dateFilterRaw = ctx.dateFilter ? `${new Date(ctx.dateFilter.from).toLocaleDateString('es-ES')}-${new Date(ctx.dateFilter.to).toLocaleDateString('es-ES')}` : '';
+                
+                // Reconstruct timeFilterRaw from timeFilters
+                let timeFilterRaw = '';
+                if (ctx.timeFilters && ctx.timeFilters.length > 0) {
+                    timeFilterRaw = ctx.timeFilters.map(f => `${f.start}-${f.end}`).join(', ');
+                }
+                
+                // Reconstruct daysFilterRaw
+                let daysFilterRaw = '';
+                if (ctx.daysFilter && ctx.daysFilter.length > 0) {
+                    daysFilterRaw = ctx.daysFilter.join(',');
+                }
+
+                const roster = await aggregateTeamLocalStats({ eaClubId: club.eaClubId }, dateFilterRaw, timeFilterRaw, daysFilterRaw);
+                const { calculateTeamBest11, generatePublicBest11Embed } = await import('../../utils/teamBest11Generator.js');
+                const best11 = await calculateTeamBest11(roster);
+                
+                let filterInfo = '';
+                if (dateFilterRaw || timeFilterRaw || daysFilterRaw) {
+                    filterInfo = `\n*(Filtros: ${dateFilterRaw ? dateFilterRaw : 'Siempre'} | ${timeFilterRaw ? timeFilterRaw : 'Todo el día'} | ${daysFilterRaw ? daysFilterRaw : 'Todos los días'})*`;
+                }
+                const best11Embed = generatePublicBest11Embed(best11, club, filterInfo);
+                return interaction.editReply({ embeds: [best11Embed] });
+            } catch (err) {
+                console.error('Error generando el 11 Ideal Público (Disambig):', err);
+                return interaction.editReply({ content: '❌ Ocurrió un error al generar el Mejor 11: ' + err.message });
+            }
+        }
+
         // ── MATCH HISTORY ──
         if (ctx.disambigType === 'match_history') {
             const club = await db.collection('club_profiles').findOne({ eaClubId: selectedValue });
