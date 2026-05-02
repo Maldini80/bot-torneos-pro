@@ -1886,15 +1886,33 @@ if (customId.startsWith('manager_request_modal_')) {
             try {
                 const { aggregateTeamLocalStats } = await import('../../logic/localStatsLogic.js');
                 const roster = await aggregateTeamLocalStats({ eaClubId: club.eaClubId }, dateFilterRaw, timeFilterRaw, daysFilterRaw);
-                const { calculateTeamBest11, generatePublicBest11Embed } = await import('../../utils/teamBest11Generator.js');
+                const { calculateTeamBest11, generateTeamBest11Image } = await import('../../utils/teamBest11Generator.js');
                 const best11 = await calculateTeamBest11(roster);
+                
+                const Team = (await import('../../models/Team.js')).default;
+                const vpgTeam = await Team.findOne({ eaClubId: club.eaClubId });
+                const vpgLogo = vpgTeam ? (vpgTeam.logoUrl || vpgTeam.teamLogoUrl) : null;
+                const displayName = vpgTeam ? vpgTeam.name : club.eaClubName;
+
+                const imageBuffer = await generateTeamBest11Image(best11, displayName, vpgLogo);
                 
                 let filterInfo = '';
                 if (dateFilterRaw || timeFilterRaw || daysFilterRaw) {
                     filterInfo = `\n*(Filtros: ${dateFilterRaw ? dateFilterRaw : 'Siempre'} | ${timeFilterRaw ? timeFilterRaw : 'Todo el día'} | ${daysFilterRaw ? daysFilterRaw : 'Todos los días'})*`;
                 }
-                const best11Embed = generatePublicBest11Embed(best11, club, filterInfo);
-                return interaction.editReply({ embeds: [best11Embed] });
+
+                let benchText = '';
+                if (best11.bench && best11.bench.length > 0) {
+                    const sortedBench = best11.bench.sort((a, b) => b.points - a.points);
+                    const mapped = sortedBench.map(p => `• **${p.name}** | ${p.posName || p.posGroup.toUpperCase()} | ${p.points} pts | ${p.gamesPlayed} PJ`);
+                    benchText = `\n\n🪑 **Banquillo (Resto de plantilla):**\n${mapped.slice(0, 15).join('\n')}`;
+                    if (mapped.length > 15) benchText += `\n*...y ${mapped.length - 15} más.*`;
+                }
+
+                return interaction.editReply({ 
+                    content: `🌟 **11 Ideal Acumulativo de ${displayName}**${filterInfo}${benchText}`,
+                    files: [{ attachment: imageBuffer, name: 'best11.png' }] 
+                });
             } catch (err) {
                 console.error('Error generando el 11 Ideal Público:', err);
                 return interaction.editReply({ content: '❌ Ocurrió un error al generar el Mejor 11: ' + err.message });
