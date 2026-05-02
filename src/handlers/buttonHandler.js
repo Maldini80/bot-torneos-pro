@@ -35,7 +35,7 @@ export async function handleButton(interaction) {
     const db = getDb();
 
     // Redirigir botones del Panel de Estadísticas al handler del VPG Bot
-    if (customId.startsWith('stats_') || customId === 'admin_rescan_profiles') {
+    if (customId.startsWith('stats_') || customId === 'admin_rescan_profiles' || customId.startsWith('public_best11_')) {
         const vpgButtonHandler = require('../vpg_bot/handlers/buttonHandler.js');
         return vpgButtonHandler(client, interaction);
     }
