@@ -120,7 +120,18 @@ export async function aggregateTeamLocalStats(team, dateFilterStr = '', timeFilt
 
         // timestamp de EA viene en segundos
         const timestampMs = parseInt(match.timestamp) * 1000;
-        const d = new Date(timestampMs);
+        const dUtc = new Date(timestampMs);
+
+        // Convertir a hora de Madrid para comparaciones fiables
+        const madridTimeStr = dUtc.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
+        const [h, min] = madridTimeStr.split(':').map(Number);
+        
+        const madridDateStr = dUtc.toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' }); // "2026-04-25"
+        const [year, month, day] = madridDateStr.split('-').map(Number);
+        
+        // Creamos un Date usando el timezone local del servidor PERO con los valores exactos de Madrid
+        // Así parseDateFilter (que usa el timezone local) y matchesTimeFilter coinciden perfectamente.
+        const d = new Date(year, month - 1, day, h, min, 0);
 
         if (dateFilter) {
             if (dateFilter.from && d < dateFilter.from) continue;
