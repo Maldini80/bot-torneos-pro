@@ -313,19 +313,28 @@ export async function generateTeamBest11Image(best11, teamName, teamLogoUrl) {
     return canvas.toBuffer('image/png');
 }
 
-export function generatePublicBest11Embed(best11, club, filterInfo) {
+export function generatePublicBest11Embed(best11, displayName, logoUrl, filterInfo) {
     
     const embed = new EmbedBuilder()
-        .setTitle(`🌟 11 Ideal (Táctico) de ${club.eaClubName}`)
+        .setTitle(`🌟 11 Ideal (Táctico) de ${displayName}`)
         .setDescription(filterInfo || 'Toda la temporada')
         .setColor('#FFD700');
 
-    if (club.logoUrl) embed.setThumbnail(club.logoUrl);
+    if (logoUrl) embed.setThumbnail(logoUrl);
 
     let titulares = '';
     const addPos = (arr, title) => {
         if (arr && arr.length > 0) {
-            titulares += `**${title}**\n` + arr.map(p => `• ${p.posName || 'Pos'}: **${p.name}** (${p.points} pts)`).join('\n') + '\n\n';
+            titulares += `**${title}**\n` + arr.map(p => {
+                const pj = p.gamesPlayed || 0;
+                let extraStats = '';
+                if (title === 'Portero' || title === 'Defensas' || title === 'Carrileros') {
+                    extraStats = `🛡️ Cero: ${p.cleanSheetsDef || p.cleanSheetsGK || 0} | 🛑 Entr: ${p.tacklesMade || 0}`;
+                } else {
+                    extraStats = `⚽ G: ${p.goals || 0} | 👟 A: ${p.assists || 0}`;
+                }
+                return `• ${p.posName || 'Pos'}: **${p.name}** — ${p.points} pts | ${pj} PJ\n  └ *${extraStats}*`;
+            }).join('\n') + '\n\n';
         }
     };
 
@@ -340,7 +349,7 @@ export function generatePublicBest11Embed(best11, club, filterInfo) {
     let benchText = '';
     if (best11.bench && best11.bench.length > 0) {
         const sortedBench = best11.bench.sort((a, b) => b.points - a.points);
-        const mapped = sortedBench.slice(0, 10).map(p => `• **${p.name}** | ${p.posName || p.posGroup.toUpperCase()} | ${p.points} pts`);
+        const mapped = sortedBench.slice(0, 10).map(p => `• **${p.name}** | ${p.posName || p.posGroup.toUpperCase()} | ${p.points} pts | ${p.gamesPlayed || 0} PJ`);
         benchText = mapped.join('\n');
         if (sortedBench.length > 10) benchText += `\n*...y ${sortedBench.length - 10} más.*`;
         embed.addFields({ name: '🪑 BANQUILLO', value: benchText, inline: false });
