@@ -1293,7 +1293,7 @@ module.exports = async (client, interaction) => {
                 const { calculateTeamBest11, generatePublicBest11Embed } = await import('../../utils/teamBest11Generator.js');
                 const best11 = await calculateTeamBest11(roster);
                 
-                const Team = (await import('../../models/Team.js')).default;
+                const Team = require('../models/team.js');
                 const vpgTeam = await Team.findOne({ eaClubId: club.eaClubId });
                 const vpgLogo = vpgTeam ? (vpgTeam.logoUrl || vpgTeam.teamLogoUrl) : null;
                 const displayName = vpgTeam ? vpgTeam.name : club.eaClubName;
