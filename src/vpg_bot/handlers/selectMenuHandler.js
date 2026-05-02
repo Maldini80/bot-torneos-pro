@@ -648,6 +648,7 @@ module.exports = async (client, interaction) => {
             const row3 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`admin_ea_matches_${teamId}`).setLabel('Últimos Partidos EA').setStyle(ButtonStyle.Primary).setEmoji('📊'),
                 new ButtonBuilder().setCustomId(`admin_ea_heights_${teamId}`).setLabel('Ver Alturas').setStyle(ButtonStyle.Primary).setEmoji('📏'),
+                new ButtonBuilder().setCustomId(`admin_team_best11_${teamId}`).setLabel('Mejor 11').setStyle(ButtonStyle.Success).setEmoji('🌟'),
                 new ButtonBuilder().setCustomId(`admin_undo_scan_${teamId}`).setLabel('Deshacer Escaneos (24h)').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
             );
             allRows.push(row3);

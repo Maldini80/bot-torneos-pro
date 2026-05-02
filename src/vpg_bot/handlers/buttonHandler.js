@@ -1207,6 +1207,28 @@ const handler = async (client, interaction) => {
         }
     }
 
+    if (customId.startsWith('admin_team_best11_')) {
+        await interaction.deferReply(); // No ephemeral, para que la imagen la vean todos o si quiere ephemeral lo cambia el admin. Mejor pública o dejarlo default.
+        const teamId = customId.replace('admin_team_best11_', '');
+        const team = await Team.findById(teamId);
+
+        if (!team || !team.eaClubId) return interaction.editReply({ content: '❌ El equipo no tiene un club de EA vinculado.' });
+
+        try {
+            const { calculateTeamBest11, generateTeamBest11Image } = await import('../../utils/teamBest11Generator.js');
+            const best11 = await calculateTeamBest11(team.eaClubId, team.eaPlatform);
+            const imageBuffer = await generateTeamBest11Image(best11, team.name, team.logoUrl || team.teamLogoUrl); // El modelo Team puede usar logoUrl o teamLogoUrl
+
+            return interaction.editReply({ 
+                content: `🌟 **11 Ideal Acumulativo de ${team.name}**\n*(Basado en puntos por rendimiento en EA Sports)*`,
+                files: [{ attachment: imageBuffer, name: 'best11.png' }] 
+            });
+        } catch (err) {
+            console.error('Error generating team best 11:', err);
+            return interaction.editReply({ content: `❌ Error al generar el 11 Ideal: ${err.message}` });
+        }
+    }
+
     if (customId.startsWith('admin_scout_player_')) {
         const teamId = customId.replace('admin_scout_player_', '');
         const modal = new ModalBuilder()
