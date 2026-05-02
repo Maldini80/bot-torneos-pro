@@ -37,12 +37,9 @@ function determinePositionGroup(player) {
 }
 
 // Lógica principal de selección
-export async function calculateTeamBest11(eaClubId, eaPlatform = 'common-gen5') {
-    const eaStatsFetcher = await import('./eaStatsFetcher.js');
-    const roster = await eaStatsFetcher.fetchClubRosterHeights(eaClubId, eaPlatform);
-
+export async function calculateTeamBest11(roster) {
     if (!roster || roster.length === 0) {
-        throw new Error('No se encontraron jugadores en el club de EA Sports.');
+        throw new Error('No se encontraron jugadores en el club con las estadísticas locales solicitadas.');
     }
 
     const playersWithPoints = roster

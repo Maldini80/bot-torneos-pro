@@ -1208,25 +1208,41 @@ const handler = async (client, interaction) => {
     }
 
     if (customId.startsWith('admin_team_best11_')) {
-        await interaction.deferReply(); // No ephemeral, para que la imagen la vean todos o si quiere ephemeral lo cambia el admin. Mejor pública o dejarlo default.
         const teamId = customId.replace('admin_team_best11_', '');
-        const team = await Team.findById(teamId);
+        
+        // Calcular fecha por defecto: Hace 7 días hasta hoy
+        const hoy = new Date();
+        const hace7Dias = new Date();
+        hace7Dias.setDate(hoy.getDate() - 7);
+        
+        const pad = n => n.toString().padStart(2, '0');
+        const defaultDate = `${pad(hace7Dias.getDate())}/${pad(hace7Dias.getMonth()+1)}/${hace7Dias.getFullYear().toString().substring(2)} - ${pad(hoy.getDate())}/${pad(hoy.getMonth()+1)}/${hoy.getFullYear().toString().substring(2)}`;
 
-        if (!team || !team.eaClubId) return interaction.editReply({ content: '❌ El equipo no tiene un club de EA vinculado.' });
+        const modal = new ModalBuilder()
+            .setCustomId(`modal_team_best11_${teamId}`)
+            .setTitle('Filtros: Mejor 11 del Equipo');
 
-        try {
-            const { calculateTeamBest11, generateTeamBest11Image } = await import('../../utils/teamBest11Generator.js');
-            const best11 = await calculateTeamBest11(team.eaClubId, team.eaPlatform);
-            const imageBuffer = await generateTeamBest11Image(best11, team.name, team.logoUrl || team.teamLogoUrl); // El modelo Team puede usar logoUrl o teamLogoUrl
+        const dateInput = new TextInputBuilder()
+            .setCustomId('dateFilter')
+            .setLabel("Franja de Fecha (DD/MM/YY)")
+            .setStyle(TextInputStyle.Short)
+            .setValue(defaultDate)
+            .setPlaceholder("Ej: 15/10/24 - 22/10/24")
+            .setRequired(false);
 
-            return interaction.editReply({ 
-                content: `🌟 **11 Ideal Acumulativo de ${team.name}**\n*(Basado en puntos por rendimiento en EA Sports)*`,
-                files: [{ attachment: imageBuffer, name: 'best11.png' }] 
-            });
-        } catch (err) {
-            console.error('Error generating team best 11:', err);
-            return interaction.editReply({ content: `❌ Error al generar el 11 Ideal: ${err.message}` });
-        }
+        const timeInput = new TextInputBuilder()
+            .setCustomId('timeFilter')
+            .setLabel("Franja Horaria (HH:MM - HH:MM) Opcional")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("Ej: 22:00 - 00:00")
+            .setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(dateInput),
+            new ActionRowBuilder().addComponents(timeInput)
+        );
+
+        return interaction.showModal(modal);
     }
 
     if (customId.startsWith('admin_scout_player_')) {

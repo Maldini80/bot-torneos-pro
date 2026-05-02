@@ -98,6 +98,44 @@ module.exports = async (client, interaction) => {
         try {
             const { handleModal } = await import('../../handlers/modalHandler.js');
             return handleModal(interaction);
+        } catch (err) {
+            console.error('Error delegando modal vpg_best11:', err);
+        }
+    }
+
+    if (customId.startsWith('modal_team_best11_')) {
+        await interaction.deferReply();
+        const teamId = customId.replace('modal_team_best11_', '');
+        
+        const dateFilterRaw = fields.getTextInputValue('dateFilter');
+        const timeFilterRaw = fields.getTextInputValue('timeFilter');
+
+        try {
+            const team = await Team.findById(teamId);
+            if (!team) return interaction.editReply({ content: '❌ Equipo no encontrado.' });
+
+            const { aggregateTeamLocalStats } = await import('../../logic/localStatsLogic.js');
+            const roster = await aggregateTeamLocalStats(team.id, team.eaClubId, dateFilterRaw, timeFilterRaw);
+
+            const { calculateTeamBest11, generateTeamBest11Image } = await import('../../utils/teamBest11Generator.js');
+            const best11 = await calculateTeamBest11(roster);
+            const imageBuffer = await generateTeamBest11Image(best11, team.name, team.logoUrl || team.teamLogoUrl);
+
+            let filterInfo = '';
+            if (dateFilterRaw || timeFilterRaw) {
+                filterInfo = `\n*(Filtros: ${dateFilterRaw ? dateFilterRaw : 'Siempre'} | ${timeFilterRaw ? timeFilterRaw : 'Todo el día'})*`;
+            }
+
+            return interaction.editReply({ 
+                content: `🌟 **11 Ideal Acumulativo de ${team.name}**${filterInfo}`,
+                files: [{ attachment: imageBuffer, name: 'best11.png' }] 
+            });
+
+        } catch (err) {
+            console.error('Error generando el 11 Ideal Local:', err);
+            return interaction.editReply({ content: `❌ No se pudo generar el 11 Ideal: ${err.message}` });
+        }
+    }
         } catch (error) {
             console.error('Error al rutear modal VPG al bot principal:', error);
             return interaction.reply({ content: '❌ Error interno al cargar el módulo.', ephemeral: true });
