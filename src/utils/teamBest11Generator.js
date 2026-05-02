@@ -120,6 +120,27 @@ export async function calculateTeamBest11(roster) {
 
     best11.bench = getRemaining();
 
+    // --- REORDENAMIENTO TÁCTICO ---
+    // En la 3-5-2, el array 'mid' tiene 3 jugadores: índice 0 (MCD), índice 1 (MCO), índice 2 (MCD).
+    // Queremos que el MCO (índice 1) sea el centrocampista más ofensivo (más asistencias o goles).
+    if (best11.mid.length === 3) {
+        const sortedMids = [...best11.mid].sort((a, b) => {
+            const astA = parseInt(a.assists || 0);
+            const astB = parseInt(b.assists || 0);
+            if (astB !== astA) return astB - astA;
+            
+            const golA = parseInt(a.goals || 0);
+            const golB = parseInt(b.goals || 0);
+            if (golB !== golA) return golB - golA;
+            
+            return b.points - a.points;
+        });
+
+        best11.mid[0] = sortedMids[1]; // MCD Izquierdo
+        best11.mid[1] = sortedMids[0]; // MCO (El más ofensivo)
+        best11.mid[2] = sortedMids[2]; // MCD Derecho
+    }
+
     return best11;
 }
 
