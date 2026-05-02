@@ -136,11 +136,7 @@ module.exports = async (client, interaction) => {
             return interaction.editReply({ content: `❌ No se pudo generar el 11 Ideal: ${err.message}` });
         }
     }
-        } catch (error) {
-            console.error('Error al rutear modal VPG al bot principal:', error);
-            return interaction.reply({ content: '❌ Error interno al cargar el módulo.', ephemeral: true });
-        }
-    }
+
 
     if (customId.startsWith('admin_submit_logo_modal_')) {
         await interaction.deferUpdate();
