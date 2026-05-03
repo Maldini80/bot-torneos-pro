@@ -2,6 +2,8 @@
 
 import express from 'express';
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import { WebSocketServer } from 'ws';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
@@ -90,14 +92,40 @@ app.get('/', (req, res) => {
     }
 });
 
-// Registration form page
-app.get('/inscripcion/:tournamentId', (req, res) => {
-    res.sendFile('inscripcion.html', { root: 'public' });
+// Registration form page (shareable via WhatsApp with dynamic promo image)
+app.get('/inscripcion/:tournamentId', async (req, res) => {
+    try {
+        let html = fs.readFileSync(path.join('public', 'inscripcion.html'), 'utf8');
+        const db = getDb(); // from tournamentBotDb
+        const tournament = await db.collection('tournaments').findOne({ shortId: req.params.tournamentId });
+        
+        if (tournament && tournament.config && tournament.config.promoImage) {
+            // Replace the generic og:image with the tournament's promo image
+            html = html.replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${tournament.config.promoImage}">`);
+        }
+        res.send(html);
+    } catch (e) {
+        console.error('Error serving /inscripcion with promo image:', e);
+        res.sendFile('inscripcion.html', { root: 'public' });
+    }
 });
 
-// Pool registration page (shareable via WhatsApp)
-app.get('/bolsa/:poolId', (req, res) => {
-    res.sendFile('bolsa.html', { root: 'public' });
+// Pool registration page (shareable via WhatsApp with dynamic promo image)
+app.get('/bolsa/:poolId', async (req, res) => {
+    try {
+        let html = fs.readFileSync(path.join('public', 'bolsa.html'), 'utf8');
+        const db = getDb();
+        const pool = await db.collection('pools').findOne({ shortId: req.params.poolId });
+        
+        if (pool && pool.imageUrl) {
+            // Replace the generic og:image with the pool's custom image
+            html = html.replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${pool.imageUrl}">`);
+        }
+        res.send(html);
+    } catch (e) {
+        console.error('Error serving /bolsa with promo image:', e);
+        res.sendFile('bolsa.html', { root: 'public' });
+    }
 });
 
 app.use(express.static('public'));
