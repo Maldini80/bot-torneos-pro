@@ -201,11 +201,27 @@ async function checkMatchResult(client, db, tournament, partido) {
         return;
     }
 
+    // Intentar obtener el hilo para saber cuándo se creó
+    let threadCreatedTimestampSecs = 0;
+    try {
+        const thread = await client.channels.fetch(partido.threadId).catch(() => null);
+        if (thread) {
+            // Damos un margen de 10 minutos (600 segundos) antes de la creación del hilo, 
+            // por si empezaron a jugar un poco antes de que se generara el hilo.
+            threadCreatedTimestampSecs = Math.floor(thread.createdTimestamp / 1000) - 600;
+        }
+    } catch (e) {
+        console.warn(`[AUTO-RESULTS] No se pudo obtener el hilo ${partido.threadId} para fecha de creación.`);
+    }
+
     // Filtrar: solo partidos entre estos dos clubs en las últimas LOOKBACK_HOURS horas
-    const cutoff = Math.floor(Date.now() / 1000) - (LOOKBACK_HOURS * 3600);
+    const baseCutoff = Math.floor(Date.now() / 1000) - (LOOKBACK_HOURS * 3600);
+    // Y que estrictamente hayan sido jugados DESPUÉS de la creación del hilo (con margen de gracia)
+    const finalCutoff = Math.max(baseCutoff, threadCreatedTimestampSecs);
+
     const headToHead = matches.filter(match => {
         const clubsInvolved = Object.keys(match.clubs || {});
-        return match.timestamp > cutoff &&
+        return match.timestamp > finalCutoff &&
             clubsInvolved.includes(String(clubIdA)) &&
             clubsInvolved.includes(String(clubIdB));
     });

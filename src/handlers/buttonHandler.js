@@ -35,7 +35,18 @@ export async function handleButton(interaction) {
     const db = getDb();
 
     // Redirigir botones del Panel de Estadísticas al handler del VPG Bot
-    if (customId.startsWith('stats_') || customId === 'admin_rescan_profiles' || customId.startsWith('public_best11_')) {
+    const isVpgButton = customId.startsWith('stats_') || 
+        customId.startsWith('public_best11_') ||
+        ['admin_rescan_profiles', 'admin_toggle_crawler', 'admin_config_crawler_days', 'admin_config_crawler_time', 'admin_force_crawler', 'admin_manage_time_slots', 'admin_create_time_slot', 'admin_delete_time_slot', 'admin_edit_time_slot'].includes(customId) ||
+        customId.startsWith('admin_link_ea_') ||
+        customId.startsWith('admin_unlink_ea_') ||
+        customId.startsWith('admin_ea_heights_') ||
+        customId.startsWith('admin_team_best11_') ||
+        customId.startsWith('admin_scout_player_') ||
+        customId.startsWith('admin_ea_matches_') ||
+        customId.startsWith('admin_undo_scan_');
+
+    if (isVpgButton) {
         const vpgButtonHandler = require('../vpg_bot/handlers/buttonHandler.js');
         return vpgButtonHandler(client, interaction);
     }
