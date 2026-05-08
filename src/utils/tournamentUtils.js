@@ -139,6 +139,17 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
 
         await thread.send({ content: `<@&${ARBITRO_ROLE_ID}> ${mentionString}`, embeds: [embed], components: [row1] });
 
+        // En la primera jornada, informar del horario de inicio
+        if (partido.jornada === 1 || partido.jornada === '1') {
+            try {
+                const db = (await import('../../database.js')).getDb();
+                const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+                if (tournament?.config?.startTime) {
+                    await thread.send(`⏰ **Horario de inicio del torneo:** ${tournament.config.startTime}\n\n🇪🇸 Aseguraos de estar listos a la hora indicada.\n🇬🇧 Make sure you are ready at the indicated time.`);
+                }
+            } catch (e) { /* ignore */ }
+        }
+
         return thread.id;
     } catch (error) {
         console.error(`[ERROR FATAL] No se pudo crear el hilo del partido para el torneo ${tournamentShortId}.`, error);
