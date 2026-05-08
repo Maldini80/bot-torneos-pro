@@ -2940,12 +2940,161 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
     if (action === 'request_referee') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const [matchId] = params;
+        const [matchId, tournamentShortId] = params;
         const thread = interaction.channel;
         if (!thread.isThread()) return interaction.editReply('Esta acción solo funciona en un hilo de partido.');
-        await thread.setName(`⚠️${thread.name.replace(/^[⚔️✅]-/g, '')}`.slice(0, 100));
-        await thread.send({ content: `🛎️ <@&${ARBITRO_ROLE_ID}> Se ha solicitado arbitraje en este partido por parte de <@${interaction.user.id}>.` });
-        await interaction.editReply('✅ Se ha notificado a los árbitros y el hilo ha sido marcado para revisión.');
+
+        // Buscar el torneo y el partido
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+
+        const { partido } = findMatch(tournament, matchId);
+        if (!partido) return interaction.editReply('❌ Partido no encontrado.');
+
+        // Verificar si ya existe un hilo de incidencia activo
+        if (partido.arbitrationThreadId) {
+            // Verificar si el hilo aún existe
+            const existingThread = await client.channels.fetch(partido.arbitrationThreadId).catch(() => null);
+            if (existingThread && !existingThread.archived) {
+                return interaction.editReply('⚠️ Ya existe un hilo de incidencia abierto para este partido.');
+            }
+        }
+
+        // Verificar si la incidencia fue cerrada definitivamente
+        if (partido.arbitrationResolved) {
+            return interaction.editReply('⚠️ La incidencia de este partido ya fue resuelta y cerrada definitivamente.');
+        }
+
+        // Crear hilo privado de arbitraje
+        const parentChannel = await client.channels.fetch(thread.parentId).catch(() => null);
+        if (!parentChannel) return interaction.editReply('❌ No se pudo encontrar el canal padre para crear el hilo de arbitraje.');
+
+        const { ChannelType } = await import('discord.js');
+        const safeTeamA = partido.equipoA.nombre.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 10);
+        const safeTeamB = partido.equipoB.nombre.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 10);
+        const arbitrationThreadName = `⚠️-arbitraje-${safeTeamA}-vs-${safeTeamB}`.toLowerCase().slice(0, 100);
+
+        try {
+            const arbitrationThread = await parentChannel.threads.create({
+                name: arbitrationThreadName,
+                autoArchiveDuration: 10080,
+                type: ChannelType.PrivateThread,
+                reason: `Incidencia de partido: ${matchId}`
+            });
+
+            // Añadir participantes: ambos capitanes + co-capitanes + extras
+            const getTeamIds = (team) => {
+                const ids = new Set();
+                if (team.capitanId) ids.add(team.capitanId);
+                if (team.coCaptainId) ids.add(team.coCaptainId);
+                if (team.extraCaptains && Array.isArray(team.extraCaptains)) {
+                    team.extraCaptains.forEach(id => ids.add(id));
+                }
+                return [...ids];
+            };
+
+            const allIds = [...getTeamIds(partido.equipoA), ...getTeamIds(partido.equipoB)];
+            await Promise.all(allIds.map(id => {
+                if (id && /^\d+$/.test(id)) {
+                    return arbitrationThread.members.add(id).catch(() => null);
+                }
+                return Promise.resolve();
+            }));
+
+            // Crear embed del panel de incidencia
+            const arbitrationEmbed = new EmbedBuilder()
+                .setColor('#f39c12')
+                .setTitle(`⚠️ INCIDENCIA — ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
+                .setDescription(
+                    `📋 **Partido:** ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}\n` +
+                    `👤 **Solicitado por:** <@${interaction.user.id}>\n` +
+                    `📅 **Fecha:** ${new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}\n\n` +
+                    `🔧 Solo los **árbitros/admins** pueden gestionar esta incidencia.`
+                );
+
+            // Botón para forzar resultado
+            const buttonRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`arbitration_force_result:${matchId}:${tournamentShortId}`)
+                    .setLabel('Forzar/Modificar Resultado')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('✍️')
+            );
+
+            // Select menu para cerrar incidencia
+            const selectRow = new ActionRowBuilder().addComponents(
+                new StringSelectMenuBuilder()
+                    .setCustomId(`arbitration_close:${matchId}:${tournamentShortId}`)
+                    .setPlaceholder('📋 Cerrar Incidencia')
+                    .addOptions([
+                        { label: 'Solicitud accidental', value: 'accidental', emoji: '❌', description: 'Se abrió por error. Permite crear otra después.' },
+                        { label: 'Incidencia solucionada', value: 'resolved', emoji: '✅', description: 'Cierre definitivo. No se puede reabrir.' }
+                    ])
+            );
+
+            // Mencionar al rol de árbitro
+            await arbitrationThread.send({
+                content: `<@&${ARBITRO_ROLE_ID}> Se ha abierto una incidencia para este partido.`,
+                embeds: [arbitrationEmbed],
+                components: [buttonRow, selectRow]
+            });
+
+            // Guardar arbitrationThreadId en la BD
+            const { findMatchPath } = await import('../logic/matchLogic.js');
+            const matchPath = findMatchPath(tournament, matchId);
+            if (matchPath) {
+                await db.collection('tournaments').updateOne(
+                    { _id: tournament._id },
+                    {
+                        $set: {
+                            [`${matchPath}.arbitrationThreadId`]: arbitrationThread.id,
+                            [`${matchPath}.arbitrationRequestedBy`]: interaction.user.id
+                        }
+                    }
+                );
+            }
+
+            // Notificar en el hilo del partido original
+            await thread.send({
+                content: `⚠️ **Incidencia abierta** por <@${interaction.user.id}>. Los árbitros han sido notificados en un hilo separado.`
+            });
+
+            await interaction.editReply('✅ Se ha creado un hilo de incidencia. Los árbitros han sido notificados.');
+        } catch (err) {
+            console.error(`[ARBITRATION] Error al crear hilo de incidencia para ${matchId}:`, err);
+            await interaction.editReply('❌ Error al crear el hilo de incidencia. Inténtalo de nuevo.');
+        }
+        return;
+    }
+
+    if (action === 'arbitration_force_result') {
+        // Solo admin/árbitro
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+        const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!isAdmin && !isReferee) {
+            return interaction.reply({ content: '❌ Solo los árbitros o admins pueden usar este botón.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const [matchId, tournamentShortId] = params;
+
+        // Re-leer el partido fresco para mostrar estado actual
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.reply({ content: '❌ Torneo no encontrado.', flags: [MessageFlags.Ephemeral] });
+        const { partido } = findMatch(tournament, matchId);
+
+        const modal = new ModalBuilder()
+            .setCustomId(`arbitration_force_result_modal:${matchId}:${tournamentShortId}`)
+            .setTitle('✍️ Forzar Resultado (Arbitraje)');
+
+        const resultInput = new TextInputBuilder()
+            .setCustomId('arbitration_result_input')
+            .setLabel(partido?.resultado ? `Resultado actual: ${partido.resultado}. ¿Nuevo?` : 'Introduce el resultado (ej: 2-1)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('2-1')
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(resultInput));
+        await interaction.showModal(modal);
         return;
     }
 

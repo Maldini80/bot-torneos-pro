@@ -2544,6 +2544,36 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
 
         return;
     }
+    if (action === 'arbitration_force_result_modal') {
+        await interaction.deferReply();
+        const [matchId, tournamentShortId] = params;
+        let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+
+        const resultRaw = interaction.fields.getTextInputValue('arbitration_result_input').trim();
+        const match = resultRaw.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+        if (!match) return interaction.editReply('❌ Formato inválido. Usa el formato `2-1`.');
+
+        const resultString = `${match[1]}-${match[2]}`;
+        const { partido } = findMatch(tournament, matchId);
+
+        const hadPreviousResult = partido?.resultado;
+
+        await interaction.editReply(`✍️ Procesando resultado **${resultString}**${hadPreviousResult ? ` (revirtiendo anterior: ${hadPreviousResult})` : ''}...`);
+
+        try {
+            const processedMatch = await processMatchResult(client, guild, tournament, matchId, resultString);
+            await finalizeMatchThread(client, processedMatch, resultString);
+
+            await interaction.channel.send({
+                content: `✅ **Resultado aplicado:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}${hadPreviousResult ? `\n⚠️ Resultado anterior (${hadPreviousResult}) revertido.` : ''}\n\n*Aplicado por <@${interaction.user.id}> desde el panel de arbitraje.*`
+            });
+        } catch (error) {
+            console.error(`[ARBITRATION FORCE] Error al procesar resultado para ${matchId}:`, error);
+            await interaction.followUp({ content: `⚠️ Error al procesar: ${error.message}` }).catch(() => {});
+        }
+        return;
+    }
     if (action === 'invite_cocaptain_modal') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;

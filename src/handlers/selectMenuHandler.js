@@ -29,6 +29,87 @@ export async function handleSelectMenu(interaction) {
         return vpgSelectMenuHandler(client, interaction);
     }
 
+    // =======================================================
+    // --- CIERRE DE INCIDENCIA (ARBITRAJE) ---
+    // =======================================================
+    if (action === 'arbitration_close') {
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+        const { ARBITRO_ROLE_ID } = await import('../../config.js');
+        const isReferee = interaction.member.roles.cache.has(ARBITRO_ROLE_ID);
+        if (!isAdmin && !isReferee) {
+            return interaction.reply({ content: '❌ Solo los árbitros o admins pueden cerrar incidencias.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferReply();
+        const [matchId, tournamentShortId] = params;
+        const closeReason = interaction.values[0]; // 'accidental' o 'resolved'
+
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+        if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
+
+        const { findMatchPath } = await import('../logic/matchLogic.js');
+        const matchPath = findMatchPath(tournament, matchId);
+        if (!matchPath) return interaction.editReply('❌ Partido no encontrado.');
+
+        const thread = interaction.channel;
+
+        if (closeReason === 'accidental') {
+            // Solicitud accidental: limpiar estado, permitir reabrir
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                {
+                    $unset: {
+                        [`${matchPath}.arbitrationThreadId`]: '',
+                        [`${matchPath}.arbitrationRequestedBy`]: ''
+                    }
+                }
+            );
+
+            await interaction.editReply('❌ **Incidencia cerrada: Solicitud accidental.**\nSe puede crear una nueva incidencia si es necesario.');
+
+            // Archivar el hilo
+            if (thread.isThread()) {
+                setTimeout(async () => {
+                    try { await thread.setArchived(true); } catch (e) { /* ignore */ }
+                }, 5000);
+            }
+        } else if (closeReason === 'resolved') {
+            // Incidencia solucionada: cierre definitivo
+            await db.collection('tournaments').updateOne(
+                { _id: tournament._id },
+                {
+                    $set: { [`${matchPath}.arbitrationResolved`]: true },
+                    $unset: { [`${matchPath}.arbitrationThreadId`]: '' }
+                }
+            );
+
+            await interaction.editReply('✅ **Incidencia cerrada: Incidencia solucionada.**\nEste cierre es definitivo. No se podrá abrir otra incidencia para este partido.');
+
+            // Archivar el hilo
+            if (thread.isThread()) {
+                setTimeout(async () => {
+                    try { await thread.setArchived(true); } catch (e) { /* ignore */ }
+                }, 5000);
+            }
+        }
+
+        // Deshabilitar los componentes del panel
+        try {
+            const messages = await thread.messages.fetch({ limit: 10 });
+            const panelMsg = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.startsWith('⚠️ INCIDENCIA'));
+            if (panelMsg) {
+                const disabledComponents = panelMsg.components.map(row => {
+                    const newRow = ActionRowBuilder.from(row);
+                    newRow.components.forEach(c => c.setDisabled(true));
+                    return newRow;
+                });
+                await panelMsg.edit({ components: disabledComponents });
+            }
+        } catch (e) { /* ignore */ }
+
+        return;
+    }
+
     if (action === 'vpg_select_league') {
         const [tournamentShortId] = params;
         const leagueSlug = interaction.values[0];
@@ -1114,7 +1195,7 @@ export async function handleSelectMenu(interaction) {
 
         const eaIdInput = new TextInputBuilder()
             .setCustomId('new_ea_club_id')
-            .setLabel('Nuevo EA Club ID (Déjalo en blanco para borrar)')
+            .setLabel('Nuevo EA Club ID (vacío = borrar)')
             .setPlaceholder('Ej: 1234567')
             .setStyle(TextInputStyle.Short)
             .setRequired(false);

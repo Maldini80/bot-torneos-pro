@@ -133,33 +133,11 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
 
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
-            new ButtonBuilder()
-                .setLabel('Prueba de altura perks')
-                .setURL('https://streamable.com')
-                .setStyle(ButtonStyle.Link)
-                .setEmoji('📹')
-        );
-
-        const row2 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`request_referee:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
-            new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️"),
-            new ButtonBuilder().setCustomId(`invite_to_thread:${partido.matchId}:${tournamentShortId}`).setLabel("Invitar al Hilo").setStyle(ButtonStyle.Secondary).setEmoji("🤝")
+            new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
         );
 
-        // Botón de scouting de alturas DESACTIVADO temporalmente.
-        // La API de EA solo devuelve la config actual del Pro, no la del partido jugado.
-        // try {
-        //     const globalSettings = await getBotSettings();
-        //     if (globalSettings && globalSettings.eaScannerEnabled) {
-        //         row2.addComponents(
-        //             new ButtonBuilder().setCustomId(`scout_heights:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Alturas").setStyle(ButtonStyle.Success).setEmoji("📏")
-        //         );
-        //     }
-        // } catch (e) {
-        //     console.warn('[SCOUT] No se pudo verificar eaScannerEnabled:', e.message);
-        // }
-
-        await thread.send({ content: `<@&${ARBITRO_ROLE_ID}> ${mentionString}`, embeds: [embed], components: [row1, row2] });
+        await thread.send({ content: `<@&${ARBITRO_ROLE_ID}> ${mentionString}`, embeds: [embed], components: [row1] });
 
         return thread.id;
     } catch (error) {

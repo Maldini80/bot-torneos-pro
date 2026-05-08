@@ -17,8 +17,8 @@ const processingMatches = new Set();
 
 // Cuántas horas atrás buscar partidos en la API de EA
 const LOOKBACK_HOURS = 6;
-// Intervalo de verificación en milisegundos (90 segundos)
-const CHECK_INTERVAL_MS = 90000;
+// Intervalo de verificación en milisegundos (20 segundos)
+const CHECK_INTERVAL_MS = 20000;
 
 /**
  * Inicia el intervalo de auto-detección de resultados.
@@ -30,7 +30,7 @@ export function startAutoResults(client) {
         return false;
     }
 
-    console.log('[AUTO-RESULTS] ▶️ Iniciando auto-detección de resultados (cada 90s)...');
+    console.log('[AUTO-RESULTS] ▶️ Iniciando auto-detección de resultados (cada 20s)...');
     autoResultsInterval = setInterval(() => {
         checkAutoResults(client).catch(err => {
             console.error('[AUTO-RESULTS] Error en ciclo de verificación:', err);
@@ -106,9 +106,9 @@ async function processTournament(client, db, tournament) {
 
     if (activeMatches.length === 0) return;
 
-    console.log(`[AUTO-RESULTS] Torneo "${tournament.nombre}" (${tournament.shortId}): ${activeMatches.length} partido(s) activo(s) para verificar.`);
-
-    for (const { partido, fase } of activeMatches) {
+    // Procesar partidos secuencialmente para evitar conflictos
+    // si dos partidos del mismo grupo se validan a la vez
+    for (const { partido } of activeMatches) {
         try {
             await checkMatchResult(client, db, tournament, partido);
         } catch (err) {
@@ -201,17 +201,24 @@ async function checkMatchResult(client, db, tournament, partido) {
         return;
     }
 
-    // Intentar obtener el hilo para saber cuándo se creó
+    // Obtener timestamp de creación del hilo (cacheado en el partido para evitar llamadas repetidas a Discord)
     let threadCreatedTimestampSecs = 0;
-    try {
-        const thread = await client.channels.fetch(partido.threadId).catch(() => null);
-        if (thread) {
-            // Damos un margen de 10 minutos (600 segundos) antes de la creación del hilo, 
-            // por si empezaron a jugar un poco antes de que se generara el hilo.
-            threadCreatedTimestampSecs = Math.floor(thread.createdTimestamp / 1000) - 600;
+    if (partido._threadCreatedSecs) {
+        // Usar valor cacheado de ciclos anteriores
+        threadCreatedTimestampSecs = partido._threadCreatedSecs;
+    } else {
+        try {
+            const thread = await client.channels.fetch(partido.threadId).catch(() => null);
+            if (thread) {
+                // Damos un margen de 10 minutos (600 segundos) antes de la creación del hilo, 
+                // por si empezaron a jugar un poco antes de que se generara el hilo.
+                threadCreatedTimestampSecs = Math.floor(thread.createdTimestamp / 1000) - 600;
+                // Cachear en memoria para este ciclo y los siguientes
+                partido._threadCreatedSecs = threadCreatedTimestampSecs;
+            }
+        } catch (e) {
+            console.warn(`[AUTO-RESULTS] No se pudo obtener el hilo ${partido.threadId} para fecha de creación.`);
         }
-    } catch (e) {
-        console.warn(`[AUTO-RESULTS] No se pudo obtener el hilo ${partido.threadId} para fecha de creación.`);
     }
 
     // Filtrar: solo partidos entre estos dos clubs en las últimas LOOKBACK_HOURS horas
@@ -247,9 +254,9 @@ async function checkMatchResult(client, db, tournament, partido) {
     // fusionadas suman al menos 4800 segundos (80 minutos in-game)
     const isFullMatch = !result.isDnf || result.maxSecs >= 4800;
     
-    // Consideramos "Rage-Quit/Abandono" si han pasado más de 25 minutos reales (1500 segundos)
+    // Consideramos "Rage-Quit/Abandono" si han pasado más de 10 minutos reales (600 segundos)
     // desde la última vez que jugaron y no han empezado/terminado una nueva parte
-    const hasRageQuit = secondsSinceLastPlay >= 1500;
+    const hasRageQuit = secondsSinceLastPlay >= 600;
 
     if (!isFullMatch && !hasRageQuit) {
         // Aún no han jugado 80 minutos en total y han pasado menos de 25 min reales.
