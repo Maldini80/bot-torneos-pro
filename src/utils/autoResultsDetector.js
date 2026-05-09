@@ -17,8 +17,8 @@ const processingMatches = new Set();
 
 // Cuántas horas atrás buscar partidos en la API de EA
 const LOOKBACK_HOURS = 6;
-// Intervalo de verificación en milisegundos (20 segundos)
-const CHECK_INTERVAL_MS = 20000;
+// Intervalo de verificación en milisegundos (10 segundos)
+const CHECK_INTERVAL_MS = 10000;
 
 /**
  * Inicia el intervalo de auto-detección de resultados.
@@ -30,7 +30,7 @@ export function startAutoResults(client) {
         return false;
     }
 
-    console.log('[AUTO-RESULTS] ▶️ Iniciando auto-detección de resultados (cada 20s)...');
+    console.log('[AUTO-RESULTS] ▶️ Iniciando auto-detección de resultados (cada 10s)...');
     autoResultsInterval = setInterval(() => {
         checkAutoResults(client).catch(err => {
             console.error('[AUTO-RESULTS] Error en ciclo de verificación:', err);
