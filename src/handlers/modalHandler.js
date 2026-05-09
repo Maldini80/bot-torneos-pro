@@ -184,22 +184,29 @@ export async function handleModal(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const [tournamentShortId] = params;
         const imageUrl = interaction.fields.getTextInputValue('promo_image_url').trim();
+        const matchThreadImageUrl = interaction.fields.getTextInputValue('match_thread_image_url').trim();
 
         const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply({ content: '❌ Torneo no encontrado.' });
 
+        // Validar URLs
         if (imageUrl !== '' && !/^https?:\/\/.+/.test(imageUrl)) {
-             return interaction.editReply({ content: '❌ La URL debe empezar por http:// o https://' });
+             return interaction.editReply({ content: '❌ La URL de imagen promo debe empezar por http:// o https://' });
+        }
+        if (matchThreadImageUrl !== '' && !/^https?:\/\/.+/.test(matchThreadImageUrl)) {
+             return interaction.editReply({ content: '❌ La URL de imagen de hilo debe empezar por http:// o https://' });
         }
 
-        const finalUrl = imageUrl === '' ? null : imageUrl;
+        const finalPromoUrl = imageUrl === '' ? null : imageUrl;
+        const finalMatchThreadUrl = matchThreadImageUrl === '' ? null : matchThreadImageUrl;
 
         await db.collection('tournaments').updateOne(
             { _id: tournament._id },
-            { $set: { 'config.promoImage': finalUrl } }
+            { $set: { 'config.promoImage': finalPromoUrl, 'config.matchThreadImage': finalMatchThreadUrl } }
         );
 
-        tournament.config.promoImage = finalUrl;
+        tournament.config.promoImage = finalPromoUrl;
+        tournament.config.matchThreadImage = finalMatchThreadUrl;
 
         try {
             const { updatePublicMessages } = await import('../logic/tournamentLogic.js');
@@ -210,7 +217,10 @@ export async function handleModal(interaction) {
             console.error("Error al actualizar la imagen en los mensajes públicos:", e);
         }
 
-        await interaction.editReply({ content: `✅ Imagen promocional actualizada correctamente.` });
+        const parts = [];
+        parts.push(finalPromoUrl ? `🌄 Promo: configurada` : `🌄 Promo: borrada`);
+        parts.push(finalMatchThreadUrl ? `🏟️ Hilo encuentro: configurada` : `🏟️ Hilo encuentro: sin imagen`);
+        await interaction.editReply({ content: `✅ Imágenes actualizadas.\n${parts.join('\n')}` });
         return;
     }
 

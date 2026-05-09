@@ -132,6 +132,14 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
             new ButtonBuilder().setCustomId(`request_referee:${partido.matchId}:${tournamentShortId}`).setLabel("Solicitar Arbitraje").setStyle(ButtonStyle.Danger).setEmoji("⚠️"),
             new ButtonBuilder().setCustomId(`admin_modify_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Admin: Forzar Resultado").setStyle(ButtonStyle.Secondary).setEmoji("✍️")
         );
+        // Cargar datos del torneo para imagen configurada
+        try {
+            const db = (await import('../../database.js')).getDb();
+            const tournamentData = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
+            if (tournamentData?.config?.matchThreadImage) {
+                embed.setImage(tournamentData.config.matchThreadImage);
+            }
+        } catch (e) { /* ignore */ }
 
         await thread.send({ content: `<@&${ARBITRO_ROLE_ID}> ${mentionString}`, embeds: [embed], components: [row1] });
 

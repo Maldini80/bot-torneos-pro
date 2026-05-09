@@ -3015,7 +3015,8 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                     `👤 **Solicitado por:** <@${interaction.user.id}>\n` +
                     `📅 **Fecha:** ${new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}\n\n` +
                     `🔧 Solo los **árbitros/admins** pueden gestionar esta incidencia.`
-                );
+                )
+                .setImage('https://i.imgur.com/TSqkvKz.jpeg');
 
             // Botón para forzar resultado
             const buttonRow = new ActionRowBuilder().addComponents(
@@ -4302,18 +4303,31 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
     if (action === 'admin_set_promo_image') {
         const [tournamentShortId] = params;
+        const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         const modal = new ModalBuilder()
             .setCustomId(`promo_image_modal:${tournamentShortId}`)
-            .setTitle('Imagen Promocional');
+            .setTitle('Imágenes del Torneo');
 
         const imageUrlInput = new TextInputBuilder()
             .setCustomId('promo_image_url')
-            .setLabel('URL de la Imagen (vacío para borrar)')
+            .setLabel('Imagen Promo (vacío para borrar)')
             .setPlaceholder('https://imgur.com/...png')
             .setStyle(TextInputStyle.Short)
-            .setRequired(false);
+            .setRequired(false)
+            .setValue(tournament?.config?.promoImage || '');
 
-        modal.addComponents(new ActionRowBuilder().addComponents(imageUrlInput));
+        const matchThreadImageInput = new TextInputBuilder()
+            .setCustomId('match_thread_image_url')
+            .setLabel('Imagen Hilo Encuentro (vacío para borrar)')
+            .setPlaceholder('https://imgur.com/...png')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false)
+            .setValue(tournament?.config?.matchThreadImage || '');
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(imageUrlInput),
+            new ActionRowBuilder().addComponents(matchThreadImageInput)
+        );
         await interaction.showModal(modal);
         return;
     }
