@@ -126,8 +126,6 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
 
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
             .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n${inviteInstruction}`);
-        embed.setFooter({ text: '⛔ Está prohibido jugar prórroga. El resultado válido es el del minuto 90 más descuento, por stats de EA.' });
-
 
         const row1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`report_result_start:${partido.matchId}:${tournamentShortId}`).setLabel("Reportar Resultado").setStyle(ButtonStyle.Primary).setEmoji("📊"),
@@ -137,16 +135,21 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
 
         await thread.send({ content: `<@&${ARBITRO_ROLE_ID}> ${mentionString}`, embeds: [embed], components: [row1] });
 
-        // En la primera jornada, informar del horario de inicio
+        // Mensaje informativo en TODOS los hilos
+        let infoMessage = `⚠️ Si detectáis algún problema con el rival (incumplimiento de normas), pulsad el botón **"Solicitar Arbitraje"** de arriba.\n⛔ Está prohibido jugar prórroga. El resultado válido es el del minuto 90 más descuento, para stats de EA correctas.`;
+
+        // En la primera jornada, añadir el horario de inicio
         if (partido.jornada === 1 || partido.jornada === '1') {
             try {
                 const db = (await import('../../database.js')).getDb();
                 const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 if (tournament?.config?.startTime) {
-                    await thread.send(`⏰ **Horario de inicio del torneo:** ${tournament.config.startTime}\n\n⚠️ Si detectáis algún problema con el rival (comportamiento antideportivo, incumplimiento de normas), pulsad el botón **"Solicitar Arbitraje"** de arriba.`);
+                    infoMessage += `\n\n⏰ **Horario de inicio del torneo:** ${tournament.config.startTime}`;
                 }
             } catch (e) { /* ignore */ }
         }
+
+        await thread.send(infoMessage);
 
         return thread.id;
     } catch (error) {
