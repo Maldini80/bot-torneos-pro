@@ -2599,9 +2599,9 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
                     );
                 }
 
-                // Archivar el hilo tras 5 segundos
+                // Eliminar el hilo tras 5 segundos
                 setTimeout(async () => {
-                    try { await thread.setArchived(true); } catch (e) { /* ignore */ }
+                    try { await thread.delete('Incidencia cerrada: resultado forzado.'); } catch (e) { console.error('[ARBITRATION] Error eliminando hilo (force result):', e.message); }
                 }, 5000);
             }
         } catch (error) {

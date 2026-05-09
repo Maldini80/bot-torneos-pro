@@ -67,10 +67,10 @@ export async function handleSelectMenu(interaction) {
 
             await interaction.editReply('❌ **Incidencia cerrada: Solicitud accidental.**\nSe puede crear una nueva incidencia si es necesario.');
 
-            // Archivar el hilo
+            // Eliminar el hilo
             if (thread.isThread()) {
                 setTimeout(async () => {
-                    try { await thread.setArchived(true); } catch (e) { /* ignore */ }
+                    try { await thread.delete('Incidencia cerrada: solicitud accidental.'); } catch (e) { console.error('[ARBITRATION] Error eliminando hilo (accidental):', e.message); }
                 }, 5000);
             }
         } else if (closeReason === 'resolved') {
@@ -85,10 +85,10 @@ export async function handleSelectMenu(interaction) {
 
             await interaction.editReply('✅ **Incidencia cerrada: Incidencia solucionada.**\nEste cierre es definitivo. No se podrá abrir otra incidencia para este partido.');
 
-            // Archivar el hilo
+            // Eliminar el hilo
             if (thread.isThread()) {
                 setTimeout(async () => {
-                    try { await thread.setArchived(true); } catch (e) { /* ignore */ }
+                    try { await thread.delete('Incidencia cerrada: resuelta.'); } catch (e) { console.error('[ARBITRATION] Error eliminando hilo (resolved):', e.message); }
                 }, 5000);
             }
         }
