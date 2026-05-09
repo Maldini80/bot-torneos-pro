@@ -3042,9 +3042,10 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                     ])
             );
 
-            // Mencionar al rol de árbitro
+            // Mencionar al rol de árbitro y a todos los integrantes de ambos equipos
+            const memberMentions = allIds.filter(id => /^\d+$/.test(id)).map(id => `<@${id}>`).join(' ');
             await arbitrationThread.send({
-                content: `<@&${ARBITRO_ROLE_ID}> Se ha abierto una incidencia para este partido.`,
+                content: `<@&${ARBITRO_ROLE_ID}> ${memberMentions} Se ha abierto una incidencia para este partido.`,
                 embeds: [arbitrationEmbed],
                 components: [buttonRow, selectRow]
             });

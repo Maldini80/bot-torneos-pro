@@ -143,7 +143,7 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
                 const db = (await import('../../database.js')).getDb();
                 const tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
                 if (tournament?.config?.startTime) {
-                    await thread.send(`⏰ **Horario de inicio del torneo:** ${tournament.config.startTime}\n\n⚠️ Si detectáis algún problema con el rival (no se presenta, comportamiento antideportivo, etc.), pulsad el botón **"Solicitar Arbitraje"** de arriba.`);
+                    await thread.send(`⏰ **Horario de inicio del torneo:** ${tournament.config.startTime}\n\n⚠️ Si detectáis algún problema con el rival (comportamiento antideportivo, incumplimiento de normas), pulsad el botón **"Solicitar Arbitraje"** de arriba.`);
                 }
             } catch (e) { /* ignore */ }
         }
