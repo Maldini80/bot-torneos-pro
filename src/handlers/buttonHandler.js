@@ -2953,16 +2953,11 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
         // Verificar si ya existe un hilo de incidencia activo
         if (partido.arbitrationThreadId) {
-            // Verificar si el hilo aún existe
+            // Verificar si el hilo aún existe y no está archivado
             const existingThread = await client.channels.fetch(partido.arbitrationThreadId).catch(() => null);
             if (existingThread && !existingThread.archived) {
-                return interaction.editReply('⚠️ Ya existe un hilo de incidencia abierto para este partido.');
+                return interaction.editReply('⚠️ Ya existe un hilo de incidencia abierto para este partido. No se puede abrir otra hasta que se cierre la actual.');
             }
-        }
-
-        // Verificar si la incidencia fue cerrada definitivamente
-        if (partido.arbitrationResolved) {
-            return interaction.editReply('⚠️ La incidencia de este partido ya fue resuelta y cerrada definitivamente.');
         }
 
         // Crear hilo privado de arbitraje
@@ -3067,7 +3062,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
             // Notificar en el hilo del partido original
             await thread.send({
-                content: `⚠️ **Incidencia abierta** por <@${interaction.user.id}>. Los árbitros han sido notificados en un hilo separado.`
+                content: `⚠️ **Incidencia abierta** por <@${interaction.user.id}>. Acudid al hilo de incidencia, la gestión se realiza desde allí.`
             });
 
             await interaction.editReply('✅ Se ha creado un hilo de incidencia. Los árbitros han sido notificados.');
