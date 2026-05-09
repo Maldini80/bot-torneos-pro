@@ -251,12 +251,12 @@ async function checkMatchResult(client, db, tournament, partido) {
     const secondsSinceLastPlay = Math.floor(Date.now() / 1000) - latestSessionTimestamp;
     
     // Consideramos "partido completo" si EA dice que no es DNF, O si entre todas las partes
-    // fusionadas suman al menos 4800 segundos (80 minutos in-game)
-    const isFullMatch = !result.isDnf || result.maxSecs >= 4800;
+    // fusionadas suman al menos 5400 segundos (90 minutos in-game)
+    const isFullMatch = !result.isDnf || result.maxSecs >= 5400;
     
-    // Consideramos "Rage-Quit/Abandono" si han pasado más de 10 minutos reales (600 segundos)
+    // Consideramos "Rage-Quit/Abandono" si han pasado más de 18 minutos reales (1080 segundos)
     // desde la última vez que jugaron y no han empezado/terminado una nueva parte
-    const hasRageQuit = secondsSinceLastPlay >= 600;
+    const hasRageQuit = secondsSinceLastPlay >= 1080;
 
     if (!isFullMatch && !hasRageQuit) {
         // Aún no han jugado 80 minutos en total y han pasado menos de 25 min reales.

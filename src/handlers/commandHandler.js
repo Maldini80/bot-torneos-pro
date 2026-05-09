@@ -85,13 +85,10 @@ export async function handleCommand(interaction) {
                 reason: 'Hilo de prueba para la subida de vídeos.'
             });
 
-            const footerText = '🇪🇸 Para subir una prueba, usa el botón o pega un enlace de YouTube/Twitch.\n' +
-                '🇬🇧 To upload proof, use the button or paste a YouTube/Twitch link.';
             const embed = new EmbedBuilder()
                 .setColor('#3498db')
                 .setTitle('Laboratorio de Pruebas')
-                .setDescription("Aquí puedes probar el sistema de subida de vídeos:\n\n1.  **Prueba el Botón:** Haz clic en el botón de abajo.\n2.  **Prueba el Pegado:** Pega un enlace de `Streamable`, `YouTube` o `Twitch` directamente en este chat.")
-                .setFooter({ text: footerText });
+                .setDescription("Aquí puedes probar el sistema de subida de vídeos:\n\n1.  **Prueba el Botón:** Haz clic en el botón de abajo.\n2.  **Prueba el Pegado:** Pega un enlace de `Streamable`, `YouTube` o `Twitch` directamente en este chat.");
 
             await thread.send({
                 embeds: [embed],

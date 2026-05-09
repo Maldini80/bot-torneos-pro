@@ -3086,14 +3086,24 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setCustomId(`arbitration_force_result_modal:${matchId}:${tournamentShortId}`)
             .setTitle('✍️ Forzar Resultado (Arbitraje)');
 
-        const resultInput = new TextInputBuilder()
-            .setCustomId('arbitration_result_input')
-            .setLabel(partido?.resultado ? `Resultado actual: ${partido.resultado}. ¿Nuevo?` : 'Introduce el resultado (ej: 2-1)')
+        const golesAInput = new TextInputBuilder()
+            .setCustomId('goles_a')
+            .setLabel(`Goles de ${partido?.equipoA?.nombre || 'Equipo Local'}`)
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('2-1')
+            .setPlaceholder('0')
             .setRequired(true);
 
-        modal.addComponents(new ActionRowBuilder().addComponents(resultInput));
+        const golesBInput = new TextInputBuilder()
+            .setCustomId('goles_b')
+            .setLabel(`Goles de ${partido?.equipoB?.nombre || 'Equipo Visitante'}`)
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('0')
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(golesAInput),
+            new ActionRowBuilder().addComponents(golesBInput)
+        );
         await interaction.showModal(modal);
         return;
     }

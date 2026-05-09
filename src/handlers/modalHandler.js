@@ -2550,11 +2550,11 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         let tournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
         if (!tournament) return interaction.editReply('❌ Torneo no encontrado.');
 
-        const resultRaw = interaction.fields.getTextInputValue('arbitration_result_input').trim();
-        const match = resultRaw.match(/^(\d+)\s*[-–]\s*(\d+)$/);
-        if (!match) return interaction.editReply('❌ Formato inválido. Usa el formato `2-1`.');
+        const golesA = interaction.fields.getTextInputValue('goles_a');
+        const golesB = interaction.fields.getTextInputValue('goles_b');
+        if (isNaN(parseInt(golesA)) || isNaN(parseInt(golesB))) return interaction.editReply('❌ Los goles deben ser números.');
 
-        const resultString = `${match[1]}-${match[2]}`;
+        const resultString = `${golesA}-${golesB}`;
         const { partido } = findMatch(tournament, matchId);
 
         const hadPreviousResult = partido?.resultado;
