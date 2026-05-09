@@ -22,7 +22,7 @@ const CHECK_INTERVAL_MS = 20000;
 
 /**
  * Inicia el intervalo de auto-detección de resultados.
- * Se ejecuta cada 90 segundos mientras esté activo.
+ * Se ejecuta cada 20 segundos mientras esté activo.
  */
 export function startAutoResults(client) {
     if (autoResultsInterval) {
@@ -68,6 +68,10 @@ export function isAutoResultsActive() {
 /**
  * Función principal: revisa todos los partidos con hilo activo en torneos
  * con autoResults habilitado y busca resultados en la API de EA.
+ * 
+ * Optimización: las llamadas a la API de EA se hacen en paralelo,
+ * pero la validación de resultados se mantiene secuencial por torneo
+ * para evitar race conditions en la BD.
  */
 async function checkAutoResults(client) {
     if (isChecking) return; // Evitar ejecuciones solapadas
@@ -85,32 +89,52 @@ async function checkAutoResults(client) {
 
         if (tournaments.length === 0) return;
 
-        for (const tournament of tournaments) {
-            try {
-                await processTournament(client, db, tournament);
-            } catch (err) {
+        // Caché de respuestas de EA por clubId+platform para este ciclo.
+        // Evita llamar dos veces a la misma URL si distintos partidos comparten un equipo.
+        const eaCache = new Map();
+
+        // Procesar torneos en paralelo (son documentos independientes en MongoDB)
+        await Promise.all(tournaments.map(tournament =>
+            processTournament(client, db, tournament, eaCache).catch(err => {
                 console.error(`[AUTO-RESULTS] Error procesando torneo ${tournament.shortId}:`, err);
-            }
-        }
+            })
+        ));
     } finally {
         isChecking = false;
     }
 }
 
 /**
- * Procesa un torneo: busca partidos en_curso con hilo creado y sin resultado.
+ * Procesa un torneo en dos fases:
+ * - Fase 1 (paralela): Consultar EA API para todos los partidos activos a la vez
+ * - Fase 2 (secuencial): Validar los resultados encontrados uno a uno
  */
-async function processTournament(client, db, tournament) {
+async function processTournament(client, db, tournament, eaCache) {
     // Recoger todos los partidos activos (con hilo creado, sin finalizar)
     const activeMatches = collectActiveMatches(tournament);
 
     if (activeMatches.length === 0) return;
 
-    // Procesar partidos secuencialmente para evitar conflictos
-    // si dos partidos del mismo grupo se validan a la vez
-    for (const { partido } of activeMatches) {
+    // === FASE 1: Fetch paralelo de EA API + timestamps de hilos ===
+    const matchDataPromises = activeMatches.map(({ partido }) =>
+        fetchMatchData(client, tournament, partido, eaCache).catch(err => {
+            console.error(`[AUTO-RESULTS] Error en fetch para partido ${partido.matchId}:`, err.message);
+            return null;
+        })
+    );
+
+    const matchDataResults = await Promise.all(matchDataPromises);
+
+    // === FASE 2: Procesar resultados secuencialmente ===
+    // Esto evita conflictos si dos partidos del mismo grupo se validan a la vez
+    for (let i = 0; i < activeMatches.length; i++) {
+        const data = matchDataResults[i];
+        if (!data) continue; // fetch falló o no hay datos
+
+        const { partido } = activeMatches[i];
+
         try {
-            await checkMatchResult(client, db, tournament, partido);
+            await processDetectedResult(client, db, tournament, partido, data);
         } catch (err) {
             console.error(`[AUTO-RESULTS] Error verificando partido ${partido.matchId}:`, err);
         }
@@ -169,36 +193,45 @@ function isMatchActive(match) {
 }
 
 /**
- * Verifica un partido individual: busca en EA API si los dos clubes han jugado recientemente.
+ * Fase 1: Obtiene los datos de EA API y el timestamp del hilo para un partido.
+ * Devuelve un objeto con los datos procesados o null si no hay resultado pendiente.
+ * Esta función NO tiene efectos secundarios en la BD, es segura para paralelizar.
  */
-async function checkMatchResult(client, db, tournament, partido) {
-    // Evitar procesar el mismo partido si ya está en curso
-    if (processingMatches.has(partido.matchId)) return;
+async function fetchMatchData(client, tournament, partido, eaCache) {
+    // Evitar procesar el mismo partido si ya está en curso de validación
+    if (processingMatches.has(partido.matchId)) return null;
 
     // Obtener datos completos de los equipos desde el torneo
     const teamA = tournament.teams.aprobados[partido.equipoA.id || partido.equipoA.capitanId];
     const teamB = tournament.teams.aprobados[partido.equipoB.id || partido.equipoB.capitanId];
 
-    if (!teamA?.eaClubId || !teamB?.eaClubId) return;
+    if (!teamA?.eaClubId || !teamB?.eaClubId) return null;
 
     const platform = teamA.eaPlatform || teamB.eaPlatform || 'common-gen5';
     const clubIdA = teamA.eaClubId;
     const clubIdB = teamB.eaClubId;
 
-    // Consultar EA API para partidos recientes del equipo A
-    const url = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubIdA}&platform=${platform}&matchType=friendlyMatch`;
-
+    // Consultar EA API (con caché por clubId+platform para evitar llamadas duplicadas)
+    const cacheKey = `${clubIdA}:${platform}`;
     let matches;
-    try {
-        const res = await fetch(url, { headers: EA_HEADERS });
-        if (!res.ok) return;
-        matches = await res.json();
-        if (!Array.isArray(matches)) {
-            matches = Object.values(matches || {});
+
+    if (eaCache.has(cacheKey)) {
+        matches = eaCache.get(cacheKey);
+    } else {
+        const url = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubIdA}&platform=${platform}&matchType=friendlyMatch`;
+        try {
+            const res = await fetch(url, { headers: EA_HEADERS });
+            if (!res.ok) return null;
+            matches = await res.json();
+            if (!Array.isArray(matches)) {
+                matches = Object.values(matches || {});
+            }
+            // Guardar en caché para este ciclo
+            eaCache.set(cacheKey, matches);
+        } catch (err) {
+            console.error(`[AUTO-RESULTS] Error consultando EA API para club ${clubIdA}:`, err.message);
+            return null;
         }
-    } catch (err) {
-        console.error(`[AUTO-RESULTS] Error consultando EA API para club ${clubIdA}:`, err.message);
-        return;
     }
 
     // Obtener timestamp de creación del hilo (cacheado en el partido para evitar llamadas repetidas a Discord)
@@ -233,16 +266,26 @@ async function checkMatchResult(client, db, tournament, partido) {
             clubsInvolved.includes(String(clubIdB));
     });
 
-    if (headToHead.length === 0) return;
+    if (headToHead.length === 0) return null;
 
     // Usar mergeSessions para fusionar DNFs y "dos primeras partes"
     // Esto usa TODA la lógica existente de extractMatchInfo (corrección 3-0 fantasma, etc.)
     const merged = mergeSessions(headToHead, clubIdA);
 
-    if (merged.length === 0) return;
+    if (merged.length === 0) return null;
 
     // Tomar el resultado más reciente (puede ser una sesión o la fusión de varias)
     const result = merged[0];
+
+    return { result, clubIdA, clubIdB };
+}
+
+/**
+ * Fase 2: Procesa un resultado detectado. Esta función SÍ modifica la BD y Discord,
+ * por eso se ejecuta secuencialmente dentro de cada torneo.
+ */
+async function processDetectedResult(client, db, tournament, partido, data) {
+    const { result } = data;
     const resultString = `${result.ourGoals}-${result.oppGoals}`;
 
     // === LÓGICA DE GRACIA PARA PARTIDOS INCOMPLETOS ===
@@ -259,9 +302,8 @@ async function checkMatchResult(client, db, tournament, partido) {
     const hasRageQuit = secondsSinceLastPlay >= 1080;
 
     if (!isFullMatch && !hasRageQuit) {
-        // Aún no han jugado 80 minutos en total y han pasado menos de 25 min reales.
-        // El escáner de 90s los ignora momentáneamente para darles tiempo a jugar la "segunda parte".
-        // console.log(`[AUTO-RESULTS] Partido incompleto detectado (${result.maxSecs}s jugados). Esperando segunda parte...`);
+        // Aún no han jugado 80 minutos en total y han pasado menos de 18 min reales.
+        // El escáner los ignora momentáneamente para darles tiempo a jugar la "segunda parte".
         return;
     }
     // ===================================================

@@ -40,10 +40,8 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     const { partido, fase } = findMatch(currentTournament, matchId);
     if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
 
-    // Si ya había un resultado, primero lo revertimos.
-    if (partido.resultado) {
-        await revertStats(currentTournament, partido);
-    }
+    // Capturar resultado anterior ANTES de sobreescribir (necesario para reversión atómica)
+    const oldResultado = partido.resultado || null;
 
     partido.resultado = resultString;
     partido.status = 'finalizado';
@@ -55,15 +53,62 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     if (!matchPath) throw new Error(`Ruta del partido ${matchId} no encontrada en la estructura del torneo.`);
 
     if (fase === 'grupos') {
-        await updateGroupStageStats(currentTournament, partido);
-        // ATÓMICO: Solo escribimos el resultado del partido específico + las stats del grupo afectado
-        // Esto evita que dos partidos concurrentes se sobrescriban mutuamente
-        const atomicUpdate = {
-            [`${matchPath}.resultado`]: resultString,
-            [`${matchPath}.status`]: 'finalizado',
-            [`structure.grupos.${partido.nombreGrupo}.equipos`]: currentTournament.structure.grupos[partido.nombreGrupo].equipos
-        };
-        await db.collection('tournaments').updateOne({ _id: currentTournament._id }, { $set: atomicUpdate });
+        // === ESCRITURA VERDADERAMENTE ATÓMICA con $inc + arrayFilters ===
+        // A diferencia de $set del array completo, $inc no necesita leer primero:
+        // cada operación incrementa los campos directamente en MongoDB.
+        // Esto permite que un capitán y el auto-detector validen partidos del mismo
+        // grupo simultáneamente sin pisarse las stats.
+        const [golesA, golesB] = resultString.split('-').map(Number);
+        const newInc = computeStatsIncrements(golesA, golesB);
+        let netA = { ...newInc.teamA };
+        let netB = { ...newInc.teamB };
+
+        // Si ya había un resultado previo (admin modificando), calcular el neto
+        // (restar incrementos del resultado viejo + sumar incrementos del nuevo)
+        if (oldResultado) {
+            const [oldGA, oldGB] = oldResultado.split('-').map(Number);
+            const oldInc = computeStatsIncrements(oldGA, oldGB);
+            for (const key of Object.keys(netA)) {
+                netA[key] -= oldInc.teamA[key];
+                netB[key] -= oldInc.teamB[key];
+            }
+        }
+
+        const groupPath = `structure.grupos.${partido.nombreGrupo}.equipos`;
+
+        await db.collection('tournaments').updateOne(
+            { _id: currentTournament._id },
+            {
+                $set: {
+                    [`${matchPath}.resultado`]: resultString,
+                    [`${matchPath}.status`]: 'finalizado',
+                },
+                $inc: {
+                    [`${groupPath}.$[eqA].stats.pj`]: netA.pj,
+                    [`${groupPath}.$[eqA].stats.gf`]: netA.gf,
+                    [`${groupPath}.$[eqA].stats.gc`]: netA.gc,
+                    [`${groupPath}.$[eqA].stats.dg`]: netA.dg,
+                    [`${groupPath}.$[eqA].stats.pts`]: netA.pts,
+                    [`${groupPath}.$[eqA].stats.pg`]: netA.pg,
+                    [`${groupPath}.$[eqA].stats.pe`]: netA.pe,
+                    [`${groupPath}.$[eqA].stats.pp`]: netA.pp,
+                    [`${groupPath}.$[eqB].stats.pj`]: netB.pj,
+                    [`${groupPath}.$[eqB].stats.gf`]: netB.gf,
+                    [`${groupPath}.$[eqB].stats.gc`]: netB.gc,
+                    [`${groupPath}.$[eqB].stats.dg`]: netB.dg,
+                    [`${groupPath}.$[eqB].stats.pts`]: netB.pts,
+                    [`${groupPath}.$[eqB].stats.pg`]: netB.pg,
+                    [`${groupPath}.$[eqB].stats.pe`]: netB.pe,
+                    [`${groupPath}.$[eqB].stats.pp`]: netB.pp,
+                }
+            },
+            {
+                arrayFilters: [
+                    { 'eqA.id': partido.equipoA.id },
+                    { 'eqB.id': partido.equipoB.id }
+                ]
+            }
+        );
 
         let updatedTournamentAfterStats = await db.collection('tournaments').findOne({ _id: tournament._id });
         await checkAndCreateNextRoundThreads(client, guild, updatedTournamentAfterStats, partido);
@@ -72,7 +117,7 @@ export async function processMatchResult(client, guild, tournament, matchId, res
         await checkForGroupStageAdvancement(client, guild, updatedTournamentAfterStats);
 
     } else {
-        // ATÓMICO: Solo escribimos el resultado del partido específico de eliminatorias
+        // Eliminatorias: no hay stats de grupo compartidas, $set simple es seguro
         const atomicUpdate = {
             [`${matchPath}.resultado`]: resultString,
             [`${matchPath}.status`]: 'finalizado'
@@ -214,6 +259,25 @@ export function findMatchPath(tournament, matchId) {
     return null;
 }
 
+/**
+ * Calcula los incrementos de stats para ambos equipos dado un resultado.
+ * Usado para operaciones atómicas con $inc en MongoDB.
+ * Retorna deltas puros que se pueden sumar o restar para reversiones.
+ */
+function computeStatsIncrements(golesA, golesB) {
+    let ptsA = 0, ptsB = 0, pgA = 0, pgB = 0, peA = 0, peB = 0, ppA = 0, ppB = 0;
+    if (golesA > golesB) { ptsA = 3; pgA = 1; ppB = 1; }
+    else if (golesB > golesA) { ptsB = 3; pgB = 1; ppA = 1; }
+    else { ptsA = 1; ptsB = 1; peA = 1; peB = 1; }
+
+    return {
+        teamA: { pj: 1, gf: golesA, gc: golesB, dg: golesA - golesB, pts: ptsA, pg: pgA, pe: peA, pp: ppA },
+        teamB: { pj: 1, gf: golesB, gc: golesA, dg: golesB - golesA, pts: ptsB, pg: pgB, pe: peB, pp: ppB }
+    };
+}
+
+// [LEGACY] Se mantiene por compatibilidad pero ya no se usa en processMatchResult.
+// La nueva lógica usa computeStatsIncrements + $inc atómico directamente.
 async function updateGroupStageStats(tournament, partido) {
     const [golesA, golesB] = partido.resultado.split('-').map(Number);
 
