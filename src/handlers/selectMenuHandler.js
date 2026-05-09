@@ -83,7 +83,7 @@ export async function handleSelectMenu(interaction) {
                 }
             );
 
-            await interaction.editReply('✅ **Incidencia cerrada: Incidencia solucionada.**\nEste cierre es definitivo. No se podrá abrir otra incidencia para este partido.');
+            await interaction.editReply('✅ **Incidencia cerrada: Incidencia solucionada.**');
 
             // Eliminar el hilo
             if (thread.isThread()) {
