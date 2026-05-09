@@ -2568,6 +2568,42 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             await interaction.channel.send({
                 content: `✅ **Resultado aplicado:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}${hadPreviousResult ? `\n⚠️ Resultado anterior (${hadPreviousResult}) revertido.` : ''}\n\n*Aplicado por <@${interaction.user.id}> desde el panel de arbitraje.*`
             });
+
+            // Auto-cerrar el hilo de incidencia: deshabilitar componentes y archivar
+            const thread = interaction.channel;
+            if (thread.isThread()) {
+                // Deshabilitar los componentes del panel de incidencia
+                try {
+                    const messages = await thread.messages.fetch({ limit: 10 });
+                    const panelMsg = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.startsWith('⚠️ INCIDENCIA'));
+                    if (panelMsg) {
+                        const disabledComponents = panelMsg.components.map(row => {
+                            const newRow = ActionRowBuilder.from(row);
+                            newRow.components.forEach(c => c.setDisabled(true));
+                            return newRow;
+                        });
+                        await panelMsg.edit({ components: disabledComponents });
+                    }
+                } catch (e) { /* ignore */ }
+
+                // Marcar incidencia como resuelta en la BD
+                const { findMatchPath } = await import('../logic/matchLogic.js');
+                const matchPath = findMatchPath(tournament, matchId);
+                if (matchPath) {
+                    await db.collection('tournaments').updateOne(
+                        { _id: tournament._id },
+                        {
+                            $set: { [`${matchPath}.arbitrationResolved`]: true },
+                            $unset: { [`${matchPath}.arbitrationThreadId`]: '' }
+                        }
+                    );
+                }
+
+                // Archivar el hilo tras 5 segundos
+                setTimeout(async () => {
+                    try { await thread.setArchived(true); } catch (e) { /* ignore */ }
+                }, 5000);
+            }
         } catch (error) {
             console.error(`[ARBITRATION FORCE] Error al procesar resultado para ${matchId}:`, error);
             await interaction.followUp({ content: `⚠️ Error al procesar: ${error.message}` }).catch(() => {});
