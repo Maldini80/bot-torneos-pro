@@ -126,7 +126,7 @@ export async function createMatchThread(client, guild, partido, parentChannelId,
 
         const embed = new EmbedBuilder().setColor('#3498db').setTitle(`Partido: ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
             .setDescription(`${description}\n\n🇪🇸 **Equipo Visitante:** ${partido.equipoB.nombre}\n**Nombre EAFC:** \`${partido.equipoB.eafcTeamName}\`\n\n🇬🇧 **Away Team:** ${partido.equipoB.nombre}\n**EAFC Name:** \`${partido.equipoB.eafcTeamName}\`\n\n${inviteInstruction}`);
-
+        embed.setFooter({ text: '⛔ Está prohibido jugar prórroga. El resultado válido es el del minuto 90.' });
 
 
         const row1 = new ActionRowBuilder().addComponents(
