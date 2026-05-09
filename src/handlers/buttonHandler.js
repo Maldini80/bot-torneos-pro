@@ -3001,12 +3001,22 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 return Promise.resolve();
             }));
 
+            // Determinar la fase/jornada del partido
+            const { fase } = findMatch(tournament, matchId);
+            let faseText = '';
+            if (partido.nombreGrupo) {
+                faseText = `🏟️ **Fase:** ${partido.nombreGrupo} - Jornada ${partido.jornada}\n`;
+            } else if (fase && fase !== 'grupos') {
+                faseText = `🏟️ **Fase:** ${fase}\n`;
+            }
+
             // Crear embed del panel de incidencia
             const arbitrationEmbed = new EmbedBuilder()
                 .setColor('#f39c12')
                 .setTitle(`⚠️ INCIDENCIA — ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}`)
                 .setDescription(
                     `📋 **Partido:** ${partido.equipoA.nombre} vs ${partido.equipoB.nombre}\n` +
+                    faseText +
                     `👤 **Solicitado por:** <@${interaction.user.id}>\n` +
                     `📅 **Fecha:** ${new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}\n\n` +
                     `🔧 Solo los **árbitros/admins** pueden gestionar esta incidencia.`
