@@ -8020,7 +8020,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const stateEmoji = newState ? '✅ ACTIVADO' : '⛔ DESACTIVADO';
         await interaction.followUp({
             content: `🤖 **Auto-Resultados EA:** ${stateEmoji}\n\n${newState
-                ? '▶️ El bot verificará cada **90 segundos** si los equipos con partidos activos han jugado en EA. Los resultados se validarán automáticamente.'
+                ? '▶️ El bot verificará cada **10 segundos** si los equipos con partidos activos han jugado en EA. Los resultados se validarán automáticamente.'
                 : '⏹️ La detección automática de resultados ha sido desactivada. Los capitanes deben reportar los resultados manualmente.'
             }`,
             flags: [MessageFlags.Ephemeral]
