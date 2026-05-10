@@ -12,7 +12,7 @@ const EA_HEADERS = {
 let autoResultsInterval = null;
 let isChecking = false;
 // Set para evitar procesar el mismo partido dos veces si el intervalo se ejecuta
-// mientras processMatchResult + 60s de espera siguen en curso
+// mientras processMatchResult + 100s de espera siguen en curso
 const processingMatches = new Set();
 
 // Cuántas horas atrás buscar partidos en la API de EA
@@ -363,15 +363,15 @@ async function processDetectedResult(client, db, tournament, partido, data) {
             if (thread) {
                 await thread.send({
                     content: `🤖 **Resultado auto-detectado por EA Stats:** ${partido.equipoA.nombre} **${resultString}** ${partido.equipoB.nombre}\n\n` +
-                        `✅ El resultado ha sido validado automáticamente. Este hilo se cerrará en 60 segundos.`
+                        `✅ El resultado ha sido validado automáticamente. Este hilo se cerrará en 100 segundos.`
                 });
             }
         } catch (notifyErr) {
             console.warn(`[AUTO-RESULTS] No se pudo notificar en el hilo ${partido.threadId}:`, notifyErr.message);
         }
 
-        // Cerrar hilo a los 60 segundos (en vez de 10)
-        await finalizeMatchThread(client, processedMatch, resultString, 60000);
+        // Cerrar hilo a los 100 segundos (en vez de 10)
+        await finalizeMatchThread(client, processedMatch, resultString, 100000);
 
         console.log(`[AUTO-RESULTS] ✅ Partido ${partido.matchId} finalizado automáticamente: ${resultString}`);
     } catch (processErr) {
