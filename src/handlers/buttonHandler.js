@@ -3016,7 +3016,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                     `📅 **Fecha:** ${new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}\n\n` +
                     `🔧 Solo los **árbitros/admins** pueden gestionar esta incidencia.`
                 )
-                .setImage('https://i.imgur.com/TSqkvKz.jpeg');
+                .setImage('https://i.imgur.com/aAOlg7e.jpeg');
 
             // Botón para forzar resultado
             const buttonRow = new ActionRowBuilder().addComponents(
