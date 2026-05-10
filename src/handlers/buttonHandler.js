@@ -1132,7 +1132,7 @@ export async function handleButton(interaction) {
             const panelContent = await createGlobalAdminPanel(view);
             await interaction.update(panelContent);
         } catch (error) {
-            if (error.code !== 10062) {
+            if (error.code !== 10062 && error.code !== 40060) {
                 console.error("Error al actualizar el panel de admin:", error);
             }
         }
