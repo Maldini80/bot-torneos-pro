@@ -171,16 +171,6 @@ async function sendApprovalRequest(interaction, client, { vpgUsername, teamName,
 const handler = async (client, interaction) => {
     const { customId, user } = interaction;
 
-    // --- RUTEO AL BOT PRINCIPAL (EA STATS & VPG CRAWLER) ---
-    if (customId.startsWith('admin_vpg_sync_leagues') || customId.startsWith('admin_vpg_best11_start') || customId.startsWith('admin_config_crawler_time') || customId.startsWith('admin_force_crawler') || customId.startsWith('admin_rescan_profiles') || customId.startsWith('stats_debug_ea') || customId.startsWith('admin_manage_time_slots') || customId === 'admin_vpg_data_info') {
-        try {
-            const { handleButton } = await import('../../handlers/buttonHandler.js');
-            return handleButton(interaction);
-        } catch (error) {
-            console.error('Error al rutear botón de EA Stats al bot principal:', error);
-            return interaction.reply({ content: '❌ Error interno al cargar el módulo.', ephemeral: true });
-        }
-    }
 
     // Handler para abrir sub-paneles de categorías del Panel Admin VPG
     if (customId.startsWith('vpg_admin_category_')) {
@@ -1610,36 +1600,184 @@ const handler = async (client, interaction) => {
     }
 
     if (customId === 'admin_vpg_data_info') {
-        const embedMatches = new EmbedBuilder()
-            .setColor('#3498db')
-            .setTitle('🎮 Datos de Partidos (EA Sports)')
-            .setDescription('La API de EA Sports devuelve los siguientes datos por cada partido jugado en Clubes Pro:')
-            .addFields(
-                { name: 'Estadísticas del Club', value: 'Goles, Goles en contra, Tiros, Pases Completados, Entradas, Posesión Media.' },
-                { name: 'Estadísticas del Jugador (Visibles)', value: 'Goles, Asistencias, Valoración (Rating), Tiros, Pases Completados, Entradas, Hombre del Partido (MoTM), Paradas (Portero), Partidos Jugados.' },
-                { name: 'Estadísticas Ocultas', value: 'Tiros a puerta (Shots on Target), Pases Intentados, Entradas Intentadas, Intercepciones, Tarjetas Rojas, Tarjetas Amarillas, Porterías a Cero (Para defensas y porteros).' }
+        if (!isAdmin) return interaction.reply({ content: 'Acción restringida.', ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            const refTeam = await Team.findOne({ eaClubId: { $ne: null } });
+            if (!refTeam) return interaction.editReply({ content: '❌ No hay ningún equipo con un club de EA vinculado. Vincula al menos uno primero.' });
+
+            const clubId = refTeam.eaClubId;
+            const platform = refTeam.eaPlatform || 'common-gen5';
+            const EA_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept': 'application/json', 'Origin': 'https://www.ea.com', 'Referer': 'https://www.ea.com/' };
+
+            await interaction.editReply({ content: '🔍 Conectando con EA Sports para auditar los datos disponibles...' });
+
+            const currentSchema = {};
+            const errors = [];
+
+            // 1. Partidos
+            try {
+                const res = await fetch(`https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`, { headers: EA_HEADERS });
+                if (res.ok) {
+                    let data = await res.json();
+                    if (!Array.isArray(data)) data = Object.values(data || {});
+                    if (data.length > 0) {
+                        const m = data[0];
+                        currentSchema.matchRoot = Object.keys(m).sort();
+                        const cids = Object.keys(m.clubs || {});
+                        if (cids.length > 0) currentSchema.matchClub = Object.keys(m.clubs[cids[0]]).sort();
+                        if (m.players) {
+                            for (const cid of Object.keys(m.players)) {
+                                for (const pid of Object.keys(m.players[cid])) {
+                                    currentSchema.matchPlayer = Object.keys(m.players[cid][pid]).sort();
+                                    break;
+                                }
+                                break;
+                            }
+                        }
+                        if (m.aggregate) {
+                            for (const cid of Object.keys(m.aggregate)) {
+                                currentSchema.matchAggregate = Object.keys(m.aggregate[cid]).sort();
+                                break;
+                            }
+                        }
+                    }
+                } else errors.push(`Partidos: HTTP ${res.status}`);
+            } catch (e) { errors.push(`Partidos: ${e.message}`); }
+
+            // 2. Miembros / Plantilla
+            try {
+                const res = await fetch(`https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`, { headers: EA_HEADERS });
+                if (res.ok) {
+                    const data = await res.json();
+                    let members = [];
+                    if (data[String(clubId)] && Array.isArray(data[String(clubId)])) members = data[String(clubId)];
+                    else if (Array.isArray(data)) members = data;
+                    else { for (const v of Object.values(data)) { if (Array.isArray(v) && v.length > 0) { members = v; break; } } }
+                    if (members.length > 0) currentSchema.memberStats = Object.keys(members[0]).sort();
+                } else errors.push(`Miembros: HTTP ${res.status}`);
+            } catch (e) { errors.push(`Miembros: ${e.message}`); }
+
+            // 3. Info del Club
+            try {
+                const res = await fetch(`https://proclubs.ea.com/api/fc/clubs/info?clubIds=${clubId}&platform=${platform}`, { headers: EA_HEADERS });
+                if (res.ok) {
+                    const data = await res.json();
+                    const info = data[String(clubId)] || Object.values(data)[0];
+                    if (info) currentSchema.clubInfo = Object.keys(info).sort();
+                } else errors.push(`Info Club: HTTP ${res.status}`);
+            } catch (e) { errors.push(`Info Club: ${e.message}`); }
+
+            // 4. Leaderboard / Búsqueda
+            try {
+                const res = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(refTeam.eaClubName || refTeam.name)}&platform=${platform}`, { headers: EA_HEADERS });
+                if (res.ok) {
+                    let data = await res.json();
+                    if (!Array.isArray(data)) data = Object.values(data || {});
+                    if (data.length > 0) currentSchema.leaderboard = Object.keys(data[0]).sort();
+                }
+            } catch (e) { /* opcional */ }
+
+            // Cargar esquema anterior de la DB
+            const { getDb } = await import('../../../database.js');
+            const db = getDb();
+            const config = await db.collection('bot_settings').findOne({ _id: 'global_config' });
+            const prevSchema = config?.eaApiSchema || null;
+            const prevDate = config?.eaApiSchemaLastCheck || null;
+
+            // Comparar
+            const compareKeys = (prev, curr) => {
+                if (!prev) return { added: curr || [], removed: [] };
+                const prevSet = new Set(prev);
+                const currSet = new Set(curr || []);
+                return { added: (curr || []).filter(k => !prevSet.has(k)), removed: prev.filter(k => !currSet.has(k)) };
+            };
+
+            const categories = {
+                matchRoot: '📋 Partido (Raíz)',
+                matchClub: '🏟️ Partido → Club',
+                matchPlayer: '👤 Partido → Jugador',
+                matchAggregate: '📊 Partido → Aggregate',
+                memberStats: '📈 Miembro del Club (Plantilla)',
+                clubInfo: 'ℹ️ Información del Club',
+                leaderboard: '🏆 Leaderboard / Búsqueda'
+            };
+
+            const allChanges = {};
+            let hasAnyChanges = false;
+            for (const key of Object.keys(categories)) {
+                const ch = compareKeys(prevSchema?.[key], currentSchema[key]);
+                allChanges[key] = ch;
+                if (ch.added.length > 0 || ch.removed.length > 0) hasAnyChanges = true;
+            }
+
+            // Guardar esquema actual
+            await db.collection('bot_settings').updateOne(
+                { _id: 'global_config' },
+                { $set: { eaApiSchema: currentSchema, eaApiSchemaLastCheck: new Date() } }
             );
 
-        const embedClubs = new EmbedBuilder()
-            .setColor('#2ecc71')
-            .setTitle('🛡️ Datos de Clubes y Plantillas')
-            .setDescription('A través de la API, podemos extraer datos globales de los clubes y sus miembros:')
-            .addFields(
-                { name: 'Información del Club', value: 'ID del Club, Nombre Exacto, Plataforma (gen4/gen5).' },
-                { name: 'Plantilla de Jugadores', value: 'Nombre de PSN, Posición Favorita, **Altura real del Pro**, Partidos Jugados Totales en el club, Goles y Asistencias históricas (en ese club).' },
-                { name: 'Historial', value: 'Podemos cruzar los IDs de dos clubes para extraer el historial de enfrentamientos directos entre ellos, sumando estadísticas si se desconectaron de una sesión y retomaron en otra.' }
-            );
+            const isFirstScan = !prevSchema;
 
-        const embedPlayers = new EmbedBuilder()
-            .setColor('#e67e22')
-            .setTitle('👤 Seguimiento Individual de Jugadores')
-            .setDescription('**¿Se pueden ver jugadores de manera individual?**\nSí y No. La API de EA **no permite** buscar a un jugador de manera global solo por su nombre para ver todas sus estadísticas históricas.')
-            .addFields(
-                { name: 'Limitación de Búsqueda de EA', value: 'Para ver a un jugador en EA, necesitamos saber en qué **Club** milita actualmente, o extraer sus datos desde el historial de un partido recién escaneado.' },
-                { name: 'Nuestra Solución (Crawler)', value: 'El bot lee todos los partidos jugados en la noche, extrae los nombres de todos los jugadores que participaron, y almacena sus estadísticas individualmente en nuestra base de datos. Gracias a esto, el botón "Scouting / Buscar Jugador" te permite ver todo su rendimiento agregado en todos los clubes que ha pisado en tus torneos/ligas.' }
-            );
+            // Embed 1: Resumen de cambios
+            const embedChanges = new EmbedBuilder()
+                .setColor(isFirstScan ? '#3498db' : hasAnyChanges ? '#e74c3c' : '#2ecc71')
+                .setTitle(isFirstScan ? '🔍 Primera Auditoría de la API de EA' : hasAnyChanges ? '🚨 ¡Cambios Detectados en la API de EA!' : '✅ Sin Cambios en la API de EA')
+                .setFooter({ text: `Club de referencia: ${refTeam.eaClubName || refTeam.name} (${clubId})` });
 
-        return interaction.reply({ embeds: [embedMatches, embedClubs, embedPlayers], ephemeral: true });
+            if (isFirstScan) {
+                embedChanges.setDescription('Primera auditoría. Se ha guardado el esquema actual.\nLa próxima vez se compararán los datos con los de hoy.');
+            } else if (!hasAnyChanges) {
+                const prevStr = prevDate ? new Date(prevDate).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }) : '?';
+                embedChanges.setDescription(`No hay cambios respecto a la última auditoría.\n📅 **Última revisión:** ${prevStr}`);
+            } else {
+                const prevStr = prevDate ? new Date(prevDate).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }) : '?';
+                let txt = `📅 **Comparado con:** ${prevStr}\n\n`;
+                for (const [key, label] of Object.entries(categories)) {
+                    const ch = allChanges[key];
+                    if (ch.added.length > 0 || ch.removed.length > 0) {
+                        txt += `**${label}**\n`;
+                        if (ch.added.length > 0) txt += '🟢 Nuevas: ' + ch.added.map(k => `\`${k}\``).join(', ') + '\n';
+                        if (ch.removed.length > 0) txt += '🔴 Eliminadas: ' + ch.removed.map(k => `\`${k}\``).join(', ') + '\n';
+                        txt += '\n';
+                    }
+                }
+                embedChanges.setDescription(txt.substring(0, 4096));
+            }
+            if (errors.length > 0) embedChanges.addFields({ name: '⚠️ Errores de conexión', value: errors.join('\n') });
+
+            // Helper para añadir campos con chunking
+            const addSchemaField = (embed, label, keys) => {
+                if (!keys || keys.length === 0) { embed.addFields({ name: label, value: '_No disponible_' }); return; }
+                const text = keys.map(k => `\`${k}\``).join(', ');
+                if (text.length <= 1024) { embed.addFields({ name: `${label} (${keys.length})`, value: text }); }
+                else {
+                    let current = '', chunks = [];
+                    for (const k of keys) { const item = `\`${k}\`, `; if (current.length + item.length > 1020) { chunks.push(current.slice(0, -2)); current = item; } else { current += item; } }
+                    if (current) chunks.push(current.slice(0, -2));
+                    chunks.forEach((c, i) => embed.addFields({ name: i === 0 ? `${label} (${keys.length})` : '\u200B', value: c }));
+                }
+            };
+
+            // Embed 2: Esquema de Partidos
+            const embedMatch = new EmbedBuilder().setColor('#3498db').setTitle('🎮 Esquema: Partidos');
+            addSchemaField(embedMatch, '📋 Raíz', currentSchema.matchRoot);
+            addSchemaField(embedMatch, '🏟️ Club (por partido)', currentSchema.matchClub);
+            addSchemaField(embedMatch, '👤 Jugador (por partido)', currentSchema.matchPlayer);
+            if (currentSchema.matchAggregate) addSchemaField(embedMatch, '📊 Aggregate', currentSchema.matchAggregate);
+
+            // Embed 3: Esquema de Club/Miembros
+            const embedClub = new EmbedBuilder().setColor('#2ecc71').setTitle('🛡️ Esquema: Club y Plantilla');
+            addSchemaField(embedClub, 'ℹ️ Info del Club', currentSchema.clubInfo);
+            addSchemaField(embedClub, '📈 Miembro (Plantilla)', currentSchema.memberStats);
+            if (currentSchema.leaderboard) addSchemaField(embedClub, '🏆 Leaderboard', currentSchema.leaderboard);
+
+            return interaction.editReply({ embeds: [embedChanges, embedMatch, embedClub] });
+        } catch (error) {
+            console.error('[EA-INFO] Error:', error);
+            return interaction.editReply({ content: '❌ Error al auditar la API de EA. Revisa la consola.' });
+        }
     }
 
     if (customId === 'stats_debug_ea') {
