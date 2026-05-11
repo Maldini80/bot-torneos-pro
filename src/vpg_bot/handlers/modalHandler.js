@@ -978,10 +978,10 @@ if (customId.startsWith('manager_request_modal_')) {
         if (!db) return interaction.editReply({ content: 'Error de base de datos.' });
 
         const safeQuery = playerName.toLowerCase();
-        const recentMatches = await db.collection('scanned_matches').find({}).sort({ timestamp: -1 }).limit(300).toArray();
+        const cursor = db.collection('scanned_matches').find({}).sort({ timestamp: -1 }).limit(300);
 
         const found = [];
-        for (const match of recentMatches) {
+        for await (const match of cursor) {
             if (!match.players) continue;
             for (const clubId in match.players) {
                 for (const pId in match.players[clubId]) {

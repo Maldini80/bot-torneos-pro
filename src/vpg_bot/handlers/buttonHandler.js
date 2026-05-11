@@ -172,7 +172,7 @@ const handler = async (client, interaction) => {
     const { customId, user } = interaction;
 
     // --- RUTEO AL BOT PRINCIPAL (EA STATS & VPG CRAWLER) ---
-    if (customId.startsWith('admin_vpg_sync_leagues') || customId.startsWith('admin_vpg_best11_start') || customId.startsWith('admin_config_crawler_time') || customId.startsWith('admin_force_crawler') || customId.startsWith('admin_rescan_profiles') || customId.startsWith('stats_debug_ea') || customId.startsWith('admin_manage_time_slots')) {
+    if (customId.startsWith('admin_vpg_sync_leagues') || customId.startsWith('admin_vpg_best11_start') || customId.startsWith('admin_config_crawler_time') || customId.startsWith('admin_force_crawler') || customId.startsWith('admin_rescan_profiles') || customId.startsWith('stats_debug_ea') || customId.startsWith('admin_manage_time_slots') || customId === 'admin_vpg_data_info') {
         try {
             const { handleButton } = await import('../../handlers/buttonHandler.js');
             return handleButton(interaction);
@@ -1607,6 +1607,39 @@ const handler = async (client, interaction) => {
         if (!isAdmin && !isReferee && !userTeam) {
             return interaction.reply({ content: '🔒 Solo **administradores**, **managers**, **capitanes** y **árbitros** pueden usar el panel de estadísticas.', ephemeral: true });
         }
+    }
+
+    if (customId === 'admin_vpg_data_info') {
+        const embedMatches = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle('🎮 Datos de Partidos (EA Sports)')
+            .setDescription('La API de EA Sports devuelve los siguientes datos por cada partido jugado en Clubes Pro:')
+            .addFields(
+                { name: 'Estadísticas del Club', value: 'Goles, Goles en contra, Tiros, Pases Completados, Entradas, Posesión Media.' },
+                { name: 'Estadísticas del Jugador (Visibles)', value: 'Goles, Asistencias, Valoración (Rating), Tiros, Pases Completados, Entradas, Hombre del Partido (MoTM), Paradas (Portero), Partidos Jugados.' },
+                { name: 'Estadísticas Ocultas', value: 'Tiros a puerta (Shots on Target), Pases Intentados, Entradas Intentadas, Intercepciones, Tarjetas Rojas, Tarjetas Amarillas, Porterías a Cero (Para defensas y porteros).' }
+            );
+
+        const embedClubs = new EmbedBuilder()
+            .setColor('#2ecc71')
+            .setTitle('🛡️ Datos de Clubes y Plantillas')
+            .setDescription('A través de la API, podemos extraer datos globales de los clubes y sus miembros:')
+            .addFields(
+                { name: 'Información del Club', value: 'ID del Club, Nombre Exacto, Plataforma (gen4/gen5).' },
+                { name: 'Plantilla de Jugadores', value: 'Nombre de PSN, Posición Favorita, **Altura real del Pro**, Partidos Jugados Totales en el club, Goles y Asistencias históricas (en ese club).' },
+                { name: 'Historial', value: 'Podemos cruzar los IDs de dos clubes para extraer el historial de enfrentamientos directos entre ellos, sumando estadísticas si se desconectaron de una sesión y retomaron en otra.' }
+            );
+
+        const embedPlayers = new EmbedBuilder()
+            .setColor('#e67e22')
+            .setTitle('👤 Seguimiento Individual de Jugadores')
+            .setDescription('**¿Se pueden ver jugadores de manera individual?**\nSí y No. La API de EA **no permite** buscar a un jugador de manera global solo por su nombre para ver todas sus estadísticas históricas.')
+            .addFields(
+                { name: 'Limitación de Búsqueda de EA', value: 'Para ver a un jugador en EA, necesitamos saber en qué **Club** milita actualmente, o extraer sus datos desde el historial de un partido recién escaneado.' },
+                { name: 'Nuestra Solución (Crawler)', value: 'El bot lee todos los partidos jugados en la noche, extrae los nombres de todos los jugadores que participaron, y almacena sus estadísticas individualmente en nuestra base de datos. Gracias a esto, el botón "Scouting / Buscar Jugador" te permite ver todo su rendimiento agregado en todos los clubes que ha pisado en tus torneos/ligas.' }
+            );
+
+        return interaction.reply({ embeds: [embedMatches, embedClubs, embedPlayers], ephemeral: true });
     }
 
     if (customId === 'stats_debug_ea') {

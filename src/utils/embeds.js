@@ -1358,7 +1358,8 @@ export function createVpgAdminCategoryPanel(category, settings) {
                 new ButtonBuilder().setCustomId('stats_debug_ea').setLabel('Debug EA').setStyle(ButtonStyle.Secondary).setEmoji('🔬'),
                 new ButtonBuilder().setCustomId('admin_manage_time_slots').setLabel('Gestionar Franjas').setStyle(ButtonStyle.Secondary).setEmoji('📐'),
                 new ButtonBuilder().setCustomId('admin_vpg_sync_leagues:global').setLabel('Sincronizar Ligas VPG').setStyle(ButtonStyle.Secondary).setEmoji('🌐'),
-                new ButtonBuilder().setCustomId('admin_vpg_best11_start:global').setLabel('Generar 11 Ideal VPG').setStyle(ButtonStyle.Primary).setEmoji('⭐')
+                new ButtonBuilder().setCustomId('admin_vpg_best11_start:global').setLabel('Generar 11 Ideal VPG').setStyle(ButtonStyle.Primary).setEmoji('⭐'),
+                new ButtonBuilder().setCustomId('admin_vpg_data_info').setLabel('Info Datos EA').setStyle(ButtonStyle.Secondary).setEmoji('ℹ️')
             );
             break;
         }
