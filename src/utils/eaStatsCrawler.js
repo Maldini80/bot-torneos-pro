@@ -216,6 +216,32 @@ function resolvePos(posRaw, archetypeid) {
     return POS_MAP[posRaw] || posRaw || '???';
 }
 
+function extractBuild(matchData) {
+    const attrString = matchData.vproattr || "";
+    const attrParts = attrString.split('|');
+    let height = null, weight = null;
+    if (attrParts.length >= 2) {
+        const last3 = attrParts.slice(-3);
+        for (const val of last3) {
+            const num = parseInt(val);
+            if (!isNaN(num)) {
+                if (num >= 150 && num <= 220 && !height) height = num;
+                else if (num >= 45 && num <= 130 && !weight) weight = num;
+            }
+        }
+    }
+    
+    const perks = {};
+    for (let i = 0; i < 5; i++) {
+        if (matchData[`match_event_aggregate_${i}`] !== undefined) {
+            perks[`event_${i}`] = matchData[`match_event_aggregate_${i}`];
+        }
+    }
+    if (matchData.vprohackreason) perks.hackreason = matchData.vprohackreason;
+
+    return { height, weight, perks, vproattr: matchData.vproattr || null };
+}
+
 async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsAgainstThisMatch = 0) {
     const pos = resolvePos(matchData.pos, matchData.archetypeid);
     const isGK = pos === 'POR';
@@ -246,11 +272,12 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     };
 
     const rating = parseFloat(matchData.rating || 0);
+    const build = extractBuild(matchData);
 
     await coll.updateOne(
         { eaPlayerName: playerName },
         { 
-            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos },
+            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos, build: build },
             $inc: incrementData,
             $push: { 'stats.ratings': rating }
         },
@@ -265,12 +292,13 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
 async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubName) {
     const pos = resolvePos(matchData.pos, matchData.archetypeid);
     const rating = parseFloat(matchData.rating || 0);
+    const build = extractBuild(matchData);
     
     // Solo guardar rating (sin incrementar matchesPlayed ni stats)
     await coll.updateOne(
         { eaPlayerName: playerName },
         { 
-            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos },
+            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos, build: build },
             $push: { 'stats.ratings': rating }
         },
         { upsert: true }

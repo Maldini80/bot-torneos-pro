@@ -1646,18 +1646,8 @@ const handler = async (client, interaction) => {
                 } else errors.push(`Partidos: HTTP ${res.status}`);
             } catch (e) { errors.push(`Partidos: ${e.message}`); }
 
-            // 2. Miembros / Plantilla
-            try {
-                const res = await fetch(`https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`, { headers: EA_HEADERS });
-                if (res.ok) {
-                    const data = await res.json();
-                    let members = [];
-                    if (data[String(clubId)] && Array.isArray(data[String(clubId)])) members = data[String(clubId)];
-                    else if (Array.isArray(data)) members = data;
-                    else { for (const v of Object.values(data)) { if (Array.isArray(v) && v.length > 0) { members = v; break; } } }
-                    if (members.length > 0) currentSchema.memberStats = Object.keys(members[0]).sort();
-                } else errors.push(`Miembros: HTTP ${res.status}`);
-            } catch (e) { errors.push(`Miembros: ${e.message}`); }
+            // 2. Miembros / Plantilla (Desactivado por EA FC - Endpoint obsoleto o protegido)
+            // currentSchema.memberStats queda indefinido y se mostrará como no disponible.
 
             // 3. Info del Club
             try {

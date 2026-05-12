@@ -1007,6 +1007,12 @@ if (customId.startsWith('manager_request_modal_')) {
                                 tacklesmade: p.tacklesmade, tacklesMade: p.tacklesMade, tacklescompleted: p.tacklescompleted,
                                 tacklesattempted: p.tacklesattempted, tacklesAttempted: p.tacklesAttempted, tackleattempts: p.tackleattempts
                             }),
+                            vproattr: p.vproattr,
+                            perks: JSON.stringify({
+                                e0: p.match_event_aggregate_0, e1: p.match_event_aggregate_1, 
+                                e2: p.match_event_aggregate_2, e3: p.match_event_aggregate_3, 
+                                hack: p.vprohackreason
+                            }),
                             date: madridTime,
                             matchId: match.matchId,
                             clubName: match.clubs?.[clubId]?.details?.name || clubId
@@ -1029,7 +1035,27 @@ if (customId.startsWith('manager_request_modal_')) {
         }
         output += `\`\`\`\n`;
         output += `**Leyenda:** Pos=EA, Map=resolvePos, Arch=archetypeid, Int=intercepciones, TM=entradas hechas, TA=entradas intentadas\n\n`;
-        output += `**Keys defensivas crudas (1er partido):**\n\`\`\`json\n${found[0].rawDefense}\n\`\`\`\n`;
+        
+        let buildInfo = 'No disponible';
+        if (found[0].vproattr) {
+            const parts = found[0].vproattr.split('|');
+            let h = '?', w = '?';
+            if (parts.length >= 2) {
+                const last3 = parts.slice(-3);
+                for (const val of last3) {
+                    const num = parseInt(val);
+                    if (!isNaN(num)) {
+                        if (num >= 150 && num <= 220 && h === '?') h = num;
+                        else if (num >= 45 && num <= 130 && w === '?') w = num;
+                    }
+                }
+            }
+            buildInfo = `Altura: ${h}cm | Peso: ${w}kg\nvproattr: ${found[0].vproattr}`;
+        }
+        
+        output += `**Físico (1er partido):**\n\`\`\`text\n${buildInfo}\n\`\`\`\n`;
+        output += `**Perks/Activaciones (1er partido):**\n\`\`\`json\n${found[0].perks}\n\`\`\`\n`;
+        output += `**Keys defensivas (1er partido):**\n\`\`\`json\n${found[0].rawDefense}\n\`\`\`\n`;
         output += `**Todas las keys EA (1er partido):**\n\`${found[0].allKeys.join(', ')}\``;
 
         return interaction.editReply({ content: output });
