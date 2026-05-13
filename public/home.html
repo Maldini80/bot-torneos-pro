@@ -9,7 +9,7 @@
         content="THE BLITZ — the premier competitive EA Sports FC Pro Clubs tournament platform. Create teams, compete, dominate.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         /* ===== DESIGN SYSTEM ===== */
         :root {
@@ -123,34 +123,23 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Logo */
-        .hero-logo {
-            width: 140px;
-            height: auto;
-            margin-bottom: 32px;
-            filter: drop-shadow(0 0 40px var(--color-accent-glow));
-            animation: logoPulse 4s ease-in-out infinite;
-            mix-blend-mode: lighten;
-            border-radius: 16px;
-        }
-        @keyframes logoPulse {
-            0%, 100% { filter: drop-shadow(0 0 30px var(--color-accent-glow)); transform: scale(1); }
-            50% { filter: drop-shadow(0 0 50px var(--color-accent-glow)) drop-shadow(0 0 80px rgba(10,132,255,0.2)); transform: scale(1.03); }
-        }
+        /* Logo text replaced image */
 
-        /* Title */
+        /* Title — Cinzel Decorative (Exocet-style) */
         .hero-title {
-            font-family: var(--font-heading);
-            font-size: clamp(3.5rem, 10vw, 7rem);
-            font-weight: 700;
-            letter-spacing: 6px;
+            font-family: 'Cinzel Decorative', serif;
+            font-size: clamp(3rem, 9vw, 6.5rem);
+            font-weight: 900;
+            letter-spacing: 8px;
             text-transform: uppercase;
             line-height: 1;
             margin-bottom: 16px;
-            background: linear-gradient(180deg, #FFFFFF 0%, #B0B0C0 50%, #D4A843 100%);
+            background: linear-gradient(180deg, #FFFFFF 0%, #D4C098 40%, #D4A843 70%, #A07828 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            text-shadow: none;
+            filter: drop-shadow(0 0 30px rgba(212,168,67,0.3)) drop-shadow(0 4px 8px rgba(0,0,0,0.8));
         }
 
         /* Tagline */
@@ -457,7 +446,7 @@
     <!-- ===== HERO ===== -->
     <section class="hero">
         <div class="hero-content">
-            <img src="logo-the-blitz.png" alt="THE BLITZ" class="hero-logo">
+
             <h1 class="hero-title">THE BLITZ</h1>
             <p class="hero-tagline" data-i18n="subtitle">Plataforma Competitiva de Torneos EA Sports FC</p>
 
