@@ -4492,15 +4492,207 @@ footer#common-footer {
     text-align: center;
     font-family: var(--font-body);
     font-size: 0.85em;
-    color: #666;
+    color: #555;
     z-index: 50;
-    box-shadow: 0 -4px 20px rgba(0, 246, 255, 0.08);
+    box-shadow: 0 -4px 20px rgba(10, 132, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Espacio para que el footer no tape contenido */
 #dashboard-app {
     padding-bottom: 40px;
+    position: relative;
+    z-index: 1;
 }
+
+/* === DASHBOARD BACKGROUND === */
+.animated-background {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(10,132,255,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(212,168,67,0.04) 0%, transparent 50%),
+        #06060e;
+    z-index: 0;
+}
+
+.particles { display: none; }
+
+/* === DASHBOARD SECTIONS === */
+.view-section {
+    max-width: 1200px;
+    margin: 0 auto 40px auto;
+    padding: 30px;
+    background: rgba(12, 12, 24, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    backdrop-filter: blur(12px);
+}
+
+.view-section h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    color: #fff;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    text-shadow: 0 0 7px #fff, 0 0 15px rgba(10,132,255,0.6), 0 0 30px rgba(10,132,255,0.3);
+}
+
+/* === EVENTS GRID === */
+.events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.event-card {
+    background: rgba(16, 16, 32, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.event-card:hover {
+    border-color: rgba(10, 132, 255, 0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(10, 132, 255, 0.1);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+}
+
+/* === FILTERS === */
+.filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.filters select,
+.filters input {
+    padding: 10px 16px;
+    background: rgba(12, 12, 24, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #EAEAF0;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    flex: 1;
+    min-width: 180px;
+    transition: border-color 0.3s;
+}
+
+.filters select:focus,
+.filters input:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(10, 132, 255, 0.2);
+}
+
+/* === HISTORY TABLE === */
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.history-table th {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.85rem;
+    color: var(--neon-cyan);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 12px 16px;
+    background: rgba(10, 132, 255, 0.06);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
+}
+
+.history-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 0.95rem;
+}
+
+.history-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* === PAGINATION === */
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.pagination button {
+    background: rgba(12, 12, 24, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #EAEAF0;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Inter', sans-serif;
+}
+
+.pagination button:hover,
+.pagination button.active {
+    background: var(--neon-cyan);
+    border-color: var(--neon-cyan);
+    color: #000;
+}
+
+/* === MOBILE NAV === */
+.mobile-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(6, 6, 14, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    z-index: 200;
+    justify-content: space-around;
+    padding: 8px 0;
+}
+
+.mobile-nav button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.2s;
+}
+
+.mobile-nav button .icon { font-size: 1.3rem; }
+
+.mobile-nav button.active {
+    color: var(--neon-cyan);
+}
+
+@media (max-width: 768px) {
+    .mobile-nav { display: flex; }
+    #dashboard-app { padding-bottom: 70px; }
+    .view-section { padding: 20px 16px; margin-bottom: 24px; }
+    .events-grid { grid-template-columns: 1fr; }
+    .history-table { display: none !important; }
+}
+
 /* === MATCH STATS MODAL (EA) === */
 .lineups-container { display: flex; gap: 20px; flex-wrap: nowrap; }
 .lineup-box { flex: 1; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 15px; }
@@ -4508,9 +4700,9 @@ footer#common-footer {
 .stat-bar-container { display: flex; align-items: center; margin-bottom: 10px; font-size: 0.9rem; }
 .stat-bar-label { flex: 0 0 100px; text-align: center; font-weight: bold; color: #aaa; }
 .stat-bar-value { flex: 0 0 40px; text-align: center; font-weight: bold; }
-.stat-bar-track { flex: 1; height: 8px; background: #333; border-radius: 4px; display: flex; overflow: hidden; margin: 0 10px; }
-.stat-bar-fill-a { background: #00d4ff; height: 100%; transition: width 0.5s ease; }
-.stat-bar-fill-b { background: #ff00e5; height: 100%; transition: width 0.5s ease; }
+.stat-bar-track { flex: 1; height: 8px; background: #222; border-radius: 4px; display: flex; overflow: hidden; margin: 0 10px; }
+.stat-bar-fill-a { background: #0A84FF; height: 100%; transition: width 0.5s ease; }
+.stat-bar-fill-b { background: #D4A843; height: 100%; transition: width 0.5s ease; }
 .table-responsive { overflow-x: auto; }
 @media (max-width: 768px) {
   .lineups-container { flex-direction: column; }
@@ -4518,4 +4710,3 @@ footer#common-footer {
   .stat-bar-value { flex: 0 0 30px; font-size: 0.8rem; }
   #ms-score { font-size: 1.8rem !important; padding: 0 10px !important; }
 }
-
