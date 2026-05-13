@@ -80,42 +80,12 @@
 
 body {
     background-color: #06060e;
-    background-image: url('https://i.imgur.com/P3m2pe5.png');
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
     color: var(--text-color);
     font-family: 'Inter', var(--font-body);
     margin: 0;
     padding: 20px;
     min-height: 100vh;
     position: relative;
-}
-
-/* Animación del background vibrante */
-@keyframes ultraGlow {
-
-    0%,
-    100% {
-        background-position: 0% 50%, 100% 50%, 50% 0%;
-    }
-
-    50% {
-        background-position: 100% 50%, 0% 50%, 50% 100%;
-    }
-}
-
-/* Dark overlay for readability */
-body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(6, 6, 14, 0.92);
-    pointer-events: none;
-    z-index: 0;
 }
 
 .hidden {
