@@ -143,7 +143,7 @@
             color: white;
         }
 
-        /* === YouTube Video Background === */
+        /* === Video Background === */
         .dash-video-bg {
             position: fixed;
             top: 0;
@@ -152,18 +152,18 @@
             height: 100%;
             z-index: 0;
             overflow: hidden;
-            /* Fallback poster when video can't play */
             background: url('https://i.imgur.com/P3m2pe5.png') center/cover no-repeat;
             background-color: #06060e;
         }
-        .dash-video-bg iframe {
+        .dash-video-bg video {
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 120vw;
-            height: 120vh;
-            min-width: 177.78vh;
-            min-height: 56.25vw;
+            width: 100%;
+            height: 100%;
+            min-width: 100%;
+            min-height: 100%;
+            object-fit: cover;
             transform: translate(-50%, -50%);
             pointer-events: none;
         }
@@ -224,9 +224,7 @@
             border-color: #0A84FF;
             box-shadow: 0 0 15px rgba(10,132,255,0.4);
         }
-        @media (max-width: 768px) {
-            .dash-sound-toggle { display: none; }
-        }
+
 
         /* Override style.css body background so video shows through */
         body {
@@ -237,9 +235,12 @@
 </head>
 
 <body>
-    <!-- YouTube Video Background -->
+    <!-- Video Background -->
     <div class="dash-video-bg">
-        <div id="yt-player-dash"></div>
+        <video id="dash-video" autoplay muted loop playsinline preload="auto"
+               poster="https://i.imgur.com/P3m2pe5.png">
+            <source src="/videos/dash-bg.mp4" type="video/mp4">
+        </video>
         <div class="dash-video-overlay"></div>
     </div>
     <!-- Animated CSS Background -->
@@ -942,96 +943,20 @@
         🔇
     </button>
 
-    <!-- YouTube IFrame API -->
-    <script src="https://www.youtube.com/iframe_api"></script>
     <script>
-        // ===== Dashboard YouTube Player =====
-        let dashPlayer = null;
+        // ===== Video Sound Toggle =====
+        const dashVideo = document.getElementById('dash-video');
         let dashMuted = true;
-        let dashYtReady = false;
 
-        const dashIsMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
-
-        function initDashPlayer() {
-            if (dashPlayer || !document.getElementById('yt-player-dash')) return;
-            try {
-                dashPlayer = new YT.Player('yt-player-dash', {
-                    videoId: 'eOLsgXHB1K0',
-                    playerVars: {
-                        autoplay: 1,
-                        mute: 1,
-                        controls: 0,
-                        showinfo: 0,
-                        rel: 0,
-                        iv_load_policy: 3,
-                        modestbranding: 1,
-                        disablekb: 1,
-                        fs: 0,
-                        loop: 1,
-                        playlist: 'eOLsgXHB1K0',
-                        playsinline: 1,
-                        origin: window.location.origin
-                    },
-                    events: {
-                        onReady: function(e) {
-                            e.target.playVideo();
-                        },
-                        onStateChange: function(e) {
-                            if (e.data === YT.PlayerState.ENDED) {
-                                e.target.seekTo(0);
-                                e.target.playVideo();
-                            }
-                        },
-                        onError: function(e) {
-                            console.warn('Dashboard YT error:', e.data);
-                        }
-                    }
-                });
-            } catch(err) {
-                console.warn('Dash YT init failed, retrying...', err);
-                setTimeout(initDashPlayer, 2000);
-            }
-        }
-
-        function onYouTubeIframeAPIReady() {
-            dashYtReady = true;
-            if (!dashIsMobile) {
-                initDashPlayer();
-            }
-        }
-
-        // Retry if API loaded before callback registered
-        setTimeout(function() {
-            if (!dashYtReady && typeof YT !== 'undefined' && YT.Player) {
-                dashYtReady = true;
-                if (!dashIsMobile) initDashPlayer();
-            }
-        }, 3000);
-
-        // Sound toggle
         document.getElementById('dash-sound-toggle').addEventListener('click', function() {
-            if (dashIsMobile && !dashPlayer && dashYtReady) {
-                initDashPlayer();
-                this.textContent = '⏳';
-                setTimeout(() => {
-                    if (dashPlayer && dashPlayer.unMute) {
-                        dashPlayer.unMute();
-                        dashPlayer.setVolume(40);
-                        this.textContent = '🔊';
-                        this.classList.add('unmuted');
-                        dashMuted = false;
-                    }
-                }, 2000);
-                return;
-            }
-            if (!dashPlayer) return;
+            if (!dashVideo) return;
             if (dashMuted) {
-                dashPlayer.unMute();
-                dashPlayer.setVolume(40);
+                dashVideo.muted = false;
+                dashVideo.volume = 0.4;
                 this.textContent = '🔊';
                 this.classList.add('unmuted');
             } else {
-                dashPlayer.mute();
+                dashVideo.muted = true;
                 this.textContent = '🔇';
                 this.classList.remove('unmuted');
             }
