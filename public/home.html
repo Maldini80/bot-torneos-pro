@@ -125,7 +125,7 @@
 
         /* Logo text replaced image */
 
-        /* Title — Cinzel Decorative (Exocet-style) */
+        /* Title — Cinzel Decorative (Exocet-style) with INTENSE GLOW */
         .hero-title {
             font-family: 'Cinzel Decorative', serif;
             font-size: clamp(3rem, 9vw, 6.5rem);
@@ -134,12 +134,37 @@
             text-transform: uppercase;
             line-height: 1;
             margin-bottom: 16px;
-            background: linear-gradient(180deg, #FFFFFF 0%, #D4C098 40%, #D4A843 70%, #A07828 100%);
+            position: relative;
+            display: inline-block;
+            background: linear-gradient(180deg, #FFFFFF 0%, #FFE4A0 30%, #D4A843 60%, #B8892A 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            text-shadow: none;
-            filter: drop-shadow(0 0 30px rgba(212,168,67,0.3)) drop-shadow(0 4px 8px rgba(0,0,0,0.8));
+            filter:
+                drop-shadow(0 0 10px rgba(212,168,67,0.8))
+                drop-shadow(0 0 30px rgba(212,168,67,0.6))
+                drop-shadow(0 0 60px rgba(212,168,67,0.4))
+                drop-shadow(0 0 100px rgba(212,168,67,0.3))
+                drop-shadow(0 0 150px rgba(255,180,50,0.2));
+            animation: titleGlow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes titleGlow {
+            0% {
+                filter:
+                    drop-shadow(0 0 10px rgba(212,168,67,0.7))
+                    drop-shadow(0 0 30px rgba(212,168,67,0.5))
+                    drop-shadow(0 0 60px rgba(212,168,67,0.3))
+                    drop-shadow(0 0 100px rgba(212,168,67,0.2));
+            }
+            100% {
+                filter:
+                    drop-shadow(0 0 15px rgba(255,200,80,1))
+                    drop-shadow(0 0 40px rgba(255,200,80,0.8))
+                    drop-shadow(0 0 80px rgba(212,168,67,0.5))
+                    drop-shadow(0 0 120px rgba(212,168,67,0.4))
+                    drop-shadow(0 0 200px rgba(255,180,50,0.3));
+            }
         }
 
         /* Tagline */
