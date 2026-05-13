@@ -150,9 +150,11 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -2;
+            z-index: 0;
             overflow: hidden;
-            background: #06060e;
+            /* Fallback poster when video can't play */
+            background: url('https://i.imgur.com/P3m2pe5.png') center/cover no-repeat;
+            background-color: #06060e;
         }
         .dash-video-bg iframe {
             position: absolute;
@@ -170,6 +172,24 @@
             inset: 0;
             background: rgba(6, 6, 14, 0.82);
             z-index: 1;
+        }
+
+        /* Ensure all dashboard content sits above the video */
+        .animated-background,
+        .particles,
+        #loading,
+        #dashboard-app,
+        .mobile-nav,
+        .modal,
+        #common-footer {
+            position: relative;
+            z-index: 2;
+        }
+        #common-footer {
+            z-index: 50;
+        }
+        .modal {
+            z-index: 2000;
         }
 
         /* Sound Toggle */
@@ -203,6 +223,15 @@
             background: rgba(10,132,255,0.25);
             border-color: #0A84FF;
             box-shadow: 0 0 15px rgba(10,132,255,0.4);
+        }
+        @media (max-width: 768px) {
+            .dash-sound-toggle { display: none; }
+        }
+
+        /* Override style.css body background so video shows through */
+        body {
+            background-color: transparent !important;
+            background-image: none !important;
         }
     </style>
 </head>
@@ -919,41 +948,82 @@
         // ===== Dashboard YouTube Player =====
         let dashPlayer = null;
         let dashMuted = true;
+        let dashYtReady = false;
 
-        function onYouTubeIframeAPIReady() {
-            dashPlayer = new YT.Player('yt-player-dash', {
-                videoId: 'eOLsgXHB1K0',
-                playerVars: {
-                    autoplay: 1,
-                    mute: 1,
-                    controls: 0,
-                    showinfo: 0,
-                    rel: 0,
-                    iv_load_policy: 3,
-                    modestbranding: 1,
-                    disablekb: 1,
-                    fs: 0,
-                    loop: 1,
-                    playlist: 'eOLsgXHB1K0',
-                    playsinline: 1,
-                    origin: window.location.origin
-                },
-                events: {
-                    onReady: function(e) {
-                        e.target.playVideo();
+        const dashIsMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+
+        function initDashPlayer() {
+            if (dashPlayer || !document.getElementById('yt-player-dash')) return;
+            try {
+                dashPlayer = new YT.Player('yt-player-dash', {
+                    videoId: 'eOLsgXHB1K0',
+                    playerVars: {
+                        autoplay: 1,
+                        mute: 1,
+                        controls: 0,
+                        showinfo: 0,
+                        rel: 0,
+                        iv_load_policy: 3,
+                        modestbranding: 1,
+                        disablekb: 1,
+                        fs: 0,
+                        loop: 1,
+                        playlist: 'eOLsgXHB1K0',
+                        playsinline: 1,
+                        origin: window.location.origin
                     },
-                    onStateChange: function(e) {
-                        if (e.data === YT.PlayerState.ENDED) {
-                            e.target.seekTo(0);
+                    events: {
+                        onReady: function(e) {
                             e.target.playVideo();
+                        },
+                        onStateChange: function(e) {
+                            if (e.data === YT.PlayerState.ENDED) {
+                                e.target.seekTo(0);
+                                e.target.playVideo();
+                            }
+                        },
+                        onError: function(e) {
+                            console.warn('Dashboard YT error:', e.data);
                         }
                     }
-                }
-            });
+                });
+            } catch(err) {
+                console.warn('Dash YT init failed, retrying...', err);
+                setTimeout(initDashPlayer, 2000);
+            }
         }
+
+        function onYouTubeIframeAPIReady() {
+            dashYtReady = true;
+            if (!dashIsMobile) {
+                initDashPlayer();
+            }
+        }
+
+        // Retry if API loaded before callback registered
+        setTimeout(function() {
+            if (!dashYtReady && typeof YT !== 'undefined' && YT.Player) {
+                dashYtReady = true;
+                if (!dashIsMobile) initDashPlayer();
+            }
+        }, 3000);
 
         // Sound toggle
         document.getElementById('dash-sound-toggle').addEventListener('click', function() {
+            if (dashIsMobile && !dashPlayer && dashYtReady) {
+                initDashPlayer();
+                this.textContent = '⏳';
+                setTimeout(() => {
+                    if (dashPlayer && dashPlayer.unMute) {
+                        dashPlayer.unMute();
+                        dashPlayer.setVolume(40);
+                        this.textContent = '🔊';
+                        this.classList.add('unmuted');
+                        dashMuted = false;
+                    }
+                }, 2000);
+                return;
+            }
             if (!dashPlayer) return;
             if (dashMuted) {
                 dashPlayer.unMute();

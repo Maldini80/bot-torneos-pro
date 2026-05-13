@@ -98,7 +98,9 @@
             inset: 0;
             z-index: 0;
             overflow: hidden;
-            background: #06060e;
+            /* Fallback poster image when video can't load/autoplay */
+            background: url('https://i.imgur.com/P3m2pe5.png') center/cover no-repeat;
+            background-color: #06060e;
         }
         .hero-video-wrap iframe {
             position: absolute;
@@ -513,6 +515,8 @@
             .lang-toggle { top: 16px; right: 16px; }
             .stats-grid { grid-template-columns: 1fr; gap: 8px; }
             .scroll-indicator { display: none; }
+            /* Hide sound toggle on mobile - autoplay doesn't work */
+            .sound-toggle { display: none; }
         }
 
         @media (max-width: 480px) {
@@ -626,42 +630,84 @@
         // ===== YouTube Player =====
         let homePlayer = null;
         let isMuted = true;
+        let ytAPIReady = false;
 
-        function onYouTubeIframeAPIReady() {
-            homePlayer = new YT.Player('yt-player-home', {
-                videoId: 'MQpyb6BMHwQ',
-                playerVars: {
-                    autoplay: 1,
-                    mute: 1,
-                    controls: 0,
-                    showinfo: 0,
-                    rel: 0,
-                    iv_load_policy: 3,
-                    modestbranding: 1,
-                    disablekb: 1,
-                    fs: 0,
-                    loop: 1,
-                    playlist: 'MQpyb6BMHwQ',
-                    playsinline: 1,
-                    origin: window.location.origin
-                },
-                events: {
-                    onReady: function(e) {
-                        e.target.playVideo();
+        // Detect mobile (YouTube autoplay doesn't work on most mobile browsers)
+        const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+
+        function initHomePlayer() {
+            if (homePlayer || !document.getElementById('yt-player-home')) return;
+            try {
+                homePlayer = new YT.Player('yt-player-home', {
+                    videoId: 'MQpyb6BMHwQ',
+                    playerVars: {
+                        autoplay: 1,
+                        mute: 1,
+                        controls: 0,
+                        showinfo: 0,
+                        rel: 0,
+                        iv_load_policy: 3,
+                        modestbranding: 1,
+                        disablekb: 1,
+                        fs: 0,
+                        loop: 1,
+                        playlist: 'MQpyb6BMHwQ',
+                        playsinline: 1,
+                        origin: window.location.origin
                     },
-                    onStateChange: function(e) {
-                        // Loop: when video ends, restart
-                        if (e.data === YT.PlayerState.ENDED) {
-                            e.target.seekTo(0);
+                    events: {
+                        onReady: function(e) {
                             e.target.playVideo();
+                        },
+                        onStateChange: function(e) {
+                            if (e.data === YT.PlayerState.ENDED) {
+                                e.target.seekTo(0);
+                                e.target.playVideo();
+                            }
+                        },
+                        onError: function(e) {
+                            console.warn('YouTube player error:', e.data);
                         }
                     }
-                }
-            });
+                });
+            } catch(err) {
+                console.warn('YT Player init failed, retrying...', err);
+                setTimeout(initHomePlayer, 2000);
+            }
         }
+
+        function onYouTubeIframeAPIReady() {
+            ytAPIReady = true;
+            if (!isMobile) {
+                initHomePlayer();
+            }
+        }
+
+        // Retry: if API loaded before our callback was registered
+        setTimeout(function() {
+            if (!ytAPIReady && typeof YT !== 'undefined' && YT.Player) {
+                ytAPIReady = true;
+                if (!isMobile) initHomePlayer();
+            }
+        }, 3000);
 
         // Sound toggle
         document.getElementById('sound-toggle').addEventListener('click', function() {
+            // On mobile, try to init player on first user interaction
+            if (isMobile && !homePlayer && ytAPIReady) {
+                initHomePlayer();
+                this.textContent = '⏳';
+                setTimeout(() => {
+                    if (homePlayer && homePlayer.unMute) {
+                        homePlayer.unMute();
+                        homePlayer.setVolume(50);
+                        this.textContent = '🔊';
+                        this.classList.add('unmuted');
+                        isMuted = false;
+                    }
+                }, 2000);
+                return;
+            }
             if (!homePlayer) return;
             if (isMuted) {
                 homePlayer.unMute();
