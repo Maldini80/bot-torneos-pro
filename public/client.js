@@ -2769,13 +2769,13 @@ window.openMatchStatsModal = function(match) {
         if (numA === 0 && numB === 0) return '';
         return `
             <div class="stat-bar-container">
-                <div class="stat-bar-value" style="color: #00d4ff;">${valA}</div>
+                <div class="stat-bar-value" style="color: #0A84FF;">${valA}</div>
                 <div class="stat-bar-label">${label}</div>
-                <div class="stat-bar-value" style="color: #ff00e5;">${valB}</div>
+                <div class="stat-bar-value" style="color: #D4A843;">${valB}</div>
             </div>
             <div style="display:flex; height: 6px; background: #222; border-radius: 3px; margin: 0 40px 15px 40px; overflow: hidden;">
-                <div style="width: ${pctA}%; background: #00d4ff;"></div>
-                <div style="width: ${pctB}%; background: #ff00e5;"></div>
+                <div style="width: ${pctA}%; background: #0A84FF;"></div>
+                <div style="width: ${pctB}%; background: #D4A843;"></div>
             </div>
         `;
     };
