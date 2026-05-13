@@ -9,7 +9,7 @@
         content="THE BLITZ — the premier competitive EA Sports FC Pro Clubs tournament platform. Create teams, compete, dominate.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         /* ===== DESIGN SYSTEM ===== */
         :root {
@@ -97,7 +97,7 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: url('hero-bg.png') center/cover no-repeat;
+            background: url('https://i.imgur.com/P3m2pe5.png') center/cover no-repeat;
             z-index: 0;
         }
         .hero::after {
@@ -123,47 +123,57 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Logo text replaced image */
-
-        /* Title — Cinzel Decorative (Exocet-style) with INTENSE GLOW */
+        /* Title — Bebas Neue (clean/formal) with EXTREME GLOW */
         .hero-title {
-            font-family: 'Cinzel Decorative', serif;
-            font-size: clamp(3rem, 9vw, 6.5rem);
-            font-weight: 900;
-            letter-spacing: 8px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(4rem, 12vw, 9rem);
+            font-weight: 400;
+            letter-spacing: 16px;
             text-transform: uppercase;
             line-height: 1;
             margin-bottom: 16px;
             position: relative;
             display: inline-block;
-            background: linear-gradient(180deg, #FFFFFF 0%, #FFE4A0 30%, #D4A843 60%, #B8892A 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            filter:
-                drop-shadow(0 0 10px rgba(212,168,67,0.8))
-                drop-shadow(0 0 30px rgba(212,168,67,0.6))
-                drop-shadow(0 0 60px rgba(212,168,67,0.4))
-                drop-shadow(0 0 100px rgba(212,168,67,0.3))
-                drop-shadow(0 0 150px rgba(255,180,50,0.2));
-            animation: titleGlow 3s ease-in-out infinite alternate;
+            color: #fff;
+            text-shadow:
+                /* Inner glow */
+                0 0 7px #fff,
+                0 0 10px #fff,
+                0 0 21px #fff,
+                /* Mid glow — electric blue */
+                0 0 42px rgba(10,132,255,0.9),
+                0 0 82px rgba(10,132,255,0.7),
+                0 0 92px rgba(10,132,255,0.6),
+                /* Outer glow — wider spread */
+                0 0 120px rgba(10,132,255,0.45),
+                0 0 180px rgba(10,132,255,0.3),
+                0 0 250px rgba(10,132,255,0.2);
+            animation: titleGlow 2.5s ease-in-out infinite alternate;
         }
 
         @keyframes titleGlow {
             0% {
-                filter:
-                    drop-shadow(0 0 10px rgba(212,168,67,0.7))
-                    drop-shadow(0 0 30px rgba(212,168,67,0.5))
-                    drop-shadow(0 0 60px rgba(212,168,67,0.3))
-                    drop-shadow(0 0 100px rgba(212,168,67,0.2));
+                text-shadow:
+                    0 0 7px #fff,
+                    0 0 10px #fff,
+                    0 0 21px #fff,
+                    0 0 42px rgba(10,132,255,0.8),
+                    0 0 82px rgba(10,132,255,0.5),
+                    0 0 92px rgba(10,132,255,0.4),
+                    0 0 120px rgba(10,132,255,0.3),
+                    0 0 180px rgba(10,132,255,0.15);
             }
             100% {
-                filter:
-                    drop-shadow(0 0 15px rgba(255,200,80,1))
-                    drop-shadow(0 0 40px rgba(255,200,80,0.8))
-                    drop-shadow(0 0 80px rgba(212,168,67,0.5))
-                    drop-shadow(0 0 120px rgba(212,168,67,0.4))
-                    drop-shadow(0 0 200px rgba(255,180,50,0.3));
+                text-shadow:
+                    0 0 10px #fff,
+                    0 0 20px #fff,
+                    0 0 30px #fff,
+                    0 0 60px rgba(10,180,255,1),
+                    0 0 100px rgba(10,180,255,0.9),
+                    0 0 140px rgba(10,132,255,0.7),
+                    0 0 200px rgba(10,132,255,0.5),
+                    0 0 300px rgba(10,132,255,0.3),
+                    0 0 400px rgba(10,132,255,0.15);
             }
         }
 
