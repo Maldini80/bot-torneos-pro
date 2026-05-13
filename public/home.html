@@ -92,28 +92,81 @@
             overflow: hidden;
         }
 
-        /* Hero background layers */
-        .hero::before {
-            content: '';
+        /* YouTube Video Background */
+        .hero-video-wrap {
             position: absolute;
             inset: 0;
-            background: url('https://i.imgur.com/P3m2pe5.png') center/cover no-repeat;
             z-index: 0;
+            overflow: hidden;
+            background: #06060e;
         }
+        .hero-video-wrap iframe {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120vw;
+            height: 120vh;
+            min-width: 177.78vh; /* 16:9 ratio */
+            min-height: 56.25vw;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        /* Transparent overlay — blocks all YouTube clicks */
+        .hero-video-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            cursor: default;
+        }
+        /* Gradient overlay on top of video */
         .hero::after {
             content: '';
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(ellipse at 50% 40%, rgba(10,132,255,0.12) 0%, transparent 60%),
-                radial-gradient(ellipse at 30% 80%, rgba(212,168,67,0.08) 0%, transparent 50%),
-                linear-gradient(180deg, rgba(6,6,14,0.3) 0%, rgba(6,6,14,0.7) 60%, var(--color-bg) 100%);
-            z-index: 1;
+                radial-gradient(ellipse at 50% 40%, rgba(10,132,255,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse at 30% 80%, rgba(212,168,67,0.06) 0%, transparent 50%),
+                linear-gradient(180deg, rgba(6,6,14,0.45) 0%, rgba(6,6,14,0.65) 50%, var(--color-bg) 100%);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Sound Toggle Button */
+        .sound-toggle {
+            position: fixed;
+            bottom: 28px;
+            left: 28px;
+            z-index: 1000;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(6,6,14,0.7);
+            backdrop-filter: blur(12px);
+            color: #fff;
+            font-size: 1.3rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .sound-toggle:hover {
+            background: rgba(10,132,255,0.3);
+            border-color: var(--color-accent);
+            box-shadow: 0 0 20px var(--color-accent-glow);
+            transform: scale(1.1);
+        }
+        .sound-toggle.unmuted {
+            background: rgba(10,132,255,0.25);
+            border-color: var(--color-accent);
+            box-shadow: 0 0 15px var(--color-accent-glow);
         }
 
         .hero-content {
             position: relative;
-            z-index: 2;
+            z-index: 3;
             max-width: 800px;
             animation: heroFadeIn 1.2s ease-out;
         }
@@ -261,7 +314,7 @@
             bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 2;
+            z-index: 3;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -480,6 +533,12 @@
 
     <!-- ===== HERO ===== -->
     <section class="hero">
+        <!-- YouTube Video Background -->
+        <div class="hero-video-wrap">
+            <div id="yt-player-home"></div>
+            <div class="hero-video-overlay"></div>
+        </div>
+
         <div class="hero-content">
 
             <h1 class="hero-title">THE BLITZ</h1>
@@ -506,6 +565,11 @@
             <div class="scroll-arrow"></div>
         </div>
     </section>
+
+    <!-- Sound Toggle Button -->
+    <button class="sound-toggle" id="sound-toggle" title="Toggle Sound">
+        🔇
+    </button>
 
     <!-- ===== FEATURES ===== -->
     <section class="features-section">
@@ -556,7 +620,63 @@
         <span data-i18n="footer">Powered by THE BLITZ © 2026</span>
     </footer>
 
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
     <script>
+        // ===== YouTube Player =====
+        let homePlayer = null;
+        let isMuted = true;
+
+        function onYouTubeIframeAPIReady() {
+            homePlayer = new YT.Player('yt-player-home', {
+                videoId: 'MQpyb6BMHwQ',
+                playerVars: {
+                    autoplay: 1,
+                    mute: 1,
+                    controls: 0,
+                    showinfo: 0,
+                    rel: 0,
+                    iv_load_policy: 3,
+                    modestbranding: 1,
+                    disablekb: 1,
+                    fs: 0,
+                    loop: 1,
+                    playlist: 'MQpyb6BMHwQ',
+                    playsinline: 1,
+                    origin: window.location.origin
+                },
+                events: {
+                    onReady: function(e) {
+                        e.target.playVideo();
+                    },
+                    onStateChange: function(e) {
+                        // Loop: when video ends, restart
+                        if (e.data === YT.PlayerState.ENDED) {
+                            e.target.seekTo(0);
+                            e.target.playVideo();
+                        }
+                    }
+                }
+            });
+        }
+
+        // Sound toggle
+        document.getElementById('sound-toggle').addEventListener('click', function() {
+            if (!homePlayer) return;
+            if (isMuted) {
+                homePlayer.unMute();
+                homePlayer.setVolume(50);
+                this.textContent = '🔊';
+                this.classList.add('unmuted');
+            } else {
+                homePlayer.mute();
+                this.textContent = '🔇';
+                this.classList.remove('unmuted');
+            }
+            isMuted = !isMuted;
+        });
+
+        // ===== Translations =====
         const translations = {
             es: {
                 subtitle: 'Plataforma Competitiva de Torneos EA Sports FC',

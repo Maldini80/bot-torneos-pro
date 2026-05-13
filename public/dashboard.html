@@ -142,10 +142,77 @@
             background: #0f0f1a;
             color: white;
         }
+
+        /* === YouTube Video Background === */
+        .dash-video-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            overflow: hidden;
+            background: #06060e;
+        }
+        .dash-video-bg iframe {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120vw;
+            height: 120vh;
+            min-width: 177.78vh;
+            min-height: 56.25vw;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        .dash-video-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(6, 6, 14, 0.82);
+            z-index: 1;
+        }
+
+        /* Sound Toggle */
+        .dash-sound-toggle {
+            position: fixed;
+            bottom: 28px;
+            left: 28px;
+            z-index: 9999;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(6,6,14,0.7);
+            backdrop-filter: blur(12px);
+            color: #fff;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .dash-sound-toggle:hover {
+            background: rgba(10,132,255,0.3);
+            border-color: #0A84FF;
+            box-shadow: 0 0 20px rgba(10,132,255,0.4);
+            transform: scale(1.1);
+        }
+        .dash-sound-toggle.unmuted {
+            background: rgba(10,132,255,0.25);
+            border-color: #0A84FF;
+            box-shadow: 0 0 15px rgba(10,132,255,0.4);
+        }
     </style>
 </head>
 
 <body>
+    <!-- YouTube Video Background -->
+    <div class="dash-video-bg">
+        <div id="yt-player-dash"></div>
+        <div class="dash-video-overlay"></div>
+    </div>
     <!-- Animated CSS Background -->
     <div class="animated-background"></div>
 
@@ -840,6 +907,67 @@
             </div>
         </div>
     </div>
+
+    <!-- Sound Toggle Button -->
+    <button class="dash-sound-toggle" id="dash-sound-toggle" title="Toggle Sound">
+        🔇
+    </button>
+
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        // ===== Dashboard YouTube Player =====
+        let dashPlayer = null;
+        let dashMuted = true;
+
+        function onYouTubeIframeAPIReady() {
+            dashPlayer = new YT.Player('yt-player-dash', {
+                videoId: 'eOLsgXHB1K0',
+                playerVars: {
+                    autoplay: 1,
+                    mute: 1,
+                    controls: 0,
+                    showinfo: 0,
+                    rel: 0,
+                    iv_load_policy: 3,
+                    modestbranding: 1,
+                    disablekb: 1,
+                    fs: 0,
+                    loop: 1,
+                    playlist: 'eOLsgXHB1K0',
+                    playsinline: 1,
+                    origin: window.location.origin
+                },
+                events: {
+                    onReady: function(e) {
+                        e.target.playVideo();
+                    },
+                    onStateChange: function(e) {
+                        if (e.data === YT.PlayerState.ENDED) {
+                            e.target.seekTo(0);
+                            e.target.playVideo();
+                        }
+                    }
+                }
+            });
+        }
+
+        // Sound toggle
+        document.getElementById('dash-sound-toggle').addEventListener('click', function() {
+            if (!dashPlayer) return;
+            if (dashMuted) {
+                dashPlayer.unMute();
+                dashPlayer.setVolume(40);
+                this.textContent = '🔊';
+                this.classList.add('unmuted');
+            } else {
+                dashPlayer.mute();
+                this.textContent = '🔇';
+                this.classList.remove('unmuted');
+            }
+            dashMuted = !dashMuted;
+        });
+    </script>
 
     <script src="dashboard.js?v=2.4.4"></script>
 </body>
