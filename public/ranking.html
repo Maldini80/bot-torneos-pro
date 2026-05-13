@@ -8,17 +8,17 @@
     <meta name="description" content="Ranking ELO oficial y Hall of Fame de competiciones THE BLITZ.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700;900&family=Rajdhani:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Oswald:wght@400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary: #00f6ff;
+            --primary: #0A84FF;
             --primary-dark: #0066ff;
-            --bg-dark: #050510;
-            --text-light: #ffffff;
-            --glow: rgba(0, 246, 255, 0.8);
-            --card-bg: rgba(10, 10, 20, 0.8);
-            --card-border: rgba(0, 246, 255, 0.3);
+            --bg-dark: #06060e;
+            --text-light: #EAEAF0;
+            --glow: rgba(10, 132, 255, 0.5);
+            --card-bg: rgba(12, 12, 24, 0.75);
+            --card-border: rgba(255, 255, 255, 0.08);
             --gold: #FFD700;
             --silver: #C0C0C0;
             --bronze: #CD7F32;
@@ -31,9 +31,9 @@
         }
 
         body {
-            font-family: 'Rajdhani', sans-serif;
+            font-family: 'Inter', sans-serif;
             background-color: var(--bg-dark);
-            background-image: url('https://i.imgur.com/b6P7Ed3.jpeg');
+            background-image: url('https://i.imgur.com/P3m2pe5.png');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -41,21 +41,12 @@
             min-height: 100vh;
         }
 
-        .animated-background {
+        body::before {
+            content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -2;
-            background: linear-gradient(135deg, rgba(10, 10, 10, 0.7) 0%, rgba(0, 26, 41, 0.7) 25%, rgba(26, 0, 26, 0.7) 50%, rgba(0, 10, 26, 0.7) 75%, rgba(10, 10, 10, 0.7) 100%);
-            background-size: 400% 400%;
-            animation: gradientFlow 15s ease infinite;
-        }
-
-        @keyframes gradientFlow {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+            inset: 0;
+            background: linear-gradient(180deg, rgba(6,6,14,0.6) 0%, rgba(6,6,14,0.85) 50%, rgba(6,6,14,0.95) 100%);
+            z-index: 0;
         }
 
         .container {
@@ -71,56 +62,52 @@
             margin-bottom: 50px;
         }
 
-        .logo {
-            width: 150px;
-            margin-bottom: 20px;
-            filter: drop-shadow(0 0 10px var(--glow));
-        }
-
         h1 {
-            font-family: 'Exo 2', sans-serif;
-            font-weight: 900;
-            font-style: italic;
-            font-size: 3.5rem;
-            color: var(--text-light);
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(3rem, 8vw, 5rem);
+            color: #fff;
             text-transform: uppercase;
-            letter-spacing: 4px;
-            text-shadow: 0 0 10px var(--glow), 0 0 20px var(--glow), 4px 4px 0px var(--primary-dark);
+            letter-spacing: 10px;
             margin-bottom: 10px;
+            text-shadow: 0 0 7px #fff, 0 0 10px #fff, 0 0 21px #fff,
+                0 0 42px rgba(10,132,255,0.9), 0 0 82px rgba(10,132,255,0.7),
+                0 0 120px rgba(10,132,255,0.4), 0 0 180px rgba(10,132,255,0.2);
         }
 
         .tabs {
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 12px;
             margin-bottom: 40px;
+            flex-wrap: wrap;
         }
 
         .tab-btn {
-            background: rgba(0, 0, 0, 0.5);
-            border: 2px solid var(--primary-dark);
-            color: var(--text-light);
-            padding: 12px 30px;
-            font-family: 'Exo 2', sans-serif;
-            font-weight: 700;
-            font-size: 1.2rem;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: #8A8A9A;
+            padding: 12px 28px;
+            font-family: 'Oswald', sans-serif;
+            font-weight: 500;
+            font-size: 1rem;
             text-transform: uppercase;
-            border-radius: 4px;
+            letter-spacing: 1px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s;
+            backdrop-filter: blur(12px);
         }
 
         .tab-btn:hover {
-            border-color: var(--primary);
-            box-shadow: 0 0 15px var(--glow);
+            border-color: rgba(10,132,255,0.4);
+            color: #fff;
         }
 
         .tab-btn.active {
-            background: var(--primary-dark);
+            background: linear-gradient(135deg, var(--primary), #0066DD);
             border-color: var(--primary);
-            box-shadow: 0 0 20px var(--glow);
-            text-shadow: 0 0 5px white;
+            color: #fff;
+            box-shadow: 0 0 30px var(--glow);
         }
 
         .content-section {
@@ -389,12 +376,8 @@
 </head>
 
 <body>
-    <div class="animated-background"></div>
     <div class="container">
         <header>
-            <a href="/home.html">
-                <img src="logo-the-blitz.png" alt="THE BLITZ" class="logo">
-            </a>
             <h1>THE BLITZ ELO</h1>
         </header>
 
