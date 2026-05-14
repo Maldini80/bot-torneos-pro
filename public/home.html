@@ -559,6 +559,53 @@
             letter-spacing: 2px;
         }
 
+        /* ===== TOP NAV ===== */
+        .top-nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            background: rgba(6,6,14,0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            transition: transform 0.3s;
+        }
+        .nav-logo {
+            font-family: var(--font-heading);
+            font-size: 1.4rem;
+            color: #fff;
+            text-decoration: none;
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px rgba(10,132,255,0.5);
+        }
+        .nav-links {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+        }
+        .nav-links a:hover {
+            color: #fff;
+            border-color: var(--color-accent);
+            background: rgba(10,132,255,0.1);
+        }
+        @media (max-width: 600px) {
+            .top-nav { padding: 10px 14px; }
+            .nav-links a { font-size: 0.75rem; padding: 5px 8px; }
+            .nav-logo { font-size: 1.1rem; }
+        }
+
         /* ===== FOOTER ===== */
         .site-footer {
             text-align: center;
@@ -664,6 +711,18 @@
 </head>
 
 <body>
+
+    <!-- ===== TOP NAV ===== -->
+    <nav class="top-nav">
+        <a href="/" class="nav-logo">⚡ THE BLITZ</a>
+        <div class="nav-links">
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/ranking.html">Ranking</a>
+            <a href="/reglas.html">Reglas</a>
+            <a href="/faq.html">FAQ</a>
+            <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Discord</a>
+        </div>
+    </nav>
 
     <!-- Language Toggle -->
     <div class="lang-toggle">
