@@ -840,9 +840,17 @@
     </footer>
 
     <script>
-        // ===== Video Sound Toggle =====
+        // ===== Video Sound Toggle (persisted) =====
         const heroVideo = document.getElementById('hero-video');
-        let isMuted = true;
+        let isMuted = localStorage.getItem('blitz-sound') !== 'on';
+
+        // Restore saved state on load
+        if (!isMuted && heroVideo) {
+            heroVideo.muted = false;
+            heroVideo.volume = 0.5;
+            document.getElementById('sound-toggle').textContent = '🔊';
+            document.getElementById('sound-toggle').classList.add('unmuted');
+        }
 
         document.getElementById('sound-toggle').addEventListener('click', function() {
             if (!heroVideo) return;
@@ -851,10 +859,12 @@
                 heroVideo.volume = 0.5;
                 this.textContent = '🔊';
                 this.classList.add('unmuted');
+                localStorage.setItem('blitz-sound', 'on');
             } else {
                 heroVideo.muted = true;
                 this.textContent = '🔇';
                 this.classList.remove('unmuted');
+                localStorage.setItem('blitz-sound', 'off');
             }
             isMuted = !isMuted;
         });
