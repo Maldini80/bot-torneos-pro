@@ -465,6 +465,67 @@
             background: linear-gradient(90deg, transparent, var(--color-border-hover), transparent);
         }
 
+        /* ===== UPCOMING EVENTS ===== */
+        .events-section {
+            padding: 60px 24px;
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .events-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .event-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: left;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .event-card:hover {
+            border-color: var(--color-accent);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(10,132,255,0.15);
+        }
+        .event-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        .badge-open { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+        .badge-active { background: rgba(10,132,255,0.15); color: #0A84FF; border: 1px solid rgba(10,132,255,0.3); }
+        .event-card h3 {
+            font-family: var(--font-heading);
+            font-size: 1.15rem;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .event-card p {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+        .events-empty {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+            padding: 30px 0;
+        }
+        .events-empty a {
+            color: var(--color-accent);
+            text-decoration: none;
+        }
+
         /* ===== STATS BAR ===== */
         .stats-bar {
             padding: 60px 24px;
@@ -669,19 +730,30 @@
 
     <div class="section-divider"></div>
 
+    <!-- ===== UPCOMING EVENTS ===== -->
+    <section class="events-section">
+        <p class="section-label" data-i18n="events.label">Próximos Eventos</p>
+        <h2 class="section-title" data-i18n="events.title">No te pierdas nada</h2>
+        <div id="events-container" class="events-grid">
+            <div class="events-empty" data-i18n="events.loading">Cargando eventos...</div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
     <!-- ===== STATS ===== -->
     <section class="stats-bar">
         <div class="stats-grid">
             <div class="stat-item">
-                <div class="stat-number">50+</div>
+                <div class="stat-number" id="stat-tournaments">50+</div>
                 <div class="stat-label" data-i18n="stats.tournaments">Torneos Disputados</div>
             </div>
             <div class="stat-item">
-                <div class="stat-number">200+</div>
+                <div class="stat-number" id="stat-teams">200+</div>
                 <div class="stat-label" data-i18n="stats.teams">Equipos Registrados</div>
             </div>
             <div class="stat-item">
-                <div class="stat-number">1K+</div>
+                <div class="stat-number" id="stat-players">1K+</div>
                 <div class="stat-label" data-i18n="stats.players">Jugadores Activos</div>
             </div>
         </div>
@@ -731,6 +803,10 @@
                 'stats.tournaments': 'Torneos Disputados',
                 'stats.teams': 'Equipos Registrados',
                 'stats.players': 'Jugadores Activos',
+                'events.label': 'Próximos Eventos',
+                'events.title': 'No te pierdas nada',
+                'events.loading': 'Cargando eventos...',
+                'events.empty': 'No hay eventos activos — <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Síguenos en Discord</a>',
                 'footer': 'Powered by THE BLITZ © 2026'
             },
             en: {
@@ -750,6 +826,10 @@
                 'stats.tournaments': 'Tournaments Played',
                 'stats.teams': 'Registered Teams',
                 'stats.players': 'Active Players',
+                'events.label': 'Upcoming Events',
+                'events.title': 'Don\'t miss a thing',
+                'events.loading': 'Loading events...',
+                'events.empty': 'No active events — <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Follow us on Discord</a>',
                 'footer': 'Powered by THE BLITZ © 2026'
             }
         };
@@ -775,6 +855,32 @@
             });
         }
         applyTranslations();
+
+        // ===== Dynamic Stats =====
+        fetch('/api/platform-stats').then(r => r.json()).then(d => {
+            if (d.tournaments) document.getElementById('stat-tournaments').textContent = d.tournaments + '+';
+            if (d.teams) document.getElementById('stat-teams').textContent = d.teams + '+';
+            if (d.players) document.getElementById('stat-players').textContent = d.players + '+';
+        }).catch(() => {});
+
+        // ===== Upcoming Events =====
+        fetch('/api/upcoming-events').then(r => r.json()).then(events => {
+            const c = document.getElementById('events-container');
+            if (!events || events.length === 0) {
+                const k = currentLang === 'en' ? 'events.empty' : 'events.empty';
+                c.innerHTML = '<div class="events-empty">' + (translations[currentLang][k] || translations.es[k]) + '</div>';
+                return;
+            }
+            c.innerHTML = events.map(e => {
+                const isOpen = e.status === 'inscripciones_abiertas';
+                const badge = isOpen ? 'badge-open' : 'badge-active';
+                const label = isOpen ? (currentLang==='en'?'Open':'Inscripciones Abiertas') : (currentLang==='en'?'In Progress':'En Curso');
+                const link = e.status === 'draft_activo' ? '/?draftId='+e.shortId : '/?tournamentId='+e.shortId;
+                return '<a href="'+link+'" class="event-card"><span class="event-badge '+badge+'">'+label+'</span><h3>'+e.name+'</h3><p>'+(e.type||'Torneo')+'</p></a>';
+            }).join('');
+        }).catch(() => {
+            document.getElementById('events-container').innerHTML = '<div class="events-empty">' + translations[currentLang]['events.empty'] + '</div>';
+        });
     </script>
 </body>
 

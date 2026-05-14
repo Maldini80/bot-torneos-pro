@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BLITZ | Perfil de Equipo</title>
+    <meta name="description" content="Perfil público de equipo en THE BLITZ.">
+    <link rel="icon" type="image/png" href="/logo-the-blitz.png">
+    <meta name="theme-color" content="#0A84FF">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="pages-shared.css">
+    <style>
+        .team-header {
+            display: flex; align-items: center; gap: 24px;
+            background: rgba(12,12,24,0.75); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px; padding: 30px; margin-bottom: 30px;
+        }
+        .team-logo { width: 100px; height: 100px; border-radius: 16px; object-fit: cover; border: 2px solid rgba(10,132,255,0.3); }
+        .team-logo-placeholder {
+            width: 100px; height: 100px; border-radius: 16px;
+            background: rgba(10,132,255,0.1); border: 2px solid rgba(10,132,255,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; font-family: 'Bebas Neue', sans-serif; color: #0A84FF;
+        }
+        .team-info h2 {
+            font-family: 'Bebas Neue', sans-serif; font-size: 2rem;
+            color: #fff; letter-spacing: 3px; margin-bottom: 4px;
+        }
+        .team-tag { color: rgba(255,255,255,0.4); font-size: 0.9rem; margin-bottom: 8px; }
+        .team-meta { display: flex; gap: 16px; flex-wrap: wrap; }
+        .meta-badge {
+            padding: 6px 14px; border-radius: 8px; font-size: 0.8rem;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .elo-badge { background: rgba(212,168,67,0.15); color: #D4A843; border: 1px solid rgba(212,168,67,0.3); }
+        .league-badge-gold { background: linear-gradient(135deg,#FFD700,#DAA520); color: #1a1a1a; }
+        .league-badge-silver { background: linear-gradient(135deg,#C0C0C0,#A0A0A0); color: #1a1a1a; }
+        .league-badge-diamond { background: linear-gradient(135deg,#00d2ff,#3a7bd5); color: #fff; }
+        .league-badge-bronze { background: #CD7F32; color: #fff; }
+
+        .stats-overview {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px; margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(12,12,24,0.75); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px; padding: 16px; text-align: center;
+        }
+        .stat-card .val {
+            font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: #fff;
+        }
+        .stat-card .lbl { font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+        .panel {
+            background: rgba(12,12,24,0.75); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px; padding: 24px; margin-bottom: 24px;
+        }
+        .panel h3 {
+            font-family: 'Oswald', sans-serif; font-size: 1.1rem; color: #0A84FF;
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;
+            padding-bottom: 8px; border-bottom: 1px solid rgba(10,132,255,0.15);
+        }
+
+        .roster-list { list-style: none; padding: 0; }
+        .roster-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .roster-item:last-child { border: none; }
+        .roster-name { color: #fff; font-weight: 500; }
+        .roster-role {
+            font-size: 0.75rem; padding: 3px 8px; border-radius: 4px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .role-manager { background: rgba(212,168,67,0.15); color: #D4A843; }
+        .role-captain { background: rgba(10,132,255,0.15); color: #0A84FF; }
+        .role-player { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); }
+
+        .loading-state {
+            text-align: center; padding: 80px 20px; color: rgba(255,255,255,0.5);
+        }
+        .loading-spinner {
+            width: 40px; height: 40px; margin: 0 auto 16px;
+            border: 3px solid rgba(10,132,255,0.2); border-top-color: #0A84FF;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-state { text-align: center; padding: 60px 20px; }
+        .error-state h2 { color: #e74c3c; font-family: 'Bebas Neue', sans-serif; font-size: 2rem; margin-bottom: 8px; }
+        .error-state p { color: rgba(255,255,255,0.5); }
+
+        @media (max-width: 600px) {
+            .team-header { flex-direction: column; text-align: center; padding: 20px; }
+            .team-meta { justify-content: center; }
+            .stats-overview { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <nav class="top-nav">
+            <a href="/" class="nav-logo">⚡ THE BLITZ</a>
+            <div class="nav-links">
+                <a href="/">Inicio</a>
+                <a href="/dashboard.html">Dashboard</a>
+                <a href="/ranking.html">Ranking</a>
+                <a href="/reglas.html">Reglas</a>
+                <a href="/faq.html">FAQ</a>
+            </div>
+        </nav>
+
+        <div id="loading" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Cargando perfil del equipo...</p>
+        </div>
+
+        <div id="error" class="error-state" style="display:none">
+            <h2>EQUIPO NO ENCONTRADO</h2>
+            <p>El equipo que buscas no existe o ha sido eliminado.</p>
+            <a href="/ranking.html" style="color:#0A84FF;display:inline-block;margin-top:16px">← Volver al Ranking</a>
+        </div>
+
+        <div id="profile" style="display:none">
+            <div class="team-header">
+                <div id="team-logo-wrap"></div>
+                <div class="team-info">
+                    <h2 id="team-name"></h2>
+                    <div class="team-tag" id="team-tag"></div>
+                    <div class="team-meta" id="team-meta"></div>
+                </div>
+            </div>
+
+            <div class="stats-overview" id="stats-overview"></div>
+
+            <div class="panel">
+                <h3>👥 Plantilla</h3>
+                <ul class="roster-list" id="roster"></ul>
+            </div>
+        </div>
+
+        <div class="page-footer">
+            <a href="/ranking.html">← Volver al Ranking</a>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const teamId = params.get('id');
+
+        if (!teamId) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+        } else {
+            fetch('/api/teams/' + teamId + '/profile')
+                .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+                .then(data => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('profile').style.display = 'block';
+
+                    const t = data.team;
+                    document.title = 'THE BLITZ | ' + t.name;
+                    document.getElementById('team-name').textContent = t.name;
+                    document.getElementById('team-tag').textContent = t.abbreviation ? '[' + t.abbreviation + ']' : '';
+
+                    // Logo
+                    const logoWrap = document.getElementById('team-logo-wrap');
+                    if (t.logoUrl) {
+                        logoWrap.innerHTML = '<img class="team-logo" src="' + t.logoUrl + '" alt="' + t.name + '" onerror="this.outerHTML=\'<div class=team-logo-placeholder>' + (t.abbreviation||'?') + '</div>\'">';
+                    } else {
+                        logoWrap.innerHTML = '<div class="team-logo-placeholder">' + (t.abbreviation || '?') + '</div>';
+                    }
+
+                    // Meta badges
+                    const league = (t.league || 'SILVER').toUpperCase();
+                    const leagueClass = 'league-badge-' + league.toLowerCase();
+                    document.getElementById('team-meta').innerHTML =
+                        '<span class="meta-badge elo-badge">⭐ ELO ' + (t.elo || 1000) + '</span>' +
+                        '<span class="meta-badge ' + leagueClass + '">' + league + '</span>';
+
+                    // Stats
+                    const s = t.historicalStats || {};
+                    const statsHTML = [
+                        { v: s.tournamentsPlayed || 0, l: 'Torneos' },
+                        { v: s.tournamentsWon || 0, l: 'Títulos' },
+                        { v: s.totalMatchesPlayed || 0, l: 'Partidos' },
+                        { v: s.totalWins || 0, l: 'Victorias' },
+                        { v: s.totalDraws || 0, l: 'Empates' },
+                        { v: s.totalLosses || 0, l: 'Derrotas' },
+                        { v: s.totalGoalsScored || 0, l: 'Goles a favor' },
+                        { v: s.totalGoalsConceded || 0, l: 'Goles en contra' }
+                    ].map(x => '<div class="stat-card"><div class="val">' + x.v + '</div><div class="lbl">' + x.l + '</div></div>').join('');
+                    document.getElementById('stats-overview').innerHTML = statsHTML;
+
+                    // Roster
+                    const roster = document.getElementById('roster');
+                    roster.innerHTML = data.members.map(m => {
+                        const rc = m.role === 'Manager' ? 'role-manager' : m.role === 'Capitán' ? 'role-captain' : 'role-player';
+                        return '<li class="roster-item"><span class="roster-name">' + m.name + '</span><span class="roster-role ' + rc + '">' + m.role + '</span></li>';
+                    }).join('');
+                })
+                .catch(() => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('error').style.display = 'block';
+                });
+        }
+    </script>
+</body>
+</html>

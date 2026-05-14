@@ -2515,6 +2515,70 @@ app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
     }
 });
 
+// === PUBLIC APIs for Home Page ===
+app.get('/api/platform-stats', async (req, res) => {
+    try {
+        const testDb = getDb('test');
+        const tournamentDb = getDb();
+        const [teamCount, tournamentCount] = await Promise.all([
+            testDb.collection('teams').countDocuments(),
+            tournamentDb.collection('tournaments').countDocuments({ status: 'finalizado' })
+        ]);
+        res.json({ teams: teamCount, tournaments: tournamentCount, players: teamCount * 5 });
+    } catch (e) {
+        console.error('Error loading platform stats:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+app.get('/api/upcoming-events', async (req, res) => {
+    try {
+        const db = getDb();
+        const events = await db.collection('tournaments')
+            .find({ status: { $in: ['inscripciones_abiertas', 'activo', 'en_curso', 'draft_activo'] } })
+            .project({ name: 1, shortId: 1, type: 1, config: 1, status: 1, createdAt: 1 })
+            .sort({ createdAt: -1 }).limit(3).toArray();
+        res.json(events);
+    } catch (e) {
+        console.error('Error loading upcoming events:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// === Team Profile API ===
+app.get('/api/teams/:id/profile', async (req, res) => {
+    try {
+        const testDb = getDb('test');
+        const tournamentDb = getDb();
+        const teamId = req.params.id;
+        let queryId;
+        try { queryId = new ObjectId(teamId); } catch(e) { queryId = teamId; }
+
+        const team = await testDb.collection('teams').findOne(
+            { $or: [{ _id: queryId }, { managerId: teamId }] },
+            { projection: { name: 1, abbreviation: 1, logoUrl: 1, elo: 1, league: 1, managerId: 1, captains: 1, players: 1, historicalStats: 1, eloHistory: 1, eaClubInfo: 1 } }
+        );
+        if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
+
+        // Fetch member names
+        const memberIds = [team.managerId, ...(team.captains || []), ...(team.players || [])].filter(Boolean);
+        const members = [];
+        for (const mId of memberIds) {
+            const v = await tournamentDb.collection('verified_users').findOne({ discordId: mId });
+            members.push({
+                id: mId,
+                name: v ? (v.discordTag || v.gameId || mId) : mId,
+                role: mId === team.managerId ? 'Manager' : (team.captains || []).includes(mId) ? 'Capitán' : 'Jugador'
+            });
+        }
+
+        res.json({ team, members });
+    } catch (e) {
+        console.error('Error loading team profile:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
 // === 404 Catch-all: Must be AFTER all routes ===
 app.use((req, res) => {
     res.status(404).sendFile('404.html', { root: 'public' });
