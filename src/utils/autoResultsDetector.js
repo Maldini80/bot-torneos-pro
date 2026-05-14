@@ -15,8 +15,8 @@ let isChecking = false;
 // mientras processMatchResult + 100s de espera siguen en curso
 const processingMatches = new Set();
 
-// Cuántas horas atrás buscar partidos en la API de EA
-const LOOKBACK_HOURS = 6;
+// Cuántas horas atrás buscar partidos en la API de EA (48h para torneos de varios días)
+const LOOKBACK_HOURS = 48;
 // Intervalo de verificación en milisegundos (10 segundos)
 const CHECK_INTERVAL_MS = 10000;
 
@@ -256,8 +256,11 @@ async function fetchMatchData(client, tournament, partido, eaCache) {
 
     // Filtrar: solo partidos entre estos dos clubs en las últimas LOOKBACK_HOURS horas
     const baseCutoff = Math.floor(Date.now() / 1000) - (LOOKBACK_HOURS * 3600);
+    // Timestamp de activación del auto-resultado (si existe, ignora partidos antes de activarlo)
+    const activatedAtSecs = tournament.config?.autoResultsActivatedAt || 0;
     // Y que estrictamente hayan sido jugados DESPUÉS de la creación del hilo (con margen de gracia)
-    const finalCutoff = Math.max(baseCutoff, threadCreatedTimestampSecs);
+    // Y DESPUÉS de que se activara el auto-resultado
+    const finalCutoff = Math.max(baseCutoff, threadCreatedTimestampSecs, activatedAtSecs);
 
     const headToHead = matches.filter(match => {
         const clubsInvolved = Object.keys(match.clubs || {});

@@ -7977,9 +7977,15 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
         const newState = !(tournament.config.autoResults === true);
 
+        // Guardar timestamp de activación para que solo detecte partidos desde ESTE momento
+        const updateFields = { 'config.autoResults': newState };
+        if (newState) {
+            updateFields['config.autoResultsActivatedAt'] = Math.floor(Date.now() / 1000);
+        }
+
         await db.collection('tournaments').updateOne(
             { _id: tournament._id },
-            { $set: { 'config.autoResults': newState } }
+            { $set: updateFields }
         );
 
         try {
