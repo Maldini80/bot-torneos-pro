@@ -4447,10 +4447,22 @@ aside h2 {
    ===================================================== */
 @media (max-width: 768px) {
 
+    /* === KILL ALL BACKDROP-FILTER BLUR (biggest perf killer) === */
+    *,
+    *::before,
+    *::after {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
     /* Desactivar el fondo animado en móvil */
     .animated-background {
         animation: none !important;
-        background: linear-gradient(135deg, #0a0a1a 0%, #0d0d2b 50%, #0a0a1a 100%) !important;
+        background: #06060e !important;
+    }
+    .animated-background::before,
+    .animated-background::after {
+        display: none !important;
     }
 
     /* Desactivar partículas en móvil */
@@ -4458,9 +4470,30 @@ aside h2 {
         display: none !important;
     }
 
-    /* Reducir blur costoso */
+    /* Replace blur backgrounds with solid opaque ones */
+    .view-section {
+        background: rgba(12, 12, 24, 0.92) !important;
+    }
     .dashboard-header {
-        backdrop-filter: blur(8px) !important;
+        background: rgba(6, 6, 14, 0.95) !important;
+    }
+    header {
+        background: rgba(6, 6, 14, 0.95) !important;
+    }
+    .modal-content {
+        background: rgba(15, 15, 26, 0.98) !important;
+    }
+
+    /* Simplify text glow animations (very expensive) */
+    header h1,
+    .hero-title {
+        animation: none !important;
+        text-shadow: 0 0 10px rgba(10,132,255,0.5) !important;
+    }
+
+    /* Simplify border animations */
+    .animated-border .border-line {
+        animation: none !important;
     }
 
     /* Desactivar transiciones de hover en móvil (no hay hover) */
@@ -4476,6 +4509,13 @@ aside h2 {
     .history-item {
         animation: none !important;
         transition: none !important;
+    }
+
+    /* Reduce box-shadow complexity */
+    .event-card,
+    .view-section,
+    .mobile-nav {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
     }
 }
 
