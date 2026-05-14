@@ -15,8 +15,8 @@ let isChecking = false;
 // mientras processMatchResult + 100s de espera siguen en curso
 const processingMatches = new Set();
 
-// Cuántas horas atrás buscar partidos en la API de EA (48h para torneos de varios días)
-const LOOKBACK_HOURS = 48;
+// Cuántas horas atrás buscar partidos en la API de EA
+const LOOKBACK_HOURS = 6;
 // Intervalo de verificación en milisegundos (10 segundos)
 const CHECK_INTERVAL_MS = 10000;
 
