@@ -2534,11 +2534,32 @@ app.get('/api/platform-stats', async (req, res) => {
 app.get('/api/upcoming-events', async (req, res) => {
     try {
         const db = getDb();
-        const events = await db.collection('tournaments')
+        const tournaments = await db.collection('tournaments')
             .find({ status: { $in: ['inscripciones_abiertas', 'activo', 'en_curso', 'draft_activo'] } })
             .project({ name: 1, shortId: 1, type: 1, config: 1, status: 1, createdAt: 1 })
             .sort({ createdAt: -1 }).limit(3).toArray();
-        res.json(events);
+            
+        const drafts = await db.collection('drafts')
+            .find({ status: { $in: ['active', 'picking', 'inscripciones_abiertas'] } })
+            .project({ name: 1, shortId: 1, status: 1, createdAt: 1 })
+            .sort({ createdAt: -1 }).limit(3).toArray();
+            
+        // Formatear drafts para que compartan la estructura
+        const formattedDrafts = drafts.map(d => ({
+            name: d.name,
+            shortId: d.shortId || d._id.toString(),
+            type: 'Draft',
+            status: d.status === 'picking' ? 'draft_activo' : d.status,
+            createdAt: d.createdAt,
+            isDraftCollection: true
+        }));
+        
+        // Combinar, ordenar por fecha de creación (más reciente primero) y limitar a 3
+        const allEvents = [...tournaments, ...formattedDrafts]
+            .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+            .slice(0, 3);
+            
+        res.json(allEvents);
     } catch (e) {
         console.error('Error loading upcoming events:', e);
         res.status(500).json({ error: 'Error del servidor' });
@@ -2607,10 +2628,19 @@ app.get('/api/teams/:id/profile', async (req, res) => {
         const memberIds = [team.managerId, ...(team.captains || []), ...(team.players || [])].filter(Boolean);
         const members = [];
         for (const mId of memberIds) {
+            let userName = mId;
             const v = await tournamentDb.collection('verified_users').findOne({ discordId: mId });
+            if (v && (v.discordTag || v.gameId)) {
+                userName = v.discordTag || v.gameId;
+            } else if (client) {
+                try {
+                    const discordUser = await client.users.fetch(mId);
+                    userName = discordUser.username || mId;
+                } catch(e) { }
+            }
             members.push({
                 id: mId,
-                name: v ? (v.discordTag || v.gameId || mId) : mId,
+                name: userName,
                 role: mId === team.managerId ? 'Manager' : (team.captains || []).includes(mId) ? 'Capitán' : 'Jugador'
             });
         }
