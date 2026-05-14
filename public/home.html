@@ -66,16 +66,13 @@
 
         /* ===== LANGUAGE TOGGLE ===== */
         .lang-toggle {
-            position: fixed;
-            top: 24px;
-            right: 24px;
-            z-index: 1000;
             display: flex;
             background: rgba(255,255,255,0.06);
             border: 1px solid var(--color-border);
             border-radius: 50px;
-            backdrop-filter: blur(16px);
             overflow: hidden;
+            margin-left: 8px;
+            flex-shrink: 0;
         }
         .lang-toggle button {
             background: none;
@@ -697,7 +694,6 @@
             }
             .btn { width: 100%; justify-content: center; }
             .hero-logo { width: 100px; }
-            .lang-toggle { top: 16px; right: 16px; }
             .stats-grid { grid-template-columns: 1fr; gap: 8px; }
             .scroll-indicator { display: none; }
         }
@@ -722,13 +718,11 @@
             <a href="/faq.html">FAQ</a>
             <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Discord</a>
         </div>
+        <div class="lang-toggle">
+            <button class="lang-btn" data-lang="es">ES</button>
+            <button class="lang-btn" data-lang="en">EN</button>
+        </div>
     </nav>
-
-    <!-- Language Toggle -->
-    <div class="lang-toggle">
-        <button class="lang-btn" data-lang="es">ES</button>
-        <button class="lang-btn" data-lang="en">EN</button>
-    </div>
 
     <!-- ===== HERO ===== -->
     <section class="hero">
