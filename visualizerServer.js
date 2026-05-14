@@ -2534,32 +2534,22 @@ app.get('/api/platform-stats', async (req, res) => {
 app.get('/api/upcoming-events', async (req, res) => {
     try {
         const db = getDb();
-        const tournaments = await db.collection('tournaments')
-            .find({ status: { $in: ['inscripciones_abiertas', 'activo', 'en_curso', 'draft_activo'] } })
-            .project({ name: 1, shortId: 1, type: 1, config: 1, status: 1, createdAt: 1 })
-            .sort({ createdAt: -1 }).limit(3).toArray();
+        const pools = await db.collection('team_pools')
+            .find({ status: 'open' })
+            .project({ name: 1, shortId: 1, imageUrl: 1, createdAt: 1 })
+            .sort({ createdAt: -1 }).limit(6).toArray();
             
-        const drafts = await db.collection('drafts')
-            .find({ status: { $in: ['active', 'picking', 'inscripciones_abiertas'] } })
-            .project({ name: 1, shortId: 1, status: 1, createdAt: 1 })
-            .sort({ createdAt: -1 }).limit(3).toArray();
-            
-        // Formatear drafts para que compartan la estructura
-        const formattedDrafts = drafts.map(d => ({
-            name: d.name,
-            shortId: d.shortId || d._id.toString(),
-            type: 'Draft',
-            status: d.status === 'picking' ? 'draft_activo' : d.status,
-            createdAt: d.createdAt,
-            isDraftCollection: true
+        const formattedPools = pools.map(p => ({
+            name: p.name,
+            shortId: p.shortId,
+            type: 'Bolsa de Equipos',
+            status: 'inscripciones_abiertas',
+            imageUrl: p.imageUrl,
+            createdAt: p.createdAt,
+            isPool: true
         }));
-        
-        // Combinar, ordenar por fecha de creación (más reciente primero) y limitar a 3
-        const allEvents = [...tournaments, ...formattedDrafts]
-            .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-            .slice(0, 3);
             
-        res.json(allEvents);
+        res.json(formattedPools);
     } catch (e) {
         console.error('Error loading upcoming events:', e);
         res.status(500).json({ error: 'Error del servidor' });

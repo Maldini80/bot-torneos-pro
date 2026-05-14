@@ -792,12 +792,12 @@
 
     <div class="section-divider"></div>
 
-    <!-- ===== UPCOMING EVENTS ===== -->
+    <!-- ===== BOLSAS ===== -->
     <section class="events-section">
-        <p class="section-label" data-i18n="events.label">Próximos Eventos</p>
-        <h2 class="section-title" data-i18n="events.title">No te pierdas nada</h2>
+        <p class="section-label" data-i18n="events.label">Agencia Libre</p>
+        <h2 class="section-title" data-i18n="events.title">Bolsas Activas</h2>
         <div id="events-container" class="events-grid">
-            <div class="events-empty" data-i18n="events.loading">Cargando eventos...</div>
+            <div class="events-empty" data-i18n="events.loading">Cargando bolsas...</div>
         </div>
     </section>
 
@@ -873,10 +873,10 @@
                 'stats.tournaments': 'Torneos Disputados',
                 'stats.teams': 'Equipos Registrados',
                 'stats.players': 'Jugadores Activos',
-                'events.label': 'Próximos Eventos',
-                'events.title': 'No te pierdas nada',
-                'events.loading': 'Cargando eventos...',
-                'events.empty': 'No hay eventos activos — <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Síguenos en Discord</a>',
+                'events.label': 'Agencia Libre',
+                'events.title': 'Bolsas Activas',
+                'events.loading': 'Cargando bolsas...',
+                'events.empty': 'No hay bolsas activas — <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Síguenos en Discord</a>',
                 'footer': 'Powered by THE BLITZ © 2026'
             },
             en: {
@@ -896,10 +896,10 @@
                 'stats.tournaments': 'Tournaments Played',
                 'stats.teams': 'Registered Teams',
                 'stats.players': 'Active Players',
-                'events.label': 'Upcoming Events',
-                'events.title': 'Don\'t miss a thing',
-                'events.loading': 'Loading events...',
-                'events.empty': 'No active events — <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Follow us on Discord</a>',
+                'events.label': 'Free Agency',
+                'events.title': 'Active Pools',
+                'events.loading': 'Loading pools...',
+                'events.empty': 'No active pools — <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Follow us on Discord</a>',
                 'footer': 'Powered by THE BLITZ © 2026'
             }
         };
@@ -933,7 +933,7 @@
             if (d.players) document.getElementById('stat-players').textContent = d.players + '+';
         }).catch(() => {});
 
-        // ===== Upcoming Events =====
+        // ===== Upcoming Events (Bolsas) =====
         fetch('/api/upcoming-events').then(r => r.json()).then(events => {
             const c = document.getElementById('events-container');
             if (!events || events.length === 0) {
@@ -942,11 +942,12 @@
                 return;
             }
             c.innerHTML = events.map(e => {
-                const isOpen = e.status === 'inscripciones_abiertas';
+                const isOpen = e.status === 'inscripciones_abiertas' || e.status === 'open';
                 const badge = isOpen ? 'badge-open' : 'badge-active';
                 const label = isOpen ? (currentLang==='en'?'Open':'Inscripciones Abiertas') : (currentLang==='en'?'In Progress':'En Curso');
-                const link = e.status === 'draft_activo' ? '/?draftId='+e.shortId : '/?tournamentId='+e.shortId;
-                return '<a href="'+link+'" class="event-card"><span class="event-badge '+badge+'">'+label+'</span><h3>'+e.name+'</h3><p>'+(e.type||'Torneo')+'</p></a>';
+                const link = e.isPool ? '/bolsa/'+e.shortId : (e.status === 'draft_activo' ? '/?draftId='+e.shortId : '/?tournamentId='+e.shortId);
+                const bgImage = e.imageUrl ? ` style="background-image: linear-gradient(to top, rgba(10,132,255,0.9), rgba(10,132,255,0.3)), url('${e.imageUrl}'); background-size: cover; background-position: center;"` : '';
+                return '<a href="'+link+'" class="event-card"'+bgImage+'><span class="event-badge '+badge+'">'+label+'</span><h3 style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">'+e.name+'</h3><p style="color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">'+(e.type||'Bolsa')+'</p></a>';
             }).join('');
         }).catch(() => {
             document.getElementById('events-container').innerHTML = '<div class="events-empty">' + translations[currentLang]['events.empty'] + '</div>';
