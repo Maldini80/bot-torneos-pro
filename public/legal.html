@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BLITZ | Términos y Privacidad</title>
+    <meta name="description" content="Términos de uso y política de privacidad de THE BLITZ.">
+    <link rel="icon" type="image/png" href="/logo-the-blitz.png">
+    <meta name="theme-color" content="#0A84FF">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="pages-shared.css">
+</head>
+<body>
+    <div class="page-container">
+        <nav class="top-nav">
+            <a href="/" class="nav-logo">⚡ THE BLITZ</a>
+            <div class="nav-links">
+                <a href="/">Inicio</a>
+                <a href="/dashboard.html">Dashboard</a>
+                <a href="/ranking.html">Ranking</a>
+                <a href="/reglas.html">Reglas</a>
+                <a href="/faq.html">FAQ</a>
+            </div>
+        </nav>
+        <header>
+            <h1>📄 LEGAL</h1>
+            <p class="subtitle">Términos de uso y Política de privacidad</p>
+        </header>
+
+        <div class="legal-tabs">
+            <button class="legal-tab active" onclick="switchLegal('terms')">Términos de Uso</button>
+            <button class="legal-tab" onclick="switchLegal('privacy')">Política de Privacidad</button>
+        </div>
+
+        <div id="terms" class="legal-section active">
+            <div class="legal-content">
+                <h3>1. Aceptación</h3>
+                <p>Al utilizar THE BLITZ (t-blitz.com) aceptas estos términos. Si no estás de acuerdo, no utilices la plataforma.</p>
+
+                <h3>2. Descripción del servicio</h3>
+                <p>THE BLITZ es una plataforma gratuita de organización de torneos de EA Sports FC Pro Clubs. No tiene afiliación con EA Sports, Sony, Microsoft ni Discord.</p>
+
+                <h3>3. Requisitos</h3>
+                <ul>
+                    <li>Debes tener al menos 16 años para utilizar la plataforma.</li>
+                    <li>Es obligatorio tener una cuenta de Discord válida y ser miembro del servidor oficial.</li>
+                    <li>Debes respetar el <a href="/reglas.html">Reglamento Oficial</a> en todo momento.</li>
+                </ul>
+
+                <h3>4. Conducta</h3>
+                <p>Queda prohibido: hacer trampas, manipular resultados, crear cuentas múltiples, acosar a otros usuarios o intentar explotar vulnerabilidades del sistema.</p>
+
+                <h3>5. Sanciones</h3>
+                <p>La administración puede sancionar o expulsar permanentemente a cualquier usuario que incumpla estas normas. Las decisiones del Staff son finales.</p>
+
+                <h3>6. Limitación de responsabilidad</h3>
+                <p>THE BLITZ se proporciona "tal cual". No garantizamos disponibilidad continua ni nos responsabilizamos de pérdidas derivadas del uso de la plataforma.</p>
+
+                <h3>7. Modificaciones</h3>
+                <p>Estos términos pueden actualizarse en cualquier momento. El uso continuado implica aceptación de los cambios.</p>
+            </div>
+        </div>
+
+        <div id="privacy" class="legal-section">
+            <div class="legal-content">
+                <h3>1. Datos que recopilamos</h3>
+                <p>Al iniciar sesión con Discord (OAuth2), accedemos a:</p>
+                <ul>
+                    <li><strong>ID de usuario de Discord</strong>, nombre de usuario y avatar</li>
+                    <li><strong>Roles del servidor</strong> (para verificar permisos)</li>
+                    <li><strong>ID de juego</strong> (PSN/Xbox/PC) — proporcionado voluntariamente al verificar</li>
+                    <li><strong>Número de WhatsApp</strong> — solo si te inscribes en drafts que lo requieran</li>
+                </ul>
+
+                <h3>2. Cómo usamos los datos</h3>
+                <ul>
+                    <li>Gestionar inscripciones y participación en torneos</li>
+                    <li>Vincular tu club de EA Sports para detección automática de resultados</li>
+                    <li>Comunicación relacionada con torneos (vía Discord o WhatsApp)</li>
+                    <li>Estadísticas y rankings públicos</li>
+                </ul>
+
+                <h3>3. Cookies y sesiones</h3>
+                <p>Utilizamos cookies de sesión (connect.sid) para mantener tu autenticación. No usamos cookies de rastreo ni publicidad.</p>
+
+                <h3>4. Almacenamiento</h3>
+                <p>Los datos se almacenan en bases de datos MongoDB alojadas en servidores seguros. Las sesiones expiran automáticamente a los 14 días.</p>
+
+                <h3>5. Compartición de datos</h3>
+                <p><strong>No vendemos ni compartimos tus datos con terceros.</strong> La información de WhatsApp solo es visible para la administración del torneo.</p>
+
+                <h3>6. Tus derechos</h3>
+                <p>Puedes solicitar la eliminación de tus datos contactando con la administración en Discord. Al cerrar sesión, tu sesión se elimina del servidor.</p>
+
+                <h3>7. Contacto</h3>
+                <p>Para cualquier consulta sobre privacidad, contacta con la administración en el <a href="https://discord.gg/zEy9ztp8QM" target="_blank">servidor de Discord</a>.</p>
+            </div>
+        </div>
+
+        <div class="page-footer">
+            <p>Última actualización: Mayo 2026</p>
+        </div>
+    </div>
+    <script>
+        function switchLegal(tab) {
+            document.querySelectorAll('.legal-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.legal-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

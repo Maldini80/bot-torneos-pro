@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BLITZ | Reglamento Oficial</title>
+    <meta name="description" content="Reglamento oficial de los torneos THE BLITZ y VPG. Alturas, playstyles, protocolo de conexión y normativa.">
+    <link rel="icon" type="image/png" href="/logo-the-blitz.png">
+    <meta name="theme-color" content="#0A84FF">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="THE BLITZ | Reglamento Oficial">
+    <meta property="og:description" content="Consulta las reglas oficiales de los torneos y competiciones de THE BLITZ.">
+    <meta property="og:image" content="https://t-blitz.com/og-image.png">
+    <meta property="og:url" content="https://t-blitz.com/reglas.html">
+    <meta property="og:site_name" content="THE BLITZ">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #06060e;
+            background-image: url('https://i.imgur.com/P3m2pe5.png');
+            background-size: cover; background-position: center; background-attachment: fixed;
+            color: #EAEAF0;
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background: linear-gradient(180deg, rgba(6,6,14,0.6) 0%, rgba(6,6,14,0.85) 50%, rgba(6,6,14,0.95) 100%);
+            z-index: 0;
+        }
+
+        .page-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Navigation */
+        .top-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .nav-logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.6rem;
+            color: #fff;
+            text-decoration: none;
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px rgba(10,132,255,0.5);
+        }
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            transition: all 0.3s;
+        }
+        .nav-links a:hover, .nav-links a.active {
+            color: #fff;
+            border-color: #0A84FF;
+            background: rgba(10,132,255,0.1);
+        }
+
+        /* Title */
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2.5rem, 7vw, 4rem);
+            color: #fff;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            text-shadow: 0 0 7px #fff, 0 0 10px #fff,
+                0 0 42px rgba(10,132,255,0.8), 0 0 82px rgba(10,132,255,0.5);
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.5);
+            font-size: 1rem;
+        }
+
+        /* Accordion sections */
+        .rule-section {
+            margin-bottom: 16px;
+        }
+
+        .rule-header {
+            width: 100%;
+            background: rgba(12, 12, 24, 0.75);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 18px 24px;
+            color: #fff;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s;
+            text-align: left;
+        }
+        .rule-header:hover {
+            border-color: rgba(10,132,255,0.4);
+            background: rgba(12, 12, 24, 0.9);
+        }
+        .rule-header.open {
+            border-color: #0A84FF;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            box-shadow: 0 0 20px rgba(10,132,255,0.15);
+        }
+        .rule-icon {
+            font-size: 1.3rem;
+            margin-right: 12px;
+        }
+        .rule-chevron {
+            transition: transform 0.3s;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.4);
+        }
+        .rule-header.open .rule-chevron {
+            transform: rotate(180deg);
+            color: #0A84FF;
+        }
+
+        .rule-content {
+            display: none;
+            background: rgba(12, 12, 24, 0.85);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            padding: 24px;
+            line-height: 1.8;
+            color: rgba(255,255,255,0.75);
+            font-size: 0.95rem;
+        }
+        .rule-content.open {
+            display: block;
+            animation: fadeSlide 0.3s ease-out;
+        }
+        @keyframes fadeSlide {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .rule-content h3 {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1rem;
+            color: #0A84FF;
+            margin: 20px 0 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .rule-content h3:first-child {
+            margin-top: 0;
+        }
+
+        .rule-content ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .rule-content ul li {
+            padding: 6px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .rule-content ul li::before {
+            content: '▸';
+            position: absolute;
+            left: 0;
+            color: #0A84FF;
+        }
+
+        .rule-content .highlight {
+            color: #D4A843;
+            font-weight: 600;
+        }
+
+        .rule-content .warning-text {
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            color: #e74c3c;
+            font-weight: 500;
+        }
+
+        .rule-content .info-box {
+            background: rgba(10, 132, 255, 0.08);
+            border: 1px solid rgba(10, 132, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* Badge */
+        .division-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-gold {
+            background: linear-gradient(135deg, #FFD700, #DAA520);
+            color: #1a1a1a;
+        }
+        .badge-silver {
+            background: linear-gradient(135deg, #C0C0C0, #A0A0A0);
+            color: #1a1a1a;
+        }
+
+        /* Footer */
+        .page-footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.25);
+            font-size: 0.85rem;
+        }
+        .page-footer a {
+            color: #0A84FF;
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .page-container { padding: 20px 14px 40px; }
+            .rule-header { padding: 14px 16px; font-size: 1rem; }
+            .rule-content { padding: 16px; }
+            h1 { font-size: 2.2rem; letter-spacing: 4px; }
+
+            *, *::before, *::after {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page-container">
+        <nav class="top-nav">
+            <a href="/" class="nav-logo">⚡ THE BLITZ</a>
+            <div class="nav-links">
+                <a href="/">Inicio</a>
+                <a href="/dashboard.html">Dashboard</a>
+                <a href="/ranking.html">Ranking</a>
+                <a href="/reglas.html" class="active">Reglas</a>
+                <a href="/faq.html">FAQ</a>
+            </div>
+        </nav>
+
+        <header>
+            <h1>📜 REGLAMENTO OFICIAL</h1>
+            <p class="subtitle">Normativa de los Torneos BLITZ & VPG</p>
+        </header>
+
+        <!-- Section 1: Alturas 1ª División -->
+        <div class="rule-section">
+            <button class="rule-header open" onclick="toggleSection(this)">
+                <span><span class="rule-icon">🏆</span> Alturas y Playstyles — 1ª División / Gold-Diamond</span>
+                <span class="rule-chevron">▼</span>
+            </button>
+            <div class="rule-content open">
+                <p>Para equipos de <span class="division-badge badge-gold">GOLD</span> y <span class="division-badge" style="background:linear-gradient(135deg,#00d2ff,#3a7bd5);color:#fff;">DIAMOND</span> de la Primera División VPG España:</p>
+
+                <h3>Límites de Altura</h3>
+                <ul>
+                    <li>🧤 <strong>Portero (GK):</strong> Altura máxima <span class="highlight">192 cm</span></li>
+                    <li>🛡️ <strong>Defensa Central (DFC):</strong> Máximo <span class="highlight">187 cm</span></li>
+                    <li>⚡ <strong>Resto de posiciones:</strong> Máximo <span class="highlight">182 cm</span></li>
+                </ul>
+
+                <h3>Playstyles Baneados</h3>
+                <div class="warning-text">
+                    🚫 <strong>BLOQUEO</strong>, <strong>LEÑERO</strong> y <strong>ESTIRADA DEL PORTERO</strong> están totalmente baneados (tanto en Oro como en Plata).
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Alturas 2ª División -->
+        <div class="rule-section">
+            <button class="rule-header" onclick="toggleSection(this)">
+                <span><span class="rule-icon">🥈</span> Alturas y Playstyles — 2ª División / Silver-Bronze</span>
+                <span class="rule-chevron">▼</span>
+            </button>
+            <div class="rule-content">
+                <p>Para equipos de <span class="division-badge badge-silver">SILVER</span> y <span class="division-badge" style="background:var(--bronze,#CD7F32);color:#fff;">BRONZE</span> de la Segunda División VPG España hacia abajo:</p>
+
+                <h3>Límites de Altura</h3>
+                <ul>
+                    <li>🧤 <strong>Portero (GK):</strong> <span class="highlight">Sin límite de altura</span></li>
+                    <li>🛡️ <strong>Defensa Central (DFC):</strong> Máximo <span class="highlight">187 cm</span></li>
+                    <li>⚡ <strong>Resto de posiciones:</strong> Máximo <span class="highlight">182 cm</span></li>
+                </ul>
+
+                <h3>Playstyles</h3>
+                <div class="info-box">
+                    ✅ <strong>No hay perks baneadas.</strong> Todos los Playstyles (Oro y Plata) están totalmente permitidos.
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Pruebas -->
+        <div class="rule-section">
+            <button class="rule-header" onclick="toggleSection(this)">
+                <span><span class="rule-icon">📸</span> Pruebas y Revisión de Alturas</span>
+                <span class="rule-chevron">▼</span>
+            </button>
+            <div class="rule-content">
+                <ul>
+                    <li>En la prueba debe verse el <strong>partido de fondo</strong> (rival visible).</li>
+                    <li>El capitán <strong>solo podrá pedir revisión de alturas</strong> si presenta una evidencia gráfica clara de que el rival está haciendo posibles trampas.</li>
+                </ul>
+
+                <div class="warning-text">
+                    ⚠️ <strong>AVISO CONTRA EL ABUSO:</strong> Usar esta norma para "rascar puntos" injustamente conlleva la <strong>expulsión perpetua como capitán</strong>.
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Protocolo Conexión -->
+        <div class="rule-section">
+            <button class="rule-header" onclick="toggleSection(this)">
+                <span><span class="rule-icon">⏱️</span> Protocolo de Conexión y Entradas</span>
+                <span class="rule-chevron">▼</span>
+            </button>
+            <div class="rule-content">
+                <h3>Salidas</h3>
+                <ul>
+                    <li><strong>Solo una vez por equipo</strong> y antes del minuto 10.</li>
+                </ul>
+
+                <h3>Entradas Estrictas</h3>
+                <div class="warning-text">
+                    🚫 <strong>No entran jugadores nuevos con el partido en marcha.</strong> Tras el minuto 10, se acaba con los que estén.
+                </div>
+
+                <h3>Excepción por Bug</h3>
+                <div class="info-box">
+                    🛠️ Caída masiva bajo supervisión del Staff. Única excepción válida.
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Servidores -->
+        <div class="rule-section">
+            <button class="rule-header" onclick="toggleSection(this)">
+                <span><span class="rule-icon">🌍</span> Servidores e Invitaciones</span>
+                <span class="rule-chevron">▼</span>
+            </button>
+            <div class="rule-content">
+                <div class="info-box">
+                    🇪🇸 Es <strong>obligatorio invitar desde España</strong> para asegurar la conexión en servidores españoles.
+                </div>
+                <p style="margin-top: 10px;">Si el host no cumple esto o la conexión falla, la responsabilidad de invitar pasará al rival bajo las mismas condiciones.</p>
+            </div>
+        </div>
+
+        <!-- Section 6: Restricción Táctica -->
+        <div class="rule-section">
+            <button class="rule-header" onclick="toggleSection(this)">
+                <span><span class="rule-icon">🛡️</span> Restricción Táctica y Penalización</span>
+                <span class="rule-chevron">▼</span>
+            </button>
+            <div class="rule-content">
+                <h3>Restricción Táctica</h3>
+                <ul>
+                    <li>Los defensas <strong>no pueden subir al ataque de forma fija</strong> hasta el <span class="highlight">minuto 75</span>.</li>
+                </ul>
+
+                <h3>Penalización</h3>
+                <div class="warning-text">
+                    ⚖️ Si la Administración detecta un abuso de la norma para ganar puntos en los despachos, podrá penalizar al infractor con el <strong>partido perdido</strong>. Esta decisión será exclusivamente administrativa.
+                </div>
+                <p style="margin-top: 8px; color: rgba(255,255,255,0.5); font-style: italic;">¡Los puntos se ganan en el campo! ⚽🔥</p>
+            </div>
+        </div>
+
+        <!-- Section 7: Autoridad -->
+        <div class="rule-section">
+            <button class="rule-header" onclick="toggleSection(this)">
+                <span><span class="rule-icon">⚖️</span> Autoridad Administrativa y Deportiva</span>
+                <span class="rule-chevron">▼</span>
+            </button>
+            <div class="rule-content">
+                <div class="warning-text">
+                    👨‍⚖️ <strong>El criterio del Staff prevalece sobre el texto escrito.</strong> La Administración tiene autoridad máxima para investigar y sancionar cualquier intento de fraude.
+                </div>
+                <p style="margin-top: 10px; text-align: center; color: rgba(255,255,255,0.5); font-style: italic;">¡La última palabra siempre es de los Admins! 🔥</p>
+            </div>
+        </div>
+
+        <div class="page-footer">
+            <p>BLITZ / VPG — Reglamento vigente</p>
+            <p style="margin-top: 8px;">¿Dudas? Consulta las <a href="/faq.html">Preguntas Frecuentes</a> o únete a nuestro <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Discord</a></p>
+        </div>
+    </div>
+
+    <script>
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const isOpen = header.classList.contains('open');
+
+            if (isOpen) {
+                header.classList.remove('open');
+                content.classList.remove('open');
+            } else {
+                header.classList.add('open');
+                content.classList.add('open');
+            }
+        }
+    </script>
+</body>
+
+</html>

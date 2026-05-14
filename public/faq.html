@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BLITZ | Preguntas Frecuentes</title>
+    <meta name="description" content="Resuelve tus dudas sobre THE BLITZ: torneos, equipos, inscripciones y más.">
+    <link rel="icon" type="image/png" href="/logo-the-blitz.png">
+    <meta name="theme-color" content="#0A84FF">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="THE BLITZ | FAQ">
+    <meta property="og:description" content="Todo lo que necesitas saber sobre torneos y competiciones en THE BLITZ.">
+    <meta property="og:image" content="https://t-blitz.com/og-image.png">
+    <meta property="og:url" content="https://t-blitz.com/faq.html">
+    <meta property="og:site_name" content="THE BLITZ">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="pages-shared.css">
+</head>
+<body>
+    <div class="page-container">
+        <nav class="top-nav">
+            <a href="/" class="nav-logo">⚡ THE BLITZ</a>
+            <div class="nav-links">
+                <a href="/">Inicio</a>
+                <a href="/dashboard.html">Dashboard</a>
+                <a href="/ranking.html">Ranking</a>
+                <a href="/reglas.html">Reglas</a>
+                <a href="/faq.html" class="active">FAQ</a>
+            </div>
+        </nav>
+        <header>
+            <h1>❓ PREGUNTAS FRECUENTES</h1>
+            <p class="subtitle">Todo lo que necesitas saber sobre THE BLITZ</p>
+        </header>
+
+        <div class="faq-category"><h2 class="category-title">🌐 General</h2>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué es THE BLITZ?</span><span class="chv">▼</span></button><div class="faq-a">THE BLITZ es una plataforma competitiva de torneos de <strong>EA Sports FC Pro Clubs</strong>. Organizamos torneos de equipos, liguillas y drafts donde puedes competir con tu club de forma profesional y automatizada.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué plataformas de juego son compatibles?</span><span class="chv">▼</span></button><div class="faq-a">Soportamos <strong>PS5, Xbox Series X|S y PC</strong> (cross-play Gen5), así como <strong>PS4 y Xbox One</strong> (Gen4). Al crear tu equipo, selecciona tu generación de consola.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Es gratis participar?</span><span class="chv">▼</span></button><div class="faq-a">La mayoría de torneos son <strong>gratuitos</strong>. Ocasionalmente hay torneos de pago con premios, indicados claramente al inscribirse.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Necesito estar en el servidor de Discord?</span><span class="chv">▼</span></button><div class="faq-a"><strong>Sí, es obligatorio.</strong> Discord es el centro de comunicación. Únete desde <a href="https://discord.gg/zEy9ztp8QM" target="_blank">este enlace</a>.</div></div>
+        </div>
+
+        <div class="faq-category"><h2 class="category-title">⚽ Equipos</h2>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo creo mi equipo?</span><span class="chv">▼</span></button><div class="faq-a"><strong>Desde la web:</strong> Inicia sesión en el <a href="/dashboard.html">Dashboard</a>, ve a tu Perfil y pulsa "Crear Nuevo Equipo".<br><strong>Desde Discord:</strong> Usa el comando de creación de equipo en el canal correspondiente.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué significa vincular con EA Sports FC?</span><span class="chv">▼</span></button><div class="faq-a">Permite al bot <strong>detectar automáticamente los resultados</strong> de partidos y recopilar estadísticas sin reportar manualmente. Es <strong>obligatorio para torneos de equipos</strong>.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo ficho jugadores?</span><span class="chv">▼</span></button><div class="faq-a">Desde tu Perfil → "Gestionar" junto a tu equipo. Usa el formulario para <strong>invitar jugadores</strong> con su ID de Discord. Recibirán una notificación para aceptar.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué es el sistema ELO?</span><span class="chv">▼</span></button><div class="faq-a">Puntuación (desde 1000) que sube/baja según resultados. Determina tu liga:<br>🥉 <strong>Bronze</strong> (&lt;1000) · ⚙️ <strong>Silver</strong> (1000-1299) · 👑 <strong>Gold</strong> (1300-1549) · 💎 <strong>Diamond</strong> (1550+)</div></div>
+        </div>
+
+        <div class="faq-category"><h2 class="category-title">🏆 Torneos y Liguillas</h2>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué tipos de torneo existen?</span><span class="chv">▼</span></button><div class="faq-a"><strong>🏟️ Liguilla:</strong> Todos contra todos, gana el de más puntos.<br><strong>⚔️ Eliminatoria directa:</strong> Knockout — pierdes y estás fuera.<br><strong>🔀 Liga + Eliminatoria:</strong> Fase de grupos y luego knockout.<br><strong>🎲 Sistema Suizo:</strong> Emparejamientos por puntuación cada ronda.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo me inscribo en un torneo?</span><span class="chv">▼</span></button><div class="faq-a"><strong>Torneos de equipos:</strong> Dashboard → "Torneos Abiertos", o mediante enlace de Bolsa de Equipos.<br><strong>Drafts externos:</strong> Mediante enlace de inscripción individual eligiendo tu posición.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo funcionan los resultados automáticos?</span><span class="chv">▼</span></button><div class="faq-a">Con el equipo vinculado a EA Sports, el bot <strong>detecta automáticamente</strong> el resultado escaneando la API cada pocos segundos. Si falla, puedes reportar manualmente desde el hilo.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué son los hilos de partido?</span><span class="chv">▼</span></button><div class="faq-a">El bot crea un <strong>hilo en Discord</strong> mencionando a los capitanes. Ahí se coordinan horarios, se reporta el resultado y se abren incidencias. Toda la comunicación del partido debe ir en su hilo.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo reporto un resultado?</span><span class="chv">▼</span></button><div class="faq-a">En el hilo del partido, usa el botón <strong>"📝 Reportar Resultado"</strong>. Introduce el marcador. Si ambos equipos reportan lo mismo, se confirma automáticamente.</div></div>
+        </div>
+
+        <div class="faq-category"><h2 class="category-title">🎯 Drafts Externos</h2>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué es un Draft Externo?</span><span class="chv">▼</span></button><div class="faq-a">Torneo donde los jugadores se inscriben <strong>individualmente</strong>. Los capitanes eligen jugadores por turnos para formar equipos durante el evento en vivo.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo me inscribo en un Draft?</span><span class="chv">▼</span></button><div class="faq-a">Mediante el enlace de inscripción. Necesitas: estar logueado con Discord, ser miembro del servidor, tener cuenta verificada y elegir tu posición principal.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Puedo ser Capitán?</span><span class="chv">▼</span></button><div class="faq-a">Sí, al inscribirte puedes elegir el rol de <strong>Capitán</strong>. Serás responsable de elegir jugadores y liderar tu equipo. El cupo es limitado.</div></div>
+        </div>
+
+        <div class="faq-category"><h2 class="category-title">🛠️ Técnico</h2>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Por qué me pide verificar mi cuenta?</span><span class="chv">▼</span></button><div class="faq-a">La verificación vincula tu Discord con tu <strong>ID de juego</strong> (PSN/Xbox/PC). Es necesaria para validar partidos y estadísticas. Ve a Perfil → "Verificar Ahora".</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo funciona el Visualizador en Vivo?</span><span class="chv">▼</span></button><div class="faq-a">Muestra en tiempo real clasificación, calendario y eliminatorias. Se actualiza automáticamente — no necesitas recargar. Accede desde el Dashboard haciendo clic en un evento.</div></div>
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo contacto con los administradores?</span><span class="chv">▼</span></button><div class="faq-a">A través del <a href="https://discord.gg/zEy9ztp8QM" target="_blank">servidor de Discord</a>. Para incidencias de partidos, usa el botón de incidencia dentro del hilo.</div></div>
+        </div>
+
+        <div class="page-footer">
+            <p>¿No encuentras tu respuesta? Únete a nuestro <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Discord</a></p>
+            <p style="margin-top:8px">Consulta también el <a href="/reglas.html">Reglamento Oficial</a></p>
+        </div>
+    </div>
+    <script>
+        function toggleFaq(btn) {
+            const a = btn.nextElementSibling;
+            btn.classList.toggle('open');
+            a.classList.toggle('open');
+        }
+    </script>
+</body>
+</html>

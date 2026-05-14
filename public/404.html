@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BLITZ | Página no encontrada</title>
+    <meta name="description" content="La página que buscas no existe en THE BLITZ.">
+    <link rel="icon" type="image/png" href="/logo-the-blitz.png">
+    <meta name="theme-color" content="#0A84FF">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #06060e;
+            color: #EAEAF0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        .bg-glow {
+            position: fixed;
+            width: 600px; height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(10,132,255,0.15) 0%, transparent 70%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            animation: pulse-glow 4s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            padding: 2rem;
+        }
+
+        .error-code {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(8rem, 20vw, 14rem);
+            color: transparent;
+            background: linear-gradient(135deg, #0A84FF, #D4A843);
+            -webkit-background-clip: text;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            text-shadow: none;
+        }
+
+        .error-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(1.8rem, 5vw, 3rem);
+            color: #fff;
+            letter-spacing: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .error-desc {
+            color: rgba(255,255,255,0.5);
+            font-size: 1.05rem;
+            margin-bottom: 2.5rem;
+            max-width: 400px;
+            line-height: 1.6;
+        }
+
+        .home-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #0A84FF, #0066DD);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1.05rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(10,132,255,0.3);
+        }
+        .home-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(10,132,255,0.5);
+        }
+
+        .footer-note {
+            position: fixed;
+            bottom: 20px;
+            color: rgba(255,255,255,0.2);
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-glow"></div>
+    <div class="container">
+        <div class="error-code">404</div>
+        <h1 class="error-title">FUERA DE JUEGO</h1>
+        <p class="error-desc">La página que buscas no existe o ha sido movida. Vuelve al campo de juego.</p>
+        <a href="/" class="home-btn">⚡ Volver a THE BLITZ</a>
+    </div>
+    <p class="footer-note">Powered by THE BLITZ</p>
+</body>
+
+</html>

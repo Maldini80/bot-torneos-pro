@@ -2515,6 +2515,11 @@ app.get('/api/player-details/:draftId/:playerId', async (req, res) => {
     }
 });
 
+// === 404 Catch-all: Must be AFTER all routes ===
+app.use((req, res) => {
+    res.status(404).sendFile('404.html', { root: 'public' });
+});
+
 export async function startVisualizerServer(discordClient) {
     client = discordClient; // FIX: Asignar a variable global
     // Definimos la estrategia AQUÍ para tener acceso al cliente de Discord
