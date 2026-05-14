@@ -572,6 +572,15 @@
             color: var(--color-accent);
             text-decoration: none;
         }
+        .site-footer a:hover { text-decoration: underline; }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
 
         /* ===== MOBILE PERFORMANCE OPTIMIZATIONS ===== */
         @media (max-width: 768px) {
@@ -761,6 +770,13 @@
 
     <!-- ===== FOOTER ===== -->
     <footer class="site-footer">
+        <div class="footer-links">
+            <a href="/reglas.html">📜 Reglas</a>
+            <a href="/faq.html">❓ FAQ</a>
+            <a href="/ranking.html">📈 Ranking</a>
+            <a href="/legal.html">📄 Legal</a>
+            <a href="https://discord.gg/zEy9ztp8QM" target="_blank">💬 Discord</a>
+        </div>
         <span data-i18n="footer">Powered by THE BLITZ © 2026</span>
     </footer>
 
