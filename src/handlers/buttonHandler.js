@@ -6848,11 +6848,19 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             .setPlaceholder('Ej: 1299 (solo Silver/Bronze), 1549 (hasta Gold)')
             .setRequired(false);
 
+        const dateInput = new TextInputBuilder()
+            .setCustomId('pool_date')
+            .setLabel('Fecha del Evento (opcional)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Viernes 20, 22:30h')
+            .setRequired(false);
+
         modal.addComponents(
             new ActionRowBuilder().addComponents(nameInput),
             new ActionRowBuilder().addComponents(imageInput),
             new ActionRowBuilder().addComponents(minEloInput),
-            new ActionRowBuilder().addComponents(maxEloInput)
+            new ActionRowBuilder().addComponents(maxEloInput),
+            new ActionRowBuilder().addComponents(dateInput)
         );
         await interaction.showModal(modal);
         return;

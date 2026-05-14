@@ -471,25 +471,59 @@
         }
         .events-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+            margin-top: 40px;
         }
-        .event-card {
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: 16px;
-            padding: 24px;
+        .pool-card {
+            background: rgba(20,20,24,0.7);
+            border: 1px solid rgba(255,215,0,0.15); /* Subtle gold border */
+            border-radius: 12px;
+            overflow: hidden;
             text-align: left;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             text-decoration: none;
-            color: inherit;
-            display: block;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            position: relative;
         }
-        .event-card:hover {
-            border-color: var(--color-accent);
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(10,132,255,0.15);
+        .pool-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #ffd700, transparent);
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+        .pool-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255,215,0,0.4);
+            box-shadow: 0 12px 30px rgba(255,215,0,0.1);
+        }
+        .pool-card:hover::before {
+            opacity: 1;
+        }
+        .pool-card-content {
+            padding: 24px;
+            flex: 1;
+            z-index: 2;
+            position: relative;
+        }
+        .pool-card-image {
+            height: 140px;
+            background-size: cover;
+            background-position: center;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+        }
+        .pool-card-image::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, rgba(20,20,24,1) 0%, rgba(20,20,24,0) 100%);
         }
         .event-badge {
             display: inline-block;
@@ -499,24 +533,42 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
         .badge-open { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
         .badge-active { background: rgba(10,132,255,0.15); color: #0A84FF; border: 1px solid rgba(10,132,255,0.3); }
-        .event-card h3 {
+        
+        .pool-card h3 {
             font-family: var(--font-heading);
-            font-size: 1.15rem;
+            font-size: 1.4rem;
             color: #fff;
-            margin-bottom: 8px;
+            margin-bottom: 16px;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
-        .event-card p {
+        .pool-details {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .pool-detail-item {
+            display: flex;
+            align-items: center;
             font-size: 0.85rem;
-            color: var(--color-text-secondary);
+            color: #b3b3b3;
         }
+        .pool-detail-item i {
+            margin-right: 8px;
+            width: 16px;
+            text-align: center;
+            color: #ffd700;
+        }
+        
         .events-empty {
             color: var(--color-text-secondary);
             font-size: 0.95rem;
             padding: 30px 0;
+            grid-column: 1 / -1;
         }
         .events-empty a {
             color: var(--color-accent);
@@ -946,8 +998,32 @@
                 const badge = isOpen ? 'badge-open' : 'badge-active';
                 const label = isOpen ? (currentLang==='en'?'Open':'Inscripciones Abiertas') : (currentLang==='en'?'In Progress':'En Curso');
                 const link = e.isPool ? '/bolsa/'+e.shortId : (e.status === 'draft_activo' ? '/?draftId='+e.shortId : '/?tournamentId='+e.shortId);
-                const bgImage = e.imageUrl ? ` style="background-image: linear-gradient(to top, rgba(10,132,255,0.9), rgba(10,132,255,0.3)), url('${e.imageUrl}'); background-size: cover; background-position: center;"` : '';
-                return '<a href="'+link+'" class="event-card"'+bgImage+'><span class="event-badge '+badge+'">'+label+'</span><h3 style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">'+e.name+'</h3><p style="color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">'+(e.type||'Bolsa')+'</p></a>';
+                
+                let detailsHtml = '';
+                if (e.date) detailsHtml += `<span class="pool-detail-item">📅 ${e.date}</span>`;
+                if (e.minElo || e.maxElo) {
+                    let eloTxt = '';
+                    if (e.minElo && e.maxElo) eloTxt = `${e.minElo} - ${e.maxElo} ELO`;
+                    else if (e.minElo) eloTxt = `Min ${e.minElo} ELO`;
+                    else eloTxt = `Max ${e.maxElo} ELO`;
+                    detailsHtml += `<span class="pool-detail-item">🎯 ${eloTxt}</span>`;
+                }
+                detailsHtml += `<span class="pool-detail-item">👥 ${e.teamCount || 0} Equipos inscritos</span>`;
+
+                const imageHtml = e.imageUrl ? `<div class="pool-card-image" style="background-image: url('${e.imageUrl}');"></div>` : '';
+
+                return `
+                    <a href="${link}" class="pool-card">
+                        <div class="pool-card-content">
+                            <span class="event-badge ${badge}">${label}</span>
+                            <h3>${e.name}</h3>
+                            <div class="pool-details">
+                                ${detailsHtml}
+                            </div>
+                        </div>
+                        ${imageHtml}
+                    </a>
+                `;
             }).join('');
         }).catch(() => {
             document.getElementById('events-container').innerHTML = '<div class="events-empty">' + translations[currentLang]['events.empty'] + '</div>';

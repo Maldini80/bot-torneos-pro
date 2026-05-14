@@ -1264,6 +1264,8 @@ export function createPoolEmbed(pool) {
         eloFilterText = `\n🎯 **Filtro ELO:** ${parts.join(' · ')}\n`;
     }
 
+    let dateText = pool.date ? `\n📅 **Fecha:** ${pool.date}\n` : '\n';
+
     const embed = new EmbedBuilder()
         .setColor(embedColor)
         .setTitle(`📦 ${pool.name}`)
@@ -1271,7 +1273,7 @@ export function createPoolEmbed(pool) {
             `${statusText}\n\n` +
             `**${total}** equipos inscritos\n` +
             `💎 ${counts.DIAMOND} Diamond · 👑 ${counts.GOLD} Gold · ⚙️ ${counts.SILVER} Silver · 🥉 ${counts.BRONZE} Bronze\n` +
-            eloFilterText + `\n` +
+            eloFilterText + dateText +
             `🌐 **Inscripción Web:** ${process.env.BASE_URL || 'https://bot-torneos-web.onrender.com'}/bolsa/${pool.shortId}`
         )
         .setFooter({ text: `ID: ${pool.shortId}` })

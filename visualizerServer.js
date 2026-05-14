@@ -2536,7 +2536,7 @@ app.get('/api/upcoming-events', async (req, res) => {
         const db = getDb();
         const pools = await db.collection('team_pools')
             .find({ status: 'open' })
-            .project({ name: 1, shortId: 1, imageUrl: 1, createdAt: 1 })
+            .project({ name: 1, shortId: 1, imageUrl: 1, createdAt: 1, minElo: 1, maxElo: 1, date: 1, teams: 1 })
             .sort({ createdAt: -1 }).limit(6).toArray();
             
         const formattedPools = pools.map(p => ({
@@ -2545,6 +2545,10 @@ app.get('/api/upcoming-events', async (req, res) => {
             type: 'Bolsa de Equipos',
             status: 'inscripciones_abiertas',
             imageUrl: p.imageUrl,
+            minElo: p.minElo || null,
+            maxElo: p.maxElo || null,
+            date: p.date || null,
+            teamCount: Object.keys(p.teams || {}).length,
             createdAt: p.createdAt,
             isPool: true
         }));

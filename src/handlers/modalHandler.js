@@ -3352,6 +3352,9 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         const maxEloRaw = interaction.fields.getTextInputValue('pool_max_elo')?.trim();
         const minElo = minEloRaw ? parseInt(minEloRaw) : null;
         const maxElo = maxEloRaw ? parseInt(maxEloRaw) : null;
+        
+        let poolDate = null;
+        try { poolDate = interaction.fields.getTextInputValue('pool_date')?.trim() || null; } catch (e) {}
 
         if ((minEloRaw && isNaN(minElo)) || (maxEloRaw && isNaN(maxElo))) {
             return interaction.editReply('❌ Los valores de ELO deben ser números válidos.');
@@ -3370,6 +3373,7 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             imageUrl: poolImage,
             minElo: minElo,
             maxElo: maxElo,
+            date: poolDate,
             status: 'open',
             createdBy: interaction.user.id,
             createdAt: new Date(),
@@ -3434,6 +3438,9 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         const maxEloRaw = interaction.fields.getTextInputValue('pool_max_elo')?.trim();
         const minElo = minEloRaw ? parseInt(minEloRaw) : null;
         const maxElo = maxEloRaw ? parseInt(maxEloRaw) : null;
+        
+        let poolDate = null;
+        try { poolDate = interaction.fields.getTextInputValue('pool_date')?.trim() || null; } catch (e) {}
 
         if ((minEloRaw && isNaN(minElo)) || (maxEloRaw && isNaN(maxElo))) {
             return interaction.editReply('❌ Los valores de ELO deben ser números válidos.');
@@ -3444,7 +3451,7 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
 
         await db.collection('team_pools').updateOne(
             { shortId: poolShortId },
-            { $set: { name: newName, imageUrl: newImage, minElo: minElo, maxElo: maxElo } }
+            { $set: { name: newName, imageUrl: newImage, minElo: minElo, maxElo: maxElo, date: poolDate } }
         );
 
         const pool = await db.collection('team_pools').findOne({ shortId: poolShortId });
