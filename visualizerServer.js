@@ -2622,14 +2622,7 @@ app.get('/api/teams/:id/profile', async (req, res) => {
     }
 });
 
-// === 404 Catch-all: Must be AFTER all routes ===
-app.use((req, res) => {
-    // Return JSON for API routes, HTML for everything else
-    if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ error: 'Ruta no encontrada' });
-    }
-    res.status(404).sendFile('404.html', { root: 'public' });
-});
+// === 404 Catch-all moved inside startVisualizerServer ===
 
 export async function startVisualizerServer(discordClient) {
     client = discordClient; // FIX: Asignar a variable global
@@ -4102,6 +4095,15 @@ export async function startVisualizerServer(discordClient) {
             console.error('[API Pool Unregister] Error:', e);
             res.status(500).json({ error: 'Error interno.' });
         }
+    });
+
+    // === 404 Catch-all: Must be AFTER all routes ===
+    app.use((req, res) => {
+        // Return JSON for API routes, HTML for everything else
+        if (req.path.startsWith('/api/')) {
+            return res.status(404).json({ error: 'Ruta no encontrada' });
+        }
+        res.status(404).sendFile('404.html', { root: 'public' });
     });
 
     server.on('upgrade', (request, socket, head) => {
