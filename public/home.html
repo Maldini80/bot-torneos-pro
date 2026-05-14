@@ -596,11 +596,10 @@
             color: #fff;
             border-color: var(--color-accent);
             background: rgba(10,132,255,0.1);
-        }
         @media (max-width: 600px) {
-            .top-nav { padding: 10px 14px; }
-            .nav-logo { font-size: 1.1rem; white-space: nowrap; }
-            .nav-links { display: none; }
+            .top-nav { padding: 10px 14px; justify-content: space-between; }
+            .nav-links { gap: 4px; justify-content: center; flex: 1; }
+            .nav-links a { font-size: 0.75rem; padding: 5px 6px; }
         }
 
         /* ===== FOOTER ===== */
@@ -710,7 +709,6 @@
 
     <!-- ===== TOP NAV ===== -->
     <nav class="top-nav">
-        <a href="/" class="nav-logo">⚡ THE BLITZ</a>
         <div class="nav-links">
             <a href="/dashboard.html">Dashboard</a>
             <a href="/ranking.html">Ranking</a>
@@ -834,17 +832,9 @@
     </footer>
 
     <script>
-        // ===== Video Sound Toggle (persisted) =====
+        // ===== Video Sound Toggle =====
         const heroVideo = document.getElementById('hero-video');
-        let isMuted = localStorage.getItem('blitz-sound') !== 'on';
-
-        // Restore saved state on load
-        if (!isMuted && heroVideo) {
-            heroVideo.muted = false;
-            heroVideo.volume = 0.5;
-            document.getElementById('sound-toggle').textContent = '🔊';
-            document.getElementById('sound-toggle').classList.add('unmuted');
-        }
+        let isMuted = true;
 
         document.getElementById('sound-toggle').addEventListener('click', function() {
             if (!heroVideo) return;
@@ -853,12 +843,10 @@
                 heroVideo.volume = 0.5;
                 this.textContent = '🔊';
                 this.classList.add('unmuted');
-                localStorage.setItem('blitz-sound', 'on');
             } else {
                 heroVideo.muted = true;
                 this.textContent = '🔇';
                 this.classList.remove('unmuted');
-                localStorage.setItem('blitz-sound', 'off');
             }
             isMuted = !isMuted;
         });
