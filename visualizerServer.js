@@ -2545,6 +2545,49 @@ app.get('/api/upcoming-events', async (req, res) => {
     }
 });
 
+// === Active Events for Dashboard ===
+app.get('/api/events/active', async (req, res) => {
+    try {
+        const db = getDb();
+        const activeStatuses = ['activo', 'en_curso', 'inscripciones_abiertas', 'draft_activo', 'jugando'];
+
+        const tournaments = await db.collection('tournaments')
+            .find({ status: { $in: activeStatuses } })
+            .project({ name: 1, shortId: 1, type: 1, status: 1, config: 1, createdAt: 1 })
+            .sort({ createdAt: -1 }).toArray();
+
+        const drafts = await db.collection('drafts')
+            .find({ status: { $in: ['active', 'picking', 'inscripciones_abiertas'] } })
+            .project({ name: 1, shortId: 1, status: 1, createdAt: 1, currentPickIndex: 1, teams: 1 })
+            .sort({ createdAt: -1 }).toArray();
+
+        const formattedTournaments = tournaments.map(t => ({
+            id: t.shortId || t._id.toString(),
+            name: t.name,
+            type: 'tournament',
+            status: t.status,
+            teamsCount: t.config?.maxTeams || 0,
+            createdAt: t.createdAt
+        }));
+
+        const formattedDrafts = drafts.map(d => ({
+            id: 'draft-' + (d.shortId || d._id.toString()),
+            name: d.name,
+            type: 'draft',
+            status: d.status === 'picking' ? 'active' : d.status,
+            teamsCount: (d.teams || []).length,
+            currentPick: d.currentPickIndex || 0,
+            totalPicks: 0,
+            createdAt: d.createdAt
+        }));
+
+        res.json({ tournaments: formattedTournaments, drafts: formattedDrafts });
+    } catch (e) {
+        console.error('Error loading active events:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
 // === Team Profile API ===
 app.get('/api/teams/:id/profile', async (req, res) => {
     try {
@@ -2581,6 +2624,10 @@ app.get('/api/teams/:id/profile', async (req, res) => {
 
 // === 404 Catch-all: Must be AFTER all routes ===
 app.use((req, res) => {
+    // Return JSON for API routes, HTML for everything else
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Ruta no encontrada' });
+    }
     res.status(404).sendFile('404.html', { root: 'public' });
 });
 
