@@ -866,7 +866,7 @@ app.post('/api/admin/news', async (req, res) => {
             priority: ['featured', 'important', 'regular'].includes(priority) ? priority : 'regular',
             published: true,
             archived: false,
-            author: req.user.global_name || req.user.username,
+            author: 'THE BLITZ',
             createdAt: new Date(),
             updatedAt: new Date()
         };

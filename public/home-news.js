@@ -110,7 +110,7 @@ function renderCard(n, priorityClass) {
                     <p>${n.body}</p>
                 </div>
                 <div class="news-card-meta">
-                    <span>${date} · ${n.author || ''}</span>
+                    <span>${date}</span>
                     ${badgeLabel ? `<span class="news-priority-badge ${priorityClass}">${badgeLabel}</span>` : ''}
                 </div>
             </div>
@@ -124,7 +124,7 @@ function openNewsModal(n) {
     document.getElementById('news-modal-title').textContent = n.title;
     document.getElementById('news-modal-body').textContent = n.body;
     const date = new Date(n.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-    document.getElementById('news-modal-meta').textContent = `${date} · ${n.author || ''}`;
+    document.getElementById('news-modal-meta').textContent = date;
 
     // Pause hero background video to avoid sound overlap
     const heroVideo = document.getElementById('hero-video');
