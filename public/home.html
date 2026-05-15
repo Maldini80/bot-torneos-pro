@@ -130,15 +130,13 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
         }
-        /* Gradient overlay on top of video */
+        /* Subtle overlay — preserves video true colors, only fades at bottom */
         .hero::after {
             content: '';
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(ellipse at 50% 40%, rgba(10,132,255,0.10) 0%, transparent 60%),
-                radial-gradient(ellipse at 30% 80%, rgba(212,168,67,0.06) 0%, transparent 50%),
-                linear-gradient(180deg, rgba(6,6,14,0.45) 0%, rgba(6,6,14,0.65) 50%, var(--color-bg) 100%);
+                linear-gradient(180deg, rgba(6,6,14,0.15) 0%, transparent 30%, transparent 60%, var(--color-bg) 100%);
             z-index: 2;
             pointer-events: none;
         }
@@ -250,6 +248,7 @@
             letter-spacing: 2px;
             margin-bottom: 48px;
             text-transform: uppercase;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.8), 0 0 30px rgba(0,0,0,0.5);
         }
 
         /* CTA Buttons */

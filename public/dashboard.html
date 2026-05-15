@@ -352,14 +352,12 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
         }
-        /* Overlay — elegant gradient like Home */
+        /* Overlay — minimal, preserves video true colors */
         .dash-video-overlay {
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(ellipse at 50% 40%, rgba(10,132,255,0.10) 0%, transparent 60%),
-                radial-gradient(ellipse at 30% 80%, rgba(212,168,67,0.06) 0%, transparent 50%),
-                linear-gradient(180deg, rgba(6,6,14,0.45) 0%, rgba(6,6,14,0.65) 50%, rgba(6,6,14,0.85) 100%);
+                linear-gradient(180deg, transparent 0%, transparent 70%, rgba(6,6,14,0.6) 100%);
             z-index: 1;
             pointer-events: none;
         }
