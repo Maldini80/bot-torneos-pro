@@ -128,6 +128,39 @@ app.get('/bolsa/:poolId', async (req, res) => {
     }
 });
 
+// Shared news page with dynamic Open Graph tags
+app.get('/home.html', async (req, res) => {
+    if (!req.query.news) {
+        return res.sendFile('home.html', { root: 'public' });
+    }
+    try {
+        let html = fs.readFileSync(path.join('public', 'home.html'), 'utf8');
+        const db = getDb();
+        const news = await db.collection('news').findOne({ _id: new ObjectId(req.query.news) });
+        if (news) {
+            const title = `${news.title} — THE BLITZ`;
+            const desc = news.body.substring(0, 160);
+            const image = news.coverUrl || news.mediaUrl || 'https://i.imgur.com/P3m2pe5.png';
+            // Inject OG tags before </head>
+            const ogTags = `
+    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
+    <meta property="og:description" content="${desc.replace(/"/g, '&quot;')}">
+    <meta property="og:image" content="${image}">
+    <meta property="og:url" content="${process.env.SITE_URL || 'https://t-blitz.com'}/home.html?news=${req.query.news}">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">
+    <meta name="twitter:description" content="${desc.replace(/"/g, '&quot;')}">
+    <meta name="twitter:image" content="${image}">`;
+            html = html.replace('</head>', ogTags + '\n</head>');
+        }
+        res.send(html);
+    } catch (e) {
+        console.error('Error serving news OG:', e);
+        res.sendFile('home.html', { root: 'public' });
+    }
+});
+
 app.use(express.static('public'));
 
 const server = http.createServer(app);
