@@ -1354,21 +1354,44 @@ class DashboardApp {
     }
 
     setupHeroNav() {
-        // Hero button: Eventos Activos
-        const btnActive = document.getElementById('hero-btn-active');
-        if (btnActive) {
-            btnActive.addEventListener('click', () => {
+        // Nav link: Eventos Activos
+        const navActive = document.getElementById('nav-active-events');
+        if (navActive) {
+            navActive.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.showDashboardSection('active-events');
+                this.setActiveNavLink(navActive);
             });
         }
 
-        // Hero button: Historial
-        const btnHistory = document.getElementById('hero-btn-history');
-        if (btnHistory) {
-            btnHistory.addEventListener('click', () => {
+        // Nav link: Historial
+        const navHistory = document.getElementById('nav-history');
+        if (navHistory) {
+            navHistory.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.showDashboardSection('history');
+                this.setActiveNavLink(navHistory);
             });
         }
+
+        // User dropdown toggle
+        const dropdownToggle = document.getElementById('user-dropdown-toggle');
+        const dropdownWrapper = dropdownToggle?.closest('.user-dropdown-wrapper');
+        if (dropdownToggle && dropdownWrapper) {
+            dropdownToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdownWrapper.classList.toggle('open');
+            });
+            // Close on outside click
+            document.addEventListener('click', () => {
+                dropdownWrapper.classList.remove('open');
+            });
+        }
+    }
+
+    setActiveNavLink(activeLink) {
+        document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+        if (activeLink) activeLink.classList.add('active');
     }
 
     showDashboardSection(sectionId) {
@@ -2296,11 +2319,13 @@ function backToHero() {
     const backBtn = document.getElementById('back-to-hero');
     if (backBtn) backBtn.classList.remove('visible');
 
+    // Clear active nav link
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+
     // Show hero
     const hero = document.getElementById('hero-dash');
     if (hero) {
-        hero.style.display = 'flex';
-        hero.style.animation = 'heroFadeIn 0.5s ease-out';
+        hero.style.display = 'block';
     }
 
     // Scroll to top
