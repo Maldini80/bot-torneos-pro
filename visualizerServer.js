@@ -945,9 +945,69 @@ app.delete('/api/admin/news/:id', async (req, res) => {
     try {
         const db = getDb();
         await db.collection('news').deleteOne({ _id: new ObjectId(req.params.id) });
+        // Also delete comments
+        await db.collection('news_comments').deleteMany({ newsId: req.params.id });
         res.json({ success: true });
     } catch (e) {
         console.error('Error deleting news:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// ===== COMMENTS API =====
+// Public: get comments for a news article
+app.get('/api/news/:id/comments', async (req, res) => {
+    try {
+        const db = getDb();
+        const comments = await db.collection('news_comments')
+            .find({ newsId: req.params.id })
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .toArray();
+        res.json(comments);
+    } catch (e) {
+        console.error('Error getting comments:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Authenticated: post a comment (must be logged in via Discord)
+app.post('/api/news/:id/comments', async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'Debes iniciar sesión' });
+    try {
+        const { text } = req.body;
+        if (!text || text.trim().length === 0) return res.status(400).json({ error: 'Comentario vacío' });
+
+        const db = getDb();
+        const comment = {
+            newsId: req.params.id,
+            userId: req.user.id,
+            username: req.user.global_name || req.user.username,
+            avatar: req.user.avatar
+                ? `https://cdn.discordapp.com/avatars/${req.user.id}/${req.user.avatar}.png?size=64`
+                : `https://cdn.discordapp.com/embed/avatars/${parseInt(req.user.id) % 5}.png`,
+            text: text.trim().substring(0, 500),
+            createdAt: new Date()
+        };
+        await db.collection('news_comments').insertOne(comment);
+        res.json({ success: true, comment });
+    } catch (e) {
+        console.error('Error posting comment:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Admin: delete a comment
+app.delete('/api/admin/comments/:id', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+    try {
+        const db = getDb();
+        await db.collection('news_comments').deleteOne({ _id: new ObjectId(req.params.id) });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error deleting comment:', e);
         res.status(500).json({ error: 'Error del servidor' });
     }
 });

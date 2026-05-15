@@ -844,6 +844,52 @@
             font-size: 1.2rem; cursor: pointer; z-index: 2001;
         }
 
+        /* Share buttons */
+        .news-share {
+            display: flex; align-items: center; margin-top: 24px; padding-top: 16px;
+            border-top: 1px solid var(--color-border);
+        }
+        .share-btn {
+            width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--color-border);
+            background: rgba(255,255,255,0.04); color: #fff; font-size: 1rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s; margin-right: 8px;
+        }
+        .share-btn:hover { transform: scale(1.1); }
+        .share-twitter:hover { border-color: #1da1f2; color: #1da1f2; }
+        .share-whatsapp:hover { border-color: #25d366; color: #25d366; }
+
+        /* Comments */
+        .news-comments { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+        .news-comments h4 { font-family: var(--font-heading); font-size: 1rem; margin-bottom: 12px; }
+        .comments-list { max-height: 300px; overflow-y: auto; }
+        .comment-item {
+            display: flex; gap: 10px; padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .comment-avatar {
+            width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+        }
+        .comment-content { flex: 1; }
+        .comment-author { font-size: 0.8rem; font-weight: 600; color: var(--color-accent); }
+        .comment-text { font-size: 0.85rem; color: var(--color-text); margin-top: 4px; line-height: 1.4; }
+        .comment-date { font-size: 0.7rem; color: var(--color-text-secondary); margin-top: 4px; }
+        .comment-form textarea {
+            width: 100%; padding: 10px; background: rgba(255,255,255,0.04);
+            border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+            color: var(--color-text); font-family: var(--font-body); font-size: 0.85rem;
+            min-height: 60px; resize: vertical;
+        }
+        .comment-form textarea:focus { outline: none; border-color: var(--color-accent); }
+        .comment-login {
+            padding: 12px; text-align: center; font-size: 0.8rem;
+        }
+        .comment-login a {
+            color: var(--color-accent); text-decoration: none;
+        }
+        .comment-login a:hover { text-decoration: underline; }
+        .comments-empty { text-align: center; color: var(--color-text-secondary); font-size: 0.8rem; padding: 16px; }
+
         /* ===== ADMIN GEAR ===== */
         .admin-gear-wrapper {
             position: fixed; bottom: 80px; right: 24px; z-index: 1000; display: none;
@@ -1059,6 +1105,24 @@
                 <h2 id="news-modal-title"></h2>
                 <div class="meta" id="news-modal-meta"></div>
                 <div class="body" id="news-modal-body"></div>
+                <!-- Share Buttons -->
+                <div class="news-share" id="news-share">
+                    <span style="font-size:0.75rem;color:var(--color-text-secondary);margin-right:8px;">Compartir:</span>
+                    <button class="share-btn share-twitter" id="share-twitter" title="Compartir en X">𝕏</button>
+                    <button class="share-btn share-whatsapp" id="share-whatsapp" title="Compartir en WhatsApp">📱</button>
+                </div>
+                <!-- Comments -->
+                <div class="news-comments">
+                    <h4>💬 Comentarios</h4>
+                    <div id="news-comments-list" class="comments-list"></div>
+                    <div id="news-comment-form" class="comment-form" style="display:none;">
+                        <textarea id="news-comment-input" placeholder="Escribe un comentario..." maxlength="500"></textarea>
+                        <button class="admin-btn admin-btn-primary" id="news-comment-send" style="margin-top:8px;">Enviar</button>
+                    </div>
+                    <div id="news-comment-login" class="comment-login">
+                        <a href="/login?returnTo=/home.html">Inicia sesión con Discord para comentar</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

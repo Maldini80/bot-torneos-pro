@@ -141,7 +141,96 @@ function openNewsModal(n) {
         mediaDiv.innerHTML = '';
     }
     modal.classList.add('open');
+
+    // Share buttons
+    const shareUrl = `${window.location.origin}/home.html?news=${n._id}`;
+    const shareText = `${n.title} — THE BLITZ`;
+    document.getElementById('share-twitter').onclick = () => {
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+    };
+    document.getElementById('share-whatsapp').onclick = () => {
+        window.open(`https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`, '_blank');
+    };
+
+    // Comments
+    loadComments(n._id);
+    setupCommentForm(n._id);
 }
+
+// ===== COMMENTS =====
+let currentUser = null;
+
+async function checkUserForComments() {
+    try {
+        const res = await fetch('/api/user');
+        currentUser = await res.json();
+    } catch (e) { currentUser = null; }
+}
+
+async function loadComments(newsId) {
+    const list = document.getElementById('news-comments-list');
+    try {
+        const res = await fetch(`/api/news/${newsId}/comments`);
+        const comments = await res.json();
+        if (comments.length === 0) {
+            list.innerHTML = '<div class="comments-empty">Sin comentarios aún. ¡Sé el primero!</div>';
+            return;
+        }
+        list.innerHTML = comments.map(c => {
+            const date = new Date(c.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const deleteBtn = (currentUser && (currentUser.isAdmin || currentUser.id === c.userId))
+                ? `<button onclick="deleteComment('${c._id}', '${newsId}')" style="background:none;border:none;color:#cc3333;font-size:0.7rem;cursor:pointer;margin-left:8px;">🗑️</button>`
+                : '';
+            return `
+                <div class="comment-item">
+                    <img class="comment-avatar" src="${c.avatar}" alt="">
+                    <div class="comment-content">
+                        <span class="comment-author">${c.username}</span>${deleteBtn}
+                        <div class="comment-text">${c.text}</div>
+                        <div class="comment-date">${date}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = '<div class="comments-empty">Error cargando comentarios</div>';
+    }
+}
+
+function setupCommentForm(newsId) {
+    const form = document.getElementById('news-comment-form');
+    const login = document.getElementById('news-comment-login');
+    
+    if (currentUser) {
+        form.style.display = 'block';
+        login.style.display = 'none';
+    } else {
+        form.style.display = 'none';
+        login.style.display = 'block';
+    }
+
+    document.getElementById('news-comment-send').onclick = async () => {
+        const input = document.getElementById('news-comment-input');
+        const text = input.value.trim();
+        if (!text) return;
+        try {
+            await fetch(`/api/news/${newsId}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            input.value = '';
+            await loadComments(newsId);
+        } catch (e) { alert('Error enviando comentario'); }
+    };
+}
+
+window.deleteComment = async function(commentId, newsId) {
+    try {
+        await fetch(`/api/admin/comments/${commentId}`, { method: 'DELETE' });
+        await loadComments(newsId);
+    } catch (e) { alert('Error'); }
+};
 
 function closeNewsModal() {
     const modal = document.getElementById('news-modal');
@@ -339,5 +428,14 @@ window.deleteNews = async function(id) {
 
 // ===== INIT =====
 loadDynamicVideo();
-loadNews();
+checkUserForComments();
+loadNews().then(() => {
+    // Auto-open news from shared URL (?news=ID)
+    const params = new URLSearchParams(window.location.search);
+    const newsId = params.get('news');
+    if (newsId) {
+        const item = newsCache.find(n => n._id === newsId);
+        if (item) openNewsModal(item);
+    }
+});
 initAdminPanel();
