@@ -574,7 +574,7 @@
     <div class="dash-video-bg">
         <video id="dash-video" autoplay muted loop playsinline preload="auto"
                poster="https://i.imgur.com/P3m2pe5.png">
-            <source src="/videos/dash-bg.mp4" type="video/mp4">
+            <source src="https://res.cloudinary.com/dxqky8j6e/video/upload/v1778836065/dash-bg_mwwyam.mp4" type="video/mp4">
         </video>
         <div class="dash-video-overlay"></div>
     </div>
@@ -1276,9 +1276,17 @@
     </button>
 
     <script>
-        // ===== Video Sound Toggle =====
+        // ===== Video Sound Toggle (with persistence) =====
         const dashVideo = document.getElementById('dash-video');
-        let dashMuted = true;
+        let dashMuted = localStorage.getItem('videoSound') !== 'on';
+
+        // Restore sound state from previous page
+        if (!dashMuted && dashVideo) {
+            dashVideo.muted = false;
+            dashVideo.volume = 0.4;
+            document.getElementById('dash-sound-toggle').textContent = '🔊';
+            document.getElementById('dash-sound-toggle').classList.add('unmuted');
+        }
 
         document.getElementById('dash-sound-toggle').addEventListener('click', function() {
             if (!dashVideo) return;
@@ -1287,10 +1295,12 @@
                 dashVideo.volume = 0.4;
                 this.textContent = '🔊';
                 this.classList.add('unmuted');
+                localStorage.setItem('videoSound', 'on');
             } else {
                 dashVideo.muted = true;
                 this.textContent = '🔇';
                 this.classList.remove('unmuted');
+                localStorage.setItem('videoSound', 'off');
             }
             dashMuted = !dashMuted;
         });

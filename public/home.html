@@ -774,7 +774,7 @@
         <div class="hero-video-wrap">
             <video id="hero-video" autoplay muted loop playsinline preload="auto"
                    poster="https://i.imgur.com/P3m2pe5.png">
-                <source src="/videos/home-bg.mp4" type="video/mp4">
+                <source src="https://res.cloudinary.com/dxqky8j6e/video/upload/v1778836034/home-bg_w45ddj.mp4" type="video/mp4">
             </video>
         </div>
 
@@ -878,9 +878,18 @@
     </footer>
 
     <script>
-        // ===== Video Sound Toggle =====
+        // ===== Video Sound Toggle (with persistence) =====
         const heroVideo = document.getElementById('hero-video');
-        let isMuted = true;
+        let isMuted = localStorage.getItem('videoSound') !== 'on';
+
+        // Restore sound state from previous page
+        if (!isMuted && heroVideo) {
+            heroVideo.muted = false;
+            heroVideo.volume = 0.5;
+            heroVideo.play().catch(() => {});
+            document.getElementById('sound-toggle').textContent = '🔊';
+            document.getElementById('sound-toggle').classList.add('unmuted');
+        }
 
         document.getElementById('sound-toggle').addEventListener('click', function() {
             if (!heroVideo) return;
@@ -890,10 +899,12 @@
                 heroVideo.play().catch(e => console.log('Autoplay prevented', e));
                 this.textContent = '🔊';
                 this.classList.add('unmuted');
+                localStorage.setItem('videoSound', 'on');
             } else {
                 heroVideo.muted = true;
                 this.textContent = '🔇';
                 this.classList.remove('unmuted');
+                localStorage.setItem('videoSound', 'off');
             }
             isMuted = !isMuted;
         });
