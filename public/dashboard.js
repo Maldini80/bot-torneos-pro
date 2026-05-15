@@ -1356,6 +1356,31 @@ class DashboardApp {
     }
 
     setupHeroNav() {
+        const topNav = document.getElementById('top-nav');
+        const hamburger = document.getElementById('hamburger-btn');
+
+        // Hamburger toggle
+        if (hamburger && topNav) {
+            hamburger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                topNav.classList.toggle('menu-open');
+                hamburger.textContent = topNav.classList.contains('menu-open') ? '✕' : '☰';
+            });
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!topNav.contains(e.target)) {
+                    topNav.classList.remove('menu-open');
+                    hamburger.textContent = '☰';
+                }
+            });
+        }
+
+        // Helper to close mobile menu after action
+        const closeMobileMenu = () => {
+            if (topNav) topNav.classList.remove('menu-open');
+            if (hamburger) hamburger.textContent = '☰';
+        };
+
         // Nav link: Eventos Activos
         const navActive = document.getElementById('nav-active-events');
         if (navActive) {
@@ -1363,6 +1388,7 @@ class DashboardApp {
                 e.preventDefault();
                 this.showDashboardSection('active-events');
                 this.setActiveNavLink(navActive);
+                closeMobileMenu();
             });
         }
 
@@ -1373,6 +1399,7 @@ class DashboardApp {
                 e.preventDefault();
                 this.showDashboardSection('history');
                 this.setActiveNavLink(navHistory);
+                closeMobileMenu();
             });
         }
 
