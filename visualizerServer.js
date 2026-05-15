@@ -846,8 +846,9 @@ app.post('/api/admin/news', async (req, res) => {
         let mediaType = null;
         if (mediaUrl) {
             if (/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl)) mediaType = 'video';
+            else if (/\.(mp3|wav|ogg|m4a|aac)(\?|$)/i.test(mediaUrl)) mediaType = 'audio';
             else if (/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(mediaUrl)) mediaType = 'image';
-            else mediaType = 'image'; // default to image
+            else mediaType = 'image';
         }
 
         // If new featured, demote existing featured to important
@@ -907,6 +908,7 @@ app.put('/api/admin/news/:id', async (req, res) => {
         let mediaType = null;
         if (mediaUrl) {
             if (/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl)) mediaType = 'video';
+            else if (/\.(mp3|wav|ogg|m4a|aac)(\?|$)/i.test(mediaUrl)) mediaType = 'audio';
             else mediaType = 'image';
         }
 

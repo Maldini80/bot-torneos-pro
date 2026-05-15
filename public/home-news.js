@@ -3,11 +3,11 @@
 // ===== CLOUDINARY AUTO-OPTIMIZATION =====
 function optimizeCloudinaryUrl(url, type = 'video') {
     if (!url || !url.includes('res.cloudinary.com')) return url;
-    // Don't add transformations twice
     if (url.includes('/q_auto')) return url;
-    // Insert transformations after /upload/
     if (type === 'video') {
         return url.replace('/upload/', '/upload/q_auto,f_auto,w_1280,br_2000k/');
+    } else if (type === 'audio') {
+        return url.replace('/upload/', '/upload/q_auto/');
     } else {
         return url.replace('/upload/', '/upload/q_auto,f_auto,w_1200/');
     }
@@ -92,9 +92,11 @@ function renderCard(n, priorityClass) {
     const date = new Date(n.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
     let mediaHtml = '';
     if (n.mediaUrl) {
-        const optUrl = optimizeCloudinaryUrl(n.mediaUrl, n.mediaType === 'video' ? 'video' : 'image');
+        const optUrl = optimizeCloudinaryUrl(n.mediaUrl, n.mediaType === 'video' ? 'video' : n.mediaType === 'audio' ? 'audio' : 'image');
         if (n.mediaType === 'video') {
             mediaHtml = `<div class="news-card-media"><video src="${optUrl}" autoplay muted loop playsinline preload="auto"></video></div>`;
+        } else if (n.mediaType === 'audio') {
+            mediaHtml = `<div class="news-card-media news-audio-card"><span class="audio-icon">🎙️</span><span class="audio-label">Entrevista</span><audio src="${optUrl}" preload="metadata"></audio></div>`;
         } else {
             mediaHtml = `<img class="news-card-media" src="${optUrl}" alt="${n.title}" loading="lazy">`;
         }
@@ -131,9 +133,11 @@ function openNewsModal(n) {
     if (heroVideo) { heroVideo.pause(); }
 
     if (n.mediaUrl) {
-        const optUrl = optimizeCloudinaryUrl(n.mediaUrl, n.mediaType === 'video' ? 'video' : 'image');
+        const optUrl = optimizeCloudinaryUrl(n.mediaUrl, n.mediaType === 'video' ? 'video' : n.mediaType === 'audio' ? 'audio' : 'image');
         if (n.mediaType === 'video') {
             mediaDiv.innerHTML = `<video src="${optUrl}" controls autoplay style="width:100%;border-radius:20px 20px 0 0;"></video>`;
+        } else if (n.mediaType === 'audio') {
+            mediaDiv.innerHTML = `<div class="news-audio-modal"><span class="audio-icon-lg">🎙️</span><audio src="${optUrl}" controls autoplay style="width:100%;"></audio></div>`;
         } else {
             mediaDiv.innerHTML = `<img src="${optUrl}" style="width:100%;border-radius:20px 20px 0 0;">`;
         }
@@ -235,9 +239,11 @@ window.deleteComment = async function(commentId, newsId) {
 function closeNewsModal() {
     const modal = document.getElementById('news-modal');
     modal.classList.remove('open');
-    // Stop any playing news video
+    // Stop any playing video or audio
     const vid = modal.querySelector('video');
     if (vid) { vid.pause(); vid.src = ''; }
+    const aud = modal.querySelector('audio');
+    if (aud) { aud.pause(); aud.src = ''; }
     // Resume hero background video
     const heroVideo = document.getElementById('hero-video');
     if (heroVideo) { heroVideo.play().catch(() => {}); }
