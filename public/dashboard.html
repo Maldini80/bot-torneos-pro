@@ -554,23 +554,25 @@
         @media (max-width: 768px) {
             .hamburger-btn {
                 display: block;
+                order: 1;
             }
             .top-nav {
                 flex-wrap: wrap;
             }
-            .nav-links,
-            .nav-right {
+            .nav-links {
                 display: none;
-            }
-            /* When menu is open */
-            .top-nav.menu-open .nav-links,
-            .top-nav.menu-open .nav-right {
-                display: flex;
-                width: 100%;
                 order: 3;
             }
+            .nav-right {
+                order: 2;
+                margin-left: auto;
+                gap: 8px;
+            }
+            /* When menu is open — only nav-links slides down */
             .top-nav.menu-open .nav-links {
+                display: flex;
                 flex-direction: column;
+                width: 100%;
                 gap: 2px;
                 padding-top: 12px;
                 border-top: 1px solid rgba(255,255,255,0.08);
@@ -585,12 +587,8 @@
             .top-nav.menu-open .nav-links a.active {
                 background: rgba(10,132,255,0.12);
             }
-            .top-nav.menu-open .nav-right {
-                justify-content: space-between;
-                padding-top: 10px;
-                padding-bottom: 4px;
-            }
             .user-dropdown-toggle .user-name { display: none; }
+            .lang-toggle button { padding: 6px 10px; font-size: 0.75rem; }
             .user-dropdown-menu {
                 right: -10px;
                 min-width: 160px;
