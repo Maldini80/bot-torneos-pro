@@ -977,6 +977,26 @@
         🔇
     </button>
 
+    <!-- ===== BOLSAS ===== -->
+    <section class="events-section">
+        <p class="section-label" data-i18n="events.label">Próximos Eventos</p>
+        <h2 class="section-title" data-i18n="events.title">No te pierdas nada</h2>
+        <div id="events-container" class="events-grid">
+            <div class="events-empty" data-i18n="events.loading">Cargando eventos...</div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- ===== NEWS ===== -->
+    <section class="news-section" id="news-section" style="display:none;">
+        <p class="section-label">Noticias</p>
+        <h2 class="section-title">Últimas Novedades</h2>
+        <div id="news-container" class="news-grid"></div>
+    </section>
+
+    <div class="section-divider"></div>
+
     <!-- ===== FEATURES ===== -->
     <section class="features-section">
         <p class="section-label" data-i18n="features.label">¿Por qué THE BLITZ?</p>
@@ -999,26 +1019,6 @@
                 <p data-i18n="features.stats.desc">Sigue partidos en tiempo real, clasificaciones actualizadas y estadísticas detalladas.</p>
             </div>
         </div>
-    </section>
-
-    <div class="section-divider"></div>
-
-    <!-- ===== BOLSAS ===== -->
-    <section class="events-section">
-        <p class="section-label" data-i18n="events.label">Próximos Eventos</p>
-        <h2 class="section-title" data-i18n="events.title">No te pierdas nada</h2>
-        <div id="events-container" class="events-grid">
-            <div class="events-empty" data-i18n="events.loading">Cargando eventos...</div>
-        </div>
-    </section>
-
-    <div class="section-divider"></div>
-
-    <!-- ===== NEWS ===== -->
-    <section class="news-section" id="news-section" style="display:none;">
-        <p class="section-label">Noticias</p>
-        <h2 class="section-title">Últimas Novedades</h2>
-        <div id="news-container" class="news-grid"></div>
     </section>
 
     <div class="section-divider"></div>
@@ -1126,15 +1126,25 @@
     <script>
         // ===== Video Sound Toggle (with persistence) =====
         const heroVideo = document.getElementById('hero-video');
-        let isMuted = localStorage.getItem('videoSound') !== 'on';
+        let isMuted = true;
+        const wantSound = localStorage.getItem('videoSound') === 'on';
 
-        // Restore sound state from previous page
-        if (!isMuted && heroVideo) {
-            heroVideo.muted = false;
-            heroVideo.volume = 0.5;
-            heroVideo.play().catch(() => {});
+        // Show icon state but DON'T unmute yet (browser blocks it before user interaction)
+        if (wantSound) {
             document.getElementById('sound-toggle').textContent = '🔊';
             document.getElementById('sound-toggle').classList.add('unmuted');
+            // Unmute after first user interaction on the page
+            const unlockAudio = () => {
+                if (heroVideo && wantSound) {
+                    heroVideo.muted = false;
+                    heroVideo.volume = 0.5;
+                    isMuted = false;
+                }
+                document.removeEventListener('click', unlockAudio);
+                document.removeEventListener('touchstart', unlockAudio);
+            };
+            document.addEventListener('click', unlockAudio, { once: true });
+            document.addEventListener('touchstart', unlockAudio, { once: true });
         }
 
         document.getElementById('sound-toggle').addEventListener('click', function() {

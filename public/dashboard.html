@@ -1328,14 +1328,23 @@
     <script>
         // ===== Video Sound Toggle (with persistence) =====
         const dashVideo = document.getElementById('dash-video');
-        let dashMuted = localStorage.getItem('videoSound') !== 'on';
+        let dashMuted = true;
+        const dashWantSound = localStorage.getItem('videoSound') === 'on';
 
-        // Restore sound state from previous page
-        if (!dashMuted && dashVideo) {
-            dashVideo.muted = false;
-            dashVideo.volume = 0.4;
+        if (dashWantSound) {
             document.getElementById('dash-sound-toggle').textContent = '🔊';
             document.getElementById('dash-sound-toggle').classList.add('unmuted');
+            const unlockDashAudio = () => {
+                if (dashVideo && dashWantSound) {
+                    dashVideo.muted = false;
+                    dashVideo.volume = 0.4;
+                    dashMuted = false;
+                }
+                document.removeEventListener('click', unlockDashAudio);
+                document.removeEventListener('touchstart', unlockDashAudio);
+            };
+            document.addEventListener('click', unlockDashAudio, { once: true });
+            document.addEventListener('touchstart', unlockDashAudio, { once: true });
         }
 
         document.getElementById('dash-sound-toggle').addEventListener('click', function() {

@@ -94,7 +94,7 @@ function renderCard(n, priorityClass) {
     if (n.mediaUrl) {
         const optUrl = optimizeCloudinaryUrl(n.mediaUrl, n.mediaType === 'video' ? 'video' : 'image');
         if (n.mediaType === 'video') {
-            mediaHtml = `<div class="news-card-media"><video src="${optUrl}" muted loop playsinline preload="metadata"></video></div>`;
+            mediaHtml = `<div class="news-card-media"><video src="${optUrl}" autoplay muted loop playsinline preload="auto"></video></div>`;
         } else {
             mediaHtml = `<img class="news-card-media" src="${optUrl}" alt="${n.title}" loading="lazy">`;
         }
@@ -126,10 +126,14 @@ function openNewsModal(n) {
     const date = new Date(n.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     document.getElementById('news-modal-meta').textContent = `${date} · ${n.author || ''}`;
 
+    // Pause hero background video to avoid sound overlap
+    const heroVideo = document.getElementById('hero-video');
+    if (heroVideo) { heroVideo.pause(); }
+
     if (n.mediaUrl) {
         const optUrl = optimizeCloudinaryUrl(n.mediaUrl, n.mediaType === 'video' ? 'video' : 'image');
         if (n.mediaType === 'video') {
-            mediaDiv.innerHTML = `<video src="${optUrl}" controls autoplay muted style="width:100%;border-radius:20px 20px 0 0;"></video>`;
+            mediaDiv.innerHTML = `<video src="${optUrl}" controls autoplay style="width:100%;border-radius:20px 20px 0 0;"></video>`;
         } else {
             mediaDiv.innerHTML = `<img src="${optUrl}" style="width:100%;border-radius:20px 20px 0 0;">`;
         }
@@ -139,12 +143,21 @@ function openNewsModal(n) {
     modal.classList.add('open');
 }
 
+function closeNewsModal() {
+    const modal = document.getElementById('news-modal');
+    modal.classList.remove('open');
+    // Stop any playing news video
+    const vid = modal.querySelector('video');
+    if (vid) { vid.pause(); vid.src = ''; }
+    // Resume hero background video
+    const heroVideo = document.getElementById('hero-video');
+    if (heroVideo) { heroVideo.play().catch(() => {}); }
+}
+
 // Close news modal
-document.getElementById('news-modal-close')?.addEventListener('click', () => {
-    document.getElementById('news-modal').classList.remove('open');
-});
+document.getElementById('news-modal-close')?.addEventListener('click', closeNewsModal);
 document.getElementById('news-modal')?.addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+    if (e.target === e.currentTarget) closeNewsModal();
 });
 
 // ===== ADMIN PANEL =====
