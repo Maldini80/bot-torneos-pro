@@ -96,7 +96,8 @@ function renderCard(n, priorityClass) {
         if (n.mediaType === 'video') {
             mediaHtml = `<div class="news-card-media"><video src="${optUrl}" autoplay muted loop playsinline preload="auto"></video></div>`;
         } else if (n.mediaType === 'audio') {
-            mediaHtml = `<div class="news-card-media news-audio-card"><span class="audio-icon">🎙️</span><span class="audio-label">Entrevista</span><audio src="${optUrl}" preload="metadata"></audio></div>`;
+            const coverImg = n.coverUrl ? `<img class="audio-cover" src="${optimizeCloudinaryUrl(n.coverUrl, 'image')}" alt="">` : '';
+            mediaHtml = `<div class="news-card-media news-audio-card">${coverImg}<div class="audio-overlay"><div class="audio-play-icon">▶</div><div class="audio-tag"><div class="audio-bars"><span></span><span></span><span></span><span></span><span></span></div>🎙️ Entrevista</div></div></div>`;
         } else {
             mediaHtml = `<img class="news-card-media" src="${optUrl}" alt="${n.title}" loading="lazy">`;
         }
@@ -137,7 +138,9 @@ function openNewsModal(n) {
         if (n.mediaType === 'video') {
             mediaDiv.innerHTML = `<video src="${optUrl}" controls autoplay style="width:100%;border-radius:20px 20px 0 0;"></video>`;
         } else if (n.mediaType === 'audio') {
-            mediaDiv.innerHTML = `<div class="news-audio-modal"><span class="audio-icon-lg">🎙️</span><audio src="${optUrl}" controls autoplay style="width:100%;"></audio></div>`;
+            const coverImg = n.coverUrl ? `<img class="audio-cover-lg" src="${optimizeCloudinaryUrl(n.coverUrl, 'image')}" alt="">` : '';
+            const avatarImg = n.coverUrl ? `<img class="audio-avatar-lg" src="${optimizeCloudinaryUrl(n.coverUrl, 'image')}" alt="">` : '';
+            mediaDiv.innerHTML = `<div class="news-audio-modal">${coverImg}<div class="audio-modal-inner">${avatarImg}<audio src="${optUrl}" controls autoplay style="width:100%;"></audio></div></div>`;
         } else {
             mediaDiv.innerHTML = `<img src="${optUrl}" style="width:100%;border-radius:20px 20px 0 0;">`;
         }
@@ -317,6 +320,7 @@ async function initAdminPanel() {
             document.getElementById('admin-news-title').value = '';
             document.getElementById('admin-news-body').value = '';
             document.getElementById('admin-news-media').value = '';
+            document.getElementById('admin-news-cover').value = '';
             document.getElementById('admin-news-priority').value = 'regular';
             document.getElementById('admin-news-edit-id').value = '';
             document.getElementById('admin-save-news').textContent = 'Publicar';
@@ -339,6 +343,7 @@ async function initAdminPanel() {
                 title: document.getElementById('admin-news-title').value,
                 body: document.getElementById('admin-news-body').value,
                 mediaUrl: document.getElementById('admin-news-media').value,
+                coverUrl: document.getElementById('admin-news-cover').value,
                 priority: document.getElementById('admin-news-priority').value
             };
             if (!payload.title || !payload.body) return alert('Título y cuerpo requeridos');
@@ -402,6 +407,7 @@ window.editNews = async function(id) {
         document.getElementById('admin-news-title').value = n.title;
         document.getElementById('admin-news-body').value = n.body;
         document.getElementById('admin-news-media').value = n.mediaUrl || '';
+        document.getElementById('admin-news-cover').value = n.coverUrl || '';
         document.getElementById('admin-news-priority').value = n.priority;
         document.getElementById('admin-news-edit-id').value = id;
         document.getElementById('admin-save-news').textContent = 'Guardar Cambios';

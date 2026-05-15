@@ -837,7 +837,7 @@ app.post('/api/admin/news', async (req, res) => {
         return res.status(403).json({ error: 'No autorizado' });
     }
     try {
-        const { title, body, mediaUrl, priority } = req.body;
+        const { title, body, mediaUrl, coverUrl, priority } = req.body;
         if (!title || !body) return res.status(400).json({ error: 'Título y cuerpo requeridos' });
 
         const db = getDb();
@@ -863,6 +863,7 @@ app.post('/api/admin/news', async (req, res) => {
             title: sanitizeInput(title, 200),
             body: body.substring(0, 5000),
             mediaUrl: mediaUrl || null,
+            coverUrl: coverUrl || null,
             mediaType,
             priority: ['featured', 'important', 'regular'].includes(priority) ? priority : 'regular',
             published: true,
@@ -902,7 +903,7 @@ app.put('/api/admin/news/:id', async (req, res) => {
         return res.status(403).json({ error: 'No autorizado' });
     }
     try {
-        const { title, body, mediaUrl, priority, published, archived } = req.body;
+        const { title, body, mediaUrl, coverUrl, priority, published, archived } = req.body;
         const db = getDb();
 
         let mediaType = null;
@@ -924,6 +925,7 @@ app.put('/api/admin/news/:id', async (req, res) => {
         if (title !== undefined) updateFields.title = sanitizeInput(title, 200);
         if (body !== undefined) updateFields.body = body.substring(0, 5000);
         if (mediaUrl !== undefined) { updateFields.mediaUrl = mediaUrl || null; updateFields.mediaType = mediaType; }
+        if (coverUrl !== undefined) updateFields.coverUrl = coverUrl || null;
         if (priority !== undefined) updateFields.priority = priority;
         if (published !== undefined) updateFields.published = published;
         if (archived !== undefined) updateFields.archived = archived;
