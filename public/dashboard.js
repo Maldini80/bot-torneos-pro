@@ -1299,13 +1299,14 @@ class DashboardApp {
     async init() {
         console.log('[Dashboard] Iniciando aplicación...');
 
-        await this.checkAuth(); // ← NUEVO: Verificar autenticación primero
+        await this.checkAuth(); // ← Verificar autenticación primero
 
         this.setupLanguageSelector();
-        this.setupMobileNav();
+        this.setupHeroNav();
         this.setupFilters();
         this.setupWebSocket();
 
+        // Preload active events data (but don't show section)
         await this.loadActiveEvents();
 
         // Ocultar loading, mostrar app
@@ -1352,17 +1353,44 @@ class DashboardApp {
         }
     }
 
-    setupMobileNav() {
-        const navButtons = document.querySelectorAll('.mobile-nav button');
-        navButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const section = btn.getAttribute('data-section');
-                this.switchSection(section);
-
-                navButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
+    setupHeroNav() {
+        // Hero button: Eventos Activos
+        const btnActive = document.getElementById('hero-btn-active');
+        if (btnActive) {
+            btnActive.addEventListener('click', () => {
+                this.showDashboardSection('active-events');
             });
-        });
+        }
+
+        // Hero button: Historial
+        const btnHistory = document.getElementById('hero-btn-history');
+        if (btnHistory) {
+            btnHistory.addEventListener('click', () => {
+                this.showDashboardSection('history');
+            });
+        }
+    }
+
+    showDashboardSection(sectionId) {
+        // Hide hero
+        const hero = document.getElementById('hero-dash');
+        if (hero) hero.style.display = 'none';
+
+        // Show main content area
+        const main = document.querySelector('.dashboard-main');
+        if (main) {
+            main.classList.add('active');
+        }
+
+        // Show back button
+        const backBtn = document.getElementById('back-to-hero');
+        if (backBtn) backBtn.classList.add('visible');
+
+        // Switch to the requested section
+        this.switchSection(sectionId);
+
+        // Scroll to top of main content
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     switchSection(sectionId) {
@@ -1376,6 +1404,14 @@ class DashboardApp {
 
             if (sectionId === 'history' && document.getElementById('history-tbody').children.length === 0) {
                 this.loadHistory();
+            }
+            // When showing active-events, also show open-tournaments below
+            if (sectionId === 'active-events') {
+                const openTournaments = document.getElementById('open-tournaments');
+                if (openTournaments) {
+                    openTournaments.classList.add('active');
+                    loadOpenTournaments();
+                }
             }
             if (sectionId === 'open-tournaments') {
                 loadOpenTournaments();
@@ -2245,6 +2281,30 @@ function escapeHtml(text) {
 // Helper para obtener idioma actual
 function getCurrentLanguage() {
     return document.documentElement.lang || 'es';
+}
+
+// Global function: Back to Hero (clean screen)
+function backToHero() {
+    // Hide main content
+    const main = document.querySelector('.dashboard-main');
+    if (main) main.classList.remove('active');
+
+    // Hide all sections
+    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+
+    // Hide back button
+    const backBtn = document.getElementById('back-to-hero');
+    if (backBtn) backBtn.classList.remove('visible');
+
+    // Show hero
+    const hero = document.getElementById('hero-dash');
+    if (hero) {
+        hero.style.display = 'flex';
+        hero.style.animation = 'heroFadeIn 0.5s ease-out';
+    }
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Iniciar aplicación
