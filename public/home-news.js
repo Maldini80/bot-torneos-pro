@@ -1,6 +1,19 @@
 // home-news.js — News display, dynamic video loading, and admin panel for Home
 
-const FALLBACK_VIDEO_HOME = 'https://res.cloudinary.com/dxqky8j6e/video/upload/v1778836034/home-bg_w45ddj.mp4';
+// ===== CLOUDINARY AUTO-OPTIMIZATION =====
+function optimizeCloudinaryUrl(url, type = 'video') {
+    if (!url || !url.includes('res.cloudinary.com')) return url;
+    // Don't add transformations twice
+    if (url.includes('/q_auto')) return url;
+    // Insert transformations after /upload/
+    if (type === 'video') {
+        return url.replace('/upload/', '/upload/q_auto,f_auto,w_1280,br_2000k/');
+    } else {
+        return url.replace('/upload/', '/upload/q_auto,f_auto,w_1200/');
+    }
+}
+
+const FALLBACK_VIDEO_HOME = 'https://res.cloudinary.com/dxqky8j6e/video/upload/q_auto,f_auto,w_1280,br_2000k/v1778836034/home-bg_w45ddj.mp4';
 
 // ===== DYNAMIC VIDEO LOADING =====
 async function loadDynamicVideo() {
@@ -12,7 +25,7 @@ async function loadDynamicVideo() {
             if (video) {
                 const source = video.querySelector('source');
                 if (source && source.src !== data.video_home) {
-                    source.src = data.video_home;
+                    source.src = optimizeCloudinaryUrl(data.video_home, 'video');
                     video.load();
                     video.play().catch(() => {});
                 }
@@ -79,10 +92,11 @@ function renderCard(n, priorityClass) {
     const date = new Date(n.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
     let mediaHtml = '';
     if (n.mediaUrl) {
+        const optUrl = optimizeCloudinaryUrl(n.mediaUrl, n.mediaType === 'video' ? 'video' : 'image');
         if (n.mediaType === 'video') {
-            mediaHtml = `<div class="news-card-media"><video src="${n.mediaUrl}" muted loop playsinline preload="metadata"></video></div>`;
+            mediaHtml = `<div class="news-card-media"><video src="${optUrl}" muted loop playsinline preload="metadata"></video></div>`;
         } else {
-            mediaHtml = `<img class="news-card-media" src="${n.mediaUrl}" alt="${n.title}" loading="lazy">`;
+            mediaHtml = `<img class="news-card-media" src="${optUrl}" alt="${n.title}" loading="lazy">`;
         }
     }
     const badgeLabel = priorityClass === 'featured' ? '★ Destacada' : priorityClass === 'important' ? '🔥 Importante' : '';
@@ -113,10 +127,11 @@ function openNewsModal(n) {
     document.getElementById('news-modal-meta').textContent = `${date} · ${n.author || ''}`;
 
     if (n.mediaUrl) {
+        const optUrl = optimizeCloudinaryUrl(n.mediaUrl, n.mediaType === 'video' ? 'video' : 'image');
         if (n.mediaType === 'video') {
-            mediaDiv.innerHTML = `<video src="${n.mediaUrl}" controls autoplay muted style="width:100%;border-radius:20px 20px 0 0;"></video>`;
+            mediaDiv.innerHTML = `<video src="${optUrl}" controls autoplay muted style="width:100%;border-radius:20px 20px 0 0;"></video>`;
         } else {
-            mediaDiv.innerHTML = `<img src="${n.mediaUrl}" style="width:100%;border-radius:20px 20px 0 0;">`;
+            mediaDiv.innerHTML = `<img src="${optUrl}" style="width:100%;border-radius:20px 20px 0 0;">`;
         }
     } else {
         mediaDiv.innerHTML = '';

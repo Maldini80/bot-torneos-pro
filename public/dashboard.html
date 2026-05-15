@@ -623,7 +623,7 @@
     <div class="dash-video-bg">
         <video id="dash-video" autoplay muted loop playsinline preload="auto"
                poster="https://i.imgur.com/P3m2pe5.png">
-            <source src="https://res.cloudinary.com/dxqky8j6e/video/upload/v1778836065/dash-bg_mwwyam.mp4" type="video/mp4">
+            <source src="https://res.cloudinary.com/dxqky8j6e/video/upload/q_auto,f_auto,w_1280,br_2000k/v1778836065/dash-bg_mwwyam.mp4" type="video/mp4">
         </video>
         <div class="dash-video-overlay"></div>
     </div>
@@ -1358,10 +1358,14 @@
 
     <script>
         // ===== Dynamic Video Loading =====
+        function optimizeCdnUrl(url) {
+            if (!url || !url.includes('res.cloudinary.com') || url.includes('/q_auto')) return url;
+            return url.replace('/upload/', '/upload/q_auto,f_auto,w_1280,br_2000k/');
+        }
         fetch('/api/settings/videos').then(r => r.json()).then(data => {
             if (data.video_dash) {
                 const v = document.getElementById('dash-video');
-                if (v) { const s = v.querySelector('source'); if (s) { s.src = data.video_dash; v.load(); v.play().catch(() => {}); } }
+                if (v) { const s = v.querySelector('source'); if (s) { s.src = optimizeCdnUrl(data.video_dash); v.load(); v.play().catch(() => {}); } }
             }
         }).catch(() => {});
     </script>
