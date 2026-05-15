@@ -1356,6 +1356,16 @@
         });
     </script>
 
+    <script>
+        // ===== Dynamic Video Loading =====
+        fetch('/api/settings/videos').then(r => r.json()).then(data => {
+            if (data.video_dash) {
+                const v = document.getElementById('dash-video');
+                if (v) { const s = v.querySelector('source'); if (s) { s.src = data.video_dash; v.load(); v.play().catch(() => {}); } }
+            }
+        }).catch(() => {});
+    </script>
+
     <script src="dashboard.js?v=2.4.4"></script>
 </body>
 </html>

@@ -741,6 +741,219 @@ app.delete('/api/admin/roulette-hint', async (req, res) => {
 });
 // ===============================================
 
+// ===============================================
+// === SETTINGS API (Video URLs) ===
+// ===============================================
+app.get('/api/settings/videos', async (req, res) => {
+    try {
+        const db = getDb();
+        const settings = await db.collection('settings').find({ key: { $in: ['video_home', 'video_dash'] } }).toArray();
+        const result = {};
+        for (const s of settings) {
+            result[s.key] = s.value;
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('Error getting video settings:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+app.put('/api/admin/settings/videos', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+    try {
+        const { video_home, video_dash } = req.body;
+        const db = getDb();
+        if (video_home) {
+            await db.collection('settings').updateOne(
+                { key: 'video_home' },
+                { $set: { key: 'video_home', value: video_home, updatedAt: new Date() } },
+                { upsert: true }
+            );
+        }
+        if (video_dash) {
+            await db.collection('settings').updateOne(
+                { key: 'video_dash' },
+                { $set: { key: 'video_dash', value: video_dash, updatedAt: new Date() } },
+                { upsert: true }
+            );
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error updating video settings:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// ===============================================
+// === NEWS API (CRUD) ===
+// ===============================================
+// Public: get published news (non-archived)
+app.get('/api/news', async (req, res) => {
+    try {
+        const db = getDb();
+        const news = await db.collection('news')
+            .find({ published: true, archived: { $ne: true } })
+            .sort({ priority: 1, createdAt: -1 }) // priority: 1=featured first
+            .limit(20)
+            .toArray();
+        
+        // Sort by priority order: featured > important > regular
+        const priorityOrder = { featured: 0, important: 1, regular: 2 };
+        news.sort((a, b) => {
+            const pa = priorityOrder[a.priority] ?? 2;
+            const pb = priorityOrder[b.priority] ?? 2;
+            if (pa !== pb) return pa - pb;
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+        
+        res.json(news);
+    } catch (e) {
+        console.error('Error getting news:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Admin: get ALL news (including archived/unpublished)
+app.get('/api/admin/news', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+    try {
+        const db = getDb();
+        const news = await db.collection('news').find({}).sort({ createdAt: -1 }).toArray();
+        res.json(news);
+    } catch (e) {
+        console.error('Error getting admin news:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Admin: create news
+app.post('/api/admin/news', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+    try {
+        const { title, body, mediaUrl, priority } = req.body;
+        if (!title || !body) return res.status(400).json({ error: 'Título y cuerpo requeridos' });
+
+        const db = getDb();
+        
+        // Auto-detect media type
+        let mediaType = null;
+        if (mediaUrl) {
+            if (/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl)) mediaType = 'video';
+            else if (/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(mediaUrl)) mediaType = 'image';
+            else mediaType = 'image'; // default to image
+        }
+
+        // If new featured, demote existing featured to important
+        if (priority === 'featured') {
+            await db.collection('news').updateMany(
+                { priority: 'featured', archived: { $ne: true } },
+                { $set: { priority: 'important' } }
+            );
+        }
+
+        const newsDoc = {
+            title: sanitizeInput(title, 200),
+            body: body.substring(0, 5000),
+            mediaUrl: mediaUrl || null,
+            mediaType,
+            priority: ['featured', 'important', 'regular'].includes(priority) ? priority : 'regular',
+            published: true,
+            archived: false,
+            author: req.user.global_name || req.user.username,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        const result = await db.collection('news').insertOne(newsDoc);
+        newsDoc._id = result.insertedId;
+
+        // Auto-archive old news (keep max 15 non-archived)
+        const allActive = await db.collection('news')
+            .find({ archived: { $ne: true } })
+            .sort({ createdAt: -1 })
+            .skip(15)
+            .toArray();
+        if (allActive.length > 0) {
+            const idsToArchive = allActive.map(n => n._id);
+            await db.collection('news').updateMany(
+                { _id: { $in: idsToArchive } },
+                { $set: { archived: true } }
+            );
+        }
+
+        res.json({ success: true, news: newsDoc });
+    } catch (e) {
+        console.error('Error creating news:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Admin: update news
+app.put('/api/admin/news/:id', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+    try {
+        const { title, body, mediaUrl, priority, published, archived } = req.body;
+        const db = getDb();
+
+        let mediaType = null;
+        if (mediaUrl) {
+            if (/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl)) mediaType = 'video';
+            else mediaType = 'image';
+        }
+
+        // If promoting to featured, demote existing
+        if (priority === 'featured') {
+            await db.collection('news').updateMany(
+                { priority: 'featured', archived: { $ne: true }, _id: { $ne: new ObjectId(req.params.id) } },
+                { $set: { priority: 'important' } }
+            );
+        }
+
+        const updateFields = { updatedAt: new Date() };
+        if (title !== undefined) updateFields.title = sanitizeInput(title, 200);
+        if (body !== undefined) updateFields.body = body.substring(0, 5000);
+        if (mediaUrl !== undefined) { updateFields.mediaUrl = mediaUrl || null; updateFields.mediaType = mediaType; }
+        if (priority !== undefined) updateFields.priority = priority;
+        if (published !== undefined) updateFields.published = published;
+        if (archived !== undefined) updateFields.archived = archived;
+
+        await db.collection('news').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            { $set: updateFields }
+        );
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error updating news:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Admin: delete news permanently
+app.delete('/api/admin/news/:id', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+    try {
+        const db = getDb();
+        await db.collection('news').deleteOne({ _id: new ObjectId(req.params.id) });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Error deleting news:', e);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// ===============================================
+
 // Endpoint: Verificar membresía y estado de usuario
 app.get('/api/check-membership', async (req, res) => {
     if (!req.user) {
