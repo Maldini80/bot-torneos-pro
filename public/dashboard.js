@@ -3,7 +3,7 @@
 // ===== TRADUCCIONES INTEGRADAS =====
 const translations = {
     es: {
-        nav: { active: 'Activos', history: 'Historial', home: 'Inicio', tournaments: 'Torneos' },
+        nav: { active: 'Activos', history: 'Historial', home: 'Inicio', tournaments: 'Torneos', activeEvents: 'Eventos Activos', historyLink: 'Historial' },
         dashboard: {
             title: 'Dashboard de Eventos',
             activeEvents: 'Eventos Activos',
@@ -23,7 +23,8 @@ const translations = {
             loading: 'Cargando eventos...',
             error: 'Error al cargar eventos',
             noResults: 'No se encontraron eventos',
-            searchPlaceholder: 'Buscar por nombre...'
+            searchPlaceholder: 'Buscar por nombre...',
+            back: 'Volver'
         },
         status: {
             active: 'En curso', pending: 'Pendiente', completed: 'Finalizado',
@@ -173,7 +174,7 @@ const translations = {
         }
     },
     en: {
-        nav: { active: 'Active', history: 'History', home: 'Home', tournaments: 'Tournaments' },
+        nav: { active: 'Active', history: 'History', home: 'Home', tournaments: 'Tournaments', activeEvents: 'Active Events', historyLink: 'History' },
         dashboard: {
             title: 'Events Dashboard',
             activeEvents: 'Active Events',
@@ -193,7 +194,8 @@ const translations = {
             loading: 'Loading events...',
             error: 'Error loading events',
             noResults: 'No events found',
-            searchPlaceholder: 'Search by name...'
+            searchPlaceholder: 'Search by name...',
+            back: 'Back'
         },
         status: {
             active: 'In Progress', pending: 'Pending', completed: 'Finished',
