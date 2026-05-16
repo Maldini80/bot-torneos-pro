@@ -1,19 +1,23 @@
 // home-news.js — News display, dynamic video loading, and admin panel for Home
 
 // ===== CLOUDINARY AUTO-OPTIMIZATION =====
+const _isMobile = window.innerWidth <= 768;
+const _videoWidth = _isMobile ? 'w_960' : 'w_1920';
+
 function optimizeCloudinaryUrl(url, type = 'video') {
     if (!url || !url.includes('res.cloudinary.com')) return url;
     if (url.includes('/q_auto')) return url;
     if (type === 'video') {
-        return url.replace('/upload/', '/upload/q_auto,f_auto,w_1280,br_2000k/');
+        return url.replace('/upload/', `/upload/q_auto:best,f_auto,vc_auto,${_videoWidth}/`);
     } else if (type === 'audio') {
         return url.replace('/upload/', '/upload/q_auto/');
     } else {
-        return url.replace('/upload/', '/upload/q_auto,f_auto,w_1200/');
+        const imgW = _isMobile ? 'w_800' : 'w_1200';
+        return url.replace('/upload/', `/upload/q_auto,f_auto,${imgW}/`);
     }
 }
 
-const FALLBACK_VIDEO_HOME = 'https://res.cloudinary.com/dxqky8j6e/video/upload/q_auto,f_auto,w_1280,br_2000k/v1778836034/home-bg_w45ddj.mp4';
+const FALLBACK_VIDEO_HOME = `https://res.cloudinary.com/dxqky8j6e/video/upload/q_auto:best,f_auto,vc_auto,${_videoWidth}/v1778836034/home-bg_w45ddj.mp4`;
 
 // ===== DYNAMIC VIDEO LOADING =====
 async function loadDynamicVideo() {

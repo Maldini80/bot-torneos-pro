@@ -636,6 +636,7 @@
         </video>
         <div class="dash-video-overlay"></div>
     </div>
+    <script>if(window.innerWidth<=768){const s=document.querySelector('#dash-video source');if(s)s.src=s.src.replace('w_1920','w_960');}</script>
     <!-- Animated CSS Background -->
     <div class="animated-background"></div>
 
@@ -1376,9 +1377,11 @@
 
     <script>
         // ===== Dynamic Video Loading =====
+        const _dashMobile = window.innerWidth <= 768;
+        const _dashVidW = _dashMobile ? 'w_960' : 'w_1920';
         function optimizeCdnUrl(url) {
             if (!url || !url.includes('res.cloudinary.com') || url.includes('/q_auto')) return url;
-            return url.replace('/upload/', '/upload/q_auto:best,f_auto,vc_auto,w_1920/');
+            return url.replace('/upload/', `/upload/q_auto:best,f_auto,vc_auto,${_dashVidW}/`);
         }
         fetch('/api/settings/videos').then(r => r.json()).then(data => {
             if (data.video_dash) {
