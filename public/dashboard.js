@@ -1507,8 +1507,13 @@ class DashboardApp {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay equipos registrados</td></tr>';
                 return;
             }
-            // Check admin status
-            const isAdmin = this.currentUser?.isAdmin || false;
+            // Check admin status via /api/user (check-membership doesn't include isAdmin)
+            let isAdmin = false;
+            try {
+                const userRes = await fetch('/api/user');
+                const userData = await userRes.json();
+                if (userData && userData.isAdmin) isAdmin = true;
+            } catch (e) { /* not admin or not logged in */ }
             if (isAdmin) {
                 const bf = document.getElementById('dash-admin-backfill');
                 const lg = document.getElementById('dash-admin-leagues');
