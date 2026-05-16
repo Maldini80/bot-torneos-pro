@@ -887,8 +887,10 @@
 
         @media (max-width: 768px) {
             .news-card.featured { grid-template-columns: 1fr; }
+            .news-card.featured .news-card-media { aspect-ratio: 16/9; height: auto; }
             .news-grid-important { grid-template-columns: 1fr; }
             .news-grid-regular { grid-template-columns: 1fr; }
+            .news-card { background: rgba(12, 12, 24, 0.95) !important; }
         }
 
         /* ===== NEWS MODAL ===== */
