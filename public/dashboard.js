@@ -1403,6 +1403,28 @@ class DashboardApp {
             });
         }
 
+        // Nav link: Ranking
+        const navRanking = document.getElementById('nav-ranking');
+        if (navRanking) {
+            navRanking.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showDashboardSection('ranking-section');
+                this.setActiveNavLink(navRanking);
+                closeMobileMenu();
+            });
+        }
+
+        // Ranking tab switching
+        document.querySelectorAll('.ranking-tab-btn[data-tab]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.ranking-tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.ranking-content').forEach(c => c.classList.remove('active'));
+                const target = document.getElementById(btn.dataset.tab);
+                if (target) target.classList.add('active');
+            });
+        });
+
         // User dropdown toggle
         const dropdownToggle = document.getElementById('user-dropdown-toggle');
         const dropdownWrapper = dropdownToggle?.closest('.user-dropdown-wrapper');
@@ -1468,6 +1490,91 @@ class DashboardApp {
             if (sectionId === 'open-tournaments') {
                 loadOpenTournaments();
             }
+            if (sectionId === 'ranking-section') {
+                this.loadDashRanking();
+                this.loadDashHoF();
+            }
+        }
+    }
+
+    async loadDashRanking() {
+        try {
+            const response = await fetch('/api/elo/ranking');
+            const teams = await response.json();
+            const tbody = document.getElementById('dash-ranking-body');
+            tbody.innerHTML = '';
+            if (teams.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay equipos registrados</td></tr>';
+                return;
+            }
+            teams.forEach((team, index) => {
+                const rank = index + 1;
+                const stats = team.historicalStats || {};
+                const wins = stats.totalWins || 0;
+                const draws = stats.totalDraws || 0;
+                const losses = stats.totalLosses || 0;
+                const titles = stats.tournamentsWon || 0;
+                let streakHtml = '-';
+                if (stats.currentWinStreak > 0) streakHtml = `<span class="streak-fire">🔥 W${stats.currentWinStreak}</span>`;
+                else if (stats.currentLossStreak > 0) streakHtml = `<span class="streak-ice">❄️ L${stats.currentLossStreak}</span>`;
+                const currentElo = team.elo || 1000;
+                let leagueBadge = '';
+                if (currentElo >= 1550) leagueBadge = '<span style="background:linear-gradient(45deg,#00d2ff,#3a7bd5);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">DIAMOND</span>';
+                else if (currentElo >= 1300) leagueBadge = '<span style="background:#FFD700;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">GOLD</span>';
+                else if (currentElo >= 1000) leagueBadge = '<span style="background:#C0C0C0;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">SILVER</span>';
+                else leagueBadge = '<span style="background:#CD7F32;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">BRONZE</span>';
+                const row = document.createElement('tr');
+                if (rank <= 3) row.classList.add(`rank-${rank}`);
+                row.innerHTML = `
+                    <td class="rank-number">${rank}</td>
+                    <td><div class="team-info-cell">
+                        <img src="${team.logoUrl || 'https://i.imgur.com/X2YIZh4.png'}" class="team-logo-rank" alt="logo" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
+                        <div>
+                            <div class="team-name-rank"><a href="/equipo.html?id=${team._id}">${team.name}</a></div>
+                            <div class="team-abbr-rank"><span style="width:50px;display:inline-block;text-transform:uppercase;">${team.abbreviation}</span>${leagueBadge}</div>
+                        </div>
+                    </div></td>
+                    <td class="elo-score">${currentElo}</td>
+                    <td class="stats-hide-mobile">${wins} - ${draws} - ${losses}</td>
+                    <td class="stats-hide-mobile">${streakHtml}</td>
+                    <td class="stats-hide-mobile">🏆 ${titles}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Error loading ranking:', error);
+            document.getElementById('dash-ranking-body').innerHTML = '<tr><td colspan="6" style="text-align:center;color:red;">Error cargando datos</td></tr>';
+        }
+    }
+
+    async loadDashHoF() {
+        try {
+            const response = await fetch('/api/elo/hall-of-fame');
+            const statsMap = await response.json();
+            const renderList = (title, items, valueFunc, icon) => {
+                if (!items || items.length === 0) return '';
+                let html = `<div class="hof-list-card"><div class="hof-list-title">${icon} ${title}</div>`;
+                items.forEach((team, idx) => {
+                    const rankClass = idx < 3 ? `rank-${idx + 1}` : '';
+                    html += `<div class="hof-item"><div class="hof-item-left">
+                        <div class="hof-item-rank ${rankClass}">#${idx + 1}</div>
+                        <img src="${team.logoUrl || team.logo || 'https://i.imgur.com/X2YIZh4.png'}" class="hof-item-logo" onerror="this.src='https://i.imgur.com/X2YIZh4.png'">
+                        <div class="hof-item-name">${team.name || team.nombre}</div>
+                    </div><div class="hof-item-value">${valueFunc(team)}</div></div>`;
+                });
+                html += '</div>';
+                return html;
+            };
+            const container = document.getElementById('dash-hof-lists');
+            container.innerHTML =
+                renderList('Top Campeones', statsMap.topCampeones, t => t.historicalStats.tournamentsWon + ' 🏆', '👑') +
+                renderList('Máximos Goleadores', statsMap.topGoleadores, t => t.historicalStats.totalGoalsScored + ' ⚽', '⚽') +
+                renderList('Top Victorias', statsMap.topVictorias, t => t.historicalStats.totalWins + ' 🟢', '✅') +
+                renderList('Muro Defensivo', statsMap.topDefensas, t => t.historicalStats.totalGoalsConceded + ' 🛡️', '🛡️') +
+                renderList('Más Veteranos', statsMap.topVeteranos, t => t.historicalStats.tournamentsPlayed + ' 🏟️', '🏟️');
+        } catch (error) {
+            console.error('Error loading HOF:', error);
+            document.getElementById('dash-hof-lists').innerHTML = '<div style="color:red;text-align:center;">Error cargando estadísticas.</div>';
         }
     }
 
@@ -2373,10 +2480,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const manageTeamId = urlParams.get('manageTeam');
     if (manageTeamId) {
         const teamName = urlParams.get('teamName') || 'Mi Equipo';
-        // Wait briefly for init to fetch user profile, then open the manager
         setTimeout(() => {
             dashboard.openTeamManagement(manageTeamId, teamName, '');
         }, 800);
+    }
+
+    // Auto-open ranking section if linked from another page
+    const section = urlParams.get('section');
+    if (section === 'ranking') {
+        setTimeout(() => {
+            dashboard.showDashboardSection('ranking-section');
+            const navRanking = document.getElementById('nav-ranking');
+            if (navRanking) dashboard.setActiveNavLink(navRanking);
+        }, 300);
     }
 
     // Cargar torneos abiertos

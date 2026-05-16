@@ -624,6 +624,55 @@
                 background: rgba(6,6,14,0.98) !important;
             }
         }
+
+        /* ===== RANKING SECTION ===== */
+        .ranking-tabs { display:flex; justify-content:center; gap:12px; margin-bottom:30px; flex-wrap:wrap; }
+        .ranking-tab-btn {
+            background:var(--color-surface); border:1px solid var(--color-border); color:var(--color-text-secondary);
+            padding:12px 28px; font-family:var(--font-heading); font-weight:500; font-size:1rem;
+            text-transform:uppercase; letter-spacing:1px; border-radius:8px; cursor:pointer; transition:all 0.3s;
+        }
+        .ranking-tab-btn:hover { border-color:var(--color-border-hover); color:#fff; }
+        .ranking-tab-btn.active { background:linear-gradient(135deg,var(--color-accent),#0066DD); border-color:var(--color-accent); color:#fff; box-shadow:0 0 30px var(--color-accent-glow); }
+        .ranking-content { display:none; animation:sectionFadeIn 0.5s ease-out; }
+        .ranking-content.active { display:block; }
+        .ranking-table-wrap { background:var(--color-surface); border:1px solid var(--color-border); border-radius:10px; overflow-x:auto; box-shadow:0 0 30px rgba(0,0,0,0.5); }
+        .ranking-table-wrap table { width:100%; border-collapse:collapse; text-align:left; }
+        .ranking-table-wrap th,.ranking-table-wrap td { padding:15px 20px; border-bottom:1px solid rgba(255,255,255,0.1); }
+        .ranking-table-wrap th { background:rgba(10,132,255,0.1); font-family:var(--font-heading); font-weight:700; font-size:1rem; color:var(--color-accent); text-transform:uppercase; letter-spacing:1px; }
+        .ranking-table-wrap tr:hover { background:rgba(255,255,255,0.05); }
+        .rank-number { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--color-accent); text-align:center; width:50px; }
+        .rank-1 .rank-number { color:#FFD700; text-shadow:0 0 10px #FFD700; }
+        .rank-2 .rank-number { color:#C0C0C0; text-shadow:0 0 10px #C0C0C0; }
+        .rank-3 .rank-number { color:#CD7F32; text-shadow:0 0 10px #CD7F32; }
+        .team-info-cell { display:flex; align-items:center; gap:15px; }
+        .team-logo-rank { width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid var(--color-border); background:#111; }
+        .team-name-rank { font-weight:700; font-size:1.1rem; }
+        .team-name-rank a { color:inherit; text-decoration:none; }
+        .team-name-rank a:hover { color:var(--color-accent); }
+        .team-abbr-rank { font-size:0.85rem; color:rgba(255,255,255,0.6); display:flex; align-items:center; }
+        .elo-score { font-family:'Bebas Neue',sans-serif; font-size:1.8rem; color:var(--color-accent); text-shadow:0 0 5px var(--color-accent-glow); }
+        .streak-fire { color:#ff4500; font-weight:bold; }
+        .streak-ice { color:#87ceeb; }
+        .hof-lists { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:25px; }
+        .hof-list-card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:10px; padding:20px; box-shadow:0 5px 15px rgba(0,0,0,0.4); }
+        .hof-list-title { font-family:var(--font-heading); font-size:1.3rem; color:var(--color-accent); margin-bottom:15px; text-align:center; border-bottom:1px solid rgba(10,132,255,0.2); padding-bottom:10px; text-transform:uppercase; }
+        .hof-item { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+        .hof-item:last-child { border-bottom:none; }
+        .hof-item-left { display:flex; align-items:center; gap:12px; }
+        .hof-item-rank { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; color:var(--color-accent); width:25px; text-align:center; }
+        .hof-item-rank.rank-1 { color:#FFD700; text-shadow:0 0 5px #FFD700; }
+        .hof-item-rank.rank-2 { color:#C0C0C0; text-shadow:0 0 5px #C0C0C0; }
+        .hof-item-rank.rank-3 { color:#CD7F32; text-shadow:0 0 5px #CD7F32; }
+        .hof-item-logo { width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid rgba(255,255,255,0.2); }
+        .hof-item-name { font-weight:600; font-size:1.05rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px; }
+        .hof-item-value { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; color:#fff; }
+        @media(max-width:768px) {
+            .ranking-tabs { flex-direction:column; width:100%; }
+            .hof-lists { grid-template-columns:1fr; }
+            .stats-hide-mobile { display:none; }
+            .ranking-tab-btn,.hof-list-card,.ranking-table-wrap { background:rgba(12,12,24,0.92)!important; }
+        }
     </style>
 </head>
 
@@ -665,6 +714,7 @@
                 <a href="/home.html" data-i18n="nav.home">Inicio</a>
                 <a href="#" id="nav-active-events" data-i18n="nav.activeEvents">Eventos Activos</a>
                 <a href="#" id="nav-history" data-i18n="nav.historyLink">Historial</a>
+                <a href="#" id="nav-ranking">Ranking</a>
             </div>
             <div class="nav-right">
                 <div class="lang-toggle">
@@ -777,6 +827,27 @@
                 <!-- Estado vacío -->
                 <div id="no-open-tournaments" class="empty-state hidden">
                     <p data-i18n="tournaments.noOpenTournaments">No hay torneos abiertos en este momento</p>
+                </div>
+            </section>
+
+            <!-- Ranking & Hall of Fame -->
+            <section id="ranking-section" class="view-section">
+                <div class="ranking-tabs">
+                    <button class="ranking-tab-btn active" data-tab="dash-ranking-view">🏆 Ranking Global</button>
+                    <button class="ranking-tab-btn" data-tab="dash-hof-view">⭐ Hall Of Fame</button>
+                </div>
+                <div id="dash-ranking-view" class="ranking-content active">
+                    <div class="ranking-table-wrap">
+                        <table>
+                            <thead><tr><th>#</th><th>Equipo</th><th>ELO</th><th class="stats-hide-mobile">V-E-D</th><th class="stats-hide-mobile">Racha</th><th class="stats-hide-mobile">Títulos</th></tr></thead>
+                            <tbody id="dash-ranking-body"><tr><td colspan="6" style="text-align:center;padding:50px;color:var(--color-accent);">Cargando Ranking...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="dash-hof-view" class="ranking-content">
+                    <div id="dash-hof-lists" class="hof-lists">
+                        <div style="text-align:center;padding:50px;color:var(--color-accent);">Cargando Récords Históricos...</div>
+                    </div>
                 </div>
             </section>
 
@@ -1338,40 +1409,50 @@
     <script>
         // ===== Video Sound Toggle (with persistence) =====
         const dashVideo = document.getElementById('dash-video');
-        let dashMuted = true;
+        const dashSoundToggle = document.getElementById('dash-sound-toggle');
         const dashWantSound = localStorage.getItem('videoSound') === 'on';
+        let dashSoundOn = false; // Tracks ACTUAL audio state (always starts false)
+        let _dashAutoUnlockCleanup = null;
 
         if (dashWantSound) {
-            document.getElementById('dash-sound-toggle').textContent = '🔊';
-            document.getElementById('dash-sound-toggle').classList.add('unmuted');
-            const unlockDashAudio = () => {
-                if (dashVideo && dashWantSound) {
+            dashSoundToggle.textContent = '🔊';
+            dashSoundToggle.classList.add('unmuted');
+            const dashAutoUnlock = (e) => {
+                if (e.target.closest('#dash-sound-toggle')) return;
+                if (dashVideo) {
                     dashVideo.muted = false;
                     dashVideo.volume = 0.4;
-                    dashMuted = false;
+                    dashSoundOn = true;
                 }
-                document.removeEventListener('click', unlockDashAudio);
-                document.removeEventListener('touchstart', unlockDashAudio);
+                _dashAutoUnlockCleanup();
             };
-            document.addEventListener('click', unlockDashAudio, { once: true });
-            document.addEventListener('touchstart', unlockDashAudio, { once: true });
+            _dashAutoUnlockCleanup = () => {
+                document.removeEventListener('click', dashAutoUnlock);
+                document.removeEventListener('touchstart', dashAutoUnlock);
+                _dashAutoUnlockCleanup = null;
+            };
+            document.addEventListener('click', dashAutoUnlock);
+            document.addEventListener('touchstart', dashAutoUnlock);
         }
 
-        document.getElementById('dash-sound-toggle').addEventListener('click', function() {
+        dashSoundToggle.addEventListener('click', function() {
             if (!dashVideo) return;
-            if (dashMuted) {
+            if (_dashAutoUnlockCleanup) { _dashAutoUnlockCleanup(); }
+            if (!dashSoundOn) {
                 dashVideo.muted = false;
                 dashVideo.volume = 0.4;
+                dashVideo.play().catch(() => {});
+                dashSoundOn = true;
                 this.textContent = '🔊';
                 this.classList.add('unmuted');
                 localStorage.setItem('videoSound', 'on');
             } else {
                 dashVideo.muted = true;
+                dashSoundOn = false;
                 this.textContent = '🔇';
                 this.classList.remove('unmuted');
                 localStorage.setItem('videoSound', 'off');
             }
-            dashMuted = !dashMuted;
         });
     </script>
 

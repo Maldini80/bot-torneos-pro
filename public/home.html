@@ -1040,7 +1040,7 @@
     <nav class="top-nav">
         <div class="nav-links">
             <a href="/dashboard.html">Dashboard</a>
-            <a href="/ranking.html">Ranking</a>
+            <a href="/dashboard.html?section=ranking">Ranking</a>
             <a href="/reglas.html">Reglas</a>
             <a href="/faq.html">FAQ</a>
             <a href="https://discord.gg/zEy9ztp8QM" target="_blank">Discord</a>
@@ -1072,7 +1072,7 @@
                     <span>🏆</span>
                     <span data-i18n="cta.dashboard">Ver Dashboard</span>
                 </a>
-                <a href="/ranking.html" class="btn btn-gold">
+                <a href="/dashboard.html?section=ranking" class="btn btn-gold">
                     <span>📈</span>
                     <span data-i18n="cta.ranking">Ranking ELO</span>
                 </a>
@@ -1252,7 +1252,7 @@
         <div class="footer-links">
             <a href="/reglas.html">📜 Reglas</a>
             <a href="/faq.html">❓ FAQ</a>
-            <a href="/ranking.html">📈 Ranking</a>
+            <a href="/dashboard.html?section=ranking">📈 Ranking</a>
             <a href="/legal.html">📄 Legal</a>
             <a href="https://discord.gg/zEy9ztp8QM" target="_blank">💬 Discord</a>
         </div>
@@ -1262,43 +1262,52 @@
     <script>
         // ===== Video Sound Toggle (with persistence) =====
         const heroVideo = document.getElementById('hero-video');
-        let isMuted = true;
+        const soundToggle = document.getElementById('sound-toggle');
         const wantSound = localStorage.getItem('videoSound') === 'on';
+        let soundOn = false; // Tracks ACTUAL audio state (always starts false — browser blocks autoplay)
+        let _autoUnlockCleanup = null;
 
-        // Show icon state but DON'T unmute yet (browser blocks it before user interaction)
         if (wantSound) {
-            document.getElementById('sound-toggle').textContent = '🔊';
-            document.getElementById('sound-toggle').classList.add('unmuted');
-            // Unmute after first user interaction on the page
-            const unlockAudio = () => {
-                if (heroVideo && wantSound) {
+            // Show "on" icon as visual hint, but audio isn't actually playing yet
+            soundToggle.textContent = '🔊';
+            soundToggle.classList.add('unmuted');
+            // Auto-unlock audio on first non-toggle interaction
+            const autoUnlock = (e) => {
+                if (e.target.closest('#sound-toggle')) return; // Let toggle handler manage its own clicks
+                if (heroVideo) {
                     heroVideo.muted = false;
                     heroVideo.volume = 0.5;
-                    isMuted = false;
+                    soundOn = true;
                 }
-                document.removeEventListener('click', unlockAudio);
-                document.removeEventListener('touchstart', unlockAudio);
+                _autoUnlockCleanup();
             };
-            document.addEventListener('click', unlockAudio, { once: true });
-            document.addEventListener('touchstart', unlockAudio, { once: true });
+            _autoUnlockCleanup = () => {
+                document.removeEventListener('click', autoUnlock);
+                document.removeEventListener('touchstart', autoUnlock);
+                _autoUnlockCleanup = null;
+            };
+            document.addEventListener('click', autoUnlock);
+            document.addEventListener('touchstart', autoUnlock);
         }
 
-        document.getElementById('sound-toggle').addEventListener('click', function() {
+        soundToggle.addEventListener('click', function() {
             if (!heroVideo) return;
-            if (isMuted) {
+            if (_autoUnlockCleanup) { _autoUnlockCleanup(); } // Remove auto-unlock to prevent conflicts
+            if (!soundOn) {
                 heroVideo.muted = false;
                 heroVideo.volume = 0.5;
                 heroVideo.play().catch(e => console.log('Autoplay prevented', e));
+                soundOn = true;
                 this.textContent = '🔊';
                 this.classList.add('unmuted');
                 localStorage.setItem('videoSound', 'on');
             } else {
                 heroVideo.muted = true;
+                soundOn = false;
                 this.textContent = '🔇';
                 this.classList.remove('unmuted');
                 localStorage.setItem('videoSound', 'off');
             }
-            isMuted = !isMuted;
         });
 
         // ===== Translations =====
