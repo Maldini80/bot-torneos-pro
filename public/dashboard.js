@@ -1507,6 +1507,14 @@ class DashboardApp {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay equipos registrados</td></tr>';
                 return;
             }
+            // Check admin status
+            const isAdmin = this.currentUser?.isAdmin || false;
+            if (isAdmin) {
+                const bf = document.getElementById('dash-admin-backfill');
+                const lg = document.getElementById('dash-admin-leagues');
+                if (bf) { bf.style.display = 'inline-block'; bf.onclick = () => this.triggerBackfill(); }
+                if (lg) { lg.style.display = 'inline-block'; lg.onclick = () => this.triggerLeagueRefresh(); }
+            }
             teams.forEach((team, index) => {
                 const rank = index + 1;
                 const stats = team.historicalStats || {};
@@ -1523,6 +1531,13 @@ class DashboardApp {
                 else if (currentElo >= 1300) leagueBadge = '<span style="background:#FFD700;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">GOLD</span>';
                 else if (currentElo >= 1000) leagueBadge = '<span style="background:#C0C0C0;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">SILVER</span>';
                 else leagueBadge = '<span style="background:#CD7F32;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">BRONZE</span>';
+                const escapedName = team.name.replace(/'/g, "\\'");
+                const escapedLogo = (team.logoUrl || 'https://i.imgur.com/X2YIZh4.png').replace(/'/g, "\\'");
+                const adminBtns = isAdmin ? `
+                    <button onclick="dashboard.openEditInfo('${team._id}','${escapedName}','${escapedLogo}')" title="Editar Info" style="background:rgba(255,255,255,0.1);border:1px solid #f39c12;color:#f39c12;border-radius:4px;padding:4px 6px;cursor:pointer;margin-left:6px;">🆔</button>
+                    <button onclick="dashboard.openEditElo('${team._id}',${currentElo},'${escapedName}')" title="Editar ELO" style="background:rgba(255,255,255,0.1);border:1px solid var(--color-accent);color:var(--color-accent);border-radius:4px;padding:4px 6px;cursor:pointer;">✏️</button>
+                    <button onclick="dashboard.confirmDissolveTeam('${team._id}','${escapedName}')" title="Disolver" style="background:rgba(255,255,255,0.1);border:1px solid #ff0055;color:#ff0055;border-radius:4px;padding:4px 6px;cursor:pointer;">🗑️</button>
+                ` : '';
                 const row = document.createElement('tr');
                 if (rank <= 3) row.classList.add(`rank-${rank}`);
                 row.innerHTML = `
@@ -1534,7 +1549,7 @@ class DashboardApp {
                             <div class="team-abbr-rank"><span style="width:50px;display:inline-block;text-transform:uppercase;">${team.abbreviation}</span>${leagueBadge}</div>
                         </div>
                     </div></td>
-                    <td class="elo-score">${currentElo}</td>
+                    <td class="elo-score">${currentElo}${adminBtns}</td>
                     <td class="stats-hide-mobile">${wins} - ${draws} - ${losses}</td>
                     <td class="stats-hide-mobile">${streakHtml}</td>
                     <td class="stats-hide-mobile">🏆 ${titles}</td>
@@ -1576,6 +1591,64 @@ class DashboardApp {
             console.error('Error loading HOF:', error);
             document.getElementById('dash-hof-lists').innerHTML = '<div style="color:red;text-align:center;">Error cargando estadísticas.</div>';
         }
+    }
+
+    // ===== ADMIN RANKING FUNCTIONS =====
+    async openEditElo(teamId, currentElo, teamName) {
+        const newEloStr = prompt(`Nuevo ELO para ${teamName}:`, currentElo);
+        if (newEloStr === null) return;
+        const newElo = parseInt(newEloStr, 10);
+        if (isNaN(newElo) || newElo < 0) { alert('❌ El ELO debe ser un número entero >= 0.'); return; }
+        try {
+            const res = await fetch('/api/elo/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId, newElo }) });
+            const data = await res.json();
+            if (data.success) this.loadDashRanking(); else alert('❌ Error: ' + data.error);
+        } catch (e) { alert('❌ Error de red.'); }
+    }
+
+    async openEditInfo(teamId, currentName, currentLogo) {
+        const newName = prompt('Nuevo Nombre para el Equipo:', currentName);
+        if (newName === null || newName.trim() === '') { if (newName !== null) alert('❌ El nombre no puede estar vacío.'); return; }
+        const newLogoUrl = prompt('Nuevo Logo URL (dejalo igual si no quieres cambiarlo):', currentLogo);
+        if (newLogoUrl === null) return;
+        try {
+            const res = await fetch(`/api/admin/teams/${teamId}/info`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName.trim(), logoUrl: newLogoUrl.trim() || currentLogo }) });
+            const data = await res.json();
+            if (data.success) this.loadDashRanking(); else alert('❌ Error: ' + data.error);
+        } catch (e) { alert('❌ Error de red.'); }
+    }
+
+    async confirmDissolveTeam(teamId, teamName) {
+        if (!confirm(`⚠️ ESTÁS A PUNTO DE DISOLVER EL EQUIPO: ${teamName}\nEsto eliminará permanentemente su registro y quitará los roles a sus jugadores.\n\n¿Deseas continuar?`)) return;
+        try {
+            const res = await fetch(`/api/admin/teams/${teamId}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) { alert('✅ ' + data.message); this.loadDashRanking(); } else alert('❌ Error: ' + data.error);
+        } catch (e) { alert('❌ Error de red.'); }
+    }
+
+    async triggerBackfill() {
+        if (!confirm('⚠️ ¿Recalcular todas las estadísticas en base a torneos finalizados (Backfill)?')) return;
+        const btn = document.getElementById('dash-admin-backfill');
+        const orig = btn.innerText; btn.innerText = '⏳ Procesando...'; btn.disabled = true;
+        try {
+            const res = await fetch('/api/admin/run-backfill', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) { alert('✅ ' + data.message); this.loadDashRanking(); this.loadDashHoF(); } else alert('❌ Error: ' + data.error);
+        } catch (e) { alert('❌ Error de red.'); }
+        finally { btn.innerText = orig; btn.disabled = false; }
+    }
+
+    async triggerLeagueRefresh() {
+        if (!confirm('⚠️ ¿Recalcular las ligas de TODOS los equipos en base a su ELO actual?')) return;
+        const btn = document.getElementById('dash-admin-leagues');
+        const orig = btn.innerText; btn.innerText = '⏳ Recalculando...'; btn.disabled = true;
+        try {
+            const res = await fetch('/api/admin/recalculate-leagues', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) { alert('✅ ' + data.message); this.loadDashRanking(); } else alert('❌ Error: ' + data.error);
+        } catch (e) { alert('❌ Error de red.'); }
+        finally { btn.innerText = orig; btn.disabled = false; }
     }
 
     setupFilters() {
