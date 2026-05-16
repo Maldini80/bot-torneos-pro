@@ -136,7 +136,7 @@
             position: absolute;
             inset: 0;
             background:
-                linear-gradient(180deg, rgba(6,6,14,0.15) 0%, transparent 30%, transparent 60%, var(--color-bg) 100%);
+                linear-gradient(180deg, rgba(6,6,14,0.05) 0%, transparent 25%, transparent 65%, var(--color-bg) 100%);
             z-index: 2;
             pointer-events: none;
         }
@@ -609,10 +609,15 @@
             align-items: center;
             justify-content: space-between;
             padding: 12px 24px;
-            background: rgba(6,6,14,0.85);
+            background: transparent;
+            backdrop-filter: none;
+            border-bottom: 1px solid transparent;
+            transition: background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease;
+        }
+        .top-nav.scrolled {
+            background: rgba(6,6,14,0.92);
             backdrop-filter: blur(16px);
             border-bottom: 1px solid rgba(255,255,255,0.06);
-            transition: transform 0.3s;
         }
         .nav-logo {
             font-family: var(--font-heading);
@@ -1052,7 +1057,7 @@
         <div class="hero-video-wrap">
             <video id="hero-video" autoplay muted loop playsinline preload="auto"
                    poster="https://i.imgur.com/P3m2pe5.png">
-                <source src="https://res.cloudinary.com/dxqky8j6e/video/upload/q_auto,f_auto,w_1280,br_2000k/v1778836034/home-bg_w45ddj.mp4" type="video/mp4">
+                <source src="https://res.cloudinary.com/dxqky8j6e/video/upload/q_auto:best,f_auto,vc_auto,w_1920/v1778836034/home-bg_w45ddj.mp4" type="video/mp4">
             </video>
         </div>
 
@@ -1417,6 +1422,16 @@
         }).catch(() => {
             document.getElementById('events-container').innerHTML = '<div class="events-empty">' + translations[currentLang]['events.empty'] + '</div>';
         });
+
+        // ===== Navbar transparent → opaque on scroll =====
+        const topNav = document.querySelector('.top-nav');
+        const heroSection = document.querySelector('.hero');
+        if (topNav && heroSection) {
+            const observer = new IntersectionObserver(([entry]) => {
+                topNav.classList.toggle('scrolled', !entry.isIntersecting);
+            }, { threshold: 0.15 });
+            observer.observe(heroSection);
+        }
     </script>
     <script src="home-news.js"></script>
 </body>

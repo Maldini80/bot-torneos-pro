@@ -62,10 +62,15 @@
             align-items: center;
             justify-content: space-between;
             padding: 12px 24px;
-            background: rgba(6,6,14,0.85);
+            background: transparent;
+            backdrop-filter: none;
+            border-bottom: 1px solid transparent;
+            transition: background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease;
+        }
+        .top-nav.scrolled {
+            background: rgba(6,6,14,0.92);
             backdrop-filter: blur(16px);
             border-bottom: 1px solid rgba(255,255,255,0.06);
-            transition: transform 0.3s;
         }
         .nav-links {
             display: flex;
@@ -357,7 +362,7 @@
             position: absolute;
             inset: 0;
             background:
-                linear-gradient(180deg, transparent 0%, transparent 70%, rgba(6,6,14,0.6) 100%);
+                linear-gradient(180deg, rgba(6,6,14,0.05) 0%, transparent 25%, transparent 70%, rgba(6,6,14,0.6) 100%);
             z-index: 1;
             pointer-events: none;
         }
@@ -605,6 +610,10 @@
             }
             .top-nav {
                 background: rgba(6,6,14,0.95) !important;
+                backdrop-filter: none !important;
+            }
+            .top-nav.scrolled {
+                background: rgba(6,6,14,0.95) !important;
             }
             .back-to-hero {
                 backdrop-filter: none !important;
@@ -623,7 +632,7 @@
     <div class="dash-video-bg">
         <video id="dash-video" autoplay muted loop playsinline preload="auto"
                poster="https://i.imgur.com/P3m2pe5.png">
-            <source src="https://res.cloudinary.com/dxqky8j6e/video/upload/q_auto,f_auto,w_1280,br_2000k/v1778836065/dash-bg_mwwyam.mp4" type="video/mp4">
+            <source src="https://res.cloudinary.com/dxqky8j6e/video/upload/q_auto:best,f_auto,vc_auto,w_1920/v1778836065/dash-bg_mwwyam.mp4" type="video/mp4">
         </video>
         <div class="dash-video-overlay"></div>
     </div>
@@ -1369,7 +1378,7 @@
         // ===== Dynamic Video Loading =====
         function optimizeCdnUrl(url) {
             if (!url || !url.includes('res.cloudinary.com') || url.includes('/q_auto')) return url;
-            return url.replace('/upload/', '/upload/q_auto,f_auto,w_1280,br_2000k/');
+            return url.replace('/upload/', '/upload/q_auto:best,f_auto,vc_auto,w_1920/');
         }
         fetch('/api/settings/videos').then(r => r.json()).then(data => {
             if (data.video_dash) {
@@ -1377,6 +1386,16 @@
                 if (v) { const s = v.querySelector('source'); if (s) { s.src = optimizeCdnUrl(data.video_dash); v.load(); v.play().catch(() => {}); } }
             }
         }).catch(() => {});
+
+        // ===== Navbar transparent → opaque on scroll =====
+        const dashTopNav = document.getElementById('top-nav');
+        const heroDash = document.getElementById('hero-dash');
+        if (dashTopNav && heroDash) {
+            const navObserver = new IntersectionObserver(([entry]) => {
+                dashTopNav.classList.toggle('scrolled', !entry.isIntersecting);
+            }, { threshold: 0.15 });
+            navObserver.observe(heroDash);
+        }
     </script>
 
     <script src="dashboard.js?v=2.4.4"></script>
