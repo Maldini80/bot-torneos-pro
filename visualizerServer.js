@@ -140,24 +140,55 @@ app.get('/home.html', async (req, res) => {
         if (news) {
             const title = `${news.title} — THE BLITZ`;
             const desc = news.body.substring(0, 160);
-            const image = news.coverUrl || news.mediaUrl || 'https://i.imgur.com/P3m2pe5.png';
             const newsUrl = `${process.env.SITE_URL || 'https://t-blitz.com'}/home.html?news=${req.query.news}`;
             const safeTitle = title.replace(/"/g, '&quot;');
             const safeDesc = desc.replace(/"/g, '&quot;');
 
+            // Determine the best image for og:image
+            // og:image MUST be an actual image (JPG/PNG), NOT a video URL
+            let ogImage = 'https://t-blitz.com/og-image.png'; // safe default
+            let ogVideo = null;
+            const mediaUrl = news.mediaUrl || '';
+            const isVideo = mediaUrl.match(/\.(mp4|webm|mov)(\?|$)/i);
+
+            if (news.coverUrl) {
+                // Best case: dedicated cover image
+                ogImage = news.coverUrl;
+            } else if (isVideo && mediaUrl.includes('res.cloudinary.com')) {
+                // Cloudinary video: auto-generate thumbnail by swapping extension to .jpg
+                ogImage = mediaUrl.replace(/\.(mp4|webm|mov)(\?|$)/i, '.jpg$2');
+            } else if (!isVideo && mediaUrl) {
+                // Regular image
+                ogImage = mediaUrl;
+            }
+
+            if (isVideo && mediaUrl) {
+                ogVideo = mediaUrl;
+            }
+
             // REPLACE existing generic OG tags with news-specific ones
             // (Discord/WhatsApp read the FIRST og:* tags they find, so we must replace, not append)
-            html = html.replace(/<meta property="og:type" content="[^"]*">/, '<meta property="og:type" content="article">');
+            html = html.replace(/<meta property="og:type" content="[^"]*">/, `<meta property="og:type" content="${ogVideo ? 'video.other' : 'article'}">`);
             html = html.replace(/<meta property="og:url" content="[^"]*">/, `<meta property="og:url" content="${newsUrl}">`);
             html = html.replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${safeTitle}">`);
             html = html.replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${safeDesc}">`);
-            html = html.replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${image}">`);
+            html = html.replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${ogImage}">`);
             html = html.replace(/<meta property="og:site_name" content="[^"]*">/, `<meta property="og:site_name" content="THE BLITZ">`);
 
             // Replace Twitter Card tags too
             html = html.replace(/<meta name="twitter:title" content="[^"]*">/, `<meta name="twitter:title" content="${safeTitle}">`);
             html = html.replace(/<meta name="twitter:description" content="[^"]*">/, `<meta name="twitter:description" content="${safeDesc}">`);
-            html = html.replace(/<meta name="twitter:image" content="[^"]*">/, `<meta name="twitter:image" content="${image}">`);
+            html = html.replace(/<meta name="twitter:image" content="[^"]*">/, `<meta name="twitter:image" content="${ogImage}">`);
+
+            // Add og:video tags if the news has video content (inject before </head>)
+            if (ogVideo) {
+                const videoTags = `
+    <meta property="og:video" content="${ogVideo}">
+    <meta property="og:video:type" content="video/mp4">
+    <meta name="twitter:card" content="player">
+    <meta name="twitter:player" content="${newsUrl}">`;
+                html = html.replace('</head>', videoTags + '\n</head>');
+            }
         }
         res.send(html);
     } catch (e) {
