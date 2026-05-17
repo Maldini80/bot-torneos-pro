@@ -154,7 +154,7 @@ function openNewsModal(n) {
     modal.classList.add('open');
 
     // Share buttons
-    const shareUrl = `${window.location.origin}/home.html?news=${n._id}`;
+    const shareUrl = `https://t-blitz.com/home.html?news=${n._id}`;
     const shareText = `${n.title} — THE BLITZ`;
     document.getElementById('share-twitter').onclick = () => {
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank');

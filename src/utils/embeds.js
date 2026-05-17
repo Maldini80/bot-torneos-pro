@@ -1274,7 +1274,7 @@ export function createPoolEmbed(pool) {
             `**${total}** equipos inscritos\n` +
             `💎 ${counts.DIAMOND} Diamond · 👑 ${counts.GOLD} Gold · ⚙️ ${counts.SILVER} Silver · 🥉 ${counts.BRONZE} Bronze\n` +
             eloFilterText + dateText +
-            `🌐 **Inscripción Web:** ${process.env.BASE_URL || 'https://bot-torneos-web.onrender.com'}/bolsa/${pool.shortId}`
+            `🌐 **Inscripción Web:** ${process.env.BASE_URL || 'https://t-blitz.com'}/bolsa/${pool.shortId}`
         )
         .setFooter({ text: `ID: ${pool.shortId}` })
         .setTimestamp();
@@ -1303,7 +1303,7 @@ export function createPoolEmbed(pool) {
         new ButtonBuilder()
             .setLabel('Inscripción Web')
             .setStyle(ButtonStyle.Link)
-            .setURL(`${process.env.BASE_URL || 'https://bot-torneos-web.onrender.com'}/bolsa/${pool.shortId}`)
+            .setURL(`${process.env.BASE_URL || 'https://t-blitz.com'}/bolsa/${pool.shortId}`)
             .setEmoji('🌐')
     );
 

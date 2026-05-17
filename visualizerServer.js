@@ -141,18 +141,23 @@ app.get('/home.html', async (req, res) => {
             const title = `${news.title} — THE BLITZ`;
             const desc = news.body.substring(0, 160);
             const image = news.coverUrl || news.mediaUrl || 'https://i.imgur.com/P3m2pe5.png';
-            // Inject OG tags before </head>
-            const ogTags = `
-    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
-    <meta property="og:description" content="${desc.replace(/"/g, '&quot;')}">
-    <meta property="og:image" content="${image}">
-    <meta property="og:url" content="${process.env.SITE_URL || 'https://t-blitz.com'}/home.html?news=${req.query.news}">
-    <meta property="og:type" content="article">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">
-    <meta name="twitter:description" content="${desc.replace(/"/g, '&quot;')}">
-    <meta name="twitter:image" content="${image}">`;
-            html = html.replace('</head>', ogTags + '\n</head>');
+            const newsUrl = `${process.env.SITE_URL || 'https://t-blitz.com'}/home.html?news=${req.query.news}`;
+            const safeTitle = title.replace(/"/g, '&quot;');
+            const safeDesc = desc.replace(/"/g, '&quot;');
+
+            // REPLACE existing generic OG tags with news-specific ones
+            // (Discord/WhatsApp read the FIRST og:* tags they find, so we must replace, not append)
+            html = html.replace(/<meta property="og:type" content="[^"]*">/, '<meta property="og:type" content="article">');
+            html = html.replace(/<meta property="og:url" content="[^"]*">/, `<meta property="og:url" content="${newsUrl}">`);
+            html = html.replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${safeTitle}">`);
+            html = html.replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${safeDesc}">`);
+            html = html.replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${image}">`);
+            html = html.replace(/<meta property="og:site_name" content="[^"]*">/, `<meta property="og:site_name" content="THE BLITZ">`);
+
+            // Replace Twitter Card tags too
+            html = html.replace(/<meta name="twitter:title" content="[^"]*">/, `<meta name="twitter:title" content="${safeTitle}">`);
+            html = html.replace(/<meta name="twitter:description" content="[^"]*">/, `<meta name="twitter:description" content="${safeDesc}">`);
+            html = html.replace(/<meta name="twitter:image" content="[^"]*">/, `<meta name="twitter:image" content="${image}">`);
         }
         res.send(html);
     } catch (e) {
