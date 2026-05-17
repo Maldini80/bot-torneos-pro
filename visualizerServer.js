@@ -193,8 +193,7 @@ app.get('/home.html', async (req, res) => {
                 const videoTags = `
     <meta property="og:video" content="${ogVideo}">
     <meta property="og:video:type" content="video/mp4">
-    <meta name="twitter:card" content="player">
-    <meta name="twitter:player" content="${newsUrl}">`;
+    <meta name="twitter:card" content="summary_large_image">`;
                 html = html.replace('</head>', videoTags + '\n</head>');
             }
         }
