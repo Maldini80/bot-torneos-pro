@@ -135,8 +135,13 @@ app.get('/home.html', async (req, res) => {
     }
     try {
         let html = fs.readFileSync(path.join('public', 'home.html'), 'utf8');
+        const newsId = req.query.news;
+        // Validate ObjectId format (must be exactly 24 hex chars)
+        if (!/^[0-9a-fA-F]{24}$/.test(newsId)) {
+            return res.send(html);
+        }
         const db = getDb();
-        const news = await db.collection('news').findOne({ _id: new ObjectId(req.query.news) });
+        const news = await db.collection('news').findOne({ _id: new ObjectId(newsId) });
         if (news) {
             const title = `${news.title} — THE BLITZ`;
             const desc = news.body.substring(0, 160);
