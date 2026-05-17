@@ -267,7 +267,7 @@ async function initAdminPanel() {
     try {
         const res = await fetch('/api/user');
         const user = await res.json();
-        if (!user || !user.isAdmin) return;
+        if (!user || (!user.isAdmin && !user.isReferee)) return;
 
         const gear = document.getElementById('admin-gear');
         gear.classList.add('visible');
@@ -279,34 +279,39 @@ async function initAdminPanel() {
         });
         document.addEventListener('click', () => gear.classList.remove('open'));
 
-        // Videos link
-        document.getElementById('admin-videos-link').addEventListener('click', async (e) => {
-            e.preventDefault();
-            gear.classList.remove('open');
-            // Load current values
-            try {
-                const r = await fetch('/api/settings/videos');
-                const d = await r.json();
-                document.getElementById('admin-video-home').value = d.video_home || '';
-                document.getElementById('admin-video-dash').value = d.video_dash || '';
-            } catch (err) { /* empty */ }
-            document.getElementById('admin-videos-modal').classList.add('open');
-        });
+        // Videos link — only visible for full admin, not referees
+        const videosLink = document.getElementById('admin-videos-link');
+        if (!user.isAdmin) {
+            videosLink.style.display = 'none';
+        } else {
+            videosLink.addEventListener('click', async (e) => {
+                e.preventDefault();
+                gear.classList.remove('open');
+                // Load current values
+                try {
+                    const r = await fetch('/api/settings/videos');
+                    const d = await r.json();
+                    document.getElementById('admin-video-home').value = d.video_home || '';
+                    document.getElementById('admin-video-dash').value = d.video_dash || '';
+                } catch (err) { /* empty */ }
+                document.getElementById('admin-videos-modal').classList.add('open');
+            });
 
-        // Save videos
-        document.getElementById('admin-save-videos').addEventListener('click', async () => {
-            const video_home = document.getElementById('admin-video-home').value.trim();
-            const video_dash = document.getElementById('admin-video-dash').value.trim();
-            try {
-                await fetch('/api/admin/settings/videos', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ video_home, video_dash })
-                });
-                alert('✅ Videos actualizados. Recarga la página para verlos.');
-                document.getElementById('admin-videos-modal').classList.remove('open');
-            } catch (err) { alert('Error guardando'); }
-        });
+            // Save videos
+            document.getElementById('admin-save-videos').addEventListener('click', async () => {
+                const video_home = document.getElementById('admin-video-home').value.trim();
+                const video_dash = document.getElementById('admin-video-dash').value.trim();
+                try {
+                    await fetch('/api/admin/settings/videos', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ video_home, video_dash })
+                    });
+                    alert('✅ Videos actualizados. Recarga la página para verlos.');
+                    document.getElementById('admin-videos-modal').classList.remove('open');
+                } catch (err) { alert('Error guardando'); }
+            });
+        }
 
         // News management link
         document.getElementById('admin-news-link').addEventListener('click', async (e) => {

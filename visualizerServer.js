@@ -155,8 +155,11 @@ app.get('/home.html', async (req, res) => {
                 // Best case: dedicated cover image
                 ogImage = news.coverUrl;
             } else if (isVideo && mediaUrl.includes('res.cloudinary.com')) {
-                // Cloudinary video: auto-generate thumbnail by swapping extension to .jpg
-                ogImage = mediaUrl.replace(/\.(mp4|webm|mov)(\?|$)/i, '.jpg$2');
+                // Cloudinary video: auto-generate thumbnail with explicit transformation
+                // Insert so_0 (first frame) transform and change extension to .jpg
+                ogImage = mediaUrl
+                    .replace('/upload/', '/upload/so_0,w_1200,h_630,c_fill,f_jpg,q_auto/')
+                    .replace(/\.(mp4|webm|mov)(\?|$)/i, '.jpg$2');
             } else if (!isVideo && mediaUrl) {
                 // Regular image
                 ogImage = mediaUrl;
@@ -318,7 +321,9 @@ app.get('/logout', (req, res) => {
 
 app.get('/api/user', (req, res) => {
     if (req.user) {
-        const userWithAdmin = { ...req.user, isAdmin: req.user.id === process.env.OWNER_DISCORD_ID };
+        const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
+        const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+        const userWithAdmin = { ...req.user, isAdmin, isReferee };
         res.json(userWithAdmin);
     } else {
         res.json(null);
@@ -887,7 +892,9 @@ app.get('/api/news', async (req, res) => {
 
 // Admin: get ALL news (including archived/unpublished)
 app.get('/api/admin/news', async (req, res) => {
-    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+    const isOwner = req.user && req.user.id === process.env.OWNER_DISCORD_ID;
+    const isRef = req.user && Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+    if (!isOwner && !isRef) {
         return res.status(403).json({ error: 'No autorizado' });
     }
     try {
@@ -902,7 +909,9 @@ app.get('/api/admin/news', async (req, res) => {
 
 // Admin: create news
 app.post('/api/admin/news', async (req, res) => {
-    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+    const isOwner = req.user && req.user.id === process.env.OWNER_DISCORD_ID;
+    const isRef = req.user && Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+    if (!isOwner && !isRef) {
         return res.status(403).json({ error: 'No autorizado' });
     }
     try {
@@ -968,7 +977,9 @@ app.post('/api/admin/news', async (req, res) => {
 
 // Admin: update news
 app.put('/api/admin/news/:id', async (req, res) => {
-    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+    const isOwner = req.user && req.user.id === process.env.OWNER_DISCORD_ID;
+    const isRef = req.user && Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+    if (!isOwner && !isRef) {
         return res.status(403).json({ error: 'No autorizado' });
     }
     try {
@@ -1012,7 +1023,9 @@ app.put('/api/admin/news/:id', async (req, res) => {
 
 // Admin: delete news permanently
 app.delete('/api/admin/news/:id', async (req, res) => {
-    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+    const isOwner = req.user && req.user.id === process.env.OWNER_DISCORD_ID;
+    const isRef = req.user && Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+    if (!isOwner && !isRef) {
         return res.status(403).json({ error: 'No autorizado' });
     }
     try {
