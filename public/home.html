@@ -750,6 +750,17 @@
             .hero-logo { width: 100px; }
             .stats-grid { grid-template-columns: 1fr; gap: 8px; }
             .scroll-indicator { display: none; }
+            
+            /* Ajuste de noticias en móvil para que la imagen se vea grande sin recortes */
+            .news-card-media {
+                aspect-ratio: auto;
+                max-height: 350px;
+                object-fit: contain;
+            }
+            .news-audio-card {
+                aspect-ratio: auto;
+                height: 250px;
+            }
         }
 
         @media (max-width: 480px) {
