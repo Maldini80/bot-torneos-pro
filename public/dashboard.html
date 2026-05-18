@@ -45,7 +45,7 @@
 
         /* ===== BODY OVERRIDE ===== */
         body {
-            background-color: transparent !important;
+            background-color: var(--color-bg) !important;
             background-image: none !important;
             font-family: var(--font-body);
             color: var(--color-text);
@@ -611,6 +611,14 @@
             .dash-video-bg {
                 height: 60vh;
                 position: absolute;
+            }
+            .dash-video-bg::after {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(180deg, transparent 50%, var(--color-bg) 100%);
+                z-index: 2;
+                pointer-events: none;
             }
             .hero-dash {
                 min-height: 60vh;
