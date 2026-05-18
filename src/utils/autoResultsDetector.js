@@ -373,8 +373,10 @@ async function processDetectedResult(client, db, tournament, partido, data) {
             console.warn(`[AUTO-RESULTS] No se pudo notificar en el hilo ${partido.threadId}:`, notifyErr.message);
         }
 
-        // Cerrar hilo a los 100 segundos (en vez de 10)
-        await finalizeMatchThread(client, processedMatch, resultString, 100000);
+        // Cerrar hilo a los 100 segundos (en vez de 10) en segundo plano para no bloquear la validación de otros partidos
+        finalizeMatchThread(client, processedMatch, resultString, 100000).catch(err => {
+            console.error(`[AUTO-RESULTS] Error cerrando hilo en segundo plano:`, err);
+        });
 
         console.log(`[AUTO-RESULTS] ✅ Partido ${partido.matchId} finalizado automáticamente: ${resultString}`);
     } catch (processErr) {
