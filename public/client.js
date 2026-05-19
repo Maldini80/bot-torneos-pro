@@ -2748,11 +2748,11 @@ window.openMatchStatsModal = function(match) {
 
     const nameA = eaClubA.name || teamAObj.nombre || 'Equipo A';
     const nameB = eaClubB.name || teamBObj.nombre || 'Equipo B';
-    const logoA = teamAObj.logoUrl ? `<img src="${teamAObj.logoUrl}" style="width: 50px; height: 50px; border-radius: 50%;">` : '';
-    const logoB = teamBObj.logoUrl ? `<img src="${teamBObj.logoUrl}" style="width: 50px; height: 50px; border-radius: 50%;">` : '';
+    const logoA = teamAObj.logoUrl ? `<img src="${teamAObj.logoUrl}" style="width: 55px; height: 55px; border-radius: 50%; border: 2px solid rgba(10, 132, 255, 0.3); box-shadow: 0 0 15px rgba(10, 132, 255, 0.2);">` : '';
+    const logoB = teamBObj.logoUrl ? `<img src="${teamBObj.logoUrl}" style="width: 55px; height: 55px; border-radius: 50%; border: 2px solid rgba(212, 168, 67, 0.3); box-shadow: 0 0 15px rgba(212, 168, 67, 0.2);">` : '';
 
-    document.getElementById('ms-team-a').innerHTML = `${logoA}<br><span style="font-weight:bold; color:white;">${nameA}</span>`;
-    document.getElementById('ms-team-b').innerHTML = `${logoB}<br><span style="font-weight:bold; color:white;">${nameB}</span>`;
+    document.getElementById('ms-team-a').innerHTML = `${logoA}<br><span style="font-weight:bold; color:white; font-size: 0.95rem; display:inline-block; margin-top:5px;">${nameA}</span>`;
+    document.getElementById('ms-team-b').innerHTML = `${logoB}<br><span style="font-weight:bold; color:white; font-size: 0.95rem; display:inline-block; margin-top:5px;">${nameB}</span>`;
     document.getElementById('ms-score').textContent = match.resultado || 'vs';
 
     // Global Stats (Comparativa de equipo)
@@ -2768,14 +2768,21 @@ window.openMatchStatsModal = function(match) {
         // No renderizar si ambos valores son 0 (datos vacíos)
         if (numA === 0 && numB === 0) return '';
         return `
-            <div class="stat-bar-container">
-                <div class="stat-bar-value" style="color: #0A84FF;">${valA}</div>
-                <div class="stat-bar-label">${label}</div>
-                <div class="stat-bar-value" style="color: #D4A843;">${valB}</div>
-            </div>
-            <div style="display:flex; height: 6px; background: #222; border-radius: 3px; margin: 0 40px 15px 40px; overflow: hidden;">
-                <div style="width: ${pctA}%; background: #0A84FF;"></div>
-                <div style="width: ${pctB}%; background: #D4A843;"></div>
+            <div class="stat-comparison-row">
+                <div class="stat-header">
+                    <span class="stat-value val-a">${valA}</span>
+                    <span class="stat-name">${label}</span>
+                    <span class="stat-value val-b">${valB}</span>
+                </div>
+                <div class="stat-split-bar">
+                    <div class="bar-half bar-left">
+                        <div class="bar-fill fill-a" style="width: ${pctA}%"></div>
+                    </div>
+                    <div class="bar-separator"></div>
+                    <div class="bar-half bar-right">
+                        <div class="bar-fill fill-b" style="width: ${pctB}%"></div>
+                    </div>
+                </div>
             </div>
         `;
     };
@@ -2807,7 +2814,6 @@ window.openMatchStatsModal = function(match) {
         
         // Calcular rating promedio usando gamesPlayed del jugador si disponible
         if (sums.count > 0) {
-            // Si ratingSum contiene la suma de ratings de varias partidas, dividir por gamesPlayed
             const totalGames = pList.reduce((acc, p) => acc + (p.gamesPlayed || 1), 0);
             sums.avgRating = totalGames > 0 ? (sums.rating / totalGames).toFixed(1) : '0.0';
         } else {
@@ -2853,15 +2859,17 @@ window.openMatchStatsModal = function(match) {
 
     document.getElementById('ms-global-stats').innerHTML = globalStatsHTML;
 
-    // Alineaciones
-    document.getElementById('ms-title-a').textContent = nameA;
-    document.getElementById('ms-title-b').textContent = nameB;
+    // Actualizar nombres de las pestañas
+    const tabTextA = document.getElementById('tab-text-a');
+    const tabTextB = document.getElementById('tab-text-b');
+    if (tabTextA) tabTextA.textContent = nameA;
+    if (tabTextB) tabTextB.textContent = nameB;
 
     const renderPlayers = (playersObj, tbodyId) => {
         const tbody = document.getElementById(tbodyId);
         tbody.innerHTML = '';
         if (!playersObj || Object.keys(playersObj).length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="placeholder" style="text-align:center; color:#888; padding:15px;">No hay datos de jugadores. (Posible desconexión)</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="placeholder" style="text-align:center; color:#888; padding:20px; font-weight:600;">No hay datos de jugadores. (Posible desconexión)</td></tr>';
             return;
         }
 
@@ -2898,30 +2906,40 @@ window.openMatchStatsModal = function(match) {
             const momIcon = p.mom ? ' 🎖️' : '';
             const avgRating = p.gamesPlayed > 0 ? (p.rating / p.gamesPlayed).toFixed(1) : parseFloat(p.rating).toFixed(1);
             
+            // Dynamic rating badge coloring
+            const rNum = parseFloat(avgRating) || 0;
+            let ratingColorClass = 'rating-gray';
+            if (rNum >= 8.5) ratingColorClass = 'rating-excellent';
+            else if (rNum >= 7.0) ratingColorClass = 'rating-good';
+            else if (rNum >= 6.0) ratingColorClass = 'rating-average';
+            else if (rNum > 0) ratingColorClass = 'rating-poor';
+            
+            const ratingBadge = `<span class="rating-badge ${ratingColorClass}">${avgRating}</span>`;
+
             // Formato de pases: completados/intentados (%)
-            let passesDisplay = '-';
+            let passesDisplay = '—';
             if (p.passesMade > 0 || p.passAttempts > 0) {
-                const pct = p.passAttempts > 0 ? ` (${((p.passesMade / p.passAttempts) * 100).toFixed(0)}%)` : '';
-                passesDisplay = `${p.passesMade}${pct}`;
+                const pct = p.passAttempts > 0 ? ` <span style="color:#8a8a9e; font-size:0.8rem;">(${((p.passesMade / p.passAttempts) * 100).toFixed(0)}%)</span>` : '';
+                passesDisplay = `<span style="font-weight:600;">${p.passesMade}</span>${pct}`;
             }
             
             // Formato de entradas: completadas/intentadas (%)
-            let tacklesDisplay = '-';
+            let tacklesDisplay = '—';
             if (p.tacklesMade > 0 || p.tackleAttempts > 0) {
-                const pct = p.tackleAttempts > 0 ? ` (${((p.tacklesMade / p.tackleAttempts) * 100).toFixed(0)}%)` : '';
-                tacklesDisplay = `${p.tacklesMade}${pct}`;
+                const pct = p.tackleAttempts > 0 ? ` <span style="color:#8a8a9e; font-size:0.8rem;">(${((p.tacklesMade / p.tackleAttempts) * 100).toFixed(0)}%)</span>` : '';
+                tacklesDisplay = `<span style="font-weight:600;">${p.tacklesMade}</span>${pct}`;
             }
             
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.75rem;">${p.pos.toUpperCase()}</span></td>
-                <td style="font-weight:bold;">${p.name}${momIcon}</td>
-                <td style="text-align:center; color: #f1c40f;">${avgRating}</td>
-                <td style="text-align:center;">${p.goals > 0 ? p.goals : '-'}</td>
-                <td style="text-align:center;">${p.assists > 0 ? p.assists : '-'}</td>
+                <td><span style="background:rgba(255,255,255,0.06); color:#cbd5e1; border:1px solid rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600;">${p.pos.toUpperCase()}</span></td>
+                <td style="font-weight:600; color:#fff;">${p.name}${momIcon}</td>
+                <td style="text-align:center;">${ratingBadge}</td>
+                <td style="text-align:center; font-weight:600; color:${p.goals > 0 ? '#2ecc71' : '#cbd5e1'};">${p.goals > 0 ? p.goals : '—'}</td>
+                <td style="text-align:center; font-weight:600; color:${p.assists > 0 ? '#3498db' : '#cbd5e1'};">${p.assists > 0 ? p.assists : '—'}</td>
                 <td style="text-align:center;">${passesDisplay}</td>
                 <td style="text-align:center;">${tacklesDisplay}</td>
-                <td style="text-align:center;">${p.shots > 0 ? p.shots : '-'}</td>
+                <td style="text-align:center; font-weight:600; color:${p.shots > 0 ? '#f1c40f' : '#cbd5e1'};">${p.shots > 0 ? p.shots : '—'}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -2930,6 +2948,34 @@ window.openMatchStatsModal = function(match) {
     renderPlayers(eaClubA.players, 'ms-tbody-a');
     renderPlayers(eaClubB.players, 'ms-tbody-b');
 
+    // Resetear a pestaña A por defecto
+    if (window.switchMatchStatsTab) {
+        window.switchMatchStatsTab('A');
+    }
+
     modal.classList.remove('hidden');
 };
+
+// Función global para alternar las pestañas de alineación
+window.switchMatchStatsTab = function(team) {
+    const boxA = document.getElementById('lineup-box-a');
+    const boxB = document.getElementById('lineup-box-b');
+    const btnA = document.getElementById('btn-tab-a');
+    const btnB = document.getElementById('btn-tab-b');
+    
+    if (!boxA || !boxB) return;
+    
+    if (team === 'A') {
+        boxA.classList.remove('hidden');
+        boxB.classList.add('hidden');
+        if (btnA) btnA.classList.add('active');
+        if (btnB) btnB.classList.remove('active');
+    } else {
+        boxA.classList.add('hidden');
+        boxB.classList.remove('hidden');
+        if (btnA) btnA.classList.remove('active');
+        if (btnB) btnB.classList.add('active');
+    }
+};
+
 
