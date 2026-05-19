@@ -4750,3 +4750,37 @@ footer#common-footer {
   .stat-bar-value { flex: 0 0 30px; font-size: 0.8rem; }
   #ms-score { font-size: 1.8rem !important; padding: 0 10px !important; }
 }
+
+/* === MODAL CLOSE BUTTON === */
+.close-button {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #0A84FF;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(10, 132, 255, 0.1);
+    border: 1px solid rgba(10, 132, 255, 0.3);
+    transition: all 0.2s ease;
+    z-index: 10;
+    user-select: none;
+    outline: none;
+}
+
+.close-button:hover {
+    background: rgba(10, 132, 255, 0.25);
+    border-color: #0A84FF;
+    transform: rotate(90deg) scale(1.05);
+}
+
+.close-button:focus-visible {
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.5);
+}
+

@@ -153,10 +153,10 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                 targetClubPlayers[pName].saves += parseInt(pData.saves) || 0;
                 targetClubPlayers[pName].mom += parseInt(pData.mom) || 0;
                 targetClubPlayers[pName].gamesPlayed += 1;
-                targetClubPlayers[pName].passesMade += parseInt(pData.passesMade) || 0;
-                targetClubPlayers[pName].passAttempts += parseInt(pData.passAttempts) || parseInt(pData.passesMade) || 0;
-                targetClubPlayers[pName].tacklesMade += parseInt(pData.tacklesMade) || 0;
-                targetClubPlayers[pName].tackleAttempts += parseInt(pData.tackleAttempts) || parseInt(pData.tacklesMade) || 0;
+                targetClubPlayers[pName].passesMade += parseInt(pData.passesmade || pData.passesMade) || 0;
+                targetClubPlayers[pName].passAttempts += parseInt(pData.passattempts || pData.passAttempts || pData.passesmade || pData.passesMade) || 0;
+                targetClubPlayers[pName].tacklesMade += parseInt(pData.tacklesmade || pData.tacklesMade) || 0;
+                targetClubPlayers[pName].tackleAttempts += parseInt(pData.tackleattempts || pData.tackleAttempts || pData.tacklesmade || pData.tacklesMade) || 0;
                 targetClubPlayers[pName].shots += parseInt(pData.shots) || 0;
                 
                 const posLower = resolvedPos.toLowerCase();
@@ -197,17 +197,17 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                 // ----------------------------------------------
                 
                 aggregatedStats.clubA.goals += goalsA;
-                aggregatedStats.clubA.goalsAgainst += parseInt(statsA.goalsAgainst) || 0;
+                aggregatedStats.clubA.goalsAgainst += parseInt(statsA.goalsAgainst || statsA.goalsagainst) || 0;
                 aggregatedStats.clubA.shots += parseInt(statsA.shots) || 0;
-                aggregatedStats.clubA.passesMade += parseInt(statsA.passesMade) || 0;
-                aggregatedStats.clubA.tacklesMade += parseInt(statsA.tacklesMade) || 0;
+                aggregatedStats.clubA.passesMade += parseInt(statsA.passesmade || statsA.passesMade) || 0;
+                aggregatedStats.clubA.tacklesMade += parseInt(statsA.tacklesmade || statsA.tacklesMade) || 0;
                 possessionSumA += parseFloat(statsA.possession) || 50;
 
                 aggregatedStats.clubB.goals += goalsB;
-                aggregatedStats.clubB.goalsAgainst += parseInt(statsB.goalsAgainst) || 0;
+                aggregatedStats.clubB.goalsAgainst += parseInt(statsB.goalsAgainst || statsB.goalsagainst) || 0;
                 aggregatedStats.clubB.shots += parseInt(statsB.shots) || 0;
-                aggregatedStats.clubB.passesMade += parseInt(statsB.passesMade) || 0;
-                aggregatedStats.clubB.tacklesMade += parseInt(statsB.tacklesMade) || 0;
+                aggregatedStats.clubB.passesMade += parseInt(statsB.passesmade || statsB.passesMade) || 0;
+                aggregatedStats.clubB.tacklesMade += parseInt(statsB.tacklesmade || statsB.tacklesMade) || 0;
                 possessionSumB += parseFloat(statsB.possession) || 50;
                 
                 // Extraer jugadores
