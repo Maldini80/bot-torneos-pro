@@ -2384,7 +2384,7 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
             const capitanId = isFirstTeam ? interaction.user.id : teamId;
             const capitanTag = isFirstTeam ? interaction.user.tag : `TestUser#${1000 + i}`;
             const teamData = { id: teamId, nombre: `E-Prueba-${teamsCount + i + 1}`, eafcTeamName: `EAFC-Test-${teamsCount + i + 1}`, capitanId, capitanTag, bandera: '🧪', paypal: 'admin@test.com', streamChannel: 'https://twitch.tv/test', twitter: 'test', inscritoEn: new Date() };
-            bulkOps.push({ updateOne: { filter: { _id: tournament._id }, update: { $set: { [`teams.aprobados.${teamId}`]: teamData } } } });
+            bulkOps.push({ updateOne: { filter: { _id: tournament._id }, update: { $set: { [`teams.aprobados.${capitanId}`]: teamData } } } });
         }
         if (bulkOps.length > 0) await db.collection('tournaments').bulkWrite(bulkOps);
         const updatedTournament = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
