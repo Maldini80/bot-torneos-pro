@@ -20,10 +20,10 @@ const LOOKBACK_HOURS = 6;
 // Intervalo de verificación en milisegundos (10 segundos)
 const CHECK_INTERVAL_MS = 10000;
 
-// Tiempo de gracia para considerar Rage-Quit / Abandono tras un DNF (45 minutos)
+// Tiempo de gracia para considerar Rage-Quit / Abandono tras un DNF (25 minutos)
 // Esto evita que si se desconectan al inicio de un partido y reinician, el bot valide
 // el partido incompleto antes de que terminen de jugar el partido completo.
-const DNF_GRACE_PERIOD_SECONDS = 2700;
+const DNF_GRACE_PERIOD_SECONDS = 1500;
 
 /**
  * Inicia el intervalo de auto-detección de resultados.
@@ -305,12 +305,12 @@ async function processDetectedResult(client, db, tournament, partido, data) {
     // fusionadas suman al menos 5400 segundos (90 minutos in-game)
     const isFullMatch = !result.isDnf || result.maxSecs >= 5400;
     
-    // Consideramos "Rage-Quit/Abandono" si han pasado más de 45 minutos reales (2700 segundos)
+    // Consideramos "Rage-Quit/Abandono" si han pasado más de 25 minutos reales (1500 segundos)
     // desde la última vez que jugaron y no han empezado/terminado una nueva parte
     const hasRageQuit = secondsSinceLastPlay >= DNF_GRACE_PERIOD_SECONDS;
 
     if (!isFullMatch && !hasRageQuit) {
-        // Aún no han jugado el partido completo y no ha transcurrido el tiempo de gracia (45 minutos).
+        // Aún no han jugado el partido completo y no ha transcurrido el tiempo de gracia (25 minutos).
         // El escáner los ignora momentáneamente para darles tiempo a jugar la "segunda parte" o reiniciar.
         return;
     }
