@@ -61,6 +61,22 @@ client.once(Events.ClientReady, async readyClient => {
         console.log('[STARTUP] Forzando actualización de paneles para limpiar estados bloqueados...');
         await setBotBusy(false);
 
+        // AUTO-RESULTS: Iniciar detector automático si hay torneos activos con autoResults habilitado
+        const db = getDb();
+        if (db) {
+            const activeAutoTournaments = await db.collection('tournaments').countDocuments({
+                'config.autoResults': true,
+                status: { $nin: ['finalizado', 'cancelado', 'inscripcion_abierta', 'archivado'] }
+            });
+            if (activeAutoTournaments > 0) {
+                console.log(`[STARTUP] Detectados ${activeAutoTournaments} torneos con auto-resultados activos. Iniciando detector automático...`);
+                const { startAutoResults } = await import('./src/utils/autoResultsDetector.js');
+                startAutoResults(readyClient);
+            } else {
+                console.log('[STARTUP] No hay torneos activos con auto-resultados habilitados.');
+            }
+        }
+
     } catch (error) {
         console.error('[CRASH EN READY] Ocurrió un error crítico durante la inicialización:', error);
     }
