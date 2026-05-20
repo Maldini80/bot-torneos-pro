@@ -1007,23 +1007,26 @@
 
                 teams.forEach((team, idx) => {
                     const tr = document.createElement('tr');
-                    tr.dataset.slug = team.slug;
-                    tr.dataset.name = team.name;
+                    const teamSlug = team.team_slug || team.slug;
+                    const teamName = team.team_name || team.name || 'Desconocido';
                     
-                    const logoId = team.logo_id || team.logo;
+                    tr.dataset.slug = teamSlug;
+                    tr.dataset.name = teamName;
+                    
+                    const logoId = team.team_logo || team.logo_id || team.logo;
                     const logoUrl = logoId ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${logoId}/smThumb` : 'https://i.imgur.com/E6obnvO.png';
 
                     tr.innerHTML = `
                         <td class="pos-col">${idx + 1}</td>
                         <td>
                             <div class="team-cell">
-                                <img src="${logoUrl}" alt="${team.name} Logo" class="team-logo-small" onerror="this.src='https://i.imgur.com/E6obnvO.png'">
-                                <span>${team.name}</span>
+                                <img src="${logoUrl}" alt="${teamName} Logo" class="team-logo-small" onerror="this.src='https://i.imgur.com/E6obnvO.png'">
+                                <span>${teamName}</span>
                             </div>
                         </td>
-                        <td class="pts-col" style="text-align: right; padding-right: 15px;">${team.pts || team.points || 0}</td>
+                        <td class="pts-col" style="text-align: right; padding-right: 15px;">${team.points || team.pts || 0}</td>
                     `;
-                    tr.addEventListener('click', () => selectTeam(team.slug));
+                    tr.addEventListener('click', () => selectTeam(teamSlug));
                     tbody.appendChild(tr);
                 });
             } catch (e) {
