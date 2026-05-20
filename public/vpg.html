@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sincronización y Comparación VPG - THE BLITZ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #090d16;
+            --bg-gradient: radial-gradient(circle at top right, #1e1b4b 0%, #090d16 60%);
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --primary-glow: rgba(99, 102, 241, 0.35);
+            --cyan: #06b6d4;
+            --emerald: #10b981;
+            --rose: #f43f5e;
+            --amber: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            background-image: var(--bg-gradient);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Scrollbar custom */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.5);
+        }
+
+        .app-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Header Style */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            height: 45px;
+            width: auto;
+        }
+
+        .title-area h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 30%, var(--cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .title-area p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-link-back {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-link-back:hover {
+            color: var(--primary);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 6px 14px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+        }
+
+        .user-info span {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-admin {
+            background: rgba(244, 63, 94, 0.15);
+            color: var(--rose);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
+
+        .badge-ref {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        /* Layout Grid */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Sidebar Card (Left Panel) */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--text-primary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 10px;
+        }
+
+        /* Selector League */
+        .select-wrapper {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        select {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--card-border);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            appearance: none;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .select-wrapper::after {
+            content: '▼';
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        /* League Table / Standings */
+        .table-container {
+            max-height: 550px;
+            overflow-y: auto;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .standings-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        .standings-table th {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 10px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .standings-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            vertical-align: middle;
+        }
+
+        .standings-table tbody tr {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .standings-table tbody tr:hover {
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .standings-table tbody tr.selected {
+            background: rgba(99, 102, 241, 0.18);
+            border-left: 3px solid var(--primary);
+        }
+
+        .team-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .team-logo-small {
+            width: 22px;
+            height: 22px;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .pts-col {
+            font-weight: 700;
+            color: var(--cyan);
+        }
+
+        .pos-col {
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-align: center;
+            width: 25px;
+        }
+
+        /* Right Panel (Details and Comparisons) */
+        .content-panel {
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            padding: 50px 20px;
+            text-align: center;
+            background: var(--card-bg);
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.2));
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .empty-state h2 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: var(--text-secondary);
+            max-width: 450px;
+            font-size: 0.9rem;
+        }
+
+        /* Active Detail State */
+        .detail-card {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Team Header Banner */
+        .team-banner {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            padding: 25px;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .team-banner::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at 10% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .team-logo-large {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+            z-index: 1;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.2);
+            padding: 4px;
+        }
+
+        .team-header-info {
+            flex: 1;
+            z-index: 1;
+        }
+
+        .team-header-info h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .team-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .meta-item strong {
+            color: var(--text-primary);
+        }
+
+        /* Link Box (Admin mapping tool) */
+        .link-status-box {
+            background: rgba(99, 102, 241, 0.05);
+            border: 1px dashed rgba(99, 102, 241, 0.3);
+            border-radius: 12px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .link-status-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-linked { background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+        .dot-unlinked { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+
+        .link-status-text p {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .link-status-text span {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .link-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Buttons styling */
+        button {
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: none;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 14px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--rose);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+        }
+
+        .btn-danger:hover {
+            background: rgba(244, 63, 94, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--emerald);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-success:hover {
+            background: rgba(16, 185, 129, 0.2);
+            transform: translateY(-1px);
+        }
+
+        /* Selector dropdown wrapper for linking */
+        .link-selector-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .link-selector-container select {
+            width: 220px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        /* Grid Comparison */
+        .roster-comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        @media (max-width: 900px) {
+            .roster-comparison-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .roster-column-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .count-badge {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Player Card */
+        .player-card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .player-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .player-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(99, 102, 241, 0.2);
+        }
+
+        .player-card.matched {
+            border-left: 3.5px solid var(--emerald);
+        }
+
+        .player-card.mismatched {
+            border-left: 3.5px solid var(--rose);
+        }
+
+        .player-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .player-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .player-details h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .player-details p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .player-details .pos-badge {
+            font-size: 0.65rem;
+            padding: 1px 5px;
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            border-radius: 3px;
+            font-weight: 700;
+        }
+
+        .status-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        .status-match {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--emerald);
+        }
+
+        .status-mismatch {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--rose);
+        }
+
+        .match-info-detail {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .match-info-detail span {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* Roster Analysis Summary Card */
+        .discrepancy-card {
+            background: rgba(244, 63, 94, 0.03);
+            border: 1px solid rgba(244, 63, 94, 0.15);
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+        }
+
+        .discrepancy-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--rose);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .discrepancy-card ul {
+            list-style: none;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .discrepancy-card li::before {
+            content: '•';
+            color: var(--rose);
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: 0.2em;
+        }
+
+        /* Toast Alert */
+        .toast {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            padding: 12px 24px;
+            background: #1e293b;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            z-index: 9999;
+            transform: translateY(150%);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+        }
+
+        .toast-success { border-left: 4px solid var(--emerald); }
+        .toast-error { border-left: 4px solid var(--rose); }
+
+        /* Loader */
+        .loader-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(9, 13, 22, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s;
+        }
+
+        .loader-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3.5px solid rgba(255, 255, 255, 0.1);
+            border-top: 3.5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Admin only helper */
+        body:not(.is-admin) .admin-only {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header>
+            <div class="header-left">
+                <img src="/logo-the-blitz.png" alt="THE BLITZ Logo" class="logo" onerror="this.src='https://i.imgur.com/E6obnvO.png'">
+                <div class="title-area">
+                    <h1>Sincronización de Plantillas VPG</h1>
+                    <p>Compara y vincula tus equipos de Discord con la plataforma oficial de VPG España</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <a href="/dashboard.html" class="nav-link-back">← Volver al Dashboard</a>
+                <div class="user-info" id="user-info">
+                    <span>Cargando usuario...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- LAYOUT -->
+        <div class="main-layout">
+            <!-- SIDEBAR: LEAGUE & TABLE -->
+            <div class="sidebar">
+                <div class="panel">
+                    <div class="panel-title">🏆 Selecciona una Liga</div>
+                    <div class="select-wrapper">
+                        <select id="league-select" onchange="loadStandings()">
+                            <option value="" disabled selected>Cargando ligas VPG...</option>
+                        </select>
+                    </div>
+
+                    <div class="panel-title" style="margin-top: 10px; margin-bottom: 10px;">📊 Clasificación Liga</div>
+                    <div class="table-container">
+                        <div id="standings-loader" class="spinner" style="display: none; margin: 20px auto;"></div>
+                        <table class="standings-table" id="standings-table">
+                            <thead>
+                                <tr>
+                                    <th class="pos-col">#</th>
+                                    <th>Equipo</th>
+                                    <th style="text-align: right; padding-right: 15px;">PTS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="standings-tbody">
+                                <tr>
+                                    <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 30px 10px;">
+                                        Selecciona una liga para ver la tabla
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: TEAM DETAIL & COMPARISON -->
+            <div class="content-panel panel" style="position: relative;">
+                <div class="loader-overlay" id="content-loader">
+                    <div class="spinner"></div>
+                </div>
+
+                <div id="empty-view" class="empty-state">
+                    <div class="empty-icon">⚽</div>
+                    <h2>Comparador de Plantillas VPG</h2>
+                    <p>Haz clic en cualquier equipo de la clasificación de la izquierda para analizar sus contratos de VPG, compararlos con el roster de Discord y vincularlos a tus equipos locales.</p>
+                </div>
+
+                <div id="detail-view" class="detail-card" style="display: none;">
+                    <!-- BANNER HEADER -->
+                    <div class="team-banner">
+                        <img id="detail-team-logo" src="" alt="Logo" class="team-logo-large">
+                        <div class="team-header-info">
+                            <h2 id="detail-team-name">JAM eSports</h2>
+                            <div class="team-meta">
+                                <div class="meta-item">Slug VPG: <strong id="detail-team-slug">JAM-ES</strong></div>
+                                <div class="meta-item">VPG ID: <strong id="detail-team-id">...</strong></div>
+                                <div class="meta-item">EA Club ID: <strong id="detail-ea-id">...</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SYNC / LINK BOX -->
+                    <div class="link-status-box">
+                        <div class="link-status-info">
+                            <div class="status-dot" id="link-dot"></div>
+                            <div class="link-status-text">
+                                <p id="link-status-title">Vinculado con Discord</p>
+                                <span id="link-status-desc">Asociado al equipo local: Ninguno</span>
+                            </div>
+                        </div>
+                        <div class="link-actions">
+                            <!-- Show to admins only -->
+                            <div class="admin-only link-selector-container" id="link-selector-container">
+                                <select id="local-team-select">
+                                    <option value="" disabled selected>Vincular a equipo local...</option>
+                                </select>
+                                <button class="btn-primary" onclick="linkCurrentTeam()">Vincular</button>
+                            </div>
+                            <button class="btn-danger admin-only" id="unlink-btn" onclick="unlinkCurrentTeam()" style="display: none;">Desvincular</button>
+                            <button class="btn-success admin-only" id="apply-logo-btn" onclick="applyLogoToLocal()" style="display: none;">Aplicar Logo a Discord</button>
+                        </div>
+                    </div>
+
+                    <!-- SUMMARY ANALYSIS OF DISCREPANCIES -->
+                    <div id="discrepancy-summary" class="discrepancy-card" style="display: none;">
+                        <h3>⚠️ Alertas de Sincronización</h3>
+                        <ul id="discrepancy-list">
+                            <!-- JS injected lists -->
+                        </ul>
+                    </div>
+
+                    <!-- ROSTERS GRID -->
+                    <div class="roster-comparison-grid">
+                        <!-- VPG CONTRACTS -->
+                        <div>
+                            <div class="roster-column-title">
+                                <span>📋 Roster VPG Oficial</span>
+                                <span class="count-badge" id="vpg-roster-count">0 jugadores</span>
+                            </div>
+                            <div class="player-card-list" id="vpg-player-list">
+                                <!-- JS items -->
+                            </div>
+                        </div>
+
+                        <!-- LOCAL TEAM / DISCORD ROSTER -->
+                        <div>
+                            <div class="roster-column-title">
+                                <span>💬 Roster Local (Discord)</span>
+                                <span class="count-badge" id="local-roster-count">0 jugadores</span>
+                            </div>
+                            <div class="player-card-list" id="local-player-list">
+                                <!-- JS items -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="toast">
+        <span id="toast-icon">ℹ️</span>
+        <span id="toast-message">Notificación</span>
+    </div>
+
+    <!-- SCRIPT -->
+    <script>
+        let selectedVpgTeam = null;
+        let localTeamsList = [];
+        let leaguesList = [];
+
+        // Check Authentication and User state
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/user');
+                const user = await res.json();
+                if (!user) {
+                    window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+                    return;
+                }
+                
+                document.getElementById('user-info').innerHTML = `
+                    <img class="user-avatar" src="${user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : 'https://cdn.discordapp.com/embed/avatars/0.png'}" alt="Avatar">
+                    <span>${user.username}</span>
+                    ${user.isAdmin ? '<span class="badge badge-admin">Admin</span>' : user.isReferee ? '<span class="badge badge-ref">Referee</span>' : ''}
+                `;
+                
+                if (user.isAdmin || user.isReferee) {
+                    document.body.classList.add('is-admin');
+                }
+            } catch (e) {
+                console.error('Error in authentication check:', e);
+                showToast('Error al conectar con la sesión del bot.', 'error');
+            }
+        }
+
+        // Fetch leagues lists
+        async function loadLeagues() {
+            try {
+                const res = await fetch('/api/vpg/leagues');
+                if (!res.ok) throw new Error('No se pudo cargar la lista de ligas');
+                const data = await res.json();
+                leaguesList = data.leagues || [];
+
+                const select = document.getElementById('league-select');
+                select.innerHTML = '<option value="" disabled selected>-- Elige una División VPG --</option>';
+                leaguesList.forEach(league => {
+                    const opt = document.createElement('option');
+                    opt.value = league.slug;
+                    opt.textContent = league.title;
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        // Load Standings table
+        async function loadStandings() {
+            const select = document.getElementById('league-select');
+            const slug = select.value;
+            if (!slug) return;
+
+            const tbody = document.getElementById('standings-tbody');
+            const loader = document.getElementById('standings-loader');
+            
+            tbody.innerHTML = '';
+            loader.style.display = 'block';
+
+            try {
+                const res = await fetch(`/api/vpg/leagues/${slug}/table`);
+                if (!res.ok) throw new Error('Error al consultar clasificación VPG');
+                const data = await res.json();
+                const teams = Array.isArray(data) ? data : (data.data || data.results || []);
+
+                loader.style.display = 'none';
+                if (teams.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 20px;">No se encontraron equipos en esta liga.</td></tr>';
+                    return;
+                }
+
+                teams.forEach((team, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.dataset.slug = team.slug;
+                    tr.dataset.name = team.name;
+                    
+                    const logoId = team.logo_id || team.logo;
+                    const logoUrl = logoId ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${logoId}/smThumb` : 'https://i.imgur.com/E6obnvO.png';
+
+                    tr.innerHTML = `
+                        <td class="pos-col">${idx + 1}</td>
+                        <td>
+                            <div class="team-cell">
+                                <img src="${logoUrl}" alt="${team.name} Logo" class="team-logo-small" onerror="this.src='https://i.imgur.com/E6obnvO.png'">
+                                <span>${team.name}</span>
+                            </div>
+                        </td>
+                        <td class="pts-col" style="text-align: right; padding-right: 15px;">${team.pts || team.points || 0}</td>
+                    `;
+                    tr.addEventListener('click', () => selectTeam(team.slug));
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                loader.style.display = 'none';
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--rose); padding: 20px;">${e.message}</td></tr>`;
+                showToast(e.message, 'error');
+            }
+        }
+
+        // Select team and open details
+        async function selectTeam(teamSlug) {
+            // Update selected class in table
+            const rows = document.querySelectorAll('#standings-tbody tr');
+            rows.forEach(r => r.classList.remove('selected'));
+            const matchedRow = Array.from(rows).find(r => r.dataset.slug === teamSlug);
+            if (matchedRow) matchedRow.classList.add('selected');
+
+            // Show detail panel & loaders
+            document.getElementById('empty-view').style.display = 'none';
+            document.getElementById('detail-view').style.display = 'block';
+            
+            const loader = document.getElementById('content-loader');
+            loader.classList.add('active');
+
+            try {
+                // 1. Fetch team details
+                const detailRes = await fetch(`/api/vpg/teams/${teamSlug}`);
+                if (!detailRes.ok) throw new Error('No se pudieron obtener detalles de VPG del equipo');
+                const teamDetail = await detailRes.json();
+                
+                selectedVpgTeam = teamDetail;
+
+                // Update basic UI details
+                document.getElementById('detail-team-logo').src = teamDetail.logoUrl || 'https://i.imgur.com/E6obnvO.png';
+                document.getElementById('detail-team-name').textContent = teamDetail.name || teamDetail.team_name || 'Desconocido';
+                document.getElementById('detail-team-slug').textContent = teamDetail.slug || teamSlug;
+                document.getElementById('detail-team-id').textContent = teamDetail.id || 'N/A';
+                document.getElementById('detail-ea-id').textContent = teamDetail.ea_club_id || teamDetail.eaClubId || 'N/A';
+
+                // 2. Fetch Comparison
+                const compRes = await fetch(`/api/vpg/teams/${teamSlug}/compare`);
+                if (!compRes.ok) throw new Error('Error al comparar plantillas');
+                const compareData = await compRes.json();
+
+                renderComparison(compareData);
+            } catch (e) {
+                showToast(e.message, 'error');
+            } finally {
+                loader.classList.remove('active');
+            }
+        }
+
+        // Render Comparison Lists
+        function renderComparison(data) {
+            const dot = document.getElementById('link-dot');
+            const linkTitle = document.getElementById('link-status-title');
+            const linkDesc = document.getElementById('link-status-desc');
+            
+            const unlinkBtn = document.getElementById('unlink-btn');
+            const applyLogoBtn = document.getElementById('apply-logo-btn');
+            const selectorContainer = document.getElementById('link-selector-container');
+
+            // Reset UI States
+            unlinkBtn.style.display = 'none';
+            applyLogoBtn.style.display = 'none';
+            selectorContainer.style.display = 'none';
+
+            if (data.isLinked) {
+                dot.className = 'status-dot dot-linked';
+                linkTitle.textContent = 'Vinculado con Discord';
+                linkDesc.textContent = `Asociado al equipo local: ${data.localTeamName} (${data.localTeamAbbr})`;
+                
+                unlinkBtn.style.display = 'inline-flex';
+                applyLogoBtn.style.display = 'inline-flex';
+            } else {
+                dot.className = 'status-dot dot-unlinked';
+                linkTitle.textContent = 'Equipo Sin Vincular';
+                linkDesc.textContent = 'Este equipo de VPG no está asociado a ningún equipo local de Discord.';
+                
+                selectorContainer.style.display = 'flex';
+                // Populate local teams dropdown
+                populateLocalTeamsDropdown();
+            }
+
+            // Render Player Roster Lists
+            const vpgList = document.getElementById('vpg-player-list');
+            const localList = document.getElementById('local-player-list');
+            
+            vpgList.innerHTML = '';
+            localList.innerHTML = '';
+
+            document.getElementById('vpg-roster-count').textContent = `${data.vpgContracts.length} jugadores`;
+            document.getElementById('local-roster-count').textContent = `${data.localPlayers.length} jugadores`;
+
+            // Keep track of discrepancies
+            const discrepancies = [];
+
+            // A. Render VPG contracts
+            if (data.vpgContracts.length === 0) {
+                vpgList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-secondary); font-size: 0.85rem;">No hay contratos activos en VPG.</div>';
+            } else {
+                data.vpgContracts.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = `player-card ${p.matched ? 'matched' : 'mismatched'}`;
+                    
+                    const avatar = p.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                    
+                    card.innerHTML = `
+                        <div class="player-left">
+                            <img class="player-avatar" src="${avatar}" alt="${p.vpgUsername}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                            <div class="player-details">
+                                <h4>
+                                    ${p.vpgUsername}
+                                    <span class="pos-badge">${p.position || 'N/A'}</span>
+                                </h4>
+                                <p>Nacionalidad: ${p.nationality || 'N/A'}</p>
+                                ${p.matched ? `<div class="match-info-detail">Discord: <span>${p.matchedDiscordTag}</span></div>` : ''}
+                            </div>
+                        </div>
+                        <span class="status-badge ${p.matched ? 'status-match' : 'status-mismatch'}">
+                            ${p.matched ? 'Vinculado' : 'Falta en Discord'}
+                        </span>
+                    `;
+                    vpgList.appendChild(card);
+
+                    if (!p.matched) {
+                        discrepancies.push(`<strong>${p.vpgUsername}</strong> está firmado en VPG pero no está verificado/añadido en la plantilla de Discord.`);
+                    }
+                });
+            }
+
+            // B. Render Local Players
+            if (data.localPlayers.length === 0) {
+                localList.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-secondary); font-size: 0.85rem;">Ningún jugador registrado en el equipo local de Discord.</div>';
+            } else {
+                data.localPlayers.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = `player-card ${p.matched ? 'matched' : 'mismatched'}`;
+                    
+                    card.innerHTML = `
+                        <div class="player-left">
+                            <img class="player-avatar" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="Discord User">
+                            <div class="player-details">
+                                <h4>
+                                    ${p.discordTag}
+                                    ${p.isManager ? '<span class="badge badge-ref" style="font-size:0.6rem; padding:1px 4px;">Manager</span>' : ''}
+                                    ${p.isCaptain ? '<span class="badge badge-admin" style="font-size:0.6rem; padding:1px 4px;">Capitán</span>' : ''}
+                                </h4>
+                                <p>PSN ID / EA: <strong>${p.psnId}</strong></p>
+                            </div>
+                        </div>
+                        <span class="status-badge ${p.matched ? 'status-match' : 'status-mismatch'}">
+                            ${p.matched ? 'Fichado VPG' : 'Falta Contrato VPG'}
+                        </span>
+                    `;
+                    localList.appendChild(card);
+
+                    if (!p.matched) {
+                        discrepancies.push(`<strong>${p.psnId}</strong> (${p.discordTag}) está en Discord pero no figura en los contratos oficiales de VPG.`);
+                    }
+                });
+            }
+
+            // C. Discrepancy Box
+            const discSummary = document.getElementById('discrepancy-summary');
+            const discList = document.getElementById('discrepancy-list');
+            discList.innerHTML = '';
+
+            if (discrepancies.length > 0) {
+                discSummary.style.display = 'block';
+                discrepancies.forEach(disc => {
+                    const li = document.createElement('li');
+                    li.innerHTML = disc;
+                    discList.appendChild(li);
+                });
+            } else {
+                discSummary.style.display = 'none';
+            }
+        }
+
+        // Fetch local teams list
+        async function loadLocalTeams() {
+            try {
+                const res = await fetch('/api/vpg/local-teams');
+                if (!res.ok) throw new Error('No se pudieron obtener equipos locales');
+                const data = await res.json();
+                localTeamsList = data.teams || [];
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        // Populate Local Teams Select dropdown
+        function populateLocalTeamsDropdown() {
+            const select = document.getElementById('local-team-select');
+            select.innerHTML = '<option value="" disabled selected>Vincular a equipo local...</option>';
+            
+            // Filter out already linked teams, keeping only unlinked or displaying all
+            localTeamsList.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t._id;
+                opt.textContent = `${t.name} [${t.abbreviation || 'N/A'}] ${t.vpgTeamSlug ? '🔗' : ''}`;
+                select.appendChild(opt);
+            });
+        }
+
+        // Link Team Action
+        async function linkCurrentTeam() {
+            const select = document.getElementById('local-team-select');
+            const localTeamId = select.value;
+            const leagueSlug = document.getElementById('league-select').value;
+            
+            if (!localTeamId) {
+                showToast('Por favor, selecciona un equipo local.', 'error');
+                return;
+            }
+            if (!selectedVpgTeam) return;
+
+            const loader = document.getElementById('content-loader');
+            loader.classList.add('active');
+
+            try {
+                const res = await fetch('/api/vpg/link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        localTeamId,
+                        vpgTeamSlug: selectedVpgTeam.slug,
+                        vpgLeagueSlug: leagueSlug
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Equipo vinculado exitosamente.', 'success');
+                    // Reload local teams and update view
+                    await loadLocalTeams();
+                    await selectTeam(selectedVpgTeam.slug);
+                } else {
+                    throw new Error(data.error || 'Error al vincular equipo');
+                }
+            } catch (e) {
+                showToast(e.message, 'error');
+            } finally {
+                loader.classList.remove('active');
+            }
+        }
+
+        // Unlink Team Action
+        async function unlinkCurrentTeam() {
+            if (!selectedVpgTeam) return;
+            
+            const check = confirm('¿Estás seguro de que deseas desvincular este equipo? Se borrará la conexión de VPG del equipo de Discord.');
+            if (!check) return;
+
+            const loader = document.getElementById('content-loader');
+            loader.classList.add('active');
+
+            try {
+                // Find local team from compare endpoint data
+                const compareRes = await fetch(`/api/vpg/teams/${selectedVpgTeam.slug}/compare`);
+                const compareData = await compareRes.json();
+                
+                if (!compareData.isLinked) throw new Error('El equipo ya no está vinculado.');
+
+                const res = await fetch('/api/vpg/unlink', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        localTeamId: compareData.localTeamId
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Equipo desvinculado exitosamente.', 'success');
+                    await loadLocalTeams();
+                    await selectTeam(selectedVpgTeam.slug);
+                } else {
+                    throw new Error(data.error || 'Error al desvincular equipo');
+                }
+            } catch (e) {
+                showToast(e.message, 'error');
+            } finally {
+                loader.classList.remove('active');
+            }
+        }
+
+        // Apply VPG logo to local team
+        async function applyLogoToLocal() {
+            if (!selectedVpgTeam) return;
+
+            // Warn admin
+            const check = confirm('¿Quieres sobreescribir el logotipo del equipo en Discord con el logotipo oficial de VPG?');
+            if (!check) return;
+
+            const loader = document.getElementById('content-loader');
+            loader.classList.add('active');
+
+            try {
+                const compareRes = await fetch(`/api/vpg/teams/${selectedVpgTeam.slug}/compare`);
+                const compareData = await compareRes.json();
+                if (!compareData.isLinked) throw new Error('Equipo no vinculado.');
+
+                const logoUrl = selectedVpgTeam.logoUrl;
+                if (!logoUrl) throw new Error('Este equipo no tiene logo en VPG.');
+
+                const res = await fetch('/api/vpg/apply-logo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        localTeamId: compareData.localTeamId,
+                        logoUrl
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Logotipo VPG aplicado correctamente al equipo de Discord.', 'success');
+                    await selectTeam(selectedVpgTeam.slug);
+                } else {
+                    throw new Error(data.error || 'Error al aplicar logo');
+                }
+            } catch (e) {
+                showToast(e.message, 'error');
+            } finally {
+                loader.classList.remove('active');
+            }
+        }
+
+        // UI Toast Alert helper
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msgSpan = document.getElementById('toast-message');
+            const iconSpan = document.getElementById('toast-icon');
+            
+            toast.className = `toast toast-${type} show`;
+            msgSpan.textContent = message;
+            
+            if (type === 'success') {
+                iconSpan.textContent = '✅';
+            } else if (type === 'error') {
+                iconSpan.textContent = '❌';
+            } else {
+                iconSpan.textContent = 'ℹ️';
+            }
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialization
+        window.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            await loadLeagues();
+            await loadLocalTeams();
+        });
+    </script>
+</body>
+</html>

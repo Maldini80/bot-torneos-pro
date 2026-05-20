@@ -4484,6 +4484,245 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // ===============================================
+    // === VPG SYNC & ROSTER COMPARISON ENDPOINTS ===
+    // ===============================================
+
+    const VPG_HEADERS = {
+        'User-Agent': 'VPG/1.0.0 (iPhone; iOS 15.0; Scale/3.00)',
+        'Accept': 'application/json',
+    };
+
+    async function fetchFromVpg(path) {
+        // Ensure trailing slash
+        const url = `https://api.virtualprogaming.com/public/${path.endsWith('/') ? path : path + '/'}`;
+        console.log(`[VPG Proxy] Fetching: ${url}`);
+        const res = await fetch(url, { headers: VPG_HEADERS, redirect: 'follow' });
+        if (!res.ok) {
+            throw new Error(`VPG API error: ${res.status} ${res.statusText}`);
+        }
+        return await res.json();
+    }
+
+    app.get('/vpg.html', (req, res) => res.sendFile('vpg.html', { root: 'public' }));
+
+    // List of leagues
+    app.get('/api/vpg/leagues', async (req, res) => {
+        try {
+            const { fetchVpgSpainLeagues } = await import('./src/utils/vpgCrawler.js');
+            const leagues = await fetchVpgSpainLeagues();
+            res.json({ leagues });
+        } catch (e) {
+            console.error('[API VPG Leagues] Error:', e);
+            res.status(500).json({ error: 'No se pudieron cargar las ligas de VPG.' });
+        }
+    });
+
+    // League table
+    app.get('/api/vpg/leagues/:leagueSlug/table', async (req, res) => {
+        try {
+            const { leagueSlug } = req.params;
+            const data = await fetchFromVpg(`leagues/${leagueSlug}/table`);
+            res.json(data);
+        } catch (e) {
+            console.error('[API VPG Table] Error:', e);
+            res.status(500).json({ error: `Error al obtener la clasificación de la liga ${leagueSlug}` });
+        }
+    });
+
+    // Team detail
+    app.get('/api/vpg/teams/:teamSlug', async (req, res) => {
+        try {
+            const { teamSlug } = req.params;
+            const data = await fetchFromVpg(`teams/${teamSlug}`);
+            // Normalize logo
+            const logoId = data.logo_id || data.logo;
+            const logoUrl = logoId ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${logoId}/public` : null;
+            res.json({ ...data, logoUrl });
+        } catch (e) {
+            console.error('[API VPG Team Details] Error:', e);
+            res.status(500).json({ error: `Error al obtener detalles del equipo ${teamSlug}` });
+        }
+    });
+
+    // Team active contracts (roster)
+    app.get('/api/vpg/teams/:teamSlug/roster', async (req, res) => {
+        try {
+            const { teamSlug } = req.params;
+            const data = await fetchFromVpg(`teams/${teamSlug}/contracts`);
+            const contracts = Array.isArray(data) ? data : (data.data || data.results || []);
+            res.json({ contracts });
+        } catch (e) {
+            console.error('[API VPG Team Roster] Error:', e);
+            res.status(500).json({ error: `Error al obtener la plantilla de VPG para ${teamSlug}` });
+        }
+    });
+
+    // List local teams (from test.teams)
+    app.get('/api/vpg/local-teams', async (req, res) => {
+        try {
+            const testDb = getDb('test');
+            const teams = await testDb.collection('teams')
+                .find({}, { projection: { name: 1, abbreviation: 1, logoUrl: 1, vpgTeamSlug: 1, vpgLeagueSlug: 1 } })
+                .toArray();
+            res.json({ teams });
+        } catch (e) {
+            console.error('[API VPG Local Teams] Error:', e);
+            res.status(500).json({ error: 'Error al obtener los equipos locales.' });
+        }
+    });
+
+    // Link team
+    app.post('/api/vpg/link', isAdmin, async (req, res) => {
+        try {
+            const { localTeamId, vpgTeamSlug, vpgLeagueSlug } = req.body;
+            if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });
+
+            const testDb = getDb('test');
+            await testDb.collection('teams').updateOne(
+                { _id: new ObjectId(localTeamId) },
+                { $set: { vpgTeamSlug, vpgLeagueSlug } }
+            );
+            res.json({ success: true, message: 'Equipo vinculado correctamente.' });
+        } catch (e) {
+            console.error('[API VPG Link] Error:', e);
+            res.status(500).json({ error: 'Error al vincular el equipo.' });
+        }
+    });
+
+    // Unlink team
+    app.post('/api/vpg/unlink', isAdmin, async (req, res) => {
+        try {
+            const { localTeamId } = req.body;
+            if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });
+
+            const testDb = getDb('test');
+            await testDb.collection('teams').updateOne(
+                { _id: new ObjectId(localTeamId) },
+                { $unset: { vpgTeamSlug: "", vpgLeagueSlug: "" } }
+            );
+            res.json({ success: true, message: 'Equipo desvinculado correctamente.' });
+        } catch (e) {
+            console.error('[API VPG Unlink] Error:', e);
+            res.status(500).json({ error: 'Error al desvincular el equipo.' });
+        }
+    });
+
+    // Apply VPG logo to local team
+    app.post('/api/vpg/apply-logo', isAdmin, async (req, res) => {
+        try {
+            const { localTeamId, logoUrl } = req.body;
+            if (!localTeamId || !logoUrl) return res.status(400).json({ error: 'Falta localTeamId o logoUrl' });
+
+            const testDb = getDb('test');
+            await testDb.collection('teams').updateOne(
+                { _id: new ObjectId(localTeamId) },
+                { $set: { logoUrl } }
+            );
+            res.json({ success: true, message: 'Logo aplicado correctamente al equipo local.' });
+        } catch (e) {
+            console.error('[API VPG Apply Logo] Error:', e);
+            res.status(500).json({ error: 'Error al aplicar el logo.' });
+        }
+    });
+
+    // Comparison details between VPG roster and Local Roster
+    app.get('/api/vpg/teams/:teamSlug/compare', async (req, res) => {
+        try {
+            const { teamSlug } = req.params;
+
+            // 1. Fetch VPG contracts
+            const vpgData = await fetchFromVpg(`teams/${teamSlug}/contracts`);
+            const contracts = Array.isArray(vpgData) ? vpgData : (vpgData.data || vpgData.results || []);
+
+            // 2. Fetch local team
+            const testDb = getDb('test');
+            const localTeam = await testDb.collection('teams').findOne({ vpgTeamSlug: teamSlug });
+
+            if (!localTeam) {
+                // Not linked yet, but we can still return VPG contracts with matched=false
+                const comparedContracts = contracts.map(c => ({
+                    vpgUsername: c.username,
+                    position: c.position,
+                    avatarUrl: c.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${c.avatar}/smThumb` : null,
+                    nationality: c.nationality,
+                    matched: false
+                }));
+                return res.json({
+                    isLinked: false,
+                    vpgContracts: comparedContracts,
+                    localPlayers: []
+                });
+            }
+
+            // 3. Get local team players and manager
+            const playerIds = Array.isArray(localTeam.players) ? [...localTeam.players] : [];
+            if (localTeam.managerId && !playerIds.includes(localTeam.managerId)) {
+                playerIds.push(localTeam.managerId);
+            }
+            if (localTeam.capitanes && Array.isArray(localTeam.capitanes)) {
+                localTeam.capitanes.forEach(id => {
+                    if (id && !playerIds.includes(id)) playerIds.push(id);
+                });
+            }
+
+            // 4. Fetch verified user documents
+            const db = getDb();
+            const verifiedUsers = await db.collection('verified_users').find({
+                discordId: { $in: playerIds }
+            }).toArray();
+
+            // 5. Enhance verifiedUsers with Discord usernames/tags
+            const enhancedLocalPlayers = await Promise.all(verifiedUsers.map(async (u) => {
+                const discUser = await client.users.fetch(u.discordId).catch(() => null);
+                return {
+                    discordId: u.discordId,
+                    discordTag: discUser ? discUser.username : u.discordId,
+                    psnId: u.gameId || 'N/A',
+                    isManager: u.discordId === localTeam.managerId,
+                    isCaptain: Array.isArray(localTeam.capitanes) && localTeam.capitanes.includes(u.discordId)
+                };
+            }));
+
+            // 6. Match VPG contracts against local players using PSN ID case-insensitive
+            const comparedVpg = contracts.map(c => {
+                const match = enhancedLocalPlayers.find(lp => lp.psnId.toLowerCase() === c.username.toLowerCase());
+                return {
+                    vpgUsername: c.username,
+                    position: c.position,
+                    avatarUrl: c.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${c.avatar}/smThumb` : null,
+                    nationality: c.nationality,
+                    matched: !!match,
+                    matchedDiscordId: match ? match.discordId : null,
+                    matchedDiscordTag: match ? match.discordTag : null
+                };
+            });
+
+            // 7. Match local players against VPG contracts
+            const comparedLocal = enhancedLocalPlayers.map(lp => {
+                const match = contracts.find(c => c.username.toLowerCase() === lp.psnId.toLowerCase());
+                return {
+                    ...lp,
+                    matched: !!match,
+                    matchedVpgUsername: match ? match.username : null
+                };
+            });
+
+            res.json({
+                isLinked: true,
+                localTeamId: localTeam._id,
+                localTeamName: localTeam.name,
+                localTeamAbbr: localTeam.abbreviation,
+                localTeamLogo: localTeam.logoUrl,
+                vpgContracts: comparedVpg,
+                localPlayers: comparedLocal
+            });
+        } catch (e) {
+            console.error('[API VPG Compare] Error:', e);
+            res.status(500).json({ error: 'Error al comparar plantillas.' });
+        }
+    });
+
     // === 404 Catch-all: Must be AFTER all routes ===
     app.use((req, res) => {
         // Return JSON for API routes, HTML for everything else
