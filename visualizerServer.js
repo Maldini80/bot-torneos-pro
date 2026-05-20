@@ -4494,8 +4494,9 @@ export async function startVisualizerServer(discordClient) {
     };
 
     async function fetchFromVpg(path) {
-        // Ensure trailing slash
-        const url = `https://api.virtualprogaming.com/public/${path.endsWith('/') ? path : path + '/'}`;
+        const [basePath, queryString] = path.split('?');
+        const formattedBasePath = basePath.endsWith('/') ? basePath : basePath + '/';
+        const url = `https://api.virtualprogaming.com/public/${formattedBasePath}${queryString ? '?' + queryString : ''}`;
         console.log(`[VPG Proxy] Fetching: ${url}`);
         const res = await fetch(url, { headers: VPG_HEADERS, redirect: 'follow' });
         if (!res.ok) {
@@ -4630,10 +4631,24 @@ export async function startVisualizerServer(discordClient) {
     app.get('/api/vpg/teams/:teamSlug/compare', async (req, res) => {
         try {
             const { teamSlug } = req.params;
+            const { leagueSlug } = req.query;
 
             // 1. Fetch VPG contracts
             const vpgData = await fetchFromVpg(`teams/${teamSlug}/contracts`);
-            const contracts = Array.isArray(vpgData) ? vpgData : (vpgData.data || vpgData.results || []);
+            let contracts = Array.isArray(vpgData) ? vpgData : (vpgData.data || vpgData.results || []);
+
+            // Filter contracts by community_id if leagueSlug is specified
+            if (leagueSlug) {
+                try {
+                    const leagueData = await fetchFromVpg(`leagues/${leagueSlug}`);
+                    if (leagueData && leagueData.community_id) {
+                        const communityId = leagueData.community_id;
+                        contracts = contracts.filter(c => c.community_id === communityId);
+                    }
+                } catch (err) {
+                    console.error(`[API VPG Compare] Failed to fetch league ${leagueSlug} for filtering:`, err.message);
+                }
+            }
 
             // 2. Fetch local team
             const testDb = getDb('test');
@@ -4720,6 +4735,22 @@ export async function startVisualizerServer(discordClient) {
         } catch (e) {
             console.error('[API VPG Compare] Error:', e);
             res.status(500).json({ error: 'Error al comparar plantillas.' });
+        }
+    });
+
+    // Get team matches (calendar)
+    app.get('/api/vpg/teams/:teamSlug/matches', async (req, res) => {
+        try {
+            const { teamSlug } = req.params;
+            const { status } = req.query; // e.g. scheduled, complete
+            const matchStatus = status || 'scheduled';
+
+            const matchesData = await fetchFromVpg(`teams/${teamSlug}/matches?match_status=${matchStatus}`);
+            const matches = Array.isArray(matchesData) ? matchesData : (matchesData.data || matchesData.results || []);
+            res.json({ matches });
+        } catch (e) {
+            console.error('[API VPG Matches] Error:', e);
+            res.status(500).json({ error: 'No se pudo cargar el calendario de partidos.' });
         }
     });
 

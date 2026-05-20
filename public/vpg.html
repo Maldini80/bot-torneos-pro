@@ -556,6 +556,192 @@
             gap: 25px;
         }
 
+        /* Detail Tabs */
+        .tabs-container {
+            display: flex;
+            gap: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 20px;
+            padding-bottom: 2px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 500;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: color 0.15s, border-color 0.15s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Link Suggestion Info Box */
+        .link-suggestion-box {
+            background: rgba(99, 102, 241, 0.05);
+            border: 1px dashed rgba(99, 102, 241, 0.25);
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        /* Calendar Layout */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .calendar-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .calendar-filters {
+            display: flex;
+            gap: 8px;
+        }
+
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-secondary);
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: 'Outfit', sans-serif;
+            transition: all 0.15s;
+        }
+
+        .filter-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+        }
+
+        .filter-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .calendar-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .match-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .match-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(99, 102, 241, 0.2);
+        }
+
+        .match-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .match-team {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .match-team.home {
+            justify-content: flex-end;
+            text-align: right;
+        }
+
+        .match-team.away {
+            justify-content: flex-start;
+            text-align: left;
+        }
+
+        .match-team-logo {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .match-team-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .match-score-box {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 5px 15px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            gap: 10px;
+            color: var(--text-primary);
+            min-width: 60px;
+            justify-content: center;
+        }
+
+        .match-meta-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+            padding-top: 8px;
+        }
+
+        .match-competition {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .match-comp-logo {
+            width: 14px;
+            height: 14px;
+            object-fit: contain;
+        }
+
+        .match-date {
+            font-weight: 500;
+        }
+
         @media (max-width: 900px) {
             .roster-comparison-grid {
                 grid-template-columns: 1fr;
@@ -807,6 +993,20 @@
         <div class="main-layout">
             <!-- SIDEBAR: LEAGUE & TABLE -->
             <div class="sidebar">
+                <!-- LINKAGE ASSISTANT PANEL -->
+                <div class="panel" style="margin-bottom: 15px;">
+                    <div class="panel-title">🤖 Asistente de Vinculación</div>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.3;">
+                        Selecciona uno de tus equipos locales de Discord para buscar su coincidencia en VPG España.
+                    </p>
+                    <div class="select-wrapper">
+                        <select id="assistant-local-team" onchange="runAssistantMatch()">
+                            <option value="" disabled selected>Cargando equipos locales...</option>
+                        </select>
+                    </div>
+                    <div id="assistant-suggestion" class="link-suggestion-box" style="display: none;"></div>
+                </div>
+
                 <div class="panel">
                     <div class="panel-title">🏆 Selecciona una Liga</div>
                     <div class="select-wrapper">
@@ -864,58 +1064,85 @@
                         </div>
                     </div>
 
-                    <!-- SYNC / LINK BOX -->
-                    <div class="link-status-box">
-                        <div class="link-status-info">
-                            <div class="status-dot" id="link-dot"></div>
-                            <div class="link-status-text">
-                                <p id="link-status-title">Vinculado con Discord</p>
-                                <span id="link-status-desc">Asociado al equipo local: Ninguno</span>
+                    <!-- TABS CONTROLLER -->
+                    <div class="tabs-container">
+                        <button class="tab-btn active" id="tab-roster-btn" onclick="switchDetailTab('roster')">📋 Roster & Sincronización</button>
+                        <button class="tab-btn" id="tab-calendar-btn" onclick="switchDetailTab('calendar')">📅 Calendario de Partidos</button>
+                    </div>
+
+                    <!-- TAB CONTENT: ROSTER -->
+                    <div id="tab-roster-content">
+                        <!-- SUGGESTION BOX -->
+                        <div id="link-suggestion" class="link-suggestion-box" style="display: none; margin-bottom: 15px;"></div>
+
+                        <!-- SYNC / LINK BOX -->
+                        <div class="link-status-box">
+                            <div class="link-status-info">
+                                <div class="status-dot" id="link-dot"></div>
+                                <div class="link-status-text">
+                                    <p id="link-status-title">Vinculado con Discord</p>
+                                    <span id="link-status-desc">Asociado al equipo local: Ninguno</span>
+                                </div>
+                            </div>
+                            <div class="link-actions">
+                                <!-- Show to admins only -->
+                                <div class="admin-only link-selector-container" id="link-selector-container">
+                                    <select id="local-team-select">
+                                        <option value="" disabled selected>Vincular a equipo local...</option>
+                                    </select>
+                                    <button class="btn-primary" onclick="linkCurrentTeam()">Vincular</button>
+                                </div>
+                                <button class="btn-danger admin-only" id="unlink-btn" onclick="unlinkCurrentTeam()" style="display: none;">Desvincular</button>
+                                <button class="btn-success admin-only" id="apply-logo-btn" onclick="applyLogoToLocal()" style="display: none;">Aplicar Logo a Discord</button>
                             </div>
                         </div>
-                        <div class="link-actions">
-                            <!-- Show to admins only -->
-                            <div class="admin-only link-selector-container" id="link-selector-container">
-                                <select id="local-team-select">
-                                    <option value="" disabled selected>Vincular a equipo local...</option>
-                                </select>
-                                <button class="btn-primary" onclick="linkCurrentTeam()">Vincular</button>
+
+                        <!-- SUMMARY ANALYSIS OF DISCREPANCIES -->
+                        <div id="discrepancy-summary" class="discrepancy-card" style="display: none;">
+                            <h3>⚠️ Alertas de Sincronización</h3>
+                            <ul id="discrepancy-list">
+                                <!-- JS injected lists -->
+                            </ul>
+                        </div>
+
+                        <!-- ROSTERS GRID -->
+                        <div class="roster-comparison-grid">
+                            <!-- VPG CONTRACTS -->
+                            <div>
+                                <div class="roster-column-title">
+                                    <span>📋 Roster VPG Oficial</span>
+                                    <span class="count-badge" id="vpg-roster-count">0 jugadores</span>
+                                </div>
+                                <div class="player-card-list" id="vpg-player-list">
+                                    <!-- JS items -->
+                                </div>
                             </div>
-                            <button class="btn-danger admin-only" id="unlink-btn" onclick="unlinkCurrentTeam()" style="display: none;">Desvincular</button>
-                            <button class="btn-success admin-only" id="apply-logo-btn" onclick="applyLogoToLocal()" style="display: none;">Aplicar Logo a Discord</button>
+
+                            <!-- LOCAL TEAM / DISCORD ROSTER -->
+                            <div>
+                                <div class="roster-column-title">
+                                    <span>💬 Roster Local (Discord)</span>
+                                    <span class="count-badge" id="local-roster-count">0 jugadores</span>
+                                </div>
+                                <div class="player-card-list" id="local-player-list">
+                                    <!-- JS items -->
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- SUMMARY ANALYSIS OF DISCREPANCIES -->
-                    <div id="discrepancy-summary" class="discrepancy-card" style="display: none;">
-                        <h3>⚠️ Alertas de Sincronización</h3>
-                        <ul id="discrepancy-list">
-                            <!-- JS injected lists -->
-                        </ul>
-                    </div>
-
-                    <!-- ROSTERS GRID -->
-                    <div class="roster-comparison-grid">
-                        <!-- VPG CONTRACTS -->
-                        <div>
-                            <div class="roster-column-title">
-                                <span>📋 Roster VPG Oficial</span>
-                                <span class="count-badge" id="vpg-roster-count">0 jugadores</span>
-                            </div>
-                            <div class="player-card-list" id="vpg-player-list">
-                                <!-- JS items -->
+                    <!-- TAB CONTENT: CALENDAR -->
+                    <div id="tab-calendar-content" style="display: none;">
+                        <div class="calendar-header">
+                            <h3>📅 Calendario de Partidos</h3>
+                            <div class="calendar-filters">
+                                <button class="filter-btn active" id="cal-filter-scheduled" onclick="setCalendarStatus('scheduled')">Próximos</button>
+                                <button class="filter-btn" id="cal-filter-complete" onclick="setCalendarStatus('complete')">Jugados</button>
                             </div>
                         </div>
-
-                        <!-- LOCAL TEAM / DISCORD ROSTER -->
-                        <div>
-                            <div class="roster-column-title">
-                                <span>💬 Roster Local (Discord)</span>
-                                <span class="count-badge" id="local-roster-count">0 jugadores</span>
-                            </div>
-                            <div class="player-card-list" id="local-player-list">
-                                <!-- JS items -->
-                            </div>
+                        <div id="calendar-loader" class="spinner" style="display: none; margin: 20px auto;"></div>
+                        <div class="calendar-list" id="calendar-list-container">
+                            <!-- JS injected matches -->
                         </div>
                     </div>
                 </div>
@@ -1037,6 +1264,7 @@
         }
 
         // Select team and open details
+        // Select team and open details
         async function selectTeam(teamSlug) {
             // Update selected class in table
             const rows = document.querySelectorAll('#standings-tbody tr');
@@ -1066,12 +1294,19 @@
                 document.getElementById('detail-team-id').textContent = teamDetail.id || 'N/A';
                 document.getElementById('detail-ea-id').textContent = teamDetail.ea_club_id || teamDetail.eaClubId || 'N/A';
 
-                // 2. Fetch Comparison
-                const compRes = await fetch(`/api/vpg/teams/${teamSlug}/compare`);
+                // Ensure active tab is Roster when switching teams
+                switchDetailTab('roster');
+
+                // 2. Fetch Comparison with leagueSlug filter to restrict contracts to VPG Spain community
+                const leagueSlug = document.getElementById('league-select').value;
+                const compRes = await fetch(`/api/vpg/teams/${teamSlug}/compare?leagueSlug=${leagueSlug}`);
                 if (!compRes.ok) throw new Error('Error al comparar plantillas');
                 const compareData = await compRes.json();
 
                 renderComparison(compareData);
+
+                // 3. Load Match Calendar (non-blocking)
+                loadCalendar(teamSlug);
             } catch (e) {
                 showToast(e.message, 'error');
             } finally {
@@ -1101,6 +1336,9 @@
                 
                 unlinkBtn.style.display = 'inline-flex';
                 applyLogoBtn.style.display = 'inline-flex';
+
+                // Hide suggestion box if already linked
+                document.getElementById('link-suggestion').style.display = 'none';
             } else {
                 dot.className = 'status-dot dot-unlinked';
                 linkTitle.textContent = 'Equipo Sin Vincular';
@@ -1109,6 +1347,9 @@
                 selectorContainer.style.display = 'flex';
                 // Populate local teams dropdown
                 populateLocalTeamsDropdown();
+
+                // Suggest local team mapping
+                suggestLocalTeamForVpg(selectedVpgTeam.name);
             }
 
             // Render Player Roster Lists
@@ -1214,23 +1455,289 @@
                 if (!res.ok) throw new Error('No se pudieron obtener equipos locales');
                 const data = await res.json();
                 localTeamsList = data.teams || [];
+                populateAssistantDropdown();
             } catch (e) {
                 showToast(e.message, 'error');
             }
         }
 
-        // Populate Local Teams Select dropdown
+        // Populate Assistant dropdown in the sidebar
+        function populateAssistantDropdown() {
+            const assistantSelect = document.getElementById('assistant-local-team');
+            if (assistantSelect) {
+                assistantSelect.innerHTML = '<option value="" disabled selected>Selecciona un equipo local...</option>';
+                localTeamsList.forEach(t => {
+                    const optAssistant = document.createElement('option');
+                    optAssistant.value = t._id;
+                    optAssistant.textContent = `${t.name} [${t.abbreviation || 'N/A'}] ${t.vpgTeamSlug ? '🔗' : ''}`;
+                    assistantSelect.appendChild(optAssistant);
+                });
+            }
+        }
+
+        // Populate Local Teams Select dropdown in the detail panel
         function populateLocalTeamsDropdown() {
             const select = document.getElementById('local-team-select');
             select.innerHTML = '<option value="" disabled selected>Vincular a equipo local...</option>';
             
-            // Filter out already linked teams, keeping only unlinked or displaying all
             localTeamsList.forEach(t => {
                 const opt = document.createElement('option');
                 opt.value = t._id;
                 opt.textContent = `${t.name} [${t.abbreviation || 'N/A'}] ${t.vpgTeamSlug ? '🔗' : ''}`;
                 select.appendChild(opt);
             });
+        }
+
+        // Tab Switching for Detail card
+        let activeTab = 'roster';
+        function switchDetailTab(tab) {
+            activeTab = tab;
+            const rosterBtn = document.getElementById('tab-roster-btn');
+            const calendarBtn = document.getElementById('tab-calendar-btn');
+            const rosterContent = document.getElementById('tab-roster-content');
+            const calendarContent = document.getElementById('tab-calendar-content');
+
+            if (!rosterBtn || !calendarBtn || !rosterContent || !calendarContent) return;
+
+            if (tab === 'roster') {
+                rosterBtn.classList.add('active');
+                calendarBtn.classList.remove('active');
+                rosterContent.style.display = 'block';
+                calendarContent.style.display = 'none';
+            } else {
+                rosterBtn.classList.remove('active');
+                calendarBtn.classList.add('active');
+                rosterContent.style.display = 'none';
+                calendarContent.style.display = 'block';
+                
+                if (selectedVpgTeam) {
+                    loadCalendar(selectedVpgTeam.slug || selectedVpgTeam.team_slug || selectedVpgTeam.team_name);
+                }
+            }
+        }
+
+        // Calendar Loading and Rendering
+        let calendarStatus = 'scheduled';
+        function setCalendarStatus(status) {
+            calendarStatus = status;
+            const schedBtn = document.getElementById('cal-filter-scheduled');
+            const compBtn = document.getElementById('cal-filter-complete');
+            if (schedBtn) schedBtn.classList.toggle('active', status === 'scheduled');
+            if (compBtn) compBtn.classList.toggle('active', status === 'complete');
+            
+            if (selectedVpgTeam) {
+                loadCalendar(selectedVpgTeam.slug || selectedVpgTeam.team_slug || selectedVpgTeam.team_name);
+            }
+        }
+
+        async function loadCalendar(teamSlug) {
+            const loader = document.getElementById('calendar-loader');
+            const container = document.getElementById('calendar-list-container');
+            
+            if (loader) loader.style.display = 'block';
+            if (container) container.innerHTML = '';
+
+            try {
+                const res = await fetch(`/api/vpg/teams/${teamSlug}/matches?status=${calendarStatus}`);
+                if (!res.ok) throw new Error('No se pudo obtener el calendario');
+                const data = await res.json();
+                const matches = data.matches || [];
+
+                if (loader) loader.style.display = 'none';
+
+                if (matches.length === 0) {
+                    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">No hay partidos registrados como '${calendarStatus === 'scheduled' ? 'próximos' : 'jugados'}'.</div>`;
+                    return;
+                }
+
+                matches.forEach(m => {
+                    let dateStr = 'Fecha pendiente';
+                    if (m.datetime) {
+                        const d = new Date(m.datetime);
+                        dateStr = d.toLocaleString('es-ES', { 
+                            weekday: 'short', 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+                    }
+
+                    const homeLogo = m.home_logo ? `https://api.virtualprogaming.com/images/teams/logos/${m.home_logo}` : 'https://i.imgur.com/E6obnvO.png';
+                    const awayLogo = m.away_logo ? `https://api.virtualprogaming.com/images/teams/logos/${m.away_logo}` : 'https://i.imgur.com/E6obnvO.png';
+                    const compLogo = m.league_logo ? `https://api.virtualprogaming.com/images/leagues/logos/${m.league_logo}` : '';
+
+                    const card = document.createElement('div');
+                    card.className = 'match-card';
+                    card.innerHTML = `
+                        <div class="match-row">
+                            <div class="match-team home">
+                                <span class="match-team-name">${m.home_name}</span>
+                                <img src="${homeLogo}" class="match-team-logo" alt="Logo">
+                            </div>
+                            <div class="match-score-box">
+                                <span>${m.home_score}</span>
+                                <span>-</span>
+                                <span>${m.away_score}</span>
+                            </div>
+                            <div class="match-team away">
+                                <img src="${awayLogo}" class="match-team-logo" alt="Logo">
+                                <span class="match-team-name">${m.away_name}</span>
+                            </div>
+                        </div>
+                        <div class="match-meta-line">
+                            <div class="match-competition">
+                                ${compLogo ? `<img src="${compLogo}" class="match-comp-logo" alt="Comp">` : ''}
+                                <span>Jornada ${m.match_day || 'N/A'} - ${m.league_name || m.tournament_name || 'VPG League'}</span>
+                            </div>
+                            <div class="match-date">${dateStr}</div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (e) {
+                if (loader) loader.style.display = 'none';
+                if (container) container.innerHTML = `<div style="text-align: center; color: var(--rose); padding: 20px;">Error al cargar partidos: ${e.message}</div>`;
+            }
+        }
+
+        // Linkage Assistant logic: Select Local -> Find VPG
+        function runAssistantMatch() {
+            const select = document.getElementById('assistant-local-team');
+            const suggestion = document.getElementById('assistant-suggestion');
+            if (!select || !suggestion) return;
+
+            const localTeamId = select.value;
+            const localTeam = localTeamsList.find(t => t._id === localTeamId);
+            if (!localTeam) {
+                suggestion.style.display = 'none';
+                return;
+            }
+
+            suggestion.style.display = 'block';
+            suggestion.innerHTML = `<div class="spinner" style="margin: 10px auto;"></div>`;
+
+            // Look in the loaded standings rows
+            const standingsRows = document.querySelectorAll('#standings-tbody tr');
+            if (standingsRows.length === 0 || (standingsRows.length === 1 && standingsRows[0].textContent.includes('Selecciona'))) {
+                suggestion.innerHTML = `⚠️ Selecciona primero una liga abajo para buscar coincidencias.`;
+                return;
+            }
+
+            const cleanLocalName = cleanTeamName(localTeam.name);
+            const cleanLocalAbbr = localTeam.abbreviation ? localTeam.abbreviation.toLowerCase().trim() : '';
+
+            let bestMatch = null;
+            let bestScore = 0;
+
+            standingsRows.forEach(row => {
+                const teamName = row.dataset.name;
+                const teamSlug = row.dataset.slug;
+                const position = row.querySelector('.pos-col')?.textContent || '';
+                
+                if (!teamName || !teamSlug) return;
+
+                const cleanVpgName = cleanTeamName(teamName);
+                
+                let score = 0;
+                if (cleanVpgName === cleanLocalName) {
+                    score = 100;
+                } else if (cleanVpgName.includes(cleanLocalName) || cleanLocalName.includes(cleanVpgName)) {
+                    score = 80;
+                } else if (cleanLocalAbbr && (cleanVpgName.includes(cleanLocalAbbr) || teamName.toLowerCase().includes(cleanLocalAbbr))) {
+                    score = 50;
+                }
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = { name: teamName, slug: teamSlug, position };
+                }
+            });
+
+            if (bestMatch && bestScore >= 50) {
+                suggestion.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 5px; color: var(--emerald);">🤖 Coincidencia en VPG:</div>
+                    <div style="margin-bottom: 5px;"><strong>${bestMatch.name}</strong> (Puesto #${bestMatch.position})</div>
+                    <button class="btn-primary" style="width: 100%; margin-top: 5px; padding: 6px; font-size: 0.75rem;" onclick="selectAndShowTeam('${bestMatch.slug}', '${localTeamId}')">
+                        Ver Roster y Vincular
+                    </button>
+                `;
+            } else {
+                suggestion.innerHTML = `
+                    <div style="color: var(--text-secondary);">No se encontró coincidencia directa en esta liga.</div>
+                    <p style="font-size: 0.7rem; margin-top: 5px; color: rgba(255,255,255,0.4);">
+                        Intenta cambiar de liga en la tabla de abajo, o haz clic en cualquier equipo manualmente.
+                    </p>
+                `;
+            }
+        }
+
+        // Helper to strip common words
+        function cleanTeamName(name) {
+            return name.toLowerCase()
+                .replace(/\besports\b/gi, '')
+                .replace(/\besport\b/gi, '')
+                .replace(/\bfc\b/gi, '')
+                .replace(/\bclub\b/gi, '')
+                .replace(/[^a-z0-9]/g, '')
+                .trim();
+        }
+
+        function selectAndShowTeam(vpgSlug, localTeamId) {
+            selectTeam(vpgSlug).then(() => {
+                switchDetailTab('roster');
+                const select = document.getElementById('local-team-select');
+                if (select) {
+                    select.value = localTeamId;
+                }
+            });
+        }
+
+        // Linkage suggestion when VPG team is selected first
+        function suggestLocalTeamForVpg(vpgName) {
+            const suggestion = document.getElementById('link-suggestion');
+            if (!suggestion) return;
+
+            const cleanVpgName = cleanTeamName(vpgName);
+            let bestLocal = null;
+            let bestScore = 0;
+
+            localTeamsList.forEach(t => {
+                const cleanLocalName = cleanTeamName(t.name);
+                const cleanLocalAbbr = t.abbreviation ? t.abbreviation.toLowerCase().trim() : '';
+
+                let score = 0;
+                if (cleanLocalName === cleanVpgName) {
+                    score = 100;
+                } else if (cleanVpgName.includes(cleanLocalName) || cleanLocalName.includes(cleanVpgName)) {
+                    score = 80;
+                } else if (cleanLocalAbbr && (cleanVpgName.includes(cleanLocalAbbr) || vpgName.toLowerCase().includes(cleanLocalAbbr))) {
+                    score = 50;
+                }
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestLocal = t;
+                }
+            });
+
+            if (bestLocal && bestScore >= 50) {
+                suggestion.style.display = 'block';
+                suggestion.innerHTML = `
+                    💡 <strong>Sugerencia:</strong> Coincide con tu equipo local <strong>${bestLocal.name}</strong>.
+                    <a href="#" onclick="selectAndLinkLocalDirect('${bestLocal._id}')" style="color: var(--primary); text-decoration: underline; font-weight: 600; margin-left: 8px;">Vincular ahora</a>
+                `;
+            } else {
+                suggestion.style.display = 'none';
+            }
+        }
+
+        function selectAndLinkLocalDirect(localTeamId) {
+            const select = document.getElementById('local-team-select');
+            if (select) {
+                select.value = localTeamId;
+                linkCurrentTeam();
+            }
         }
 
         // Link Team Action
