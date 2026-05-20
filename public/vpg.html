@@ -1515,12 +1515,15 @@
         // Populate Local Teams Select dropdown in the detail panel
         function populateLocalTeamsDropdown() {
             const select = document.getElementById('local-team-select');
+            if (!select) return;
             select.innerHTML = '<option value="" disabled selected>Vincular a equipo local...</option>';
             
-            localTeamsList.forEach(t => {
+            // Only show local teams that do not have a vpgTeamSlug
+            const unlinked = localTeamsList.filter(t => !t.vpgTeamSlug);
+            unlinked.forEach(t => {
                 const opt = document.createElement('option');
                 opt.value = t._id;
-                opt.textContent = `${t.name} [${t.abbreviation || 'N/A'}] ${t.vpgTeamSlug ? '🔗' : ''}`;
+                opt.textContent = `${t.name} [${t.abbreviation || 'N/A'}]`;
                 select.appendChild(opt);
             });
         }

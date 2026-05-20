@@ -4570,7 +4570,7 @@ export async function startVisualizerServer(discordClient) {
             // Fetch already linked VPG team slugs from the database to exclude them
             const testDb = getDb('test');
             const linkedTeams = await testDb.collection('teams').find({ vpgTeamSlug: { $exists: true, $ne: null, $ne: '' } }).toArray();
-            const linkedSlugs = new Set(linkedTeams.map(t => t.vpgTeamSlug.toLowerCase()));
+            const linkedSlugs = new Set(linkedTeams.map(t => (t.vpgTeamSlug || '').toLowerCase().trim()));
 
             const { fetchVpgSpainLeagues } = await import('./src/utils/vpgCrawler.js');
             const leagues = await fetchVpgSpainLeagues();
@@ -4598,7 +4598,7 @@ export async function startVisualizerServer(discordClient) {
                             const logoId = t.logo_id || t.logo;
                             
                             if (!teamName || !teamSlug) return;
-                            if (linkedSlugs.has(teamSlug.toLowerCase())) return;
+                            if (linkedSlugs.has((teamSlug || '').toLowerCase().trim())) return;
 
                             const cleanVpgName = cleanTeamName(teamName);
                             let score = 0;
@@ -4788,16 +4788,8 @@ export async function startVisualizerServer(discordClient) {
                     console.error(`[API VPG Compare] Failed to fetch league ${leagueSlug} for filtering:`, err.message);
                 }
             }
-            // Filter contracts by community ID.
-            // If the team has a dedicated squad for the league's community (>= 10 contracts),
-            // we only show contracts from that specific community.
-            // Otherwise, we also include global/parent community (479) contracts.
-            const exactCommunityCount = contracts.filter(c => c.community_id === communityId).length;
-            if (exactCommunityCount >= 10) {
-                contracts = contracts.filter(c => c.community_id === communityId);
-            } else {
-                contracts = contracts.filter(c => c.community_id === communityId || c.community_id === 479);
-            }
+            // Filter contracts strictly by community ID.
+            contracts = contracts.filter(c => c.community_id === communityId);
 
             // 2. Fetch local team and VPG user profiles concurrently (using caching helper)
             const testDb = getDb('test');
@@ -4840,52 +4832,89 @@ export async function startVisualizerServer(discordClient) {
                 });
             }
 
-            // 3. Get local team players and manager
-            const playerIds = Array.isArray(localTeam.players) ? [...localTeam.players] : [];
-            if (localTeam.managerId && !playerIds.includes(localTeam.managerId)) {
-                playerIds.push(localTeam.managerId);
+            // 3. Get local team players, captains, and manager
+            const playerIds = new Set();
+            if (localTeam.managerId) {
+                playerIds.add(localTeam.managerId);
+            }
+            if (localTeam.captains && Array.isArray(localTeam.captains)) {
+                localTeam.captains.forEach(id => {
+                    if (id) playerIds.add(id);
+                });
             }
             if (localTeam.capitanes && Array.isArray(localTeam.capitanes)) {
                 localTeam.capitanes.forEach(id => {
-                    if (id && !playerIds.includes(id)) playerIds.push(id);
+                    if (id) playerIds.add(id);
                 });
             }
+            if (localTeam.players && Array.isArray(localTeam.players)) {
+                localTeam.players.forEach(id => {
+                    if (id) playerIds.add(id);
+                });
+            }
+            const uniquePlayerIds = Array.from(playerIds);
 
             // 4. Fetch verified user documents
             const db = getDb();
             const verifiedUsers = await db.collection('verified_users').find({
-                discordId: { $in: playerIds }
+                discordId: { $in: uniquePlayerIds }
             }).toArray();
 
-            // 5. Enhance verifiedUsers with Discord usernames/tags
-            const enhancedLocalPlayers = await Promise.all(verifiedUsers.map(async (u) => {
-                const discUser = await client.users.fetch(u.discordId).catch(() => null);
+            const verifiedMap = new Map(verifiedUsers.map(u => [u.discordId, u]));
+
+            // 5. Enhance all players with Discord usernames/tags and verified console IDs
+            const enhancedLocalPlayers = await Promise.all(uniquePlayerIds.map(async (discordId) => {
+                const u = verifiedMap.get(discordId);
+                const discUser = await client.users.fetch(discordId).catch(() => null);
+
+                // Collect and deduplicate unique game IDs case-insensitively
+                const gameIds = [];
+                if (u) {
+                    if (u.gameId) gameIds.push(u.gameId.trim());
+                    if (u.psnId) gameIds.push(u.psnId.trim());
+                    if (u.eaId) gameIds.push(u.eaId.trim());
+                }
+
+                const uniqueGameIds = [];
+                const seenGameIds = new Set();
+                for (const gid of gameIds) {
+                    const clean = gid.toLowerCase();
+                    if (!seenGameIds.has(clean)) {
+                        seenGameIds.add(clean);
+                        uniqueGameIds.push(gid);
+                    }
+                }
+
                 return {
-                    discordId: u.discordId,
-                    discordTag: discUser ? discUser.username : u.discordId,
-                    psnId: u.gameId || 'N/A',
-                    isManager: u.discordId === localTeam.managerId,
-                    isCaptain: Array.isArray(localTeam.capitanes) && localTeam.capitanes.includes(u.discordId)
+                    discordId: discordId,
+                    discordTag: discUser ? discUser.username : (u ? u.discordTag : discordId),
+                    gameIds: uniqueGameIds, // Keep array for backend matching
+                    psnId: uniqueGameIds.length > 0 ? uniqueGameIds.join(' / ') : 'No verificado', // Format for UI display
+                    isManager: discordId === localTeam.managerId,
+                    isCaptain: (localTeam.captains && Array.isArray(localTeam.captains) && localTeam.captains.includes(discordId)) ||
+                               (localTeam.capitanes && Array.isArray(localTeam.capitanes) && localTeam.capitanes.includes(discordId))
                 };
             }));
 
-            // 6. Match VPG contracts against local players using PSN ID case/symbol-insensitively
+            // 6. Match VPG contracts against local players using console IDs case/symbol-insensitively
             const comparedVpg = contracts.map(c => {
                 const profile = vpgProfiles.find(p => p.username.toLowerCase() === c.username.toLowerCase());
-                
+
                 const cleanUser = cleanStr(c.username);
                 const cleanPsn = profile ? cleanStr(profile.psn) : '';
                 const cleanXbox = profile ? cleanStr(profile.xbox) : '';
                 const cleanOrigin = profile ? cleanStr(profile.origin) : '';
 
                 const match = enhancedLocalPlayers.find(lp => {
-                    const cleanLp = cleanStr(lp.psnId);
-                    return cleanLp && (
-                        cleanLp === cleanUser ||
-                        cleanLp === cleanPsn ||
-                        cleanLp === cleanXbox ||
-                        cleanLp === cleanOrigin
-                    );
+                    return lp.gameIds.some(gid => {
+                        const cleanGid = cleanStr(gid);
+                        return cleanGid && (
+                            cleanGid === cleanUser ||
+                            cleanGid === cleanPsn ||
+                            cleanGid === cleanXbox ||
+                            cleanGid === cleanOrigin
+                        );
+                    });
                 });
 
                 return {
@@ -4903,24 +4932,32 @@ export async function startVisualizerServer(discordClient) {
                 };
             });
 
-            // 7. Match local players against VPG contracts using PSN ID case/symbol-insensitively
+            // 7. Match local players against VPG contracts using console IDs case/symbol-insensitively
             const comparedLocal = enhancedLocalPlayers.map(lp => {
-                const cleanLp = cleanStr(lp.psnId);
                 const match = contracts.find(c => {
                     const profile = vpgProfiles.find(p => p.username.toLowerCase() === c.username.toLowerCase());
                     const cleanUser = cleanStr(c.username);
                     const cleanPsn = profile ? cleanStr(profile.psn) : '';
                     const cleanXbox = profile ? cleanStr(profile.xbox) : '';
                     const cleanOrigin = profile ? cleanStr(profile.origin) : '';
-                    return cleanLp && (
-                        cleanLp === cleanUser ||
-                        cleanLp === cleanPsn ||
-                        cleanLp === cleanXbox ||
-                        cleanLp === cleanOrigin
-                    );
+
+                    return lp.gameIds.some(gid => {
+                        const cleanGid = cleanStr(gid);
+                        return cleanGid && (
+                            cleanGid === cleanUser ||
+                            cleanGid === cleanPsn ||
+                            cleanGid === cleanXbox ||
+                            cleanGid === cleanOrigin
+                        );
+                    });
                 });
+
                 return {
-                    ...lp,
+                    discordId: lp.discordId,
+                    discordTag: lp.discordTag,
+                    psnId: lp.psnId,
+                    isManager: lp.isManager,
+                    isCaptain: lp.isCaptain,
                     matched: !!match,
                     matchedVpgUsername: match ? match.username : null
                 };
