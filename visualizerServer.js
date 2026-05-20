@@ -4567,6 +4567,11 @@ export async function startVisualizerServer(discordClient) {
             const cleanQueryName = cleanTeamName(name);
             const cleanQueryAbbr = abbr ? abbr.toLowerCase().trim() : '';
 
+            // Fetch already linked VPG team slugs from the database to exclude them
+            const testDb = getDb('test');
+            const linkedTeams = await testDb.collection('teams').find({ vpgTeamSlug: { $exists: true, $ne: null, $ne: '' } }).toArray();
+            const linkedSlugs = new Set(linkedTeams.map(t => t.vpgTeamSlug.toLowerCase()));
+
             const { fetchVpgSpainLeagues } = await import('./src/utils/vpgCrawler.js');
             const leagues = await fetchVpgSpainLeagues();
 
@@ -4593,6 +4598,7 @@ export async function startVisualizerServer(discordClient) {
                             const logoId = t.logo_id || t.logo;
                             
                             if (!teamName || !teamSlug) return;
+                            if (linkedSlugs.has(teamSlug.toLowerCase())) return;
 
                             const cleanVpgName = cleanTeamName(teamName);
                             let score = 0;
@@ -4782,7 +4788,16 @@ export async function startVisualizerServer(discordClient) {
                     console.error(`[API VPG Compare] Failed to fetch league ${leagueSlug} for filtering:`, err.message);
                 }
             }
-            contracts = contracts.filter(c => c.community_id === communityId);
+            // Filter contracts by community ID.
+            // If the team has a dedicated squad for the league's community (>= 10 contracts),
+            // we only show contracts from that specific community.
+            // Otherwise, we also include global/parent community (479) contracts.
+            const exactCommunityCount = contracts.filter(c => c.community_id === communityId).length;
+            if (exactCommunityCount >= 10) {
+                contracts = contracts.filter(c => c.community_id === communityId);
+            } else {
+                contracts = contracts.filter(c => c.community_id === communityId || c.community_id === 479);
+            }
 
             // 2. Fetch local team and VPG user profiles concurrently (using caching helper)
             const testDb = getDb('test');
@@ -4799,6 +4814,8 @@ export async function startVisualizerServer(discordClient) {
                     };
                 })
             );
+
+            const cleanStr = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
             if (!localTeam) {
                 // Not linked yet, but we can still return VPG contracts with matched=false
@@ -4852,10 +4869,25 @@ export async function startVisualizerServer(discordClient) {
                 };
             }));
 
-            // 6. Match VPG contracts against local players using PSN ID case-insensitive
+            // 6. Match VPG contracts against local players using PSN ID case/symbol-insensitively
             const comparedVpg = contracts.map(c => {
-                const match = enhancedLocalPlayers.find(lp => lp.psnId.toLowerCase() === c.username.toLowerCase());
                 const profile = vpgProfiles.find(p => p.username.toLowerCase() === c.username.toLowerCase());
+                
+                const cleanUser = cleanStr(c.username);
+                const cleanPsn = profile ? cleanStr(profile.psn) : '';
+                const cleanXbox = profile ? cleanStr(profile.xbox) : '';
+                const cleanOrigin = profile ? cleanStr(profile.origin) : '';
+
+                const match = enhancedLocalPlayers.find(lp => {
+                    const cleanLp = cleanStr(lp.psnId);
+                    return cleanLp && (
+                        cleanLp === cleanUser ||
+                        cleanLp === cleanPsn ||
+                        cleanLp === cleanXbox ||
+                        cleanLp === cleanOrigin
+                    );
+                });
+
                 return {
                     vpgUsername: c.username,
                     vpgUserId: c.user_id || c.id,
@@ -4871,9 +4903,22 @@ export async function startVisualizerServer(discordClient) {
                 };
             });
 
-            // 7. Match local players against VPG contracts
+            // 7. Match local players against VPG contracts using PSN ID case/symbol-insensitively
             const comparedLocal = enhancedLocalPlayers.map(lp => {
-                const match = contracts.find(c => c.username.toLowerCase() === lp.psnId.toLowerCase());
+                const cleanLp = cleanStr(lp.psnId);
+                const match = contracts.find(c => {
+                    const profile = vpgProfiles.find(p => p.username.toLowerCase() === c.username.toLowerCase());
+                    const cleanUser = cleanStr(c.username);
+                    const cleanPsn = profile ? cleanStr(profile.psn) : '';
+                    const cleanXbox = profile ? cleanStr(profile.xbox) : '';
+                    const cleanOrigin = profile ? cleanStr(profile.origin) : '';
+                    return cleanLp && (
+                        cleanLp === cleanUser ||
+                        cleanLp === cleanPsn ||
+                        cleanLp === cleanXbox ||
+                        cleanLp === cleanOrigin
+                    );
+                });
                 return {
                     ...lp,
                     matched: !!match,
