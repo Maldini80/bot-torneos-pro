@@ -999,6 +999,9 @@
                     <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.3;">
                         Selecciona uno de tus equipos locales de Discord para buscar su coincidencia en VPG España.
                     </p>
+                    <div style="margin-bottom: 8px;">
+                        <input type="text" id="assistant-search" oninput="filterAssistantDropdown()" placeholder="🔍 Buscar equipo local..." style="width: 100%; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-primary); font-size: 0.75rem; box-sizing: border-box; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--neon-glow)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                    </div>
                     <div class="select-wrapper">
                         <select id="assistant-local-team" onchange="runAssistantMatch()">
                             <option value="" disabled selected>Cargando equipos locales...</option>
@@ -1384,11 +1387,11 @@
                                     <span class="pos-badge">${p.position || 'N/A'}</span>
                                 </h4>
                                 <p>Nacionalidad: ${p.nationality || 'N/A'}</p>
-                                ${p.matched ? `<div class="match-info-detail">Discord: <span>${p.matchedDiscordTag}</span></div>` : ''}
+                                ${p.matched ? `<div class="match-info-detail">Discord: <span>${p.matchedDiscordTag}</span></div>` : `<div class="match-info-detail">VPG User ID: <span>${p.vpgUserId || 'N/A'}</span></div>`}
                             </div>
                         </div>
-                        <span class="status-badge ${p.matched ? 'status-match' : 'status-mismatch'}">
-                            ${p.matched ? 'Vinculado' : 'Falta en Discord'}
+                        <span class="status-badge ${p.matched ? 'status-match' : 'status-mismatch'}" style="${p.matched ? '' : 'background: rgba(255,255,255,0.05); color: var(--text-secondary); border-color: rgba(255,255,255,0.1);'}">
+                            ${p.matched ? 'Vinculado' : `ID: ${p.vpgUserId || 'N/A'}`}
                         </span>
                     `;
                     vpgList.appendChild(card);
@@ -1455,6 +1458,8 @@
                 if (!res.ok) throw new Error('No se pudieron obtener equipos locales');
                 const data = await res.json();
                 localTeamsList = data.teams || [];
+                // Sort local teams alphabetically by name
+                localTeamsList.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
                 populateAssistantDropdown();
             } catch (e) {
                 showToast(e.message, 'error');
@@ -1472,6 +1477,33 @@
                     optAssistant.textContent = `${t.name} [${t.abbreviation || 'N/A'}] ${t.vpgTeamSlug ? '🔗' : ''}`;
                     assistantSelect.appendChild(optAssistant);
                 });
+            }
+        }
+
+        // Filter the Assistant dropdown based on search input
+        function filterAssistantDropdown() {
+            const query = document.getElementById('assistant-search').value.toLowerCase().trim();
+            const assistantSelect = document.getElementById('assistant-local-team');
+            if (!assistantSelect) return;
+
+            assistantSelect.innerHTML = '<option value="" disabled selected>Selecciona un equipo local...</option>';
+            
+            const filtered = localTeamsList.filter(t => 
+                t.name.toLowerCase().includes(query) || 
+                (t.abbreviation && t.abbreviation.toLowerCase().includes(query))
+            );
+
+            filtered.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t._id;
+                opt.textContent = `${t.name} [${t.abbreviation || 'N/A'}] ${t.vpgTeamSlug ? '🔗' : ''}`;
+                assistantSelect.appendChild(opt);
+            });
+
+            // Automatically select and run match if there's exactly one result
+            if (filtered.length === 1) {
+                assistantSelect.value = filtered[0]._id;
+                runAssistantMatch();
             }
         }
 
@@ -1563,9 +1595,9 @@
                         });
                     }
 
-                    const homeLogo = m.home_logo ? `https://api.virtualprogaming.com/images/teams/logos/${m.home_logo}` : 'https://i.imgur.com/E6obnvO.png';
-                    const awayLogo = m.away_logo ? `https://api.virtualprogaming.com/images/teams/logos/${m.away_logo}` : 'https://i.imgur.com/E6obnvO.png';
-                    const compLogo = m.league_logo ? `https://api.virtualprogaming.com/images/leagues/logos/${m.league_logo}` : '';
+                    const homeLogo = m.home_logo ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${m.home_logo}/public` : 'https://i.imgur.com/E6obnvO.png';
+                    const awayLogo = m.away_logo ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${m.away_logo}/public` : 'https://i.imgur.com/E6obnvO.png';
+                    const compLogo = m.league_logo ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${m.league_logo}/public` : '';
 
                     const card = document.createElement('div');
                     card.className = 'match-card';
@@ -1601,8 +1633,8 @@
             }
         }
 
-        // Linkage Assistant logic: Select Local -> Find VPG
-        function runAssistantMatch() {
+        // Linkage Assistant logic: Select Local -> Query all VPG divisions via backend
+        async function runAssistantMatch() {
             const select = document.getElementById('assistant-local-team');
             const suggestion = document.getElementById('assistant-suggestion');
             if (!select || !suggestion) return;
@@ -1617,58 +1649,93 @@
             suggestion.style.display = 'block';
             suggestion.innerHTML = `<div class="spinner" style="margin: 10px auto;"></div>`;
 
-            // Look in the loaded standings rows
-            const standingsRows = document.querySelectorAll('#standings-tbody tr');
-            if (standingsRows.length === 0 || (standingsRows.length === 1 && standingsRows[0].textContent.includes('Selecciona'))) {
-                suggestion.innerHTML = `⚠️ Selecciona primero una liga abajo para buscar coincidencias.`;
-                return;
+            try {
+                // If the selected team is already linked, show its link status
+                if (localTeam.vpgTeamSlug) {
+                    suggestion.innerHTML = `
+                        <div style="font-weight: 600; margin-bottom: 5px; color: var(--emerald);">🔗 Ya está vinculado:</div>
+                        <div style="margin-bottom: 5px; font-size: 0.8rem;">
+                            Vínculo: <strong style="color: var(--text-primary);">${localTeam.vpgTeamSlug}</strong>
+                        </div>
+                        <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 8px;">
+                            División: ${localTeam.vpgLeagueSlug || 'N/A'}
+                        </div>
+                        <button class="btn-primary" style="width: 100%; padding: 6px; font-size: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="selectTeam('${localTeam.vpgTeamSlug}')">
+                            Ver Roster / Calendario
+                        </button>
+                    `;
+                    return;
+                }
+
+                // Query the backend to search candidates across all divisions
+                const res = await fetch(`/api/vpg/search-candidate?name=${encodeURIComponent(localTeam.name)}&abbr=${encodeURIComponent(localTeam.abbreviation || '')}`);
+                if (!res.ok) throw new Error('Error al buscar candidatos');
+                const data = await res.json();
+
+                if (data.matches && data.matches.length > 0) {
+                    let html = `<div style="font-weight: 600; margin-bottom: 8px; color: var(--emerald);">🤖 Coincidencias en VPG:</div>`;
+                    
+                    // Show top 3 matches
+                    data.matches.slice(0, 3).forEach(m => {
+                        const logoUrl = m.logoId ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${m.logoId}/public` : 'https://i.imgur.com/E6obnvO.png';
+                        html += `
+                            <div class="candidate-row" style="display: flex; align-items: center; justify-content: space-between; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; margin-bottom: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                                    <img src="${logoUrl}" style="width: 24px; height: 24px; object-fit: contain;" onerror="this.src='https://i.imgur.com/E6obnvO.png'">
+                                    <div style="min-width: 0; flex: 1;">
+                                        <div style="font-size: 0.75rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${m.name}</div>
+                                        <div style="font-size: 0.65rem; color: var(--text-secondary);">${m.leagueName} (#${m.position})</div>
+                                    </div>
+                                </div>
+                                <button class="btn-primary" style="padding: 4px 8px; font-size: 0.65rem; margin-left: 8px; flex-shrink: 0;" onclick="linkTeamFromAssistant('${localTeamId}', '${m.slug}', '${m.leagueSlug}')">
+                                    Vincular
+                                </button>
+                            </div>
+                        `;
+                    });
+                    
+                    suggestion.innerHTML = html;
+                } else {
+                    suggestion.innerHTML = `
+                        <div style="color: var(--text-secondary);">No se encontraron candidatos en VPG.</div>
+                        <p style="font-size: 0.7rem; margin-top: 5px; color: rgba(255,255,255,0.4);">
+                            Intenta escribir o modificar el nombre de tu equipo en Discord, o vincúlalo manualmente buscando el club en la tabla.
+                        </p>
+                    `;
+                }
+            } catch (e) {
+                suggestion.innerHTML = `<div style="color: var(--rose); font-size: 0.75rem;">⚠️ Error: ${e.message}</div>`;
             }
+        }
 
-            const cleanLocalName = cleanTeamName(localTeam.name);
-            const cleanLocalAbbr = localTeam.abbreviation ? localTeam.abbreviation.toLowerCase().trim() : '';
+        // Action to link a team directly from the assistant suggestions
+        async function linkTeamFromAssistant(localTeamId, vpgTeamSlug, vpgLeagueSlug) {
+            const loader = document.getElementById('content-loader');
+            if (loader) loader.classList.add('active');
 
-            let bestMatch = null;
-            let bestScore = 0;
-
-            standingsRows.forEach(row => {
-                const teamName = row.dataset.name;
-                const teamSlug = row.dataset.slug;
-                const position = row.querySelector('.pos-col')?.textContent || '';
+            try {
+                const res = await fetch('/api/vpg/link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ localTeamId, vpgTeamSlug, vpgLeagueSlug })
+                });
+                if (!res.ok) throw new Error('Error al vincular el equipo');
+                const data = await res.json();
                 
-                if (!teamName || !teamSlug) return;
-
-                const cleanVpgName = cleanTeamName(teamName);
+                showToast(data.message || 'Equipo vinculado correctamente', 'success');
                 
-                let score = 0;
-                if (cleanVpgName === cleanLocalName) {
-                    score = 100;
-                } else if (cleanVpgName.includes(cleanLocalName) || cleanLocalName.includes(cleanVpgName)) {
-                    score = 80;
-                } else if (cleanLocalAbbr && (cleanVpgName.includes(cleanLocalAbbr) || teamName.toLowerCase().includes(cleanLocalAbbr))) {
-                    score = 50;
-                }
-
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = { name: teamName, slug: teamSlug, position };
-                }
-            });
-
-            if (bestMatch && bestScore >= 50) {
-                suggestion.innerHTML = `
-                    <div style="font-weight: 600; margin-bottom: 5px; color: var(--emerald);">🤖 Coincidencia en VPG:</div>
-                    <div style="margin-bottom: 5px;"><strong>${bestMatch.name}</strong> (Puesto #${bestMatch.position})</div>
-                    <button class="btn-primary" style="width: 100%; margin-top: 5px; padding: 6px; font-size: 0.75rem;" onclick="selectAndShowTeam('${bestMatch.slug}', '${localTeamId}')">
-                        Ver Roster y Vincular
-                    </button>
-                `;
-            } else {
-                suggestion.innerHTML = `
-                    <div style="color: var(--text-secondary);">No se encontró coincidencia directa en esta liga.</div>
-                    <p style="font-size: 0.7rem; margin-top: 5px; color: rgba(255,255,255,0.4);">
-                        Intenta cambiar de liga en la tabla de abajo, o haz clic en cualquier equipo manualmente.
-                    </p>
-                `;
+                // Refresh local teams list and update UI
+                await loadLocalTeams();
+                
+                // Select and load the newly linked team
+                await selectTeam(vpgTeamSlug);
+                
+                // Update assistant match display
+                runAssistantMatch();
+            } catch (e) {
+                showToast(e.message, 'error');
+            } finally {
+                if (loader) loader.classList.remove('active');
             }
         }
 

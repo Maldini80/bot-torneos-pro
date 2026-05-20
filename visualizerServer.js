@@ -4531,6 +4531,96 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // Cache for tables to avoid rate limiting and speed up scans
+    const tableCache = new Map();
+    const CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache
+
+    // Search for team candidate across all divisions
+    app.get('/api/vpg/search-candidate', async (req, res) => {
+        try {
+            const { name, abbr } = req.query;
+            if (!name) return res.status(400).json({ error: 'Falta el nombre del equipo' });
+
+            const cleanQueryName = cleanTeamName(name);
+            const cleanQueryAbbr = abbr ? abbr.toLowerCase().trim() : '';
+
+            const { fetchVpgSpainLeagues } = await import('./src/utils/vpgCrawler.js');
+            const leagues = await fetchVpgSpainLeagues();
+
+            const matches = [];
+
+            // Scan all divisions in parallel using cached tables
+            await Promise.all(leagues.map(async (league) => {
+                try {
+                    let tableData;
+                    const cached = tableCache.get(league.slug);
+                    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+                        tableData = cached.data;
+                    } else {
+                        tableData = await fetchFromVpg(`leagues/${league.slug}/table`);
+                        tableCache.set(league.slug, { data: tableData, timestamp: Date.now() });
+                    }
+
+                    const teams = Array.isArray(tableData) ? tableData : (tableData.data || tableData.results || []);
+                    if (Array.isArray(teams)) {
+                        teams.forEach((t) => {
+                            const teamName = t.team_name || t.name;
+                            const teamSlug = t.team_slug || t.slug;
+                            const position = t.position || t.pos || t.table_position;
+                            const logoId = t.logo_id || t.logo;
+                            
+                            if (!teamName || !teamSlug) return;
+
+                            const cleanVpgName = cleanTeamName(teamName);
+                            let score = 0;
+
+                            if (cleanVpgName === cleanQueryName) {
+                                score = 100;
+                            } else if (cleanVpgName.includes(cleanQueryName) || cleanQueryName.includes(cleanVpgName)) {
+                                score = 80;
+                            } else if (cleanQueryAbbr && (cleanVpgName.includes(cleanQueryAbbr) || teamName.toLowerCase().includes(cleanQueryAbbr))) {
+                                score = 50;
+                            }
+
+                            if (score >= 50) {
+                                matches.push({
+                                    name: teamName,
+                                    slug: teamSlug,
+                                    position,
+                                    logoId,
+                                    leagueName: league.title,
+                                    leagueSlug: league.slug,
+                                    score
+                                });
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error(`[Search Candidate] Error scanning league ${league.slug}:`, e.message);
+                }
+            }));
+
+            // Sort matches by highest score first
+            matches.sort((a, b) => b.score - a.score);
+
+            res.json({ matches });
+        } catch (e) {
+            console.error('[API Search Candidate] Error:', e);
+            res.status(500).json({ error: 'Error al buscar candidatos.' });
+        }
+    });
+
+    // Helper to clean team names
+    function cleanTeamName(name) {
+        return name.toLowerCase()
+            .replace(/\besports\b/gi, '')
+            .replace(/\besport\b/gi, '')
+            .replace(/\bfc\b/gi, '')
+            .replace(/\bclub\b/gi, '')
+            .replace(/[^a-z0-9]/g, '')
+            .trim();
+    }
+
     // Team detail
     app.get('/api/vpg/teams/:teamSlug', async (req, res) => {
         try {
@@ -4573,18 +4663,37 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    // Link team
+    // Link team (includes auto-fetching and applying logo from VPG)
     app.post('/api/vpg/link', isAdmin, async (req, res) => {
         try {
             const { localTeamId, vpgTeamSlug, vpgLeagueSlug } = req.body;
             if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });
 
+            // Fetch team details from VPG to obtain the logoUrl automatically
+            let logoUrl = null;
+            if (vpgTeamSlug) {
+                try {
+                    const data = await fetchFromVpg(`teams/${vpgTeamSlug}`);
+                    const logoId = data.logo_id || data.logo;
+                    if (logoId) {
+                        logoUrl = `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${logoId}/public`;
+                    }
+                } catch (logoErr) {
+                    console.error(`[API VPG Link] No se pudo obtener el logo de VPG para el auto-mapeo:`, logoErr.message);
+                }
+            }
+
+            const updateFields = { vpgTeamSlug, vpgLeagueSlug };
+            if (logoUrl) {
+                updateFields.logoUrl = logoUrl;
+            }
+
             const testDb = getDb('test');
             await testDb.collection('teams').updateOne(
                 { _id: new ObjectId(localTeamId) },
-                { $set: { vpgTeamSlug, vpgLeagueSlug } }
+                { $set: updateFields }
             );
-            res.json({ success: true, message: 'Equipo vinculado correctamente.' });
+            res.json({ success: true, message: logoUrl ? 'Equipo y logo vinculados correctamente.' : 'Equipo vinculado correctamente.' });
         } catch (e) {
             console.error('[API VPG Link] Error:', e);
             res.status(500).json({ error: 'Error al vincular el equipo.' });
@@ -4658,6 +4767,7 @@ export async function startVisualizerServer(discordClient) {
                 // Not linked yet, but we can still return VPG contracts with matched=false
                 const comparedContracts = contracts.map(c => ({
                     vpgUsername: c.username,
+                    vpgUserId: c.user_id || c.id,
                     position: c.position,
                     avatarUrl: c.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${c.avatar}/smThumb` : null,
                     nationality: c.nationality,
@@ -4704,6 +4814,7 @@ export async function startVisualizerServer(discordClient) {
                 const match = enhancedLocalPlayers.find(lp => lp.psnId.toLowerCase() === c.username.toLowerCase());
                 return {
                     vpgUsername: c.username,
+                    vpgUserId: c.user_id || c.id,
                     position: c.position,
                     avatarUrl: c.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${c.avatar}/smThumb` : null,
                     nationality: c.nationality,
