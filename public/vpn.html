@@ -932,9 +932,6 @@
                             <button id="unlink-btn" class="btn-danger" style="display: none;" onclick="unlinkCurrentTeam()">
                                 <span>Desvincular</span>
                             </button>
-                            <button id="apply-logo-btn" class="btn-success" style="display: none;" onclick="applyLogoToLocal()">
-                                <span>Aplicar Logotipo</span>
-                            </button>
 
                             <!-- Unlinked Actions -->
                             <div id="link-selector-container" class="link-selector-container" style="display: none;">
@@ -1178,13 +1175,11 @@
             const linkDesc = document.getElementById('link-status-desc');
             
             const unlinkBtn = document.getElementById('unlink-btn');
-            const applyLogoBtn = document.getElementById('apply-logo-btn');
             const selectorContainer = document.getElementById('link-selector-container');
             const suggestionBox = document.getElementById('link-suggestion');
 
             // Reset UI states
             unlinkBtn.style.display = 'none';
-            applyLogoBtn.style.display = 'none';
             selectorContainer.style.display = 'none';
             suggestionBox.style.display = 'none';
 
@@ -1194,7 +1189,6 @@
                 linkDesc.textContent = `Asociado al equipo local: ${linkedLocal.name || 'Sin Nombre'} [${linkedLocal.abbreviation || 'N/A'}]`;
                 
                 unlinkBtn.style.display = 'inline-flex';
-                applyLogoBtn.style.display = 'inline-flex';
             } else {
                 dot.className = 'status-dot dot-unlinked';
                 linkTitle.textContent = 'Equipo Sin Vincular';
@@ -1360,53 +1354,7 @@
             }
         }
 
-        // Apply VPN Logo to Local Team in database
-        async function applyLogoToLocal() {
-            if (!selectedVpnTeamId) return;
 
-            const check = confirm('¿Quieres sobreescribir el logotipo de tu club local con el logotipo oficial de VPN?');
-            if (!check) return;
-
-            const standingRow = standingsData.find(row => row.team && Number(row.team.id) === selectedVpnTeamId);
-            if (!standingRow || !standingRow.team) return;
-
-            const logoUrl = standingRow.team.logoUrl;
-            if (!logoUrl) {
-                showToast('Este club no tiene un logotipo definido en VPN.', 'error');
-                return;
-            }
-
-            const linkedLocal = localTeamsList.find(lt => Number(lt.vpnTeamId) === selectedVpnTeamId);
-            if (!linkedLocal) return;
-
-            const loader = document.getElementById('content-loader');
-            loader.classList.add('active');
-
-            try {
-                // We reuse VPG logo endpoint since it does the exact same database update
-                const res = await fetch('/api/vpg/apply-logo', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        localTeamId: linkedLocal._id,
-                        logoUrl
-                    })
-                });
-
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    showToast('Logotipo oficial de VPN aplicado correctamente.', 'success');
-                    await loadLocalTeams();
-                    await selectTeam(selectedVpnTeamId);
-                } else {
-                    throw new Error(data.error || 'Error al aplicar logo');
-                }
-            } catch (e) {
-                showToast(e.message, 'error');
-            } finally {
-                loader.classList.remove('active');
-            }
-        }
 
         // Calendar Filters & Loaders
         let calendarFilter = 'complete'; // complete = Recent results, scheduled = Upcoming matches

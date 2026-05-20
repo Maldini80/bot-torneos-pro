@@ -5234,36 +5234,19 @@ export async function startVisualizerServer(discordClient) {
             const { localTeamId, vpnTeamId, vpnTeamSlug, vpnLeagueId, vpnLeagueSlug } = req.body;
             if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });
 
-            // Fetch team details from VPN to obtain the logoUrl automatically
-            let logoUrl = null;
-            if (vpnTeamId) {
-                try {
-                    const allVpnRows = await fetchAllVpnTeams();
-                    const row = allVpnRows.find(r => r.team && Number(r.team.id) === Number(vpnTeamId));
-                    if (row && row.team && row.team.logoUrl) {
-                        logoUrl = row.team.logoUrl;
-                    }
-                } catch (logoErr) {
-                    console.error(`[API VPN Link] No se pudo obtener el logo de VPN para el auto-mapeo:`, logoErr.message);
-                }
-            }
-
             const updateFields = { 
                 vpnTeamId: vpnTeamId ? Number(vpnTeamId) : null, 
                 vpnTeamSlug, 
                 vpnLeagueId: vpnLeagueId ? Number(vpnLeagueId) : null, 
                 vpnLeagueSlug 
             };
-            if (logoUrl) {
-                updateFields.logoUrl = logoUrl;
-            }
 
             const testDb = getDb('test');
             await testDb.collection('teams').updateOne(
                 { _id: new ObjectId(localTeamId) },
                 { $set: updateFields }
             );
-            res.json({ success: true, message: logoUrl ? 'Equipo y logo vinculados correctamente con VPN.' : 'Equipo vinculado correctamente con VPN.' });
+            res.json({ success: true, message: 'Equipo vinculado correctamente con VPN.' });
         } catch (e) {
             console.error('[API VPN Link] Error:', e);
             res.status(500).json({ error: 'Error al vincular el equipo con VPN.' });
