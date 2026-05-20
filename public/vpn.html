@@ -816,6 +816,32 @@
         <div class="main-layout">
             <!-- SIDEBAR -->
             <div class="sidebar">
+                <!-- LINKING ASSISTANT (ADMIN ONLY) -->
+                <div class="panel admin-only" style="margin-bottom: 15px;">
+                    <h3 class="panel-title">
+                        <span>Asistente de Vinculación</span>
+                        <span class="badge badge-admin" style="font-size:0.6rem;">Admin</span>
+                    </h3>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.3;">
+                        Busca y vincula de manera inteligente los clubes locales con la federación VPN España.
+                    </p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <input type="text" id="assistant-search" placeholder="Filtrar equipo local..." oninput="filterAssistantDropdown()" 
+                               style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(15,23,42,0.6); color: white; font-family: inherit; font-size: 0.85rem; outline: none;">
+                        
+                        <div class="select-wrapper">
+                            <select id="assistant-local-team" onchange="runAssistantMatch()">
+                                <option value="" disabled selected>Cargando equipos locales...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="assistant-suggestion" class="link-suggestion-box" style="display: none; margin-top: 12px; background: rgba(99,102,241,0.03);">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
                 <!-- LEAGUE SELECTOR AND STANDINGS -->
                 <div class="panel">
                     <h3 class="panel-title">
@@ -852,32 +878,6 @@
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
-                </div>
-
-                <!-- LINKING ASSISTANT (ADMIN ONLY) -->
-                <div class="panel admin-only">
-                    <h3 class="panel-title">
-                        <span>Asistente de Vinculación</span>
-                        <span class="badge badge-admin" style="font-size:0.6rem;">Admin</span>
-                    </h3>
-                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.3;">
-                        Busca y vincula de manera inteligente los clubes locales con la federación VPN España.
-                    </p>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <input type="text" id="assistant-search" placeholder="Filtrar equipo local..." oninput="filterAssistantDropdown()" 
-                               style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(15,23,42,0.6); color: white; font-family: inherit; font-size: 0.85rem; outline: none;">
-                        
-                        <div class="select-wrapper">
-                            <select id="assistant-local-team" onchange="runAssistantMatch()">
-                                <option value="" disabled selected>Cargando equipos locales...</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div id="assistant-suggestion" class="link-suggestion-box" style="display: none; margin-top: 12px; background: rgba(99,102,241,0.03);">
-                        <!-- Loaded dynamically -->
                     </div>
                 </div>
             </div>
@@ -1191,7 +1191,7 @@
             if (linkedLocal) {
                 dot.className = 'status-dot dot-linked';
                 linkTitle.textContent = 'Vinculado con Discord';
-                linkDesc.textContent = `Asociado al equipo local: ${linkedLocal.name} [${linkedLocal.abbreviation || 'N/A'}]`;
+                linkDesc.textContent = `Asociado al equipo local: ${linkedLocal.name || 'Sin Nombre'} [${linkedLocal.abbreviation || 'N/A'}]`;
                 
                 unlinkBtn.style.display = 'inline-flex';
                 applyLogoBtn.style.display = 'inline-flex';
@@ -1211,6 +1211,7 @@
         // Suggest a local team connection by similarity check
         function suggestLocalTeamForVpn(vpnTeam) {
             const suggestionBox = document.getElementById('link-suggestion');
+            if (!suggestionBox || !vpnTeam) return;
             const cleanVpnName = cleanTeamName(vpnTeam.name);
             let bestLocal = null;
             let bestScore = 0;
@@ -1220,11 +1221,11 @@
                 const cleanLocalAbbr = lt.abbreviation ? lt.abbreviation.toLowerCase().trim() : '';
 
                 let score = 0;
-                if (cleanLocalName === cleanVpnName) {
+                if (cleanLocalName && cleanLocalName === cleanVpnName) {
                     score = 100;
-                } else if (cleanVpnName.includes(cleanLocalName) || cleanLocalName.includes(cleanVpnName)) {
+                } else if (cleanVpnName && cleanLocalName && (cleanVpnName.includes(cleanLocalName) || cleanLocalName.includes(cleanVpnName))) {
                     score = 80;
-                } else if (cleanLocalAbbr && (cleanVpnName.includes(cleanLocalAbbr) || vpnTeam.name.toLowerCase().includes(cleanLocalAbbr))) {
+                } else if (cleanLocalAbbr && cleanVpnName && (cleanVpnName.includes(cleanLocalAbbr) || (vpnTeam.name || '').toLowerCase().includes(cleanLocalAbbr))) {
                     score = 50;
                 }
 
@@ -1237,7 +1238,7 @@
             if (bestLocal && bestScore >= 50) {
                 suggestionBox.style.display = 'block';
                 suggestionBox.innerHTML = `
-                    💡 <strong>Sugerencia Inteligente:</strong> Coincide con tu equipo local de Discord <strong>${bestLocal.name}</strong>.
+                    💡 <strong>Sugerencia Inteligente:</strong> Coincide con tu equipo local de Discord <strong>${bestLocal.name || 'Sin Nombre'}</strong>.
                     <a href="#" onclick="selectAndLinkLocalDirect('${bestLocal._id}')" style="color: var(--primary); text-decoration: underline; font-weight: 600; margin-left: 8px;">Vincular ahora</a>
                 `;
             } else {
@@ -1264,7 +1265,7 @@
             unlinked.forEach(lt => {
                 const opt = document.createElement('option');
                 opt.value = lt._id;
-                opt.textContent = `${lt.name} [${lt.abbreviation || 'N/A'}]`;
+                opt.textContent = `${lt.name || 'Sin Nombre'} [${lt.abbreviation || 'N/A'}]`;
                 select.appendChild(opt);
             });
         }
@@ -1515,8 +1516,12 @@
                 if (!res.ok) throw new Error('No se pudieron obtener equipos locales');
                 const data = await res.json();
                 localTeamsList = data.teams || [];
-                // Sort local teams alphabetically by name
-                localTeamsList.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+                // Sort local teams alphabetically by name safely
+                localTeamsList.sort((a, b) => {
+                    const nameA = a.name || '';
+                    const nameB = b.name || '';
+                    return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+                });
                 populateAssistantDropdown();
             } catch (e) {
                 showToast(e.message, 'error');
@@ -1531,7 +1536,7 @@
                 localTeamsList.forEach(t => {
                     const optAssistant = document.createElement('option');
                     optAssistant.value = t._id;
-                    optAssistant.textContent = `${t.name} [${t.abbreviation || 'N/A'}] ${t.vpnTeamId ? '🔗' : ''}`;
+                    optAssistant.textContent = `${t.name || 'Sin Nombre'} [${t.abbreviation || 'N/A'}] ${t.vpnTeamId ? '🔗' : ''}`;
                     assistantSelect.appendChild(optAssistant);
                 });
             }
@@ -1545,15 +1550,16 @@
 
             assistantSelect.innerHTML = '<option value="" disabled selected>Selecciona un equipo local...</option>';
             
-            const filtered = localTeamsList.filter(t => 
-                t.name.toLowerCase().includes(query) || 
-                (t.abbreviation && t.abbreviation.toLowerCase().includes(query))
-            );
+            const filtered = localTeamsList.filter(t => {
+                const nameLower = (t.name || '').toLowerCase();
+                const abbrLower = (t.abbreviation || '').toLowerCase();
+                return nameLower.includes(query) || abbrLower.includes(query);
+            });
 
             filtered.forEach(t => {
                 const opt = document.createElement('option');
                 opt.value = t._id;
-                opt.textContent = `${t.name} [${t.abbreviation || 'N/A'}] ${t.vpnTeamId ? '🔗' : ''}`;
+                opt.textContent = `${t.name || 'Sin Nombre'} [${t.abbreviation || 'N/A'}] ${t.vpnTeamId ? '🔗' : ''}`;
                 assistantSelect.appendChild(opt);
             });
 
@@ -1607,7 +1613,7 @@
                 }
 
                 // Query the backend search-candidate endpoint
-                const res = await fetch(`/api/vpn/search-candidate?name=${encodeURIComponent(localTeam.name)}&abbr=${encodeURIComponent(localTeam.abbreviation || '')}`);
+                const res = await fetch(`/api/vpn/search-candidate?name=${encodeURIComponent(localTeam.name || '')}&abbr=${encodeURIComponent(localTeam.abbreviation || '')}`);
                 if (!res.ok) throw new Error('Error al buscar candidatos en VPN');
                 const data = await res.json();
 
@@ -1689,6 +1695,7 @@
 
         // Helper to strip common words for team name similarity checks
         function cleanTeamName(name) {
+            if (!name || typeof name !== 'string') return '';
             return name.toLowerCase()
                 .replace(/\besports\b/gi, '')
                 .replace(/\besport\b/gi, '')

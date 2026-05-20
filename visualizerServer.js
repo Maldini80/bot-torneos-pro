@@ -4687,6 +4687,7 @@ export async function startVisualizerServer(discordClient) {
 
     // Helper to clean team names
     function cleanTeamName(name) {
+        if (!name || typeof name !== 'string') return '';
         return name.toLowerCase()
             .replace(/\besports\b/gi, '')
             .replace(/\besport\b/gi, '')
