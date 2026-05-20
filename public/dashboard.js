@@ -445,6 +445,17 @@ class DashboardApp {
             window.location.href = '/logout';
         };
 
+        // Show VPG Sync nav link only for Admins & Referees
+        fetch('/api/user')
+            .then(res => res.json())
+            .then(userData => {
+                if (userData && (userData.isAdmin || userData.isReferee)) {
+                    const btn = document.getElementById('nav-vpg-sync');
+                    if (btn) btn.style.display = 'inline-block';
+                }
+            })
+            .catch(err => console.error('Error checking VPG Sync permissions:', err));
+
         // Setup Modal Close
         document.querySelector('.close-profile').onclick = () => {
             document.getElementById('profile-modal').classList.add('hidden');
