@@ -42,6 +42,57 @@ async function withDraftLock(draftId, fn) {
 // con el mismo token, generando conflictos de sesión en Discord y caídas del sistema.
 let client;
 
+export function calculatePlayerPointsAndPrice(p) {
+    let price = p.price;
+    let points = p.points;
+    const stats = p.stats || {};
+    const ratings = stats.ratings || [];
+    const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 6.0;
+
+    if (price === undefined || points === undefined) {
+        price = 1000000;
+        price += (stats.goals || 0) * 250000;
+        price += (stats.assists || 0) * 200000;
+        const posUpper = (p.lastPosition || '').toUpperCase();
+        const isDefOrGk = ['POR', 'DFC', 'LD', 'LI', 'CAD', 'CAI', 'CARR'].includes(posUpper);
+        if (isDefOrGk) price += (stats.cleanSheets || 0) * 150000;
+        if (avgRating > 6.0) price *= (1 + (avgRating - 6.0) * 0.5);
+        price = Math.min(15000000, Math.max(500000, price));
+        price = Math.round(price / 10000) * 10000;
+
+        points = 0;
+        const goals = stats.goals || 0;
+        const assists = stats.assists || 0;
+        const cleanSheets = stats.cleanSheets || 0;
+        
+        // Goles según posición
+        if (['DC', 'ED', 'EI', 'MP'].includes(posUpper)) points += goals * 4;
+        else if (['MC', 'MCD', 'MCO', 'MD', 'MI', 'CARR'].includes(posUpper)) points += goals * 5;
+        else points += goals * 6; // DFC, LD, LI, CAD, CAI, POR
+        
+        // Asistencias
+        points += assists * 3;
+        
+        // Portería a Cero (Clean Sheets)
+        if (isDefOrGk) points += cleanSheets * 4;
+        else if (['MC', 'MCD', 'MCO', 'MD', 'MI'].includes(posUpper)) points += cleanSheets * 1;
+        
+        // Puntos por valoraciones
+        for (const r of ratings) {
+            if (r >= 9.0) points += 6;
+            else if (r >= 8.0) points += 4;
+            else if (r >= 7.0) points += 2;
+            else if (r >= 6.0) points += 1;
+        }
+        
+        // Tarjetas
+        points -= (stats.yellowCards || 0) * 1;
+        points -= (stats.redCards || 0) * 3;
+    }
+
+    return { price, points, avgRating };
+}
+
 const app = express();
 // FIX: Middlewares esenciales para que funcione el body parser y archivos estáticos
 app.use(express.json());
@@ -5140,18 +5191,19 @@ export async function startVisualizerServer(discordClient) {
         next();
     }
 
-    // --- MIDDLEWARE: Fantasy enabled (admin always passes, users need FANTASY_PUBLIC=true) ---
+    // --- MIDDLEWARE: Fantasy enabled (granted to all authenticated users) ---
     function isFantasyEnabled(req, res, next) {
-        if (req.user && req.user.id === process.env.OWNER_DISCORD_ID) return next();
-        if (process.env.FANTASY_PUBLIC === 'true') return next();
-        return res.status(403).json({ error: 'Fantasy League no está disponible aún.' });
+        if (!req.user) return res.status(401).json({ error: 'Debes iniciar sesión con Discord.' });
+        next();
     }
 
-    // --- MIDDLEWARE: Fantasy Admin (owner only) ---
+    // --- MIDDLEWARE: Fantasy Admin (owner and referees) ---
     function isFantasyAdmin(req, res, next) {
         if (!req.user) return res.status(401).json({ error: 'No autenticado' });
-        if (req.user.id === process.env.OWNER_DISCORD_ID) return next();
-        return res.status(403).json({ error: 'Solo el administrador puede realizar esta acción.' });
+        const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
+        const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+        if (isAdmin || isReferee) return next();
+        return res.status(403).json({ error: 'Solo el administrador o los árbitros pueden realizar esta acción.' });
     }
 
     app.get('/vpn.html', (req, res) => {
@@ -5318,20 +5370,18 @@ export async function startVisualizerServer(discordClient) {
 
     app.get('/fantasy', (req, res) => {
         if (!req.user) return res.redirect('/login?returnTo=/fantasy');
-        // Admin always has access; others need FANTASY_PUBLIC=true
-        if (req.user.id !== process.env.OWNER_DISCORD_ID && process.env.FANTASY_PUBLIC !== 'true') {
-            return res.status(403).send('Fantasy League no está disponible aún.');
-        }
         res.sendFile('fantasy.html', { root: 'private_pages' });
     });
 
     // ========== FANTASY API: User Info ==========
     app.get('/api/fantasy/me', isAuthenticated, isFantasyEnabled, (req, res) => {
+        const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
+        const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
         res.json({
             discordId: req.user.id,
             username: req.user.global_name || req.user.username,
             avatar: req.user.avatar,
-            isAdmin: req.user.id === process.env.OWNER_DISCORD_ID
+            isAdmin: isAdmin || isReferee
         });
     });
 
@@ -5383,7 +5433,7 @@ export async function startVisualizerServer(discordClient) {
     // Update league (admin only)
     app.put('/api/fantasy/leagues/:id', isFantasyAdmin, async (req, res) => {
         try {
-            const { name, status, maxParticipants } = req.body;
+            const { name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget } = req.body;
             const db = getDb();
             const updateFields = {};
             if (name) updateFields.name = name.trim();
@@ -5393,6 +5443,9 @@ export async function startVisualizerServer(discordClient) {
                 if (status === 'closed') updateFields.endedAt = new Date();
             }
             if (maxParticipants) updateFields.maxParticipants = parseInt(maxParticipants);
+            if (allowClauses !== undefined) updateFields.allowClauses = !!allowClauses;
+            if (clauseMultiplier !== undefined) updateFields.clauseMultiplier = parseFloat(clauseMultiplier);
+            if (initialBudget !== undefined) updateFields.initialBudget = parseInt(initialBudget);
             await db.collection('fantasy_leagues').updateOne({ _id: new ObjectId(req.params.id) }, { $set: updateFields });
             res.json({ success: true, message: 'Liga actualizada.' });
         } catch (e) {
@@ -5454,6 +5507,47 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // Adjust team budget (admin only)
+    app.post('/api/fantasy/leagues/:id/teams/:teamId/budget', isFantasyAdmin, async (req, res) => {
+        try {
+            const { amount, action } = req.body;
+            const numAmount = parseInt(amount);
+            if (isNaN(numAmount)) {
+                return res.status(400).json({ error: 'Monto no válido.' });
+            }
+            const db = getDb();
+            const teamId = req.params.teamId;
+            const leagueId = req.params.id;
+
+            const team = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(teamId), leagueId });
+            if (!team) return res.status(404).json({ error: 'Equipo no encontrado.' });
+
+            let newBalance;
+            if (action === 'set') {
+                newBalance = Math.round(numAmount);
+            } else {
+                newBalance = Math.round(team.balance + numAmount);
+            }
+
+            if (newBalance < 0) {
+                return res.status(400).json({ error: 'El presupuesto resultante no puede ser negativo.' });
+            }
+
+            await db.collection('fantasy_teams').updateOne(
+                { _id: new ObjectId(teamId) },
+                { $set: { balance: newBalance } }
+            );
+
+            res.json({
+                success: true,
+                message: `Presupuesto de ${team.teamName} actualizado.`
+            });
+        } catch (e) {
+            console.error('[API Adjust Budget] Error:', e);
+            res.status(500).json({ error: 'Error al ajustar el presupuesto.' });
+        }
+    });
+
     // Recalculate all team points in a league (admin only)
     app.post('/api/fantasy/leagues/:id/recalculate', isFantasyAdmin, async (req, res) => {
         try {
@@ -5464,7 +5558,10 @@ export async function startVisualizerServer(discordClient) {
                 let totalPoints = 0;
                 for (const playerName of (team.players || [])) {
                     const player = await db.collection('player_profiles').findOne({ eaPlayerName: playerName });
-                    if (player && player.points) totalPoints += player.points;
+                    if (player) {
+                        const { points } = calculatePlayerPointsAndPrice(player);
+                        totalPoints += points;
+                    }
                 }
                 await db.collection('fantasy_teams').updateOne({ _id: team._id }, { $set: { points: totalPoints } });
                 updated++;
@@ -5529,6 +5626,8 @@ export async function startVisualizerServer(discordClient) {
             if (count >= league.maxParticipants) return res.status(400).json({ error: 'La liga está llena.' });
 
             const isAdminUser = discordId === process.env.OWNER_DISCORD_ID;
+            const isRefereeUser = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+            const isAutoApproved = isAdminUser || isRefereeUser;
             const team = {
                 discordId,
                 discordUsername: req.user.global_name || req.user.username,
@@ -5537,14 +5636,15 @@ export async function startVisualizerServer(discordClient) {
                 teamName: teamName.trim(),
                 balance: league.initialBudget,
                 players: [],
+                clauses: {},
                 lineup: { POR: null, DFC: [], MC: [], DC: [] },
                 formation: '4-3-3',
                 points: 0,
-                approved: isAdminUser, // Auto-approved if admin
+                approved: isAutoApproved, // Auto-approved if admin or referee
                 joinedAt: new Date()
             };
             await db.collection('fantasy_teams').insertOne(team);
-            res.json({ success: true, message: isAdminUser ? `¡Te has unido a "${league.name}"!` : `Solicitud de unión enviada para "${league.name}". Esperando aprobación del administrador.`, team });
+            res.json({ success: true, message: isAutoApproved ? `¡Te has unido a "${league.name}"!` : `Solicitud de unión enviada para "${league.name}". Esperando aprobación del administrador.`, team });
         } catch (e) {
             console.error('[API Fantasy Join] Error:', e);
             res.status(500).json({ error: 'Error al unirse a la liga.' });
@@ -5599,7 +5699,7 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
             const team = await db.collection('fantasy_teams').findOne(
                 { discordId: req.params.discordId, leagueId: req.params.id },
-                { projection: { balance: 0 } } // Don't expose balance to others
+                { projection: { balance: 0 } }
             );
             if (!team) return res.status(404).json({ error: 'Equipo no encontrado.' });
             res.json(team);
@@ -5613,60 +5713,48 @@ export async function startVisualizerServer(discordClient) {
     app.get('/api/fantasy/players', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
             const db = getDb();
+            const { leagueId } = req.query;
+
             const SUPERLIGA_TEAMS = [
-                "GMK Villarreal CF", "AD CEUTA ESPORTS", "SUZAKU ESPORTS", "ZENTURIONS", "ALPHA WOLFS", "Tempus Esports", "90min FC", "LTK ESPORTS", "JAM ESPORTS", "CRYZEN GAMING", "VentuCorp", "BANANO ESPORTS", "JS ELCANO", "CE EUROPA ESPORTS",
-                "Oxygen Levante", "DriFt Esports", "CEUTA GUARDIANS", "CADIZ CF ESPORTS", "Espartanos CF", "TRANSFORMERS CF", "GUINEA PINK", "SHIVA ESPORTS", "RYUX CLAN", "FC MAYANGO", "THUNDER GAMING", "Columbus Pacers", "BACHATEROS FC", "FCP ESPORTS"
+                "GMK Villarreal CF eSports", "AD Ceuta eSports", "Suzaku esports", "Zenturions", "Alpha Wolfs", "Tempus eSports", "90min FC", "LTK eSports", "Jam eSports", "Cryzen Gaming", "Ventucorp eSports", "Banano eSports", "JS ELCANO", "CE Europa eSports",
+                "Oxygen Levante", "DriFt Esports", "Ceuta Guardians", "Cadiz Esports", "Espartanos CF", "Transformers CF", "GUINEA PINK", "Shiva esports", "RYUX CLAN", "FC Mayango", "Black Hawks", "Columbus Pacers", "Bachateros FC", "FCP eSports"
             ];
             const regexes = SUPERLIGA_TEAMS.map(name => new RegExp('^' + name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i'));
             const rawPlayers = await db.collection('player_profiles').find({ lastClub: { $in: regexes } }).toArray();
 
-            const processedPlayers = rawPlayers.map(p => {
-                let price = p.price;
-                let points = p.points;
-                const stats = p.stats || {};
-                const ratings = stats.ratings || [];
-                const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 6.0;
-
-                if (price === undefined || points === undefined) {
-                    price = 1000000;
-                    price += (stats.goals || 0) * 250000;
-                    price += (stats.assists || 0) * 200000;
-                    const isDefOrGk = p.lastPosition === 'POR' || p.lastPosition === 'DFC';
-                    if (isDefOrGk) price += (stats.cleanSheets || 0) * 150000;
-                    if (avgRating > 6.0) price *= (1 + (avgRating - 6.0) * 0.5);
-                    price = Math.min(15000000, Math.max(500000, price));
-                    price = Math.round(price / 10000) * 10000;
-
-                    points = 0;
-                    const goals = stats.goals || 0;
-                    const assists = stats.assists || 0;
-                    const cleanSheets = stats.cleanSheets || 0;
-                    if (p.lastPosition === 'DC') points += goals * 4;
-                    else if (p.lastPosition === 'MC') points += goals * 5;
-                    else points += goals * 6;
-                    points += assists * 3;
-                    if (p.lastPosition === 'POR' || p.lastPosition === 'DFC') points += cleanSheets * 4;
-                    else if (p.lastPosition === 'MC') points += cleanSheets * 1;
-                    for (const r of ratings) {
-                        if (r >= 9.0) points += 6;
-                        else if (r >= 8.0) points += 4;
-                        else if (r >= 7.0) points += 2;
-                        else if (r >= 6.0) points += 1;
+            const ownerMap = {};
+            const ownerDiscordIdMap = {};
+            const clauseMap = {};
+            if (leagueId) {
+                const teams = await db.collection('fantasy_teams').find({ leagueId }).toArray();
+                for (const team of teams) {
+                    const clauses = team.clauses || {};
+                    for (const pName of (team.players || [])) {
+                        ownerMap[pName] = team.teamName;
+                        ownerDiscordIdMap[pName] = team.discordId;
+                        clauseMap[pName] = clauses[pName] || null;
                     }
-                    points -= (stats.yellowCards || 0) * 1;
-                    points -= (stats.redCards || 0) * 3;
                 }
+            }
+
+            const processedPlayers = rawPlayers.map(p => {
+                const { price, points, avgRating } = calculatePlayerPointsAndPrice(p);
+                const displayClub = (p.lastClub && p.lastClub.toLowerCase() === 'black hawks') ? 'Thunder Gaming' : p.lastClub;
+                const stats = p.stats || {};
 
                 return {
                     eaPlayerName: p.eaPlayerName,
-                    lastClub: p.lastClub,
+                    lastClub: displayClub,
                     lastPosition: p.lastPosition || 'MC',
                     matchesPlayed: stats.matchesPlayed || 0,
                     goals: stats.goals || 0,
                     assists: stats.assists || 0,
                     avgRating: parseFloat(avgRating.toFixed(2)),
                     price,
-                    points
+                    points,
+                    owner: ownerMap[p.eaPlayerName] || null,
+                    ownerDiscordId: ownerDiscordIdMap[p.eaPlayerName] || null,
+                    clause: clauseMap[p.eaPlayerName] || null
                 };
             });
 
@@ -5701,28 +5789,84 @@ export async function startVisualizerServer(discordClient) {
             const player = await db.collection('player_profiles').findOne({ eaPlayerName });
             if (!player) return res.status(404).json({ error: 'Jugador no encontrado.' });
 
-            let price = player.price;
-            if (price === undefined) {
-                const stats = player.stats || {};
-                const ratings = stats.ratings || [];
-                const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 6.0;
-                price = 1000000;
-                price += (stats.goals || 0) * 250000;
-                price += (stats.assists || 0) * 200000;
-                if (player.lastPosition === 'POR' || player.lastPosition === 'DFC') price += (stats.cleanSheets || 0) * 150000;
-                if (avgRating > 6.0) price *= (1 + (avgRating - 6.0) * 0.5);
-                price = Math.min(15000000, Math.max(500000, price));
-                price = Math.round(price / 10000) * 10000;
+            const { price } = calculatePlayerPointsAndPrice(player);
+
+            // Check if player is owned by another team
+            const ownerTeam = await db.collection('fantasy_teams').findOne({ leagueId, players: eaPlayerName });
+            const clauseMultiplier = league.clauseMultiplier || 1.5;
+
+            if (ownerTeam) {
+                // Clausulazos must be enabled
+                if (league.allowClauses === false) {
+                    return res.status(400).json({ error: 'Este jugador ya pertenece a otro mánager y las cláusulas están desactivadas.' });
+                }
+
+                // Determine clause value
+                const ownerClauses = ownerTeam.clauses || {};
+                const clauseAmount = ownerClauses[eaPlayerName] || Math.round(price * clauseMultiplier);
+
+                if (userTeam.balance < clauseAmount) {
+                    return res.status(400).json({ error: `Saldo insuficiente para clausulazo. Requiere ${clauseAmount.toLocaleString('es-ES')} €.` });
+                }
+
+                // --- Execute Clausulazo ---
+
+                // 1. Remove player from owner, credit balance, unset clause, update lineup
+                const ownerLineup = { ...ownerTeam.lineup };
+                for (const pos in ownerLineup) {
+                    if (Array.isArray(ownerLineup[pos])) {
+                        ownerLineup[pos] = ownerLineup[pos].filter(p => p !== eaPlayerName);
+                    } else if (ownerLineup[pos] === eaPlayerName) {
+                        ownerLineup[pos] = null;
+                    }
+                }
+
+                await db.collection('fantasy_teams').updateOne(
+                    { discordId: ownerTeam.discordId, leagueId },
+                    {
+                        $inc: { balance: clauseAmount },
+                        $pull: { players: eaPlayerName },
+                        $set: { lineup: ownerLineup },
+                        $unset: { [`clauses.${eaPlayerName}`]: "" }
+                    }
+                );
+
+                // 2. Add player to buyer, deduct balance, set initial clause
+                const buyerInitialClause = Math.round(price * clauseMultiplier);
+                await db.collection('fantasy_teams').updateOne(
+                    { discordId, leagueId },
+                    {
+                        $inc: { balance: -clauseAmount },
+                        $push: { players: eaPlayerName },
+                        $set: { [`clauses.${eaPlayerName}`]: buyerInitialClause }
+                    }
+                );
+
+                // 3. Clean up listings and bids
+                await db.collection('fantasy_market_listings').deleteMany({ leagueId, sellerDiscordId: ownerTeam.discordId, eaPlayerName });
+                await db.collection('fantasy_market_bids').deleteMany({ leagueId, eaPlayerName, $or: [ { bidderDiscordId: ownerTeam.discordId }, { sellerDiscordId: ownerTeam.discordId } ] });
+
+                return res.json({
+                    success: true,
+                    message: `¡CLAUSULAZO! Has fichado a ${eaPlayerName} pagando su cláusula de rescisión de ${clauseAmount.toLocaleString('es-ES')} € al mánager del equipo ${ownerTeam.teamName}.`
+                });
+
+            } else {
+                // Free agent buy
+                if (userTeam.balance < price) return res.status(400).json({ error: 'Saldo insuficiente.' });
+
+                const buyerInitialClause = Math.round(price * clauseMultiplier);
+                await db.collection('fantasy_teams').updateOne(
+                    { discordId, leagueId },
+                    {
+                        $inc: { balance: -price },
+                        $push: { players: eaPlayerName },
+                        $set: { [`clauses.${eaPlayerName}`]: buyerInitialClause }
+                    }
+                );
+
+                res.json({ success: true, message: `Has fichado a ${eaPlayerName} por ${price.toLocaleString('es-ES')} € (Cláusula inicial: ${buyerInitialClause.toLocaleString('es-ES')} €).` });
             }
-
-            if (userTeam.balance < price) return res.status(400).json({ error: 'Saldo insuficiente.' });
-
-            await db.collection('fantasy_teams').updateOne(
-                { discordId, leagueId },
-                { $inc: { balance: -price }, $push: { players: eaPlayerName } }
-            );
-
-            res.json({ success: true, message: `Has fichado a ${eaPlayerName} por ${price.toLocaleString('es-ES')} €.` });
         } catch (e) {
             console.error('[API Fantasy Buy] Error:', e);
             res.status(500).json({ error: 'Error al comprar jugador.' });
@@ -5808,19 +5952,10 @@ export async function startVisualizerServer(discordClient) {
             const player = await db.collection('player_profiles').findOne({ eaPlayerName });
             if (!player) return res.status(404).json({ error: 'Jugador no encontrado.' });
 
-            let price = player.price;
-            if (price === undefined) {
-                const stats = player.stats || {};
-                const ratings = stats.ratings || [];
-                const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 6.0;
-                price = 1000000;
-                price += (stats.goals || 0) * 250000;
-                price += (stats.assists || 0) * 200000;
-                if (player.lastPosition === 'POR' || player.lastPosition === 'DFC') price += (stats.cleanSheets || 0) * 150000;
-                if (avgRating > 6.0) price *= (1 + (avgRating - 6.0) * 0.5);
-                price = Math.min(15000000, Math.max(500000, price));
-                price = Math.round(price / 10000) * 10000;
-            }
+            // Get market price using single source of truth
+            const { price } = calculatePlayerPointsAndPrice(player);
+            // 80% reimbursement penalty
+            const saleReimbursement = Math.round(price * 0.8);
 
             // Remove from lineup too
             const newLineup = { ...userTeam.lineup };
@@ -5832,15 +5967,440 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
+            // Update team: add balance, remove player from list, unset clause, save lineup
             await db.collection('fantasy_teams').updateOne(
                 { discordId, leagueId },
-                { $inc: { balance: price }, $pull: { players: eaPlayerName }, $set: { lineup: newLineup } }
+                { 
+                    $inc: { balance: saleReimbursement }, 
+                    $pull: { players: eaPlayerName }, 
+                    $set: { lineup: newLineup },
+                    $unset: { [`clauses.${eaPlayerName}`]: "" }
+                }
             );
 
-            res.json({ success: true, message: `Has vendido a ${eaPlayerName} por ${price.toLocaleString('es-ES')} €.` });
+            // Delete listings and bids
+            await db.collection('fantasy_market_listings').deleteMany({ leagueId, sellerDiscordId: discordId, eaPlayerName });
+            await db.collection('fantasy_market_bids').deleteMany({ leagueId, eaPlayerName, $or: [ { bidderDiscordId: discordId }, { sellerDiscordId: discordId } ] });
+
+            res.json({ success: true, message: `Has vendido a ${eaPlayerName} por ${saleReimbursement.toLocaleString('es-ES')} € (80% de su valor de ${price.toLocaleString('es-ES')} €).` });
         } catch (e) {
             console.error('[API Fantasy Sell] Error:', e);
             res.status(500).json({ error: 'Error al vender jugador.' });
+        }
+    });
+
+    // --- CLAUSE MANAGEMENT ---
+    // Increase player release clause
+    app.post('/api/fantasy/leagues/:id/players/:playerName/clause', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const { id: leagueId, playerName: eaPlayerName } = req.params;
+            const { newClauseAmount } = req.body;
+            if (!newClauseAmount || isNaN(newClauseAmount) || newClauseAmount <= 0) {
+                return res.status(400).json({ error: 'Debes proporcionar un valor de cláusula válido mayor que cero.' });
+            }
+            const db = getDb();
+            const discordId = req.user.id;
+
+            const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
+            if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
+            if (!userTeam.approved) return res.status(403).json({ error: 'Tu equipo está pendiente de aprobación.' });
+            if (!userTeam.players.includes(eaPlayerName)) return res.status(400).json({ error: 'No posees a este jugador.' });
+
+            const player = await db.collection('player_profiles').findOne({ eaPlayerName });
+            if (!player) return res.status(404).json({ error: 'Jugador no encontrado.' });
+
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+
+            const { price } = calculatePlayerPointsAndPrice(player);
+            const clauseMultiplier = league.clauseMultiplier || 1.5;
+            
+            const currentClauses = userTeam.clauses || {};
+            const currentClause = currentClauses[eaPlayerName] || Math.round(price * clauseMultiplier);
+
+            if (newClauseAmount <= currentClause) {
+                return res.status(400).json({ error: `La nueva cláusula debe ser superior a la actual (${currentClause.toLocaleString('es-ES')} €).` });
+            }
+
+            const cost = newClauseAmount - currentClause;
+            if (userTeam.balance < cost) {
+                return res.status(400).json({ error: `Saldo insuficiente. Subir la cláusula cuesta ${cost.toLocaleString('es-ES')} € y tu saldo es ${userTeam.balance.toLocaleString('es-ES')} €.` });
+            }
+
+            await db.collection('fantasy_teams').updateOne(
+                { discordId, leagueId },
+                {
+                    $inc: { balance: -cost },
+                    $set: { [`clauses.${eaPlayerName}`]: Math.round(newClauseAmount) }
+                }
+            );
+
+            res.json({
+                success: true,
+                message: `Cláusula de ${eaPlayerName} subida a ${newClauseAmount.toLocaleString('es-ES')} € con un coste de ${cost.toLocaleString('es-ES')} €.`
+            });
+        } catch (e) {
+            console.error('[API Fantasy Set Clause] Error:', e);
+            res.status(500).json({ error: 'Error al cambiar la cláusula.' });
+        }
+    });
+
+    // --- MARKET TRANSFER LIST ---
+    // List player on transfer market
+    app.post('/api/fantasy/leagues/:id/market/list', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const leagueId = req.params.id;
+            const { eaPlayerName, askingPrice } = req.body;
+            if (!eaPlayerName) return res.status(400).json({ error: 'Falta eaPlayerName' });
+            if (askingPrice === undefined || isNaN(askingPrice) || askingPrice <= 0) {
+                return res.status(400).json({ error: 'Precio de venta no válido.' });
+            }
+            const db = getDb();
+            const discordId = req.user.id;
+
+            const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
+            if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
+            if (!userTeam.players.includes(eaPlayerName)) return res.status(400).json({ error: 'No posees a este jugador.' });
+
+            // Upsert listing
+            await db.collection('fantasy_market_listings').updateOne(
+                { leagueId, sellerDiscordId: discordId, eaPlayerName },
+                {
+                    $set: {
+                        sellerTeamName: userTeam.teamName,
+                        askingPrice: Math.round(askingPrice),
+                        createdAt: new Date()
+                    }
+                },
+                { upsert: true }
+            );
+
+            res.json({ success: true, message: `${eaPlayerName} puesto en venta por ${askingPrice.toLocaleString('es-ES')} €.` });
+        } catch (e) {
+            console.error('[API Fantasy List Market] Error:', e);
+            res.status(500).json({ error: 'Error al listar jugador.' });
+        }
+    });
+
+    // Unlist player from transfer market
+    app.post('/api/fantasy/leagues/:id/market/unlist', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const leagueId = req.params.id;
+            const { eaPlayerName } = req.body;
+            if (!eaPlayerName) return res.status(400).json({ error: 'Falta eaPlayerName' });
+            const db = getDb();
+            const discordId = req.user.id;
+
+            await db.collection('fantasy_market_listings').deleteOne({ leagueId, sellerDiscordId: discordId, eaPlayerName });
+            // Remove pending bids for this listing
+            await db.collection('fantasy_market_bids').deleteMany({ leagueId, sellerDiscordId: discordId, eaPlayerName });
+
+            res.json({ success: true, message: `${eaPlayerName} retirado de la lista de transferibles.` });
+        } catch (e) {
+            console.error('[API Fantasy Unlist Market] Error:', e);
+            res.status(500).json({ error: 'Error al retirar jugador.' });
+        }
+    });
+
+    // Get listings for a league (excluding owned by caller)
+    app.get('/api/fantasy/leagues/:id/market/listings', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const leagueId = req.params.id;
+            const discordId = req.user.id;
+            const db = getDb();
+
+            const listings = await db.collection('fantasy_market_listings').find({ leagueId }).toArray();
+            
+            if (listings.length === 0) return res.json([]);
+
+            const playerNames = listings.map(l => l.eaPlayerName);
+            const profiles = await db.collection('player_profiles').find({ eaPlayerName: { $in: playerNames } }).toArray();
+
+            const playerMap = {};
+            profiles.forEach(p => {
+                const stats = calculatePlayerPointsAndPrice(p);
+                playerMap[p.eaPlayerName] = {
+                    lastPosition: p.lastPosition,
+                    lastClub: p.lastClub,
+                    avgRating: stats.avgRating,
+                    points: stats.points,
+                    price: stats.price
+                };
+            });
+
+            const result = listings.map(l => ({
+                _id: l._id,
+                eaPlayerName: l.eaPlayerName,
+                sellerDiscordId: l.sellerDiscordId,
+                sellerTeamName: l.sellerTeamName,
+                askingPrice: l.askingPrice,
+                createdAt: l.createdAt,
+                isMine: l.sellerDiscordId === discordId,
+                playerInfo: playerMap[l.eaPlayerName] || { lastPosition: 'MC', lastClub: 'Sin Club', avgRating: 6.0, points: 0, price: l.askingPrice }
+            }));
+
+            res.json(result);
+        } catch (e) {
+            console.error('[API Fantasy Get Listings] Error:', e);
+            res.status(500).json({ error: 'Error al obtener transferibles.' });
+        }
+    });
+
+    // --- BIDDING SYSTEM ---
+    // Place a bid on a player on transfer list
+    app.post('/api/fantasy/leagues/:id/market/bid', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const leagueId = req.params.id;
+            const { eaPlayerName, bidAmount, sellerDiscordId } = req.body;
+            if (!eaPlayerName || !sellerDiscordId) return res.status(400).json({ error: 'Datos de puja incompletos.' });
+            if (bidAmount === undefined || isNaN(bidAmount) || bidAmount <= 0) {
+                return res.status(400).json({ error: 'Cantidad de la puja no válida.' });
+            }
+            const db = getDb();
+            const discordId = req.user.id;
+
+            if (sellerDiscordId === discordId) {
+                return res.status(400).json({ error: 'No puedes pujar por tu propio jugador.' });
+            }
+
+            const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
+            if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
+            if (!userTeam.approved) return res.status(403).json({ error: 'Tu equipo está pendiente de aprobación.' });
+            if (userTeam.balance < bidAmount) {
+                return res.status(400).json({ error: `Saldo insuficiente. Pujar cuesta ${bidAmount.toLocaleString('es-ES')} € y tu saldo es ${userTeam.balance.toLocaleString('es-ES')} €.` });
+            }
+
+            const sellerTeam = await db.collection('fantasy_teams').findOne({ discordId: sellerDiscordId, leagueId });
+            if (!sellerTeam || !sellerTeam.players.includes(eaPlayerName)) {
+                return res.status(400).json({ error: 'El vendedor ya no posee a este jugador.' });
+            }
+
+            // Check max squad size
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (userTeam.players.length >= (league.maxSquadSize || 15)) {
+                return res.status(400).json({ error: 'No puedes pujar porque tu plantilla ya está llena.' });
+            }
+
+            // Upsert bid
+            await db.collection('fantasy_market_bids').updateOne(
+                { leagueId, bidderDiscordId: discordId, eaPlayerName },
+                {
+                    $set: {
+                        sellerDiscordId,
+                        bidderTeamName: userTeam.teamName,
+                        bidAmount: Math.round(bidAmount),
+                        status: 'pending',
+                        createdAt: new Date()
+                    }
+                },
+                { upsert: true }
+            );
+
+            res.json({ success: true, message: `Puja enviada de ${bidAmount.toLocaleString('es-ES')} € por ${eaPlayerName}.` });
+        } catch (e) {
+            console.error('[API Fantasy Bid] Error:', e);
+            res.status(500).json({ error: 'Error al enviar la puja.' });
+        }
+    });
+
+    // Get bids (received & sent)
+    app.get('/api/fantasy/leagues/:id/market/bids', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const leagueId = req.params.id;
+            const discordId = req.user.id;
+            const db = getDb();
+
+            const received = await db.collection('fantasy_market_bids').find({ leagueId, sellerDiscordId: discordId, status: 'pending' }).toArray();
+            const sent = await db.collection('fantasy_market_bids').find({ leagueId, bidderDiscordId: discordId }).toArray();
+
+            // Enrich with player info
+            const playerNames = [...new Set([...received.map(b => b.eaPlayerName), ...sent.map(b => b.eaPlayerName)])];
+            const profiles = await db.collection('player_profiles').find({ eaPlayerName: { $in: playerNames } }).toArray();
+
+            const playerMap = {};
+            profiles.forEach(p => {
+                const stats = calculatePlayerPointsAndPrice(p);
+                playerMap[p.eaPlayerName] = {
+                    lastPosition: p.lastPosition,
+                    lastClub: p.lastClub,
+                    price: stats.price
+                };
+            });
+
+            const enrich = (bidsList) => bidsList.map(b => ({
+                ...b,
+                playerInfo: playerMap[b.eaPlayerName] || { lastPosition: 'MC', lastClub: 'Sin Club', price: b.bidAmount }
+            }));
+
+            res.json({
+                received: enrich(received),
+                sent: enrich(sent)
+            });
+        } catch (e) {
+            console.error('[API Fantasy Get Bids] Error:', e);
+            res.status(500).json({ error: 'Error al obtener pujas.' });
+        }
+    });
+
+    // Respond to bid (accept/reject)
+    app.post('/api/fantasy/leagues/:id/market/bids/:bidId/respond', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const leagueId = req.params.id;
+            const bidId = req.params.bidId;
+            const { action } = req.body; // 'accept' or 'reject'
+            if (!action || !['accept', 'reject'].includes(action)) {
+                return res.status(400).json({ error: 'Acción no válida. Debe ser accept o reject.' });
+            }
+
+            const db = getDb();
+            const discordId = req.user.id;
+
+            const bid = await db.collection('fantasy_market_bids').findOne({ _id: new ObjectId(bidId), leagueId });
+            if (!bid) return res.status(404).json({ error: 'Oferta no encontrada.' });
+            if (bid.sellerDiscordId !== discordId) {
+                return res.status(403).json({ error: 'No tienes permiso para responder a esta oferta.' });
+            }
+            if (bid.status !== 'pending') {
+                return res.status(400).json({ error: 'Esta oferta ya ha sido respondida.' });
+            }
+
+            if (action === 'reject') {
+                await db.collection('fantasy_market_bids').updateOne(
+                    { _id: new ObjectId(bidId) },
+                    { $set: { status: 'rejected' } }
+                );
+                return res.json({ success: true, message: 'Oferta rechazada.' });
+            }
+
+            // --- Accept Bid Flow ---
+
+            // Get league details
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (!league.marketOpen) return res.status(400).json({ error: 'El mercado está cerrado.' });
+
+            // Check seller still has the player
+            const sellerTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
+            if (!sellerTeam.players.includes(bid.eaPlayerName)) {
+                return res.status(400).json({ error: 'Ya no posees a este jugador en tu plantilla.' });
+            }
+
+            // Check bidder exists and has balance
+            const bidderTeam = await db.collection('fantasy_teams').findOne({ discordId: bid.bidderDiscordId, leagueId });
+            if (!bidderTeam) return res.status(404).json({ error: 'El comprador ya no pertenece a la liga.' });
+            if (bidderTeam.balance < bid.bidAmount) {
+                return res.status(400).json({ error: 'El comprador ya no dispone de saldo suficiente para esta oferta.' });
+            }
+
+            // Check bidder squad size limits
+            if (bidderTeam.players.length >= (league.maxSquadSize || 15)) {
+                return res.status(400).json({ error: 'El comprador no tiene espacio en su plantilla (máx. 15 jugadores).' });
+            }
+
+            const player = await db.collection('player_profiles').findOne({ eaPlayerName: bid.eaPlayerName });
+            if (!player) return res.status(404).json({ error: 'Jugador no encontrado.' });
+            const { price } = calculatePlayerPointsAndPrice(player);
+
+            // Execute Peer Transfer!
+
+            // 1. Debit buyer, add player, set initial clause
+            const clauseMultiplier = league.clauseMultiplier || 1.5;
+            const buyerInitialClause = Math.round(price * clauseMultiplier);
+            await db.collection('fantasy_teams').updateOne(
+                { discordId: bid.bidderDiscordId, leagueId },
+                {
+                    $inc: { balance: -bid.bidAmount },
+                    $push: { players: bid.eaPlayerName },
+                    $set: { [`clauses.${bid.eaPlayerName}`]: buyerInitialClause }
+                }
+            );
+
+            // 2. Credit seller, pull player, unset clause, remove from lineup
+            const sellerLineup = { ...sellerTeam.lineup };
+            for (const pos in sellerLineup) {
+                if (Array.isArray(sellerLineup[pos])) {
+                    sellerLineup[pos] = sellerLineup[pos].filter(p => p !== bid.eaPlayerName);
+                } else if (sellerLineup[pos] === bid.eaPlayerName) {
+                    sellerLineup[pos] = null;
+                }
+            }
+
+            await db.collection('fantasy_teams').updateOne(
+                { discordId, leagueId },
+                {
+                    $inc: { balance: bid.bidAmount },
+                    $pull: { players: bid.eaPlayerName },
+                    $set: { lineup: sellerLineup },
+                    $unset: { [`clauses.${bid.eaPlayerName}`]: "" }
+                }
+            );
+
+            // 3. Update bid status to accepted
+            await db.collection('fantasy_market_bids').updateOne(
+                { _id: new ObjectId(bidId) },
+                { $set: { status: 'accepted' } }
+            );
+
+            // 4. Delete the listing for this player
+            await db.collection('fantasy_market_listings').deleteOne({ leagueId, eaPlayerName });
+
+            // 5. Delete/reject other pending bids for the same player in this league
+            await db.collection('fantasy_market_bids').deleteMany({
+                leagueId,
+                eaPlayerName: bid.eaPlayerName,
+                _id: { $ne: new ObjectId(bidId) }
+            });
+
+            res.json({
+                success: true,
+                message: `¡Traspaso completado! Has vendido a ${bid.eaPlayerName} por ${bid.bidAmount.toLocaleString('es-ES')} € al mánager de ${bidderTeam.teamName}.`
+            });
+        } catch (e) {
+            console.error('[API Fantasy Respond Bid] Error:', e);
+            res.status(500).json({ error: 'Error al responder a la puja.' });
+        }
+    });
+
+    // --- ADMIN PANEL CONTROLS ---
+    // Toggle Clausulazos setting
+    app.post('/api/fantasy/leagues/:id/toggle-clauses', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const leagueId = req.params.id;
+            const { allowClauses } = req.body;
+            if (allowClauses === undefined) return res.status(400).json({ error: 'Falta campo allowClauses' });
+
+            const db = getDb();
+            await db.collection('fantasy_leagues').updateOne(
+                { _id: new ObjectId(leagueId) },
+                { $set: { allowClauses: !!allowClauses } }
+            );
+
+            res.json({ success: true, message: `Cláusulas de rescisión ${allowClauses ? 'habilitadas' : 'deshabilitadas'} correctamente.` });
+        } catch (e) {
+            console.error('[API Toggle Clauses] Error:', e);
+            res.status(500).json({ error: 'Error al configurar cláusulas.' });
+        }
+    });
+
+    // Set Clause Multiplier setting
+    app.post('/api/fantasy/leagues/:id/clause-multiplier', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const leagueId = req.params.id;
+            const { clauseMultiplier } = req.body;
+            if (clauseMultiplier === undefined || isNaN(clauseMultiplier) || clauseMultiplier < 1.0) {
+                return res.status(400).json({ error: 'Multiplicador no válido (mínimo 1.0).' });
+            }
+
+            const db = getDb();
+            await db.collection('fantasy_leagues').updateOne(
+                { _id: new ObjectId(leagueId) },
+                { $set: { clauseMultiplier: parseFloat(clauseMultiplier) } }
+            );
+
+            res.json({ success: true, message: `Multiplicador de cláusula fijado en ${clauseMultiplier}x.` });
+        } catch (e) {
+            console.error('[API Set Clause Multiplier] Error:', e);
+            res.status(500).json({ error: 'Error al configurar multiplicador.' });
         }
     });
 

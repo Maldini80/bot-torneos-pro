@@ -1252,3 +1252,15 @@ body {
     font-family: inherit;
 }
 
+/* Responsive Table Columns Utility */
+@media (max-width: 768px) {
+    .col-hide-md {
+        display: none !important;
+    }
+}
+@media (max-width: 480px) {
+    .col-hide-sm {
+        display: none !important;
+    }
+}
+

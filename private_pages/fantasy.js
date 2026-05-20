@@ -110,6 +110,7 @@ let myTeam = {
     teamName: ''
 };
 let allPlayers = [];
+let marketListings = [];
 let currentFilteredPlayers = [];
 let selectedSlotPos = null; 
 let selectedSlotIdx = null; 
@@ -142,6 +143,10 @@ const marketList = document.getElementById('market-list');
 const squadList = document.getElementById('squad-list');
 const marketSearch = document.getElementById('market-search');
 const marketPosFilter = document.getElementById('market-pos-filter');
+const bidsCountBadge = document.getElementById('bids-count-badge');
+const userMarketList = document.getElementById('user-market-list');
+const bidsReceivedList = document.getElementById('bids-received-list');
+const bidsSentList = document.getElementById('bids-sent-list');
 
 // DOM Elements - Leaderboard tab
 const leaderboardList = document.getElementById('leaderboard-list');
@@ -157,6 +162,9 @@ const adminUpdateLeagueForm = document.getElementById('admin-update-league-form'
 const adminLeagueName = document.getElementById('admin-league-name');
 const adminLeagueStatus = document.getElementById('admin-league-status');
 const adminLeagueMaxParts = document.getElementById('admin-league-max-parts');
+const adminLeagueAllowClauses = document.getElementById('admin-league-allow-clauses');
+const adminLeagueClauseMultiplier = document.getElementById('admin-league-clause-multiplier');
+const adminLeagueInitialBudget = document.getElementById('admin-league-initial-budget');
 const btnAdminToggleMarket = document.getElementById('btn-admin-toggle-market');
 const btnAdminRecalculate = document.getElementById('btn-admin-recalculate');
 const btnAdminDeleteLeague = document.getElementById('btn-admin-delete-league');
@@ -180,6 +188,31 @@ const rivalPointsVal = document.getElementById('rival-points-val');
 const rivalFormationVal = document.getElementById('rival-formation-val');
 const rivalSoccerField = document.getElementById('rival-soccer-field');
 const rivalModalCloseBtn = document.getElementById('rival-modal-close-btn');
+
+const clauseModal = document.getElementById('clause-modal');
+const clauseForm = document.getElementById('clause-form');
+const clausePlayerName = document.getElementById('clause-player-name');
+const clauseCurrentVal = document.getElementById('clause-current-val');
+const clauseBalanceVal = document.getElementById('clause-balance-val');
+const clauseNewAmount = document.getElementById('clause-new-amount');
+const clauseCostVal = document.getElementById('clause-cost-val');
+const clauseModalCloseBtn = document.getElementById('clause-modal-close-btn');
+
+const listMarketModal = document.getElementById('list-market-modal');
+const listMarketForm = document.getElementById('list-market-form');
+const listMarketPlayerName = document.getElementById('list-market-player-name');
+const listMarketPlayerValue = document.getElementById('list-market-player-value');
+const listMarketPrice = document.getElementById('list-market-price');
+const listMarketModalCloseBtn = document.getElementById('list-market-modal-close-btn');
+
+const bidModal = document.getElementById('bid-modal');
+const bidForm = document.getElementById('bid-form');
+const bidPlayerName = document.getElementById('bid-player-name');
+const bidSellerTeamVal = document.getElementById('bid-seller-team-val');
+const bidAskingPriceVal = document.getElementById('bid-asking-price-val');
+const bidBalanceVal = document.getElementById('bid-balance-val');
+const bidAmountInput = document.getElementById('bid-amount');
+const bidModalCloseBtn = document.getElementById('bid-modal-close-btn');
 
 let pendingJoinLeagueId = null;
 
@@ -295,21 +328,69 @@ function setupEventHandlers() {
     marketSearch.addEventListener('input', filterAndRenderMarket);
     marketPosFilter.addEventListener('change', filterAndRenderMarket);
 
+    // Market Subtabs
+    const marketSubBtns = document.querySelectorAll('.market-sub-btn');
+    marketSubBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            marketSubBtns.forEach(b => {
+                b.classList.remove('active', 'btn-primary');
+                b.classList.add('btn-secondary');
+                b.style.background = '#334155';
+            });
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('active', 'btn-primary');
+            btn.style.background = '';
+            
+            const subTab = btn.getAttribute('data-sub-tab');
+            document.querySelectorAll('.market-sub-content-pane').forEach(p => p.style.display = 'none');
+            document.getElementById(`sub-${subTab}`).style.display = 'block';
+            
+            if (subTab === 'user-market') {
+                loadUserMarket();
+            } else if (subTab === 'bids-market') {
+                loadMarketBids();
+            }
+        });
+    });
+
     // Modals Close handlers
     modalCloseBtn.addEventListener('click', () => positionModal.classList.remove('open'));
     joinModalCloseBtn.addEventListener('click', () => joinLeagueModal.classList.remove('open'));
     rivalModalCloseBtn.addEventListener('click', () => rivalTeamModal.classList.remove('open'));
+    clauseModalCloseBtn.addEventListener('click', () => clauseModal.classList.remove('open'));
+    listMarketModalCloseBtn.addEventListener('click', () => listMarketModal.classList.remove('open'));
+    bidModalCloseBtn.addEventListener('click', () => bidModal.classList.remove('open'));
     
     window.addEventListener('click', (e) => {
         if (e.target === positionModal) positionModal.classList.remove('open');
         if (e.target === joinLeagueModal) joinLeagueModal.classList.remove('open');
         if (e.target === rivalTeamModal) rivalTeamModal.classList.remove('open');
+        if (e.target === clauseModal) clauseModal.classList.remove('open');
+        if (e.target === listMarketModal) listMarketModal.classList.remove('open');
+        if (e.target === bidModal) bidModal.classList.remove('open');
+    });
+
+    // Clause cost input calculator
+    clauseNewAmount.addEventListener('input', () => {
+        const currentVal = parseInt(clauseNewAmount.getAttribute('data-current-val') || 0);
+        const newVal = parseInt(clauseNewAmount.value || 0);
+        const diff = newVal - currentVal;
+        if (diff > 0) {
+            clauseCostVal.textContent = diff.toLocaleString('es-ES') + ' €';
+            clauseCostVal.className = 'text-red';
+        } else {
+            clauseCostVal.textContent = '0 € (Debe ser mayor)';
+            clauseCostVal.className = 'text-muted';
+        }
     });
 
     // Form handlers
     createLeagueForm.addEventListener('submit', handleCreateLeague);
     joinLeagueForm.addEventListener('submit', handleJoinLeagueSubmit);
     adminUpdateLeagueForm.addEventListener('submit', handleUpdateLeagueSubmit);
+    clauseForm.addEventListener('submit', handleClauseSubmit);
+    listMarketForm.addEventListener('submit', handleListMarketSubmit);
+    bidForm.addEventListener('submit', handleBidSubmit);
     
     // Quick admin buttons
     btnAdminToggleMarket.addEventListener('click', handleAdminToggleMarket);
@@ -472,10 +553,38 @@ async function enterLeague(leagueId) {
         document.getElementById('league-tab-my-team').classList.add('active');
         
         // Fetch and load players
-        const playersRes = await fetch('/api/fantasy/players');
+        const playersRes = await fetch(`/api/fantasy/players?leagueId=${activeLeagueId}`);
         if (!playersRes.ok) throw new Error('No se pudieron obtener los jugadores.');
         const playersData = await playersRes.json();
         allPlayers = playersData.players || [];
+        
+        // Fetch active listings
+        try {
+            const listingsRes = await fetch(`/api/fantasy/leagues/${activeLeagueId}/market/listings`);
+            if (listingsRes.ok) {
+                marketListings = await listingsRes.json();
+            }
+        } catch (e) {
+            console.error('Error fetching market listings:', e);
+            marketListings = [];
+        }
+
+        // Fetch active bids to update badge
+        try {
+            const bidsRes = await fetch(`/api/fantasy/leagues/${activeLeagueId}/market/bids`);
+            if (bidsRes.ok) {
+                const bidsData = await bidsRes.json();
+                const receivedPending = bidsData.received || [];
+                if (receivedPending.length > 0) {
+                    bidsCountBadge.textContent = receivedPending.length;
+                    bidsCountBadge.style.display = 'inline-block';
+                } else {
+                    bidsCountBadge.style.display = 'none';
+                }
+            }
+        } catch (e) {
+            console.error('Error fetching bids:', e);
+        }
         
         // Render fields & lists
         renderField();
@@ -542,26 +651,49 @@ function filterAndRenderMarket() {
         const isOwned = myTeam.players.includes(p.eaPlayerName);
         const row = document.createElement('tr');
         
+        let priceCol = `<span style="font-weight: 600;">${formatCurrency(p.price)}</span>`;
+        let actionCol = '';
+
+        if (isOwned) {
+            actionCol = `<button class="btn btn-secondary btn-xs" disabled><i class="fa-solid fa-check"></i> En tu equipo</button>`;
+        } else if (p.owner) {
+            const clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+            priceCol = `
+                <div style="font-size: 0.8rem; color: #64748b; text-decoration: line-through;">${formatCurrency(p.price)}</div>
+                <div class="text-yellow" style="font-weight: 700;">${formatCurrency(clauseVal)}</div>
+            `;
+            if (activeLeague && activeLeague.allowClauses !== false) {
+                actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" data-owner="${p.owner}" ${!activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-bolt"></i> Clausulazo</button>`;
+            } else {
+                actionCol = `<span class="badge badge-info text-xs" style="font-size: 0.75rem; border: none; padding: 4px 8px; border-radius: 4px; display: inline-block;"><i class="fa-solid fa-user-lock"></i> ${p.owner}</span>`;
+            }
+        } else {
+            actionCol = `<button class="btn btn-success btn-xs btn-buy" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Fichar</button>`;
+        }
+
         row.innerHTML = `
             <td>
                 <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
             </td>
-            <td class="text-muted">${p.lastClub}</td>
+            <td class="text-muted col-hide-md">${p.lastClub}</td>
             <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
-            <td class="text-center" style="font-weight: 600;">${p.avgRating.toFixed(2)}</td>
+            <td class="text-center col-hide-sm" style="font-weight: 600;">${p.avgRating.toFixed(2)}</td>
             <td class="text-center text-yellow" style="font-weight: 700;">${p.points}</td>
-            <td class="text-right price-text">${formatCurrency(p.price)}</td>
+            <td class="text-right price-text">${priceCol}</td>
             <td class="text-center">
-                ${isOwned 
-                    ? `<button class="btn btn-secondary btn-xs" disabled><i class="fa-solid fa-check"></i> Fichado</button>`
-                    : `<button class="btn btn-success btn-xs btn-buy" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Fichar</button>`
-                }
+                ${actionCol}
             </td>
         `;
 
         const buyBtn = row.querySelector('.btn-buy');
         if (buyBtn && activeLeague && activeLeague.marketOpen) {
             buyBtn.addEventListener('click', () => buyPlayer(p));
+        }
+
+        const clausulazoBtn = row.querySelector('.btn-clausulazo');
+        if (clausulazoBtn && activeLeague && activeLeague.marketOpen) {
+            const clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+            clausulazoBtn.addEventListener('click', () => executeClausulazo(p, clauseVal));
         }
 
         marketList.appendChild(row);
@@ -573,7 +705,7 @@ function renderSquadList() {
     squadList.innerHTML = '';
     
     if (!myTeam.players || myTeam.players.length === 0) {
-        squadList.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No tienes jugadores. Ficha en el Mercado.</td></tr>`;
+        squadList.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No tienes jugadores. Ficha en el Mercado.</td></tr>`;
         return;
     }
 
@@ -584,25 +716,51 @@ function renderSquadList() {
         const isAligned = isPlayerInLineup(playerName);
         const row = document.createElement('tr');
 
+        const playerClause = myTeam.clauses?.[playerName] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+        const isListed = (marketListings || []).some(l => l.eaPlayerName === playerName);
+
         row.innerHTML = `
             <td><div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div></td>
-            <td class="text-muted">${p.lastClub}</td>
+            <td class="text-muted col-hide-md">${p.lastClub}</td>
             <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
-            <td class="text-center" style="font-weight: 600;">${p.avgRating.toFixed(2)}</td>
+            <td class="text-center col-hide-sm" style="font-weight: 600;">${p.avgRating.toFixed(2)}</td>
             <td class="text-center">
                 <span class="badge ${isAligned ? 'btn-success' : 'text-muted'}" style="border: none;">
                     ${isAligned ? 'Alineado' : 'Banquillo'}
                 </span>
             </td>
+            <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(playerClause)}</td>
             <td class="text-right price-text">${formatCurrency(p.price)}</td>
             <td class="text-center">
-                <button class="btn btn-danger btn-xs btn-sell" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-dollar-sign"></i> Vender</button>
+                <div style="display: flex; gap: 4px; justify-content: center;">
+                    <button class="btn btn-danger btn-xs btn-sell" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-dollar-sign"></i> Vender (80%)</button>
+                    <button class="btn btn-warning btn-xs btn-clause" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.allowClauses || !activeLeague.marketOpen) ? 'disabled' : ''}><i class="fa-solid fa-arrow-trend-up"></i> Cláusula</button>
+                    ${isListed 
+                        ? `<button class="btn btn-secondary btn-xs btn-unlist" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-minus"></i> Quitar Venta</button>`
+                        : `<button class="btn btn-info btn-xs btn-list" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-tag"></i> Vender en Mercado</button>`
+                    }
+                </div>
             </td>
         `;
 
         const sellBtn = row.querySelector('.btn-sell');
         if (sellBtn && activeLeague && activeLeague.marketOpen) {
             sellBtn.addEventListener('click', () => sellPlayer(p));
+        }
+
+        const clauseBtn = row.querySelector('.btn-clause');
+        if (clauseBtn && activeLeague && activeLeague.allowClauses !== false && activeLeague.marketOpen) {
+            clauseBtn.addEventListener('click', () => openClauseModal(p, playerClause));
+        }
+
+        const listBtn = row.querySelector('.btn-list');
+        if (listBtn && activeLeague && activeLeague.marketOpen) {
+            listBtn.addEventListener('click', () => openListMarketModal(p));
+        }
+
+        const unlistBtn = row.querySelector('.btn-unlist');
+        if (unlistBtn && activeLeague && activeLeague.marketOpen) {
+            unlistBtn.addEventListener('click', () => handleUnlistMarket(p.eaPlayerName));
         }
 
         squadList.appendChild(row);
@@ -693,7 +851,10 @@ function openPositionSelector(posKey, idx) {
 
     const matchingPlayers = (myTeam.players || []).filter(name => {
         const p = allPlayers.find(x => x.eaPlayerName === name);
-        return p && p.lastPosition === posKey;
+        if (!p) return false;
+        if (p.lastPosition === posKey) return true;
+        if (p.lastPosition === 'CARR' && (posKey === 'DFC' || posKey === 'MC')) return true;
+        return false;
     });
 
     const alignedPlayer = (myTeam.lineup[posKey] && myTeam.lineup[posKey][idx]) || 
@@ -797,6 +958,10 @@ async function buyPlayer(player) {
         return;
     }
 
+    if (!confirm(`¿Estás seguro de que deseas fichar a ${player.eaPlayerName} como agente libre por ${formatCurrency(player.price)}?`)) {
+        return;
+    }
+
     try {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/buy`, {
             method: 'POST',
@@ -808,15 +973,7 @@ async function buyPlayer(player) {
         if (!res.ok) throw new Error(data.error || 'Error al comprar jugador.');
 
         showToast(data.message, 'success');
-        
-        myTeam.balance -= player.price;
-        if (!myTeam.players) myTeam.players = [];
-        myTeam.players.push(player.eaPlayerName);
-
-        userBalanceEl.textContent = formatCurrency(myTeam.balance);
-        filterAndRenderMarket();
-        renderSquadList();
-        updateSquadStats();
+        await enterLeague(currentLeagueId);
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -825,6 +982,11 @@ async function buyPlayer(player) {
 
 // Sell Player Operation
 async function sellPlayer(player) {
+    const saleReimbursement = Math.round(player.price * 0.8);
+    if (!confirm(`¿Estás seguro de que deseas vender a ${player.eaPlayerName} a la máquina por el 80% de su valor (${formatCurrency(saleReimbursement)})?`)) {
+        return;
+    }
+
     try {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/sell`, {
             method: 'POST',
@@ -836,23 +998,7 @@ async function sellPlayer(player) {
         if (!res.ok) throw new Error(data.error || 'Error al vender jugador.');
 
         showToast(data.message, 'success');
-
-        myTeam.balance += player.price;
-        myTeam.players = myTeam.players.filter(name => name !== player.eaPlayerName);
-
-        for (const pos in myTeam.lineup) {
-            if (Array.isArray(myTeam.lineup[pos])) {
-                myTeam.lineup[pos] = myTeam.lineup[pos].filter(name => name !== player.eaPlayerName);
-            } else if (myTeam.lineup[pos] === player.eaPlayerName) {
-                myTeam.lineup[pos] = null;
-            }
-        }
-
-        userBalanceEl.textContent = formatCurrency(myTeam.balance);
-        filterAndRenderMarket();
-        renderSquadList();
-        renderField();
-        updateSquadStats();
+        await enterLeague(currentLeagueId);
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -923,8 +1069,8 @@ async function loadLeaderboard() {
                         </div>
                     </div>
                 </td>
-                <td class="text-center font-weight-bold" style="font-weight: 600;">${manager.playerCount} / 15</td>
-                <td class="text-center text-muted">${manager.formation || '4-3-3'}</td>
+                <td class="text-center font-weight-bold col-hide-sm" style="font-weight: 600;">${manager.playerCount} / 15</td>
+                <td class="text-center text-muted col-hide-md">${manager.formation || '4-3-3'}</td>
                 <td class="text-right text-yellow" style="font-weight: 700; font-size: 1.05rem;">${manager.points} pts</td>
                 <td class="text-center">
                     <button class="btn btn-secondary btn-xs btn-view-rival" data-discord-id="${manager.discordId}"><i class="fa-solid fa-eye"></i> Ver Once</button>
@@ -1016,6 +1162,9 @@ async function loadAdminPanelData() {
     adminLeagueName.value = activeLeague.name;
     adminLeagueStatus.value = activeLeague.status;
     adminLeagueMaxParts.value = activeLeague.maxParticipants;
+    adminLeagueAllowClauses.value = activeLeague.allowClauses !== false ? 'true' : 'false';
+    adminLeagueClauseMultiplier.value = activeLeague.clauseMultiplier || 1.5;
+    adminLeagueInitialBudget.value = activeLeague.initialBudget || 50000000;
     
     // Set market toggle text
     updateMarketToggleButton(activeLeague.marketOpen);
@@ -1046,9 +1195,19 @@ async function loadAdminPanelData() {
                     <td class="text-right price-text">${formatCurrency(team.balance)}</td>
                     <td class="text-right text-yellow" style="font-weight: 700;">${team.points} pts</td>
                     <td class="text-center">
-                        <button class="btn btn-danger btn-xs btn-kick-manager" data-team-id="${team._id}"><i class="fa-solid fa-user-minus"></i> Expulsar</button>
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button class="btn btn-warning btn-xs btn-adjust-budget" data-team-id="${team._id}"><i class="fa-solid fa-coins"></i> Presupuesto</button>
+                            <button class="btn btn-danger btn-xs btn-kick-manager" data-team-id="${team._id}"><i class="fa-solid fa-user-minus"></i> Expulsar</button>
+                        </div>
                     </td>
                 `;
+                
+                const adjustBtn = row.querySelector('.btn-adjust-budget');
+                if (adjustBtn) {
+                    adjustBtn.addEventListener('click', () => {
+                        handleAdjustBudget(team._id, team.discordUsername, team.balance);
+                    });
+                }
                 
                 const kickBtn = row.querySelector('.btn-kick-manager');
                 if (kickBtn) {
@@ -1148,12 +1307,15 @@ async function handleUpdateLeagueSubmit(e) {
     const name = adminLeagueName.value;
     const status = adminLeagueStatus.value;
     const maxParticipants = adminLeagueMaxParts.value;
+    const allowClauses = adminLeagueAllowClauses.value === 'true';
+    const clauseMultiplier = parseFloat(adminLeagueClauseMultiplier.value);
+    const initialBudget = parseInt(adminLeagueInitialBudget.value);
     
     try {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, status, maxParticipants })
+            body: JSON.stringify({ name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget })
         });
         
         const data = await res.json();
@@ -1165,6 +1327,9 @@ async function handleUpdateLeagueSubmit(e) {
         activeLeague.name = name;
         activeLeague.status = status;
         activeLeague.maxParticipants = parseInt(maxParticipants);
+        activeLeague.allowClauses = allowClauses;
+        activeLeague.clauseMultiplier = clauseMultiplier;
+        activeLeague.initialBudget = initialBudget;
         activeLeagueName.textContent = name;
     } catch (e) {
         console.error(e);
@@ -1274,6 +1439,49 @@ async function handleKickManager(teamId, managerName) {
     }
 }
 
+// Admin Adjust Manager Budget
+async function handleAdjustBudget(teamId, managerName, currentBalance) {
+    const input = prompt(
+        `Ajustar presupuesto de "${managerName}" (Saldo actual: ${formatCurrency(currentBalance)}):\n\n` +
+        `- Introduce una cantidad con "+" o "-" para sumar/restar (ej: +5000000 o -2500000).\n` +
+        `- Introduce un valor sin signo para establecerlo de forma fija (ej: 40000000).`
+    );
+    if (input === null) return;
+
+    let cleanInput = input.trim();
+    let action = 'set';
+    let amount = 0;
+
+    if (cleanInput.startsWith('+') || cleanInput.startsWith('-')) {
+        action = 'add';
+        amount = parseInt(cleanInput);
+    } else {
+        action = 'set';
+        amount = parseInt(cleanInput);
+    }
+
+    if (isNaN(amount)) {
+        showToast('Por favor, introduce un número válido.', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/teams/${teamId}/budget`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, action })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al ajustar presupuesto.');
+
+        showToast(data.message, 'success');
+        await loadAdminPanelData();
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
 // Utility Helpers
 function formatCurrency(val) {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
@@ -1297,4 +1505,326 @@ function showToast(msg, type = 'success') {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
     }, 3500);
+}
+
+// --- MARKET ADVANCED OPERATIONS ---
+
+async function executeClausulazo(player, clauseAmount) {
+    if (myTeam.balance < clauseAmount) {
+        showToast('Saldo insuficiente para ejecutar el clausulazo.', 'error');
+        return;
+    }
+
+    if (!confirm(`¿Estás seguro de que deseas ejecutar el clausulazo de ${player.eaPlayerName} por ${formatCurrency(clauseAmount)}?\nSe transferirá esta cantidad a ${player.owner} y el jugador pasará a formar parte de tu plantilla.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/buy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eaPlayerName: player.eaPlayerName })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al ejecutar el clausulazo.');
+
+        showToast(data.message, 'success');
+        await enterLeague(currentLeagueId);
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
+function openClauseModal(player, currentClause) {
+    clausePlayerName.textContent = player.eaPlayerName;
+    clauseCurrentVal.textContent = formatCurrency(currentClause);
+    clauseBalanceVal.textContent = formatCurrency(myTeam.balance);
+    clauseNewAmount.value = currentClause + 500000;
+    clauseNewAmount.setAttribute('data-current-val', currentClause);
+    clauseNewAmount.min = currentClause + 1;
+    clauseCostVal.textContent = '500.000 €';
+    clauseCostVal.className = 'text-red';
+    clauseForm.setAttribute('data-player-name', player.eaPlayerName);
+    clauseModal.classList.add('open');
+}
+
+async function handleClauseSubmit(e) {
+    e.preventDefault();
+    const playerName = clauseForm.getAttribute('data-player-name');
+    const newClause = parseInt(clauseNewAmount.value);
+    const currentClause = parseInt(clauseNewAmount.getAttribute('data-current-val'));
+    const cost = newClause - currentClause;
+
+    if (newClause <= currentClause) {
+        showToast('La nueva cláusula debe ser superior a la actual.', 'error');
+        return;
+    }
+    if (myTeam.balance < cost) {
+        showToast('No tienes suficiente saldo para subir la cláusula.', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/players/${playerName}/clause`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newClauseValue: newClause })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al subir la cláusula.');
+
+        showToast(data.message, 'success');
+        clauseModal.classList.remove('open');
+        await enterLeague(currentLeagueId);
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
+function openListMarketModal(player) {
+    listMarketPlayerName.textContent = player.eaPlayerName;
+    listMarketPlayerValue.textContent = formatCurrency(player.price);
+    listMarketPrice.value = player.price;
+    listMarketForm.setAttribute('data-player-name', player.eaPlayerName);
+    listMarketModal.classList.add('open');
+}
+
+async function handleListMarketSubmit(e) {
+    e.preventDefault();
+    const playerName = listMarketForm.getAttribute('data-player-name');
+    const price = parseInt(listMarketPrice.value);
+
+    if (price <= 0) {
+        showToast('El precio debe ser superior a 0.', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market/list`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eaPlayerName: playerName, askingPrice: price })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al listar jugador.');
+
+        showToast(data.message, 'success');
+        listMarketModal.classList.remove('open');
+        await enterLeague(currentLeagueId);
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
+async function handleUnlistMarket(playerName) {
+    if (!confirm(`¿Estás seguro de que deseas retirar a ${playerName} del mercado de transferibles?`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market/unlist`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eaPlayerName: playerName })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al retirar jugador.');
+
+        showToast(data.message, 'success');
+        await enterLeague(currentLeagueId);
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
+async function handleBidSubmit(e) {
+    e.preventDefault();
+    const playerName = bidForm.getAttribute('data-player-name');
+    const amount = parseInt(bidAmountInput.value);
+
+    if (amount <= 0) {
+        showToast('El precio ofertado debe ser mayor que 0.', 'error');
+        return;
+    }
+    if (myTeam.balance < amount) {
+        showToast('Saldo insuficiente para enviar esta puja.', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market/bid`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eaPlayerName: playerName, bidAmount: amount })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al enviar puja.');
+
+        showToast(data.message, 'success');
+        bidModal.classList.remove('open');
+        await loadUserMarket(); // Refresh listed users
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
+async function loadUserMarket() {
+    userMarketList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando transferibles...</td></tr>`;
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market/listings`);
+        if (!res.ok) throw new Error('No se pudieron obtener los transferibles.');
+        const listings = await res.json();
+        marketListings = listings;
+
+        userMarketList.innerHTML = '';
+        const othersListings = listings.filter(l => !l.isMine);
+
+        if (othersListings.length === 0) {
+            userMarketList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No hay jugadores transferibles de otros managers en este momento.</td></tr>`;
+            return;
+        }
+
+        othersListings.forEach(l => {
+            const p = l.playerInfo;
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <div style="font-weight: 700; color: #f8fafc;">${l.eaPlayerName}</div>
+                </td>
+                <td>${l.sellerTeamName}</td>
+                <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
+                <td class="text-right price-text">${formatCurrency(p.price)}</td>
+                <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(l.askingPrice)}</td>
+                <td class="text-center">
+                    <button class="btn btn-warning btn-xs btn-open-bid" data-name="${l.eaPlayerName}" data-seller="${l.sellerTeamName}" data-asking="${l.askingPrice}" data-value="${p.price}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-gavel"></i> Pujar</button>
+                </td>
+            `;
+
+            row.querySelector('.btn-open-bid').addEventListener('click', () => {
+                bidPlayerName.textContent = l.eaPlayerName;
+                bidSellerTeamVal.textContent = l.sellerTeamName;
+                bidAskingPriceVal.textContent = formatCurrency(l.askingPrice);
+                bidBalanceVal.textContent = formatCurrency(myTeam.balance);
+                bidAmountInput.value = l.askingPrice;
+                bidForm.setAttribute('data-player-name', l.eaPlayerName);
+                bidModal.classList.add('open');
+            });
+
+            userMarketList.appendChild(row);
+        });
+    } catch (e) {
+        console.error(e);
+        userMarketList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red">${e.message}</td></tr>`;
+    }
+}
+
+async function loadMarketBids() {
+    bidsReceivedList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando ofertas...</td></tr>`;
+    bidsSentList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando ofertas...</td></tr>`;
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market/bids`);
+        if (!res.ok) throw new Error('No se pudieron obtener las ofertas.');
+        const { received, sent } = await res.json();
+
+        // Update badge count
+        if (received.length > 0) {
+            bidsCountBadge.textContent = received.length;
+            bidsCountBadge.style.display = 'inline-block';
+        } else {
+            bidsCountBadge.style.display = 'none';
+        }
+
+        // Render Received
+        bidsReceivedList.innerHTML = '';
+        if (received.length === 0) {
+            bidsReceivedList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted">No has recibido ofertas todavía.</td></tr>`;
+        } else {
+            received.forEach(b => {
+                const p = b.playerInfo;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div style="font-weight: 700; color: #f8fafc;">${b.eaPlayerName}</div>
+                    </td>
+                    <td>${b.bidderTeamName}</td>
+                    <td class="text-right price-text">${formatCurrency(p.price)}</td>
+                    <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(b.bidAmount)}</td>
+                    <td class="text-center">
+                        <button class="btn btn-success btn-xs btn-accept-bid" data-id="${b._id}" style="margin-right: 4px;"><i class="fa-solid fa-check"></i> Aceptar</button>
+                        <button class="btn btn-danger btn-xs btn-reject-bid" data-id="${b._id}"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+                    </td>
+                `;
+
+                row.querySelector('.btn-accept-bid').addEventListener('click', () => respondBid(b._id, 'accept'));
+                row.querySelector('.btn-reject-bid').addEventListener('click', () => respondBid(b._id, 'reject'));
+                bidsReceivedList.appendChild(row);
+            });
+        }
+
+        // Render Sent
+        bidsSentList.innerHTML = '';
+        if (sent.length === 0) {
+            bidsSentList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted">No has enviado ofertas todavía.</td></tr>`;
+        } else {
+            sent.forEach(b => {
+                const p = b.playerInfo;
+                const row = document.createElement('tr');
+                let statusBadge = '';
+                if (b.status === 'pending') {
+                    statusBadge = `<span class="badge" style="background: #eab308; color: #1e293b; border: none; font-size: 0.75rem; border-radius: 4px; padding: 2px 6px;">Pendiente</span>`;
+                } else if (b.status === 'accepted') {
+                    statusBadge = `<span class="badge" style="background: #22c55e; color: #ffffff; border: none; font-size: 0.75rem; border-radius: 4px; padding: 2px 6px;">Aceptada</span>`;
+                } else if (b.status === 'rejected') {
+                    statusBadge = `<span class="badge" style="background: #ef4444; color: #ffffff; border: none; font-size: 0.75rem; border-radius: 4px; padding: 2px 6px;">Rechazada</span>`;
+                }
+
+                row.innerHTML = `
+                    <td>
+                        <div style="font-weight: 700; color: #f8fafc;">${b.eaPlayerName}</div>
+                    </td>
+                    <td>${b.sellerTeamName}</td>
+                    <td class="text-right price-text">${formatCurrency(p.price)}</td>
+                    <td class="text-right price-text text-blue" style="font-weight: 700;">${formatCurrency(b.bidAmount)}</td>
+                    <td class="text-center">${statusBadge}</td>
+                `;
+                bidsSentList.appendChild(row);
+            });
+        }
+    } catch (e) {
+        console.error(e);
+        bidsReceivedList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-red">${e.message}</td></tr>`;
+    }
+}
+
+async function respondBid(bidId, responseType) {
+    const actionText = responseType === 'accept' ? 'aceptar' : 'rechazar';
+    if (!confirm(`¿Estás seguro de que quieres ${actionText} esta oferta?`)) return;
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market/bids/${bidId}/respond`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ response: responseType })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al responder a la puja.');
+
+        showToast(data.message, 'success');
+        await enterLeague(currentLeagueId);
+        await loadMarketBids();
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
 }

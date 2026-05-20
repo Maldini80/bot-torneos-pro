@@ -112,55 +112,47 @@ async function runVpgCrawler(manual = false, onProgress = null) {
             // === FASE 2: Agrupar por rival dentro de ventana de 3h ===
             const groups = groupMatchesByOpponent(newMatches, clubId);
 
-            // === FASE 3: Procesar cada grupo (stats solo de la mejor sesión) ===
+            // === FASE 3: Procesar cada grupo (agregando sesiones si hay desconexiones) ===
             for (const group of groups) {
                 // Insertar TODAS las sesiones en scanned_matches (datos crudos)
                 for (const match of group) {
                     await matchColl.insertOne(match);
                 }
 
-                // Elegir la sesión con más datos para procesar stats
-                const bestMatch = findBestSession(group, clubId);
+                // Agregamos las estadísticas de todas las sesiones del grupo (DNF inteligente)
+                const aggregated = aggregateGroupStats(group, clubId);
+                const isShortMatch = aggregated.maxSecs > 0 && aggregated.maxSecs < 5200;
 
                 if (group.length > 1) {
-                    console.log(`[CRAWLER] 🔗 ${group.length} sesiones fusionadas vs mismo rival para ${team.name}. Stats de la sesión más completa.`);
+                    console.log(`[CRAWLER] 🔗 ${group.length} sesiones fusionadas vs mismo rival para ${team.name}. Goles: ${aggregated.goals} - ${aggregated.goalsAgainst} (${Math.floor(aggregated.maxSecs/60)} min totales).`);
                 }
 
-                // --- DNF inteligente ---
-                let matchMaxSecs = 0;
-                if (bestMatch.players && bestMatch.players[clubId]) {
-                    Object.values(bestMatch.players[clubId]).forEach(p => {
-                        const sec = parseInt(p.secondsPlayed || 0);
-                        if (sec > matchMaxSecs) matchMaxSecs = sec;
-                    });
-                }
-                const isShortMatch = matchMaxSecs > 0 && matchMaxSecs < 5200;
+                // Process players (con los datos agregados)
+                for (const playerName in aggregated.players) {
+                    const player = aggregated.players[playerName];
+                    
+                    const pm = player.passesMade || 0;
+                    const sh = player.shots || 0;
+                    const tk = player.tacklesMade || 0;
+                    const hasRealStats = (pm + sh + tk) > 0;
 
-                // Process players (solo de la mejor sesión)
-                const goalsAgainstThisMatch = bestMatch.clubs && bestMatch.clubs[clubId] ? parseInt(bestMatch.clubs[clubId].goalsAgainst || 0) : 0;
-                if (bestMatch.players && bestMatch.players[clubId]) {
-                    const playersData = bestMatch.players[clubId];
-                    for (const playerId in playersData) {
-                        const player = playersData[playerId];
-                        const playerName = player.playername;
-                        
-                        const pm = parseInt(player.passesMade || player.passesmade || 0);
-                        const sh = parseInt(player.shots || 0);
-                        const tk = parseInt(player.tacklesMade || player.tacklesmade || 0);
-                        const hasRealStats = (pm + sh + tk) > 0;
-
-                        if (isShortMatch && !hasRealStats) {
-                            console.log(`[CRAWLER] 🔌 DNF sin datos para ${playerName} (${team.name}) en partido ${bestMatch.matchId} (${Math.floor(matchMaxSecs/60)} min). Solo rating.`);
-                            await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name);
-                        } else {
-                            await updatePlayerProfile(playerColl, playerName, player, team.name, goalsAgainstThisMatch);
-                        }
+                    if (isShortMatch && !hasRealStats) {
+                        console.log(`[CRAWLER] 🔌 DNF sin datos para ${playerName} (${team.name}) en grupo de ${group.length} sesiones. Solo rating.`);
+                        await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name);
+                    } else {
+                        await updatePlayerProfile(playerColl, playerName, player, team.name, aggregated.goalsAgainst);
                     }
                 }
 
-                // Process club stats (solo de la mejor sesión)
+                // Process club stats (usando la mejor sesión como base pero con los goles y goles en contra correctos de la fusión)
+                const bestMatch = findBestSession(group, clubId);
                 if (bestMatch.clubs && bestMatch.clubs[clubId]) {
-                    await updateClubProfile(clubColl, clubId, team.name, bestMatch.clubs[clubId], bestMatch);
+                    const clubStats = {
+                        ...bestMatch.clubs[clubId],
+                        goals: String(aggregated.goals),
+                        goalsAgainst: String(aggregated.goalsAgainst)
+                    };
+                    await updateClubProfile(clubColl, clubId, team.name, clubStats, bestMatch);
                 }
             }
         } catch (error) {
@@ -267,7 +259,7 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
         'stats.redCards': getVal(matchData, 'redCards', 'redcards'),
         'stats.yellowCards': getVal(matchData, 'yellowCards', 'yellowcards'),
         'stats.mom': getVal(matchData, 'mom'),
-        'stats.cleanSheets': (isGK && goalsAgainstThisMatch === 0) ? 1 : 0,
+        'stats.cleanSheets': (goalsAgainstThisMatch === 0) ? 1 : 0,
         'stats.goalsConceded': isGK ? goalsAgainstThisMatch : 0
     };
 
@@ -436,6 +428,147 @@ function findBestSession(group, clubId) {
     }
 
     return best;
+}
+
+/**
+ * Agrega y fusiona las estadísticas de un grupo de sesiones del mismo partido (desconexiones).
+ */
+function aggregateGroupStats(group, clubId) {
+    let totalGoals = 0;
+    let totalGoalsAgainst = 0;
+    let maxSecs = 0;
+    const aggregatedPlayers = {};
+
+    const getVal = (obj, ...keys) => {
+        for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; }
+        return 0;
+    };
+
+    for (const match of group) {
+        const clubStats = match.clubs && match.clubs[String(clubId)] ? match.clubs[String(clubId)] : {};
+        let goals = parseInt(clubStats.goals || 0);
+        let goalsAgainst = parseInt(clubStats.goalsAgainst || 0);
+
+        const opponentId = Object.keys(match.clubs || {}).find(id => id !== String(clubId));
+
+        // Detectar goles fantasma del 3-0 DNF de EA
+        if ((goals === 3 && goalsAgainst === 0) || (goals === 0 && goalsAgainst === 3)) {
+            let maxGoalsConceded = 0;
+            if (match.players && match.players[String(clubId)]) {
+                Object.values(match.players[String(clubId)]).forEach(p => {
+                    const conceded = getVal(p, 'goalsconceded', 'goalsConceded');
+                    if (conceded > maxGoalsConceded) maxGoalsConceded = conceded;
+                });
+            }
+            let maxOppGoalsConceded = 0;
+            if (match.players && opponentId && match.players[opponentId]) {
+                Object.values(match.players[opponentId]).forEach(p => {
+                    const conceded = getVal(p, 'goalsconceded', 'goalsConceded');
+                    if (conceded > maxOppGoalsConceded) maxOppGoalsConceded = conceded;
+                });
+            }
+            
+            let trueOurGoals = maxOppGoalsConceded;  // Lo que el rival encajó = nuestros goles
+            let trueOppGoals = maxGoalsConceded;     // Lo que nosotros encajamos = goles del rival
+            
+            if (trueOurGoals === 0 && trueOppGoals === 0) {
+                let realOur = 0, realOpp = 0;
+                if (match.players && match.players[String(clubId)]) {
+                    realOur = Object.values(match.players[String(clubId)]).reduce((s, p) => s + getVal(p, 'goals'), 0);
+                }
+                if (match.players && opponentId && match.players[opponentId]) {
+                    realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + getVal(p, 'goals'), 0);
+                }
+                if (realOur > 0 || realOpp > 0) {
+                    trueOurGoals = realOur;
+                    trueOppGoals = realOpp;
+                }
+            }
+
+            if (goals !== trueOurGoals || goalsAgainst !== trueOppGoals) {
+                goals = trueOurGoals;
+                goalsAgainst = trueOppGoals;
+            }
+        }
+
+        totalGoals += goals;
+        totalGoalsAgainst += goalsAgainst;
+
+        // Sumar estadísticas de los jugadores
+        if (match.players && match.players[String(clubId)]) {
+            const playersData = match.players[String(clubId)];
+            for (const playerId in playersData) {
+                const player = playersData[playerId];
+                const playerName = player.playername || player.playerName || playerId;
+                const secs = parseInt(player.secondsPlayed || player.secondsplayed || 0);
+                const rating = parseFloat(player.rating || 0);
+
+                if (secs > maxSecs) maxSecs = secs;
+
+                if (!aggregatedPlayers[playerName]) {
+                    aggregatedPlayers[playerName] = {
+                        playername: playerName,
+                        pos: player.pos,
+                        archetypeid: player.archetypeid,
+                        goals: 0,
+                        assists: 0,
+                        passesMade: 0,
+                        passesAttempted: 0,
+                        tacklesMade: 0,
+                        tacklesAttempted: 0,
+                        shots: 0,
+                        shotsOnTarget: 0,
+                        interceptions: 0,
+                        saves: 0,
+                        redCards: 0,
+                        yellowCards: 0,
+                        mom: 0,
+                        _bestRating: rating,
+                        _maxRatingSecs: secs,
+                        vproattr: player.vproattr
+                    };
+                } else {
+                    // Tomar la posición y rating de la sesión donde haya jugado más tiempo
+                    if (secs > aggregatedPlayers[playerName]._maxRatingSecs) {
+                        aggregatedPlayers[playerName]._maxRatingSecs = secs;
+                        aggregatedPlayers[playerName]._bestRating = rating;
+                        aggregatedPlayers[playerName].pos = player.pos;
+                        aggregatedPlayers[playerName].archetypeid = player.archetypeid;
+                        if (player.vproattr) aggregatedPlayers[playerName].vproattr = player.vproattr;
+                    }
+                }
+
+                aggregatedPlayers[playerName].goals += getVal(player, 'goals');
+                aggregatedPlayers[playerName].assists += getVal(player, 'assists');
+                aggregatedPlayers[playerName].passesMade += getVal(player, 'passesMade', 'passesmade', 'passescompleted');
+                aggregatedPlayers[playerName].passesAttempted += getVal(player, 'passesAttempted', 'passesattempted', 'passattempts');
+                aggregatedPlayers[playerName].tacklesMade += getVal(player, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
+                aggregatedPlayers[playerName].tacklesAttempted += getVal(player, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
+                aggregatedPlayers[playerName].shots += getVal(player, 'shots');
+                aggregatedPlayers[playerName].shotsOnTarget += getVal(player, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal');
+                aggregatedPlayers[playerName].interceptions += getVal(player, 'interceptions');
+                aggregatedPlayers[playerName].saves += getVal(player, 'saves');
+                aggregatedPlayers[playerName].redCards += getVal(player, 'redCards', 'redcards');
+                aggregatedPlayers[playerName].yellowCards += getVal(player, 'yellowCards', 'yellowcards');
+                aggregatedPlayers[playerName].mom = Math.max(aggregatedPlayers[playerName].mom, getVal(player, 'mom'));
+            }
+        }
+    }
+
+    // Mapear el mejor rating a rating
+    for (const playerName in aggregatedPlayers) {
+        const p = aggregatedPlayers[playerName];
+        p.rating = p._bestRating;
+        delete p._bestRating;
+        delete p._maxRatingSecs;
+    }
+
+    return {
+        goals: totalGoals,
+        goalsAgainst: totalGoalsAgainst,
+        maxSecs,
+        players: aggregatedPlayers
+    };
 }
 
 export { runVpgCrawler };

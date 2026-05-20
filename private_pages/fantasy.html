@@ -172,42 +172,125 @@
                         <div class="market-status-banner" id="market-closed-banner" style="display: none;">
                             <i class="fa-solid fa-lock text-red"></i> El mercado está cerrado por el Administrador. No se permiten fichajes ni ventas.
                         </div>
-                        <div class="filter-bar">
-                            <div class="search-box">
-                                <i class="fa-solid fa-magnifying-glass"></i>
-                                <input type="text" id="market-search" placeholder="Buscar jugador o club...">
+
+                        <!-- Sub-tab Bar -->
+                        <div class="market-sub-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid #334155; padding-bottom: 0.75rem; overflow-x: auto; white-space: nowrap;">
+                            <button class="btn btn-xs btn-primary market-sub-btn active" data-sub-tab="pc-market" style="border: none;"><i class="fa-solid fa-server"></i> Libres (PC)</button>
+                            <button class="btn btn-xs btn-secondary market-sub-btn" data-sub-tab="user-market" style="border: none; background: #334155;"><i class="fa-solid fa-users"></i> Transferibles</button>
+                            <button class="btn btn-xs btn-secondary market-sub-btn" data-sub-tab="bids-market" style="border: none; background: #334155;"><i class="fa-solid fa-handshake"></i> Ofertas <span id="bids-count-badge" class="badge btn-danger" style="display: none; padding: 0.15rem 0.35rem; font-size: 0.7rem; border: none; border-radius: 10px; margin-left: 4px;">0</span></button>
+                        </div>
+
+                        <!-- Sub-content 1: Free agents from PC -->
+                        <div class="market-sub-content-pane" id="sub-pc-market">
+                            <div class="filter-bar">
+                                <div class="search-box">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="market-search" placeholder="Buscar jugador o club...">
+                                </div>
+                                <div class="select-box">
+                                    <select id="market-pos-filter" class="form-select-sm">
+                                        <option value="">Posiciones</option>
+                                        <option value="POR">Portero</option>
+                                        <option value="DFC">Defensa</option>
+                                        <option value="MC">Medio</option>
+                                        <option value="DC">Delantero</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="select-box">
-                                <select id="market-pos-filter" class="form-select-sm">
-                                    <option value="">Posiciones</option>
-                                    <option value="POR">Portero</option>
-                                    <option value="DFC">Defensa</option>
-                                    <option value="MC">Medio</option>
-                                    <option value="DC">Delantero</option>
-                                </select>
+                            <div class="table-scroll-container">
+                                <table class="fantasy-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Jugador</th>
+                                            <th class="col-hide-md">Club</th>
+                                            <th>Pos</th>
+                                            <th class="text-center col-hide-sm">Media</th>
+                                            <th class="text-center">Pts</th>
+                                            <th class="text-right">Precio / Cláusula</th>
+                                            <th class="text-center">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="market-list">
+                                        <tr>
+                                            <td colspan="7" class="text-center py-4 text-muted">
+                                                <i class="fa-solid fa-spinner fa-spin"></i> Cargando jugadores...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        <div class="table-scroll-container">
-                            <table class="fantasy-table">
-                                <thead>
-                                    <tr>
-                                        <th>Jugador</th>
-                                        <th>Club</th>
-                                        <th>Pos</th>
-                                        <th class="text-center">Media</th>
-                                        <th class="text-center">Pts</th>
-                                        <th class="text-right">Precio</th>
-                                        <th class="text-center">Fichar</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="market-list">
-                                    <tr>
-                                        <td colspan="7" class="text-center py-4 text-muted">
-                                            <i class="fa-solid fa-spinner fa-spin"></i> Cargando jugadores...
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+
+                        <!-- Sub-content 2: Transfer list from other users -->
+                        <div class="market-sub-content-pane" id="sub-user-market" style="display: none;">
+                            <div class="table-scroll-container">
+                                <table class="fantasy-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Jugador</th>
+                                            <th>Dueño (Equipo)</th>
+                                            <th>Pos</th>
+                                            <th class="text-right">Valor Mercado</th>
+                                            <th class="text-right">Precio Salida</th>
+                                            <th class="text-center">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="user-market-list">
+                                        <tr>
+                                            <td colspan="6" class="text-center py-4 text-muted">No hay jugadores transferibles en este momento.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Sub-content 3: Bids and Offers negotiation -->
+                        <div class="market-sub-content-pane" id="sub-bids-market" style="display: none;">
+                            <!-- Ofertas Recibidas -->
+                            <div style="margin-bottom: 2rem;">
+                                <h4 style="color: #f8fafc; margin-bottom: 0.75rem; font-size: 1rem;"><i class="fa-solid fa-inbox text-yellow"></i> Ofertas Recibidas</h4>
+                                <div class="table-scroll-container">
+                                    <table class="fantasy-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Jugador</th>
+                                                <th>Comprador</th>
+                                                <th class="text-right">Valor Mercado</th>
+                                                <th class="text-right">Oferta</th>
+                                                <th class="text-center">Responder</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="bids-received-list">
+                                            <tr>
+                                                <td colspan="5" class="text-center py-3 text-muted">No has recibido ofertas todavía.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Ofertas Enviadas -->
+                            <div>
+                                <h4 style="color: #f8fafc; margin-bottom: 0.75rem; font-size: 1rem;"><i class="fa-solid fa-paper-plane text-blue"></i> Ofertas Enviadas</h4>
+                                <div class="table-scroll-container">
+                                    <table class="fantasy-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Jugador</th>
+                                                <th>Vendedor (Equipo)</th>
+                                                <th class="text-right">Valor Mercado</th>
+                                                <th class="text-right">Tu Puja</th>
+                                                <th class="text-center">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="bids-sent-list">
+                                            <tr>
+                                                <td colspan="5" class="text-center py-3 text-muted">No has enviado ofertas todavía.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -218,17 +301,18 @@
                                 <thead>
                                     <tr>
                                         <th>Jugador</th>
-                                        <th>Club</th>
+                                        <th class="col-hide-md">Club</th>
                                         <th>Pos</th>
-                                        <th class="text-center">Media</th>
+                                        <th class="text-center col-hide-sm">Media</th>
                                         <th class="text-center">Estado</th>
+                                        <th class="text-right">Cláusula</th>
                                         <th class="text-right">Valor</th>
-                                        <th class="text-center">Vender</th>
+                                        <th class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="squad-list">
                                     <tr>
-                                        <td colspan="7" class="text-center py-4 text-muted">No tienes jugadores. Ficha en el Mercado.</td>
+                                        <td colspan="8" class="text-center py-4 text-muted">No tienes jugadores. Ficha en el Mercado.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -252,8 +336,8 @@
                                 <tr>
                                     <th class="text-center" style="width: 70px;">Pos</th>
                                     <th>Mánager / Equipo</th>
-                                    <th class="text-center">Jugadores</th>
-                                    <th class="text-center">Formación</th>
+                                    <th class="text-center col-hide-sm">Jugadores</th>
+                                    <th class="text-center col-hide-md">Formación</th>
                                     <th class="text-right">Puntos</th>
                                     <th class="text-center" style="width: 120px;">Alineación</th>
                                 </tr>
@@ -299,6 +383,23 @@
                                         <label for="admin-league-max-parts">Máx. Participantes</label>
                                         <input type="number" id="admin-league-max-parts" min="2" max="100">
                                     </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col">
+                                        <label for="admin-league-allow-clauses">Permitir Clausulazos</label>
+                                        <select id="admin-league-allow-clauses" class="form-select">
+                                            <option value="true">Sí (Habilitado)</option>
+                                            <option value="false">No (Deshabilitado)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group col">
+                                        <label for="admin-league-clause-multiplier">Multiplicador de Cláusula</label>
+                                        <input type="number" id="admin-league-clause-multiplier" min="1.0" max="5.0" step="0.1">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="admin-league-initial-budget">Presupuesto Inicial (de nuevos registros)</label>
+                                    <input type="number" id="admin-league-initial-budget" min="1000000" max="500000000" step="1000000" class="form-control" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box;">
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
                             </form>
@@ -449,6 +550,76 @@
                 <div class="modal-player-list" id="modal-player-list">
                     <!-- Injected dynamically -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: Subir Cláusula -->
+    <div class="modal-overlay" id="clause-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Subir Cláusula - <span id="clause-player-name">Jugador</span></h3>
+                <button class="modal-close" id="clause-modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="clause-form" class="modal-form">
+                    <div style="margin-bottom: 1rem; font-size: 0.9rem; line-height: 1.4;">
+                        <div>Cláusula actual: <strong class="text-yellow" id="clause-current-val">0 €</strong></div>
+                        <div>Tu saldo disponible: <strong class="text-green" id="clause-balance-val">0 €</strong></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="clause-new-amount">Nueva Cláusula (€)</label>
+                        <input type="number" id="clause-new-amount" required min="1" placeholder="Ej: 5000000">
+                        <span class="text-muted" style="font-size: 0.8rem; display: block; margin-top: 4px;">Coste de la subida: <span id="clause-cost-val" class="text-red">0 €</span></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-arrow-trend-up"></i> Confirmar Subida</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: Poner en Lista de Transferibles -->
+    <div class="modal-overlay" id="list-market-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Poner en Venta - <span id="list-market-player-name">Jugador</span></h3>
+                <button class="modal-close" id="list-market-modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="list-market-form" class="modal-form">
+                    <div style="margin-bottom: 1rem; font-size: 0.9rem;">
+                        Valor de mercado actual: <strong class="text-blue" id="list-market-player-value">0 €</strong>
+                    </div>
+                    <div class="form-group">
+                        <label for="list-market-price">Precio de Salida (€)</label>
+                        <input type="number" id="list-market-price" required min="1" placeholder="Ej: 2000000">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-tag"></i> Poner en Venta</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 6: Realizar Oferta (Pujar) -->
+    <div class="modal-overlay" id="bid-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Enviar Oferta - <span id="bid-player-name">Jugador</span></h3>
+                <button class="modal-close" id="bid-modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="bid-form" class="modal-form">
+                    <div style="margin-bottom: 1rem; font-size: 0.9rem; line-height: 1.4;">
+                        <div>Vendedor: <strong id="bid-seller-team-val">Equipo</strong></div>
+                        <div>Precio solicitado: <strong class="text-blue" id="bid-asking-price-val">0 €</strong></div>
+                        <div>Tu saldo disponible: <strong class="text-green" id="bid-balance-val">0 €</strong></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="bid-amount">Tu Puja (€)</label>
+                        <input type="number" id="bid-amount" required min="1" placeholder="Ej: 1500000">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-gavel"></i> Enviar Puja</button>
+                </form>
             </div>
         </div>
     </div>
