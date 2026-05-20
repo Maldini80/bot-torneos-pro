@@ -5385,7 +5385,6 @@ export async function startVisualizerServer(discordClient) {
         try {
             const { name, status, maxParticipants } = req.body;
             const db = getDb();
-            const { ObjectId } = require('mongodb');
             const updateFields = {};
             if (name) updateFields.name = name.trim();
             if (status) {
@@ -5406,7 +5405,6 @@ export async function startVisualizerServer(discordClient) {
     app.delete('/api/fantasy/leagues/:id', isFantasyAdmin, async (req, res) => {
         try {
             const db = getDb();
-            const { ObjectId } = require('mongodb');
             const leagueId = req.params.id;
             await db.collection('fantasy_teams').deleteMany({ leagueId });
             await db.collection('fantasy_leagues').deleteOne({ _id: new ObjectId(leagueId) });
@@ -5421,7 +5419,6 @@ export async function startVisualizerServer(discordClient) {
     app.post('/api/fantasy/leagues/:id/toggle-market', isFantasyAdmin, async (req, res) => {
         try {
             const db = getDb();
-            const { ObjectId } = require('mongodb');
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
             if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
             const newState = !league.marketOpen;
@@ -5449,7 +5446,6 @@ export async function startVisualizerServer(discordClient) {
     app.delete('/api/fantasy/leagues/:id/teams/:teamId', isFantasyAdmin, async (req, res) => {
         try {
             const db = getDb();
-            const { ObjectId } = require('mongodb');
             await db.collection('fantasy_teams').deleteOne({ _id: new ObjectId(req.params.teamId), leagueId: req.params.id });
             res.json({ success: true, message: 'Equipo expulsado de la liga.' });
         } catch (e) {
@@ -5498,7 +5494,6 @@ export async function startVisualizerServer(discordClient) {
             const { teamId } = req.body;
             if (!teamId) return res.status(400).json({ error: 'Falta teamId' });
             const db = getDb();
-            const { ObjectId } = require('mongodb');
             await db.collection('fantasy_teams').updateOne(
                 { _id: new ObjectId(teamId), leagueId: req.params.id },
                 { $set: { approved: true } }
@@ -5518,7 +5513,6 @@ export async function startVisualizerServer(discordClient) {
             const { teamName } = req.body;
             if (!teamName || teamName.trim() === '') return res.status(400).json({ error: 'Debes elegir un nombre para tu equipo.' });
             const db = getDb();
-            const { ObjectId } = require('mongodb');
             const discordId = req.user.id;
             const leagueId = req.params.id;
 
@@ -5689,7 +5683,6 @@ export async function startVisualizerServer(discordClient) {
             const { eaPlayerName } = req.body;
             if (!eaPlayerName) return res.status(400).json({ error: 'Falta eaPlayerName' });
             const db = getDb();
-            const { ObjectId } = require('mongodb');
             const discordId = req.user.id;
             const leagueId = req.params.id;
 
@@ -5809,7 +5802,6 @@ export async function startVisualizerServer(discordClient) {
             if (!userTeam.players.includes(eaPlayerName)) return res.status(400).json({ error: 'No tienes este jugador.' });
 
             // Check market open
-            const { ObjectId } = require('mongodb');
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
             if (league && !league.marketOpen) return res.status(400).json({ error: 'El mercado está cerrado.' });
 

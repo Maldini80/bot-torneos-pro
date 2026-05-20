@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    background: radial-gradient(circle at 50% 50%, #0d1527, #070a13);
+    background: radial-gradient(circle at 50% 0%, #1e294b 0%, #0b1120 50%, #030712 100%);
     color: #f8fafc;
     min-height: 100vh;
     overflow-x: hidden;
@@ -869,7 +869,7 @@ body {
 }
 
 @media (min-width: 900px) {
-    .selector-main {
+    .selector-main.has-admin {
         grid-template-columns: 350px 1fr;
     }
 }

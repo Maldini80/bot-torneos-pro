@@ -211,8 +211,12 @@ async function checkUserSession() {
         // Toggle admin blocks
         if (currentUser.isAdmin) {
             document.querySelectorAll('.admin-only-block').forEach(el => el.style.display = 'block');
+            const selMain = document.querySelector('.selector-main');
+            if (selMain) selMain.classList.add('has-admin');
         } else {
             document.querySelectorAll('.admin-only-block').forEach(el => el.style.display = 'none');
+            const selMain = document.querySelector('.selector-main');
+            if (selMain) selMain.classList.remove('has-admin');
         }
     } catch (e) {
         console.error('Error fetching user info:', e);
