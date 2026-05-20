@@ -861,3 +861,394 @@ body {
     }
 }
 
+/* ==================== LEAGUE SELECTOR VIEW ==================== */
+.selector-main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+@media (min-width: 900px) {
+    .selector-main {
+        grid-template-columns: 350px 1fr;
+    }
+}
+
+.fantasy-card {
+    background: rgba(20, 28, 47, 0.65);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 12px;
+}
+
+.card-header h2, .card-header h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.leagues-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.league-card {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: all 0.3s ease;
+}
+
+.league-card:hover {
+    border-color: rgba(56, 189, 248, 0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 6px 20px rgba(56, 189, 248, 0.05);
+}
+
+.league-card h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.league-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.league-meta div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.league-meta div i {
+    width: 16px;
+    text-align: center;
+}
+
+.badge-success {
+    background: rgba(0, 245, 155, 0.15);
+    color: #00f59b;
+    border: 1px solid rgba(0, 245, 155, 0.3);
+}
+
+.badge-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-info {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.btn-block {
+    width: 100%;
+}
+
+/* ==================== LEAGUE NAV TAB SYSTEM ==================== */
+.league-nav {
+    display: flex;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 8px;
+}
+
+.nav-tab-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-tab-btn:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.nav-tab-btn.active {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.2);
+}
+
+.league-tab-content {
+    display: none;
+}
+
+.league-tab-content.active {
+    display: block;
+}
+
+/* ==================== LEADERBOARD ==================== */
+.leaderboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.leaderboard-table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.leaderboard-table tr.my-row {
+    background: rgba(56, 189, 248, 0.05);
+    border-left: 3px solid #38bdf8;
+}
+
+.leaderboard-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.pos-col {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+}
+
+.pos-1 { color: #facc15; text-shadow: 0 0 10px rgba(250, 204, 21, 0.4); }
+.pos-2 { color: #cbd5e1; }
+.pos-3 { color: #b45309; }
+
+.manager-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.manager-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.manager-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.team-name-text {
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.manager-username {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+/* ==================== ADMIN PANEL ==================== */
+.admin-panel-container {
+    width: 100%;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+@media (min-width: 1024px) {
+    .admin-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .full-width-card {
+        grid-column: span 2;
+    }
+}
+
+.admin-form .form-group {
+    margin-bottom: 16px;
+}
+
+.admin-form label, #admin-update-league-form label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #94a3b8;
+    text-transform: uppercase;
+}
+
+.admin-form input, .admin-form select, 
+#admin-update-league-form input, #admin-update-league-form select {
+    width: 100%;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #f8fafc;
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.admin-form input:focus, .admin-form select:focus,
+#admin-update-league-form input:focus, #admin-update-league-form select:focus {
+    outline: none;
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+}
+
+.form-row {
+    display: flex;
+    gap: 16px;
+}
+
+.form-row .col {
+    flex: 1;
+}
+
+.admin-actions-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.action-card {
+    background: rgba(15, 23, 42, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.action-card h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.action-card p {
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+.text-red {
+    color: #ef4444;
+}
+
+/* ==================== MODALS & RIVAL VIEW ==================== */
+.modal-large {
+    max-width: 600px;
+    width: 90%;
+}
+
+.rival-stats {
+    display: flex;
+    justify-content: space-around;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.rival-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.rival-stat .label {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.rival-stat .value {
+    font-size: 1.2rem;
+    font-family: 'Outfit', sans-serif;
+}
+
+.mini-field .soccer-field {
+    height: 380px;
+    background: radial-gradient(circle, #14532d, #052e16);
+    border-radius: 10px;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.mini-field .field-player-node .player-circle {
+    width: 36px;
+    height: 36px;
+    font-size: 0.75rem;
+}
+
+.mini-field .field-player-node .player-name-plate {
+    font-size: 0.55rem;
+    padding: 0 4px;
+}
+
+.market-status-banner {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    color: #fca5a5;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-form .form-group {
+    margin-bottom: 16px;
+}
+
+.modal-form label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.modal-form input {
+    width: 100%;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #fff;
+    font-family: inherit;
+}
+
