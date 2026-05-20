@@ -4760,7 +4760,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Link team (includes auto-fetching and applying logo from VPG)
-    app.post('/api/vpg/link', isAdmin, async (req, res) => {
+    app.post('/api/vpg/link', isOwner, async (req, res) => {
         try {
             const { localTeamId, vpgTeamSlug, vpgLeagueSlug } = req.body;
             if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });
@@ -4797,7 +4797,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Unlink team
-    app.post('/api/vpg/unlink', isAdmin, async (req, res) => {
+    app.post('/api/vpg/unlink', isOwner, async (req, res) => {
         try {
             const { localTeamId } = req.body;
             if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });
@@ -4815,7 +4815,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Apply VPG logo to local team
-    app.post('/api/vpg/apply-logo', isAdmin, async (req, res) => {
+    app.post('/api/vpg/apply-logo', isOwner, async (req, res) => {
         try {
             const { localTeamId, logoUrl } = req.body;
             if (!localTeamId || !logoUrl) return res.status(400).json({ error: 'Falta localTeamId o logoUrl' });

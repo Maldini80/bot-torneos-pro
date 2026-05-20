@@ -1365,7 +1365,7 @@
                     ${user.isAdmin ? '<span class="badge badge-admin">Admin</span>' : user.isReferee ? '<span class="badge badge-ref">Referee</span>' : ''}
                 `;
                 
-                if (user.isAdmin || user.isReferee) {
+                if (user.isAdmin) {
                     document.body.classList.add('is-admin');
                 }
             } catch (e) {

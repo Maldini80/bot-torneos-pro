@@ -445,19 +445,15 @@ class DashboardApp {
             window.location.href = '/logout';
         };
 
-        // Show VPG & VPN Sync nav link only for Admins & Referees
+        // Show VPG & VPN Sync nav link only for the Owner (isAdmin)
         fetch('/api/user')
             .then(res => res.json())
             .then(userData => {
-                if (userData) {
-                    if (userData.isAdmin || userData.isReferee) {
-                        const btn = document.getElementById('nav-vpg-sync');
-                        if (btn) btn.style.display = 'inline-block';
-                    }
-                    if (userData.isAdmin) {
-                        const vpnBtn = document.getElementById('nav-vpn-sync');
-                        if (vpnBtn) vpnBtn.style.display = 'inline-block';
-                    }
+                if (userData && userData.isAdmin) {
+                    const btn = document.getElementById('nav-vpg-sync');
+                    if (btn) btn.style.display = 'inline-block';
+                    const vpnBtn = document.getElementById('nav-vpn-sync');
+                    if (vpnBtn) vpnBtn.style.display = 'inline-block';
                 }
             })
             .catch(err => console.error('Error checking VPG/VPN Sync permissions:', err));
