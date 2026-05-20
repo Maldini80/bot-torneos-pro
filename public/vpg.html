@@ -1372,8 +1372,13 @@
                     
                     const avatar = p.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png';
                     
-                    const isPsnDifferent = p.matched && p.matchedPsnId && (p.matchedPsnId.toLowerCase() !== p.vpgUsername.toLowerCase());
-                    const psnHtml = isPsnDifferent ? `<div class="match-info-detail">PSN / EA ID: <strong style="color: var(--neon-glow);">${p.matchedPsnId}</strong></div>` : '';
+                    let psnHtml = '';
+                    if (p.vpgPsnId && p.vpgPsnId.toLowerCase() !== p.vpgUsername.toLowerCase()) {
+                        psnHtml += `<div class="match-info-detail">PSN ID: <strong style="color: var(--neon-glow);">${p.vpgPsnId}</strong></div>`;
+                    }
+                    if (p.vpgEaId && p.vpgEaId.toLowerCase() !== p.vpgUsername.toLowerCase() && (!p.vpgPsnId || p.vpgEaId.toLowerCase() !== p.vpgPsnId.toLowerCase())) {
+                        psnHtml += `<div class="match-info-detail">EA ID: <strong style="color: var(--neon-glow);">${p.vpgEaId}</strong></div>`;
+                    }
                     const discordHtml = p.matched ? `<div class="match-info-detail">Discord: <span>${p.matchedDiscordTag}</span></div>` : '';
 
                     card.innerHTML = `
