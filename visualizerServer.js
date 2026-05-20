@@ -5124,7 +5124,22 @@ export async function startVisualizerServer(discordClient) {
         return allTeams;
     }
 
-    app.get('/vpn.html', (req, res) => res.sendFile('vpn.html', { root: 'public' }));
+    // --- MIDDLEWARE OWNER ONLY ---
+    function isOwner(req, res, next) {
+        if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+        if (req.user.id === process.env.OWNER_DISCORD_ID) {
+            next();
+        } else {
+            res.status(403).json({ error: 'No tienes permisos de propietario.' });
+        }
+    }
+
+    app.get('/vpn.html', (req, res) => {
+        if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+            return res.redirect('/home.html');
+        }
+        res.sendFile('vpn.html', { root: 'public' });
+    });
 
     // List VPN leagues
     app.get('/api/vpn/leagues', async (req, res) => {
@@ -5160,7 +5175,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Search candidate team
-    app.get('/api/vpn/search-candidate', async (req, res) => {
+    app.get('/api/vpn/search-candidate', isOwner, async (req, res) => {
         try {
             const { name, abbr } = req.query;
             if (!name) return res.status(400).json({ error: 'Falta el nombre del equipo' });
@@ -5215,7 +5230,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // List local teams with their vpn integration fields
-    app.get('/api/vpn/local-teams', async (req, res) => {
+    app.get('/api/vpn/local-teams', isOwner, async (req, res) => {
         try {
             const testDb = getDb('test');
             const teams = await testDb.collection('teams')
@@ -5229,7 +5244,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Link a team to VPN
-    app.post('/api/vpn/link', isAdmin, async (req, res) => {
+    app.post('/api/vpn/link', isOwner, async (req, res) => {
         try {
             const { localTeamId, vpnTeamId, vpnTeamSlug, vpnLeagueId, vpnLeagueSlug } = req.body;
             if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });
@@ -5254,7 +5269,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Unlink a team from VPN
-    app.post('/api/vpn/unlink', isAdmin, async (req, res) => {
+    app.post('/api/vpn/unlink', isOwner, async (req, res) => {
         try {
             const { localTeamId } = req.body;
             if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });

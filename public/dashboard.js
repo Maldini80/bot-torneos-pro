@@ -449,11 +449,15 @@ class DashboardApp {
         fetch('/api/user')
             .then(res => res.json())
             .then(userData => {
-                if (userData && (userData.isAdmin || userData.isReferee)) {
-                    const btn = document.getElementById('nav-vpg-sync');
-                    if (btn) btn.style.display = 'inline-block';
-                    const vpnBtn = document.getElementById('nav-vpn-sync');
-                    if (vpnBtn) vpnBtn.style.display = 'inline-block';
+                if (userData) {
+                    if (userData.isAdmin || userData.isReferee) {
+                        const btn = document.getElementById('nav-vpg-sync');
+                        if (btn) btn.style.display = 'inline-block';
+                    }
+                    if (userData.isAdmin) {
+                        const vpnBtn = document.getElementById('nav-vpn-sync');
+                        if (vpnBtn) vpnBtn.style.display = 'inline-block';
+                    }
                 }
             })
             .catch(err => console.error('Error checking VPG/VPN Sync permissions:', err));
