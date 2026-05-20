@@ -168,7 +168,14 @@ const adminLeagueInitialBudget = document.getElementById('admin-league-initial-b
 const btnAdminToggleMarket = document.getElementById('btn-admin-toggle-market');
 const btnAdminRecalculate = document.getElementById('btn-admin-recalculate');
 const btnAdminDeleteLeague = document.getElementById('btn-admin-delete-league');
+const btnAdminRebuildStats = document.getElementById('btn-admin-rebuild-stats');
+const rebuildStatsProgress = document.getElementById('rebuild-stats-progress');
+const btnOwnerRebuildStats = document.getElementById('btn-owner-rebuild-stats');
+const ownerRebuildProgress = document.getElementById('owner-rebuild-progress');
 const adminParticipantsList = document.getElementById('admin-participants-list');
+const adminSearchPlayerInput = document.getElementById('admin-search-player-input');
+const btnAdminSearchPlayer = document.getElementById('btn-admin-search-player');
+const adminSearchPlayerResults = document.getElementById('admin-search-player-results');
 
 // DOM Elements - Modals
 const joinLeagueModal = document.getElementById('join-league-modal');
@@ -250,6 +257,13 @@ async function checkUserSession() {
             document.querySelectorAll('.admin-only-block').forEach(el => el.style.display = 'none');
             const selMain = document.querySelector('.selector-main');
             if (selMain) selMain.classList.remove('has-admin');
+        }
+        // Owner-only elements (rebuild stats, etc.) - only visible for the owner, not referees
+        if (currentUser.isOwner) {
+            document.querySelectorAll('.owner-only-block').forEach(el => el.style.display = 'block');
+            await checkActiveRebuild();
+        } else {
+            document.querySelectorAll('.owner-only-block').forEach(el => el.style.display = 'none');
         }
     } catch (e) {
         console.error('Error fetching user info:', e);
@@ -396,6 +410,38 @@ function setupEventHandlers() {
     btnAdminToggleMarket.addEventListener('click', handleAdminToggleMarket);
     btnAdminRecalculate.addEventListener('click', handleAdminRecalculate);
     btnAdminDeleteLeague.addEventListener('click', handleAdminDeleteLeague);
+    if (btnAdminRebuildStats) btnAdminRebuildStats.addEventListener('click', () => executeRebuildStats(btnAdminRebuildStats, rebuildStatsProgress));
+    if (btnOwnerRebuildStats) btnOwnerRebuildStats.addEventListener('click', () => executeRebuildStats(btnOwnerRebuildStats, ownerRebuildProgress));
+
+    // Rebuild Stats filters toggle
+    document.querySelectorAll('.chk-use-filters').forEach(chk => {
+        chk.addEventListener('change', (e) => {
+            const container = e.target.closest('.rebuild-filters');
+            if (container) {
+                const inputsArea = container.querySelector('.filter-inputs-area');
+                if (inputsArea) {
+                    inputsArea.style.display = e.target.checked ? 'flex' : 'none';
+                }
+            }
+        });
+    });
+
+    // VPG date loading buttons
+    document.querySelectorAll('.btn-load-vpg-dates').forEach(btn => {
+        btn.addEventListener('click', () => loadVpgOfficialDates(btn));
+    });
+
+    // Admin player price override handlers
+    if (btnAdminSearchPlayer) {
+        btnAdminSearchPlayer.addEventListener('click', handleAdminPlayerSearch);
+    }
+    if (adminSearchPlayerInput) {
+        adminSearchPlayerInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                handleAdminPlayerSearch();
+            }
+        });
+    }
 }
 
 // VIEW 1: Show Selector and Fetch All Leagues
@@ -1395,6 +1441,248 @@ async function handleAdminRecalculate() {
     }
 }
 
+// Admin Rebuild Stats
+let rebuildPollInterval = null;
+
+async function checkActiveRebuild() {
+    if (!currentUser || !currentUser.isOwner) return;
+    try {
+        const res = await fetch('/api/fantasy/admin/rebuild-stats/status');
+        if (!res.ok) return;
+        const status = await res.json();
+        if (status && status.running) {
+            // Rebuild is running! Set up UI for both possible triggers
+            const startPolling = (btn, prog) => {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+                }
+                if (prog) {
+                    prog.style.display = 'block';
+                    prog.textContent = status.progress || 'Procesando...';
+                }
+            };
+            
+            startPolling(btnOwnerRebuildStats, ownerRebuildProgress);
+            startPolling(btnAdminRebuildStats, rebuildStatsProgress);
+            
+            if (rebuildPollInterval) clearInterval(rebuildPollInterval);
+            rebuildPollInterval = setInterval(async () => {
+                try {
+                    const statusRes = await fetch('/api/fantasy/admin/rebuild-stats/status');
+                    const currentStatus = await statusRes.json();
+                    
+                    if (ownerRebuildProgress) ownerRebuildProgress.textContent = currentStatus.progress || 'Procesando...';
+                    if (rebuildStatsProgress) rebuildStatsProgress.textContent = currentStatus.progress || 'Procesando...';
+                    
+                    if (!currentStatus.running) {
+                        clearInterval(rebuildPollInterval);
+                        rebuildPollInterval = null;
+                        
+                        const finishPolling = (btn) => {
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = '<i class="fa-solid fa-hammer"></i> Reconstruir';
+                            }
+                        };
+                        finishPolling(btnOwnerRebuildStats);
+                        finishPolling(btnAdminRebuildStats);
+                        
+                        if (currentStatus.error) {
+                            showToast(`Error en reconstrucción: ${currentStatus.error}`, 'error');
+                        } else {
+                            showToast('¡Reconstrucción de estadísticas completada!', 'success');
+                            if (currentLeagueId) {
+                                await loadAdminPanelData();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error polling rebuild status:', e);
+                }
+            }, 5000);
+        }
+    } catch (e) {
+        console.error('Error checking active rebuild status:', e);
+    }
+}
+
+// Load official match dates from VPG calendar
+async function loadVpgOfficialDates(btnEl) {
+    const container = btnEl.closest('.rebuild-filters');
+    if (!container) return;
+    const statusEl = container.querySelector('.vpg-dates-status');
+    const chipsEl = container.querySelector('.vpg-dates-chips');
+
+    btnEl.disabled = true;
+    btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cargando...';
+    if (statusEl) statusEl.textContent = 'Consultando calendario VPG...';
+
+    try {
+        const res = await fetch('/api/vpg/official-match-dates');
+        if (!res.ok) throw new Error('Error al obtener fechas');
+        const data = await res.json();
+        const dates = data.dates || [];
+        const timeRange = data.timeRange || {};
+
+        if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-check text-green"></i> ${dates.length} fechas oficiales cargadas (${data.teamSlug})`;
+
+        // Update time range inputs with crawler settings
+        if (timeRange.start) {
+            const startInput = container.querySelector('.inp-start-time');
+            if (startInput) startInput.value = timeRange.start;
+        }
+        if (timeRange.end) {
+            const endInput = container.querySelector('.inp-end-time');
+            if (endInput) endInput.value = timeRange.end;
+        }
+
+        // Render date chips
+        if (chipsEl) {
+            chipsEl.innerHTML = '';
+            const dayNames = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+            dates.forEach(dateStr => {
+                const d = new Date(dateStr + 'T12:00:00');
+                const dayName = dayNames[d.getDay()];
+                const chip = document.createElement('span');
+                chip.className = 'vpg-date-chip active';
+                chip.dataset.date = dateStr;
+                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); font-weight: 600;';
+                chip.innerHTML = `<i class="fa-solid fa-calendar-day" style="font-size: 0.65rem;"></i> ${dateStr} <span style="opacity: 0.7; text-transform: uppercase;">${dayName}</span>`;
+                chip.addEventListener('click', () => {
+                    chip.classList.toggle('active');
+                    if (chip.classList.contains('active')) {
+                        chip.style.background = 'rgba(245,158,11,0.2)';
+                        chip.style.color = '#f59e0b';
+                        chip.style.borderColor = 'rgba(245,158,11,0.4)';
+                    } else {
+                        chip.style.background = 'rgba(100,116,139,0.15)';
+                        chip.style.color = '#64748b';
+                        chip.style.borderColor = 'rgba(100,116,139,0.2)';
+                    }
+                });
+                chipsEl.appendChild(chip);
+            });
+        }
+    } catch (e) {
+        console.error('Error loading VPG dates:', e);
+        if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red"></i> Error al cargar fechas de VPG';
+    } finally {
+        btnEl.disabled = false;
+        btnEl.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Cargar fechas de VPG';
+    }
+}
+
+async function executeRebuildStats(btnEl, progressEl) {
+    if (!btnEl || !progressEl) return;
+    const confirmText = prompt('ADVERTENCIA: Esta acción reconstruirá TODAS las estadísticas de jugadores y clubes desde cero. El proceso tarda ~45 minutos.\n\nEscribe "RECONSTRUIR" para confirmar:');
+    if (confirmText !== 'RECONSTRUIR') {
+        showToast('Acción cancelada.', 'info');
+        return;
+    }
+
+    try {
+        btnEl.disabled = true;
+        btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Iniciando...';
+        progressEl.style.display = 'block';
+        progressEl.textContent = 'Conectando...';
+
+        // Extract filters from the closest container (could be a fantasy-card or action-card)
+        const cardEl = btnEl.closest('.fantasy-card') || btnEl.closest('.action-card');
+        let payload = {};
+        if (cardEl) {
+            const chkUseFilters = cardEl.querySelector('.chk-use-filters');
+            if (chkUseFilters && chkUseFilters.checked) {
+                const startTime = cardEl.querySelector('.inp-start-time')?.value || null;
+                const endTime = cardEl.querySelector('.inp-end-time')?.value || null;
+                // Collect VPG specific dates from chips
+                const chipsContainer = cardEl.querySelector('.vpg-dates-chips');
+                const specificDates = chipsContainer
+                    ? Array.from(chipsContainer.querySelectorAll('.vpg-date-chip.active')).map(c => c.dataset.date)
+                    : [];
+                payload = {
+                    useFilters: true,
+                    specificDates: specificDates.length > 0 ? specificDates : null,
+                    startTime: startTime || null,
+                    endTime: endTime || null
+                };
+            }
+        }
+
+        const res = await fetch('/api/fantasy/admin/rebuild-stats', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al iniciar reconstrucción.');
+
+        showToast(data.message, 'success');
+
+        // Start polling for progress on both elements
+        if (rebuildPollInterval) clearInterval(rebuildPollInterval);
+        
+        const setInitialProcessing = (btn, prog) => {
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+            }
+            if (prog) {
+                prog.style.display = 'block';
+                prog.textContent = 'Procesando...';
+            }
+        };
+        setInitialProcessing(btnOwnerRebuildStats, ownerRebuildProgress);
+        setInitialProcessing(btnAdminRebuildStats, rebuildStatsProgress);
+
+        rebuildPollInterval = setInterval(async () => {
+            try {
+                const statusRes = await fetch('/api/fantasy/admin/rebuild-stats/status');
+                const status = await statusRes.json();
+                
+                if (ownerRebuildProgress) ownerRebuildProgress.textContent = status.progress || 'Procesando...';
+                if (rebuildStatsProgress) rebuildStatsProgress.textContent = status.progress || 'Procesando...';
+
+                if (!status.running) {
+                    clearInterval(rebuildPollInterval);
+                    rebuildPollInterval = null;
+                    
+                    const finishPolling = (btn) => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fa-solid fa-hammer"></i> Reconstruir';
+                        }
+                    };
+                    finishPolling(btnOwnerRebuildStats);
+                    finishPolling(btnAdminRebuildStats);
+
+                    if (status.error) {
+                        showToast(`Error en reconstrucción: ${status.error}`, 'error');
+                    } else {
+                        showToast('¡Reconstrucción de estadísticas completada!', 'success');
+                        if (currentLeagueId) {
+                            await loadAdminPanelData();
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error polling rebuild status:', e);
+            }
+        }, 5000);
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+        if (btnOwnerRebuildStats) {
+            btnOwnerRebuildStats.disabled = false;
+            btnOwnerRebuildStats.innerHTML = '<i class="fa-solid fa-hammer"></i> Reconstruir';
+        }
+        if (btnAdminRebuildStats) {
+            btnAdminRebuildStats.disabled = false;
+            btnAdminRebuildStats.innerHTML = '<i class="fa-solid fa-hammer"></i> Reconstruir';
+        }
+    }
+}
+
 // Admin Delete League
 async function handleAdminDeleteLeague() {
     const confirmText = prompt('ADVERTENCIA: Esta acción es irreversible. Todos los equipos inscritos serán eliminados permanentemente.\n\nEscribe "ELIMINAR" para confirmar:');
@@ -1826,5 +2114,111 @@ async function respondBid(bidId, responseType) {
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
+    }
+}
+
+async function handleAdminPlayerSearch() {
+    const query = adminSearchPlayerInput.value.trim();
+    if (query.length < 2) {
+        alert('Por favor, introduce al menos 2 letras.');
+        return;
+    }
+    
+    adminSearchPlayerResults.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Buscando jugadores...</td></tr>`;
+    
+    try {
+        const res = await fetch(`/api/fantasy/admin/players/search?query=${encodeURIComponent(query)}`);
+        if (!res.ok) throw new Error('Error al buscar jugadores.');
+        const players = await res.json();
+        
+        adminSearchPlayerResults.innerHTML = '';
+        
+        if (players.length === 0) {
+            adminSearchPlayerResults.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron jugadores que coincidan con la búsqueda.</td></tr>`;
+            return;
+        }
+        
+        players.forEach(p => {
+            const row = document.createElement('tr');
+            const isManual = p.manualPrice !== null;
+            const priceText = formatCurrency(p.price);
+            
+            row.innerHTML = `
+                <td>
+                    <div style="font-weight: 600; color: #fff;">${p.eaPlayerName}</div>
+                </td>
+                <td><div>${p.lastClub}</div></td>
+                <td><span class="badge position-badge">${p.lastPosition}</span></td>
+                <td class="text-center">${p.avgRating}</td>
+                <td class="text-right ${isManual ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
+                    ${priceText} ${isManual ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido"></i>' : ''}
+                </td>
+                <td class="text-center">
+                    <input type="number" class="manual-price-input" data-player-name="${p.eaPlayerName}" value="${p.manualPrice !== null ? p.manualPrice : ''}" placeholder="Ej. 1500000" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 4px; padding: 4px 8px; width: 120px; box-sizing: border-box;">
+                </td>
+                <td class="text-center">
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button class="btn btn-primary btn-xs btn-save-manual-price" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+                        \${isManual ? `<button class="btn btn-secondary btn-xs btn-reset-manual-price" data-player-name="\${p.eaPlayerName}"><i class="fa-solid fa-rotate-left"></i> Restablecer</button>` : ''}
+                    </div>
+                </td>
+            `;
+            
+            const saveBtn = row.querySelector('.btn-save-manual-price');
+            saveBtn.addEventListener('click', async () => {
+                const input = row.querySelector('.manual-price-input');
+                const priceVal = input.value.trim();
+                if (priceVal === '') {
+                    alert('Por favor, introduce un precio válido o usa Restablecer para volver a automático.');
+                    return;
+                }
+                await handleUpdatePlayerPrice(p.eaPlayerName, priceVal);
+            });
+            
+            if (isManual) {
+                const resetBtn = row.querySelector('.btn-reset-manual-price');
+                resetBtn.addEventListener('click', async () => {
+                    await handleUpdatePlayerPrice(p.eaPlayerName, null);
+                });
+            }
+            
+            adminSearchPlayerResults.appendChild(row);
+        });
+    } catch (e) {
+        console.error(e);
+        adminSearchPlayerResults.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red">Error al realizar la búsqueda.</td></tr>`;
+    }
+}
+
+async function handleUpdatePlayerPrice(eaPlayerName, price) {
+    try {
+        const res = await fetch('/api/fantasy/admin/players/price', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eaPlayerName, price })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al guardar precio manual.');
+        
+        // Mostrar mensaje de éxito
+        alert(data.message || 'Precio actualizado correctamente.');
+        
+        // Volver a buscar para reflejar el estado actual
+        await handleAdminPlayerSearch();
+        
+        // Refrescar los jugadores y el mercado si está cargada una liga
+        if (currentLeagueId) {
+            const playersRes = await fetch(`/api/fantasy/players?leagueId=\${currentLeagueId}`);
+            if (playersRes.ok) {
+                const playersData = await playersRes.json();
+                allPlayers = playersData.players || [];
+                filterAndRenderMarket();
+                renderSquadList();
+                updateSquadStats();
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error: ' + e.message);
     }
 }

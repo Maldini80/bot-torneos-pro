@@ -32,29 +32,77 @@
         </header>
 
         <main class="selector-main">
-            <!-- Admin: Create League Card -->
-            <section id="admin-create-league-section" class="fantasy-card admin-only-block" style="display: none;">
-                <div class="card-header">
-                    <h2><i class="fa-solid fa-folder-plus text-blue"></i> Crear Nueva Liga</h2>
-                </div>
-                <form id="create-league-form" class="admin-form">
-                    <div class="form-group">
-                        <label for="new-league-name">Nombre de la Liga</label>
-                        <input type="text" id="new-league-name" placeholder="Ej: Superliga Fantasy Temp 1" required autocomplete="off">
+            <!-- Sidebar for Admin controls -->
+            <div class="selector-sidebar">
+                <!-- Admin: Create League Card -->
+                <section id="admin-create-league-section" class="fantasy-card admin-only-block" style="display: none;">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-folder-plus text-blue"></i> Crear Nueva Liga</h2>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group col">
-                            <label for="new-league-max-participants">Máx. Participantes</label>
-                            <input type="number" id="new-league-max-participants" value="20" min="2" max="100">
+                    <form id="create-league-form" class="admin-form">
+                        <div class="form-group">
+                            <label for="new-league-name">Nombre de la Liga</label>
+                            <input type="text" id="new-league-name" placeholder="Ej: Superliga Fantasy Temp 1" required autocomplete="off">
                         </div>
-                        <div class="form-group col">
-                            <label for="new-league-budget">Presupuesto Inicial (€)</label>
-                            <input type="number" id="new-league-budget" value="50000000" step="5000000">
+                        <div class="form-row">
+                            <div class="form-group col">
+                                <label for="new-league-max-participants">Máx. Participantes</label>
+                                <input type="number" id="new-league-max-participants" value="20" min="2" max="100">
+                            </div>
+                            <div class="form-group col">
+                                <label for="new-league-budget">Presupuesto Inicial (€)</label>
+                                <input type="number" id="new-league-budget" value="50000000" step="5000000">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-plus"></i> Crear Liga</button>
+                    </form>
+                </section>
+
+                <!-- Global Admin: Owner Panel -->
+                <section id="owner-global-section" class="fantasy-card owner-only-block" style="display: none;">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-crown text-yellow"></i> Panel de Propietario</h2>
+                    </div>
+                    <div class="admin-actions-col" style="margin-top: 16px;">
+                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <h4>Reconstruir Estadísticas</h4>
+                                    <p class="text-muted">Reconstruye todos los perfiles de jugadores y clubes desde cero (partidos escaneados). Tarda ~45 min.</p>
+                                    <p id="owner-rebuild-progress" class="text-muted" style="font-size: 0.8rem; margin-top: 6px; display: none; color: #f59e0b;"></p>
+                                </div>
+                                <button id="btn-owner-rebuild-stats" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-hammer"></i> Reconstruir</button>
+                            </div>
+                            
+                            <!-- Filters Section -->
+                            <div class="rebuild-filters" style="margin-top: 4px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #fff; margin: 0;">
+                                    <input type="checkbox" class="chk-use-filters" style="accent-color: #f59e0b;">
+                                    <span><i class="fa-solid fa-filter"></i> Filtrar solo partidos oficiales (VPG)</span>
+                                </label>
+                                
+                                <div class="filter-inputs-area" style="display: none; margin-top: 12px; flex-direction: column; gap: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                        <button type="button" class="btn btn-sm btn-primary btn-load-vpg-dates" style="flex-shrink: 0;"><i class="fa-solid fa-calendar-check"></i> Cargar fechas de VPG</button>
+                                        <span class="vpg-dates-status text-muted" style="font-size: 0.75rem;"></span>
+                                    </div>
+                                    <div class="vpg-dates-chips" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;"></div>
+                                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                                        <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
+                                            <label style="font-size: 0.75rem; color: #94a3b8;">Hora Inicio (CET/España):</label>
+                                            <input type="time" class="inp-start-time" value="21:00" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
+                                        </div>
+                                        <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
+                                            <label style="font-size: 0.75rem; color: #94a3b8;">Hora Fin (CET/España):</label>
+                                            <input type="time" class="inp-end-time" value="23:59" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-plus"></i> Crear Liga</button>
-                </form>
-            </section>
+                </section>
+            </div>
 
             <!-- Available Leagues List -->
             <section class="leagues-list-section">
@@ -428,6 +476,43 @@
                                 <button id="btn-admin-recalculate" class="btn btn-sm btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Recalcular</button>
                             </div>
 
+                            <div class="action-card owner-only-block" style="display: none; flex-direction: column; align-items: stretch; gap: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <h4>Reconstruir Estadísticas</h4>
+                                        <p class="text-muted">Reconstruye TODOS los perfiles de jugadores y clubes desde los partidos escaneados. Tarda ~45 min.</p>
+                                        <p id="rebuild-stats-progress" class="text-muted" style="font-size: 0.8rem; margin-top: 4px; display: none; color: #f59e0b;"></p>
+                                    </div>
+                                    <button id="btn-admin-rebuild-stats" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-hammer"></i> Reconstruir</button>
+                                </div>
+                                
+                                <!-- Filters Section -->
+                                <div class="rebuild-filters" style="margin-top: 4px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
+                                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #fff; margin: 0;">
+                                        <input type="checkbox" class="chk-use-filters" style="accent-color: #f59e0b;">
+                                        <span><i class="fa-solid fa-filter"></i> Filtrar solo partidos oficiales (VPG)</span>
+                                    </label>
+                                    
+                                    <div class="filter-inputs-area" style="display: none; margin-top: 12px; flex-direction: column; gap: 10px;">
+                                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                            <button type="button" class="btn btn-sm btn-primary btn-load-vpg-dates" style="flex-shrink: 0;"><i class="fa-solid fa-calendar-check"></i> Cargar fechas de VPG</button>
+                                            <span class="vpg-dates-status text-muted" style="font-size: 0.75rem;"></span>
+                                        </div>
+                                        <div class="vpg-dates-chips" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;"></div>
+                                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                                            <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
+                                                <label style="font-size: 0.75rem; color: #94a3b8;">Hora Inicio (CET/España):</label>
+                                                <input type="time" class="inp-start-time" value="21:00" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
+                                            </div>
+                                            <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
+                                                <label style="font-size: 0.75rem; color: #94a3b8;">Hora Fin (CET/España):</label>
+                                                <input type="time" class="inp-end-time" value="23:59" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="action-card">
                                 <div>
                                     <h4>Eliminar Liga</h4>
@@ -481,6 +566,40 @@
                                     <!-- Dynamic -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Box 4: Manual Player Price Override -->
+                    <div class="fantasy-card full-width-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-tags text-blue"></i> Gestión Manual de Precios de Jugadores</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">Busca cualquier jugador por su nombre para anular su precio de mercado calculado automáticamente o restablecerlo.</p>
+                            <div style="display: flex; gap: 8px; margin-bottom: 16px; max-width: 500px;">
+                                <input type="text" id="admin-search-player-input" placeholder="Buscar jugador (mín. 2 letras)..." style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 1; box-sizing: border-box;">
+                                <button id="btn-admin-search-player" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+                            </div>
+                            <div class="table-scroll-container">
+                                <table class="fantasy-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Jugador</th>
+                                            <th>Club</th>
+                                            <th>Posición</th>
+                                            <th class="text-center">Media (Rating)</th>
+                                            <th class="text-right">Precio Actual</th>
+                                            <th class="text-center">Precio Manual (€)</th>
+                                            <th class="text-center">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-search-player-results">
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted" style="padding: 20px;">Realiza una búsqueda para ver y editar jugadores.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

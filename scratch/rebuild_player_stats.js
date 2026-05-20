@@ -1,176 +1,4 @@
-import mongoose from 'mongoose';
-import { getBotSettings, getDb } from '../../database.js';
-import Team from '../vpg_bot/models/team.js';
-import { extractMatchInfo } from './matchUtils.js';
-
-const EA_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-    "Accept": "application/json",
-    "Referer": "https://www.ea.com/"
-};
-
-let isCrawlerRunning = false;
-
-/**
- * Función principal del Crawler VPG
- */
-async function runVpgCrawler(manual = false, onProgress = null) {
-    if (isCrawlerRunning) {
-        throw new Error('CRAWLER_ALREADY_RUNNING');
-    }
-    isCrawlerRunning = true;
-
-    try {
-        const settings = await getBotSettings();
-    if (!manual && !settings.crawlerEnabled) {
-        console.log('[CRAWLER] ⏸️ Crawler desactivado en configuración. No se ejecuta.');
-        return;
-    }
-
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
-    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    if (!manual && !settings.crawlerDays.includes(dayOfWeek)) {
-        console.log(`[CRAWLER] ⏸️ Hoy es ${dayNames[dayOfWeek]} — no está en los días configurados (${settings.crawlerDays.map(d => dayNames[d]).join(', ')}). No se ejecuta.`);
-        return;
-    }
-
-    console.log('[CRAWLER] ▶️ Iniciando recolección de estadísticas...');
-
-    const db = getDb();
-    if (!db) {
-        console.error('[CRAWLER] No hay conexión a DB.');
-        return;
-    }
-
-    const teams = await Team.find({ eaClubId: { $ne: null } });
-    console.log(`[CRAWLER] Encontrados ${teams.length} equipos para analizar.`);
-
-    const matchColl = db.collection('scanned_matches');
-    const playerColl = db.collection('player_profiles');
-    const clubColl = db.collection('club_profiles');
-
-    let i = 0;
-    const totalTeams = teams.length;
-
-    for (const team of teams) {
-        i++;
-        const platform = team.eaPlatform || 'common-gen5';
-        const clubId = team.eaClubId;
-        console.log(`[CRAWLER] Procesando equipo: ${team.name} (ClubID: ${clubId})`);
-
-        try {
-            // Normally competitive matches are friendlies or clubMatch
-            const url = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`;
-            const res = await fetch(url, { headers: EA_HEADERS });
-            if (!res.ok) continue;
-
-            let matches = await res.json();
-            if (!Array.isArray(matches)) {
-                matches = Object.values(matches || {});
-            }
-
-            console.log(`[CRAWLER] API devolvió ${matches.length} partidos para ${team.name}`);
-
-            // === FASE 1: Filtrar partidos nuevos por franja horaria y duplicados ===
-            const newMatches = [];
-            for (const match of matches) {
-                const matchId = match.matchId;
-                const matchTimestamp = parseInt(match.timestamp) * 1000;
-                const matchDate = new Date(matchTimestamp);
-
-                // Filtro horario: solo guardar partidos dentro de la franja configurada (hora Madrid)
-                if (settings.crawlerTimeRange) {
-                    const madridTimeStr = matchDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
-                    const [h, min] = madridTimeStr.split(':').map(Number);
-                    const matchMinutes = h * 60 + min;
-                    const [sh, sm] = settings.crawlerTimeRange.start.split(':').map(Number);
-                    const [eh, em] = settings.crawlerTimeRange.end.split(':').map(Number);
-                    const startMin = sh * 60 + sm;
-                    const endMin = eh * 60 + em;
-
-                    let inRange;
-                    if (startMin <= endMin) {
-                        inRange = matchMinutes >= startMin && matchMinutes <= endMin;
-                    } else {
-                        inRange = matchMinutes >= startMin || matchMinutes <= endMin;
-                    }
-                    if (!inRange) {
-                        console.log(`[CRAWLER] ⏰ Partido ${matchId} ignorado (${madridTimeStr}h Madrid, fuera de ${settings.crawlerTimeRange.start}-${settings.crawlerTimeRange.end})`);
-                        continue;
-                    }
-                }
-
-                const exists = await matchColl.findOne({ matchId });
-                if (exists) continue;
-
-                newMatches.push(match);
-            }
-
-            if (newMatches.length === 0) continue;
-
-            // === FASE 2: Agrupar por rival dentro de ventana de 3h ===
-            const groups = groupMatchesByOpponent(newMatches, clubId);
-
-            // === FASE 3: Procesar cada grupo (agregando sesiones si hay desconexiones) ===
-            for (const group of groups) {
-                // Insertar TODAS las sesiones en scanned_matches (datos crudos)
-                for (const match of group) {
-                    await matchColl.insertOne(match);
-                }
-
-                // Agregamos las estadísticas de todas las sesiones del grupo (DNF inteligente)
-                const aggregated = aggregateGroupStats(group, clubId);
-                const isShortMatch = aggregated.maxSecs > 0 && aggregated.maxSecs < 5200;
-
-                if (group.length > 1) {
-                    console.log(`[CRAWLER] 🔗 ${group.length} sesiones fusionadas vs mismo rival para ${team.name}. Goles: ${aggregated.goals} - ${aggregated.goalsAgainst} (${Math.floor(aggregated.maxSecs/60)} min totales).`);
-                }
-
-                const isWin = aggregated.goals > aggregated.goalsAgainst ? 1 : 0;
-                const isTie = aggregated.goals === aggregated.goalsAgainst ? 1 : 0;
-
-                // Process players (con los datos agregados)
-                for (const playerName in aggregated.players) {
-                    const player = aggregated.players[playerName];
-                    
-                    const pm = player.passesMade || 0;
-                    const sh = player.shots || 0;
-                    const tk = player.tacklesMade || 0;
-                    const hasRealStats = (pm + sh + tk) > 0;
-
-                    if (isShortMatch && !hasRealStats) {
-                        console.log(`[CRAWLER] 🔌 DNF sin datos para ${playerName} (${team.name}) en grupo de ${group.length} sesiones. Solo rating.`);
-                        await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name);
-                    } else {
-                        await updatePlayerProfile(playerColl, playerName, player, team.name, aggregated.goalsAgainst, isWin, isTie);
-                    }
-                }
-
-                // Process club stats (usando la mejor sesión como base pero con los goles y goles en contra correctos de la fusión)
-                const bestMatch = findBestSession(group, clubId);
-                if (bestMatch.clubs && bestMatch.clubs[clubId]) {
-                    const clubStats = {
-                        ...bestMatch.clubs[clubId],
-                        goals: String(aggregated.goals),
-                        goalsAgainst: String(aggregated.goalsAgainst)
-                    };
-                    await updateClubProfile(clubColl, clubId, team.name, clubStats, bestMatch);
-                }
-            }
-        } catch (error) {
-            console.error(`[CRAWLER] Error procesando equipo ${team.name}:`, error);
-        }
-        if (onProgress) {
-            await onProgress(i, totalTeams, team.name).catch(() => {});
-        }
-    }
-    console.log('[CRAWLER] Recolección de estadísticas finalizada.');
-    return totalTeams;
-    } finally {
-        isCrawlerRunning = false;
-    }
-}
+import { connectDb, getDb } from '../database.js';
 
 const POS_MAP = {
     0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
@@ -183,31 +11,16 @@ const POS_MAP = {
     'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
 };
 
-// Resuelve la posición combinando pos (categoría EA) + archetypeid (clase del jugador)
-// pos indica la zona general (goalkeeper, defender, midfielder, forward)
-// archetypeid distingue el rol exacto dentro de esa zona
 function resolvePos(posRaw, archetypeid) {
-    // Si pos es numérico (raro pero posible), usar POS_MAP directo
     if (!isNaN(posRaw) && POS_MAP[posRaw] !== undefined) return POS_MAP[posRaw];
-
     const p = String(posRaw || '').toLowerCase();
-
-    // Portero: siempre POR
     if (p === 'goalkeeper') return 'POR';
-
-    // Delantero: siempre DC (incluso si el arquetipo es Killer/Chispa)
     if (p === 'forward' || p === 'attacker' || p === 'striker') return 'DC';
-
-    // Defensa: siempre DFC
     if (p === 'defender' || p === 'centerback') return 'DFC';
-
-    // Mediocampista: usar archetypeid para distinguir carrileros de centrocampistas
     if (p === 'midfielder') {
-        if (archetypeid == 10 || archetypeid == 12) return 'CARR'; // Chispa/Killer → Carrilero
+        if (archetypeid == 10 || archetypeid == 12) return 'CARR';
         return 'MC';
     }
-
-    // Fallback: texto de POS_MAP o crudo
     return POS_MAP[posRaw] || posRaw || '???';
 }
 
@@ -237,11 +50,67 @@ function extractBuild(matchData) {
     return { height, weight, perks, vproattr: matchData.vproattr || null };
 }
 
-async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsAgainstThisMatch = 0, isWin = 0, isTie = 0) {
+function extractMatchInfo(match, clubId) {
+    const clubs = match.clubs || {};
+    const club = clubs[String(clubId)] || {};
+    const opponentId = Object.keys(clubs).find(id => id !== String(clubId));
+    const opponent = opponentId ? clubs[opponentId] : {};
+
+    let ourGoals = parseInt(club.goals || 0);
+    let oppGoals = parseInt(opponent.goals || 0);
+
+    // Detectar si es un 3-0 DNF fantasma de EA
+    if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
+        const getVal = (obj, ...keys) => {
+            for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; }
+            return 0;
+        };
+
+        let maxGoalsConceded = 0;
+        if (match.players && match.players[String(clubId)]) {
+            Object.values(match.players[String(clubId)]).forEach(p => {
+                const conceded = getVal(p, 'goalsconceded', 'goalsConceded');
+                if (conceded > maxGoalsConceded) maxGoalsConceded = conceded;
+            });
+        }
+        let maxOppGoalsConceded = 0;
+        if (match.players && opponentId && match.players[opponentId]) {
+            Object.values(match.players[opponentId]).forEach(p => {
+                const conceded = getVal(p, 'goalsconceded', 'goalsConceded');
+                if (conceded > maxOppGoalsConceded) maxOppGoalsConceded = conceded;
+            });
+        }
+        
+        let trueOurGoals = maxOppGoalsConceded;
+        let trueOppGoals = maxGoalsConceded;
+        
+        if (trueOurGoals === 0 && trueOppGoals === 0) {
+            let realOur = 0, realOpp = 0;
+            if (match.players && match.players[String(clubId)]) {
+                realOur = Object.values(match.players[String(clubId)]).reduce((s, p) => s + getVal(p, 'goals'), 0);
+            }
+            if (match.players && opponentId && match.players[opponentId]) {
+                realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + getVal(p, 'goals'), 0);
+            }
+            if (realOur > 0 || realOpp > 0) {
+                trueOurGoals = realOur;
+                trueOppGoals = realOpp;
+            }
+        }
+
+        if (ourGoals !== trueOurGoals || oppGoals !== trueOppGoals) {
+            ourGoals = trueOurGoals;
+            oppGoals = trueOppGoals;
+        }
+    }
+
+    return { ourGoals, oppGoals };
+}
+
+async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsAgainstThisMatch = 0, isWin = 0, isTie = 0, matchDate, playerLatestInfo) {
     const pos = resolvePos(matchData.pos, matchData.archetypeid);
     const isGK = pos === 'POR';
 
-    // EA API keys son inconsistentes: a veces camelCase, a veces minúsculas
     const getVal = (obj, ...keys) => {
         for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; }
         return 0;
@@ -274,10 +143,21 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     const rating = parseFloat(matchData.rating || 0);
     const build = extractBuild(matchData);
 
+    const matchTimestamp = matchDate.getTime();
+    const currentLatest = playerLatestInfo.get(playerName);
+    if (!currentLatest || matchTimestamp > currentLatest.timestamp) {
+        playerLatestInfo.set(playerName, {
+            clubName,
+            matchDate,
+            pos,
+            build,
+            timestamp: matchTimestamp
+        });
+    }
+
     await coll.updateOne(
         { eaPlayerName: playerName },
         { 
-            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos, build: build },
             $inc: incrementData,
             $push: { 'stats.ratings': rating }
         },
@@ -285,35 +165,36 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     );
 }
 
-/**
- * Solo guarda el rating del jugador en un partido DNF, sin incrementar estadísticas.
- * Esto evita que los datos vacíos de una desconexión diluyan las medias del jugador.
- */
-async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubName) {
+async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubName, matchDate, playerLatestInfo) {
     const pos = resolvePos(matchData.pos, matchData.archetypeid);
     const rating = parseFloat(matchData.rating || 0);
     const build = extractBuild(matchData);
     
-    // Solo guardar rating (sin incrementar matchesPlayed ni stats)
+    const matchTimestamp = matchDate.getTime();
+    const currentLatest = playerLatestInfo.get(playerName);
+    if (!currentLatest || matchTimestamp > currentLatest.timestamp) {
+        playerLatestInfo.set(playerName, {
+            clubName,
+            matchDate,
+            pos,
+            build,
+            timestamp: matchTimestamp
+        });
+    }
+
     await coll.updateOne(
         { eaPlayerName: playerName },
         { 
-            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos, build: build },
             $push: { 'stats.ratings': rating }
         },
         { upsert: true }
     );
 }
 
-async function updateClubProfile(coll, clubId, clubName, matchClubData, matchData) {
+async function updateClubProfile(coll, clubId, clubName, matchClubData, matchData, isWin = 0, isTie = 0, isLoss = 0) {
     const info = extractMatchInfo(matchData, clubId);
-    
     const ourGoals = info.ourGoals;
-    const oppGoals = info.oppGoals;
-    const isWin = ourGoals > oppGoals ? 1 : 0;
-    const isLoss = ourGoals < oppGoals ? 1 : 0;
-    const isTie = ourGoals === oppGoals ? 1 : 0;
-
+    
     const gv = (obj, ...keys) => {
         for (const k of keys) { if (obj[k] !== undefined && obj[k] !== null) return parseInt(obj[k]) || 0; }
         return 0;
@@ -323,7 +204,6 @@ async function updateClubProfile(coll, clubId, clubName, matchClubData, matchDat
         return 0;
     };
 
-    // EA API NO devuelve tiros/pases/entradas a nivel de club — hay que sumarlos de los jugadores
     let teamShots = 0, teamShotsOT = 0, teamPassesMade = 0, teamPassesAtt = 0, teamTacklesMade = 0, teamTacklesAtt = 0;
     if (matchData.players && matchData.players[clubId]) {
         for (const pid in matchData.players[clubId]) {
@@ -337,7 +217,6 @@ async function updateClubProfile(coll, clubId, clubName, matchClubData, matchDat
         }
     }
 
-    // Fallback: si el club SÍ tiene datos, usarlos (por si EA alguna vez los devuelve)
     const clubShots = gv(matchClubData, 'shots');
     const clubPassesMade = gv(matchClubData, 'passesMade', 'passesmade');
 
@@ -368,10 +247,6 @@ async function updateClubProfile(coll, clubId, clubName, matchClubData, matchDat
     );
 }
 
-/**
- * Agrupa partidos del mismo rival dentro de una ventana de 3 horas.
- * Esto evita contar sesiones de un mismo partido (ej: 46+48 min) como 2 partidos distintos.
- */
 function groupMatchesByOpponent(matches, clubId) {
     const sorted = [...matches].sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
     const groups = [];
@@ -402,10 +277,6 @@ function groupMatchesByOpponent(matches, clubId) {
     return groups;
 }
 
-/**
- * De un grupo de sesiones contra el mismo rival, devuelve la sesión con más datos.
- * Prioriza: (1) sesiones con stats reales, (2) la más larga.
- */
 function findBestSession(group, clubId) {
     if (group.length === 1) return group[0];
 
@@ -427,7 +298,6 @@ function findBestSession(group, clubId) {
             }
         }
 
-        // Priorizar: sesión con stats reales (peso 10000) + duración
         const score = (hasRealStats ? 10000 : 0) + maxSecs;
         if (score > bestScore) {
             bestScore = score;
@@ -438,9 +308,6 @@ function findBestSession(group, clubId) {
     return best;
 }
 
-/**
- * Agrega y fusiona las estadísticas de un grupo de sesiones del mismo partido (desconexiones).
- */
 function aggregateGroupStats(group, clubId) {
     let totalGoals = 0;
     let totalGoalsAgainst = 0;
@@ -459,7 +326,6 @@ function aggregateGroupStats(group, clubId) {
 
         const opponentId = Object.keys(match.clubs || {}).find(id => id !== String(clubId));
 
-        // Detectar goles fantasma del 3-0 DNF de EA
         if ((goals === 3 && goalsAgainst === 0) || (goals === 0 && goalsAgainst === 3)) {
             let maxGoalsConceded = 0;
             if (match.players && match.players[String(clubId)]) {
@@ -476,8 +342,8 @@ function aggregateGroupStats(group, clubId) {
                 });
             }
             
-            let trueOurGoals = maxOppGoalsConceded;  // Lo que el rival encajó = nuestros goles
-            let trueOppGoals = maxGoalsConceded;     // Lo que nosotros encajamos = goles del rival
+            let trueOurGoals = maxOppGoalsConceded;
+            let trueOppGoals = maxGoalsConceded;
             
             if (trueOurGoals === 0 && trueOppGoals === 0) {
                 let realOur = 0, realOpp = 0;
@@ -502,7 +368,6 @@ function aggregateGroupStats(group, clubId) {
         totalGoals += goals;
         totalGoalsAgainst += goalsAgainst;
 
-        // Sumar estadísticas de los jugadores
         if (match.players && match.players[String(clubId)]) {
             const playersData = match.players[String(clubId)];
             for (const playerId in playersData) {
@@ -536,7 +401,6 @@ function aggregateGroupStats(group, clubId) {
                         vproattr: player.vproattr
                     };
                 } else {
-                    // Tomar la posición y rating de la sesión donde haya jugado más tiempo
                     if (secs > aggregatedPlayers[playerName]._maxRatingSecs) {
                         aggregatedPlayers[playerName]._maxRatingSecs = secs;
                         aggregatedPlayers[playerName]._bestRating = rating;
@@ -563,7 +427,6 @@ function aggregateGroupStats(group, clubId) {
         }
     }
 
-    // Mapear el mejor rating a rating
     for (const playerName in aggregatedPlayers) {
         const p = aggregatedPlayers[playerName];
         p.rating = p._bestRating;
@@ -579,4 +442,244 @@ function aggregateGroupStats(group, clubId) {
     };
 }
 
-export { runVpgCrawler };
+function calculatePlayerPointsAndPrice(p) {
+    const stats = p.stats || {};
+    const ratings = stats.ratings || [];
+    const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 6.0;
+
+    let price;
+    if (p.manualPrice !== undefined && p.manualPrice !== null) {
+        price = p.manualPrice;
+    } else {
+        price = 1000000;
+        price += (stats.goals || 0) * 250000;
+        price += (stats.assists || 0) * 200000;
+        const posUpper = (p.lastPosition || '').toUpperCase();
+        const isDefOrGk = ['POR', 'DFC', 'LD', 'LI', 'CAD', 'CAI', 'CARR'].includes(posUpper);
+        if (isDefOrGk) price += (stats.cleanSheets || 0) * 150000;
+        
+        price += (stats.wins || 0) * 50000;
+        price -= (stats.losses || 0) * 25000;
+
+        if (avgRating > 6.0) price *= (1 + (avgRating - 6.0) * 0.5);
+        price = Math.min(15000000, Math.max(500000, price));
+        price = Math.round(price / 10000) * 10000;
+    }
+
+    let points = 0;
+    const goals = stats.goals || 0;
+    const assists = stats.assists || 0;
+    const cleanSheets = stats.cleanSheets || 0;
+    const posUpper = (p.lastPosition || '').toUpperCase();
+    const isDefOrGk = ['POR', 'DFC', 'LD', 'LI', 'CAD', 'CAI', 'CARR'].includes(posUpper);
+    
+    if (['DC', 'ED', 'EI', 'MP'].includes(posUpper)) points += goals * 4;
+    else if (['MC', 'MCD', 'MCO', 'MD', 'MI', 'CARR'].includes(posUpper)) points += goals * 5;
+    else points += goals * 6;
+    
+    points += assists * 3;
+    
+    if (isDefOrGk) points += cleanSheets * 4;
+    else if (['MC', 'MCD', 'MCO', 'MD', 'MI'].includes(posUpper)) points += cleanSheets * 1;
+    
+    for (const r of ratings) {
+        if (r >= 9.0) points += 6;
+        else if (r >= 8.0) points += 4;
+        else if (r >= 7.0) points += 2;
+        else if (r >= 6.0) points += 1;
+    }
+    
+    points -= (stats.yellowCards || 0) * 1;
+    points -= (stats.redCards || 0) * 3;
+
+    points += (stats.wins || 0) * 3;
+    points += (stats.ties || 0) * 1;
+    points -= (stats.losses || 0) * 2;
+
+    return { price, points, avgRating };
+}
+
+async function rebuild() {
+    console.log('[REBUILD] Conectando a la base de datos...');
+    await connectDb();
+    const db = getDb();
+    
+    const playerColl = db.collection('player_profiles');
+    const clubColl = db.collection('club_profiles');
+    
+    const playerLatestInfo = new Map();
+    
+    console.log('[REBUILD] Reseteando estadísticas de perfiles de jugadores...');
+    const initialStats = {
+        matchesPlayed: 0,
+        goals: 0,
+        assists: 0,
+        passesMade: 0,
+        passesAttempted: 0,
+        tacklesMade: 0,
+        tacklesAttempted: 0,
+        shots: 0,
+        shotsOnTarget: 0,
+        interceptions: 0,
+        saves: 0,
+        redCards: 0,
+        yellowCards: 0,
+        mom: 0,
+        cleanSheets: 0,
+        goalsConceded: 0,
+        ratings: [],
+        wins: 0,
+        losses: 0,
+        ties: 0
+    };
+    const resetPlayersResult = await playerColl.updateMany({}, {
+        $set: { stats: initialStats }
+    });
+    console.log(`[REBUILD] ${resetPlayersResult.modifiedCount} jugadores reseteados.`);
+
+    console.log('[REBUILD] Reseteando estadísticas de perfiles de clubes...');
+    const initialClubStats = {
+        matchesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        ties: 0,
+        goals: 0,
+        goalsAgainst: 0,
+        shots: 0,
+        shotsOnTarget: 0,
+        passesMade: 0,
+        passesAttempted: 0,
+        tacklesMade: 0,
+        tacklesAttempted: 0,
+        possession: 0,
+        possessionCount: 0
+    };
+    const resetClubsResult = await clubColl.updateMany({}, {
+        $set: { stats: initialClubStats }
+    });
+    console.log(`[REBUILD] ${resetClubsResult.modifiedCount} clubes reseteados.`);
+
+    console.log('[REBUILD] Cargando todos los equipos competitivos de VPG...');
+    const teams = await getDb('test').collection('teams').find({ eaClubId: { $ne: null } }).toArray();
+    console.log(`[REBUILD] Encontrados ${teams.length} equipos.`);
+
+    let totalSessionsProcessed = 0;
+
+    for (const team of teams) {
+        const clubId = team.eaClubId;
+        console.log(`[REBUILD] Procesando historial del equipo: ${team.name} (ClubID: ${clubId})...`);
+
+        const query = { [`clubs.${clubId}`]: { $exists: true } };
+        const matches = await db.collection('scanned_matches').find(query).toArray();
+        console.log(`[REBUILD] Encontrados ${matches.length} partidos individuales en historial para ${team.name}`);
+
+        if (matches.length === 0) continue;
+
+        // Agrupar e integrar cronológicamente
+        const sortedMatches = matches.sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
+        const groups = groupMatchesByOpponent(sortedMatches, clubId);
+        console.log(`[REBUILD] Fusión DNF: ${matches.length} sesiones consolidadas en ${groups.length} partidos vs rivales únicos.`);
+
+        for (const group of groups) {
+            const aggregated = aggregateGroupStats(group, clubId);
+            const isShortMatch = aggregated.maxSecs > 0 && aggregated.maxSecs < 5200;
+
+            const isWin = aggregated.goals > aggregated.goalsAgainst ? 1 : 0;
+            const isTie = aggregated.goals === aggregated.goalsAgainst ? 1 : 0;
+            const isLoss = (isWin === 0 && isTie === 0) ? 1 : 0;
+
+            const bestMatch = findBestSession(group, clubId);
+            const matchDate = new Date(parseInt(bestMatch.timestamp) * 1000);
+
+            // Process players
+            for (const playerName in aggregated.players) {
+                const player = aggregated.players[playerName];
+                const pm = player.passesMade || 0;
+                const sh = player.shots || 0;
+                const tk = player.tacklesMade || 0;
+                const hasRealStats = (pm + sh + tk) > 0;
+
+                if (isShortMatch && !hasRealStats) {
+                    await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name, matchDate, playerLatestInfo);
+                } else {
+                    await updatePlayerProfile(playerColl, playerName, player, team.name, aggregated.goalsAgainst, isWin, isTie, matchDate, playerLatestInfo);
+                }
+            }
+
+            // Process club
+            if (bestMatch.clubs && bestMatch.clubs[clubId]) {
+                const clubStats = {
+                    ...bestMatch.clubs[clubId],
+                    goals: String(aggregated.goals),
+                    goalsAgainst: String(aggregated.goalsAgainst)
+                };
+                await updateClubProfile(clubColl, clubId, team.name, clubStats, bestMatch, isWin, isTie, isLoss);
+            }
+            
+            totalSessionsProcessed += group.length;
+        }
+    }
+
+    console.log(`\n[REBUILD] Reconstrucción de estadísticas completada (${totalSessionsProcessed} sesiones procesadas).`);
+
+    console.log(`\n[REBUILD] Actualizando club activo, última fecha de actividad, posición y build para ${playerLatestInfo.size} jugadores...`);
+    const bulkOps = [];
+    for (const [playerName, info] of playerLatestInfo.entries()) {
+        bulkOps.push({
+            updateOne: {
+                filter: { eaPlayerName: playerName },
+                update: {
+                    $set: {
+                        lastClub: info.clubName,
+                        lastActive: info.matchDate,
+                        lastPosition: info.pos,
+                        build: info.build
+                    }
+                }
+            }
+        });
+        if (bulkOps.length >= 1000) {
+            await playerColl.bulkWrite(bulkOps);
+            bulkOps.length = 0;
+        }
+    }
+    if (bulkOps.length > 0) {
+        await playerColl.bulkWrite(bulkOps);
+    }
+    console.log('[REBUILD] Información de clubes y actividad de jugadores actualizada correctamente.');
+
+    // Recalcular puntos de todas las ligas
+    console.log('\n[REBUILD] Iniciando recálculo global de ligas de Fantasy...');
+    const leagues = await db.collection('fantasy_leagues').find().toArray();
+    console.log(`[REBUILD] Encontradas ${leagues.length} ligas.`);
+
+    for (const league of leagues) {
+        console.log(`[REBUILD] Recalculando liga: ${league.name} (${league._id})...`);
+        const fantasyTeams = await db.collection('fantasy_teams').find({ leagueId: league._id.toString() }).toArray();
+        console.log(`[REBUILD] Recalculando puntos para ${fantasyTeams.length} equipos en la liga...`);
+
+        for (const fTeam of fantasyTeams) {
+            let totalPoints = 0;
+            for (const playerName of (fTeam.players || [])) {
+                const player = await playerColl.findOne({ eaPlayerName: playerName });
+                if (player) {
+                    const { points } = calculatePlayerPointsAndPrice(player);
+                    totalPoints += points;
+                }
+            }
+            await db.collection('fantasy_teams').updateOne(
+                { _id: fTeam._id },
+                { $set: { points: totalPoints } }
+            );
+            console.log(`   └─ Equipo "${fTeam.teamName}" recalculado: ${totalPoints} puntos.`);
+        }
+    }
+
+    console.log('\n[REBUILD] ¡MIGRACIÓN COMPLETADA EXITOSAMENTE!');
+    process.exit(0);
+}
+
+rebuild().catch(async (err) => {
+    console.error('[REBUILD] ERROR CRÍTICO:', err);
+    process.exit(1);
+});
