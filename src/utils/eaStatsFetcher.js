@@ -118,14 +118,14 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
             if (p === 'defender' || p === 'centerback') return 'DFC';
             if (p === 'midfielder') { if (archetypeid == 10 || archetypeid == 12) return 'CARR'; return 'MC'; }
             return posMapNum[posRaw] || posRaw || '???';
-        };
-
         const aggregatePlayers = (targetClubPlayers, sourcePlayersData, teamGoalsAgainst) => {
             if (!sourcePlayersData) return;
             for (const [playerId, pData] of Object.entries(sourcePlayersData)) {
                 const pName = pData.playername || playerId;
                 
                 const resolvedPos = resolvePos(pData.pos, pData.archetypeid);
+                const secs = parseInt(pData.secondsPlayed || pData.secondsplayed || 0);
+                const rating = parseFloat(pData.rating) || 0;
 
                 if (!targetClubPlayers[pName]) {
                     targetClubPlayers[pName] = {
@@ -133,39 +133,36 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                         pos: resolvedPos,
                         goals: 0,
                         assists: 0,
-                        ratingSum: 0,
+                        ratingSum: 0, // Se asignará en el post-procesado
                         saves: 0,
-                        gamesPlayed: 0,
-                        cleanSheets: 0,
-                        goalsConceded: 0,
+                        gamesPlayed: 1, // Siempre 1 para este partido
+                        cleanSheets: 0, // Se asignará en el post-procesado
+                        goalsConceded: 0, // Se asignará en el post-procesado
                         mom: 0, // Man of the match
                         passesMade: 0,
                         passAttempts: 0,
                         tacklesMade: 0,
                         tackleAttempts: 0,
-                        shots: 0
+                        shots: 0,
+                        _maxRatingSecs: secs,
+                        _bestRating: rating
                     };
+                } else {
+                    if (secs > targetClubPlayers[pName]._maxRatingSecs) {
+                        targetClubPlayers[pName]._maxRatingSecs = secs;
+                        targetClubPlayers[pName]._bestRating = rating;
+                    }
                 }
                 
                 targetClubPlayers[pName].goals += parseInt(pData.goals) || 0;
                 targetClubPlayers[pName].assists += parseInt(pData.assists) || 0;
-                targetClubPlayers[pName].ratingSum += parseFloat(pData.rating) || 0;
                 targetClubPlayers[pName].saves += parseInt(pData.saves) || 0;
-                targetClubPlayers[pName].mom += parseInt(pData.mom) || 0;
-                targetClubPlayers[pName].gamesPlayed += 1;
+                targetClubPlayers[pName].mom = Math.max(targetClubPlayers[pName].mom, parseInt(pData.mom) || 0);
                 targetClubPlayers[pName].passesMade += parseInt(pData.passesmade || pData.passesMade) || 0;
                 targetClubPlayers[pName].passAttempts += parseInt(pData.passattempts || pData.passAttempts || pData.passesmade || pData.passesMade) || 0;
                 targetClubPlayers[pName].tacklesMade += parseInt(pData.tacklesmade || pData.tacklesMade) || 0;
                 targetClubPlayers[pName].tackleAttempts += parseInt(pData.tackleattempts || pData.tackleAttempts || pData.tacklesmade || pData.tacklesMade) || 0;
                 targetClubPlayers[pName].shots += parseInt(pData.shots) || 0;
-                
-                const posLower = resolvedPos.toLowerCase();
-                if (posLower.includes('goalkeeper') || posLower.includes('gk') || posLower === 'portero' || posLower === 'por') {
-                     targetClubPlayers[pName].goalsConceded += teamGoalsAgainst;
-                     if (teamGoalsAgainst === 0) {
-                         targetClubPlayers[pName].cleanSheets += 1;
-                     }
-                }
             }
         };
 
@@ -197,14 +194,14 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                 // ----------------------------------------------
                 
                 aggregatedStats.clubA.goals += goalsA;
-                aggregatedStats.clubA.goalsAgainst += parseInt(statsA.goalsAgainst || statsA.goalsagainst) || 0;
+                aggregatedStats.clubA.goalsAgainst += goalsB; // Usar los goles reales anotados por B
                 aggregatedStats.clubA.shots += parseInt(statsA.shots) || 0;
                 aggregatedStats.clubA.passesMade += parseInt(statsA.passesmade || statsA.passesMade) || 0;
                 aggregatedStats.clubA.tacklesMade += parseInt(statsA.tacklesmade || statsA.tacklesMade) || 0;
                 possessionSumA += parseFloat(statsA.possession) || 50;
 
                 aggregatedStats.clubB.goals += goalsB;
-                aggregatedStats.clubB.goalsAgainst += parseInt(statsB.goalsAgainst || statsB.goalsagainst) || 0;
+                aggregatedStats.clubB.goalsAgainst += goalsA; // Usar los goles reales anotados por A
                 aggregatedStats.clubB.shots += parseInt(statsB.shots) || 0;
                 aggregatedStats.clubB.passesMade += parseInt(statsB.passesmade || statsB.passesMade) || 0;
                 aggregatedStats.clubB.tacklesMade += parseInt(statsB.tacklesmade || statsB.tacklesMade) || 0;
@@ -220,6 +217,33 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                 }
             }
         }
+
+        // Post-procesar jugadores para asignar el rating correcto y corregir porteros
+        const postProcessPlayers = (players, teamGoalsAgainst) => {
+            for (const pName in players) {
+                const p = players[pName];
+                
+                // Asignar el rating de la sesión más larga
+                p.ratingSum = p._bestRating || 0;
+                
+                // Para porteros, calcular cleanSheets y goalsConceded basados en el partido completo
+                const posLower = p.pos.toLowerCase();
+                if (posLower.includes('goalkeeper') || posLower.includes('gk') || posLower === 'portero' || posLower === 'por') {
+                    p.goalsConceded = teamGoalsAgainst;
+                    p.cleanSheets = teamGoalsAgainst === 0 ? 1 : 0;
+                } else {
+                    p.goalsConceded = 0;
+                    p.cleanSheets = 0;
+                }
+                
+                // Limpiar campos auxiliares
+                delete p._maxRatingSecs;
+                delete p._bestRating;
+            }
+        };
+
+        postProcessPlayers(aggregatedStats.clubA.players, aggregatedStats.clubA.goalsAgainst);
+        postProcessPlayers(aggregatedStats.clubB.players, aggregatedStats.clubB.goalsAgainst);
 
         // Promediamos la posesión
         aggregatedStats.clubA.possessionAvg = Math.round(possessionSumA / headToHeadMatches.length);
