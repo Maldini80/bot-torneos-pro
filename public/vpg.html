@@ -20,6 +20,7 @@
             --emerald: #10b981;
             --rose: #f43f5e;
             --amber: #f59e0b;
+            --neon-glow: #06b6d4;
         }
 
         * {
@@ -967,6 +968,190 @@
         /* Admin only helper */
         body:not(.is-admin) .admin-only {
             display: none !important;
+        }
+
+        /* Mobile & Responsive Adaptations */
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 10px;
+                gap: 15px;
+            }
+
+            header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+                padding: 15px;
+            }
+
+            .header-left {
+                flex-direction: row;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .logo {
+                height: 35px;
+            }
+
+            .title-area h1 {
+                font-size: 1.15rem;
+            }
+
+            .title-area p {
+                font-size: 0.75rem;
+                line-height: 1.25;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+                border-top: 1px solid rgba(255, 255, 255, 0.06);
+                padding-top: 12px;
+                gap: 10px;
+            }
+
+            .nav-link-back {
+                font-size: 0.8rem;
+            }
+
+            .user-info {
+                padding: 4px 10px;
+            }
+
+            .user-avatar {
+                width: 24px;
+                height: 24px;
+            }
+
+            .user-info span {
+                font-size: 0.8rem;
+            }
+
+            .sidebar {
+                gap: 15px;
+            }
+
+            .team-banner {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px;
+                gap: 15px;
+            }
+
+            .team-banner::before {
+                background: radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 60%);
+            }
+
+            .team-logo-large {
+                width: 70px;
+                height: 70px;
+            }
+
+            .team-header-info h2 {
+                font-size: 1.4rem;
+            }
+
+            .team-meta {
+                justify-content: center;
+                gap: 10px 15px;
+            }
+
+            .link-status-box {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+                padding: 15px;
+                gap: 12px;
+            }
+
+            .link-status-info {
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .link-actions {
+                flex-direction: column;
+                width: 100%;
+                gap: 10px;
+            }
+
+            .link-selector-container {
+                flex-direction: column;
+                width: 100%;
+                gap: 10px;
+            }
+
+            .link-selector-container select {
+                width: 100% !important;
+            }
+
+            .link-actions button, 
+            .link-selector-container button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            #unlink-btn, #apply-logo-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .tabs-container {
+                gap: 5px;
+            }
+
+            .tab-btn {
+                padding: 8px 10px;
+                font-size: 0.8rem;
+                flex: 1;
+                text-align: center;
+            }
+
+            .player-card {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding: 12px;
+            }
+
+            .player-left {
+                align-items: flex-start;
+            }
+
+            .status-badge {
+                align-self: flex-start;
+                text-align: center;
+                width: fit-content;
+            }
+
+            .match-row {
+                gap: 8px;
+            }
+
+            .match-team-name {
+                font-size: 0.8rem;
+            }
+
+            .match-team-logo {
+                width: 24px;
+                height: 24px;
+            }
+
+            .match-score-box {
+                font-size: 0.95rem;
+                padding: 4px 10px;
+                min-width: 50px;
+            }
+
+            .match-meta-line {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
         }
     </style>
 </head>

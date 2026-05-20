@@ -4637,11 +4637,11 @@ export async function startVisualizerServer(discordClient) {
 
                     const teams = Array.isArray(tableData) ? tableData : (tableData.data || tableData.results || []);
                     if (Array.isArray(teams)) {
-                        teams.forEach((t) => {
+                        teams.forEach((t, index) => {
                             const teamName = t.team_name || t.name;
                             const teamSlug = t.team_slug || t.slug;
-                            const position = t.position || t.pos || t.table_position;
-                            const logoId = t.logo_id || t.logo;
+                            const position = index + 1;
+                            const logoId = t.logo_id || t.logo || t.team_logo;
                             
                             if (!teamName || !teamSlug) return;
                             if (linkedSlugs.has((teamSlug || '').toLowerCase().trim())) return;
