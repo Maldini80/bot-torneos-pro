@@ -9,14 +9,24 @@ import { DISCORD_INVITE_LINK } from '../../config.js';
 const GLOBAL_HASHTAG = '#VPGLightnings';
 // NO SE USA NINGUNA URL DE IMAGEN DE FONDO PARA GARANTIZAR LA FIABILIDAD
 
-const client = new TwitterApi({
-    appKey: process.env.TWITTER_API_KEY,
-    appSecret: process.env.TWITTER_API_KEY_SECRET,
-    accessToken: process.env.TWITTER_ACCESS_TOKEN,
-    accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-});
+let client;
+let twitterClient;
 
-const twitterClient = client.readWrite;
+try {
+    if (process.env.TWITTER_API_KEY && process.env.TWITTER_API_KEY_SECRET) {
+        client = new TwitterApi({
+            appKey: process.env.TWITTER_API_KEY,
+            appSecret: process.env.TWITTER_API_KEY_SECRET,
+            accessToken: process.env.TWITTER_ACCESS_TOKEN,
+            accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+        });
+        twitterClient = client.readWrite;
+    } else {
+        console.warn("[TWITTER] Claves de Twitter no configuradas. El cliente no se inicializará.");
+    }
+} catch (err) {
+    console.error("[TWITTER] Error al inicializar cliente de Twitter:", err.message);
+}
 
 // --- CSS CON LA VERSIÓN FINAL Y 100% FIABLE (SIN IMAGEN DE FONDO) ---
 const globalCss = `
@@ -317,6 +327,11 @@ export async function postTournamentUpdate(eventType, data) {
     }
 
     try {
+        if (!twitterClient) {
+            console.warn("[TWITTER] Cliente de Twitter no inicializado. Ignorando publicación.");
+            return { success: false, error: "Cliente de Twitter no disponible." };
+        }
+
         if (!htmlContent) {
             await twitterClient.v2.tweet({ text: tweetText });
             console.log(`[TWITTER] ${logMessage} (solo texto)`);

@@ -5076,6 +5076,217 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // === VPN (Virtual Pro Network) API Routes ===
+    const vpnLeagues = [
+        { id: 2212, season: 6377, name: '1ª División', slug: '1-division' },
+        { id: 2213, season: 6378, name: '2ª División', slug: '2-division' },
+        { id: 2214, season: 6379, name: '3ª División A', slug: '3-division-a' },
+        { id: 2215, season: 6380, name: '3ª División B', slug: '3-division-b' },
+        { id: 2216, season: 6381, name: 'Regional A', slug: 'regional-a' },
+        { id: 2217, season: 6382, name: 'Regional B', slug: 'regional-b' }
+    ];
+
+    const vpnTeamsCache = {
+        data: null,
+        timestamp: 0
+    };
+    const VPN_CACHE_TTL = 30 * 60 * 1000; // 30 minutes cache
+
+    async function fetchAllVpnTeams() {
+        if (vpnTeamsCache.data && (Date.now() - vpnTeamsCache.timestamp < VPN_CACHE_TTL)) {
+            return vpnTeamsCache.data;
+        }
+        
+        let allTeams = [];
+        let page = 1;
+        let totalPages = 1;
+        
+        do {
+            const url = `https://www.virtualpronetwork.com/api/competitions/52/teams?page=${page}`;
+            console.log(`[VPN Crawler] Fetching page ${page}: ${url}`);
+            const res = await fetch(url);
+            if (!res.ok) {
+                throw new Error(`Failed to fetch page ${page}: ${res.statusText}`);
+            }
+            const data = await res.json();
+            
+            if (data.rows && Array.isArray(data.rows)) {
+                allTeams = allTeams.concat(data.rows);
+            }
+            
+            totalPages = data.totalPages || Math.ceil((data.count || 0) / 10) || 1;
+            page++;
+        } while (page <= totalPages);
+        
+        vpnTeamsCache.data = allTeams;
+        vpnTeamsCache.timestamp = Date.now();
+        return allTeams;
+    }
+
+    app.get('/vpn.html', (req, res) => res.sendFile('vpn.html', { root: 'public' }));
+
+    // List VPN leagues
+    app.get('/api/vpn/leagues', async (req, res) => {
+        try {
+            res.json({ leagues: vpnLeagues });
+        } catch (e) {
+            console.error('[API VPN Leagues] Error:', e);
+            res.status(500).json({ error: 'No se pudieron cargar las ligas de VPN.' });
+        }
+    });
+
+    // Get league table & matches dictionary
+    app.get('/api/vpn/leagues/:leagueId/table', async (req, res) => {
+        try {
+            const { leagueId } = req.params;
+            let { season } = req.query;
+            if (!season) {
+                const l = vpnLeagues.find(x => x.id === parseInt(leagueId));
+                season = l ? l.season : '';
+            }
+            const url = `https://www.virtualpronetwork.com/api/leagues/${leagueId}/table?season=${season}`;
+            console.log(`[VPN Proxy] Fetching league ${leagueId} table with season ${season}: ${url}`);
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`VPN API error: ${response.status} ${response.statusText}`);
+            }
+            const data = await response.json();
+            res.json(data);
+        } catch (e) {
+            console.error('[API VPN Table] Error:', e);
+            res.status(500).json({ error: `Error al obtener la clasificación de la liga VPN ${leagueId}` });
+        }
+    });
+
+    // Search candidate team
+    app.get('/api/vpn/search-candidate', async (req, res) => {
+        try {
+            const { name, abbr } = req.query;
+            if (!name) return res.status(400).json({ error: 'Falta el nombre del equipo' });
+
+            const cleanQueryName = cleanTeamName(name);
+            const cleanQueryAbbr = abbr ? abbr.toLowerCase().trim() : '';
+
+            // Fetch already linked VPN team IDs from the database to exclude them
+            const testDb = getDb('test');
+            const linkedTeams = await testDb.collection('teams').find({ vpnTeamId: { $exists: true, $ne: null } }).toArray();
+            const linkedIds = new Set(linkedTeams.map(t => Number(t.vpnTeamId)));
+
+            const allVpnRows = await fetchAllVpnTeams();
+            const matches = [];
+
+            allVpnRows.forEach(row => {
+                const t = row.team;
+                if (!t || !t.name || !t.id) return;
+                
+                const teamId = Number(t.id);
+                if (linkedIds.has(teamId)) return;
+
+                const cleanVpnName = cleanTeamName(t.name);
+                let score = 0;
+
+                if (cleanVpnName === cleanQueryName) {
+                    score = 100;
+                } else if (cleanVpnName.includes(cleanQueryName) || cleanQueryName.includes(cleanVpnName)) {
+                    score = 80;
+                } else if (cleanQueryAbbr && (cleanVpnName.includes(cleanQueryAbbr) || t.name.toLowerCase().includes(cleanQueryAbbr))) {
+                    score = 50;
+                }
+
+                if (score >= 50) {
+                    matches.push({
+                        id: teamId,
+                        name: t.name,
+                        slug: t.url,
+                        logoUrl: t.logoUrl,
+                        score
+                    });
+                }
+            });
+
+            // Sort matches by highest score first
+            matches.sort((a, b) => b.score - a.score);
+            res.json({ matches });
+        } catch (e) {
+            console.error('[API VPN Search Candidate] Error:', e);
+            res.status(500).json({ error: 'Error al buscar candidatos en VPN.' });
+        }
+    });
+
+    // List local teams with their vpn integration fields
+    app.get('/api/vpn/local-teams', async (req, res) => {
+        try {
+            const testDb = getDb('test');
+            const teams = await testDb.collection('teams')
+                .find({}, { projection: { name: 1, abbreviation: 1, logoUrl: 1, vpnTeamId: 1, vpnTeamSlug: 1, vpnLeagueId: 1, vpnLeagueSlug: 1 } })
+                .toArray();
+            res.json({ teams });
+        } catch (e) {
+            console.error('[API VPN Local Teams] Error:', e);
+            res.status(500).json({ error: 'Error al obtener los equipos locales.' });
+        }
+    });
+
+    // Link a team to VPN
+    app.post('/api/vpn/link', isAdmin, async (req, res) => {
+        try {
+            const { localTeamId, vpnTeamId, vpnTeamSlug, vpnLeagueId, vpnLeagueSlug } = req.body;
+            if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });
+
+            // Fetch team details from VPN to obtain the logoUrl automatically
+            let logoUrl = null;
+            if (vpnTeamId) {
+                try {
+                    const allVpnRows = await fetchAllVpnTeams();
+                    const row = allVpnRows.find(r => r.team && Number(r.team.id) === Number(vpnTeamId));
+                    if (row && row.team && row.team.logoUrl) {
+                        logoUrl = row.team.logoUrl;
+                    }
+                } catch (logoErr) {
+                    console.error(`[API VPN Link] No se pudo obtener el logo de VPN para el auto-mapeo:`, logoErr.message);
+                }
+            }
+
+            const updateFields = { 
+                vpnTeamId: vpnTeamId ? Number(vpnTeamId) : null, 
+                vpnTeamSlug, 
+                vpnLeagueId: vpnLeagueId ? Number(vpnLeagueId) : null, 
+                vpnLeagueSlug 
+            };
+            if (logoUrl) {
+                updateFields.logoUrl = logoUrl;
+            }
+
+            const testDb = getDb('test');
+            await testDb.collection('teams').updateOne(
+                { _id: new ObjectId(localTeamId) },
+                { $set: updateFields }
+            );
+            res.json({ success: true, message: logoUrl ? 'Equipo y logo vinculados correctamente con VPN.' : 'Equipo vinculado correctamente con VPN.' });
+        } catch (e) {
+            console.error('[API VPN Link] Error:', e);
+            res.status(500).json({ error: 'Error al vincular el equipo con VPN.' });
+        }
+    });
+
+    // Unlink a team from VPN
+    app.post('/api/vpn/unlink', isAdmin, async (req, res) => {
+        try {
+            const { localTeamId } = req.body;
+            if (!localTeamId) return res.status(400).json({ error: 'Falta localTeamId' });
+
+            const testDb = getDb('test');
+            await testDb.collection('teams').updateOne(
+                { _id: new ObjectId(localTeamId) },
+                { $unset: { vpnTeamId: "", vpnTeamSlug: "", vpnLeagueId: "", vpnLeagueSlug: "" } }
+            );
+            res.json({ success: true, message: 'Equipo desvinculado de VPN correctamente.' });
+        } catch (e) {
+            console.error('[API VPN Unlink] Error:', e);
+            res.status(500).json({ error: 'Error al desvincular el equipo de VPN.' });
+        }
+    });
+
     // === 404 Catch-all: Must be AFTER all routes ===
     app.use((req, res) => {
         // Return JSON for API routes, HTML for everything else
