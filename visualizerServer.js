@@ -4711,13 +4711,32 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    // Team active contracts (roster) - Filtered to Spanish national league community (483)
+    // Team active contracts (roster) - Filtered to Spanish national league community (483) or other community if not playing elsewhere
     app.get('/api/vpg/teams/:teamSlug/roster', async (req, res) => {
         try {
             const { teamSlug } = req.params;
             const data = await fetchFromVpg(`teams/${teamSlug}/contracts`);
-            const contracts = Array.isArray(data) ? data : (data.data || data.results || []);
-            const filteredContracts = contracts.filter(c => c.community_id === 483);
+            const rawContracts = Array.isArray(data) ? data : (data.data || data.results || []);
+            const communityId = 483;
+
+            const filteredContracts = [];
+            await Promise.all(
+                rawContracts.map(async (c) => {
+                    if (c.community_id === communityId) {
+                        filteredContracts.push(c);
+                        return;
+                    }
+                    const userContracts = await fetchUserContracts(c.username);
+                    const playsElsewhere = userContracts.some(uc => 
+                        uc.status === 'active' && 
+                        uc.community_id === communityId && 
+                        uc.team_id !== c.team_id
+                    );
+                    if (!playsElsewhere) {
+                        filteredContracts.push(c);
+                    }
+                })
+            );
             res.json({ contracts: filteredContracts });
         } catch (e) {
             console.error('[API VPG Team Roster] Error:', e);
@@ -4835,8 +4854,8 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            // Filter contracts: keep target community (e.g. 483) and global community (479)
-            // if the user doesn't play for another team in the target community.
+            // Filter contracts: keep target community (e.g. 483). For other communities (global 479, esports 701, etc.),
+            // include them unless the user has an active contract in the target community with a different team.
             const filteredContracts = [];
             await Promise.all(
                 rawContracts.map(async (c) => {
@@ -4844,17 +4863,15 @@ export async function startVisualizerServer(discordClient) {
                         filteredContracts.push(c);
                         return;
                     }
-                    if (c.community_id === 479) {
-                        // Check if they play for another team in the target community (e.g. 483)
-                        const userContracts = await fetchUserContracts(c.username);
-                        const playsElsewhere = userContracts.some(uc => 
-                            uc.status === 'active' && 
-                            uc.community_id === communityId && 
-                            uc.team_id !== c.team_id
-                        );
-                        if (!playsElsewhere) {
-                            filteredContracts.push(c);
-                        }
+                    // For any other community contract of our team, verify they don't play elsewhere in the target community
+                    const userContracts = await fetchUserContracts(c.username);
+                    const playsElsewhere = userContracts.some(uc => 
+                        uc.status === 'active' && 
+                        uc.community_id === communityId && 
+                        uc.team_id !== c.team_id
+                    );
+                    if (!playsElsewhere) {
+                        filteredContracts.push(c);
                     }
                 })
             );
