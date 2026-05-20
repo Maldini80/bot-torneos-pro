@@ -4528,6 +4528,52 @@ export async function startVisualizerServer(discordClient) {
         }
     }
 
+    const userContractsCache = new Map();
+    const USER_CONTRACTS_CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
+    async function fetchUserContracts(username) {
+        const cached = userContractsCache.get(username.toLowerCase());
+        if (cached && Date.now() < cached.expiry) {
+            return cached.data;
+        }
+
+        try {
+            const data = await fetchFromVpg(`users/${username}/contracts/`);
+            const contracts = data && Array.isArray(data.value) ? data.value : [];
+            userContractsCache.set(username.toLowerCase(), {
+                data: contracts,
+                expiry: Date.now() + USER_CONTRACTS_CACHE_TTL
+            });
+            return contracts;
+        } catch (e) {
+            console.error(`[VPG User Contracts] Error fetching contracts for ${username}:`, e.message);
+            return [];
+        }
+    }
+
+    function extractIdsFromBio(bio) {
+        if (!bio) return [];
+        const ids = [];
+        const regexes = [
+            /psn\s*(?:id)?\s*[:=-]\s*([a-z0-9_.-]+)/i,
+            /ea\s*(?:id)?\s*[:=-]\s*([a-z0-9_.-]+)/i,
+            /xbox\s*(?:id)?\s*[:=-]\s*([a-z0-9_.-]+)/i,
+            /playstation\s*(?:network)?\s*(?:id)?\s*[:=-]\s*([a-z0-9_.-]+)/i,
+            /origin\s*(?:id)?\s*[:=-]\s*([a-z0-9_.-]+)/i,
+            /id\s*[:=-]\s*([a-z0-9_.-]+)/i
+        ];
+        for (const regex of regexes) {
+            const match = bio.match(regex);
+            if (match && match[1]) {
+                const val = match[1].trim();
+                if (val && val.length > 2) {
+                    ids.push(val);
+                }
+            }
+        }
+        return ids;
+    }
+
     app.get('/vpg.html', (req, res) => res.sendFile('vpg.html', { root: 'public' }));
 
     // List of leagues
@@ -4774,7 +4820,7 @@ export async function startVisualizerServer(discordClient) {
 
             // 1. Fetch VPG contracts
             const vpgData = await fetchFromVpg(`teams/${teamSlug}/contracts`);
-            let contracts = Array.isArray(vpgData) ? vpgData : (vpgData.data || vpgData.results || []);
+            let rawContracts = Array.isArray(vpgData) ? vpgData : (vpgData.data || vpgData.results || []);
 
             // Always restrict to Spanish National Leagues (community_id: 483)
             let communityId = 483;
@@ -4788,8 +4834,33 @@ export async function startVisualizerServer(discordClient) {
                     console.error(`[API VPG Compare] Failed to fetch league ${leagueSlug} for filtering:`, err.message);
                 }
             }
-            // Filter contracts strictly by community ID.
-            contracts = contracts.filter(c => c.community_id === communityId);
+
+            // Filter contracts: keep target community (e.g. 483) and global community (479)
+            // if the user doesn't play for another team in the target community.
+            const filteredContracts = [];
+            await Promise.all(
+                rawContracts.map(async (c) => {
+                    if (c.community_id === communityId) {
+                        filteredContracts.push(c);
+                        return;
+                    }
+                    if (c.community_id === 479) {
+                        // Check if they play for another team in the target community (e.g. 483)
+                        const userContracts = await fetchUserContracts(c.username);
+                        const playsElsewhere = userContracts.some(uc => 
+                            uc.status === 'active' && 
+                            uc.community_id === communityId && 
+                            uc.team_id !== c.team_id
+                        );
+                        if (!playsElsewhere) {
+                            filteredContracts.push(c);
+                        }
+                    }
+                })
+            );
+            
+            // Retain original order for the matches
+            let contracts = rawContracts.filter(c => filteredContracts.some(fc => fc.id === c.id));
 
             // 2. Fetch local team and VPG user profiles concurrently (using caching helper)
             const testDb = getDb('test');
@@ -4798,16 +4869,37 @@ export async function startVisualizerServer(discordClient) {
             const vpgProfiles = await Promise.all(
                 contracts.map(async (c) => {
                     const profile = await fetchUserDetail(c.username);
+                    const bioIds = profile && profile.bio ? extractIdsFromBio(profile.bio) : [];
                     return {
                         username: c.username,
                         psn: profile ? profile.psn : null,
                         xbox: profile ? profile.xbox : null,
-                        origin: profile ? profile.origin : null
+                        origin: profile ? profile.origin : null,
+                        bioIds: bioIds
                     };
                 })
             );
 
             const cleanStr = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            const matchesPlayer = (c, lp, profile) => {
+                const cleanUser = cleanStr(c.username);
+                const cleanPsn = profile ? cleanStr(profile.psn) : '';
+                const cleanXbox = profile ? cleanStr(profile.xbox) : '';
+                const cleanOrigin = profile ? cleanStr(profile.origin) : '';
+                const cleanBioIds = profile && profile.bioIds ? profile.bioIds.map(cleanStr) : [];
+
+                return lp.gameIds.some(gid => {
+                    const cleanGid = cleanStr(gid);
+                    return cleanGid && (
+                        cleanGid === cleanUser ||
+                        cleanGid === cleanPsn ||
+                        cleanGid === cleanXbox ||
+                        cleanGid === cleanOrigin ||
+                        cleanBioIds.includes(cleanGid)
+                    );
+                });
+            };
 
             if (!localTeam) {
                 // Not linked yet, but we can still return VPG contracts with matched=false
@@ -4822,7 +4914,8 @@ export async function startVisualizerServer(discordClient) {
                         matched: false,
                         vpgPsn: profile ? profile.psn : null,
                         vpgXbox: profile ? profile.xbox : null,
-                        vpgOrigin: profile ? profile.origin : null
+                        vpgOrigin: profile ? profile.origin : null,
+                        vpgBioIds: profile ? profile.bioIds : []
                     };
                 });
                 return res.json({
@@ -4899,23 +4992,7 @@ export async function startVisualizerServer(discordClient) {
             // 6. Match VPG contracts against local players using console IDs case/symbol-insensitively
             const comparedVpg = contracts.map(c => {
                 const profile = vpgProfiles.find(p => p.username.toLowerCase() === c.username.toLowerCase());
-
-                const cleanUser = cleanStr(c.username);
-                const cleanPsn = profile ? cleanStr(profile.psn) : '';
-                const cleanXbox = profile ? cleanStr(profile.xbox) : '';
-                const cleanOrigin = profile ? cleanStr(profile.origin) : '';
-
-                const match = enhancedLocalPlayers.find(lp => {
-                    return lp.gameIds.some(gid => {
-                        const cleanGid = cleanStr(gid);
-                        return cleanGid && (
-                            cleanGid === cleanUser ||
-                            cleanGid === cleanPsn ||
-                            cleanGid === cleanXbox ||
-                            cleanGid === cleanOrigin
-                        );
-                    });
-                });
+                const match = enhancedLocalPlayers.find(lp => matchesPlayer(c, lp, profile));
 
                 return {
                     vpgUsername: c.username,
@@ -4928,7 +5005,8 @@ export async function startVisualizerServer(discordClient) {
                     matchedDiscordTag: match ? match.discordTag : null,
                     vpgPsn: profile ? profile.psn : null,
                     vpgXbox: profile ? profile.xbox : null,
-                    vpgOrigin: profile ? profile.origin : null
+                    vpgOrigin: profile ? profile.origin : null,
+                    vpgBioIds: profile ? profile.bioIds : []
                 };
             });
 
@@ -4936,20 +5014,7 @@ export async function startVisualizerServer(discordClient) {
             const comparedLocal = enhancedLocalPlayers.map(lp => {
                 const match = contracts.find(c => {
                     const profile = vpgProfiles.find(p => p.username.toLowerCase() === c.username.toLowerCase());
-                    const cleanUser = cleanStr(c.username);
-                    const cleanPsn = profile ? cleanStr(profile.psn) : '';
-                    const cleanXbox = profile ? cleanStr(profile.xbox) : '';
-                    const cleanOrigin = profile ? cleanStr(profile.origin) : '';
-
-                    return lp.gameIds.some(gid => {
-                        const cleanGid = cleanStr(gid);
-                        return cleanGid && (
-                            cleanGid === cleanUser ||
-                            cleanGid === cleanPsn ||
-                            cleanGid === cleanXbox ||
-                            cleanGid === cleanOrigin
-                        );
-                    });
+                    return matchesPlayer(c, lp, profile);
                 });
 
                 return {

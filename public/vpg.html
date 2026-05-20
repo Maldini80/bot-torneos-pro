@@ -1374,8 +1374,7 @@
                     
                     let psnHtml = '';
                     const cleanStr = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                    const cleanUser = cleanStr(p.vpgUsername);
-                    const renderedClean = new Set([cleanUser]);
+                    const renderedClean = new Set();
 
                     if (p.vpgPsn) {
                         const cleanPsn = cleanStr(p.vpgPsn);
@@ -1405,6 +1404,22 @@
                             psnHtml += `<div class="match-info-detail">EA ID: <strong style="color: var(--neon-glow);">${p.vpgOrigin}</strong></div>`;
                             renderedClean.add(cleanOrigin);
                         }
+                    }
+                    if (p.vpgBioIds && Array.isArray(p.vpgBioIds)) {
+                        p.vpgBioIds.forEach(bioId => {
+                            const cleanBio = cleanStr(bioId);
+                            let isDuplicate = false;
+                            for (const rendered of renderedClean) {
+                                if (cleanBio === rendered || cleanBio.includes(rendered) || rendered.includes(cleanBio)) {
+                                    isDuplicate = true;
+                                    break;
+                                }
+                            }
+                            if (!isDuplicate) {
+                                psnHtml += `<div class="match-info-detail">PSN/EA ID (Bio): <strong style="color: var(--neon-glow);">${bioId}</strong></div>`;
+                                renderedClean.add(cleanBio);
+                            }
+                        });
                     }
                     const discordHtml = p.matched ? `<div class="match-info-detail">Discord: <span>${p.matchedDiscordTag}</span></div>` : '';
 
