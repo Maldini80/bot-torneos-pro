@@ -146,6 +146,12 @@ const marketPosFilter = document.getElementById('market-pos-filter');
 // DOM Elements - Leaderboard tab
 const leaderboardList = document.getElementById('leaderboard-list');
 
+// DOM Elements - Pending Approval
+const pendingApprovalView = document.getElementById('pending-approval-view');
+const pendingTeamNameDisplay = document.getElementById('pending-team-name-display');
+const btnPendingRefresh = document.getElementById('btn-pending-refresh');
+const btnPendingExit = document.getElementById('btn-pending-exit');
+
 // DOM Elements - Admin Panel tab
 const adminUpdateLeagueForm = document.getElementById('admin-update-league-form');
 const adminLeagueName = document.getElementById('admin-league-name');
@@ -218,6 +224,20 @@ async function checkUserSession() {
 function setupEventHandlers() {
     // Selector Back/Logout Click
     btnChangeLeague.addEventListener('click', () => {
+        sessionStorage.removeItem('selected_league_id');
+        currentLeagueId = null;
+        activeLeague = null;
+        showLeagueSelector();
+    });
+
+    // Pending Approval View handlers
+    btnPendingRefresh.addEventListener('click', () => {
+        if (currentLeagueId) {
+            enterLeague(currentLeagueId);
+        }
+    });
+
+    btnPendingExit.addEventListener('click', () => {
         sessionStorage.removeItem('selected_league_id');
         currentLeagueId = null;
         activeLeague = null;
@@ -422,6 +442,24 @@ async function enterLeague(leagueId) {
         // Switch Views
         leagueSelectorView.style.display = 'none';
         leagueDashboardView.style.display = 'block';
+        
+        const statsArea = document.querySelector('.stats-area');
+        const leagueNav = document.querySelector('.league-nav');
+        
+        if (!myTeam.approved) {
+            statsArea.style.display = 'none';
+            leagueNav.style.display = 'none';
+            pendingApprovalView.style.display = 'block';
+            pendingTeamNameDisplay.textContent = myTeam.teamName;
+            
+            // Hide all tab contents
+            document.querySelectorAll('.league-tab-content').forEach(c => c.classList.remove('active'));
+            return;
+        } else {
+            statsArea.style.display = 'flex';
+            leagueNav.style.display = 'flex';
+            pendingApprovalView.style.display = 'none';
+        }
         
         // Reset subtabs to first tab
         document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -991,38 +1029,112 @@ async function loadAdminPanelData() {
         
         if (teams.length === 0) {
             adminParticipantsList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No hay participantes inscritos.</td></tr>`;
-            return;
+        } else {
+            teams.forEach(team => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div style="font-weight: 600; color: #fff;">${team.discordUsername}</div>
+                        <div style="font-size: 0.75rem; color: #64748b;">ID: ${team.discordId}</div>
+                    </td>
+                    <td><div style="font-weight: 600;">${team.teamName}</div></td>
+                    <td class="text-center">${(team.players || []).length} jugadores</td>
+                    <td class="text-right price-text">${formatCurrency(team.balance)}</td>
+                    <td class="text-right text-yellow" style="font-weight: 700;">${team.points} pts</td>
+                    <td class="text-center">
+                        <button class="btn btn-danger btn-xs btn-kick-manager" data-team-id="${team._id}"><i class="fa-solid fa-user-minus"></i> Expulsar</button>
+                    </td>
+                `;
+                
+                const kickBtn = row.querySelector('.btn-kick-manager');
+                if (kickBtn) {
+                    kickBtn.addEventListener('click', () => {
+                        handleKickManager(team._id, team.discordUsername);
+                    });
+                }
+                
+                adminParticipantsList.appendChild(row);
+            });
         }
+
+        // Fetch pending requests
+        const adminPendingRequestsCard = document.getElementById('admin-pending-requests-card');
+        const adminPendingList = document.getElementById('admin-pending-list');
         
-        teams.forEach(team => {
-            const row = document.createElement('tr');
-            
-            row.innerHTML = `
-                <td>
-                    <div style="font-weight: 600; color: #fff;">${team.discordUsername}</div>
-                    <div style="font-size: 0.75rem; color: #64748b;">ID: ${team.discordId}</div>
-                </td>
-                <td><div style="font-weight: 600;">${team.teamName}</div></td>
-                <td class="text-center">${(team.players || []).length} jugadores</td>
-                <td class="text-right price-text">${formatCurrency(team.balance)}</td>
-                <td class="text-right text-yellow" style="font-weight: 700;">${team.points} pts</td>
-                <td class="text-center">
-                    <button class="btn btn-danger btn-xs btn-kick-manager" data-team-id="${team._id}" ${team.discordId === process.env?.OWNER_DISCORD_ID ? 'disabled' : ''}><i class="fa-solid fa-user-minus"></i> Expulsar</button>
-                </td>
-            `;
-            
-            const kickBtn = row.querySelector('.btn-kick-manager');
-            if (kickBtn) {
-                kickBtn.addEventListener('click', () => {
-                    handleKickManager(team._id, team.discordUsername);
+        const pendingRes = await fetch(`/api/fantasy/leagues/${currentLeagueId}/pending`);
+        if (!pendingRes.ok) throw new Error('No se pudieron obtener solicitudes pendientes.');
+        const pendingData = await pendingRes.json();
+        const pending = pendingData.pending || [];
+        
+        adminPendingList.innerHTML = '';
+        
+        if (pending.length === 0) {
+            adminPendingRequestsCard.style.display = 'none';
+        } else {
+            adminPendingRequestsCard.style.display = 'block';
+            pending.forEach(team => {
+                const row = document.createElement('tr');
+                const reqDate = team.joinedAt ? new Date(team.joinedAt).toLocaleDateString('es-ES') : 'N/A';
+                
+                row.innerHTML = `
+                    <td>
+                        <div style="font-weight: 600; color: #fff;">${team.discordUsername}</div>
+                        <div style="font-size: 0.75rem; color: #64748b;">ID: ${team.discordId}</div>
+                    </td>
+                    <td><div style="font-weight: 600;">${team.teamName}</div></td>
+                    <td class="text-center">${reqDate}</td>
+                    <td class="text-center">
+                        <button class="btn btn-primary btn-xs btn-approve-manager" style="margin-right: 5px;"><i class="fa-solid fa-check"></i> Aprobar</button>
+                        <button class="btn btn-danger btn-xs btn-reject-manager"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+                    </td>
+                `;
+                
+                row.querySelector('.btn-approve-manager').addEventListener('click', () => {
+                    handleApproveRequest(team._id, team.discordUsername);
                 });
-            }
-            
-            adminParticipantsList.appendChild(row);
-        });
+                
+                row.querySelector('.btn-reject-manager').addEventListener('click', () => {
+                    handleRejectRequest(team._id, team.discordUsername);
+                });
+                
+                adminPendingList.appendChild(row);
+            });
+        }
     } catch (e) {
         console.error(e);
         adminParticipantsList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red">Error al cargar participantes.</td></tr>`;
+    }
+}
+
+async function handleApproveRequest(teamId, discordUsername) {
+    if (!confirm(`¿Estás seguro de que quieres aprobar e inscribir a ${discordUsername}?`)) return;
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ teamId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al aprobar equipo.');
+        showToast(data.message, 'success');
+        await loadAdminPanelData();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function handleRejectRequest(teamId, discordUsername) {
+    if (!confirm(`¿Estás seguro de que quieres rechazar la solicitud de ${discordUsername}?`)) return;
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/teams/${teamId}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al rechazar solicitud.');
+        showToast('Solicitud rechazada y eliminada.', 'success');
+        await loadAdminPanelData();
+    } catch (e) {
+        showToast(e.message, 'error');
     }
 }
 

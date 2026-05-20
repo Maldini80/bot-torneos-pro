@@ -5437,7 +5437,7 @@ export async function startVisualizerServer(discordClient) {
     app.get('/api/fantasy/leagues/:id/teams', isFantasyAdmin, async (req, res) => {
         try {
             const db = getDb();
-            const teams = await db.collection('fantasy_teams').find({ leagueId: req.params.id }).sort({ points: -1 }).toArray();
+            const teams = await db.collection('fantasy_teams').find({ leagueId: req.params.id, approved: true }).sort({ points: -1 }).toArray();
             res.json({ teams });
         } catch (e) {
             console.error('[API Fantasy League Teams] Error:', e);
@@ -5480,6 +5480,36 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // Get all pending team requests in a league (admin only)
+    app.get('/api/fantasy/leagues/:id/pending', isFantasyAdmin, async (req, res) => {
+        try {
+            const db = getDb();
+            const pending = await db.collection('fantasy_teams').find({ leagueId: req.params.id, approved: false }).toArray();
+            res.json({ pending });
+        } catch (e) {
+            console.error('[API Fantasy Pending Requests] Error:', e);
+            res.status(500).json({ error: 'Error al obtener solicitudes pendientes.' });
+        }
+    });
+
+    // Approve a team request (admin only)
+    app.post('/api/fantasy/leagues/:id/approve', isFantasyAdmin, async (req, res) => {
+        try {
+            const { teamId } = req.body;
+            if (!teamId) return res.status(400).json({ error: 'Falta teamId' });
+            const db = getDb();
+            const { ObjectId } = require('mongodb');
+            await db.collection('fantasy_teams').updateOne(
+                { _id: new ObjectId(teamId), leagueId: req.params.id },
+                { $set: { approved: true } }
+            );
+            res.json({ success: true, message: 'Equipo aprobado e inscrito correctamente.' });
+        } catch (e) {
+            console.error('[API Fantasy Approve Request] Error:', e);
+            res.status(500).json({ error: 'Error al aprobar equipo.' });
+        }
+    });
+
     // ========== FANTASY API: User League Actions ==========
 
     // Join a league
@@ -5504,6 +5534,7 @@ export async function startVisualizerServer(discordClient) {
             const count = await db.collection('fantasy_teams').countDocuments({ leagueId });
             if (count >= league.maxParticipants) return res.status(400).json({ error: 'La liga está llena.' });
 
+            const isAdminUser = discordId === process.env.OWNER_DISCORD_ID;
             const team = {
                 discordId,
                 discordUsername: req.user.global_name || req.user.username,
@@ -5515,10 +5546,11 @@ export async function startVisualizerServer(discordClient) {
                 lineup: { POR: null, DFC: [], MC: [], DC: [] },
                 formation: '4-3-3',
                 points: 0,
+                approved: isAdminUser, // Auto-approved if admin
                 joinedAt: new Date()
             };
             await db.collection('fantasy_teams').insertOne(team);
-            res.json({ success: true, message: `¡Te has unido a "${league.name}"!`, team });
+            res.json({ success: true, message: isAdminUser ? `¡Te has unido a "${league.name}"!` : `Solicitud de unión enviada para "${league.name}". Esperando aprobación del administrador.`, team });
         } catch (e) {
             console.error('[API Fantasy Join] Error:', e);
             res.status(500).json({ error: 'Error al unirse a la liga.' });
@@ -5530,7 +5562,7 @@ export async function startVisualizerServer(discordClient) {
         try {
             const db = getDb();
             const teams = await db.collection('fantasy_teams').find(
-                { leagueId: req.params.id },
+                { leagueId: req.params.id, approved: true },
                 { projection: { discordId: 1, discordUsername: 1, discordAvatar: 1, teamName: 1, points: 1, players: 1, formation: 1 } }
             ).sort({ points: -1 }).toArray();
 
@@ -5661,13 +5693,15 @@ export async function startVisualizerServer(discordClient) {
             const discordId = req.user.id;
             const leagueId = req.params.id;
 
+            const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
+            if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
+            if (!userTeam.approved) return res.status(403).json({ error: 'Tu equipo está pendiente de aprobación por el administrador.' });
+
             // Check league exists and market is open
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
             if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
             if (!league.marketOpen) return res.status(400).json({ error: 'El mercado está cerrado.' });
 
-            const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
-            if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
             if (userTeam.players.includes(eaPlayerName)) return res.status(400).json({ error: 'Ya tienes este jugador.' });
             if ((userTeam.players || []).length >= (league.maxSquadSize || 15)) return res.status(400).json({ error: `Plantilla llena (máx. ${league.maxSquadSize || 15} jugadores).` });
 
@@ -5714,6 +5748,7 @@ export async function startVisualizerServer(discordClient) {
 
             const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
             if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
+            if (!userTeam.approved) return res.status(403).json({ error: 'Tu equipo está pendiente de aprobación por el administrador.' });
 
             // Validate that all players in lineup are owned by user
             const owned = userTeam.players || [];
@@ -5770,6 +5805,7 @@ export async function startVisualizerServer(discordClient) {
 
             const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
             if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
+            if (!userTeam.approved) return res.status(403).json({ error: 'Tu equipo está pendiente de aprobación por el administrador.' });
             if (!userTeam.players.includes(eaPlayerName)) return res.status(400).json({ error: 'No tienes este jugador.' });
 
             // Check market open

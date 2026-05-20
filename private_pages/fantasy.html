@@ -106,6 +106,23 @@
             <button class="nav-tab-btn admin-only-block" data-league-tab="admin-panel" style="display: none;"><i class="fa-solid fa-gears"></i> Panel Admin</button>
         </nav>
 
+        <!-- Pending Approval Message -->
+        <div id="pending-approval-view" class="fantasy-card pending-card" style="display: none; margin: 30px auto; max-width: 600px; text-align: center; padding: 40px 20px;">
+            <div style="font-size: 4rem; color: var(--yellow); margin-bottom: 20px;">
+                <i class="fa-solid fa-clock-rotate-left fa-spin-pulse"></i>
+            </div>
+            <h2 style="font-size: 1.8rem; margin-bottom: 15px;">Inscripción Pendiente</h2>
+            <p style="font-size: 1.1rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 25px;">
+                Tu equipo <strong id="pending-team-name-display" class="text-yellow"></strong> ha sido registrado correctamente y está en la cola de aprobación. 
+                <br><br>
+                El administrador de la liga debe aprobar tu solicitud antes de que puedas gestionar tu plantilla, ver el mercado de fichajes o guardar tu alineación táctica.
+            </p>
+            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+                <button id="btn-pending-refresh" class="btn btn-primary" style="margin-right: 10px;"><i class="fa-solid fa-sync"></i> Comprobar Estado</button>
+                <button id="btn-pending-exit" class="btn btn-secondary"><i class="fa-solid fa-right-from-bracket"></i> Volver a Selección de Liga</button>
+            </div>
+        </div>
+
         <!-- Active View 2.1: My Team (2-Column Workspace) -->
         <div id="league-tab-my-team" class="league-tab-content active">
             <main class="fantasy-main">
@@ -317,6 +334,28 @@
                                 </div>
                                 <button id="btn-admin-delete-league" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i> Eliminar Liga</button>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Box 2.5: Pending Requests (Admin) -->
+                    <div id="admin-pending-requests-card" class="fantasy-card full-width-card" style="display: none;">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-clock text-yellow"></i> Solicitudes de Inscripción Pendientes</h3>
+                        </div>
+                        <div class="table-scroll-container">
+                            <table class="fantasy-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mánager</th>
+                                        <th>Nombre del Equipo</th>
+                                        <th class="text-center">Fecha Solicitud</th>
+                                        <th class="text-center">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-pending-list">
+                                    <!-- Loaded dynamically -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
