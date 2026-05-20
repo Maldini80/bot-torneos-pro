@@ -4505,6 +4505,29 @@ export async function startVisualizerServer(discordClient) {
         return await res.json();
     }
 
+    // Cache for user details to avoid rate limiting and speed up response times
+    const userCache = new Map();
+    const USER_CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
+    async function fetchUserDetail(username) {
+        const cached = userCache.get(username.toLowerCase());
+        if (cached && Date.now() < cached.expiry) {
+            return cached.data;
+        }
+
+        try {
+            const data = await fetchFromVpg(`users/${username}/`);
+            userCache.set(username.toLowerCase(), {
+                data,
+                expiry: Date.now() + USER_CACHE_TTL
+            });
+            return data;
+        } catch (e) {
+            console.error(`[VPG User Detail] Error fetching user ${username}:`, e.message);
+            return null;
+        }
+    }
+
     app.get('/vpg.html', (req, res) => res.sendFile('vpg.html', { root: 'public' }));
 
     // List of leagues
@@ -4761,19 +4784,26 @@ export async function startVisualizerServer(discordClient) {
             }
             contracts = contracts.filter(c => c.community_id === communityId);
 
-            // 2. Fetch local team and vpg_users profiles
+            // 2. Fetch local team and VPG user profiles concurrently (using caching helper)
             const testDb = getDb('test');
             const localTeam = await testDb.collection('teams').findOne({ vpgTeamSlug: teamSlug });
 
-            const vpgUsernames = contracts.map(c => c.username);
-            const vpgProfiles = await testDb.collection('vpg_users').find({
-                vpgUsername: { $in: vpgUsernames.map(name => new RegExp('^' + name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i')) }
-            }).toArray();
+            const vpgProfiles = await Promise.all(
+                contracts.map(async (c) => {
+                    const profile = await fetchUserDetail(c.username);
+                    return {
+                        username: c.username,
+                        psn: profile ? profile.psn : null,
+                        xbox: profile ? profile.xbox : null,
+                        origin: profile ? profile.origin : null
+                    };
+                })
+            );
 
             if (!localTeam) {
                 // Not linked yet, but we can still return VPG contracts with matched=false
                 const comparedContracts = contracts.map(c => {
-                    const profile = vpgProfiles.find(p => p.vpgUsername && p.vpgUsername.toLowerCase() === c.username.toLowerCase());
+                    const profile = vpgProfiles.find(p => p.username.toLowerCase() === c.username.toLowerCase());
                     return {
                         vpgUsername: c.username,
                         vpgUserId: c.user_id || c.id,
@@ -4781,8 +4811,9 @@ export async function startVisualizerServer(discordClient) {
                         avatarUrl: c.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${c.avatar}/smThumb` : null,
                         nationality: c.nationality,
                         matched: false,
-                        vpgPsnId: profile ? profile.psnId : null,
-                        vpgEaId: profile ? profile.eaId : null
+                        vpgPsn: profile ? profile.psn : null,
+                        vpgXbox: profile ? profile.xbox : null,
+                        vpgOrigin: profile ? profile.origin : null
                     };
                 });
                 return res.json({
@@ -4824,7 +4855,7 @@ export async function startVisualizerServer(discordClient) {
             // 6. Match VPG contracts against local players using PSN ID case-insensitive
             const comparedVpg = contracts.map(c => {
                 const match = enhancedLocalPlayers.find(lp => lp.psnId.toLowerCase() === c.username.toLowerCase());
-                const profile = vpgProfiles.find(p => p.vpgUsername && p.vpgUsername.toLowerCase() === c.username.toLowerCase());
+                const profile = vpgProfiles.find(p => p.username.toLowerCase() === c.username.toLowerCase());
                 return {
                     vpgUsername: c.username,
                     vpgUserId: c.user_id || c.id,
@@ -4834,8 +4865,9 @@ export async function startVisualizerServer(discordClient) {
                     matched: !!match,
                     matchedDiscordId: match ? match.discordId : null,
                     matchedDiscordTag: match ? match.discordTag : null,
-                    vpgPsnId: profile ? profile.psnId : null,
-                    vpgEaId: profile ? profile.eaId : null
+                    vpgPsn: profile ? profile.psn : null,
+                    vpgXbox: profile ? profile.xbox : null,
+                    vpgOrigin: profile ? profile.origin : null
                 };
             });
 

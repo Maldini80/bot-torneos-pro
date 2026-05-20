@@ -1373,11 +1373,38 @@
                     const avatar = p.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png';
                     
                     let psnHtml = '';
-                    if (p.vpgPsnId && p.vpgPsnId.toLowerCase() !== p.vpgUsername.toLowerCase()) {
-                        psnHtml += `<div class="match-info-detail">PSN ID: <strong style="color: var(--neon-glow);">${p.vpgPsnId}</strong></div>`;
+                    const cleanStr = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const cleanUser = cleanStr(p.vpgUsername);
+                    const renderedClean = new Set([cleanUser]);
+
+                    if (p.vpgPsn) {
+                        const cleanPsn = cleanStr(p.vpgPsn);
+                        if (!renderedClean.has(cleanPsn)) {
+                            psnHtml += `<div class="match-info-detail">PSN ID: <strong style="color: var(--neon-glow);">${p.vpgPsn}</strong></div>`;
+                            renderedClean.add(cleanPsn);
+                        }
                     }
-                    if (p.vpgEaId && p.vpgEaId.toLowerCase() !== p.vpgUsername.toLowerCase() && (!p.vpgPsnId || p.vpgEaId.toLowerCase() !== p.vpgPsnId.toLowerCase())) {
-                        psnHtml += `<div class="match-info-detail">EA ID: <strong style="color: var(--neon-glow);">${p.vpgEaId}</strong></div>`;
+                    if (p.vpgXbox) {
+                        const cleanXbox = cleanStr(p.vpgXbox);
+                        if (!renderedClean.has(cleanXbox)) {
+                            psnHtml += `<div class="match-info-detail">Xbox ID: <strong style="color: var(--neon-glow);">${p.vpgXbox}</strong></div>`;
+                            renderedClean.add(cleanXbox);
+                        }
+                    }
+                    if (p.vpgOrigin) {
+                        const cleanOrigin = cleanStr(p.vpgOrigin);
+                        // Deduplicate if it matches or is extremely similar (e.g. one contains the other) to any already rendered ID
+                        let isDuplicate = false;
+                        for (const rendered of renderedClean) {
+                            if (cleanOrigin === rendered || cleanOrigin.includes(rendered) || rendered.includes(cleanOrigin)) {
+                                isDuplicate = true;
+                                break;
+                            }
+                        }
+                        if (!isDuplicate) {
+                            psnHtml += `<div class="match-info-detail">EA ID: <strong style="color: var(--neon-glow);">${p.vpgOrigin}</strong></div>`;
+                            renderedClean.add(cleanOrigin);
+                        }
                     }
                     const discordHtml = p.matched ? `<div class="match-info-detail">Discord: <span>${p.matchedDiscordTag}</span></div>` : '';
 
