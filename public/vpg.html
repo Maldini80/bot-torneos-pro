@@ -1100,6 +1100,10 @@
         }
 
         @media (max-width: 480px) {
+            .pj-col {
+                display: none !important;
+            }
+
             .tabs-container {
                 gap: 5px;
             }
@@ -1211,12 +1215,13 @@
                                 <tr>
                                     <th class="pos-col">#</th>
                                     <th>Equipo</th>
+                                    <th class="pj-col" style="text-align: center; width: 45px;">PJ</th>
                                     <th style="text-align: right; padding-right: 15px;">PTS</th>
                                 </tr>
                             </thead>
                             <tbody id="standings-tbody">
                                 <tr>
-                                    <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 30px 10px;">
+                                    <td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 30px 10px;">
                                         Selecciona una liga para ver la tabla
                                     </td>
                                 </tr>
@@ -1410,7 +1415,7 @@
 
                 loader.style.display = 'none';
                 if (teams.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 20px;">No se encontraron equipos en esta liga.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 20px;">No se encontraron equipos en esta liga.</td></tr>';
                     return;
                 }
 
@@ -1433,6 +1438,7 @@
                                 <span>${teamName}</span>
                             </div>
                         </td>
+                        <td class="pj-col" style="text-align: center; color: var(--text-secondary); font-weight: 500;">${team.played !== undefined ? team.played : 0}</td>
                         <td class="pts-col" style="text-align: right; padding-right: 15px;">${team.points || team.pts || 0}</td>
                     `;
                     tr.addEventListener('click', () => selectTeam(teamSlug));
@@ -1440,7 +1446,7 @@
                 });
             } catch (e) {
                 loader.style.display = 'none';
-                tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--rose); padding: 20px;">${e.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--rose); padding: 20px;">${e.message}</td></tr>`;
                 showToast(e.message, 'error');
             }
         }
@@ -1865,13 +1871,21 @@
                         <div style="margin-bottom: 5px; font-size: 0.8rem;">
                             Vínculo: <strong style="color: var(--text-primary);">${localTeam.vpgTeamSlug}</strong>
                         </div>
-                        <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 8px;">
+                        <div style="font-size: 0.7rem; color: var(--text-secondary);">
                             División: ${localTeam.vpgLeagueSlug || 'N/A'}
                         </div>
-                        <button class="btn-primary" style="width: 100%; padding: 6px; font-size: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" onclick="selectTeam('${localTeam.vpgTeamSlug}')">
-                            Ver Roster / Calendario
-                        </button>
                     `;
+                    
+                    // Sync league selector if necessary
+                    if (localTeam.vpgLeagueSlug) {
+                        const leagueSelect = document.getElementById('league-select');
+                        if (leagueSelect && leagueSelect.value !== localTeam.vpgLeagueSlug) {
+                            leagueSelect.value = localTeam.vpgLeagueSlug;
+                            await loadStandings();
+                        }
+                    }
+                    
+                    selectTeam(localTeam.vpgTeamSlug);
                     return;
                 }
 
