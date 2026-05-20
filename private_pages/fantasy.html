@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPG Spain Fantasy League</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/private_pages/fantasy.css">
+</head>
+<body>
+    <!-- Toast Notification System -->
+    <div id="toast-container"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="fantasy-header">
+            <div class="logo-area">
+                <i class="fa-solid fa-trophy trophy-glow"></i>
+                <div class="logo-text">
+                    <h1>VPG SPAIN FANTASY</h1>
+                    <span class="badge">PROTOTIPO ADMIN</span>
+                </div>
+            </div>
+            <div class="stats-area">
+                <div class="stat-card">
+                    <span class="stat-label"><i class="fa-solid fa-wallet"></i> Presupuesto</span>
+                    <span class="stat-value text-green" id="user-balance">50.000.000 €</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label"><i class="fa-solid fa-people-group"></i> Valor Plantilla</span>
+                    <span class="stat-value text-blue" id="squad-value">0 €</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label"><i class="fa-solid fa-star"></i> Puntos Totales</span>
+                    <span class="stat-value text-yellow" id="total-points">0 pts</span>
+                </div>
+            </div>
+            <div class="user-profile">
+                <span id="user-name-display"><i class="fa-solid fa-user-shield"></i> Admin</span>
+                <a href="/home.html" class="btn btn-secondary btn-sm"><i class="fa-solid fa-house"></i> Volver</a>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="fantasy-main">
+            <!-- Left Panel: Lineup and Field -->
+            <section class="left-panel">
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-chalkboard-user"></i> Tu Once Inicial</h2>
+                    <div class="controls-row">
+                        <div class="formation-selector">
+                            <label for="formation">Formación:</label>
+                            <select id="formation" class="form-select">
+                                <option value="4-4-2">4-4-2</option>
+                                <option value="4-3-3" selected>4-3-3</option>
+                                <option value="3-5-2">3-5-2</option>
+                                <option value="4-5-1">4-5-1</option>
+                                <option value="5-3-2">5-3-2</option>
+                            </select>
+                        </div>
+                        <button id="btn-save-lineup" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar Once</button>
+                    </div>
+                </div>
+
+                <!-- Interactive Soccer Field -->
+                <div class="soccer-field-container">
+                    <div class="soccer-field" id="soccer-field">
+                        <!-- Penalty Area Top -->
+                        <div class="field-penalty-area-top"></div>
+                        <!-- Center Circle -->
+                        <div class="field-center-circle"></div>
+                        <!-- Penalty Area Bottom -->
+                        <div class="field-penalty-area-bottom"></div>
+                        
+                        <!-- Positions will be injected dynamically by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Market & Squad -->
+            <section class="right-panel">
+                <div class="tabs-container">
+                    <button class="tab-btn active" data-tab="market"><i class="fa-solid fa-store"></i> Mercado de Fichajes</button>
+                    <button class="tab-btn" data-tab="squad"><i class="fa-solid fa-shirt"></i> Mi Plantilla (<span id="squad-count">0</span>)</button>
+                </div>
+
+                <!-- Tab: Market -->
+                <div class="tab-content active" id="tab-market">
+                    <div class="filter-bar">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="market-search" placeholder="Buscar jugador o club...">
+                        </div>
+                        <div class="select-box">
+                            <select id="market-pos-filter" class="form-select-sm">
+                                <option value="">Todas las Posiciones</option>
+                                <option value="POR">Porteros (POR)</option>
+                                <option value="DFC">Defensas (DFC)</option>
+                                <option value="MC">Centrocampistas (MC)</option>
+                                <option value="DC">Delanteros (DC)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-scroll-container">
+                        <table class="fantasy-table">
+                            <thead>
+                                <tr>
+                                    <th>Jugador</th>
+                                    <th>Club VPG</th>
+                                    <th>Pos</th>
+                                    <th class="text-center">Media</th>
+                                    <th class="text-center">Puntos</th>
+                                    <th class="text-right">Precio</th>
+                                    <th class="text-center">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="market-list">
+                                <!-- Loaded dynamically -->
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Cargando mercado de jugadores...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab: My Squad -->
+                <div class="tab-content" id="tab-squad">
+                    <div class="table-scroll-container">
+                        <table class="fantasy-table">
+                            <thead>
+                                <tr>
+                                    <th>Jugador</th>
+                                    <th>Club VPG</th>
+                                    <th>Pos</th>
+                                    <th class="text-center">Media</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-right">Valor</th>
+                                    <th class="text-center">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="squad-list">
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted">No tienes jugadores en tu plantilla. ¡Ficha algunos en el Mercado!</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Selecting Player for a Field Position -->
+    <div class="modal-overlay" id="position-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Alinear Jugador - <span id="modal-position-name">POR</span></h3>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-instruction">Selecciona un jugador disponible para esta posición:</p>
+                <div class="modal-player-list" id="modal-player-list">
+                    <!-- Injected dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client-side script -->
+    <script src="/private_pages/fantasy.js"></script>
+</body>
+</html>

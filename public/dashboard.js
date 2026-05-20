@@ -358,7 +358,7 @@ function t(lang, key) {
 }
 
 function getCurrentLanguage() {
-    return localStorage.getItem('preferredLanguage') || 'es';
+    return localStorage.getItem('preferredLanguage') || document.documentElement.lang || 'es';
 }
 
 function setCurrentLanguage(lang) {
@@ -2528,10 +2528,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Helper para obtener idioma actual
-function getCurrentLanguage() {
-    return document.documentElement.lang || 'es';
-}
+// (Utiliza la definición global de getCurrentLanguage al inicio)
 
 // Global function: Back to Hero (clean screen)
 function backToHero() {
