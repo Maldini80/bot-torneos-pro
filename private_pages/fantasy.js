@@ -553,14 +553,14 @@ async function enterLeague(leagueId) {
         document.getElementById('league-tab-my-team').classList.add('active');
         
         // Fetch and load players
-        const playersRes = await fetch(`/api/fantasy/players?leagueId=${activeLeagueId}`);
+        const playersRes = await fetch(`/api/fantasy/players?leagueId=${leagueId}`);
         if (!playersRes.ok) throw new Error('No se pudieron obtener los jugadores.');
         const playersData = await playersRes.json();
         allPlayers = playersData.players || [];
         
         // Fetch active listings
         try {
-            const listingsRes = await fetch(`/api/fantasy/leagues/${activeLeagueId}/market/listings`);
+            const listingsRes = await fetch(`/api/fantasy/leagues/${leagueId}/market/listings`);
             if (listingsRes.ok) {
                 marketListings = await listingsRes.json();
             }
@@ -571,7 +571,7 @@ async function enterLeague(leagueId) {
 
         // Fetch active bids to update badge
         try {
-            const bidsRes = await fetch(`/api/fantasy/leagues/${activeLeagueId}/market/bids`);
+            const bidsRes = await fetch(`/api/fantasy/leagues/${leagueId}/market/bids`);
             if (bidsRes.ok) {
                 const bidsData = await bidsRes.json();
                 const receivedPending = bidsData.received || [];
