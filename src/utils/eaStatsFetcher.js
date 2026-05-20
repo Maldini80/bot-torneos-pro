@@ -118,6 +118,8 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
             if (p === 'defender' || p === 'centerback') return 'DFC';
             if (p === 'midfielder') { if (archetypeid == 10 || archetypeid == 12) return 'CARR'; return 'MC'; }
             return posMapNum[posRaw] || posRaw || '???';
+        };
+
         const aggregatePlayers = (targetClubPlayers, sourcePlayersData, teamGoalsAgainst) => {
             if (!sourcePlayersData) return;
             for (const [playerId, pData] of Object.entries(sourcePlayersData)) {
