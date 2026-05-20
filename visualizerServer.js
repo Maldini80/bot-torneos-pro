@@ -4636,13 +4636,14 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    // Team active contracts (roster)
+    // Team active contracts (roster) - Filtered to Spanish national league community (483)
     app.get('/api/vpg/teams/:teamSlug/roster', async (req, res) => {
         try {
             const { teamSlug } = req.params;
             const data = await fetchFromVpg(`teams/${teamSlug}/contracts`);
             const contracts = Array.isArray(data) ? data : (data.data || data.results || []);
-            res.json({ contracts });
+            const filteredContracts = contracts.filter(c => c.community_id === 483);
+            res.json({ contracts: filteredContracts });
         } catch (e) {
             console.error('[API VPG Team Roster] Error:', e);
             res.status(500).json({ error: `Error al obtener la plantilla de VPG para ${teamSlug}` });
@@ -4746,18 +4747,19 @@ export async function startVisualizerServer(discordClient) {
             const vpgData = await fetchFromVpg(`teams/${teamSlug}/contracts`);
             let contracts = Array.isArray(vpgData) ? vpgData : (vpgData.data || vpgData.results || []);
 
-            // Filter contracts by community_id if leagueSlug is specified
+            // Always restrict to Spanish National Leagues (community_id: 483)
+            let communityId = 483;
             if (leagueSlug) {
                 try {
-                    const leagueData = await fetchFromVpg(`leagues/${leagueSlug}`);
+                    const leagueData = await fetchFromVpg(`leagues/${leagueSlug}/`);
                     if (leagueData && leagueData.community_id) {
-                        const communityId = leagueData.community_id;
-                        contracts = contracts.filter(c => c.community_id === communityId);
+                        communityId = leagueData.community_id;
                     }
                 } catch (err) {
                     console.error(`[API VPG Compare] Failed to fetch league ${leagueSlug} for filtering:`, err.message);
                 }
             }
+            contracts = contracts.filter(c => c.community_id === communityId);
 
             // 2. Fetch local team
             const testDb = getDb('test');
@@ -4820,7 +4822,8 @@ export async function startVisualizerServer(discordClient) {
                     nationality: c.nationality,
                     matched: !!match,
                     matchedDiscordId: match ? match.discordId : null,
-                    matchedDiscordTag: match ? match.discordTag : null
+                    matchedDiscordTag: match ? match.discordTag : null,
+                    matchedPsnId: match ? match.psnId : null
                 };
             });
 

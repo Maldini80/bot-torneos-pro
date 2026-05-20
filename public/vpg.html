@@ -1100,13 +1100,7 @@
                             </div>
                         </div>
 
-                        <!-- SUMMARY ANALYSIS OF DISCREPANCIES -->
-                        <div id="discrepancy-summary" class="discrepancy-card" style="display: none;">
-                            <h3>⚠️ Alertas de Sincronización</h3>
-                            <ul id="discrepancy-list">
-                                <!-- JS injected lists -->
-                            </ul>
-                        </div>
+                        <!-- SUMMARY ANALYSIS OF DISCREPANCIES - DELETED -->
 
                         <!-- ROSTERS GRID -->
                         <div class="roster-comparison-grid">
@@ -1378,6 +1372,10 @@
                     
                     const avatar = p.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png';
                     
+                    const isPsnDifferent = p.matched && p.matchedPsnId && (p.matchedPsnId.toLowerCase() !== p.vpgUsername.toLowerCase());
+                    const psnHtml = isPsnDifferent ? `<div class="match-info-detail">PSN / EA ID: <strong style="color: var(--neon-glow);">${p.matchedPsnId}</strong></div>` : '';
+                    const discordHtml = p.matched ? `<div class="match-info-detail">Discord: <span>${p.matchedDiscordTag}</span></div>` : '';
+
                     card.innerHTML = `
                         <div class="player-left">
                             <img class="player-avatar" src="${avatar}" alt="${p.vpgUsername}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
@@ -1387,18 +1385,13 @@
                                     <span class="pos-badge">${p.position || 'N/A'}</span>
                                 </h4>
                                 <p>Nacionalidad: ${p.nationality || 'N/A'}</p>
-                                ${p.matched ? `<div class="match-info-detail">Discord: <span>${p.matchedDiscordTag}</span></div>` : `<div class="match-info-detail">VPG User ID: <span>${p.vpgUserId || 'N/A'}</span></div>`}
+                                ${discordHtml}
+                                ${psnHtml}
                             </div>
                         </div>
-                        <span class="status-badge ${p.matched ? 'status-match' : 'status-mismatch'}" style="${p.matched ? '' : 'background: rgba(255,255,255,0.05); color: var(--text-secondary); border-color: rgba(255,255,255,0.1);'}">
-                            ${p.matched ? 'Vinculado' : `ID: ${p.vpgUserId || 'N/A'}`}
-                        </span>
+                        ${p.matched ? `<span class="status-badge status-match">Vinculado</span>` : ''}
                     `;
                     vpgList.appendChild(card);
-
-                    if (!p.matched) {
-                        discrepancies.push(`<strong>${p.vpgUsername}</strong> está firmado en VPG pero no está verificado/añadido en la plantilla de Discord.`);
-                    }
                 });
             }
 
@@ -1427,27 +1420,7 @@
                         </span>
                     `;
                     localList.appendChild(card);
-
-                    if (!p.matched) {
-                        discrepancies.push(`<strong>${p.psnId}</strong> (${p.discordTag}) está en Discord pero no figura en los contratos oficiales de VPG.`);
-                    }
                 });
-            }
-
-            // C. Discrepancy Box
-            const discSummary = document.getElementById('discrepancy-summary');
-            const discList = document.getElementById('discrepancy-list');
-            discList.innerHTML = '';
-
-            if (discrepancies.length > 0) {
-                discSummary.style.display = 'block';
-                discrepancies.forEach(disc => {
-                    const li = document.createElement('li');
-                    li.innerHTML = disc;
-                    discList.appendChild(li);
-                });
-            } else {
-                discSummary.style.display = 'none';
             }
         }
 
