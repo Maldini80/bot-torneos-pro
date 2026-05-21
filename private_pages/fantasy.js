@@ -1541,24 +1541,50 @@ async function loadVpgOfficialDates(btnEl) {
         if (chipsEl) {
             chipsEl.innerHTML = '';
             const dayNames = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-            dates.forEach(dateStr => {
+            dates.forEach(dateInfo => {
+                // Support both string (backward compatibility) and object formats
+                const info = typeof dateInfo === 'string' ? { dateStr: dateInfo, count: 1, isOfficial: true } : dateInfo;
+                const dateStr = info.dateStr;
+                const count = info.count;
+                const isOfficial = info.isOfficial;
+
                 const d = new Date(dateStr + 'T12:00:00');
                 const dayName = dayNames[d.getDay()];
                 const chip = document.createElement('span');
-                chip.className = 'vpg-date-chip active';
+                
+                const hasMatches = count > 0;
+                if (hasMatches) {
+                    chip.className = 'vpg-date-chip active';
+                    chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 600;';
+                } else {
+                    chip.className = 'vpg-date-chip';
+                    chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: rgba(100, 116, 139, 0.15); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.2); font-weight: 600;';
+                }
                 chip.dataset.date = dateStr;
-                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); font-weight: 600;';
-                chip.innerHTML = `<i class="fa-solid fa-calendar-day" style="font-size: 0.65rem;"></i> ${dateStr} <span style="opacity: 0.7; text-transform: uppercase;">${dayName}</span>`;
+
+                const labelSuffix = isOfficial ? ' <span style="opacity: 0.6; font-size: 0.65rem;">(Oficial)</span>' : '';
+                const countBadge = hasMatches
+                    ? ` <span style="background: rgba(16,185,129,0.2); padding: 1px 4px; border-radius: 4px; font-size: 0.65rem;">${count}</span>`
+                    : ' <span style="background: rgba(100,116,139,0.15); padding: 1px 4px; border-radius: 4px; font-size: 0.65rem; color: #64748b;">0</span>';
+
+                chip.innerHTML = `<i class="fa-solid fa-calendar-day" style="font-size: 0.65rem;"></i> ${dateStr} <span style="opacity: 0.7; text-transform: uppercase;">${dayName}</span>${labelSuffix}${countBadge}`;
+
                 chip.addEventListener('click', () => {
                     chip.classList.toggle('active');
                     if (chip.classList.contains('active')) {
-                        chip.style.background = 'rgba(245,158,11,0.2)';
-                        chip.style.color = '#f59e0b';
-                        chip.style.borderColor = 'rgba(245,158,11,0.4)';
+                        if (hasMatches) {
+                            chip.style.background = 'rgba(16, 185, 129, 0.2)';
+                            chip.style.color = '#10b981';
+                            chip.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                        } else {
+                            chip.style.background = 'rgba(245, 158, 11, 0.2)';
+                            chip.style.color = '#f59e0b';
+                            chip.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                        }
                     } else {
-                        chip.style.background = 'rgba(100,116,139,0.15)';
+                        chip.style.background = 'rgba(100, 116, 139, 0.15)';
                         chip.style.color = '#64748b';
-                        chip.style.borderColor = 'rgba(100,116,139,0.2)';
+                        chip.style.borderColor = 'rgba(100, 116, 139, 0.2)';
                     }
                 });
                 chipsEl.appendChild(chip);

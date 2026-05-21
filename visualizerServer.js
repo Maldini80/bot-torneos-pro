@@ -5143,10 +5143,45 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    // Auto-fetch official match dates from a first-division VPG team's calendar
+    // Auto-fetch official match dates from a first-division VPG team's calendar combined with DB historical dates
     app.get('/api/vpg/official-match-dates', isAuthenticated, isFantasyAdmin, async (req, res) => {
         try {
-            // 1. Get Superliga table to find a team slug
+            const db = getDb();
+
+            // 1. Get all unique dates from our scanned_matches in MongoDB using aggregation
+            const dbDates = await db.collection('scanned_matches').aggregate([
+                {
+                    $project: {
+                        dateStr: {
+                            $dateToString: {
+                                date: { $toDate: { $multiply: [ { $toDouble: "$timestamp" }, 1000 ] } },
+                                format: "%Y-%m-%d",
+                                timezone: "Europe/Madrid"
+                            }
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$dateStr",
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $sort: { _id: 1 }
+                }
+            ]).toArray();
+
+            const datesMap = new Map();
+            for (const item of dbDates) {
+                datesMap.set(item._id, {
+                    dateStr: item._id,
+                    count: item.count,
+                    isOfficial: false
+                });
+            }
+
+            // 2. Get Superliga table to find a team slug for VPG calendar dates
             let teamSlug = null;
             const superligaSlugs = ['Esports-Premier-PS5', 'superliga-spain-a', 'superliga-spain-b'];
             for (const slug of superligaSlugs) {
@@ -5160,31 +5195,57 @@ export async function startVisualizerServer(discordClient) {
                 } catch (_) { /* try next */ }
             }
 
-            if (!teamSlug) {
-                return res.status(404).json({ error: 'No se encontró ningún equipo de primera división en VPG.' });
-            }
+            if (teamSlug) {
+                // 3. Fetch VPG calendar dates (recent + upcoming) to merge
+                for (const status of ['complete', 'scheduled']) {
+                    try {
+                        let url = `teams/${teamSlug}/matches?match_status=${status}`;
+                        let pageCount = 0;
+                        const MAX_PAGES = 10; // Safety limit
 
-            // 2. Fetch completed + scheduled matches
-            const allDates = new Set();
-            for (const status of ['complete', 'scheduled']) {
-                try {
-                    const matchesData = await fetchFromVpg(`teams/${teamSlug}/matches?match_status=${status}`);
-                    const matches = Array.isArray(matchesData) ? matchesData : (matchesData.data || matchesData.results || []);
-                    for (const m of matches) {
-                        if (m.datetime) {
-                            const d = new Date(m.datetime);
-                            // Convert to Europe/Madrid date string YYYY-MM-DD
-                            const formatter = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' });
-                            const madridDate = formatter.format(d);
-                            allDates.add(madridDate);
+                        while (url && pageCount < MAX_PAGES) {
+                            pageCount++;
+                            let data;
+                            if (url.startsWith('http')) {
+                                const directRes = await fetch(url, { headers: VPG_HEADERS, redirect: 'follow' });
+                                if (!directRes.ok) break;
+                                data = await directRes.json();
+                            } else {
+                                data = await fetchFromVpg(url);
+                            }
+
+                            const matches = Array.isArray(data) ? data : (data.results || data.data || []);
+                            for (const m of matches) {
+                                if (m.datetime) {
+                                    const d = new Date(m.datetime);
+                                    const formatter = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' });
+                                    const madridDate = formatter.format(d);
+                                    
+                                    if (datesMap.has(madridDate)) {
+                                        datesMap.get(madridDate).isOfficial = true;
+                                    } else {
+                                        datesMap.set(madridDate, {
+                                            dateStr: madridDate,
+                                            count: 0,
+                                            isOfficial: true
+                                        });
+                                    }
+                                }
+                            }
+
+                            if (Array.isArray(data)) break;
+                            url = data.next || null;
                         }
+                    } catch (e) {
+                        console.error(`[VPG Dates] Error fetching VPG ${status} matches:`, e.message);
                     }
-                } catch (_) { /* skip if one status fails */ }
+                }
             }
 
-            const sortedDates = Array.from(allDates).sort();
+            // Sort all dates chronologically
+            const sortedDates = Array.from(datesMap.values()).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
-            // 3. Also return the crawler time range (already configured)
+            // 4. Also return the crawler time range (already configured)
             const { getBotSettings } = await import('./database.js');
             const settings = await getBotSettings();
             const timeRange = settings.crawlerTimeRange || { start: '21:00', end: '23:59' };
