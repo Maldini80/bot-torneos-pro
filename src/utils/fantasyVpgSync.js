@@ -16,6 +16,7 @@ const HEADERS = {
 const LEADERBOARD_POS_MAP = {
     'top_gk': 'POR',
     'top_cb': 'DFC',
+    'top_fb': 'CARR',
     'top_cdm': 'MC',
     'top_cam': 'MC',
     'top_wingers': 'CARR',
@@ -178,6 +179,17 @@ export async function syncFantasyWithVpg() {
 
         // 3. Procesar cada liga activa
         for (const leagueSlug of activeLeagues) {
+            // Quitar vpgLeagueSlug de los jugadores que tuvieran asignada esta liga antes,
+            // para evitar que queden jugadores del pasado que ya no están activos en VPG.
+            try {
+                await playerColl.updateMany(
+                    { vpgLeagueSlug: leagueSlug },
+                    { $unset: { vpgLeagueSlug: "" } }
+                );
+            } catch (e) {
+                console.error(`[VPG SYNC] Error limpiando vpgLeagueSlug para ${leagueSlug}:`, e);
+            }
+
             updateRebuildStatus({ progress: `Sincronizando clasificación de ${leagueSlug}...` });
 
             // A. Fetch VPG league table (standings)
@@ -199,11 +211,17 @@ export async function syncFantasyWithVpg() {
 
             // Emparejar cada equipo de la clasificación con un equipo en la base de datos
             for (const vpgTeam of standings) {
+                const teamSlugLower = String(vpgTeam.team_slug || '').toLowerCase().trim();
+                const teamNameLower = String(vpgTeam.team_name || '').toLowerCase().trim();
+
+                // Siempre registrar en el mapa de clasificaciones (para escalar wins/losses/draws del jugador)
+                if (teamSlugLower) teamStandingsMap.set(teamSlugLower, vpgTeam);
+                if (teamNameLower) teamStandingsMap.set(teamNameLower, vpgTeam);
+
                 const dbTeam = findDbTeam(vpgTeam, dbTeams);
                 if (dbTeam) {
-                    vpgTeamToDbMap.set(String(vpgTeam.team_slug).toLowerCase().trim(), dbTeam);
-                    vpgTeamToDbMap.set(String(vpgTeam.team_name).toLowerCase().trim(), dbTeam);
-                    teamStandingsMap.set(String(vpgTeam.team_slug).toLowerCase().trim(), vpgTeam);
+                    vpgTeamToDbMap.set(teamSlugLower, dbTeam);
+                    vpgTeamToDbMap.set(teamNameLower, dbTeam);
 
                     // Actualizar club_profiles
                     const clubId = dbTeam.eaClubId;
@@ -230,9 +248,9 @@ export async function syncFantasyWithVpg() {
                             {
                                 $set: { 
                                     eaClubName: dbTeam.name, 
-                                    lastActive: new Date() 
-                                },
-                                $set: clubInc
+                                    lastActive: new Date(),
+                                    ...clubInc
+                                }
                             },
                             { upsert: true }
                         );
@@ -243,108 +261,133 @@ export async function syncFantasyWithVpg() {
                 }
             }
 
-            // B. Fetch VPG position leaderboards
+            // B. Fetch VPG position leaderboards with pagination
             for (const [vpgPosKey, fantasyPos] of Object.entries(LEADERBOARD_POS_MAP)) {
-                updateRebuildStatus({ progress: `Descargando líderes de la liga ${leagueSlug} para posición ${fantasyPos}...` });
+                let offset = 0;
+                let hasMore = true;
+                let posPlayersCount = 0;
 
-                const leaderboardUrl = `https://api.virtualprogaming.com/public/leagues/${leagueSlug}/leaderboard?leaderboard=${vpgPosKey}&limit=500`;
-                let players = [];
-                try {
-                    const res = await fetch(leaderboardUrl, { headers: HEADERS });
-                    if (res.ok) {
-                        const data = await res.json();
-                        players = Array.isArray(data) ? data : (data.data || data.results || []);
-                    } else {
-                        console.error(`[VPG SYNC] Error obteniendo leaderboard ${vpgPosKey} para ${leagueSlug}: ${res.status}`);
-                    }
-                } catch (e) {
-                    console.error(`[VPG SYNC] Error HTTP en leaderboard ${vpgPosKey} para ${leagueSlug}:`, e);
-                }
+                while (hasMore) {
+                    updateRebuildStatus({ progress: `Descargando líderes de ${leagueSlug} para ${fantasyPos} (offset: ${offset})...` });
 
-                console.log(`[VPG SYNC] Líderes para ${vpgPosKey} en ${leagueSlug}: ${players.length} jugadores.`);
-
-                // Procesar jugadores
-                for (const player of players) {
-                    const pSlug = String(player.team_slug || '').toLowerCase().trim();
-                    const pName = String(player.team_name || '').toLowerCase().trim();
-                    const dbTeam = vpgTeamToDbMap.get(pSlug) || vpgTeamToDbMap.get(pName);
-
-                    const username = player.username;
-                    if (!username) continue;
-
-                    // Calcular partidos jugados y rating promedio
-                    const played = player.matches_played || 0;
-                    const ratingSum = player.match_rating || 0;
-                    const avgRating = played > 0 ? (ratingSum / played) : 6.0;
-
-                    // Escalar estadísticas del equipo a la proporción de partidos del jugador
-                    const standing = teamStandingsMap.get(pSlug) || teamStandingsMap.get(pName);
-                    let wins = 0, losses = 0, ties = 0;
-                    if (standing) {
-                        const ratio = (standing.played && standing.played > 0) ? Math.min(1, played / standing.played) : 1;
-                        wins = Math.round((standing.wins || 0) * ratio);
-                        ties = Math.round((standing.draws || 0) * ratio);
-                        losses = Math.round((standing.losses || 0) * ratio);
-                    }
-
-                    // Crear stats objeto compatible
-                    const playerStats = {
-                        matchesPlayed: played,
-                        goals: parseInt(player.goals) || 0,
-                        assists: parseInt(player.assists) || 0,
-                        passesMade: 0,
-                        passesAttempted: 0,
-                        tacklesMade: 0,
-                        tacklesAttempted: 0,
-                        shots: parseInt(player.shots) || 0,
-                        shotsOnTarget: 0,
-                        interceptions: 0,
-                        saves: parseInt(player.saves) || 0,
-                        redCards: parseInt(player.red_card) || 0,
-                        yellowCards: parseInt(player.yellow_card) || 0,
-                        mom: 0,
-                        cleanSheets: parseInt(player.clean_sheet) || 0,
-                        goalsConceded: 0,
-                        ratings: Array(played).fill(avgRating),
-                        wins: wins,
-                        losses: losses,
-                        ties: ties
-                    };
-
-                    const updateData = {
-                        lastClub: dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club"),
-                        lastActive: new Date(),
-                        lastPosition: fantasyPos,
-                        vpgLeagueSlug: leagueSlug,
-                        stats: playerStats
-                    };
-
-                    // Buscar jugador por eaPlayerName case-insensitively
-                    const existingPlayer = await playerColl.findOne({ 
-                        eaPlayerName: { $regex: new RegExp('^' + username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
-                    });
-
-                    if (existingPlayer) {
-                        await playerColl.updateOne(
-                            { _id: existingPlayer._id },
-                            { $set: updateData }
-                        );
-                    } else {
-                        // Insertar nuevo jugador
-                        await playerColl.insertOne({
-                            eaPlayerName: username,
-                            ...updateData,
-                            build: {
-                                height: null,
-                                weight: null,
-                                perks: {},
-                                vproattr: "NH"
+                    const leaderboardUrl = `https://api.virtualprogaming.com/public/leagues/${leagueSlug}/leaderboard?leaderboard=${vpgPosKey}&limit=30&offset=${offset}`;
+                    let pagePlayers = [];
+                    try {
+                        const res = await fetch(leaderboardUrl, { headers: HEADERS });
+                        if (res.ok) {
+                            const data = await res.json();
+                            pagePlayers = data.data || [];
+                            
+                            // Si nos devuelve menos de 30 o un array vacío, no hay más páginas.
+                            if (!Array.isArray(pagePlayers) || pagePlayers.length < 30) {
+                                hasMore = false;
                             }
-                        });
+                        } else {
+                            console.error(`[VPG SYNC] Error obteniendo leaderboard ${vpgPosKey} para ${leagueSlug} en offset ${offset}: ${res.status}`);
+                            hasMore = false;
+                        }
+                    } catch (e) {
+                        console.error(`[VPG SYNC] Error HTTP en leaderboard ${vpgPosKey} para ${leagueSlug} en offset ${offset}:`, e);
+                        hasMore = false;
                     }
 
-                    totalPlayersUpdated++;
+                    if (pagePlayers.length > 0) {
+                        posPlayersCount += pagePlayers.length;
+                        
+                        // Procesar jugadores de esta página
+                        for (const player of pagePlayers) {
+                            const pSlug = String(player.team_slug || '').toLowerCase().trim();
+                            const pName = String(player.team_name || '').toLowerCase().trim();
+                            const dbTeam = vpgTeamToDbMap.get(pSlug) || vpgTeamToDbMap.get(pName);
+
+                            const username = player.username;
+                            if (!username) continue;
+
+                            // Calcular partidos jugados y rating promedio
+                            const played = player.matches_played || 0;
+                            const ratingSum = player.match_rating || 0;
+                            const avgRating = played > 0 ? (ratingSum / played) : 6.0;
+
+                            // Escalar estadísticas del equipo a la proporción de partidos del jugador
+                            const standing = teamStandingsMap.get(pSlug) || teamStandingsMap.get(pName);
+                            let wins = 0, losses = 0, ties = 0;
+                            if (standing) {
+                                const ratio = (standing.played && standing.played > 0) ? Math.min(1, played / standing.played) : 1;
+                                wins = Math.round((standing.wins || 0) * ratio);
+                                ties = Math.round((standing.draws || 0) * ratio);
+                                losses = Math.round((standing.losses || 0) * ratio);
+                            }
+
+                            // Crear stats objeto compatible
+                            const playerStats = {
+                                matchesPlayed: played,
+                                goals: parseInt(player.goals) || 0,
+                                assists: parseInt(player.assists) || 0,
+                                passesMade: 0,
+                                passesAttempted: 0,
+                                tacklesMade: 0,
+                                tacklesAttempted: 0,
+                                shots: parseInt(player.shots) || 0,
+                                shotsOnTarget: 0,
+                                interceptions: 0,
+                                saves: parseInt(player.saves) || 0,
+                                redCards: parseInt(player.red_card) || 0,
+                                yellowCards: parseInt(player.yellow_card) || 0,
+                                mom: 0,
+                                cleanSheets: parseInt(player.clean_sheet) || 0,
+                                goalsConceded: 0,
+                                ratings: Array(played).fill(avgRating),
+                                wins: wins,
+                                losses: losses,
+                                ties: ties
+                            };
+
+                            const updateData = {
+                                lastClub: dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club"),
+                                lastActive: new Date(),
+                                lastPosition: fantasyPos,
+                                vpgLeagueSlug: leagueSlug,
+                                stats: playerStats
+                            };
+
+                            // Buscar jugador por eaPlayerName case-insensitively
+                            const existingPlayer = await playerColl.findOne({ 
+                                eaPlayerName: { $regex: new RegExp('^' + username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
+                            });
+
+                            if (existingPlayer) {
+                                await playerColl.updateOne(
+                                    { _id: existingPlayer._id },
+                                    { $set: updateData }
+                                );
+                            } else {
+                                // Insertar nuevo jugador
+                                await playerColl.insertOne({
+                                    eaPlayerName: username,
+                                    ...updateData,
+                                    build: {
+                                        height: null,
+                                        weight: null,
+                                        perks: {},
+                                        vproattr: "NH"
+                                    }
+                                });
+                            }
+
+                            totalPlayersUpdated++;
+                        }
+                    }
+
+                    // Siguiente página
+                    offset += 30;
+
+                    // Límite de seguridad para evitar loops infinitos (máximo 40 páginas = 1200 jugadores)
+                    if (offset >= 1200) {
+                        hasMore = false;
+                    }
                 }
+
+                console.log(`[VPG SYNC] Líderes para ${vpgPosKey} en ${leagueSlug}: ${posPlayersCount} jugadores.`);
             }
         }
 
