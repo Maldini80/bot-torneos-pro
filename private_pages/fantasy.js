@@ -444,24 +444,6 @@ function setupEventHandlers() {
     if (btnAdminRebuildStats) btnAdminRebuildStats.addEventListener('click', () => executeRebuildStats(btnAdminRebuildStats, rebuildStatsProgress));
     if (btnOwnerRebuildStats) btnOwnerRebuildStats.addEventListener('click', () => executeRebuildStats(btnOwnerRebuildStats, ownerRebuildProgress));
 
-    // Rebuild Stats filters toggle
-    document.querySelectorAll('.chk-use-filters').forEach(chk => {
-        chk.addEventListener('change', (e) => {
-            const container = e.target.closest('.rebuild-filters');
-            if (container) {
-                const inputsArea = container.querySelector('.filter-inputs-area');
-                if (inputsArea) {
-                    inputsArea.style.display = e.target.checked ? 'flex' : 'none';
-                }
-            }
-        });
-    });
-
-    // VPG date loading buttons
-    document.querySelectorAll('.btn-load-vpg-dates').forEach(btn => {
-        btn.addEventListener('click', () => loadVpgOfficialDates(btn));
-    });
-
     // Admin player price override handlers
     if (btnAdminSearchPlayer) {
         btnAdminSearchPlayer.addEventListener('click', handleAdminPlayerSearch);
@@ -476,52 +458,6 @@ function setupEventHandlers() {
             }
         });
     }
-
-    // Custom date adding button listener
-    document.querySelectorAll('.btn-add-custom-date').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const container = e.target.closest('.rebuild-filters');
-            if (!container) return;
-            const inputEl = container.querySelector('.inp-custom-date');
-            const chipsEl = container.querySelector('.vpg-dates-chips');
-            if (!inputEl || !inputEl.value) {
-                showToast('Por favor, selecciona una fecha válida.', 'error');
-                return;
-            }
-            const dateStr = inputEl.value;
-            // Check if already exists in chips
-            const existing = Array.from(chipsEl.querySelectorAll('.vpg-date-chip')).find(c => c.dataset.date === dateStr);
-            if (existing) {
-                showToast('Esta fecha ya ha sido añadida.', 'info');
-                return;
-            }
-
-            // Create manual chip
-            const dayNames = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-            const d = new Date(dateStr + 'T12:00:00');
-            const dayName = dayNames[d.getDay()];
-            const chip = document.createElement('span');
-            chip.className = 'vpg-date-chip active';
-            chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 600;';
-            chip.dataset.date = dateStr;
-            chip.innerHTML = `<i class="fa-solid fa-calendar-day" style="font-size: 0.65rem;"></i> ${dateStr} <span style="opacity: 0.7; text-transform: uppercase;">${dayName}</span> <span style="opacity: 0.6; font-size: 0.65rem;">(Manual)</span>`;
-            
-            chip.addEventListener('click', () => {
-                chip.classList.toggle('active');
-                if (chip.classList.contains('active')) {
-                    chip.style.background = 'rgba(245, 158, 11, 0.2)';
-                    chip.style.color = '#f59e0b';
-                    chip.style.borderColor = 'rgba(245, 158, 11, 0.4)';
-                } else {
-                    chip.style.background = 'rgba(100, 116, 139, 0.15)';
-                    chip.style.color = '#64748b';
-                    chip.style.borderColor = 'rgba(100, 116, 139, 0.2)';
-                }
-            });
-            chipsEl.appendChild(chip);
-            inputEl.value = '';
-        });
-    });
 
     // Owner Add League click
     const btnOwnerAddLeague = document.getElementById('btn-owner-add-league');
@@ -1559,9 +1495,7 @@ async function handleAdminRecalculate() {
         btnAdminRecalculate.disabled = false;
         btnAdminRecalculate.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Recalcular';
     }
-}
-
-// Admin Rebuild Stats
+}// Admin Rebuild Stats
 let rebuildPollInterval = null;
 
 async function checkActiveRebuild() {
@@ -1571,15 +1505,15 @@ async function checkActiveRebuild() {
         if (!res.ok) return;
         const status = await res.json();
         if (status && status.running) {
-            // Rebuild is running! Set up UI for both possible triggers
+            // Sync is running! Set up UI for both possible triggers
             const startPolling = (btn, prog) => {
                 if (btn) {
                     btn.disabled = true;
-                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...';
                 }
                 if (prog) {
                     prog.style.display = 'block';
-                    prog.textContent = status.progress || 'Procesando...';
+                    prog.textContent = status.progress || 'Sincronizando...';
                 }
             };
             
@@ -1592,8 +1526,8 @@ async function checkActiveRebuild() {
                     const statusRes = await fetch('/api/fantasy/admin/rebuild-stats/status');
                     const currentStatus = await statusRes.json();
                     
-                    if (ownerRebuildProgress) ownerRebuildProgress.textContent = currentStatus.progress || 'Procesando...';
-                    if (rebuildStatsProgress) rebuildStatsProgress.textContent = currentStatus.progress || 'Procesando...';
+                    if (ownerRebuildProgress) ownerRebuildProgress.textContent = currentStatus.progress || 'Sincronizando...';
+                    if (rebuildStatsProgress) rebuildStatsProgress.textContent = currentStatus.progress || 'Sincronizando...';
                     
                     if (!currentStatus.running) {
                         clearInterval(rebuildPollInterval);
@@ -1602,16 +1536,16 @@ async function checkActiveRebuild() {
                         const finishPolling = (btn) => {
                             if (btn) {
                                 btn.disabled = false;
-                                btn.innerHTML = '<i class="fa-solid fa-hammer"></i> Reconstruir';
+                                btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Sincronizar';
                             }
                         };
                         finishPolling(btnOwnerRebuildStats);
                         finishPolling(btnAdminRebuildStats);
                         
                         if (currentStatus.error) {
-                            showToast(`Error en reconstrucción: ${currentStatus.error}`, 'error');
+                            showToast(`Error en la sincronización: ${currentStatus.error}`, 'error');
                         } else {
-                            showToast('¡Reconstrucción de estadísticas completada!', 'success');
+                            showToast('¡Sincronización de estadísticas completada!', 'success');
                             if (currentLeagueId) {
                                 await loadAdminPanelData();
                             }
@@ -1627,102 +1561,10 @@ async function checkActiveRebuild() {
     }
 }
 
-// Load official match dates from VPG calendar
-async function loadVpgOfficialDates(btnEl) {
-    const container = btnEl.closest('.rebuild-filters');
-    if (!container) return;
-    const statusEl = container.querySelector('.vpg-dates-status');
-    const chipsEl = container.querySelector('.vpg-dates-chips');
-
-    btnEl.disabled = true;
-    btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cargando...';
-    if (statusEl) statusEl.textContent = 'Consultando calendario VPG...';
-
-    try {
-        const res = await fetch('/api/vpg/official-match-dates');
-        if (!res.ok) throw new Error('Error al obtener fechas');
-        const data = await res.json();
-        const dates = data.dates || [];
-        const timeRange = data.timeRange || {};
-
-        if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-check text-green"></i> ${dates.length} fechas oficiales cargadas (${data.teamSlug})`;
-
-        // Update time range inputs with crawler settings
-        if (timeRange.start) {
-            const startInput = container.querySelector('.inp-start-time');
-            if (startInput) startInput.value = timeRange.start;
-        }
-        if (timeRange.end) {
-            const endInput = container.querySelector('.inp-end-time');
-            if (endInput) endInput.value = timeRange.end;
-        }
-
-        // Render date chips
-        if (chipsEl) {
-            chipsEl.innerHTML = '';
-            const dayNames = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-            dates.forEach(dateInfo => {
-                // Support both string (backward compatibility) and object formats
-                const info = typeof dateInfo === 'string' ? { dateStr: dateInfo, count: 1, isOfficial: true } : dateInfo;
-                const dateStr = info.dateStr;
-                const count = info.count;
-                const isOfficial = info.isOfficial;
-
-                const d = new Date(dateStr + 'T12:00:00');
-                const dayName = dayNames[d.getDay()];
-                const chip = document.createElement('span');
-                
-                const hasMatches = count > 0;
-                if (hasMatches) {
-                    chip.className = 'vpg-date-chip active';
-                    chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 600;';
-                } else {
-                    chip.className = 'vpg-date-chip';
-                    chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: rgba(100, 116, 139, 0.15); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.2); font-weight: 600;';
-                }
-                chip.dataset.date = dateStr;
-
-                const labelSuffix = isOfficial ? ' <span style="opacity: 0.6; font-size: 0.65rem;">(Oficial)</span>' : '';
-                const countBadge = hasMatches
-                    ? ` <span style="background: rgba(16,185,129,0.2); padding: 1px 4px; border-radius: 4px; font-size: 0.65rem;">${count}</span>`
-                    : ' <span style="background: rgba(100,116,139,0.15); padding: 1px 4px; border-radius: 4px; font-size: 0.65rem; color: #64748b;">0</span>';
-
-                chip.innerHTML = `<i class="fa-solid fa-calendar-day" style="font-size: 0.65rem;"></i> ${dateStr} <span style="opacity: 0.7; text-transform: uppercase;">${dayName}</span>${labelSuffix}${countBadge}`;
-
-                chip.addEventListener('click', () => {
-                    chip.classList.toggle('active');
-                    if (chip.classList.contains('active')) {
-                        if (hasMatches) {
-                            chip.style.background = 'rgba(16, 185, 129, 0.2)';
-                            chip.style.color = '#10b981';
-                            chip.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-                        } else {
-                            chip.style.background = 'rgba(245, 158, 11, 0.2)';
-                            chip.style.color = '#f59e0b';
-                            chip.style.borderColor = 'rgba(245, 158, 11, 0.4)';
-                        }
-                    } else {
-                        chip.style.background = 'rgba(100, 116, 139, 0.15)';
-                        chip.style.color = '#64748b';
-                        chip.style.borderColor = 'rgba(100, 116, 139, 0.2)';
-                    }
-                });
-                chipsEl.appendChild(chip);
-            });
-        }
-    } catch (e) {
-        console.error('Error loading VPG dates:', e);
-        if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red"></i> Error al cargar fechas de VPG';
-    } finally {
-        btnEl.disabled = false;
-        btnEl.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Cargar fechas de VPG';
-    }
-}
-
 async function executeRebuildStats(btnEl, progressEl) {
     if (!btnEl || !progressEl) return;
-    const confirmText = prompt('ADVERTENCIA: Esta acción reconstruirá TODAS las estadísticas de jugadores y clubes desde cero. El proceso tarda ~45 minutos.\n\nEscribe "RECONSTRUIR" para confirmar:');
-    if (confirmText !== 'RECONSTRUIR') {
+    const confirmText = prompt('ADVERTENCIA: Esta acción iniciará la sincronización inmediata de clasificaciones, leaderboards y jugadores desde la API oficial de VPG España para las ligas habilitadas. El proceso tarda menos de 1 minuto.\n\nEscribe "SINCRONIZAR" para confirmar:');
+    if (confirmText !== 'SINCRONIZAR') {
         showToast('Acción cancelada.', 'info');
         return;
     }
@@ -1733,35 +1575,13 @@ async function executeRebuildStats(btnEl, progressEl) {
         progressEl.style.display = 'block';
         progressEl.textContent = 'Conectando...';
 
-        // Extract filters from the closest container (could be a fantasy-card or action-card)
-        const cardEl = btnEl.closest('.fantasy-card') || btnEl.closest('.action-card');
-        let payload = {};
-        if (cardEl) {
-            const chkUseFilters = cardEl.querySelector('.chk-use-filters');
-            if (chkUseFilters && chkUseFilters.checked) {
-                const startTime = cardEl.querySelector('.inp-start-time')?.value || null;
-                const endTime = cardEl.querySelector('.inp-end-time')?.value || null;
-                // Collect VPG specific dates from chips
-                const chipsContainer = cardEl.querySelector('.vpg-dates-chips');
-                const specificDates = chipsContainer
-                    ? Array.from(chipsContainer.querySelectorAll('.vpg-date-chip.active')).map(c => c.dataset.date)
-                    : [];
-                payload = {
-                    useFilters: true,
-                    specificDates: specificDates.length > 0 ? specificDates : null,
-                    startTime: startTime || null,
-                    endTime: endTime || null
-                };
-            }
-        }
-
         const res = await fetch('/api/fantasy/admin/rebuild-stats', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({})
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Error al iniciar reconstrucción.');
+        if (!res.ok) throw new Error(data.error || 'Error al iniciar la sincronización.');
 
         showToast(data.message, 'success');
 
@@ -1771,11 +1591,11 @@ async function executeRebuildStats(btnEl, progressEl) {
         const setInitialProcessing = (btn, prog) => {
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...';
             }
             if (prog) {
                 prog.style.display = 'block';
-                prog.textContent = 'Procesando...';
+                prog.textContent = 'Sincronizando...';
             }
         };
         setInitialProcessing(btnOwnerRebuildStats, ownerRebuildProgress);
@@ -1786,8 +1606,8 @@ async function executeRebuildStats(btnEl, progressEl) {
                 const statusRes = await fetch('/api/fantasy/admin/rebuild-stats/status');
                 const status = await statusRes.json();
                 
-                if (ownerRebuildProgress) ownerRebuildProgress.textContent = status.progress || 'Procesando...';
-                if (rebuildStatsProgress) rebuildStatsProgress.textContent = status.progress || 'Procesando...';
+                if (ownerRebuildProgress) ownerRebuildProgress.textContent = status.progress || 'Sincronizando...';
+                if (rebuildStatsProgress) rebuildStatsProgress.textContent = status.progress || 'Sincronizando...';
 
                 if (!status.running) {
                     clearInterval(rebuildPollInterval);
@@ -1796,16 +1616,16 @@ async function executeRebuildStats(btnEl, progressEl) {
                     const finishPolling = (btn) => {
                         if (btn) {
                             btn.disabled = false;
-                            btn.innerHTML = '<i class="fa-solid fa-hammer"></i> Reconstruir';
+                            btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Sincronizar';
                         }
                     };
                     finishPolling(btnOwnerRebuildStats);
                     finishPolling(btnAdminRebuildStats);
 
                     if (status.error) {
-                        showToast(`Error en reconstrucción: ${status.error}`, 'error');
+                        showToast(`Error en la sincronización: ${status.error}`, 'error');
                     } else {
-                        showToast('¡Reconstrucción de estadísticas completada!', 'success');
+                        showToast('¡Sincronización de estadísticas completada!', 'success');
                         if (currentLeagueId) {
                             await loadAdminPanelData();
                         }
@@ -1820,14 +1640,15 @@ async function executeRebuildStats(btnEl, progressEl) {
         showToast(e.message, 'error');
         if (btnOwnerRebuildStats) {
             btnOwnerRebuildStats.disabled = false;
-            btnOwnerRebuildStats.innerHTML = '<i class="fa-solid fa-hammer"></i> Reconstruir';
+            btnOwnerRebuildStats.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Sincronizar';
         }
         if (btnAdminRebuildStats) {
             btnAdminRebuildStats.disabled = false;
-            btnAdminRebuildStats.innerHTML = '<i class="fa-solid fa-hammer"></i> Reconstruir';
+            btnAdminRebuildStats.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Sincronizar';
         }
     }
 }
+
 
 // Admin Delete League
 async function handleAdminDeleteLeague() {

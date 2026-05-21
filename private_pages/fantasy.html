@@ -74,44 +74,11 @@
                         <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
                                 <div style="flex: 1; min-width: 0;">
-                                    <h4>Reconstruir Estadísticas</h4>
-                                    <p class="text-muted">Reconstruye todos los perfiles de jugadores y clubes desde cero (partidos escaneados). Tarda ~45 min.</p>
+                                    <h4>Sincronizar Datos VPG</h4>
+                                    <p class="text-muted">Sincroniza de forma inmediata los perfiles de jugadores, clubes y estadísticas de líderes desde la API oficial de VPG España para las ligas habilitadas. Tarda menos de 1 minuto.</p>
                                     <p id="owner-rebuild-progress" class="text-muted" style="font-size: 0.8rem; margin-top: 6px; display: none; color: #f59e0b;"></p>
                                 </div>
-                                <button id="btn-owner-rebuild-stats" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-hammer"></i> Reconstruir</button>
-                            </div>
-                            
-                            <!-- Filters Section -->
-                            <div class="rebuild-filters" style="margin-top: 4px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
-                                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #fff; margin: 0;">
-                                    <input type="checkbox" class="chk-use-filters" style="accent-color: #f59e0b;">
-                                    <span><i class="fa-solid fa-filter"></i> Filtrar solo partidos oficiales (VPG)</span>
-                                </label>
-                                
-                                <div class="filter-inputs-area" style="display: none; margin-top: 12px; flex-direction: column; gap: 10px;">
-                                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                                        <button type="button" class="btn btn-sm btn-primary btn-load-vpg-dates" style="flex-shrink: 0;"><i class="fa-solid fa-calendar-check"></i> Cargar fechas de VPG</button>
-                                        <span class="vpg-dates-status text-muted" style="font-size: 0.75rem;"></span>
-                                    </div>
-                                    <div class="vpg-dates-chips" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;"></div>
-                                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
-                                        <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
-                                            <label style="font-size: 0.75rem; color: #94a3b8;">Hora Inicio (CET/España):</label>
-                                            <input type="time" class="inp-start-time" value="21:00" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
-                                        </div>
-                                        <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
-                                            <label style="font-size: 0.75rem; color: #94a3b8;">Hora Fin (CET/España):</label>
-                                            <input type="time" class="inp-end-time" value="23:59" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
-                                        </div>
-                                    </div>
-                                    <div style="display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
-                                        <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
-                                            <label style="font-size: 0.75rem; color: #94a3b8;">Añadir Fecha Manual:</label>
-                                            <input type="date" class="inp-custom-date" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem; height: 32px; box-sizing: border-box;">
-                                        </div>
-                                        <button type="button" class="btn btn-sm btn-success btn-add-custom-date" style="padding: 6px 12px; font-size: 0.8rem; height: 32px;"><i class="fa-solid fa-plus"></i> Añadir</button>
-                                    </div>
-                                </div>
+                                <button id="btn-owner-rebuild-stats" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-arrows-rotate"></i> Sincronizar</button>
                             </div>
                         </div>
 
@@ -569,44 +536,11 @@
                             <div class="action-card owner-only-block" style="display: none; flex-direction: column; align-items: stretch; gap: 12px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
                                     <div style="flex: 1; min-width: 0;">
-                                        <h4>Reconstruir Estadísticas</h4>
-                                        <p class="text-muted">Reconstruye TODOS los perfiles de jugadores y clubes desde los partidos escaneados. Tarda ~45 min.</p>
+                                        <h4>Sincronizar Datos VPG</h4>
+                                        <p class="text-muted">Sincroniza de forma inmediata los perfiles de jugadores, clubes y estadísticas de líderes desde la API oficial de VPG España para las ligas habilitadas. Tarda menos de 1 minuto.</p>
                                         <p id="rebuild-stats-progress" class="text-muted" style="font-size: 0.8rem; margin-top: 4px; display: none; color: #f59e0b;"></p>
                                     </div>
-                                    <button id="btn-admin-rebuild-stats" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-hammer"></i> Reconstruir</button>
-                                </div>
-                                
-                                <!-- Filters Section -->
-                                <div class="rebuild-filters" style="margin-top: 4px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
-                                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #fff; margin: 0;">
-                                        <input type="checkbox" class="chk-use-filters" style="accent-color: #f59e0b;">
-                                        <span><i class="fa-solid fa-filter"></i> Filtrar solo partidos oficiales (VPG)</span>
-                                    </label>
-                                    
-                                    <div class="filter-inputs-area" style="display: none; margin-top: 12px; flex-direction: column; gap: 10px;">
-                                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                                            <button type="button" class="btn btn-sm btn-primary btn-load-vpg-dates" style="flex-shrink: 0;"><i class="fa-solid fa-calendar-check"></i> Cargar fechas de VPG</button>
-                                            <span class="vpg-dates-status text-muted" style="font-size: 0.75rem;"></span>
-                                        </div>
-                                        <div class="vpg-dates-chips" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;"></div>
-                                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
-                                            <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
-                                                <label style="font-size: 0.75rem; color: #94a3b8;">Hora Inicio (CET/España):</label>
-                                                <input type="time" class="inp-start-time" value="21:00" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
-                                            </div>
-                                            <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
-                                                <label style="font-size: 0.75rem; color: #94a3b8;">Hora Fin (CET/España):</label>
-                                                <input type="time" class="inp-end-time" value="23:59" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
-                                            </div>
-                                        </div>
-                                        <div style="display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
-                                            <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
-                                                <label style="font-size: 0.75rem; color: #94a3b8;">Añadir Fecha Manual:</label>
-                                                <input type="date" class="inp-custom-date" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem; height: 32px; box-sizing: border-box;">
-                                            </div>
-                                            <button type="button" class="btn btn-sm btn-success btn-add-custom-date" style="padding: 6px 12px; font-size: 0.8rem; height: 32px;"><i class="fa-solid fa-plus"></i> Añadir</button>
-                                        </div>
-                                    </div>
+                                    <button id="btn-admin-rebuild-stats" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-arrows-rotate"></i> Sincronizar</button>
                                 </div>
                             </div>
 
