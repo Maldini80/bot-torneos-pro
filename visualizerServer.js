@@ -115,7 +115,15 @@ export async function getActiveFantasyTeams(db, customLeagues = null) {
     if (Array.isArray(customLeagues) && customLeagues.length > 0) {
         activeLeagues = customLeagues;
     } else {
-        const defaultLeagues = ["superliga-spain-a", "superliga-spain-b"];
+        let defaultLeagues = ["superliga-spain-a", "superliga-spain-b"];
+        try {
+            const allLeagues = await fetchVpgSpainLeagues();
+            if (Array.isArray(allLeagues) && allLeagues.length > 0) {
+                defaultLeagues = allLeagues.map(l => l.slug);
+            }
+        } catch (err) {
+            console.error('[getActiveFantasyTeams] Error fetching all leagues for default list:', err);
+        }
         activeLeagues = defaultLeagues;
         try {
             const config = await db.collection('fantasy_config').findOne({ key: "active_leagues" });
@@ -5611,8 +5619,8 @@ export async function startVisualizerServer(discordClient) {
         try {
             const db = getDb();
             const config = await db.collection('fantasy_config').findOne({ key: "active_leagues" });
-            const activeLeagues = config && Array.isArray(config.slugs) ? config.slugs : ["superliga-spain-a", "superliga-spain-b"];
             const allLeagues = await fetchVpgSpainLeagues();
+            const activeLeagues = config && Array.isArray(config.slugs) ? config.slugs : allLeagues.map(l => l.slug);
             res.json({ activeLeagues, allLeagues });
         } catch (e) {
             console.error('[API Get Fantasy Leagues Config] Error:', e);

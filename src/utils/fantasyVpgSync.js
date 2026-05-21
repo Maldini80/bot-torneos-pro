@@ -1,5 +1,6 @@
 import { getDb } from '../../database.js';
 import { ObjectId } from 'mongodb';
+import { fetchVpgSpainLeagues } from './vpgCrawler.js';
 
 export let rebuildStatus = { running: false, progress: '', error: null, startedAt: null, completedAt: null };
 
@@ -143,14 +144,23 @@ export async function syncFantasyWithVpg() {
         const clubColl = db.collection('club_profiles');
 
         // 1. Obtener ligas activas del Fantasy
-        let activeLeagues = ["superliga-spain-a", "superliga-spain-b"];
+        let activeLeagues = [];
         try {
             const config = await db.collection('fantasy_config').findOne({ key: "active_leagues" });
             if (config && Array.isArray(config.slugs)) {
                 activeLeagues = config.slugs;
+            } else {
+                const allLeagues = await fetchVpgSpainLeagues();
+                activeLeagues = allLeagues.map(l => l.slug);
             }
         } catch (e) {
-            console.error('[VPG SYNC] Error leyendo fantasy_config:', e);
+            console.error('[VPG SYNC] Error leyendo fantasy_config, usando fallback:', e);
+            try {
+                const allLeagues = await fetchVpgSpainLeagues();
+                activeLeagues = allLeagues.map(l => l.slug);
+            } catch (err) {
+                activeLeagues = ["superliga-spain-a", "superliga-spain-b"];
+            }
         }
 
         updateRebuildStatus({ progress: `Ligas activas: ${activeLeagues.join(', ')}. Recuperando equipos de base de datos...` });
