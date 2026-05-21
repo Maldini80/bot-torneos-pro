@@ -115,6 +115,40 @@
                 </div>
             </section>
         </main>
+
+        <!-- Global Admin: Manual Player Price Override -->
+        <section class="fantasy-card admin-only-block" style="display: none; margin-top: 24px;">
+            <div class="card-header">
+                <h3><i class="fa-solid fa-tags text-blue"></i> Gestión Manual de Precios de Jugadores (Global)</h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Busca cualquier jugador por su nombre para anular su precio de mercado calculado automáticamente o restablecerlo. Este cambio afecta de forma global a todas las ligas.</p>
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; max-width: 500px;">
+                    <input type="text" id="admin-search-player-input" placeholder="Buscar jugador (mín. 2 letras)..." style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 1; box-sizing: border-box;">
+                    <button id="btn-admin-search-player" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+                </div>
+                <div class="table-scroll-container">
+                    <table class="fantasy-table">
+                        <thead>
+                            <tr>
+                                <th>Jugador</th>
+                                <th>Club</th>
+                                <th>Posición</th>
+                                <th class="text-center">Media (Rating)</th>
+                                <th class="text-right">Precio Actual</th>
+                                <th class="text-center">Precio Manual (€)</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-search-player-results">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted" style="padding: 20px;">Realiza una búsqueda para ver y editar jugadores.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     </div>
 
     <!-- VIEW 2: League Dashboard (Shown when a league is selected) -->
@@ -566,40 +600,6 @@
                                     <!-- Dynamic -->
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
-
-                    <!-- Box 4: Manual Player Price Override -->
-                    <div class="fantasy-card full-width-card">
-                        <div class="card-header">
-                            <h3><i class="fa-solid fa-tags text-blue"></i> Gestión Manual de Precios de Jugadores</h3>
-                        </div>
-                        <div class="card-body">
-                            <p class="text-muted">Busca cualquier jugador por su nombre para anular su precio de mercado calculado automáticamente o restablecerlo.</p>
-                            <div style="display: flex; gap: 8px; margin-bottom: 16px; max-width: 500px;">
-                                <input type="text" id="admin-search-player-input" placeholder="Buscar jugador (mín. 2 letras)..." style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 1; box-sizing: border-box;">
-                                <button id="btn-admin-search-player" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
-                            </div>
-                            <div class="table-scroll-container">
-                                <table class="fantasy-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Jugador</th>
-                                            <th>Club</th>
-                                            <th>Posición</th>
-                                            <th class="text-center">Media (Rating)</th>
-                                            <th class="text-right">Precio Actual</th>
-                                            <th class="text-center">Precio Manual (€)</th>
-                                            <th class="text-center">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="admin-search-player-results">
-                                        <tr>
-                                            <td colspan="7" class="text-center text-muted" style="padding: 20px;">Realiza una búsqueda para ver y editar jugadores.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
                         </div>
                     </div>
                 </div>
