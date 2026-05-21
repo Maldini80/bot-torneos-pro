@@ -660,12 +660,13 @@ async function handleCreateLeague(e) {
     const name = document.getElementById('new-league-name').value;
     const maxParticipants = document.getElementById('new-league-max-participants').value;
     const initialBudget = document.getElementById('new-league-budget').value;
+    const pointsMode = document.getElementById('new-league-points-mode').value;
     
     try {
         const res = await fetch('/api/fantasy/leagues', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, maxParticipants, initialBudget })
+            body: JSON.stringify({ name, maxParticipants, initialBudget, pointsMode })
         });
         
         const data = await res.json();
@@ -913,7 +914,7 @@ function renderSquadList() {
     squadList.innerHTML = '';
     
     if (!myTeam.players || myTeam.players.length === 0) {
-        squadList.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No tienes jugadores. Ficha en el Mercado.</td></tr>`;
+        squadList.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No tienes jugadores. Ficha en el Mercado.</td></tr>`;
         return;
     }
 
@@ -932,6 +933,7 @@ function renderSquadList() {
             <td class="text-muted col-hide-md">${p.lastClub}</td>
             <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
             <td class="text-center col-hide-sm" style="font-weight: 600;">${p.avgRating.toFixed(2)}</td>
+            <td class="text-center text-yellow" style="font-weight: 700;">${p.points}</td>
             <td class="text-center">
                 <span class="badge ${isAligned ? 'btn-success' : 'text-muted'}" style="border: none;">
                     ${isAligned ? 'Alineado' : 'Banquillo'}

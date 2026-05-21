@@ -46,8 +46,9 @@ let client;
 
 export function calculatePlayerPointsAndPrice(p) {
     const stats = p.stats || {};
-    const ratings = stats.ratings || [];
-    const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 6.0;
+    const vpgPoints = stats.vpgPoints || 0;
+    const matchesPlayed = stats.matchesPlayed || 0;
+    const avgRating = matchesPlayed > 0 ? (vpgPoints / matchesPlayed / 2.5) : 6.0;
 
     // 1. Calcular precio (usar manualPrice si está definido, si no, dinámico)
     let price;
@@ -70,42 +71,8 @@ export function calculatePlayerPointsAndPrice(p) {
         price = Math.round(price / 10000) * 10000;
     }
 
-    // 2. Calcular puntos dinámicamente
-    let points = 0;
-    const goals = stats.goals || 0;
-    const assists = stats.assists || 0;
-    const cleanSheets = stats.cleanSheets || 0;
-    const posUpper = (p.lastPosition || '').toUpperCase();
-    const isDefOrGk = ['POR', 'DFC', 'LD', 'LI', 'CAD', 'CAI', 'CARR'].includes(posUpper);
-    
-    // Goles según posición
-    if (['DC', 'ED', 'EI', 'MP'].includes(posUpper)) points += goals * 4;
-    else if (['MC', 'MCD', 'MCO', 'MD', 'MI', 'CARR'].includes(posUpper)) points += goals * 5;
-    else points += goals * 6; // DFC, LD, LI, CAD, CAI, POR
-    
-    // Asistencias
-    points += assists * 3;
-    
-    // Portería a Cero (Clean Sheets)
-    if (isDefOrGk) points += cleanSheets * 4;
-    else if (['MC', 'MCD', 'MCO', 'MD', 'MI'].includes(posUpper)) points += cleanSheets * 1;
-    
-    // Puntos por valoraciones
-    for (const r of ratings) {
-        if (r >= 9.0) points += 6;
-        else if (r >= 8.0) points += 4;
-        else if (r >= 7.0) points += 2;
-        else if (r >= 6.0) points += 1;
-    }
-    
-    // Tarjetas
-    points -= (stats.yellowCards || 0) * 1;
-    points -= (stats.redCards || 0) * 3;
-
-    // Ajustes de puntos por victorias, empates y derrotas de equipo
-    points += (stats.wins || 0) * 3;
-    points += (stats.ties || 0) * 1;
-    points -= (stats.losses || 0) * 2; // -2 por derrota
+    // 2. Usar los puntos oficiales de VPG directamente
+    let points = vpgPoints;
 
     return { price, points, avgRating };
 }
@@ -5753,7 +5720,7 @@ export async function startVisualizerServer(discordClient) {
     // Create league (any authenticated user if allowed, admins always)
     app.post('/api/fantasy/leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
-            const { name, maxParticipants, initialBudget } = req.body;
+            const { name, maxParticipants, initialBudget, pointsMode } = req.body;
             if (!name || name.trim() === '') return res.status(400).json({ error: 'El nombre de la liga es obligatorio.' });
             
             const db = getDb();
@@ -5773,6 +5740,17 @@ export async function startVisualizerServer(discordClient) {
             const vpgConfig = await db.collection('fantasy_config').findOne({ key: 'active_leagues' });
             const vpgLeagues = vpgConfig && Array.isArray(vpgConfig.slugs) ? vpgConfig.slugs : null;
 
+            const modeSelected = pointsMode === 'zero' ? 'zero' : 'accumulated';
+            let basePoints = {};
+            if (modeSelected === 'zero') {
+                const players = await db.collection('player_profiles').find({ "stats.vpgPoints": { $exists: true } }).toArray();
+                for (const p of players) {
+                    if (p.eaPlayerName) {
+                        basePoints[p.eaPlayerName] = p.stats.vpgPoints || 0;
+                    }
+                }
+            }
+
             const league = {
                 name: name.trim(),
                 createdBy: req.user.id,
@@ -5782,6 +5760,8 @@ export async function startVisualizerServer(discordClient) {
                 maxParticipants: parseInt(maxParticipants) || 20,
                 maxSquadSize: 15,
                 initialBudget: parseInt(initialBudget) || 50000000,
+                pointsMode: modeSelected,
+                basePoints,
                 createdAt: new Date(),
                 startedAt: null,
                 endedAt: null,
@@ -5942,6 +5922,9 @@ export async function startVisualizerServer(discordClient) {
     app.post('/api/fantasy/leagues/:id/recalculate', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const db = getDb();
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+
             const teams = await db.collection('fantasy_teams').find({ leagueId: req.params.id }).toArray();
             let updated = 0;
             for (const team of teams) {
@@ -5949,8 +5932,22 @@ export async function startVisualizerServer(discordClient) {
                 for (const playerName of (team.players || [])) {
                     const player = await db.collection('player_profiles').findOne({ eaPlayerName: playerName });
                     if (player) {
-                        const { points } = calculatePlayerPointsAndPrice(player);
-                        totalPoints += points;
+                        const { points: rawPoints } = calculatePlayerPointsAndPrice(player);
+                        let playerPoints = rawPoints;
+                        if (league.pointsMode === 'zero' && league.basePoints) {
+                            const playerNameLower = player.eaPlayerName.toLowerCase();
+                            let base = 0;
+                            if (league.basePoints[player.eaPlayerName] !== undefined) {
+                                base = league.basePoints[player.eaPlayerName];
+                            } else {
+                                const foundKey = Object.keys(league.basePoints).find(k => k.toLowerCase() === playerNameLower);
+                                if (foundKey) {
+                                    base = league.basePoints[foundKey];
+                                }
+                            }
+                            playerPoints = Math.max(0, rawPoints - base);
+                        }
+                        totalPoints += playerPoints;
                     }
                 }
                 await db.collection('fantasy_teams').updateOne({ _id: team._id }, { $set: { points: totalPoints } });
@@ -6106,10 +6103,11 @@ export async function startVisualizerServer(discordClient) {
             const { leagueId } = req.query;
 
             let customLeagues = null;
+            let leagueDoc = null;
             if (leagueId) {
-                const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
-                if (league && Array.isArray(league.vpgLeagues) && league.vpgLeagues.length > 0) {
-                    customLeagues = league.vpgLeagues;
+                leagueDoc = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+                if (leagueDoc && Array.isArray(leagueDoc.vpgLeagues) && leagueDoc.vpgLeagues.length > 0) {
+                    customLeagues = leagueDoc.vpgLeagues;
                 }
             }
 
@@ -6135,7 +6133,21 @@ export async function startVisualizerServer(discordClient) {
             }
 
             const processedPlayers = rawPlayers.map(p => {
-                const { price, points, avgRating } = calculatePlayerPointsAndPrice(p);
+                const { price, points: rawPoints, avgRating } = calculatePlayerPointsAndPrice(p);
+                let points = rawPoints;
+                if (leagueDoc && leagueDoc.pointsMode === 'zero' && leagueDoc.basePoints) {
+                    const playerNameLower = p.eaPlayerName.toLowerCase();
+                    let base = 0;
+                    if (leagueDoc.basePoints[p.eaPlayerName] !== undefined) {
+                        base = leagueDoc.basePoints[p.eaPlayerName];
+                    } else {
+                        const foundKey = Object.keys(leagueDoc.basePoints).find(k => k.toLowerCase() === playerNameLower);
+                        if (foundKey) {
+                            base = leagueDoc.basePoints[foundKey];
+                        }
+                    }
+                    points = Math.max(0, rawPoints - base);
+                }
                 const displayClub = (p.lastClub && p.lastClub.toLowerCase() === 'black hawks') ? 'Thunder Gaming' : p.lastClub;
                 const stats = p.stats || {};
 
@@ -6506,6 +6518,7 @@ export async function startVisualizerServer(discordClient) {
             const discordId = req.user.id;
             const db = getDb();
 
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
             const listings = await db.collection('fantasy_market_listings').find({ leagueId }).toArray();
             
             if (listings.length === 0) return res.json([]);
@@ -6522,13 +6535,27 @@ export async function startVisualizerServer(discordClient) {
 
             const playerMap = {};
             profiles.forEach(p => {
-                const stats = calculatePlayerPointsAndPrice(p);
+                const { price, points: rawPoints, avgRating } = calculatePlayerPointsAndPrice(p);
+                let points = rawPoints;
+                if (league && league.pointsMode === 'zero' && league.basePoints) {
+                    const playerNameLower = p.eaPlayerName.toLowerCase();
+                    let base = 0;
+                    if (league.basePoints[p.eaPlayerName] !== undefined) {
+                        base = league.basePoints[p.eaPlayerName];
+                    } else {
+                        const foundKey = Object.keys(league.basePoints).find(k => k.toLowerCase() === playerNameLower);
+                        if (foundKey) {
+                            base = league.basePoints[foundKey];
+                        }
+                    }
+                    points = Math.max(0, rawPoints - base);
+                }
                 playerMap[p.eaPlayerName] = {
                     lastPosition: p.lastPosition,
                     lastClub: p.lastClub,
-                    avgRating: stats.avgRating,
-                    points: stats.points,
-                    price: stats.price
+                    avgRating: avgRating,
+                    points: points,
+                    price: price
                 };
             });
 

@@ -58,6 +58,13 @@
                                 <input type="number" id="new-league-budget" value="50000000" step="5000000">
                             </div>
                         </div>
+                        <div class="form-group">
+                            <label for="new-league-points-mode">Puntuación Inicial</label>
+                            <select id="new-league-points-mode" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box; cursor: pointer;">
+                                <option value="zero">Empezar de cero (0 puntos al crear la liga)</option>
+                                <option value="accumulated" selected>Puntos ya acumulados en la temporada</option>
+                            </select>
+                        </div>
 
                         <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-plus"></i> Crear Liga</button>
                     </form>
@@ -412,6 +419,7 @@
                                         <th class="col-hide-md">Club</th>
                                         <th>Pos</th>
                                         <th class="text-center col-hide-sm">Media</th>
+                                        <th class="text-center">Pts</th>
                                         <th class="text-center">Estado</th>
                                         <th class="text-right">Cláusula</th>
                                         <th class="text-right">Valor</th>
@@ -420,7 +428,7 @@
                                 </thead>
                                 <tbody id="squad-list">
                                     <tr>
-                                        <td colspan="8" class="text-center py-4 text-muted">No tienes jugadores. Ficha en el Mercado.</td>
+                                        <td colspan="9" class="text-center py-4 text-muted">No tienes jugadores. Ficha en el Mercado.</td>
                                     </tr>
                                 </tbody>
                             </table>

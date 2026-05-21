@@ -61,8 +61,9 @@ function findDbTeam(vpgTeam, dbTeams) {
 
 export function calculatePlayerPointsAndPrice(p) {
     const stats = p.stats || {};
-    const ratings = stats.ratings || [];
-    const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 6.0;
+    const vpgPoints = stats.vpgPoints || 0;
+    const matchesPlayed = stats.matchesPlayed || 0;
+    const avgRating = matchesPlayed > 0 ? (vpgPoints / matchesPlayed / 2.5) : 6.0;
 
     // 1. Calcular precio (usar manualPrice si está definido, si no, dinámico)
     let price;
@@ -85,42 +86,8 @@ export function calculatePlayerPointsAndPrice(p) {
         price = Math.round(price / 10000) * 10000;
     }
 
-    // 2. Calcular puntos dinámicamente
-    let points = 0;
-    const goals = stats.goals || 0;
-    const assists = stats.assists || 0;
-    const cleanSheets = stats.cleanSheets || 0;
-    const posUpper = (p.lastPosition || '').toUpperCase();
-    const isDefOrGk = ['POR', 'DFC', 'LD', 'LI', 'CAD', 'CAI', 'CARR'].includes(posUpper);
-    
-    // Goles según posición
-    if (['DC', 'ED', 'EI', 'MP'].includes(posUpper)) points += goals * 4;
-    else if (['MC', 'MCD', 'MCO', 'MD', 'MI', 'CARR'].includes(posUpper)) points += goals * 5;
-    else points += goals * 6; // DFC, LD, LI, CAD, CAI, POR
-    
-    // Asistencias
-    points += assists * 3;
-    
-    // Portería a Cero (Clean Sheets)
-    if (isDefOrGk) points += cleanSheets * 4;
-    else if (['MC', 'MCD', 'MCO', 'MD', 'MI'].includes(posUpper)) points += cleanSheets * 1;
-    
-    // Puntos por valoraciones
-    for (const r of ratings) {
-        if (r >= 9.0) points += 6;
-        else if (r >= 8.0) points += 4;
-        else if (r >= 7.0) points += 2;
-        else if (r >= 6.0) points += 1;
-    }
-    
-    // Tarjetas
-    points -= (stats.yellowCards || 0) * 1;
-    points -= (stats.redCards || 0) * 3;
-
-    // Ajustes de puntos por victorias, empates y derrotas de equipo
-    points += (stats.wins || 0) * 3;
-    points += (stats.ties || 0) * 1;
-    points -= (stats.losses || 0) * 2; // -2 por derrota
+    // 2. Usar los puntos oficiales de VPG directamente
+    let points = vpgPoints;
 
     return { price, points, avgRating };
 }
@@ -339,7 +306,8 @@ export async function syncFantasyWithVpg() {
                                 ratings: Array(played).fill(avgRating),
                                 wins: wins,
                                 losses: losses,
-                                ties: ties
+                                ties: ties,
+                                vpgPoints: parseFloat(player.points) || 0
                             };
 
                             const updateData = {
@@ -403,8 +371,22 @@ export async function syncFantasyWithVpg() {
                         eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
                     });
                     if (player) {
-                        const { points } = calculatePlayerPointsAndPrice(player);
-                        totalPoints += points;
+                        const { points: rawPoints } = calculatePlayerPointsAndPrice(player);
+                        let playerPoints = rawPoints;
+                        if (league.pointsMode === 'zero' && league.basePoints) {
+                            const playerNameLower = player.eaPlayerName.toLowerCase();
+                            let base = 0;
+                            if (league.basePoints[player.eaPlayerName] !== undefined) {
+                                base = league.basePoints[player.eaPlayerName];
+                            } else {
+                                const foundKey = Object.keys(league.basePoints).find(k => k.toLowerCase() === playerNameLower);
+                                if (foundKey) {
+                                    base = league.basePoints[foundKey];
+                                }
+                            }
+                            playerPoints = Math.max(0, rawPoints - base);
+                        }
+                        totalPoints += playerPoints;
                     }
                 }
                 await db.collection('fantasy_teams').updateOne({ _id: fTeam._id }, { $set: { points: totalPoints } });
